@@ -1,0 +1,13 @@
+[package]
+name = "lua51-deserializer"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+nom = "7.1.1"
+num-traits = "0.2.15"
+num-derive = "0.3.3"
+either = "1.8.0"
+enum-as-inner = "0.5.1"
+strum_macros = "0.24.3"

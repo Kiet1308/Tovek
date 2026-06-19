@@ -1,0 +1,31 @@
+# Build artifacts
+/target/
+**/target/
+
+# Member-crate lock files. The workspace-root Cargo.lock is the single source of
+# truth and IS committed, so downloads build against pinned, reproducible deps.
+/*/Cargo.lock
+
+# Profiling / heap-debug output
+flamegraph.svg
+*.profraw
+dhat-heap.json
+
+# Decompiler scratch output (test dumps, sample bytecode, ad-hoc runs)
+result.lua
+*_out.txt
+*_out.json
+*.bin
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local agent / tooling state
+.claude/
+
+# OS cruft
+.DS_Store
+Thumbs.db

@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+    "cfg",
+    "ast",
+    "lua51-lifter",
+    "lua51-deserializer",
+    "luau-lifter",
+    "restructure",
+    "luau-worker",
+    "web-server",
+]
+
+[workspace.package]
+edition = "2021"
+authors = [
+    "Mathias Pedersen <mathias.pedersen834@gmail.com>",
+    "Jujhar Singh <jujharsmc@gmail.com>",
+    "Amit Bashan <amit.bashan@icloud.com>",
+]
+
+[profile.release]
+# Distribution build: no debug info + stripped symbols → smallest possible
+# binary. (Debug info is the single biggest contributor to release size, so it
+# is disabled outright rather than merely stripped.)
+debug = false
+strip = true
+# Maximum runtime optimization.
+opt-level = 3
+# Fat LTO: optimize across all crates at link time.
+lto = true
+# One codegen unit per crate so the optimizer sees each crate whole (on top of
+# fat `lto`). Slower to compile, faster at runtime.
+codegen-units = 1
+# `panic = "abort"` stays FORBIDDEN — the per-function `catch_unwind` recovery
+# depends on unwinding.
+# panic = "abort"

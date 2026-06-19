@@ -1,0 +1,18 @@
+[package]
+name = "restructure"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+petgraph = { git = "https://github.com/jujhar16/petgraph.git", branch="ensure_len_resize_with" }
+ast = { path="../ast" }
+rustc-hash = "1.1.0"
+derive_more = "0.99.17"
+enum-as-inner = "0.5.1"
+itertools = "0.10.5"
+array_tool = "1.0.3"
+tuple = "0.5.1"
+cfg = { path = "../cfg" }
+triomphe = "0.1.8"
+parking_lot = "0.12.1"

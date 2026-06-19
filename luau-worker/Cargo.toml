@@ -1,0 +1,21 @@
+[package]
+name = "luau-worker"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+worker = "0.3.2"
+futures-util = "0.3.30"
+luau-lifter = { path = "../luau-lifter" }
+base64 = "0.22.1"
+chrono = "0.4.38"
+serde_json = "1.0.117"
+serde = "1.0.202"
+
+[lib]
+crate-type = ["cdylib"]

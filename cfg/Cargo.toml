@@ -1,0 +1,21 @@
+[package]
+name = "cfg"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+thiserror = "1.0.37"
+enum_dispatch = "0.3.8"
+enum-as-inner = "0.5.1"
+petgraph = { git = "https://github.com/jujhar16/petgraph.git", branch = "ensure_len_resize_with" }
+indexmap = "1.9.1"
+ast = { path = "../ast" }
+dot = { version = "0.1.4" }
+rustc-hash = "1.1.0"
+itertools = "0.10.5"
+contracts = "0.6.3"
+hashlink = "0.8.1"
+array_tool = "1.0.3"
+rangemap = "1.0.3"
+tuple = "0.5.1"
