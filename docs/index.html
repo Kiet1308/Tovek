@@ -665,8 +665,8 @@
         <div class="cmp-controls">
           <label class="cmp-pick" for="cmpEx"><span>Example</span>
             <select id="cmpEx" aria-label="Choose an example script">
-            <option value="0">Smart names + no dead stores · InitNpcQuest</option>
-            <option value="1">Un-inlines the optimizer · ShovelHighlight</option>
+            <option value="0">Un-inlines the optimizer · ShovelHighlight</option>
+            <option value="1">Smart names + no dead stores · InitNpcQuest</option>
             <option value="2">Reverses inlined guards · AfkClient</option>
             <option value="3">math.huge, not (1 / 0) · ChatTipsClient</option>
             <option value="4">Catches what lua.expert gets wrong · ChatTipsClient</option>
@@ -685,87 +685,16 @@
           </div>
         </div>
 
-        <p class="cmp-cap" id="cmpCap">The compiler inlined <code>getMainGui</code>. <b>Tovek</b> names the result <code>main</code> (from <code>FindFirstChild("Main")</code>) and drops the dead stores. <b style="color:var(--rose)">lua.expert</b> and <b style="color:var(--gold)">medal</b> leave it <code>v1</code>/<code>v35</code> and write <code>= nil</code> in two branches where it is <i>already</i> nil.</p>
+        <p class="cmp-cap" id="cmpCap">The optimizer inlined the <code>clearHighlight</code> helper. <b style="color:var(--rose)">lua.expert</b> copy-pastes its teardown body again and again, nested branches deep. <b>Tovek</b> restores the <code>clearHighlight(p)</code> call at every site and flattens it with guard-returns.</p>
 
         <div class="win cmp-win">
           <div class="win-bar">
             <span class="dots"><i></i><i></i><i></i></span>
-            <span class="win-name" id="cmpTitle">InitNpcQuest.client.luau</span>
+            <span class="win-name" id="cmpTitle">ShovelHighlight.luau</span>
             <span class="win-tag" id="cmpTag"><span class="blink"></span><span id="cmpTagText">tovek</span></span>
           </div>
           <div class="cmp-codes">
-            <pre class="sm cmp-pre" data-ex="0" data-dec="source" hidden><span class="k">local</span> <span class="k">function</span> getMainGui(): ScreenGui?
-	<span class="k">local</span> localPlayer = <span class="g">Players</span>.LocalPlayer
-	<span class="k">if</span> <span class="k">not</span> localPlayer <span class="k">then</span>
-		<span class="k">return</span> <span class="k">nil</span>
-	<span class="k">end</span>
-
-	<span class="k">local</span> playerGui = localPlayer:FindFirstChild(<span class="s">"PlayerGui"</span>)
-	<span class="k">if</span> <span class="k">not</span> playerGui <span class="k">then</span>
-		<span class="k">return</span> <span class="k">nil</span>
-	<span class="k">end</span>
-
-	<span class="k">local</span> mainGui = playerGui:FindFirstChild(<span class="s">"Main"</span>)
-	<span class="k">if</span> mainGui <span class="k">and</span> mainGui:IsA(<span class="s">"ScreenGui"</span>) <span class="k">then</span>
-		<span class="k">return</span> mainGui
-	<span class="k">end</span>
-
-	<span class="k">return</span> <span class="k">nil</span>
-<span class="k">end</span></pre>
-            <pre class="sm cmp-pre" data-ex="0" data-dec="medal" hidden>			<span class="k">local</span> v34 = v_u_2.LocalPlayer
-			<span class="k">local</span> v35
-			<span class="k">if</span> v34 <span class="k">then</span>
-				<span class="k">local</span> v36 = v34:FindFirstChild(<span class="s">"PlayerGui"</span>)
-				<span class="k">if</span> v36 <span class="k">then</span>
-					v35 = v36:FindFirstChild(<span class="s">"Main"</span>)
-					<span class="k">if</span> <span class="k">not</span> (v35 <span class="k">and</span> v35:IsA(<span class="s">"ScreenGui"</span>)) <span class="k">then</span>
-						v35 = <span class="k">nil</span>
-					<span class="k">end</span>
-				<span class="k">else</span>
-					v35 = <span class="k">nil</span></pre>
-            <pre class="sm cmp-pre" data-ex="0" data-dec="luaexpert" hidden>	<span class="k">local</span> LocalPlayer = <span class="g">Players</span>.LocalPlayer
-	<span class="k">local</span> v1
-
-	<span class="k">if</span> LocalPlayer <span class="k">then</span>
-		<span class="k">local</span> PlayerGui = LocalPlayer:FindFirstChild(<span class="s">"PlayerGui"</span>)
-
-		<span class="k">if</span> PlayerGui <span class="k">then</span>
-			<span class="k">local</span> Main = PlayerGui:FindFirstChild(<span class="s">"Main"</span>)
-
-			v1 = <span class="k">if</span> Main <span class="k">and</span> Main:IsA(<span class="s">"ScreenGui"</span>) <span class="k">then</span> Main <span class="k">else</span> <span class="k">nil</span>
-		<span class="k">else</span>
-			v1 = <span class="k">nil</span>
-		<span class="k">end</span>
-	<span class="k">else</span>
-		v1 = <span class="k">nil</span>
-	<span class="k">end</span>
-
-	<span class="k">local</span> LocalPlayer2 = <span class="g">Players</span>.LocalPlayer
-
-	<span class="k">if</span> <span class="k">not</span> (v1 <span class="k">and</span> LocalPlayer2) <span class="k">then</span>
-		<span class="g">warn</span>(<span class="s">"[InitNpcQuest] Main UI is not ready for AdhesiveCrafting"</span>)
-</pre>
-            <pre class="sm cmp-pre" data-ex="0" data-dec="tovek">	<span class="k">local</span> localPlayer = <span class="g">Players</span>.LocalPlayer
-	<span class="k">local</span> main
-
-	<span class="k">if</span> localPlayer <span class="k">then</span>
-		<span class="k">local</span> playerGui = localPlayer:FindFirstChild(<span class="s">"PlayerGui"</span>)
-
-		<span class="k">if</span> playerGui <span class="k">then</span>
-			main = playerGui:FindFirstChild(<span class="s">"Main"</span>)
-
-			<span class="k">if</span> <span class="k">not</span> (main <span class="k">and</span> main:IsA(<span class="s">"ScreenGui"</span>)) <span class="k">then</span>
-				main = <span class="k">nil</span>
-			<span class="k">end</span>
-		<span class="k">end</span>
-	<span class="k">end</span>
-
-	<span class="k">local</span> localPlayer2 = <span class="g">Players</span>.LocalPlayer
-
-	<span class="k">if</span> <span class="k">not</span> (main <span class="k">and</span> localPlayer2) <span class="k">then</span>
-		<span class="g">warn</span>(<span class="s">"[InitNpcQuest] Main UI is not ready for AdhesiveCrafting"</span>)
-		<span class="k">return</span> <span class="k">false</span></pre>
-            <pre class="sm cmp-pre" data-ex="1" data-dec="source" hidden><span class="k">local</span> <span class="k">function</span> updateTarget(<span class="g">self</span>, localPlayer: Player)
+            <pre class="sm cmp-pre" data-ex="0" data-dec="source" hidden><span class="k">local</span> <span class="k">function</span> updateTarget(<span class="g">self</span>, localPlayer: Player)
 	<span class="k">if</span> <span class="k">not</span> <span class="g">self</span>._equippedShovelType <span class="k">then</span>
 		clearHighlight(<span class="g">self</span>)
 		<span class="k">return</span>
@@ -789,7 +718,7 @@
 
 	<span class="k">if</span> <span class="g">self</span>._lastTarget ~= highlightModel <span class="k">then</span>
 		clearHighlight(<span class="g">self</span>)</pre>
-            <pre class="sm cmp-pre" data-ex="1" data-dec="medal" hidden>	<span class="k">end</span>
+            <pre class="sm cmp-pre" data-ex="0" data-dec="medal" hidden>	<span class="k">end</span>
 	<span class="k">return</span> <span class="k">nil</span>
 <span class="k">end</span>
 <span class="k">local</span> <span class="k">function</span> v_u_14(p8, p9)
@@ -817,7 +746,7 @@
 					v13.DepthMode = <span class="g">Enum</span>.HighlightDepthMode.AlwaysOnTop
 					v13.Adornee = v12
 					v13.Parent = v12</pre>
-            <pre class="sm cmp-pre" data-ex="1" data-dec="luaexpert" hidden>	<span class="k">else</span>
+            <pre class="sm cmp-pre" data-ex="0" data-dec="luaexpert" hidden>	<span class="k">else</span>
 		p1._equippedShovelType = <span class="k">nil</span>
 	<span class="k">end</span>
 <span class="k">end</span>
@@ -851,7 +780,7 @@
 				ShovelHoverHighlight.FillTransparency = <span class="n">0.5</span>
 				ShovelHoverHighlight.OutlineTransparency = <span class="n">0</span>
 				ShovelHoverHighlight.DepthMode = <span class="g">Enum</span>.HighlightDepthMode.AlwaysOnTop</pre>
-            <pre class="sm cmp-pre" data-ex="1" data-dec="tovek" hidden>
+            <pre class="sm cmp-pre" data-ex="0" data-dec="tovek">
 <span class="k">local</span> <span class="k">function</span> updateTarget(p, p2)
 	<span class="k">if</span> <span class="k">not</span> p._equippedShovelType <span class="k">then</span>
 		clearHighlight(p) <span class="c">-- inlined by Luau -O2 (UNHOOKABLE)</span>
@@ -877,6 +806,77 @@
 	<span class="k">if</span> p._lastTarget ~= v2 <span class="k">then</span>
 		clearHighlight(p) <span class="c">-- inlined by Luau -O2 (UNHOOKABLE)</span>
 		<span class="k">local</span> highlight = <span class="g">Instance</span>.new(<span class="s">"Highlight"</span>)</pre>
+            <pre class="sm cmp-pre" data-ex="1" data-dec="source" hidden><span class="k">local</span> <span class="k">function</span> getMainGui(): ScreenGui?
+	<span class="k">local</span> localPlayer = <span class="g">Players</span>.LocalPlayer
+	<span class="k">if</span> <span class="k">not</span> localPlayer <span class="k">then</span>
+		<span class="k">return</span> <span class="k">nil</span>
+	<span class="k">end</span>
+
+	<span class="k">local</span> playerGui = localPlayer:FindFirstChild(<span class="s">"PlayerGui"</span>)
+	<span class="k">if</span> <span class="k">not</span> playerGui <span class="k">then</span>
+		<span class="k">return</span> <span class="k">nil</span>
+	<span class="k">end</span>
+
+	<span class="k">local</span> mainGui = playerGui:FindFirstChild(<span class="s">"Main"</span>)
+	<span class="k">if</span> mainGui <span class="k">and</span> mainGui:IsA(<span class="s">"ScreenGui"</span>) <span class="k">then</span>
+		<span class="k">return</span> mainGui
+	<span class="k">end</span>
+
+	<span class="k">return</span> <span class="k">nil</span>
+<span class="k">end</span></pre>
+            <pre class="sm cmp-pre" data-ex="1" data-dec="medal" hidden>			<span class="k">local</span> v34 = v_u_2.LocalPlayer
+			<span class="k">local</span> v35
+			<span class="k">if</span> v34 <span class="k">then</span>
+				<span class="k">local</span> v36 = v34:FindFirstChild(<span class="s">"PlayerGui"</span>)
+				<span class="k">if</span> v36 <span class="k">then</span>
+					v35 = v36:FindFirstChild(<span class="s">"Main"</span>)
+					<span class="k">if</span> <span class="k">not</span> (v35 <span class="k">and</span> v35:IsA(<span class="s">"ScreenGui"</span>)) <span class="k">then</span>
+						v35 = <span class="k">nil</span>
+					<span class="k">end</span>
+				<span class="k">else</span>
+					v35 = <span class="k">nil</span></pre>
+            <pre class="sm cmp-pre" data-ex="1" data-dec="luaexpert" hidden>	<span class="k">local</span> LocalPlayer = <span class="g">Players</span>.LocalPlayer
+	<span class="k">local</span> v1
+
+	<span class="k">if</span> LocalPlayer <span class="k">then</span>
+		<span class="k">local</span> PlayerGui = LocalPlayer:FindFirstChild(<span class="s">"PlayerGui"</span>)
+
+		<span class="k">if</span> PlayerGui <span class="k">then</span>
+			<span class="k">local</span> Main = PlayerGui:FindFirstChild(<span class="s">"Main"</span>)
+
+			v1 = <span class="k">if</span> Main <span class="k">and</span> Main:IsA(<span class="s">"ScreenGui"</span>) <span class="k">then</span> Main <span class="k">else</span> <span class="k">nil</span>
+		<span class="k">else</span>
+			v1 = <span class="k">nil</span>
+		<span class="k">end</span>
+	<span class="k">else</span>
+		v1 = <span class="k">nil</span>
+	<span class="k">end</span>
+
+	<span class="k">local</span> LocalPlayer2 = <span class="g">Players</span>.LocalPlayer
+
+	<span class="k">if</span> <span class="k">not</span> (v1 <span class="k">and</span> LocalPlayer2) <span class="k">then</span>
+		<span class="g">warn</span>(<span class="s">"[InitNpcQuest] Main UI is not ready for AdhesiveCrafting"</span>)
+</pre>
+            <pre class="sm cmp-pre" data-ex="1" data-dec="tovek" hidden>	<span class="k">local</span> localPlayer = <span class="g">Players</span>.LocalPlayer
+	<span class="k">local</span> main
+
+	<span class="k">if</span> localPlayer <span class="k">then</span>
+		<span class="k">local</span> playerGui = localPlayer:FindFirstChild(<span class="s">"PlayerGui"</span>)
+
+		<span class="k">if</span> playerGui <span class="k">then</span>
+			main = playerGui:FindFirstChild(<span class="s">"Main"</span>)
+
+			<span class="k">if</span> <span class="k">not</span> (main <span class="k">and</span> main:IsA(<span class="s">"ScreenGui"</span>)) <span class="k">then</span>
+				main = <span class="k">nil</span>
+			<span class="k">end</span>
+		<span class="k">end</span>
+	<span class="k">end</span>
+
+	<span class="k">local</span> localPlayer2 = <span class="g">Players</span>.LocalPlayer
+
+	<span class="k">if</span> <span class="k">not</span> (main <span class="k">and</span> localPlayer2) <span class="k">then</span>
+		<span class="g">warn</span>(<span class="s">"[InitNpcQuest] Main UI is not ready for AdhesiveCrafting"</span>)
+		<span class="k">return</span> <span class="k">false</span></pre>
             <pre class="sm cmp-pre" data-ex="2" data-dec="source" hidden><span class="k">local</span> <span class="g">Players</span> = <span class="g">game</span>:GetService(<span class="s">"Players"</span>)
 <span class="k">local</span> <span class="g">ReplicatedStorage</span> = <span class="g">game</span>:GetService(<span class="s">"ReplicatedStorage"</span>)
 
@@ -1551,7 +1551,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
       <div class="legend"><span><b style="color:var(--gold)">Source</b> &mdash; the bar everything is measured against</span><span><b>Tovek</b> is the only column that matches it across the board</span></div>
     </div>
   </section>
-  <script>window.__cmpCaps={"0": "The compiler inlined <code>getMainGui</code>. <b>Tovek</b> names the result <code>main</code> (from <code>FindFirstChild(\"Main\")</code>) and drops the dead stores. <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> leave it <code>v1</code>/<code>v35</code> and write <code>= nil</code> in two branches where it is <i>already</i> nil.", "1": "The optimizer inlined the <code>clearHighlight</code> helper. <b style=\"color:var(--rose)\">lua.expert</b> copy-pastes its teardown body again and again, nested branches deep. <b>Tovek</b> restores the <code>clearHighlight(p)</code> call at every site and flattens it with guard-returns.", "2": "An inlined <code>isAfkEnabled()</code> guard. <b style=\"color:var(--rose)\">lua.expert</b> flattens it into one unreadable nested-ternary line. <b>Tovek</b> rebuilds the named function and restores the call.", "3": "<b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> spell infinity <code>(1 / 0)</code>; lua.expert also wraps the test in a pointless <code>if \u2026 then \u2026 else false</code>. <b>Tovek</b> restores <code>math.huge</code> and the bare boolean \u2014 identical to source. (In one file it kills 47 such dead ternaries.)", "4": "Sometimes <b style=\"color:var(--rose)\">lua.expert</b> reads <span style=\"color:var(--rose)\">wrong</span>: it folds away a captured snapshot, leaving <code>t._configVersion == t._configVersion</code> \u2014 always true, so a config-reload guard becomes dead. <b>Tovek</b> (and even raw medal) keep the snapshot.", "5": "<b style=\"color:var(--rose)\">lua.expert</b> defines the method with a dot and a leaked <code>self</code> (<code>p1</code>) then calls it with a colon; <b style=\"color:var(--gold)\">medal</b> leaks <code>self</code> as <code>_</code>. <b>Tovek</b> recovers the real <code>:</code> method.", "6": "<b>Tovek</b> recovers the module name <code>Sounds</code> and stays clean \u2014 its output is essentially the source. <b style=\"color:var(--rose)\">lua.expert</b> calls it <code>t</code>; <b style=\"color:var(--gold)\">medal</b> calls it <code>v1</code>. Both bolt comment tags onto every function.", "7": "<b>Tovek</b> recovers the symbolic constant <code>-math.pi</code>; <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> print the evaluated float <code>-3.141592653589793</code>.", "8": "<b>Tovek</b> names the local <code>mouse</code> (from <code>:GetMouse()</code>) and keeps <code>ReplicatedStorage</code> as a header handle. <b style=\"color:var(--rose)\">lua.expert</b> leaves it <code>v1</code>; <b style=\"color:var(--gold)\">medal</b> leaves it <code>v_u_3</code>.", "9": "<b style=\"color:var(--rose)\">lua.expert</b> builds a partial props table then shreds the rest into <code>t.X = \u2026</code> assignments, and recomputes a boolean with a 3-arm ternary. <b>Tovek</b> keeps one <code>{ \u2026 }</code> literal and a flat boolean."};window.__cmpTitles={"0": "InitNpcQuest.client.luau", "1": "ShovelHighlight.luau", "2": "AfkClient.client.luau", "3": "ChatTipsClient.luau \u00b7 isFiniteNumber", "4": "ChatTipsClient.luau \u00b7 waitForDelay", "5": "collision.client.luau", "6": "Sounds.luau", "7": "FertilizerIdleAnimation.client.luau", "8": "getMouseCF.client.luau", "9": "DetailButton.luau"};</script>
+  <script>window.__cmpCaps={"0": "The optimizer inlined the <code>clearHighlight</code> helper. <b style=\"color:var(--rose)\">lua.expert</b> copy-pastes its teardown body again and again, nested branches deep. <b>Tovek</b> restores the <code>clearHighlight(p)</code> call at every site and flattens it with guard-returns.", "1": "The compiler inlined <code>getMainGui</code>. <b>Tovek</b> names the result <code>main</code> (from <code>FindFirstChild(\"Main\")</code>) and drops the dead stores. <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> leave it <code>v1</code>/<code>v35</code> and write <code>= nil</code> in two branches where it is <i>already</i> nil.", "2": "An inlined <code>isAfkEnabled()</code> guard. <b style=\"color:var(--rose)\">lua.expert</b> flattens it into one unreadable nested-ternary line. <b>Tovek</b> rebuilds the named function and restores the call.", "3": "<b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> spell infinity <code>(1 / 0)</code>; lua.expert also wraps the test in a pointless <code>if \u2026 then \u2026 else false</code>. <b>Tovek</b> restores <code>math.huge</code> and the bare boolean \u2014 identical to source. (In one file it kills 47 such dead ternaries.)", "4": "Sometimes <b style=\"color:var(--rose)\">lua.expert</b> reads <span style=\"color:var(--rose)\">wrong</span>: it folds away a captured snapshot, leaving <code>t._configVersion == t._configVersion</code> \u2014 always true, so a config-reload guard becomes dead. <b>Tovek</b> (and even raw medal) keep the snapshot.", "5": "<b style=\"color:var(--rose)\">lua.expert</b> defines the method with a dot and a leaked <code>self</code> (<code>p1</code>) then calls it with a colon; <b style=\"color:var(--gold)\">medal</b> leaks <code>self</code> as <code>_</code>. <b>Tovek</b> recovers the real <code>:</code> method.", "6": "<b>Tovek</b> recovers the module name <code>Sounds</code> and stays clean \u2014 its output is essentially the source. <b style=\"color:var(--rose)\">lua.expert</b> calls it <code>t</code>; <b style=\"color:var(--gold)\">medal</b> calls it <code>v1</code>. Both bolt comment tags onto every function.", "7": "<b>Tovek</b> recovers the symbolic constant <code>-math.pi</code>; <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> print the evaluated float <code>-3.141592653589793</code>.", "8": "<b>Tovek</b> names the local <code>mouse</code> (from <code>:GetMouse()</code>) and keeps <code>ReplicatedStorage</code> as a header handle. <b style=\"color:var(--rose)\">lua.expert</b> leaves it <code>v1</code>; <b style=\"color:var(--gold)\">medal</b> leaves it <code>v_u_3</code>.", "9": "<b style=\"color:var(--rose)\">lua.expert</b> builds a partial props table then shreds the rest into <code>t.X = \u2026</code> assignments, and recomputes a boolean with a 3-arm ternary. <b>Tovek</b> keeps one <code>{ \u2026 }</code> literal and a flat boolean."};window.__cmpTitles={"0": "ShovelHighlight.luau", "1": "InitNpcQuest.client.luau", "2": "AfkClient.client.luau", "3": "ChatTipsClient.luau \u00b7 isFiniteNumber", "4": "ChatTipsClient.luau \u00b7 waitForDelay", "5": "collision.client.luau", "6": "Sounds.luau", "7": "FertilizerIdleAnimation.client.luau", "8": "getMouseCF.client.luau", "9": "DetailButton.luau"};</script>
 
   <!-- GET STARTED -->
   <section id="start">
