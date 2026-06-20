@@ -86,6 +86,40 @@ fn sanitize_preserve(raw: &str) -> Option<String> {
     sanitize_with_case(raw, IdentifierCase::Preserve)
 }
 
+/// The param name derived from a field-store destination KEY (`obj.Key = param`)
+/// or an attribute key (`obj:SetAttribute("Key", param)`) — both are a literal
+/// source identifier naming the value written through them, so they share this
+/// helper. Strips a leading `_` (private-field convention: `_balance` ->
+/// `balance`) and a trailing type/index digit (`BackgroundColor3` ->
+/// `backgroundColor`), and refuses keys no more informative than the honest
+/// default `p`: a generic-content word, a single letter, or junk that fails
+/// `sanitize`. NO singularization — `self.items = p` means `p` *is* the
+/// collection, so `items` is the right name.
+fn param_name_from_field_key(key: &str) -> Option<String> {
+    // Keys that carry no more meaning than `p`. `name`/`text`/`parent`/etc. are
+    // deliberately NOT here — a param written to `.Name`/`.Text` is genuinely a
+    // name/text, which is more informative than `p`.
+    const GENERIC_FIELD_KEYS: &[&str] = &[
+        "value", "val", "v", "data", "item", "key", "index", "self", "type", "result", "arg", "n",
+    ];
+    let sanitized = sanitize(key.trim_start_matches('_'))?;
+    // Strip a trailing type/index digit exactly as `constructor_type_name` does
+    // (`BackgroundColor3` -> `backgroundColor`, `Part0` -> `part`): kept, the
+    // digit chains into a misleading doubly-numeric `backgroundColor33` once the
+    // collision disambiguator appends its own counter. Only strip when a
+    // multi-char stem survives, so an all-digit key keeps its sanitized form.
+    let trimmed = sanitized.trim_end_matches(|c: char| c.is_ascii_digit());
+    let name = if trimmed.len() >= 2 {
+        trimmed.to_string()
+    } else {
+        sanitized
+    };
+    if name.len() < 2 || GENERIC_FIELD_KEYS.contains(&name.as_str()) {
+        return None;
+    }
+    Some(name)
+}
+
 /// A name derived from a "base" expression, e.g. the `Instance` in `Instance.new`
 /// or the global in `require(...)`.
 fn base_name_of(rvalue: &RValue) -> Option<String> {
@@ -1125,6 +1159,34 @@ struct LocalUsage {
     /// Used as the receiver of an instance-shaped method call (see
     /// [`INSTANCE_METHODS`]).
     instance_method_seen: bool,
+    /// String-literal field KEY this local was stored INTO (`obj.Key = local`):
+    /// a setter/ctor writes a param's value into a named field, so the field
+    /// names the param (`self.range = p2` -> `range`). A direct dataflow fact,
+    /// not a guess. `None` until a store is seen.
+    field_store_key: Option<String>,
+    /// The same local was stored into two *different* fields — ambiguous, so the
+    /// namer refuses rather than pick one (mirrors `typeof_conflict`).
+    field_store_conflict: bool,
+    /// Used as the receiver of a string method (`local:gsub(...)`) — the local is
+    /// a string (see [`STRING_METHODS`]).
+    string_method_seen: bool,
+    /// A known name-string API slot this local fills as an ARGUMENT
+    /// (`x:FindFirstChild(local)` -> `"childName"`; `x:GetAttribute(local)` ->
+    /// `"attributeName"`). `None` until such a use is seen.
+    api_slot: Option<&'static str>,
+    /// The local fills two *different* API slots — ambiguous, refuse.
+    api_slot_conflict: bool,
+    /// Literal attribute key this local sets (`x:SetAttribute("Key", local)` ->
+    /// `"Key"`): the key is a source identifier naming the value. `None` until
+    /// seen.
+    attr_key: Option<String>,
+    /// The local set two *different* attribute keys — ambiguous, refuse.
+    attr_key_conflict: bool,
+    /// Type implied by a `local or DEFAULT` fallback whose LEFT operand is this
+    /// local (`number`/`string`/`table`). Reinforces a missing `typeof` guard.
+    or_default_type: Option<&'static str>,
+    /// Two *different* default types were seen — refuse.
+    or_default_conflict: bool,
 }
 
 fn note_call_usage(
@@ -1236,6 +1298,21 @@ const INSTANCE_METHODS: &[&str] = &[
     "GetBoundingBox",
 ];
 
+/// String methods: a local used as the receiver of one of these is a string.
+/// Kept strictly disjoint from [`INSTANCE_METHODS`] so the two never both fire on
+/// one local (a string is not an Instance). Only the unambiguous `string` library
+/// methods are listed.
+const STRING_METHODS: &[&str] = &[
+    "sub", "gsub", "gmatch", "match", "find", "lower", "upper", "split", "rep", "byte", "len",
+    "format",
+];
+
+/// Instance lookups whose first ARGUMENT is a child NAME string. Restricted to the
+/// two that genuinely take a name (`FindFirstChildOfClass`/`WhichIsA` take a class
+/// name, not a child name, so they are excluded — naming their arg `childName`
+/// would mislead).
+const CHILD_LOOKUP_METHODS: &[&str] = &["FindFirstChild", "WaitForChild"];
+
 /// Ordered parameter names for a Roblox event's `:Connect` callback. A `None`
 /// slot keeps the param's default name. Only conservative, well-known signatures
 /// are listed; overloaded/arbitrary ones (`Changed`, `OnClientEvent`, ...) are
@@ -1257,15 +1334,115 @@ fn event_signature(event: &str) -> Option<&'static [Option<&'static str>]> {
     })
 }
 
-/// Record that `local` is the receiver of an instance-shaped method call.
+/// Record method-call facts: receiver-side (instance/string shape) and
+/// argument-side (a bare-local argument is named after the API slot it fills).
 fn note_method_usage(method_call: &MethodCall, usage: &mut FxHashMap<usize, LocalUsage>) {
-    if let RValue::Local(local) = &*method_call.value
-        && INSTANCE_METHODS.contains(&method_call.method.as_str())
+    let method = method_call.method.as_str();
+    if let RValue::Local(local) = &*method_call.value {
+        if INSTANCE_METHODS.contains(&method) {
+            usage
+                .entry(local_ptr(local))
+                .or_default()
+                .instance_method_seen = true;
+        }
+        if STRING_METHODS.contains(&method) {
+            usage
+                .entry(local_ptr(local))
+                .or_default()
+                .string_method_seen = true;
+        }
+    }
+    note_method_arg_usage(method_call, usage);
+}
+
+/// Name a bare-local ARGUMENT from the API slot it fills. The argument is a
+/// *different* local from the receiver, so this never collides with the
+/// receiver's instance hint. Only bare `RValue::Local` args qualify (a `p.Field`
+/// or `p:Method()` arg is an `Index`/`MethodCall` node and is skipped).
+fn note_method_arg_usage(method_call: &MethodCall, usage: &mut FxHashMap<usize, LocalUsage>) {
+    let method = method_call.method.as_str();
+    let args = &method_call.arguments;
+    if CHILD_LOOKUP_METHODS.contains(&method)
+        && let Some(RValue::Local(arg)) = args.first()
     {
-        usage
-            .entry(local_ptr(local))
-            .or_default()
-            .instance_method_seen = true;
+        note_api_slot(arg, "childName", usage);
+    }
+    if method == "GetAttribute"
+        && args.len() == 1
+        && let Some(RValue::Local(arg)) = args.first()
+    {
+        note_api_slot(arg, "attributeName", usage);
+    }
+    // `x:SetAttribute("Key", local)` — the literal key is a source identifier
+    // naming the value being written.
+    if method == "SetAttribute"
+        && let Some(key) = args.first().and_then(string_literal)
+        && let Some(RValue::Local(arg)) = args.get(1)
+    {
+        let entry = usage.entry(local_ptr(arg)).or_default();
+        match &entry.attr_key {
+            None => entry.attr_key = Some(key.to_string()),
+            Some(existing) if existing != key => entry.attr_key_conflict = true,
+            _ => {}
+        }
+    }
+}
+
+/// Record (with conflict-on-disagreement) that `arg` fills the given API slot.
+fn note_api_slot(arg: &RcLocal, slot: &'static str, usage: &mut FxHashMap<usize, LocalUsage>) {
+    let entry = usage.entry(local_ptr(arg)).or_default();
+    match entry.api_slot {
+        None => entry.api_slot = Some(slot),
+        Some(existing) if existing != slot => entry.api_slot_conflict = true,
+        _ => {}
+    }
+}
+
+/// Record that a param's value was stored into a named field (`obj.Key = param`):
+/// the destination key names the param. Only a bare `RValue::Local` RHS qualifies
+/// — a wrapped RHS (`obj.CFrame = CFrame.new(p5)`, `obj.X = f(p)`) is a
+/// `Call`/`Index` node, so `p5`/`p` is correctly skipped (it is not *the* value of
+/// that field). A string-literal key only (dynamic `t[i] = p` is excluded). Two
+/// distinct destination keys flag a conflict (refuse, mirroring `note_type_guard`).
+fn note_field_store(lvalue: &LValue, rvalue: &RValue, usage: &mut FxHashMap<usize, LocalUsage>) {
+    let LValue::Index(index) = lvalue else {
+        return;
+    };
+    let Some(key) = string_literal(&index.right) else {
+        return;
+    };
+    let RValue::Local(local) = rvalue else {
+        return;
+    };
+    let entry = usage.entry(local_ptr(local)).or_default();
+    match &entry.field_store_key {
+        None => entry.field_store_key = Some(key.to_string()),
+        Some(existing) if existing != key => entry.field_store_conflict = true,
+        _ => {}
+    }
+}
+
+/// Record the implied type of a `param or DEFAULT` fallback (LEFT operand is the
+/// param). Only literal/empty-table defaults are classified — they are
+/// unambiguous. Two different default types flag a conflict (refuse).
+fn note_or_default(binary: &Binary, usage: &mut FxHashMap<usize, LocalUsage>) {
+    if binary.operation != BinaryOperation::Or {
+        return;
+    }
+    let RValue::Local(local) = &*binary.left else {
+        return;
+    };
+    let tag = match &*binary.right {
+        RValue::Literal(Literal::Number(_)) => "number",
+        RValue::Literal(Literal::String(_)) => "string",
+        RValue::Table(table) if table.0.is_empty() => "table",
+        _ => return,
+    };
+    let entry = usage.entry(local_ptr(local)).or_default();
+    match entry.or_default_type {
+        None => entry.or_default_type = Some(tag),
+        Some(existing) if existing != tag => entry.or_default_conflict = true,
+        _ => {}
     }
 }
 
@@ -1343,6 +1520,7 @@ fn gather_usage(
                 }
                 Either::Right(RValue::Binary(binary)) => {
                     note_type_guard(binary, usage);
+                    note_or_default(binary, usage);
                 }
                 _ => {}
             }
@@ -1354,6 +1532,7 @@ fn gather_usage(
             Statement::MethodCall(method_call) => note_method_usage(method_call, usage),
             Statement::Assign(assign) => {
                 for (lvalue, rvalue) in assign.left.iter().zip(assign.right.iter()) {
+                    note_field_store(lvalue, rvalue, usage);
                     if let crate::LValue::Index(index) = lvalue
                         && let RValue::Local(local) = &*index.left
                     {
@@ -1979,6 +2158,88 @@ impl Namer {
         }
     }
 
+    /// Names a param from DATAFLOW facts about how its value is used (§param
+    /// naming v1). Unlike `usage_param_hint` (a single early-return ladder of
+    /// type GUESSES), these are independent and arbitrated purely by score via
+    /// `set_hint`'s strict `>`, so a stronger signal always wins regardless of
+    /// call order. All are intra-function and `+lines`-safe (a param is never an
+    /// inliner candidate). Scores: a written source token (field key 48, attr key
+    /// 47) outranks the type-hypernym band (api name-string 43, or-default options
+    /// 41 / value 40, string-method value 40); the weakest GUESS (callee 37) sits
+    /// below every existing param hint so it only fills an otherwise-`p` slot.
+    fn param_dataflow_hint(&mut self, param: &RcLocal) {
+        let Some(usage) = self.usage.get(&local_ptr(param)) else {
+            return;
+        };
+        let instance_shaped = usage.instance_method_seen;
+        let typeof_type = usage.typeof_type;
+        let is_instance_typeof = typeof_type == Some("Instance");
+
+        // A destination field key names the value written into it (dataflow fact).
+        let field_name = if usage.field_store_conflict {
+            None
+        } else {
+            usage
+                .field_store_key
+                .as_deref()
+                .and_then(param_name_from_field_key)
+        };
+        // A literal attribute key is a source identifier naming the value — same
+        // shape as a field key, so it strips `_`/trailing digits and refuses
+        // generic keys identically (shared helper).
+        let attr_name = if usage.attr_key_conflict {
+            None
+        } else {
+            usage.attr_key.as_deref().and_then(param_name_from_field_key)
+        };
+        // A name-string API slot — but a name string can't be an Instance, so a
+        // contradicting instance use refuses it.
+        let api_name = if usage.api_slot_conflict || instance_shaped || is_instance_typeof {
+            None
+        } else {
+            usage.api_slot
+        };
+        // A string-method receiver is a string (=> the `value` hypernym, matching
+        // the typeof-string tier). Refuse on a contradicting Instance use.
+        let string_value =
+            usage.string_method_seen && !instance_shaped && !is_instance_typeof;
+        // A literal/empty-table default reveals a scalar/table type. Refuse on a
+        // contradicting Instance use (an Instance param can't default to 0/{}).
+        let or_default = if usage.or_default_conflict || instance_shaped || is_instance_typeof {
+            None
+        } else {
+            usage.or_default_type
+        };
+        // An invoked param is a callback — the weakest GUESS, refused by any
+        // contradicting scalar/Instance evidence.
+        let callee = usage.used_as_callee
+            && !instance_shaped
+            && !matches!(typeof_type, Some("string") | Some("number") | Some("Instance"));
+
+        // The immutable `usage` borrow ends here; the `set_hint` calls take
+        // `&mut self`. Scores arbitrate — order below is immaterial.
+        if let Some(name) = field_name {
+            self.set_hint(param, name, 48);
+        }
+        if let Some(name) = attr_name {
+            self.set_hint(param, name, 47);
+        }
+        if let Some(slot) = api_name {
+            self.set_hint_str(param, slot, 43);
+        }
+        if string_value {
+            self.set_hint_str(param, "value", 40);
+        }
+        match or_default {
+            Some("number") | Some("string") => self.set_hint_str(param, "value", 40),
+            Some("table") => self.set_hint_str(param, "options", 41),
+            _ => {}
+        }
+        if callee {
+            self.set_hint_str(param, "callback", 37);
+        }
+    }
+
     /// Name an event callback's parameters from the event's known signature
     /// (`RunService.Heartbeat:Connect(function(dt) ... end)`). These are
     /// documented API conventions (near-deterministic), but still scored low so an
@@ -2155,6 +2416,7 @@ impl Namer {
                     self.props_param_hint(param, renders_element);
                     self.callback_hint(param);
                     self.usage_param_hint(param);
+                    self.param_dataflow_hint(param);
                 }
                 self.collect(&mut function.body, false);
             }
@@ -3699,7 +3961,9 @@ mod tests {
         assert_eq!(name_of(&p), "p");
     }
 
-    /// A parameter that is invoked (`p()`) is a callback, not a record.
+    /// A parameter that is invoked (`p()`) is a callback, not a record: `props`
+    /// is refused (used_as_callee), and the `callee_callback` dataflow signal
+    /// then names it `callback`.
     #[test]
     fn props_param_refused_when_invoked() {
         let p = RcLocal::default();
@@ -3716,7 +3980,293 @@ mod tests {
         let comp = RcLocal::default();
         let mut block = Block(vec![declare(&comp, closure_of(function)), use_local(&comp)]);
         name_locals(&mut block, true);
+        assert_ne!(name_of(&p), "props");
+        assert_eq!(name_of(&p), "callback");
+    }
+
+    // ===== §param dataflow naming v1 =====
+
+    /// Build a top-level closure with the given params + body, name the whole
+    /// program, then the params' names can be read with `name_of`.
+    fn name_param_fn(params: Vec<RcLocal>, body: Vec<Statement>) {
+        let mut function = Function::default();
+        function.parameters = params;
+        function.body = Block(body);
+        let f = RcLocal::default();
+        let mut block = Block(vec![declare(&f, closure_of(function)), use_local(&f)]);
+        name_locals(&mut block, true);
+    }
+
+    fn method_stmt(receiver: RValue, method: &str, args: Vec<RValue>) -> Statement {
+        Statement::MethodCall(MethodCall::new(receiver, method.to_string(), args))
+    }
+
+    /// `self.Range = p` — a param stored into a named field takes the field name.
+    #[test]
+    fn field_store_names_param_from_key() {
+        let (this, p) = (RcLocal::default(), RcLocal::default());
+        name_param_fn(
+            vec![this.clone(), p.clone()],
+            vec![keyed_assign(&this, string("Range"), RValue::Local(p.clone()))],
+        );
+        assert_eq!(name_of(&p), "range");
+    }
+
+    /// A private-field convention key (`self._balance = p`) strips the leading `_`.
+    #[test]
+    fn field_store_strips_leading_underscore() {
+        let (this, p) = (RcLocal::default(), RcLocal::default());
+        name_param_fn(
+            vec![this.clone(), p.clone()],
+            vec![keyed_assign(&this, string("_balance"), RValue::Local(p.clone()))],
+        );
+        assert_eq!(name_of(&p), "balance");
+    }
+
+    /// A generic-content destination key (`self.Value = p`) is no better than `p`,
+    /// so it is refused.
+    #[test]
+    fn field_store_generic_key_refused() {
+        let (this, p) = (RcLocal::default(), RcLocal::default());
+        name_param_fn(
+            vec![this.clone(), p.clone()],
+            vec![keyed_assign(&this, string("Value"), RValue::Local(p.clone()))],
+        );
+        assert_ne!(name_of(&p), "value");
+        assert_eq!(name_of(&p), "p2"); // param0 `this` takes `p`; refused param1 -> `p2`
+    }
+
+    /// A param stored into two *different* fields is ambiguous — refuse.
+    #[test]
+    fn field_store_conflict_refused() {
+        let (this, p) = (RcLocal::default(), RcLocal::default());
+        name_param_fn(
+            vec![this.clone(), p.clone()],
+            vec![
+                keyed_assign(&this, string("Range"), RValue::Local(p.clone())),
+                keyed_assign(&this, string("Width"), RValue::Local(p.clone())),
+            ],
+        );
+        assert_eq!(name_of(&p), "p2"); // param0 `this` takes `p`; refused param1 -> `p2`
+    }
+
+    /// A param WRAPPED in a constructor on the RHS (`self.CFrame = CFrame.new(p)`)
+    /// is NOT the field's value, so it is not named from the field.
+    #[test]
+    fn field_store_wrapped_rhs_skipped() {
+        let (this, p) = (RcLocal::default(), RcLocal::default());
+        let wrapped = RValue::Call(Call::new(
+            RValue::Index(Index::new(global("CFrame"), string("new"))),
+            vec![RValue::Local(p.clone())],
+        ));
+        name_param_fn(
+            vec![this.clone(), p.clone()],
+            vec![keyed_assign(&this, string("CFrame"), wrapped)],
+        );
+        assert_ne!(name_of(&p), "cFrame");
+        assert_eq!(name_of(&p), "p2"); // param0 `this` takes `p`; refused param1 -> `p2`
+    }
+
+    /// `workspace:FindFirstChild(p)` — the lookup argument is a child-name string.
+    #[test]
+    fn find_first_child_arg_named_child_name() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![method_stmt(global("workspace"), "FindFirstChild", vec![RValue::Local(p.clone())])],
+        );
+        assert_eq!(name_of(&p), "childName");
+    }
+
+    /// `x:SetAttribute("PlantKey", p)` — the literal key names the value.
+    #[test]
+    fn set_attribute_literal_key_names_value() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![method_stmt(
+                global("model"),
+                "SetAttribute",
+                vec![string("PlantKey"), RValue::Local(p.clone())],
+            )],
+        );
+        assert_eq!(name_of(&p), "plantKey");
+    }
+
+    /// A child-name arg that is ALSO used as an Instance receiver is contradicted
+    /// — the name-string hint is refused and the instance shape wins.
+    #[test]
+    fn child_name_refused_when_also_instance() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![
+                method_stmt(global("workspace"), "WaitForChild", vec![RValue::Local(p.clone())]),
+                method_stmt(RValue::Local(p.clone()), "Destroy", vec![]),
+            ],
+        );
+        assert_ne!(name_of(&p), "childName");
+        assert_eq!(name_of(&p), "instance");
+    }
+
+    /// A param used as a string method receiver (`p:gsub(...)`) is a string value.
+    #[test]
+    fn string_method_receiver_named_value() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![method_stmt(
+                RValue::Local(p.clone()),
+                "gsub",
+                vec![string("%s"), string("")],
+            )],
+        );
+        assert_eq!(name_of(&p), "value");
+    }
+
+    /// `local x = p or {}` — an empty-table default reveals an options table.
+    #[test]
+    fn or_default_empty_table_named_options() {
+        let (p, x) = (RcLocal::default(), RcLocal::default());
+        let or_default = RValue::Binary(Binary::new(
+            RValue::Local(p.clone()),
+            RValue::Table(Table::default()),
+            BinaryOperation::Or,
+        ));
+        name_param_fn(vec![p.clone()], vec![declare(&x, or_default), use_local(&x)]);
+        assert_eq!(name_of(&p), "options");
+    }
+
+    /// An invoked param (`p()`) with no stronger evidence reads as a callback.
+    #[test]
+    fn invoked_param_named_callback() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![Statement::Call(Call::new(RValue::Local(p.clone()), vec![]))],
+        );
+        assert_eq!(name_of(&p), "callback");
+    }
+
+    /// A field-store dataflow fact (48) outranks a weaker type hypernym (string
+    /// method => value, 40) on the same param.
+    #[test]
+    fn field_store_beats_string_method() {
+        let (this, p) = (RcLocal::default(), RcLocal::default());
+        name_param_fn(
+            vec![this.clone(), p.clone()],
+            vec![
+                keyed_assign(&this, string("Label"), RValue::Local(p.clone())),
+                method_stmt(RValue::Local(p.clone()), "gsub", vec![string("a"), string("b")]),
+            ],
+        );
+        assert_eq!(name_of(&p), "label");
+    }
+
+    /// A digit-suffixed field key (`self.BackgroundColor3 = p`) strips the
+    /// trailing type digit so the disambiguator can't chain a `backgroundColor33`.
+    #[test]
+    fn field_store_strips_trailing_digit() {
+        let (this, p) = (RcLocal::default(), RcLocal::default());
+        name_param_fn(
+            vec![this.clone(), p.clone()],
+            vec![keyed_assign(
+                &this,
+                string("BackgroundColor3"),
+                RValue::Local(p.clone()),
+            )],
+        );
+        assert_eq!(name_of(&p), "backgroundColor");
+    }
+
+    /// `obj:GetAttribute(p)` — the single argument is an attribute-name string.
+    #[test]
+    fn get_attribute_arg_named_attribute_name() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![method_stmt(global("model"), "GetAttribute", vec![RValue::Local(p.clone())])],
+        );
+        assert_eq!(name_of(&p), "attributeName");
+    }
+
+    /// A leading-`_` attribute key strips the underscore (shared with field-store
+    /// sanitization): `SetAttribute("_internal", p)` -> `internal`.
+    #[test]
+    fn set_attribute_strips_leading_underscore() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![method_stmt(
+                global("model"),
+                "SetAttribute",
+                vec![string("_internalFlag"), RValue::Local(p.clone())],
+            )],
+        );
+        assert_eq!(name_of(&p), "internalFlag");
+    }
+
+    /// A param that sets two *different* attribute keys is ambiguous — refuse.
+    #[test]
+    fn attr_key_conflict_refused() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![
+                method_stmt(global("a"), "SetAttribute", vec![string("Foo"), RValue::Local(p.clone())]),
+                method_stmt(global("b"), "SetAttribute", vec![string("Bar"), RValue::Local(p.clone())]),
+            ],
+        );
         assert_eq!(name_of(&p), "p");
+    }
+
+    /// A param that fills two *different* API slots (child name vs attribute name)
+    /// is ambiguous — refuse.
+    #[test]
+    fn api_slot_conflict_refused() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![
+                method_stmt(global("a"), "FindFirstChild", vec![RValue::Local(p.clone())]),
+                method_stmt(global("b"), "GetAttribute", vec![RValue::Local(p.clone())]),
+            ],
+        );
+        assert_eq!(name_of(&p), "p");
+    }
+
+    /// `local x = p or 1` — a numeric default reveals a scalar value.
+    #[test]
+    fn or_default_number_named_value() {
+        let (p, x) = (RcLocal::default(), RcLocal::default());
+        let or_default = RValue::Binary(Binary::new(
+            RValue::Local(p.clone()),
+            number(1.0),
+            BinaryOperation::Or,
+        ));
+        name_param_fn(vec![p.clone()], vec![declare(&x, or_default), use_local(&x)]);
+        assert_eq!(name_of(&p), "value");
+    }
+
+    /// An invoked param contradicted by a `typeof(p) == "string"` guard is NOT a
+    /// callback — the string type wins (`value`).
+    #[test]
+    fn callee_refused_when_typeof_string() {
+        let p = RcLocal::default();
+        let guard = RValue::Binary(Binary::new(
+            RValue::Call(Call::new(global("typeof"), vec![RValue::Local(p.clone())])),
+            string("string"),
+            BinaryOperation::Equal,
+        ));
+        name_param_fn(
+            vec![p.clone()],
+            vec![
+                Statement::Call(Call::new(RValue::Local(p.clone()), vec![])),
+                declare(&RcLocal::default(), guard),
+            ],
+        );
+        assert_ne!(name_of(&p), "callback");
+        assert_eq!(name_of(&p), "value");
     }
 
     /// A numerically-indexed parameter (`p[1]`) is an array, not a record.
