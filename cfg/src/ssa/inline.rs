@@ -225,6 +225,14 @@ impl<'a> Inliner<'a> {
                         .filter_map(|l| self.local_to_group.get(l))
                         .any(|g| groups_written.contains(g))
                     {
+                        // We are stepping OVER this statement without inlining it
+                        // (it reads a group written by a later statement). If it has
+                        // an observable effect, any still-earlier side-effecting def
+                        // we go on to inline would hop PAST it and reorder effects
+                        // (C9: `c1=A(); m=B(a); … return c1+m` inlined A() past B()).
+                        // Close the side-effect window here, exactly as the
+                        // fall-through path at the bottom of the loop does.
+                        allow_side_effects &= !block[stat_index].has_side_effects();
                         continue;
                     }
 
