@@ -311,8 +311,18 @@ impl<'a> Lifter<'a> {
                             .into(),
                         );
                         if c != 0 {
+                            // LOADB with C != 0 is an UNCONDITIONAL skip-jump of C
+                            // (C is an unsigned 8-bit skip count in Luau), so the
+                            // successor is I+1+C, exactly as `discover_blocks`
+                            // computes it. The old hard-coded I+2 only matched the
+                            // stock C==1 pair and panicked (or wired the wrong block)
+                            // for C>1 obfuscated bytecode (L1). Mirror discover_blocks
+                            // with the same unsigned widening.
+                            let dest = (block_start + index + 1)
+                                .checked_add_signed((c).into())
+                                .unwrap();
                             edges.push((
-                                self.block_to_node(block_start + index + 2),
+                                self.block_to_node(dest),
                                 BlockEdge::new(BranchType::Unconditional),
                             ));
                         }
@@ -804,6 +814,19 @@ impl<'a> Lifter<'a> {
                             )
                             .into(),
                         );
+                    }
+                    OpCode::LOP_LOADKX => {
+                        // LOADK whose constant index exceeds the LOADK D field, so
+                        // the full index is carried in `aux` (the deserializer lists
+                        // LOADKX among the aux-bearing ops, decoded BC-form). Stock
+                        // Luau emits it for a proto with > 32768 constants. Without an
+                        // arm it fell to the catch-all `unreachable!` and aborted the
+                        // whole proto (L2). Otherwise identical to LOADK. The injected
+                        // aux NOP is consumed by the `LOP_NOP` arm next iteration.
+                        let constant = self.constant(aux as _);
+                        let target = self.register(a as _);
+                        statements
+                            .push(ast::Assign::new(vec![target.into()], vec![constant.into()]).into());
                     }
                     _ => unreachable!("{:?}", instruction),
                 },
@@ -1395,7 +1418,15 @@ impl<'a> Lifter<'a> {
                             BlockEdge::new(BranchType::Unconditional),
                         ));
                     }
-                    _ => unreachable!("{:?}", instruction),
+                    // A non-JUMPX E-form op (e.g. LOP_COVERAGE in instrumented
+                    // builds) has no source-level effect. Emit a marker and fall
+                    // through instead of aborting the whole function (L4); the
+                    // `edges.is_empty()` block below wires the natural successor.
+                    _ => {
+                        statements.push(
+                            ast::Comment::new(format!("unhandled E-form op {:?}", op_code)).into(),
+                        );
+                    }
                 },
                 _ => unimplemented!("{:?}", instruction),
             }
@@ -1436,8 +1467,15 @@ impl<'a> Lifter<'a> {
             BytecodeConstant::Boolean(v) => ast::Literal::Boolean(*v),
             BytecodeConstant::Number(v) => ast::Literal::Number(*v),
             BytecodeConstant::String(v) => {
-                // TODO: what does the official deserializer do if v == 0?
-                ast::Literal::String(self.string_table[*v - 1].clone())
+                // A string-constant index of 0 is the "no string" sentinel (the
+                // same `== 0` convention the function-name path uses). `v - 1` would
+                // underflow and `string_table[usize::MAX]` panic the whole proto
+                // (L6); decode it as the empty string instead.
+                if *v == 0 {
+                    ast::Literal::String(Vec::new())
+                } else {
+                    ast::Literal::String(self.string_table[*v - 1].clone())
+                }
             }
             BytecodeConstant::Vector(x, y, z, _) => ast::Literal::Vector(*x, *y, *z),
             BytecodeConstant::Integer(v) => ast::Literal::Number(*v as f64),
@@ -1461,9 +1499,11 @@ impl<'a> Lifter<'a> {
             Some(BytecodeConstant::Boolean(v)) => Shape::Literal(ast::Literal::Boolean(*v)),
             Some(BytecodeConstant::Number(v)) => Shape::Literal(ast::Literal::Number(*v)),
             Some(BytecodeConstant::Integer(v)) => Shape::Literal(ast::Literal::Number(*v as f64)),
-            Some(BytecodeConstant::String(v)) => {
-                Shape::Literal(ast::Literal::String(self.string_table[*v - 1].clone()))
-            }
+            Some(BytecodeConstant::String(v)) => Shape::Literal(if *v == 0 {
+                ast::Literal::String(Vec::new())
+            } else {
+                ast::Literal::String(self.string_table[*v - 1].clone())
+            }),
             Some(BytecodeConstant::Vector(x, y, z, _)) => {
                 Shape::Literal(ast::Literal::Vector(*x, *y, *z))
             }
