@@ -2267,9 +2267,13 @@ fn returns_bad(stmts: &[Statement], has_void: &mut bool, has_value: &mut bool) -
                     false
                 } else if r.values.len() == 1 {
                     *has_value = true;
-                    // scalar-only: a call/method/vararg/select tail return has an
-                    // unprovable arity (could be multi-value) — refuse.
-                    !is_scalar_return_value(&r.values[0])
+                    // P7-A: a single-value return is admissible if it is TRUNCATABLE
+                    // — a scalar, or a call/method-call leaf (`return g(x)`) which a
+                    // single-LHS `RESULT = g(x)` inlined site truncates to exactly
+                    // one value (the candidate shape itself proves the arity). A
+                    // bare `...`/`Select::VarArg` is still refused (no provable
+                    // single-value truncation point).
+                    !is_truncatable_return_value(&r.values[0])
                 } else {
                     true // multi-value return
                 }
@@ -2298,6 +2302,22 @@ pub(crate) fn is_scalar_return_value(rv: &RValue) -> bool {
     )
 }
 
+/// P7-A: a return value admissible for a Value target on the RESULT-decl path.
+/// Superset of `is_scalar_return_value` that ALSO admits a call/method-call leaf
+/// (`return g(x)`): at the inlined site such a leaf was lowered to a single-LHS
+/// `RESULT = g(x)`, which Lua truncates to exactly one value — so the candidate
+/// shape itself proves the arity, and the reconstruction `local RESULT = f(args)`
+/// (also single-LHS) truncates identically. A bare `...` / `Select::VarArg` is
+/// still refused: its multi-value spread has no provable single-value truncation
+/// point. SOUND ONLY on the RESULT-decl path: the (Return, Assign) unify arm
+/// requires `ca.left.len() == 1`, so a multi-value site (`local a, b = g(x)`)
+/// never matches; the void-tail path (`value_tail_ret`) keeps its own call-leaf
+/// refusal; and the §7 expression de-inliner keeps the stricter
+/// `is_scalar_return_value` (its expression slot may be a multi-value position).
+fn is_truncatable_return_value(rv: &RValue) -> bool {
+    !matches!(rv, RValue::VarArg(_) | RValue::Select(Select::VarArg(_)))
+}
+
 /// Value targets are only sound when, after `canon`, every `return X` is a
 /// terminal leaf. A `return` in a prefix statement or loop body would skip a
 /// suffix that the lowered `RESULT = X` candidate still runs.
@@ -2309,7 +2329,9 @@ fn value_leaf_shape(stmts: &[Statement]) -> bool {
         return false;
     }
     match last {
-        Statement::Return(r) => r.values.len() == 1 && is_scalar_return_value(&r.values[0]),
+        // P7-A: a call/method leaf is admissible here (truncated by the single-LHS
+        // RESULT lowering); bare `...`/`Select::VarArg` stays refused.
+        Statement::Return(r) => r.values.len() == 1 && is_truncatable_return_value(&r.values[0]),
         Statement::If(f) => {
             let then_ok = value_leaf_shape(&f.then_block.lock().0);
             let else_ok = {
@@ -3023,6 +3045,50 @@ mod tests {
         let pat = canon(&body);
         assert!(value_leaf_shape(&pat));
         assert!(matches!(classify_returns(&body), Some(TKind::Value)));
+    }
+
+    /// P7-A: a call/method-call leaf (`return g(x)`) is an admissible Value leaf —
+    /// the single-LHS `RESULT = g(x)` inlined site truncates it to one value, so
+    /// the candidate shape proves the arity. (Refused pre-P7-A.)
+    #[test]
+    fn call_leaf_is_an_admissible_value_leaf_p7a() {
+        let c = local("c");
+        let body = vec![
+            Statement::If(If::new(
+                local_value(&c),
+                Block(vec![return_one(RValue::Call(Call::new(
+                    global("g"),
+                    vec![local_value(&c)],
+                )))]),
+                Block(vec![return_one(RValue::Literal(Literal::Nil))]),
+            )),
+        ];
+        let pat = canon(&body);
+        assert!(value_leaf_shape(&pat), "call leaf must be admissible");
+        assert!(matches!(classify_returns(&body), Some(TKind::Value)));
+    }
+
+    /// P7-A boundary: a bare `...` (vararg) leaf is STILL refused — its multi-value
+    /// spread has no provable single-value truncation point. Likewise a 2-value
+    /// `return a, b` stays refused (returns_bad's multi-value arm).
+    #[test]
+    fn vararg_and_multivalue_leaves_still_refused_p7a() {
+        let vararg_body = vec![Statement::Return(Return::new(vec![RValue::VarArg(
+            crate::VarArg,
+        )]))];
+        assert!(
+            classify_returns(&vararg_body).is_none(),
+            "a bare vararg return must stay refused"
+        );
+
+        let multi_body = vec![Statement::Return(Return::new(vec![
+            string("a"),
+            string("b"),
+        ]))];
+        assert!(
+            classify_returns(&multi_body).is_none(),
+            "a 2-value return must stay refused"
+        );
     }
 
     // === §8: call-site value de-inline with an interposed RESULT decl ===
