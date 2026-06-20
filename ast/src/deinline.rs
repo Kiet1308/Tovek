@@ -121,6 +121,11 @@ struct Target {
     /// statement shares this variant. Void patterns never contain a `Return`
     /// (`block_has_return`-gated), so the variant is unambiguous for them.
     pat0_kind: std::mem::Discriminant<Statement>,
+    /// Hash of `pat[0]`'s fixed-name anchor (method / global-call name), or `None`
+    /// when it has none — a second O(1) prefilter dimension alongside `pat0_kind`,
+    /// sound by `stmt_anchor_key`'s contract. Cuts per-position work when many
+    /// same-variant targets differ only by name.
+    pat0_anchor_key: Option<u64>,
     params: FxHashSet<RcLocal>, // P
     locals: FxHashSet<RcLocal>, // L (declared callee-locals)
     param_order: Vec<RcLocal>,
@@ -1005,6 +1010,38 @@ fn canon_top_len(stmts: &[Statement], tail: bool) -> usize {
         "canon_top_len must mirror canon_top length exactly"
     );
     n
+}
+
+/// A cheap hash prefilter key for the FIRST statement a Void / AtPrefix-Value
+/// pattern unifies against — the fixed NAME the exact unifier requires to match: a
+/// method name (`unify_method` compares `a.method == d.method`) or a global-call
+/// callee name (`unify_call` -> `unify_rvalue` on a `Global`, compared by value).
+/// `None` when the head has no such fixed name (a param-hole callee, an `Assign` /
+/// `If` head, …); the key then cannot discriminate and the full match runs as
+/// before. SOUNDNESS: if two heads carry DIFFERENT fixed names here, `unify_stmt`
+/// MUST fail, so skipping on a key mismatch is false-negative-free. A hash COLLISION
+/// only causes a missed skip (a redundant full match), never a wrong skip — so a
+/// u64 digest is safe. Cuts the per-position work where many same-variant targets
+/// (e.g. lots of `x:Method()` helpers) share `pat0_kind` but differ by name.
+fn stmt_anchor_key(s: &Statement) -> Option<u64> {
+    use core::hash::{Hash, Hasher};
+    let mut h = rustc_hash::FxHasher::default();
+    match s {
+        Statement::MethodCall(m) => {
+            0u8.hash(&mut h);
+            m.method.hash(&mut h);
+            Some(h.finish())
+        }
+        Statement::Call(c) => match c.value.as_ref() {
+            RValue::Global(g) => {
+                1u8.hash(&mut h);
+                g.0.hash(&mut h);
+                Some(h.finish())
+            }
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 // ===================================================================
@@ -1920,10 +1957,12 @@ fn try_match_at(
     // reconstructed call (the call stayed correct, but lost its UNHOOKABLE
     // annotation). Nothing legitimately begins a match at a marker position, so
     // the canon-alignment was cosmetic-negative; keep the original predicate.
-    let anchor_disc = stmts[i..]
-        .iter()
-        .find(|s| !matches!(s, Statement::Empty(_)))
-        .map(std::mem::discriminant);
+    let anchor_stmt = stmts[i..].iter().find(|s| !matches!(s, Statement::Empty(_)));
+    let anchor_disc = anchor_stmt.map(std::mem::discriminant);
+    // Second prefilter dimension: the fixed-name anchor of that first statement
+    // (method / global-call name). Computed once per position; compared to each
+    // candidate target's `pat0_anchor_key`. Same sound domain as `pat0_kind`.
+    let anchor_key = anchor_stmt.and_then(stmt_anchor_key);
     // only targets whose local function is in scope here (declared earlier, in a
     // visible block) are candidates — emitting a call to an out-of-scope local
     // would be invalid.
@@ -1945,6 +1984,15 @@ fn try_match_at(
             || (t.kind == TKind::Value && t.value_anchor == ValueAnchor::AtPrefix);
         if use_disc && anchor_disc != Some(t.pat0_kind) {
             continue; // first-statement variant cannot match this pattern
+        }
+        // Name prefilter (same targets as the variant check): when BOTH the position
+        // and the pattern have a fixed-name head anchor and they differ, the exact
+        // unify of `pat[0]` would fail — skip without entering the window scan.
+        if use_disc
+            && let (Some(ak), Some(tk)) = (anchor_key, t.pat0_anchor_key)
+            && ak != tk
+        {
+            continue;
         }
         let hit = match (t.kind, t.value_anchor) {
             (TKind::Void, _) => match_void(stmts, i, t, is_func_tail, is_func_body_top, last_occ),
@@ -2444,6 +2492,7 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
         } else {
             (ValueAnchor::AtResultDecl, 0)
         };
+        let pat0_anchor_key = stmt_anchor_key(&pat[0]);
         drop(g);
         targets.push(Target {
             f_local,
@@ -2454,6 +2503,7 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
             value_anchor,
             prefix_len,
             pat0_kind,
+            pat0_anchor_key,
             params,
             locals,
             param_order,
@@ -3147,7 +3197,7 @@ fn markers_in_closures(rv: &mut RValue, converted: &FxHashSet<RcLocal>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Break, Closure, Function, Global, Index, Local};
+    use crate::{Break, Closure, Empty, Function, Global, Index, Local};
     use by_address::ByAddress;
     use parking_lot::Mutex;
     use rustc_hash::FxHashSet;
@@ -3198,7 +3248,9 @@ mod tests {
     }
 
     fn void_target(pat: Vec<Statement>, locals: FxHashSet<RcLocal>) -> Target {
-        let pat0_kind = std::mem::discriminant(pat.first().expect("test pat must be non-empty"));
+        let pat0 = pat.first().expect("test pat must be non-empty");
+        let pat0_kind = std::mem::discriminant(pat0);
+        let pat0_anchor_key = stmt_anchor_key(pat0);
         Target {
             f_local: local("f"),
             func_ptr: std::ptr::null::<Mutex<Function>>(),
@@ -3207,6 +3259,7 @@ mod tests {
             value_anchor: ValueAnchor::AtResultDecl,
             prefix_len: 0,
             pat0_kind,
+            pat0_anchor_key,
             pat,
             params: FxHashSet::default(),
             locals,
@@ -3401,6 +3454,7 @@ mod tests {
             return_one(local_value(&p)),
         ]);
         let pat0_kind = std::mem::discriminant(&pat[0]);
+        let pat0_anchor_key = stmt_anchor_key(&pat[0]);
         let mut params = FxHashSet::default();
         params.insert(p.clone());
         let t = Target {
@@ -3411,6 +3465,7 @@ mod tests {
             value_anchor: ValueAnchor::AtPrefix,
             prefix_len: 1,
             pat0_kind,
+            pat0_anchor_key,
             pat,
             params,
             locals: FxHashSet::default(),
@@ -3483,6 +3538,7 @@ mod tests {
         let mut locals = FxHashSet::default();
         collect_declared_locals(&pat, &mut locals);
         let pat0_kind = std::mem::discriminant(&pat[0]);
+        let pat0_anchor_key = stmt_anchor_key(&pat[0]);
         Target {
             f_local: local("f"),
             func_ptr: std::ptr::null::<Mutex<Function>>(),
@@ -3491,6 +3547,7 @@ mod tests {
             value_anchor: ValueAnchor::AtPrefix,
             prefix_len: 1,
             pat0_kind,
+            pat0_anchor_key,
             pat,
             params: FxHashSet::default(),
             locals,
@@ -3514,6 +3571,7 @@ mod tests {
         let mut locals = FxHashSet::default();
         collect_declared_locals(&pat, &mut locals);
         let pat0_kind = std::mem::discriminant(&pat[0]);
+        let pat0_anchor_key = stmt_anchor_key(&pat[0]);
         Target {
             f_local: local("f"),
             func_ptr: std::ptr::null::<Mutex<Function>>(),
@@ -3522,6 +3580,7 @@ mod tests {
             value_anchor: ValueAnchor::AtPrefix,
             prefix_len: k,
             pat0_kind,
+            pat0_anchor_key,
             pat,
             params: FxHashSet::default(),
             locals,
@@ -4061,5 +4120,100 @@ mod tests {
         assert!(body_unsafe(&real_comment));
 
         assert_eq!(canon_top(&marked, true).len(), 1, "marker dropped by canon_top");
+    }
+
+    /// Exhaustive equivalence: `canon_top_len(stmts, tail) == canon_top(stmts, tail).len()`
+    /// over EVERY sequence of length 0..=4 from a canon-relevant alphabet (Empty /
+    /// internal-marker / source-comment trivia; plain / void-return / value-return
+    /// statements; foldable + several non-foldable guard shapes; a 2-value return), for
+    /// both tail values — ~41k cases. Computes the real length via `canon_top` directly
+    /// (independent of the in-function debug_assert), pinning the non-allocating length
+    /// mirror to `canon_top` even for release builds where the debug_assert is gone.
+    #[test]
+    fn canon_top_len_mirrors_canon_top_exhaustively() {
+        let make = |sym: u8| -> Statement {
+            match sym {
+                0 => Statement::Empty(Empty {}),
+                1 => Statement::Comment(Comment::trailing(CALL_MARKER.to_string())), // internal trivia
+                2 => Statement::Comment(Comment::new(" source".to_string())),        // NOT trivia
+                3 => print_x(),                                                       // plain stmt
+                4 => void_return(),                                                   // void return
+                5 => return_one(number(1.0)),                                         // value return
+                6 => if_stmt(global("c"), vec![void_return()], vec![]),               // foldable void guard
+                7 => if_stmt(global("c"), vec![return_one(number(2.0))], vec![]),     // foldable value guard
+                8 => if_stmt(global("c"), vec![void_return()], vec![print_x()]),      // else nonempty
+                9 => if_stmt(global("c"), vec![print_x(), void_return()], vec![]),    // then len 2
+                10 => if_stmt(global("c"), vec![print_x()], vec![]),                  // then non-return
+                _ => if_stmt(
+                    global("c"),
+                    vec![Statement::Return(Return::new(vec![number(1.0), number(2.0)]))],
+                    vec![],
+                ), // 2-value return then-block
+            }
+        };
+        const ALPHA: u8 = 12;
+        for len in 0..=4usize {
+            let mut idx = vec![0u8; len];
+            loop {
+                let stmts: Vec<Statement> = idx.iter().map(|&s| make(s)).collect();
+                for &tail in &[false, true] {
+                    assert_eq!(
+                        canon_top_len(&stmts, tail),
+                        canon_top(&stmts, tail).len(),
+                        "canon_top_len mismatch: tail={} seq={:?}",
+                        tail,
+                        idx
+                    );
+                }
+                if len == 0 {
+                    break;
+                }
+                let mut p = len - 1;
+                loop {
+                    idx[p] += 1;
+                    if idx[p] < ALPHA {
+                        break;
+                    }
+                    idx[p] = 0;
+                    if p == 0 {
+                        break;
+                    }
+                    p -= 1;
+                }
+                if idx.iter().all(|&x| x == 0) {
+                    break;
+                }
+            }
+        }
+    }
+
+    /// P-perf prefilter: `stmt_anchor_key` must give EQUAL keys for equal fixed names
+    /// and DISTINCT keys for distinct names (a method name, or a global-call callee),
+    /// and `None` where there is no fixed name (a local-callee call, a non-call). This
+    /// is the contract the name prefilter relies on for false-negative freedom.
+    #[test]
+    fn stmt_anchor_key_contract() {
+        let recv = local("o");
+        let mc = |m: &str| {
+            Statement::MethodCall(MethodCall {
+                value: Box::new(local_value(&recv)),
+                method: m.to_string(),
+                arguments: vec![],
+            })
+        };
+        assert!(stmt_anchor_key(&mc("Foo")).is_some());
+        assert_eq!(stmt_anchor_key(&mc("Foo")), stmt_anchor_key(&mc("Foo")));
+        assert_ne!(stmt_anchor_key(&mc("Foo")), stmt_anchor_key(&mc("Bar")));
+
+        let gc = |g: &str| Statement::Call(Call::new(global(g), vec![]));
+        assert!(stmt_anchor_key(&gc("foo")).is_some());
+        assert_ne!(stmt_anchor_key(&gc("foo")), stmt_anchor_key(&gc("bar")));
+        // method vs global with same text are distinct (kind-tagged).
+        assert_ne!(stmt_anchor_key(&mc("foo")), stmt_anchor_key(&gc("foo")));
+
+        // no fixed name -> None (the prefilter then never skips).
+        assert!(stmt_anchor_key(&Statement::Call(Call::new(local_value(&recv), vec![]))).is_none());
+        assert!(stmt_anchor_key(&void_return()).is_none());
+        assert!(stmt_anchor_key(&print_x()).is_some()); // print(...) is a global call
     }
 }
