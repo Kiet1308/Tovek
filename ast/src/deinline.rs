@@ -27,7 +27,7 @@ use triomphe::Arc;
 use crate::{
     Assign, Binary, BinaryOperation, Block, Call, Comment, Function, GenericFor, If, LValue,
     Literal, LocalRw, MethodCall, NumericFor, RValue, RcLocal, Repeat, Return, Select, SideEffects,
-    Statement, Table, Unary, UnaryOperation, While,
+    Statement, Table, Traverse, Unary, UnaryOperation, While,
 };
 
 const DEF_MARKER: &str = " [-O2 INLINED, UNHOOKABLE] reconstructed definition;";
@@ -182,6 +182,18 @@ pub fn deinline(body: &mut Block) {
 
 const COLLAPSE_MARKER: &str = " [-O2 INLINED, UNHOOKABLE] reconstructed call";
 
+/// One of the comments THIS pass itself injects (a reconstructed-call/def/collapse
+/// marker). They are runtime no-ops. The fixed-point loop re-collects targets each
+/// iteration: an inner de-inline can splice a `CALL_MARKER` into a callee body that
+/// is ALSO a target, and a body carrying a (genuine source) comment is otherwise
+/// refused by `body_unsafe`. Treating our own markers as no-ops — exempt in
+/// `body_unsafe`, dropped symmetrically in `canon_top` — lets such a body stay a
+/// valid target so chained/nested inlines keep collapsing, without ever matching on
+/// the marker text. Genuine source comments still refuse the body.
+fn is_internal_marker(c: &Comment) -> bool {
+    c.text == CALL_MARKER || c.text == DEF_MARKER || c.text == COLLAPSE_MARKER
+}
+
 fn collapse_value_results(stmts: &mut Vec<Statement>) {
     // recurse into nested blocks and closure bodies first.
     for s in stmts.iter_mut() {
@@ -203,6 +215,32 @@ fn collapse_value_results(stmts: &mut Vec<Statement>) {
 
     let taken = std::mem::take(stmts);
     let n = taken.len();
+    // One linear pass recording, per local, the greatest top-level index that reads
+    // / writes it (recursing into nested blocks + closures via `collect_reads` /
+    // `collect_written`, the exact mirrors of `count_local_reads` and the old
+    // per-tail write scan). This replaces the per-triple full-tail rescans
+    // (`count_local_reads(&taken[i+3..])` and a `collect_written(&taken[i+2..])`
+    // membership test), turning the dense-block Θ(N²) into Θ(N): "v not read
+    // at/after j" ⟺ `last_read[v]` is absent or `< j`. (The bounded `== 1`
+    // read-count below stays an exact scan — a max-index cannot express "exactly
+    // one".)
+    let mut last_read: FxHashMap<RcLocal, usize> = FxHashMap::default();
+    let mut last_write: FxHashMap<RcLocal, usize> = FxHashMap::default();
+    // Reuse the two scratch sets across statements (drain, don't reallocate),
+    // mirroring `build_last_occ`. `k` ascends, and within a statement every drained
+    // local is stored with the same `k`, so drain order is irrelevant.
+    let mut rd: FxHashSet<RcLocal> = FxHashSet::default();
+    let mut wr: FxHashSet<RcLocal> = FxHashSet::default();
+    for (k, s) in taken.iter().enumerate() {
+        collect_reads(std::slice::from_ref(s), &mut rd);
+        for v in rd.drain() {
+            last_read.insert(v, k);
+        }
+        collect_written(std::slice::from_ref(s), &mut wr);
+        for v in wr.drain() {
+            last_write.insert(v, k);
+        }
+    }
     let mut out: Vec<Statement> = Vec::with_capacity(n);
     let mut i = 0;
     while i < n {
@@ -212,11 +250,11 @@ fn collapse_value_results(stmts: &mut Vec<Statement>) {
             && let Statement::Comment(cm) = &taken[i + 1]
             && cm.text == CALL_MARKER
             && count_local_reads(&taken[i + 2..i + 3], &v) == 1
-            && count_local_reads(&taken[i + 3..], &v) == 0
+            && last_read.get(&v).is_none_or(|&k| k < i + 3)
             // `v`'s declaration is about to be removed, so `v` must not be
             // *written* anywhere we keep either — a later `v = ...` (e.g. inside
             // the collapsed `if`) would otherwise be left with no declaration.
-            && !block_writes_local(&taken[i + 2..], &v)
+            && last_write.get(&v).is_none_or(|&k| k < i + 2)
             && let Some(collapsed) = collapse_use(&taken[i + 2], &v, call)
         {
             // The reconstructed call now lives inside `collapsed`. For a
@@ -283,13 +321,16 @@ fn collapse_use(s: &Statement, v: &RcLocal, call: &RValue) -> Option<Statement> 
                 values: vec![call.clone()],
             }))
         }
-        // Only when the assignment target evaluates with no side effects — else
-        // moving `f(args)` from a preceding statement into the RHS could reorder
-        // it relative to a side-effecting LHS index (`obj[getKey()] = v`).
+        // A bare `Local`/`Global` target is always safe; an INDEXED target
+        // (`t[k]`, `t.field`) only when the moved-in call provably cannot change
+        // the prefix `t`/`k` (see `lvalue_safe_for_collapse`): `t[k] = f()`
+        // evaluates the prefix relative to the RHS call differently from the
+        // pre-collapse `local v = f(); t[k] = v`, so it is only sound when `f`
+        // leaves `t`/`k` untouched.
         Statement::Assign(a)
             if a.right.len() == 1
                 && is_v(&a.right[0])
-                && a.left.iter().all(lvalue_side_effect_free) =>
+                && a.left.iter().all(lvalue_safe_for_collapse) =>
         {
             Some(Statement::Assign(Assign {
                 left: a.left.clone(),
@@ -302,19 +343,16 @@ fn collapse_use(s: &Statement, v: &RcLocal, call: &RValue) -> Option<Statement> 
     }
 }
 
-/// Is `v` written (assigned) anywhere in `stmts` — including nested blocks and
-/// closure bodies?
-fn block_writes_local(stmts: &[Statement], v: &RcLocal) -> bool {
-    let mut written: FxHashSet<RcLocal> = FxHashSet::default();
-    collect_written(stmts, &mut written);
-    written.contains(v)
-}
-
-fn lvalue_side_effect_free(l: &LValue) -> bool {
-    match l {
-        LValue::Local(_) | LValue::Global(_) => true,
-        LValue::Index(i) => !i.left.has_side_effects() && !i.right.has_side_effects(),
-    }
+/// A collapse-safe assignment target: a bare name binding (`x` / `GLOBAL`) whose
+/// only effect is the store of the RHS value. An INDEXED target (`t[k]`, `t.f`) is
+/// refused — collapsing `local v = f(); t[k] = v` into `t[k] = f()` would move the
+/// target-prefix evaluation (`t`, `k`) to before the RHS call, so a call that
+/// rebinds `t` or mutates `k` would write a different slot. Proving that absent
+/// would need an effect summary of `f` (DeInlineReview §2); refusing every indexed
+/// target is the simple sound choice and costs only a handful of cosmetic one-line
+/// merges corpus-wide.
+fn lvalue_safe_for_collapse(l: &LValue) -> bool {
+    matches!(l, LValue::Local(_) | LValue::Global(_))
 }
 
 fn count_local_reads(stmts: &[Statement], v: &RcLocal) -> usize {
@@ -383,6 +421,11 @@ fn rvalue_closure_reads(rv: &RValue, v: &RcLocal) -> usize {
                     .iter()
                     .map(|a| rvalue_closure_reads(a, v))
                     .sum::<usize>()
+        }
+        RValue::IfExpression(e) => {
+            rvalue_closure_reads(&e.condition, v)
+                + rvalue_closure_reads(&e.then_value, v)
+                + rvalue_closure_reads(&e.else_value, v)
         }
         _ => 0,
     }
@@ -476,6 +519,11 @@ fn collect_reads_in_closures(rv: &RValue, out: &mut FxHashSet<RcLocal>) {
                 collect_reads_in_closures(a, out);
             }
         }
+        RValue::IfExpression(e) => {
+            collect_reads_in_closures(&e.condition, out);
+            collect_reads_in_closures(&e.then_value, out);
+            collect_reads_in_closures(&e.else_value, out);
+        }
         _ => {}
     }
 }
@@ -510,62 +558,33 @@ fn build_last_occ(stmts: &[Statement], from: usize) -> FxHashMap<RcLocal, usize>
 fn tail_has_live(
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
     stmts: &[Statement],
+    from: usize,
     tail_start: usize,
     set: &FxHashSet<RcLocal>,
 ) -> bool {
     if set.is_empty() {
         return false;
     }
-    let idx = last_occ.get_or_insert_with(|| build_last_occ(stmts, 0));
+    // Build the index lazily from the scan cursor `from`. Every query in a block
+    // uses `tail_start >= from` (the cursor only advances between accepts, and the
+    // first query after each splice establishes `from`), so occurrences below
+    // `from` are never inspected — see `build_last_occ`'s doc. Cheaper than from 0.
+    let idx = last_occ.get_or_insert_with(|| build_last_occ(stmts, from));
     set.iter()
         .any(|v| idx.get(v).is_some_and(|&k| k >= tail_start))
 }
 
 fn collapse_in_closures(rv: &mut RValue) {
-    match rv {
-        RValue::Closure(c) => collapse_value_results(&mut c.function.0.lock().body.0),
-        RValue::Call(c) => {
-            collapse_in_closures(c.value.as_mut());
-            for a in &mut c.arguments {
-                collapse_in_closures(a);
-            }
-        }
-        RValue::MethodCall(m) => {
-            collapse_in_closures(m.value.as_mut());
-            for a in &mut m.arguments {
-                collapse_in_closures(a);
-            }
-        }
-        RValue::Index(ix) => {
-            collapse_in_closures(ix.left.as_mut());
-            collapse_in_closures(ix.right.as_mut());
-        }
-        RValue::Unary(u) => collapse_in_closures(u.value.as_mut()),
-        RValue::Binary(b) => {
-            collapse_in_closures(b.left.as_mut());
-            collapse_in_closures(b.right.as_mut());
-        }
-        RValue::Table(t) => {
-            for (k, val) in &mut t.0 {
-                if let Some(k) = k {
-                    collapse_in_closures(k);
-                }
-                collapse_in_closures(val);
-            }
-        }
-        RValue::Select(Select::Call(c)) => {
-            collapse_in_closures(c.value.as_mut());
-            for a in &mut c.arguments {
-                collapse_in_closures(a);
-            }
-        }
-        RValue::Select(Select::MethodCall(m)) => {
-            collapse_in_closures(m.value.as_mut());
-            for a in &mut m.arguments {
-                collapse_in_closures(a);
-            }
-        }
-        _ => {}
+    // Find every closure within `rv` and run the collapse inside its body. Descent
+    // uses the enum_dispatch `Traverse::rvalues_mut` (exhaustive by construction, so
+    // it can never silently drop a new RValue variant — incl. `IfExpression`),
+    // mirroring `expr_deinline::write_counts_in_closures`.
+    if let RValue::Closure(c) = rv {
+        collapse_value_results(&mut c.function.0.lock().body.0);
+        return;
+    }
+    for child in rv.rvalues_mut() {
+        collapse_in_closures(child);
     }
 }
 
@@ -648,10 +667,17 @@ fn canon_tail(stmts: &[Statement], tail: bool) -> Vec<Statement> {
 /// half is a 1:1 statement map). Callers use this to reject a candidate window by
 /// length *before* paying for the deep nested-block rebuild in `canon_recurse`.
 fn canon_top(stmts: &[Statement], tail: bool) -> Vec<Statement> {
-    // N2: drop Empty placeholders.
+    // N2: drop Empty placeholders AND our own reconstruction markers (runtime
+    // no-ops). An inner de-inline may have spliced a CALL_MARKER into a shared
+    // callee body mid-fixed-point; dropping it here keeps a re-collected pattern
+    // length-aligned with its candidate windows (both stripped symmetrically), and
+    // a stripped marker contributes 0 anchors / does not perturb the length gates.
     let mut s: Vec<Statement> = stmts
         .iter()
-        .filter(|st| !matches!(st, Statement::Empty(_)))
+        .filter(|st| {
+            !matches!(st, Statement::Empty(_))
+                && !matches!(st, Statement::Comment(c) if is_internal_marker(c))
+        })
         .cloned()
         .collect();
     if tail {
@@ -954,7 +980,17 @@ pub(crate) fn unify_rvalue(
     if let RValue::Local(pl) = p {
         if ctx.params.contains(pl) {
             if let Some(prev) = b.params.get(pl) {
-                return if prev == c { Ok(()) } else { Err(()) };
+                // Repeated occurrence: it must be the SAME value as the first bind
+                // (NaN/sign-of-zero-exact, not derived `f64` eq), AND not an
+                // identity-producing expression — two `{}`/closures are distinct
+                // values, so sharing one across occurrences (emitting `f({})`
+                // once) would diverge from the region's per-use construction.
+                // Single-use params never reach here (they bind below).
+                return if rvalue_exact_eq(prev, c) && !is_identity_producing(c) {
+                    Ok(())
+                } else {
+                    Err(())
+                };
             }
             // closures as arguments are refused (identity matching is unsound)
             if matches!(c, RValue::Closure(_)) {
@@ -1103,6 +1139,94 @@ pub(crate) fn lit_eq(a: &Literal, b: &Literal) -> bool {
     match (a, b) {
         (Literal::Number(x), Literal::Number(y)) => x.to_bits() == y.to_bits(),
         _ => a == b,
+    }
+}
+
+/// Bit-exact structural equality for the correctness gates. The derived
+/// `PartialEq` bottoms out at `f64::eq`, so it wrongly equates `+0.0` with `-0.0`
+/// and refuses `NaN == NaN`; this descends the whole tree comparing every
+/// `Literal::Number` via `lit_eq`'s `to_bits()`. Closures compare by `Function`
+/// pointer identity only — two `{}`/closures are distinct values and must never
+/// be treated as equal by structure. Use this anywhere a gate's soundness depends
+/// on two reconstructed expressions being the SAME value (return-folding,
+/// repeated-argument consistency, recorded-site agreement).
+pub(crate) fn rvalue_exact_eq(a: &RValue, b: &RValue) -> bool {
+    match (a, b) {
+        (RValue::Local(x), RValue::Local(y)) => x == y,
+        (RValue::Global(x), RValue::Global(y)) => x == y,
+        (RValue::Literal(x), RValue::Literal(y)) => lit_eq(x, y),
+        (RValue::VarArg(_), RValue::VarArg(_)) => true,
+        (RValue::Unary(x), RValue::Unary(y)) => {
+            x.operation == y.operation && rvalue_exact_eq(&x.value, &y.value)
+        }
+        (RValue::Binary(x), RValue::Binary(y)) => {
+            x.operation == y.operation
+                && rvalue_exact_eq(&x.left, &y.left)
+                && rvalue_exact_eq(&x.right, &y.right)
+        }
+        (RValue::Index(x), RValue::Index(y)) => {
+            rvalue_exact_eq(&x.left, &y.left) && rvalue_exact_eq(&x.right, &y.right)
+        }
+        (RValue::IfExpression(x), RValue::IfExpression(y)) => {
+            rvalue_exact_eq(&x.condition, &y.condition)
+                && rvalue_exact_eq(&x.then_value, &y.then_value)
+                && rvalue_exact_eq(&x.else_value, &y.else_value)
+        }
+        (RValue::Call(x), RValue::Call(y)) => {
+            call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
+        }
+        (RValue::MethodCall(x), RValue::MethodCall(y)) => {
+            x.method == y.method && call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
+        }
+        (RValue::Table(x), RValue::Table(y)) => {
+            x.0.len() == y.0.len()
+                && x.0.iter().zip(&y.0).all(|((kx, vx), (ky, vy))| {
+                    (match (kx, ky) {
+                        (Some(kx), Some(ky)) => rvalue_exact_eq(kx, ky),
+                        (None, None) => true,
+                        _ => false,
+                    }) && rvalue_exact_eq(vx, vy)
+                })
+        }
+        (RValue::Closure(x), RValue::Closure(y)) => {
+            Arc::as_ptr(&x.function.0) == Arc::as_ptr(&y.function.0)
+        }
+        // Select wraps Call/MethodCall/VarArg — recurse so an inner `±0.0` arg does
+        // not leak back to the derived `f64` equality of the wrapped call.
+        (RValue::Select(x), RValue::Select(y)) => match (x, y) {
+            (Select::Call(x), Select::Call(y)) => {
+                call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
+            }
+            (Select::MethodCall(x), Select::MethodCall(y)) => {
+                x.method == y.method
+                    && call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
+            }
+            (Select::VarArg(_), Select::VarArg(_)) => true,
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn call_exact_eq(av: &RValue, aa: &[RValue], bv: &RValue, ba: &[RValue]) -> bool {
+    rvalue_exact_eq(av, bv)
+        && aa.len() == ba.len()
+        && aa.iter().zip(ba).all(|(p, q)| rvalue_exact_eq(p, q))
+}
+
+/// An expression whose every evaluation yields a FRESH, distinct value: a table
+/// constructor or a closure. Such an argument must never be shared across multiple
+/// parameter occurrences — the inlined region built a separate value at each use,
+/// whereas `f(arg)` constructs one and passes it to all of them (an identity
+/// divergence). The condition of an `if-expr` is evaluated once, so only the
+/// produced branch's identity matters.
+fn is_identity_producing(rv: &RValue) -> bool {
+    match rv {
+        RValue::Table(_) | RValue::Closure(_) => true,
+        RValue::IfExpression(e) => {
+            is_identity_producing(&e.then_value) || is_identity_producing(&e.else_value)
+        }
+        _ => false,
     }
 }
 
@@ -1420,6 +1544,11 @@ fn recurse_into_closures(
                 recurse_into_closures(a, targets, decl_map, active, newly);
             }
         }
+        RValue::IfExpression(e) => {
+            recurse_into_closures(e.condition.as_mut(), targets, decl_map, active, newly);
+            recurse_into_closures(e.then_value.as_mut(), targets, decl_map, active, newly);
+            recurse_into_closures(e.else_value.as_mut(), targets, decl_map, active, newly);
+        }
         _ => {}
     }
 }
@@ -1476,7 +1605,7 @@ fn value_tail_ret(stmts: &[Statement], i: usize, w: usize, is_func_tail: bool) -
 
 fn all_returns_are(stmts: &[Statement], ret: &RValue) -> bool {
     stmts.iter().all(|s| match s {
-        Statement::Return(r) => r.values.len() == 1 && &r.values[0] == ret,
+        Statement::Return(r) => r.values.len() == 1 && rvalue_exact_eq(&r.values[0], ret),
         Statement::If(f) => {
             all_returns_are(&f.then_block.lock().0, ret)
                 && all_returns_are(&f.else_block.lock().0, ret)
@@ -1493,7 +1622,7 @@ fn rewrite_return_to_void(stmts: &[Statement], ret: &RValue) -> Vec<Statement> {
     stmts
         .iter()
         .map(|s| match s {
-            Statement::Return(r) if r.values.len() == 1 && &r.values[0] == ret => {
+            Statement::Return(r) if r.values.len() == 1 && rvalue_exact_eq(&r.values[0], ret) => {
                 Statement::Return(Return::default())
             }
             Statement::If(f) => Statement::If(If::new(
@@ -1636,7 +1765,7 @@ fn match_void(
                 if let Some(u) = try_unify_site(t, &plain) {
                     // every callee-temp must be dead after the consumed window, else
                     // a later use would reference a now-removed declaration.
-                    if !tail_has_live(last_occ, stmts, i + w, &u.callee_locals) {
+                    if !tail_has_live(last_occ, stmts, i, i + w, &u.callee_locals) {
                         record_site(&mut site, &mut ambiguous, w, &u.args);
                     }
                 }
@@ -1650,7 +1779,7 @@ fn match_void(
             if folded_top.len() == kc {
                 let folded = canon_recurse(folded_top, true);
                 if let Some(u) = try_unify_site(t, &folded) {
-                    if !tail_has_live(last_occ, stmts, i + w, &u.callee_locals) {
+                    if !tail_has_live(last_occ, stmts, i, i + w, &u.callee_locals) {
                         record_site(&mut site, &mut ambiguous, w, &u.args);
                     }
                 }
@@ -1712,7 +1841,7 @@ fn match_value(
             // dead after the region (its declaration is being removed).
             if u.result.as_ref() == Some(&r)
                 && !block_reads_local(region, &r)
-                && !tail_has_live(last_occ, stmts, body_start + w, &u.callee_locals)
+                && !tail_has_live(last_occ, stmts, i, body_start + w, &u.callee_locals)
             {
                 record_site(&mut site, &mut ambiguous, w, &u.args);
             }
@@ -1806,7 +1935,7 @@ fn match_value_prefixed(
                 && !u.callee_locals.contains(&r)
                 && !block_reads_local(prefix, &r)
                 && !block_reads_local(region, &r)
-                && !tail_has_live(last_occ, stmts, region_start + w, &u.callee_locals)
+                && !tail_has_live(last_occ, stmts, i, region_start + w, &u.callee_locals)
             {
                 record_site(&mut site, &mut ambiguous, w, &u.args);
             }
@@ -1857,6 +1986,18 @@ fn try_unify_site(t: &Target, cwin: &[Statement]) -> Option<Unified> {
     // A genuine inlined arg with side effects survives in the copy as a `local`
     // temp (the per-function inliner won't hoist it past an effect), which binds
     // here as a side-effect-free `Local` and is accepted. Everything else: REFUSE.
+    //
+    // NOTE (DeInlineReview §1): this `collect_written` oracle sees only SYNTACTIC
+    // writes and writes inside closure LITERALS — NOT a caller local mutated by a
+    // call to a by-name function whose body writes a captured upvalue. That is a
+    // real-but-theoretical hole: medal's own `inline_temps` refuses to forward a
+    // single-use snapshot that reads a captured local across a side-effecting
+    // statement (`inline_temps.rs`: `reads_captured_local && has_side_effects`), so
+    // the unstable-argument region never reaches this pass on genuine -O2 output.
+    // Every cheap sound guard (refuse any arg reading a "written-in-some-closure"
+    // local) was measured to refuse de-inlines across 70+ corpus files — because in
+    // React/UI Luau nearly every local lives inside a closure — so it is DEFERRED
+    // rather than pay that readability cost for a precursor medal already prevents.
     let mut region_writes: FxHashSet<RcLocal> = FxHashSet::default();
     collect_written(cwin, &mut region_writes);
     for a in &args {
@@ -1897,7 +2038,7 @@ fn block_reads_local(stmts: &[Statement], target: &RcLocal) -> bool {
 }
 
 fn args_vec_eq(a: &[RValue], b: &[RValue]) -> bool {
-    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x == y)
+    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| rvalue_exact_eq(x, y))
 }
 
 // ===================================================================
@@ -2159,6 +2300,11 @@ fn each_closure_in_rvalue(rv: &RValue, f: &mut impl FnMut(&RcLocal, &Arc<Mutex<F
                 each_closure_in_rvalue(a, f);
             }
         }
+        RValue::IfExpression(e) => {
+            each_closure_in_rvalue(&e.condition, f);
+            each_closure_in_rvalue(&e.then_value, f);
+            each_closure_in_rvalue(&e.else_value, f);
+        }
         _ => {}
     }
 }
@@ -2176,9 +2322,15 @@ pub(crate) fn body_unsafe(stmts: &[Statement]) -> bool {
             return true;
         }
         match s {
+            // Our own reconstruction markers are runtime no-ops. A shared callee
+            // body that gained one from an inner de-inline in an earlier
+            // fixed-point iteration must stay a valid target, else chained/nested
+            // inlines never re-collapse; `canon_top` drops them symmetrically from
+            // pattern and candidate, so matching is unaffected. A genuine source
+            // comment still refuses the body.
+            Statement::Comment(c) => !is_internal_marker(c),
             Statement::Goto(_)
             | Statement::Label(_)
-            | Statement::Comment(_)
             | Statement::Close(_)
             | Statement::NumForInit(_)
             | Statement::NumForNext(_)
@@ -2218,6 +2370,11 @@ fn rvalue_has_closure(rv: &RValue) -> bool {
         }
         RValue::Select(Select::MethodCall(m)) => {
             rvalue_has_closure(&m.value) || m.arguments.iter().any(rvalue_has_closure)
+        }
+        RValue::IfExpression(e) => {
+            rvalue_has_closure(&e.condition)
+                || rvalue_has_closure(&e.then_value)
+                || rvalue_has_closure(&e.else_value)
         }
         _ => false,
     }
@@ -2349,6 +2506,11 @@ fn collect_written_in_closures(rv: &RValue, out: &mut FxHashSet<RcLocal>) {
             for a in &m.arguments {
                 collect_written_in_closures(a, out);
             }
+        }
+        RValue::IfExpression(e) => {
+            collect_written_in_closures(&e.condition, out);
+            collect_written_in_closures(&e.then_value, out);
+            collect_written_in_closures(&e.else_value, out);
         }
         _ => {}
     }
@@ -2600,6 +2762,11 @@ fn markers_in_closures(rv: &mut RValue, converted: &FxHashSet<RcLocal>) {
                 markers_in_closures(a, converted);
             }
         }
+        RValue::IfExpression(e) => {
+            markers_in_closures(e.condition.as_mut(), converted);
+            markers_in_closures(e.then_value.as_mut(), converted);
+            markers_in_closures(e.else_value.as_mut(), converted);
+        }
         _ => {}
     }
 }
@@ -2607,7 +2774,8 @@ fn markers_in_closures(rv: &mut RValue, converted: &FxHashSet<RcLocal>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Break, Function, Global, Index, Local};
+    use crate::{Break, Closure, Function, Global, Index, Local};
+    use by_address::ByAddress;
     use parking_lot::Mutex;
     use rustc_hash::FxHashSet;
 
@@ -3057,5 +3225,129 @@ mod tests {
             match_value_prefixed(&candidate, 0, &t, false, &mut None).is_none(),
             "a divergent leaf literal must be refused even when the flip aligns the diamond"
         );
+    }
+
+    // === DeInlineReview fixes ===
+
+    /// F4 FIX 1: `rvalue_exact_eq` is sign-of-zero / NaN bit-exact, unlike the
+    /// derived `==` the return-folding and arg-consistency gates previously used.
+    #[test]
+    fn rvalue_exact_eq_signed_zero_and_nan() {
+        assert!(!rvalue_exact_eq(&number(0.0), &number(-0.0)));
+        assert!(rvalue_exact_eq(&number(0.0), &number(0.0)));
+        // derived `f64` eq says `NaN != NaN`; bit-exact (same payload) says equal —
+        // this only RE-ENABLES correct de-inlines, never an unsound one.
+        assert!(rvalue_exact_eq(&number(f64::NAN), &number(f64::NAN)));
+        // recursion still distinguishes a nested ±0.0.
+        assert!(!rvalue_exact_eq(
+            &bin(number(1.0), BinaryOperation::Add, number(0.0)),
+            &bin(number(1.0), BinaryOperation::Add, number(-0.0)),
+        ));
+    }
+
+    /// F4 FIX 1 in the return-folding gate: an early `return +0.0` must not be
+    /// treated as equal to a tail `return -0.0` (they differ as `1/x`).
+    #[test]
+    fn value_tail_signed_zero_returns_refused() {
+        let body = vec![if_stmt(
+            local_value(&local("pred")),
+            vec![return_one(number(0.0))],
+            vec![],
+        )];
+        assert!(!all_returns_are(&body, &number(-0.0)));
+        assert!(all_returns_are(&body, &number(0.0)));
+    }
+
+    /// F4 FIX 2: a parameter occurring twice, bound to two DISTINCT table
+    /// constructors, is refused (different table identities); a repeated bare local
+    /// (same value) is fine — and a single-use table never reaches the repeat path.
+    #[test]
+    fn repeated_identity_arg_refused_local_ok() {
+        let p = local("p");
+        let mut params = FxHashSet::default();
+        params.insert(p.clone());
+        let locals = FxHashSet::default();
+        let ctx = MatchCtx {
+            params: &params,
+            locals: &locals,
+        };
+
+        let mut b = Bindings::default();
+        assert!(unify_rvalue(&ctx, &local_value(&p), &RValue::Table(Table::default()), &mut b).is_ok());
+        assert!(
+            unify_rvalue(&ctx, &local_value(&p), &RValue::Table(Table::default()), &mut b).is_err(),
+            "two distinct `{{}}` arguments must not be shared across param occurrences"
+        );
+
+        let x = local("x");
+        let mut b2 = Bindings::default();
+        assert!(unify_rvalue(&ctx, &local_value(&p), &local_value(&x), &mut b2).is_ok());
+        assert!(unify_rvalue(&ctx, &local_value(&p), &local_value(&x), &mut b2).is_ok());
+    }
+
+    /// F3: `rvalue_has_closure` descends into `IfExpression` arms, so `body_unsafe`
+    /// rejects a body whose returned value hides a closure in a branch
+    /// (identity-matching a closure is unsound). The same body without the closure
+    /// is safe.
+    #[test]
+    fn body_unsafe_sees_closure_inside_if_expression() {
+        let closure = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(Function::default()))),
+            upvalues: Vec::new(),
+        });
+        let unsafe_body = vec![Statement::Return(Return::new(vec![RValue::IfExpression(
+            crate::IfExpression::new(local_value(&local("c")), closure, boolean(false)),
+        )]))];
+        assert!(body_unsafe(&unsafe_body));
+
+        let safe_body = vec![Statement::Return(Return::new(vec![RValue::IfExpression(
+            crate::IfExpression::new(local_value(&local("c")), number(1.0), boolean(false)),
+        )]))];
+        assert!(!body_unsafe(&safe_body));
+    }
+
+    /// F2: an indexed-LHS value collapse is refused (it would reorder the target
+    /// prefix relative to the moved-in call); a bare-local LHS still collapses.
+    #[test]
+    fn collapse_refuses_indexed_lhs_keeps_local_lhs() {
+        let v = local("v");
+        let t = local("t");
+        let call = call1(global("f"), number(1.0));
+
+        let indexed = Statement::Assign(Assign {
+            left: vec![LValue::Index(Index::new(local_value(&t), string("field")))],
+            right: vec![local_value(&v)],
+            prefix: false,
+            parallel: false,
+        });
+        assert!(collapse_use(&indexed, &v, &call).is_none());
+
+        let x = local("x");
+        let local_lhs = assign_local(&x, local_value(&v), false);
+        match collapse_use(&local_lhs, &v, &call).expect("local LHS must collapse") {
+            Statement::Assign(a) => assert!(matches!(a.right[0], RValue::Call(_))),
+            _ => panic!("expected an Assign"),
+        }
+    }
+
+    /// F5: `body_unsafe` exempts our own reconstruction markers (so a callee body
+    /// that gained a CALL_MARKER from an inner de-inline stays a valid target),
+    /// while still refusing a genuine source comment; `canon_top` drops the marker
+    /// so a re-collected pattern stays length-aligned with its candidates.
+    #[test]
+    fn internal_markers_exempted_in_body_unsafe_and_canon() {
+        let marked = vec![
+            print_x(),
+            Statement::Comment(Comment::trailing(CALL_MARKER.to_string())),
+        ];
+        assert!(!body_unsafe(&marked));
+
+        let real_comment = vec![
+            print_x(),
+            Statement::Comment(Comment::new(" a real source comment".to_string())),
+        ];
+        assert!(body_unsafe(&real_comment));
+
+        assert_eq!(canon_top(&marked, true).len(), 1, "marker dropped by canon_top");
     }
 }
