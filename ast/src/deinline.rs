@@ -194,6 +194,40 @@ fn is_internal_marker(c: &Comment) -> bool {
     c.text == CALL_MARKER || c.text == DEF_MARKER || c.text == COLLAPSE_MARKER
 }
 
+/// A statement that `canon_top` drops (an `Empty` placeholder or one of THIS
+/// pass's own reconstruction markers) — i.e. a runtime no-op that does not
+/// occupy a logical position in a candidate window. MUST stay in lock-step with
+/// the filter in `canon_top` (it strips exactly `Empty` + `is_internal_marker`
+/// comments): the candidate generator decides which raw index is the K-th
+/// *effective* statement, and canon decides what the unifier actually sees, so
+/// the two must agree on what counts as a no-op. A genuine SOURCE comment is NOT
+/// trivia (it refuses the body via `body_unsafe`) and must never be skipped here.
+fn is_match_trivia(s: &Statement) -> bool {
+    matches!(s, Statement::Empty(_))
+        || matches!(s, Statement::Comment(c) if is_internal_marker(c))
+}
+
+/// Absolute index of the `n`-th (0-based) NON-trivia statement at/after `from`
+/// in `stmts`, or `None` if fewer than `n+1` effective statements remain.
+///
+/// Used by the Value-prefix matchers (P1/P6) to locate the interposed init-less
+/// `local RESULT` declaration: an inner de-inline in an earlier fixed-point
+/// iteration can splice a trailing `CALL_MARKER` (or the structurer an `Empty`)
+/// between the callee-prefix statement(s) and that decl, so the fixed offset
+/// `i + prefix_len` would point at the marker and `result_decl` would bail —
+/// silently killing chained / nested AtPrefix reconstruction. Counting only
+/// effective statements restores the match; the trivia is later removed by the
+/// splice (which spans the absolute window `i..i+consume`).
+fn nth_effective_index(stmts: &[Statement], from: usize, n: usize) -> Option<usize> {
+    stmts
+        .iter()
+        .enumerate()
+        .skip(from)
+        .filter(|(_, s)| !is_match_trivia(s))
+        .nth(n)
+        .map(|(idx, _)| idx)
+}
+
 fn collapse_value_results(stmts: &mut Vec<Statement>) {
     // recurse into nested blocks and closure bodies first.
     for s in stmts.iter_mut() {
@@ -1690,6 +1724,13 @@ fn try_match_at(
     // existing `result_decl(stmts[i])` gate, and a Value pattern's `pat[0]` may be
     // a leaf `return X` unified against an `Assign`, so the variant check would be
     // unsound there.)
+    // Skip only leading `Empty` (NOT internal markers) for this O(1) variant
+    // prefilter. Skipping markers here was tried and reverted: it let `match_void`
+    // attempt windows that START at a reconstruction marker, and on a chained void
+    // site that silently dropped the trailing `-- inlined` marker from an already-
+    // reconstructed call (the call stayed correct, but lost its UNHOOKABLE
+    // annotation). Nothing legitimately begins a match at a marker position, so
+    // the canon-alignment was cosmetic-negative; keep the original predicate.
     let anchor_disc = stmts[i..]
         .iter()
         .find(|s| !matches!(s, Statement::Empty(_)))
@@ -1881,11 +1922,13 @@ fn match_value_prefixed(
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
-    let p = t.prefix_len; // == 1 (scoped)
-    let d = i + p; // the interposed RESULT-decl offset
-    if d >= stmts.len() {
-        return None;
-    }
+    let p = t.prefix_len; // effective callee-prefix statement count (>= 1)
+    // P1: the interposed init-less `local RESULT` decl is the p-th EFFECTIVE
+    // statement at/after i — `i + p` (the old fixed offset) would land on a
+    // CALL_MARKER/`Empty` an inner de-inline spliced between the prefix and the
+    // decl, making `result_decl` bail and silently killing chained AtPrefix
+    // reconstruction. Count only non-trivia statements instead.
+    let d = nth_effective_index(stmts, i, p)?;
     let r = result_decl(&stmts[d])?;
     let kc = t.pat.len();
     let region_start = d + 1;
@@ -1947,7 +1990,10 @@ fn match_value_prefixed(
     let (w, args) = site?;
     Some(Hit {
         f_local: t.f_local.clone(),
-        consume: p + 1 + w,
+        // Absolute span from i: prefix + any interposed trivia + the RESULT decl
+        // (at d) + the w-statement region. `(d - i)` counts the prefix and trivia
+        // so the splice removes the interposed marker along with the window.
+        consume: (d - i) + 1 + w,
         args,
         result: Some(r),
     })
@@ -3154,6 +3200,49 @@ mod tests {
         let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
             .expect("if/else value prefix should match without a flip");
         assert_eq!(hit.consume, 3);
+        assert_eq!(hit.result, Some(v));
+    }
+
+    /// P1 regression: a `CALL_MARKER` an inner de-inline spliced between the
+    /// callee-prefix statement and the interposed `local RESULT` decl must NOT
+    /// break the AtPrefix match. The old `d = i + p` offset pointed at the marker
+    /// (`result_decl` -> None -> bail), silently killing chained reconstruction;
+    /// `nth_effective_index` skips the marker and still finds the decl, and the
+    /// `consume` span removes the marker along with the window.
+    #[test]
+    fn value_prefix_marker_between_prefix_and_result_decl_still_matches() {
+        let obj = local("obj");
+        let k = local("k");
+        let body = vec![
+            assign_local(&k, field(local_value(&obj), "Field"), true),
+            if_stmt(
+                bin(local_value(&k), BinaryOperation::Equal, number(1.0)),
+                vec![return_one(string("a"))],
+                vec![return_one(string("b"))],
+            ),
+        ];
+        let t = value_prefix_target(&body);
+
+        let k2 = local("k2");
+        let v = local("v");
+        let marker = Statement::Comment(Comment::trailing(CALL_MARKER.to_string()));
+        let candidate = vec![
+            assign_local(&k2, field(local_value(&obj), "Field"), true),
+            marker, // interposed by an inner de-inline of the prefix
+            init_less_decl(&v),
+            if_stmt(
+                bin(local_value(&k2), BinaryOperation::Equal, number(1.0)),
+                vec![assign_local(&v, string("a"), false)],
+                vec![assign_local(&v, string("b"), false)],
+            ),
+            print_x(), // trailing stmt: window isn't whole-body; doesn't read k2
+        ];
+
+        let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
+            .expect("interposed marker must not break the AtPrefix match");
+        // span = prefix(0) + marker(1) + decl(2) + region-if(3): removes 4 stmts,
+        // leaving the trailing print.
+        assert_eq!(hit.consume, 4);
         assert_eq!(hit.result, Some(v));
     }
 
