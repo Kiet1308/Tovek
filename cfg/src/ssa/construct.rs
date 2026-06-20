@@ -58,7 +58,7 @@ pub fn remove_unnecessary_params(
                 })
                 .collect::<Vec<_>>();
             let mut params_to_remove = FxHashSet::default();
-            for (index, mut param) in params.enumerate() {
+            for (index, param) in params.enumerate() {
                 if args_in_by_block
                     .iter()
                     .map(|a| a[index])
@@ -66,33 +66,63 @@ pub fn remove_unnecessary_params(
                 {
                     continue;
                 }
+                // Resolve the param to its current representative once (owned, so we
+                // do not hold a `local_map` borrow across the work below).
+                let mut resolved_param = param;
+                while let Some(param_to) = local_map.get(resolved_param) {
+                    resolved_param = param_to;
+                }
+                let resolved_param = resolved_param.clone();
                 // TODO: should we really be doing this by index?
-                let arg_set = args_in_by_block
+                // Distinct incoming locals, EXCLUDING the self-referential back-edge
+                // argument (one that resolves to the param itself). A trivial loop
+                // phi `p = phi(x, p)` carries only `x`; the old code kept the raw
+                // `{x, p}` set (size 2), so the `len() == 1` gate failed, the phi
+                // survived into out-of-SSA, and a by-ref-captured upvalue cell was
+                // then materialized as a pinned pre-loop snapshot `local v2 = v` that
+                // `coalesce_copies` could never remove — a post-loop read of the
+                // mutated upvalue saw the stale value (C4: `state` printed 0 not 15).
+                let mut arg_set: FxHashSet<&RcLocal> = FxHashSet::default();
+                for a in args_in_by_block
                     .iter()
                     .map(|a| a[index])
                     .filter_map(|r| r.as_local())
-                    .collect::<FxHashSet<_>>();
-                if arg_set.len() == 1 {
-                    while let Some(param_to) = local_map.get(param) {
-                        param = param_to;
+                {
+                    let mut ra = a;
+                    while let Some(t) = local_map.get(ra) {
+                        ra = t;
                     }
+                    if *ra != resolved_param {
+                        arg_set.insert(a);
+                    }
+                }
+                if arg_set.len() == 1 {
                     let mut arg = arg_set.into_iter().next().unwrap();
                     while let Some(arg_to) = local_map.get(arg) {
                         arg = arg_to;
                     }
-                    if arg != param {
+                    if *arg != resolved_param {
                         // param is not trivial, we must replace the param with the arg
-                        // y = phi(x, x, ..., x)
-                        removable_params.insert(param.clone(), arg.clone());
+                        // y = phi(x, x, ..., x)  (or the loop-carried y = phi(x, y))
+                        removable_params.insert(resolved_param.clone(), arg.clone());
                     } else {
-                        // param is trivial
-                        // x = phi(x, x, ..., x)
-                        if let Some(&param_node) = dependency_graph.local_to_node.get(param) {
+                        // param is trivial: x = phi(x, x, ..., x)
+                        if let Some(&param_node) =
+                            dependency_graph.local_to_node.get(&resolved_param)
+                        {
                             dependency_graph.remove_node(param_node);
                         }
                     }
-
-                    params_to_remove.insert(param.clone());
+                    params_to_remove.insert(resolved_param.clone());
+                } else if arg_set.is_empty() {
+                    // All incoming args were the self back-edge — an all-self phi
+                    // `p = phi(p, p)` (a dead loop-carried local). The old code
+                    // removed it as trivial (raw set `{p}`, size 1); reproduce that
+                    // removal so no stale param survives (preserves byte-identity).
+                    if let Some(&param_node) = dependency_graph.local_to_node.get(&resolved_param) {
+                        dependency_graph.remove_node(param_node);
+                    }
+                    params_to_remove.insert(resolved_param.clone());
                 }
             }
             if !params_to_remove.is_empty() {
