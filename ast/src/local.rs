@@ -43,13 +43,19 @@ thread_local! {
     /// interleave, so a given file's locals got different absolute ids run-to-run,
     /// permuting their hashed iteration order and therefore their generated names.
     ///
-    /// A whole file (all its functions) is always decompiled sequentially on one
-    /// thread, so making the sequence thread-local and resetting it per file gives
-    /// every file the exact same id assignment it would get when decompiled alone
-    /// (`-e`) — fully reproducible regardless of how rayon schedules the pool.
-    /// Ids only ever need to be unique *within* one decompilation unit (locals
-    /// from different files are never compared), and the per-file monotonic
-    /// sequence guarantees that.
+    /// Each file is an independent decompilation unit: it `reset_local_ids()` at
+    /// entry, lifts its functions sequentially on the calling thread (minting the
+    /// monotonic high-water mark), then decompiles those functions *in parallel*.
+    /// Each per-function task re-bases this counter to a disjoint, stride-spaced
+    /// range keyed by the function's lift-order index (see [`set_local_id_base`])
+    /// before it mints any `RcLocal`, so the ids a file assigns depend only on its
+    /// own lift order — never on which rayon worker runs a function, how many ran
+    /// before it, or what other files run concurrently on the shared pool. That
+    /// makes every file's output byte-identical to decompiling it alone (`-e`),
+    /// the determinism the `decompile-folder`/batch drivers rely on. Ids only ever
+    /// need to be unique *within* one decompilation unit (locals from different
+    /// files are never compared), which the per-file monotonic sequence (plus the
+    /// strided per-function bases) guarantees.
     static NEXT_LOCAL_ID: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 

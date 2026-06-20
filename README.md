@@ -174,6 +174,34 @@ It accepts `POST /decompile` with a base64-encoded bytecode body and an optional
 `X-Script-Name` header (used to name the chunk). Load `decompile.client.luau` in your
 executor to hook `getgenv().decompile` and drive SynSaveInstance through it.
 
+#### Raw bytecode and batch endpoints
+
+Two extra routes skip per-script overhead — ideal for dumping a whole game in one shot:
+
+| Route | Body | Response |
+| --- | --- | --- |
+| `POST /decompile` | base64 bytecode (one script) | `text/plain` source |
+| `POST /decompile/raw` | **raw** bytecode (one script, no base64) | `text/plain` source |
+| `POST /decompile/batch` | **many** scripts in one request | JSON results array |
+
+- **Raw** (`/decompile/raw`): send the bytecode bytes verbatim — no base64 encode/decode.
+  Use `Content-Type: application/octet-stream`, the optional `X-Script-Name` header, and an
+  optional `X-Encode-Key` header (defaults to `203`).
+- **Batch** (`/decompile/batch`): decompile many scripts in one request, in parallel. Two
+  encodings, chosen by `Content-Type`:
+  - `application/json` — `{ "key": 203, "scripts": [ { "id"?, "script_name"?, "bytecode": "<base64>" } ] }`
+  - `application/octet-stream` — the binary **MDB1** framing (raw bytecode, no base64):
+    `"MDB1"` magic, `u8` version `1`, `u8` key, two zero bytes, `u32`-LE count, then per entry
+    a `u32`-LE-length-prefixed name and a `u32`-LE-length-prefixed bytecode blob (all little-endian).
+  - Response: `{ "count", "ok_count", "results": [ { "index", "id"?, "script_name"?, "ok",
+    "decompilation"?, "error"? } ] }`, in input order. **One bad script never fails the
+    batch** — that item gets `ok:false` + an `error`; only a malformed request framing is a
+    `400`.
+
+Load `decompile-batch.client.luau` to pre-walk every script, decompile them all in one batch
+(raw by default — flip `USE_RAW` if your executor mangles binary bodies), and drive
+SynSaveInstance from the cached results.
+
 ---
 
 ## Building from source

@@ -9,7 +9,16 @@ default-run = "web-server"
 axum = "0.7"
 base64 = "0.22"
 luau-lifter = { path = "../luau-lifter" }
+# The decompiler is allocation-bound (millions of small allocations against a
+# few-MB live heap), and the batch path hammers the allocator from every rayon
+# worker at once. mimalloc's per-thread heaps cut wall time ~1.5–1.7× (measured
+# for the CLI binary, larger under the concurrent batch load), byte-identical
+# output. The allocator MUST live in the binary, not the library (the library is
+# shared with the wasm `luau-worker`, which can't build mimalloc's C source).
+mimalloc = "0.1.52"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 thiserror = "2.0"
-tokio = { version = "1.42", features = ["rt-multi-thread"] }
+tokio = { version = "1.42", features = ["rt-multi-thread", "sync"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"

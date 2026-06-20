@@ -137,6 +137,15 @@ pub fn try_decompile_bytecode_with_script_name(
                 .map(|(func_idx, (ast_function, function, upvalues_in))| {
                     use std::{fmt::Write, panic};
 
+                    // LOAD-BEARING for both single and batch determinism: every
+                    // closure that mints an `RcLocal` MUST re-base the thread-local
+                    // id counter here, as its first act, before any `RcLocal::new`.
+                    // The base depends only on `func_idx` (deterministic lift order),
+                    // so a function's ids are independent of the rayon worker that
+                    // runs it and of any sibling work stolen onto that worker —
+                    // including, under `decompile_batch`, functions from a *different*
+                    // script. Do not introduce id minting above this line or move the
+                    // serial tail into a rayon region without an equivalent re-base.
                     ast::set_local_id_base(id_base + func_idx as u64 * ID_STRIDE);
                     let function_id = function.id;
                     let mut args = std::panic::AssertUnwindSafe(Some((
@@ -252,6 +261,74 @@ pub fn try_decompile_bytecode_with_script_name(
             ast::recover_guard_continue::recover_guard_continue(&mut body);
             Ok(body.to_string())
         }
+    }
+}
+
+/// One script to decompile as part of a [`decompile_batch`] call.
+pub struct BatchInput<'a> {
+    /// Raw, already-base64-decoded Luau bytecode for this script.
+    pub bytecode: &'a [u8],
+    /// Per-script decode key (`op = op * key % 256`). 203 for Roblox client
+    /// bytecode; 1 for unencoded Luau bytecode.
+    pub encode_key: u8,
+    /// Optional chunk name (used for naming + `require()`-path resolution).
+    pub script_name: Option<&'a str>,
+}
+
+/// Decompile many scripts in one call, in parallel, preserving input order.
+///
+/// Each item is decompiled by the very same
+/// [`try_decompile_bytecode_with_script_name`] the single-script path uses, so
+/// every item's output is **byte-identical to decompiling that script on its
+/// own**: that function resets the per-thread local-id counter at entry and gives
+/// each of its functions a strided, lift-order-keyed id base, which makes its
+/// output independent of the absolute ids and therefore of scheduling and of what
+/// other items run concurrently. This is the same outer-parallel-over-items ×
+/// inner-parallel-over-functions nesting the `decompile-folder` driver (`batch.rs`
+/// → `try_decompile_bytecode_with_script_name`) already relies on for its
+/// corpus-byte-identical guarantee.
+///
+/// Returns one `Result` per input, in input order: `Ok(source)` on success, or
+/// `Err(reason)` if that one script failed to deserialize/decompile or panicked.
+/// A failure (or panic) in one item never affects the others. Callers should
+/// install the process-global quiet panic hook once up front via
+/// [`install_quiet_panic_hook`].
+pub fn decompile_batch(items: &[BatchInput<'_>]) -> Vec<Result<String, String>> {
+    use rayon::prelude::*;
+    items
+        .par_iter()
+        .map(|item| {
+            // `try_decompile_bytecode_with_script_name` already catches per-function
+            // panics internally; the outer guard here recovers the rarer panics in
+            // lifting or the serial tail so one bad script can't poison the batch.
+            // AssertUnwindSafe is sound because the only state the call mutates is
+            // the per-thread id counter, and the next item on this worker calls
+            // `reset_local_ids()` before minting any id (see `try_decompile_*`).
+            let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                try_decompile_bytecode_with_script_name(
+                    item.bytecode,
+                    item.encode_key,
+                    item.script_name,
+                )
+            }));
+            match caught {
+                Ok(result) => result,
+                Err(payload) => Err(format!("panicked: {}", panic_payload_message(&payload))),
+            }
+        })
+        .collect()
+}
+
+/// Extract a human-readable message from a caught-panic payload (mirrors the
+/// downcast ladder used inside the per-function decompile loop). Lives here in the
+/// library (not the bin-only `decompile_core`) so [`decompile_batch`] can use it.
+fn panic_payload_message(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else if let Some(s) = payload.downcast_ref::<&'static str>() {
+        (*s).to_string()
+    } else {
+        "<non-string panic payload>".to_string()
     }
 }
 
@@ -747,6 +824,94 @@ mod v11_fixtures {
         let blob = build_chunk(10, 1, &["method"], &[proto], 0);
         let out = decompile(&blob, 1, None).expect("v10 NEWCLASSMEMBER chunk must deserialize");
         assert!(out.contains("method"), "got: {out:?}");
+    }
+
+    #[test]
+    fn batch_matches_individual_and_preserves_order() {
+        // Three distinguishable chunks so order-preservation is observable.
+        let ret = build_chunk(11, 1, &[], &[simple_return_proto(vec![])], 0);
+
+        let print_proto = Proto {
+            max_stack: 2,
+            words: vec![
+                abc(GETGLOBAL, 0, 0, 0),
+                0, // aux: "print"
+                ad(LOADN, 1, 1),
+                abc(CALL, 0, 2, 1),
+                abc(RETURN, 0, 1, 0),
+            ],
+            constants: vec![const_string(1)],
+            ..Default::default()
+        };
+        let print = build_chunk(11, 1, &["print"], &[print_proto], 0);
+
+        let field_proto = Proto {
+            max_stack: 2,
+            words: vec![
+                abc(GETGLOBAL, 0, 0, 0),
+                0, // aux: "obj"
+                abc(GETUDATAKS, 1, 0, 0),
+                (5 << 16) | 1, // aux: atom cache | const idx 1 ("field")
+                abc(RETURN, 1, 2, 0),
+            ],
+            constants: vec![const_string(1), const_string(2)],
+            ..Default::default()
+        };
+        let field = build_chunk(11, 1, &["obj", "field"], &[field_proto], 0);
+
+        // Individual (serial) decompilation — the gold standard.
+        let i_ret = decompile(&ret, 1, None).unwrap();
+        let i_print = decompile(&print, 1, None).unwrap();
+        let i_field = decompile(&field, 1, None).unwrap();
+        assert_ne!(i_ret, i_print);
+        assert_ne!(i_print, i_field);
+
+        // Batch (outer-parallel) decompilation must match item-for-item, in order.
+        let inputs = vec![
+            super::BatchInput { bytecode: &ret, encode_key: 1, script_name: None },
+            super::BatchInput { bytecode: &print, encode_key: 1, script_name: None },
+            super::BatchInput { bytecode: &field, encode_key: 1, script_name: None },
+        ];
+        let out = super::decompile_batch(&inputs);
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[0].as_ref().unwrap(), &i_ret);
+        assert_eq!(out[1].as_ref().unwrap(), &i_print);
+        assert_eq!(out[2].as_ref().unwrap(), &i_field);
+    }
+
+    #[test]
+    fn batch_isolates_per_item_failure() {
+        // Quiet the panic the bad item triggers (kept idempotent/global by Once).
+        super::install_quiet_panic_hook();
+
+        // First byte 99 is an unsupported bytecode version → the deserializer
+        // `panic!`s. decompile_batch's outer catch_unwind must turn that into this
+        // item's own Err, leaving the good item byte-identical and in order.
+        let good = build_chunk(11, 1, &[], &[simple_return_proto(vec![])], 0);
+        let good_src = decompile(&good, 1, None).unwrap();
+        let garbage: &[u8] = &[99u8, 0, 0];
+
+        let inputs = vec![
+            super::BatchInput { bytecode: garbage, encode_key: 1, script_name: None },
+            super::BatchInput { bytecode: &good, encode_key: 1, script_name: None },
+        ];
+        let out = super::decompile_batch(&inputs);
+        assert_eq!(out.len(), 2);
+        assert!(
+            out[0].is_err(),
+            "a panicking item must fail only its own slot, got: {:?}",
+            out[0]
+        );
+        assert_eq!(
+            out[1].as_ref().unwrap(),
+            &good_src,
+            "the good item must be byte-identical and stay at index 1"
+        );
+    }
+
+    #[test]
+    fn batch_empty_is_empty() {
+        assert!(super::decompile_batch(&[]).is_empty());
     }
 }
 
