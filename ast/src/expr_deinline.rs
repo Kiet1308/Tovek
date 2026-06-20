@@ -173,9 +173,14 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
             return;
         }
         let g = fa.lock();
-        // Named, fixed-arity, no goto/label/comment/close/for-init, NO nested
-        // closure (identity-matching closures is unsound).
-        if g.is_variadic || g.name.is_none() || body_unsafe(&g.body.0) {
+        // Fixed-arity, no goto/label/comment/close/for-init, NO nested closure
+        // (identity-matching closures is unsound). P5-A: the `g.name.is_none()`
+        // gate is dropped here too — `g.name` is only the bytecode debugname,
+        // never consumed by emission (the call uses `f_local`) or the formatter;
+        // the ANCHOR_FLOOR/NODE_COUNT_FLOOR cost gates below filter trivial
+        // helpers regardless of debugname. Variadic stays refused (unprovable
+        // arity in a multi-value slot).
+        if g.is_variadic || body_unsafe(&g.body.0) {
             return;
         }
         // The body must canonicalise to EXACTLY `return <one value>`. `canon` folds

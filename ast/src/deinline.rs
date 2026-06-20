@@ -2075,7 +2075,15 @@ fn collect_targets(body: &Block) -> Vec<Target> {
             continue;
         }
         let g = func.lock();
-        if g.is_variadic || g.name.is_none() {
+        // P5-A: drop the `g.name.is_none()` gate. `g.name` is only the bytecode
+        // debugname — never consumed by emission (the call/marker use `f_local`,
+        // line ~1377) nor the formatter; only this gate and a debug-trace string
+        // read it. Refusing a name-less closure therefore dropped the `name == 0`
+        // subset of the IDENTICAL `local f = function…end` shape for no soundness
+        // reason. (Variadic stays refused — see P5-B: `...`→multi-arg arity is
+        // unprovable from the inlined body, so it is left for `body_unsafe`-style
+        // refusal here.) Every soundness gate downstream is unchanged.
+        if g.is_variadic {
             continue;
         }
         if body_unsafe(&g.body.0) {
