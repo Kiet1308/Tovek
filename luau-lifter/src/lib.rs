@@ -382,7 +382,11 @@ fn decompile_function(
         }
         let mut local_map = FxHashMap::default();
         // TODO: loop until returns false?
-        if ssa::construct::remove_unnecessary_params(&mut function, &mut local_map) {
+        if ssa::construct::remove_unnecessary_params(
+            &mut function,
+            &mut local_map,
+            Some(&upvalue_to_group),
+        ) {
             changed = true;
         }
         ssa::construct::apply_local_map(&mut function, local_map);
