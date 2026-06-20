@@ -1234,24 +1234,39 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn are_table_keys_sequential(table: &Table) -> bool {
-        if table.0.is_empty() || table.0.iter().all(|(k, _)| k.is_none()) {
+        // A table can be rendered as a *pure positional array* `{v1, .., vn}`
+        // (i.e. with every key stripped) only when that does not change which
+        // index each value lands on. That holds in exactly two cases:
+        //
+        //   * every entry is positional (no explicit key), or
+        //   * every entry has an explicit integer key and those keys are
+        //     exactly 1, 2, .., n in order (`{[1]=a,[2]=b}` ≡ `{a,b}`).
+        //
+        // A *mix* of positional and keyed entries can NOT be stripped: in Luau
+        // the positional entries get their own 1-based numbering that ignores
+        // the explicit keys, so dropping the keys relocates values (C2 — e.g.
+        // `{[1]=11,[2]=22,"a","b"}` must keep its keys, otherwise the positional
+        // "a","b" stop overwriting slots 1,2).
+        //
+        // The key match uses an exact float compare, `*x == i+1`, NOT a cast
+        // through `usize`: `f64 as usize` saturates negatives to 0 and truncates
+        // fractions, which made `[0]`, `[-1]`, `[0.5]`, `[1.5]` look sequential
+        // and silently dropped those keys (C2b).
+        if table.0.is_empty() {
             return true;
         }
-
-        let keys_vec = table
-            .0
-            .iter()
-            .filter(|(k, _)| !k.is_none())
-            .map(|(k, _)| k)
-            .collect_vec();
-        if keys_vec.is_empty() {
-            false
-        } else {
-            keys_vec.iter().enumerate().all(|(i, k)| {
-                matches!(k, Some(RValue::Literal(Literal::Number(x)))
-                        if (x - 1f64) as usize == i)
-            })
+        let any_keyed = table.0.iter().any(|(k, _)| !k.is_none());
+        if !any_keyed {
+            return true; // all positional
         }
+        if table.0.iter().any(|(k, _)| k.is_none()) {
+            return false; // mixed positional + keyed — must render keys
+        }
+        // all entries keyed: require keys to be exactly 1..n, integral, in order
+        table.0.iter().enumerate().all(|(i, (k, _))| {
+            matches!(k, Some(RValue::Literal(Literal::Number(x)))
+                    if *x == (i as f64) + 1.0)
+        })
     }
 
     fn contains_table(table: &Table) -> bool {
