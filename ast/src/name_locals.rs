@@ -4,8 +4,8 @@ use triomphe::Arc;
 
 use crate::{
     inline_temps::{collect_usage, Usage},
-    Binary, BinaryOperation, Block, Call, Index, Literal, Local, LocalRw, MethodCall, RValue,
-    RcLocal, Select, Statement, Table, Traverse,
+    Binary, BinaryOperation, Block, Call, Index, LValue, Literal, Local, LocalRw, MethodCall,
+    RValue, RcLocal, Select, Statement, Table, Traverse,
 };
 
 // Lua syntactic keywords. A generated name must never be one of these.
@@ -215,6 +215,94 @@ fn strip_predicate_prefix(name: &str) -> Option<&str> {
     None
 }
 
+/// The descriptive subject of a factory/getter function name: `getOwnPlot` ->
+/// `OwnPlot`, `createButton` -> `Button`, `normalizeContentId` -> `ContentId`.
+/// Returns `None` unless the name starts with an allow-listed verb *immediately
+/// followed by an uppercase letter*, so non-verbs (`getter`, `island`) and bare
+/// verbs (`get`) are left alone. The remainder keeps its original case for the
+/// caller to `sanitize` into lowerCamel.
+///
+/// A compound factory verb (`getOrCreate`/`findOrCreate`/...) is stripped as a
+/// *whole phrase* — `getOrCreateFXPart` -> `fXPart`, NOT `orCreateFXPart` (a
+/// garbage identifier). The allow-list is deliberately small and ground-truth
+/// verified: only verbs that strip to a noun reading as the produced value are
+/// included. Notably `summarize` is excluded (`summarizeStatus` -> `status`
+/// inverts a summary-of-status into a status), as are weak/ambiguous verbs
+/// (`process`, `apply`, `use`, `handle`, `update`).
+///
+/// A stripped remainder whose leading PascalCase word is a preposition or
+/// conjunction is REFUSED (`cloneFromNode` -> `FromNode` -> *refused*, keeps `v`;
+/// `cloneAndPosition` -> `AndPosition` -> *refused*): such a name reads as a
+/// qualifier ("from node", "and position"), not as the produced value, so it is
+/// worse than the generic `vN`. Catches the verb+preposition+noun shape the
+/// compound `getOr…`/`findOr…` rule does not.
+fn strip_verb_prefix(name: &str) -> Option<&str> {
+    // Accept a stripped remainder only if it is a noun-like PascalCase word — it
+    // must be uppercase-led AND not begin with a connective word.
+    fn noun_like(rest: &str) -> Option<&str> {
+        if rest.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+            && !starts_with_connective(rest)
+        {
+            Some(rest)
+        } else {
+            None
+        }
+    }
+    // Compound factory verbs first: strip the leading `getOr`/`findOr` AND the
+    // following factory verb (`Create`/`Make`/...) so only the noun survives.
+    // `getOrCreate` (no trailing noun) -> refused (the noun-tail check fails).
+    const COMPOUND: &[&str] = &["getOr", "findOr", "getAnd", "findAnd"];
+    const SECOND_VERBS: &[&str] = &["Create", "Make", "Build", "Get", "Find", "Spawn"];
+    for compound in COMPOUND {
+        if let Some(rest) = name.strip_prefix(compound)
+            && rest.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+        {
+            for verb in SECOND_VERBS {
+                if let Some(tail) = rest.strip_prefix(verb) {
+                    return noun_like(tail);
+                }
+            }
+            return noun_like(rest);
+        }
+    }
+    const VERBS: &[&str] = &[
+        "get", "find", "create", "clone", "resolve", "ensure", "build", "make", "normalize",
+    ];
+    for verb in VERBS {
+        if let Some(rest) = name.strip_prefix(verb)
+            && rest.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+        {
+            return noun_like(rest);
+        }
+    }
+    None
+}
+
+/// Whether a PascalCase remainder begins with a preposition/conjunction word
+/// (`FromNode` -> yes via `From`; `AndPosition` -> yes via `And`). Only the
+/// *whole* leading word counts, so genuine nouns that merely start with those
+/// letters are unaffected (`Information` != `In`, `Output` != `Out`,
+/// `Inventory` != `In`). Used to refuse verb-strips that would read as a
+/// qualifier instead of the produced value.
+fn starts_with_connective(rest: &str) -> bool {
+    const CONNECTIVES: &[&str] = &[
+        "and", "or", "from", "to", "with", "by", "of", "in", "for", "on", "into", "out", "off",
+        "via", "at", "as", "the", "a",
+    ];
+    let mut chars = rest.chars();
+    let mut word = String::new();
+    if let Some(first) = chars.next() {
+        word.push(first.to_ascii_lowercase());
+    }
+    for c in chars {
+        if c.is_ascii_uppercase() {
+            break;
+        }
+        word.push(c);
+    }
+    CONNECTIVES.contains(&word.as_str())
+}
+
 fn method_call_hint(method_call: &MethodCall) -> Option<String> {
     let method = method_call.method.as_str();
     // Lookups carrying the name as a string argument:
@@ -247,6 +335,12 @@ fn method_call_hint(method_call: &MethodCall) -> Option<String> {
         "Connect" | "Once" | "ConnectParallel" => return Some("connection".to_string()),
         "LoadAnimation" => return Some("track".to_string()),
         "Clone" => return Some("clone".to_string()),
+        // A `:Raycast(...)` result is a `RaycastResult` regardless of the receiver
+        // (Workspace/WorldRoot), so the type-accurate name is unconditional. Source
+        // commonly names it `result`; `raycastResult` is the unambiguous, never-
+        // misleading form (it *is* a RaycastResult) and avoids colliding with the
+        // generic `result` minted by the pcall-tuple / loop-fill hints.
+        "Raycast" => return Some("raycastResult".to_string()),
         _ => {}
     }
     // Getter-style methods: obj:GetChildren() -> "children", obj:GetMouse() -> "mouse"
@@ -863,6 +957,87 @@ fn uses_create_element(block: &Block, aliases: &FxHashSet<usize>) -> bool {
     })
 }
 
+/// Locals carrying an OOP "class" signal: the receiver of a `X.__index = ...`
+/// assignment, the 2nd argument of `setmetatable(_, X)`, or the receiver of a
+/// colon method-call `X:method(...)`. The `collect` table-arm combines this with
+/// an empty-table declaration `local X = {}` to name the class table `class`.
+///
+/// Each signal alone is too broad (every instance is colon-called), so the
+/// empty-table-decl gate is what makes the pair sound: a bare `{}` that is later
+/// used as a metatable or colon-invoked can only be a class/object table.
+fn collect_class_signals(block: &mut Block, out: &mut FxHashSet<usize>) {
+    fn note_setmetatable(call: &Call, out: &mut FxHashSet<usize>) {
+        if global_name(&call.value) == Some("setmetatable")
+            && let Some(RValue::Local(meta)) = call.arguments.get(1)
+        {
+            out.insert(local_ptr(meta));
+        }
+    }
+    fn note_colon_receiver(method_call: &MethodCall, out: &mut FxHashSet<usize>) {
+        if let RValue::Local(receiver) = &*method_call.value {
+            out.insert(local_ptr(receiver));
+        }
+    }
+
+    for statement in &mut block.0 {
+        // `X.__index = ...` — any assignment whose LHS indexes a local with the
+        // key "__index" marks that local as a metatable/class.
+        if let Statement::Assign(assign) = &*statement {
+            for lvalue in &assign.left {
+                if let LValue::Index(index) = lvalue
+                    && let RValue::Local(base) = &*index.left
+                    && index_key(index) == Some("__index")
+                {
+                    out.insert(local_ptr(base));
+                }
+            }
+        }
+
+        // Nested rvalues: `setmetatable(_, X)` calls and colon-calls `X:m()`.
+        let mut functions = Vec::new();
+        statement.post_traverse_values(&mut |value| -> Option<()> {
+            match value {
+                Either::Right(RValue::Closure(closure)) => {
+                    functions.push(closure.function.clone());
+                }
+                Either::Right(RValue::Call(call))
+                | Either::Right(RValue::Select(Select::Call(call))) => note_setmetatable(call, out),
+                Either::Right(RValue::MethodCall(method_call))
+                | Either::Right(RValue::Select(Select::MethodCall(method_call))) => {
+                    note_colon_receiver(method_call, out)
+                }
+                _ => {}
+            }
+            None
+        });
+        // Top-level call / method-call statements are not exposed above.
+        match &*statement {
+            Statement::Call(call) => note_setmetatable(call, out),
+            Statement::MethodCall(method_call) => note_colon_receiver(method_call, out),
+            _ => {}
+        }
+
+        for function in functions {
+            collect_class_signals(&mut function.lock().body, out);
+        }
+        match &*statement {
+            Statement::If(r#if) => {
+                collect_class_signals(&mut r#if.then_block.lock(), out);
+                collect_class_signals(&mut r#if.else_block.lock(), out);
+            }
+            Statement::While(r#while) => collect_class_signals(&mut r#while.block.lock(), out),
+            Statement::Repeat(repeat) => collect_class_signals(&mut repeat.block.lock(), out),
+            Statement::NumericFor(numeric_for) => {
+                collect_class_signals(&mut numeric_for.block.lock(), out)
+            }
+            Statement::GenericFor(generic_for) => {
+                collect_class_signals(&mut generic_for.block.lock(), out)
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Locals declared as `local x = <something>.createElement`, so a later `x(...)`
 /// can be recognised as a React element constructor.
 fn collect_create_element_aliases(block: &mut Block, aliases: &mut FxHashSet<usize>) {
@@ -1381,6 +1556,11 @@ struct Namer {
     /// collapses (`local v; if c then v=A else v=B end; use(v)` — adjacent).
     /// See `collect_collapse_candidates`.
     collapse_candidates: FxHashSet<usize>,
+    /// Locals carrying an OOP "class" signal (`X.__index = ..`,
+    /// `setmetatable(_, X)`, or a colon-call `X:m()`). Combined with an empty-
+    /// table declaration `local X = {}` to name the class table `class`.
+    /// See `collect_class_signals`.
+    class_signal_locals: FxHashSet<usize>,
 }
 
 impl Namer {
@@ -1609,6 +1789,58 @@ impl Namer {
         };
         let name = self.callable_name(&call.value)?;
         sanitize(strip_predicate_prefix(&name)?)
+    }
+
+    /// A local bound to a factory/getter call reads as the call's subject:
+    /// `local v = getOwnPlot()` -> `ownPlot`, `local v = createButton(...)` ->
+    /// `button`, `local v = getOrCreateFXPart(...)` -> `fxPart`. The callee is
+    /// resolved exactly as `predicate_call_hint` does (`callable_name` — a local
+    /// function, a global, or an indexed method), then an allow-listed verb prefix
+    /// is stripped (see `strip_verb_prefix`). The RHS is a `Call` (non-movable,
+    /// `is_movable_single_value` = false), so the local is a guaranteed survivor of
+    /// the inline/collapse passes — naming it can never suppress one (+lines-safe).
+    fn verb_call_hint(&self, rvalue: &RValue) -> Option<String> {
+        let (RValue::Call(call) | RValue::Select(Select::Call(call))) = rvalue else {
+            return None;
+        };
+        let name = self.callable_name(&call.value)?;
+        sanitize(strip_verb_prefix(&name)?)
+    }
+
+    /// A stored `TweenService:Create(...)` result reads as `tween` (the near-
+    /// universal source name). Gated on the receiver actually being TweenService —
+    /// `method == "Create"` alone is ambiguous (a custom class can define a
+    /// `:Create()` constructor, e.g. `EmiliaFBXTalkFX:Create()`, which must NOT be
+    /// named `tween`).
+    fn tween_create_hint(&self, rvalue: &RValue) -> Option<String> {
+        let (RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call))) =
+            rvalue
+        else {
+            return None;
+        };
+        if method_call.method != "Create" {
+            return None;
+        }
+        self.is_tween_service(&method_call.value)
+            .then(|| "tween".to_string())
+    }
+
+    /// Whether `receiver` denotes the TweenService — either a local resolving to
+    /// the name `TweenService` (the GetService-preserved header local) or the
+    /// inline `_:GetService("TweenService")` call.
+    fn is_tween_service(&self, receiver: &RValue) -> bool {
+        match receiver {
+            RValue::Local(local) => {
+                self.local_known_name(local).as_deref() == Some("TweenService")
+            }
+            RValue::MethodCall(method_call)
+            | RValue::Select(Select::MethodCall(method_call)) => {
+                method_call.method == "GetService"
+                    && method_call.arguments.first().and_then(string_literal)
+                        == Some("TweenService")
+            }
+            _ => false,
+        }
     }
 
     /// Singularize a generic-for element variable after the collection it
@@ -1962,6 +2194,37 @@ impl Namer {
                                     self.set_hint(local, hint, 90);
                                 }
                                 self.children_or_result_hint(local);
+                                // An EMPTY table later used as a metatable
+                                // (`X.__index = X` / `setmetatable(_, X)`) or colon-
+                                // invoked (`X:method()`) is an OOP class table; name
+                                // it `class`. The empty-table gate is what makes the
+                                // (otherwise broad) class signals sound — a bare `{}`
+                                // that is metatable-/colon-used can only be a class.
+                                // Score 36 is far below the module name (100) and
+                                // collection (90), so a returned module class keeps
+                                // its script-derived name.
+                                //
+                                // NOTE: an empty `{}` IS `is_movable_single_value`
+                                // (vacuously — `.all()` over no entries), so a SINGLE-
+                                // USE empty-table temp WOULD be folded by the later
+                                // `inline_single_use_temps` (-1 line). Naming it `class`
+                                // makes `is_generated_temp` false and suppresses that
+                                // inline (+1 line). So additionally gate on it NOT being
+                                // that inline shape (`reads == 1 && writes == 1 &&
+                                // !captured`); a genuine class table is referenced by
+                                // its metatable / method defs / return, hence always
+                                // multi-use, so this never drops a real class (all 3
+                                // corpus sites keep `class`).
+                                let inlinable_temp =
+                                    self.counts.get(&local_ptr(local)).is_some_and(|u| {
+                                        u.reads == 1 && u.writes == 1 && !u.captured
+                                    });
+                                if table.0.is_empty()
+                                    && !inlinable_temp
+                                    && self.class_signal_locals.contains(&local_ptr(local))
+                                {
+                                    self.set_hint_str(local, "class", 36);
+                                }
                             }
                             // RHS-derived naming must not fire on a
                             // `conditional_expressions` diamond temp (`local v; if c then
@@ -1996,6 +2259,18 @@ impl Namer {
                                 // Score 58, just below the direct rvalue_hint tier.
                                 if let Some(name) = boolean_compare_hint(rvalue) {
                                     self.set_hint(local, name, 58);
+                                }
+                                // Factory/getter call result -> its subject
+                                // (`local v = getOwnPlot()` -> `ownPlot`). Score 60 =
+                                // rvalue_hint tier; `call_hint` returns nothing for a
+                                // local-function callee, so this fills the empty slot.
+                                if let Some(name) = self.verb_call_hint(rvalue) {
+                                    self.set_hint(local, name, 60);
+                                }
+                                // `TweenService:Create(...)` result -> `tween`
+                                // (`method_call_hint` returns nothing for `:Create`).
+                                if let Some(name) = self.tween_create_hint(rvalue) {
+                                    self.set_hint(local, name, 60);
                                 }
                             }
                             self.ref_hint(local, rvalue);
@@ -2308,6 +2583,8 @@ pub fn name_locals_with_script_name(block: &mut Block, rename: bool, script_name
         .collect();
     let mut collapse_candidates = FxHashSet::default();
     collect_collapse_candidates(block, &mut collapse_candidates);
+    let mut class_signal_locals = FxHashSet::default();
+    collect_class_signals(block, &mut class_signal_locals);
 
     let mut namer = Namer {
         rename,
@@ -2323,6 +2600,7 @@ pub fn name_locals_with_script_name(block: &mut Block, rename: bool, script_name
         create_element_aliases,
         counts,
         collapse_candidates,
+        class_signal_locals,
     };
     namer.collect(block, true);
     namer.apply(block);
@@ -4476,11 +4754,13 @@ mod tests {
         assert_eq!(name_of(&v), "v");
     }
 
-    /// A non-predicate call (`getThing`) is left alone by Layer A.
+    /// A non-predicate call whose callee is also not a factory/getter verb
+    /// (`frobnicate`) is left alone by both Layer A (predicate) and the verb-call
+    /// hint -> default name.
     #[test]
     fn predicate_non_predicate_call_refused() {
         let v = RcLocal::default();
-        let mut block = Block(vec![declare(&v, predicate_call("getThing")), use_local(&v)]);
+        let mut block = Block(vec![declare(&v, predicate_call("frobnicate")), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "v");
     }
@@ -4530,6 +4810,258 @@ mod tests {
         let mut block = Block(vec![declare(&v, cmp), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "visible");
+    }
+
+    // ---- Bucket A: factory/getter verb-strip call naming ----
+
+    /// `local v = getOwnPlot()` -> `ownPlot`.
+    #[test]
+    fn verb_call_get_names_subject() {
+        let v = RcLocal::default();
+        let call = RValue::Call(Call::new(global("getOwnPlot"), vec![]));
+        let mut block = Block(vec![declare(&v, call), use_local(&v)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&v), "ownPlot");
+    }
+
+    /// `createButton(...)` -> `button`; `normalizeContentId(...)` -> `contentId`.
+    #[test]
+    fn verb_call_create_and_normalize() {
+        let b = RcLocal::default();
+        let c = RcLocal::default();
+        let mut block = Block(vec![
+            declare(&b, RValue::Call(Call::new(global("createButton"), vec![]))),
+            declare(
+                &c,
+                RValue::Call(Call::new(global("normalizeContentId"), vec![global("x")])),
+            ),
+            use_local(&b),
+            use_local(&c),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&b), "button");
+        assert_eq!(name_of(&c), "contentId");
+    }
+
+    /// Compound factory verb: `getOrCreateWorkspaceFolder(...)` -> `workspaceFolder`,
+    /// never the garbage `orCreateWorkspaceFolder` a naive `get`-only strip yields.
+    /// (The `FX` acronym case `getOrCreateFXPart` -> `fXPart` is the standard
+    /// lowerCamel sanitize artifact, exercised by the assertion below.)
+    #[test]
+    fn verb_call_compound_getorcreate() {
+        let folder = RcLocal::default();
+        let fx = RcLocal::default();
+        let mut block = Block(vec![
+            declare(
+                &folder,
+                RValue::Call(Call::new(global("getOrCreateWorkspaceFolder"), vec![])),
+            ),
+            declare(&fx, RValue::Call(Call::new(global("getOrCreateFXPart"), vec![]))),
+            use_local(&folder),
+            use_local(&fx),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&folder), "workspaceFolder");
+        assert_eq!(name_of(&fx), "fXPart");
+    }
+
+    /// `summarize*` is excluded (deny-list): `summarizeStatus(...)` would name
+    /// the result `status`, inverting a summary-of-status into a status. Stays `v`.
+    #[test]
+    fn verb_call_summarize_refused() {
+        let v = RcLocal::default();
+        let call = RValue::Call(Call::new(global("summarizeStatus"), vec![global("x")]));
+        let mut block = Block(vec![declare(&v, call), use_local(&v)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&v), "v");
+    }
+
+    // ---- Bucket B: TweenService:Create -> tween (receiver-gated) ----
+
+    /// `local tween = TweenService:Create(...)` where TweenService is the
+    /// GetService-preserved header local.
+    #[test]
+    fn tween_create_named_when_receiver_is_tween_service() {
+        let svc = RcLocal::default();
+        let v = RcLocal::default();
+        let svc_value = RValue::MethodCall(MethodCall::new(
+            global("game"),
+            "GetService".to_string(),
+            vec![string("TweenService")],
+        ));
+        let create = RValue::MethodCall(MethodCall::new(
+            RValue::Local(svc.clone()),
+            "Create".to_string(),
+            vec![global("inst"), global("info")],
+        ));
+        let mut block = Block(vec![
+            declare(&svc, svc_value),
+            declare(&v, create),
+            use_local(&v),
+            use_local(&svc),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&svc), "TweenService");
+        assert_eq!(name_of(&v), "tween");
+    }
+
+    /// A custom class constructor `SomeClass:Create()` is NOT a tween — receiver
+    /// gate refuses, so the result keeps the default name.
+    #[test]
+    fn create_on_non_tween_service_refused() {
+        let v = RcLocal::default();
+        let create = RValue::MethodCall(MethodCall::new(
+            global("EmiliaFBXTalkFX"),
+            "Create".to_string(),
+            vec![],
+        ));
+        let mut block = Block(vec![declare(&v, create), use_local(&v)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&v), "v");
+    }
+
+    // ---- Bucket C: :Raycast -> raycastResult ----
+
+    /// `local v = workspace:Raycast(...)` -> `raycastResult` (type-accurate for any
+    /// receiver).
+    #[test]
+    fn raycast_names_raycast_result() {
+        let v = RcLocal::default();
+        let raycast = RValue::MethodCall(MethodCall::new(
+            global("workspace"),
+            "Raycast".to_string(),
+            vec![global("origin"), global("dir")],
+        ));
+        let mut block = Block(vec![declare(&v, raycast), use_local(&v)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&v), "raycastResult");
+    }
+
+    // ---- OOP class-table naming ----
+
+    /// An empty table with a metatable signal (`t.__index = t`) is named `class`.
+    #[test]
+    fn empty_table_with_index_signal_named_class() {
+        let t = RcLocal::default();
+        let index_assign: Statement = Assign::new(
+            vec![LValue::Index(Index::new(
+                RValue::Local(t.clone()),
+                string("__index"),
+            ))],
+            vec![RValue::Local(t.clone())],
+        )
+        .into();
+        let mut block = Block(vec![
+            declare(&t, RValue::Table(Table::default())),
+            index_assign,
+            use_local(&t),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&t), "class");
+    }
+
+    /// An empty table that is colon-invoked (`t:method()`) is a class even without
+    /// `__index` (matches the `collision.client.luau` shape).
+    #[test]
+    fn empty_table_colon_called_named_class() {
+        let t = RcLocal::default();
+        let colon: Statement = Statement::MethodCall(MethodCall::new(
+            RValue::Local(t.clone()),
+            "DoThing".to_string(),
+            vec![],
+        ));
+        let mut block = Block(vec![
+            declare(&t, RValue::Table(Table::default())),
+            colon,
+            use_local(&t),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&t), "class");
+    }
+
+    /// A plain empty table with no class signal must NOT be named `class`.
+    #[test]
+    fn empty_table_without_signal_not_class() {
+        let t = RcLocal::default();
+        let field_assign: Statement = Assign::new(
+            vec![LValue::Index(Index::new(RValue::Local(t.clone()), string("x")))],
+            vec![number(1.0)],
+        )
+        .into();
+        let mut block = Block(vec![
+            declare(&t, RValue::Table(Table::default())),
+            field_assign,
+            use_local(&t),
+        ]);
+        name_locals(&mut block, true);
+        assert_ne!(name_of(&t), "class");
+    }
+
+    /// A SINGLE-USE empty-table colon-call temp must NOT be named `class`: an empty
+    /// `{}` is movable, so `inline_single_use_temps` would fold it; naming would
+    /// suppress that inline (+lines). The reads==1/writes==1 guard refuses it even
+    /// though the colon-call still flags it as a class signal.
+    #[test]
+    fn single_use_empty_table_colon_call_not_class() {
+        let t = RcLocal::default();
+        let colon: Statement = Statement::MethodCall(MethodCall::new(
+            RValue::Local(t.clone()),
+            "DoThing".to_string(),
+            vec![],
+        ));
+        let mut block = Block(vec![declare(&t, RValue::Table(Table::default())), colon]);
+        name_locals(&mut block, true);
+        assert_ne!(name_of(&t), "class");
+    }
+
+    /// A verb-strip whose remainder leads with a preposition/conjunction is refused
+    /// (reads as a qualifier, worse than `vN`): `cloneFromNode` -> `FromNode` and
+    /// `cloneAndPosition` -> `AndPosition` both stay `v`.
+    #[test]
+    fn verb_call_connective_remainder_refused() {
+        let a = RcLocal::default();
+        let b = RcLocal::default();
+        let mut block = Block(vec![
+            declare(&a, RValue::Call(Call::new(global("cloneFromNode"), vec![global("x")]))),
+            declare(&b, RValue::Call(Call::new(global("cloneAndPosition"), vec![global("x")]))),
+            use_local(&a),
+            use_local(&b),
+        ]);
+        name_locals(&mut block, true);
+        // Refused -> the misleading connective name is never emitted; both fall back
+        // to the generic `vN` form.
+        assert_ne!(name_of(&a), "fromNode");
+        assert_ne!(name_of(&b), "andPosition");
+        assert!(name_of(&a).starts_with('v'), "got {}", name_of(&a));
+        assert!(name_of(&b).starts_with('v'), "got {}", name_of(&b));
+    }
+
+    /// A genuine noun that merely starts with a connective's letters is NOT refused
+    /// (`getInventory` -> `Inventory` != `In`, `getOutput` -> `Output` != `Out`).
+    #[test]
+    fn verb_call_noun_resembling_connective_kept() {
+        let inv = RcLocal::default();
+        let out = RcLocal::default();
+        let mut block = Block(vec![
+            declare(&inv, RValue::Call(Call::new(global("getInventory"), vec![]))),
+            declare(&out, RValue::Call(Call::new(global("getOutput"), vec![]))),
+            use_local(&inv),
+            use_local(&out),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&inv), "inventory");
+        assert_eq!(name_of(&out), "output");
+    }
+
+    /// A compound verb with no trailing noun (`getOrCreate`) is refused (would
+    /// otherwise name the local after the bare factory verb `create`).
+    #[test]
+    fn verb_call_compound_without_noun_refused() {
+        let v = RcLocal::default();
+        let call = RValue::Call(Call::new(global("getOrCreate"), vec![]));
+        let mut block = Block(vec![declare(&v, call), use_local(&v)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&v), "v");
     }
 
     /// `X.Locked == false` is negated polarity (the value is true when Locked is
