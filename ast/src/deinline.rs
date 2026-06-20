@@ -2183,20 +2183,41 @@ fn collect_targets(body: &Block) -> Vec<Target> {
         let pat_raw_len = g.body.0.len();
         let param_order = g.parameters.clone();
         let pat0_kind = std::mem::discriminant(&pat[0]);
-        // §8: a Value target whose canon'd body is `<one leading callee Assign> ;
-        // <value branch>` is matched at the call site with the RESULT-register decl
-        // INTERPOSED after that leading statement. `value_leaf_shape` guarantees the
-        // value branch is `pat`'s last statement and the prefix is return-free, so a
-        // 2-statement pattern with an `Assign` head has exactly one prefix statement
-        // (`prefix_len == 1`) — typically the callee's own `local`, but any Assign
-        // head is sound (exact unification proves the match regardless of LHS kind).
-        // Scoped to that clean shape; everything else stays `AtResultDecl`
-        // (== the original, pre-§8 behaviour, strictly additive).
-        let (value_anchor, prefix_len) = if kind == TKind::Value
-            && pat.len() == 2
-            && matches!(pat[0], Statement::Assign(_))
-        {
-            (ValueAnchor::AtPrefix, 1)
+        // §8 + P6: a Value target whose canon'd body is `<K leading non-branch
+        // callee statements> ; <value branch>` is matched at the call site with the
+        // RESULT-register decl INTERPOSED after those K leading statements (those
+        // are the callee's own locals/effects, computed before the value is
+        // produced). `value_leaf_shape` guarantees the value branch is `pat`'s
+        // unique LAST statement and the prefix is return-free, so the prefix is
+        // exactly `pat[..k]` with `k == pat.len() - 1`.
+        //
+        // §8 scoped this to K==1; P6 generalises to 1..=MAX_PREFIX. The prefix
+        // statements must be NON-BRANCH (`Assign`/`Call`/`MethodCall`) for two
+        // reasons: (1) it keeps the `pat0_kind` O(1) prefilter sound (canon
+        // preserves the first surviving statement's variant, and these variants
+        // survive canon unchanged — a leading `If` prefix would be folded/unguarded
+        // and is left on the `AtResultDecl` path); (2) a branch in the prefix would
+        // be a different inlining shape. Soundness is otherwise unchanged: every
+        // whole-window analysis in `match_value_prefixed` (exact unify over the
+        // union, region-write arg-safety, RESULT identity + never-read, callee-temp
+        // liveness) runs over `prefix ++ region`, so K>1 cannot smuggle anything
+        // past the gates the K==1 path already enforces. MAX_PREFIX bounds the
+        // per-position work (the matcher's single per-width loop is unchanged).
+        const MAX_PREFIX: usize = 4;
+        let (value_anchor, prefix_len) = if kind == TKind::Value && pat.len() >= 2 {
+            let k = pat.len() - 1;
+            if (1..=MAX_PREFIX).contains(&k)
+                && pat[..k].iter().all(|s| {
+                    matches!(
+                        s,
+                        Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_)
+                    )
+                })
+            {
+                (ValueAnchor::AtPrefix, k)
+            } else {
+                (ValueAnchor::AtResultDecl, 0)
+            }
         } else {
             (ValueAnchor::AtResultDecl, 0)
         };
@@ -3072,6 +3093,37 @@ mod tests {
         }
     }
 
+    /// P6: build an `AtPrefix` Value target with K>=1 leading non-branch prefix
+    /// statements (`prefix_len == pat.len() - 1`), mirroring `collect_targets`.
+    fn value_prefix_target_k(body: &[Statement]) -> Target {
+        let pat = canon(body);
+        let k = pat.len() - 1;
+        assert!(k >= 1, "need at least one prefix statement");
+        assert!(
+            pat[..k].iter().all(|s| matches!(
+                s,
+                Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_)
+            )),
+            "prefix statements must be non-branch"
+        );
+        let mut locals = FxHashSet::default();
+        collect_declared_locals(&pat, &mut locals);
+        let pat0_kind = std::mem::discriminant(&pat[0]);
+        Target {
+            f_local: local("f"),
+            func_ptr: std::ptr::null::<Mutex<Function>>(),
+            kind: TKind::Value,
+            pat_raw_len: body.len(),
+            value_anchor: ValueAnchor::AtPrefix,
+            prefix_len: k,
+            pat0_kind,
+            pat,
+            params: FxHashSet::default(),
+            locals,
+            param_order: Vec::new(),
+        }
+    }
+
     /// The flagship AfkClient `isAfkEnabled` case: a guard-leading value callee with
     /// a callee-prefix local before the interposed RESULT decl. Exercises BOTH §8
     /// changes — the prefix-aware window AND the guard-polarity flip (the inline
@@ -3242,6 +3294,49 @@ mod tests {
             .expect("interposed marker must not break the AtPrefix match");
         // span = prefix(0) + marker(1) + decl(2) + region-if(3): removes 4 stmts,
         // leaving the trailing print.
+        assert_eq!(hit.consume, 4);
+        assert_eq!(hit.result, Some(v));
+    }
+
+    /// P6: a Value helper with TWO leading non-branch prefix statements (K==2)
+    /// inlines as `<prefix1> ; <prefix2> ; local RESULT ; <value branch>`. The
+    /// generalised `prefix_len = pat.len()-1` + logical-index RESULT lookup must
+    /// match it (the old K==1 scope refused everything but a single prefix stmt).
+    #[test]
+    fn value_prefix_k2_matches() {
+        let obj = local("obj");
+        let a = local("a");
+        let b = local("b");
+        let body = vec![
+            assign_local(&a, field(local_value(&obj), "A"), true),
+            assign_local(&b, field(local_value(&obj), "B"), true),
+            if_stmt(
+                bin(local_value(&a), BinaryOperation::GreaterThan, local_value(&b)),
+                vec![return_one(local_value(&a))],
+                vec![return_one(local_value(&b))],
+            ),
+        ];
+        let t = value_prefix_target_k(&body);
+        assert_eq!(t.prefix_len, 2);
+
+        let a2 = local("a2");
+        let b2 = local("b2");
+        let v = local("v");
+        let candidate = vec![
+            assign_local(&a2, field(local_value(&obj), "A"), true),
+            assign_local(&b2, field(local_value(&obj), "B"), true),
+            init_less_decl(&v),
+            if_stmt(
+                bin(local_value(&a2), BinaryOperation::GreaterThan, local_value(&b2)),
+                vec![assign_local(&v, local_value(&a2), false)],
+                vec![assign_local(&v, local_value(&b2), false)],
+            ),
+            print_x(), // trailing: window isn't whole-body
+        ];
+
+        let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
+            .expect("K==2 value prefix should match");
+        // span = prefix a2(0) + prefix b2(1) + RESULT decl(2) + value-if(3).
         assert_eq!(hit.consume, 4);
         assert_eq!(hit.result, Some(v));
     }
