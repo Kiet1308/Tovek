@@ -224,6 +224,14 @@ impl<'a> Lifter<'a> {
                             .entry(dest_index)
                             .or_insert_with(|| self.function.new_block());
                     }
+                    // CMPPROTO is a jump-D opcode (runtime proto guard). We lower it as an
+                    // unconditional fall-through (see lift_block), so only the post-instruction
+                    // boundary needs a block. insn_index+2 = the op plus its injected aux NOP.
+                    OpCode::LOP_CMPPROTO => {
+                        self.blocks
+                            .entry(insn_index + 2)
+                            .or_insert_with(|| self.function.new_block());
+                    }
                     _ => {}
                 },
 
@@ -505,10 +513,18 @@ impl<'a> Lifter<'a> {
                     | OpCode::LOP_FASTCALL2
                     | OpCode::LOP_FASTCALL2K
                     | OpCode::LOP_FASTCALL3 => {}
-                    OpCode::LOP_NAMECALL => {
+                    OpCode::LOP_NAMECALL | OpCode::LOP_NAMECALLUDATA => {
                         let namecall_base = a;
                         let namecall_object = self.register(b as _);
-                        let namecall_method = match self.constant(aux as usize) {
+                        // NAMECALL uses the full aux as the method-name constant index;
+                        // NAMECALLUDATA stashes a userdata atom in the high 16 bits, so the
+                        // index is only the low 16 bits (LUAU_INSN_AUX_KV16).
+                        let method_key = if op_code == OpCode::LOP_NAMECALLUDATA {
+                            (aux & 0xFFFF) as usize
+                        } else {
+                            aux as usize
+                        };
+                        let namecall_method = match self.constant(method_key) {
                             ast::Literal::String(string) => String::from_utf8(string).unwrap(),
                             _ => unreachable!(),
                         };
@@ -521,7 +537,10 @@ impl<'a> Lifter<'a> {
                         ));
                         match iter.next().unwrap().1 {
                             &Instruction::BC {
-                                op_code: OpCode::LOP_CALL,
+                                // The followup is CALL, or CALLFB on v11 (same A/B/C call
+                                // shape). CALLFB's injected aux NOP is consumed by the outer
+                                // loop's LOP_NOP arm on the next iteration.
+                                op_code: OpCode::LOP_CALL | OpCode::LOP_CALLFB,
                                 a,
                                 b,
                                 c,
@@ -569,7 +588,10 @@ impl<'a> Lifter<'a> {
                             instruction => unreachable!("{:?}", instruction),
                         }
                     }
-                    OpCode::LOP_CALL => {
+                    // CALLFB (v11) is CALL with a runtime feedback slot in aux; identical
+                    // source-level call. The aux slot id carries no meaning and its injected
+                    // NOP is consumed by the LOP_NOP arm on the next iteration.
+                    OpCode::LOP_CALL | OpCode::LOP_CALLFB => {
                         let arguments = if b != 0 {
                             (a + 1..a + b)
                                 .map(|r| self.register(r as _).into())
@@ -736,6 +758,49 @@ impl<'a> Lifter<'a> {
                             ast::Assign::new(
                                 vec![target.into()],
                                 vec![ast::Binary::new(left.into(), right.into(), op).into()],
+                            )
+                            .into(),
+                        );
+                    }
+                    OpCode::LOP_GETUDATAKS => {
+                        // Userdata field read by constant string key; same shape as
+                        // GETTABLEKS. The key index is the low 16 bits of aux.
+                        let target = self.register(a as _);
+                        let table = self.register(b as _);
+                        let key = self.constant((aux & 0xFFFF) as _);
+                        statements.push(
+                            ast::Assign::new(
+                                vec![target.into()],
+                                vec![ast::Index::new(table.into(), key.into()).into()],
+                            )
+                            .into(),
+                        );
+                    }
+                    OpCode::LOP_SETUDATAKS => {
+                        // Userdata field write by constant string key; same shape as
+                        // SETTABLEKS. The key index is the low 16 bits of aux.
+                        let value = self.register(a as _);
+                        let table = self.register(b as _);
+                        let key = self.constant((aux & 0xFFFF) as _);
+                        statements.push(
+                            ast::Assign::new(
+                                vec![ast::Index::new(table.into(), key.into()).into()],
+                                vec![value.into()],
+                            )
+                            .into(),
+                        );
+                    }
+                    OpCode::LOP_NEWCLASSMEMBER => {
+                        // Experimental Luau Classes member registration, rendered as a field
+                        // assignment `class[name] = value`. B is reserved; the member name is
+                        // the full-aux constant string and the value is register C.
+                        let table = self.register(a as _);
+                        let key = self.constant(aux as _);
+                        let value = self.register(c as _);
+                        statements.push(
+                            ast::Assign::new(
+                                vec![ast::Index::new(table.into(), key.into()).into()],
+                                vec![value.into()],
                             )
                             .into(),
                         );
@@ -1279,6 +1344,19 @@ impl<'a> Lifter<'a> {
                             )
                             .into(),
                         );
+                    }
+                    OpCode::LOP_CMPPROTO => {
+                        // Runtime proto-identity guard with no source form; never emitted by
+                        // the compiler. Lower it as an unconditional fall-through (both guard
+                        // arms are semantically equivalent at source level). The fall-through
+                        // is block_start+index+2 (the op plus its injected aux NOP), mirroring
+                        // the LOP_JUMPX lowering below. Note: the `d` jump target is
+                        // intentionally ignored — a nonzero-`d` CMPPROTO would drop that edge,
+                        // which is sound only because the compiler never emits this opcode.
+                        edges.push((
+                            self.block_to_node(block_start + index + 2),
+                            BlockEdge::new(BranchType::Unconditional),
+                        ));
                     }
                     _ => unreachable!("{:?}", instruction),
                 },

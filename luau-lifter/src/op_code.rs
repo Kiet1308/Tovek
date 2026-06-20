@@ -365,6 +365,54 @@ pub enum OpCode {
     // C: constant table index (0..255)
     LOP_IDIVK,
 
+    // GETUDATAKS: load value from userdata into target register using constant string key
+    // (atom-based userdata field access; added in bytecode v9). Equivalent to GETTABLEKS.
+    // A: target register
+    // B: source register (userdata)
+    // C: predicted slot index
+    // AUX: constant table index in the low 16 bits (LUAU_INSN_AUX_KV16); the high 16
+    //      bits are the userdata atom cache and must be masked off.
+    LOP_GETUDATAKS,
+
+    // SETUDATAKS: store source register into userdata using constant string key.
+    // Equivalent to SETTABLEKS. AUX layout matches GETUDATAKS (low 16 bits = const index).
+    LOP_SETUDATAKS,
+
+    // NAMECALLUDATA: prepare to call a method by name on a userdata. Equivalent to NAMECALL.
+    // Must be followed by CALL or CALLFB. AUX low 16 bits = method-name constant index.
+    LOP_NAMECALLUDATA,
+
+    // NEWCLASSMEMBER: register a method/member on a class object (Luau Classes, experimental;
+    // added in bytecode v10). The compiler does not emit this in normal output.
+    // A: target register holding the class
+    // B: reserved
+    // C: initial value of the member (currently a function)
+    // AUX: member-name constant string index (full aux, VM_KV not KV16)
+    LOP_NEWCLASSMEMBER,
+
+    // CALLFB: call a function while collecting runtime stats in a feedback slot (added in
+    // bytecode v11). Identical call semantics to CALL; the feedback slot is runtime-only.
+    // A/B/C: as CALL
+    // AUX: feedback slot id (0xFFFFFFFF = sealed); no source-level meaning, discarded.
+    LOP_CALLFB,
+
+    // CMPPROTO: check whether register A holds a closure with a specified Luau proto id;
+    // jump by D if it does not match (added in bytecode v11). Runtime/JIT guard, never
+    // emitted by the compiler, with no source-level form.
+    // A: closure register
+    // D: jump offset if the proto doesn't match
+    // AUX: proto id (NOT a constant index)
+    LOP_CMPPROTO,
+
     // Enum entry for number of opcodes, not a valid opcode by itself!
     LOP__COUNT,
 }
+
+// Compile-time guard: the six opcodes above must be tail-inserted so that ordinals
+// 0..=82 are unchanged (any mid-insert would corrupt decoding of every prior version).
+const _: () = assert!(
+    OpCode::LOP_IDIVK as u8 == 82
+        && OpCode::LOP_GETUDATAKS as u8 == 83
+        && OpCode::LOP_CMPPROTO as u8 == 88
+        && OpCode::LOP__COUNT as u8 == 89
+);

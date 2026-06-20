@@ -134,7 +134,14 @@ impl Instruction {
             | 70
             | 71..=75
             | 81
-            | 82 => {
+            | 82
+            // v9/v10/v11 ABC opcodes: GETUDATAKS(83) SETUDATAKS(84) NAMECALLUDATA(85)
+            // NEWCLASSMEMBER(86) CALLFB(87). CMPPROTO(88) is AD-form (handled below).
+            | 83
+            | 84
+            | 85
+            | 86
+            | 87 => {
                 let (a, b, c) = Self::parse_abc(insn);
 
                 Ok(Self::BC {
@@ -145,7 +152,8 @@ impl Instruction {
                     aux: 0,
                 })
             }
-            4 | 5 | 12 | 19 | 23..=32 | 54 | 56..=59 | 61 | 62 | 64 | 76..=80 => {
+            // 88 = CMPPROTO (AD-form: A register + D jump offset + AUX proto id).
+            4 | 5 | 12 | 19 | 23..=32 | 54 | 56..=59 | 61 | 62 | 64 | 76..=80 | 88 => {
                 let (a, d) = Self::parse_ad(insn);
 
                 Ok(Self::AD {

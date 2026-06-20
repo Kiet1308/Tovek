@@ -341,6 +341,415 @@ fn decompile_function(
     (ByAddress(ast_function), upvalues_in)
 }
 
+#[cfg(test)]
+mod v11_fixtures {
+    //! Hand-crafted Luau v11 bytecode fixtures.
+    //!
+    //! Roblox ships v9 and the open-source compiler targets v7, so no real v10/v11
+    //! blob exists to test against. These build minimal-but-valid v11 chunks by hand
+    //! to exercise: the per-proto feedback-vector read, the new aux-bearing opcodes
+    //! (GETUDATAKS/SETUDATAKS/NAMECALLUDATA/NEWCLASSMEMBER/CALLFB) and the AD-form
+    //! CMPPROTO. `encode_key = 1` makes the per-opcode `wrapping_mul` descramble an
+    //! identity, so opcode bytes are literal ordinals.
+
+    use super::try_decompile_bytecode_with_script_name as decompile;
+
+    // --- opcode ordinals used below ---
+    const LOADN: u8 = 4;
+    const GETGLOBAL: u8 = 7; // aux
+    const CALL: u8 = 21;
+    const RETURN: u8 = 22;
+    const NEWTABLE: u8 = 53; // aux
+    const GETUDATAKS: u8 = 83; // aux
+    const SETUDATAKS: u8 = 84; // aux
+    const NAMECALLUDATA: u8 = 85; // aux
+    const NEWCLASSMEMBER: u8 = 86; // aux
+    const CALLFB: u8 = 87; // aux
+    const CMPPROTO: u8 = 88; // aux, AD-form
+
+    fn leb128(mut n: u64) -> Vec<u8> {
+        let mut out = Vec::new();
+        loop {
+            let mut byte = (n & 0x7f) as u8;
+            n >>= 7;
+            if n != 0 {
+                byte |= 0x80;
+            }
+            out.push(byte);
+            if n == 0 {
+                break;
+            }
+        }
+        out
+    }
+
+    fn abc(op: u8, a: u8, b: u8, c: u8) -> u32 {
+        (op as u32) | ((a as u32) << 8) | ((b as u32) << 16) | ((c as u32) << 24)
+    }
+    fn ad(op: u8, a: u8, d: i16) -> u32 {
+        (op as u32) | ((a as u32) << 8) | ((d as u16 as u32) << 16)
+    }
+    /// A `CONSTANT_STRING` (tag 3) pointing at a 1-based string-table index.
+    fn const_string(string_index_1based: u64) -> Vec<u8> {
+        let mut v = vec![3u8];
+        v.extend(leb128(string_index_1based));
+        v
+    }
+
+    #[derive(Default)]
+    struct Proto {
+        max_stack: u8,
+        num_params: u8,
+        num_upvalues: u8,
+        is_vararg: u8,
+        /// Raw 32-bit instruction words, INCLUDING aux words (as the on-wire stream).
+        words: Vec<u32>,
+        constants: Vec<Vec<u8>>,
+        child_protos: Vec<usize>,
+        function_name: usize,
+        /// v11 feedback slots: (slot_type, pc). slot_type 0 == LFT_CALLTARGET.
+        feedback: Vec<(u8, u64)>,
+    }
+
+    fn build_proto(p: &Proto, version: u8) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.push(p.max_stack);
+        out.push(p.num_params);
+        out.push(p.num_upvalues);
+        out.push(p.is_vararg);
+        out.push(0); // flags
+        out.extend(leb128(0)); // typeinfo blob length = 0
+        out.extend(leb128(p.words.len() as u64));
+        for w in &p.words {
+            out.extend(w.to_le_bytes());
+        }
+        out.extend(leb128(p.constants.len() as u64));
+        for c in &p.constants {
+            out.extend(c);
+        }
+        out.extend(leb128(p.child_protos.len() as u64));
+        for &cp in &p.child_protos {
+            out.extend(leb128(cp as u64));
+        }
+        out.extend(leb128(0)); // line_defined
+        out.extend(leb128(p.function_name as u64)); // debugname (0 = none)
+        out.push(0); // has line info
+        out.push(0); // has debug info
+        if version >= 11 {
+            out.extend(leb128(p.feedback.len() as u64));
+            for &(slot_type, pc) in &p.feedback {
+                out.push(slot_type);
+                out.extend(leb128(pc));
+            }
+        }
+        out
+    }
+
+    fn build_chunk(
+        version: u8,
+        types_version: u8,
+        strings: &[&str],
+        protos: &[Proto],
+        main: usize,
+    ) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.push(version);
+        if version >= 4 {
+            out.push(types_version);
+        }
+        out.extend(leb128(strings.len() as u64));
+        for s in strings {
+            out.extend(leb128(s.len() as u64));
+            out.extend(s.as_bytes());
+        }
+        out.extend(leb128(protos.len() as u64));
+        for p in protos {
+            out.extend(build_proto(p, version));
+        }
+        out.extend(leb128(main as u64));
+        out
+    }
+
+    /// A one-proto chunk that does `LOADN r0, 1; return r0`.
+    fn simple_return_proto(feedback: Vec<(u8, u64)>) -> Proto {
+        Proto {
+            max_stack: 1,
+            words: vec![ad(LOADN, 0, 1), abc(RETURN, 0, 2, 0)],
+            feedback,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn v11_empty_feedback() {
+        let blob = build_chunk(11, 1, &[], &[simple_return_proto(vec![])], 0);
+        let out = decompile(&blob, 1, None).expect("v11 empty-feedback chunk must deserialize");
+        assert!(out.contains("return"), "got: {out:?}");
+    }
+
+    #[test]
+    fn v11_nonempty_feedback_consumes_exact_bytes() {
+        // Single proto, main=0, but a NON-empty feedback vector. If the feedback read
+        // miscounts bytes, the trailing `main` varint desyncs (reads main=1, which is
+        // out of bounds for a 1-proto chunk) and this fails — so success proves the
+        // per-slot read (1 byte type + 1 varint pc) is exact.
+        let empty = decompile(
+            &build_chunk(11, 1, &[], &[simple_return_proto(vec![])], 0),
+            1,
+            None,
+        )
+        .unwrap();
+        let with_fb = decompile(
+            &build_chunk(11, 1, &[], &[simple_return_proto(vec![(0, 7)])], 0),
+            1,
+            None,
+        )
+        .expect("v11 non-empty feedback must deserialize");
+        assert_eq!(empty, with_fb, "feedback vector must not affect source output");
+    }
+
+    #[test]
+    fn v11_multislot_feedback_no_desync_across_protos() {
+        // proto0 carries a 2-slot feedback vector and is followed by proto1 (the main).
+        // If proto0's feedback read desyncs, proto1's header parses as garbage and the
+        // chunk fails — success proves alignment is preserved across protos.
+        let proto0 = simple_return_proto(vec![(0, 3), (0, 9)]);
+        let proto1 = simple_return_proto(vec![]);
+        let blob = build_chunk(11, 1, &[], &[proto0, proto1], 1);
+        let out = decompile(&blob, 1, None).expect("multi-slot feedback must not desync");
+        assert!(out.contains("return"), "got: {out:?}");
+    }
+
+    #[test]
+    fn v11_unknown_feedback_slot_type_is_error_not_panic() {
+        // slot_type 1 is not LFT_CALLTARGET — must surface as a clean Err, never a
+        // silent skip (which would desync) or a panic.
+        let blob = build_chunk(11, 1, &[], &[simple_return_proto(vec![(1, 0)])], 0);
+        let err = decompile(&blob, 1, None);
+        assert!(err.is_err(), "unknown feedback slot type must be a deserialize error");
+    }
+
+    #[test]
+    fn v11_getudataks_lifts_like_field_access() {
+        // r0 = obj (global); r1 = r0.field (GETUDATAKS); return r1.
+        // The aux carries the constant index in its LOW 16 bits (1 -> "field") and a
+        // userdata atom-cache value (5) in its HIGH 16 bits. If the lifter failed to
+        // mask with & 0xFFFF it would index constant 0x50001 (out of bounds -> panic),
+        // so this fixture genuinely exercises the mask rather than passing trivially.
+        let proto = Proto {
+            max_stack: 2,
+            words: vec![
+                abc(GETGLOBAL, 0, 0, 0),
+                0, // aux: constant index 0 ("obj")
+                abc(GETUDATAKS, 1, 0, 0),
+                (5 << 16) | 1, // aux: high16 = atom cache, low16 = const index 1 ("field")
+                abc(RETURN, 1, 2, 0),
+            ],
+            constants: vec![const_string(1), const_string(2)],
+            ..Default::default()
+        };
+        let blob = build_chunk(11, 1, &["obj", "field"], &[proto], 0);
+        let out = decompile(&blob, 1, None).expect("GETUDATAKS chunk must deserialize+lift");
+        assert!(out.contains("field"), "GETUDATAKS key must appear: {out:?}");
+    }
+
+    #[test]
+    fn v11_setudataks_lifts_like_field_write() {
+        // r0 = obj (global); r1 = 5; obj.field = r1 (SETUDATAKS); return r0.
+        // aux high16 (7) is the atom cache; low16 (1) is the constant index for "field".
+        let proto = Proto {
+            max_stack: 2,
+            words: vec![
+                abc(GETGLOBAL, 0, 0, 0),
+                0, // aux: "obj"
+                ad(LOADN, 1, 5),
+                abc(SETUDATAKS, 1, 0, 0),
+                (7 << 16) | 1, // aux: atom cache | const index 1 ("field")
+                abc(RETURN, 0, 2, 0),
+            ],
+            constants: vec![const_string(1), const_string(2)],
+            ..Default::default()
+        };
+        let blob = build_chunk(11, 1, &["obj", "field"], &[proto], 0);
+        let out = decompile(&blob, 1, None).expect("SETUDATAKS chunk must deserialize+lift");
+        assert!(out.contains("field"), "SETUDATAKS key must appear: {out:?}");
+    }
+
+    #[test]
+    fn v11_namecalludata_and_callfb_followup_match_namecall() {
+        // The most delicate change: NAMECALLUDATA lifts like NAMECALL (with an aux & 0xFFFF
+        // key mask), and a NAMECALL/NAMECALLUDATA may be followed by CALLFB instead of CALL
+        // (whose injected aux NOP must be consumed by the next loop iteration, not here).
+        // Build `obj:method()` three ways and assert all produce identical source.
+        const NAMECALL: u8 = 20;
+        let strings = ["obj", "method"];
+        // aux for the method name: high16 atom cache (only honored by the UDATA variant) | low16 const idx 1.
+        let masked_method_aux: u32 = (9 << 16) | 1;
+
+        // (1) plain NAMECALL + CALL
+        let nc_call = Proto {
+            max_stack: 3,
+            words: vec![
+                abc(GETGLOBAL, 0, 0, 0),
+                0, // aux: "obj"
+                abc(NAMECALL, 0, 0, 0),
+                1, // aux: full aux = const idx 1 ("method")
+                abc(CALL, 0, 2, 1),
+                abc(RETURN, 0, 1, 0),
+            ],
+            constants: vec![const_string(1), const_string(2)],
+            ..Default::default()
+        };
+        // (2) NAMECALLUDATA + CALL — exercises the aux & 0xFFFF method-key mask
+        let ncu_call = Proto {
+            max_stack: 3,
+            words: vec![
+                abc(GETGLOBAL, 0, 0, 0),
+                0,
+                abc(NAMECALLUDATA, 0, 0, 0),
+                masked_method_aux, // high bits must be masked off -> const idx 1
+                abc(CALL, 0, 2, 1),
+                abc(RETURN, 0, 1, 0),
+            ],
+            constants: vec![const_string(1), const_string(2)],
+            ..Default::default()
+        };
+        // (3) NAMECALL + CALLFB — exercises the CALLFB followup + its injected NOP
+        let nc_callfb = Proto {
+            max_stack: 3,
+            words: vec![
+                abc(GETGLOBAL, 0, 0, 0),
+                0,
+                abc(NAMECALL, 0, 0, 0),
+                1,
+                abc(CALLFB, 0, 2, 1),
+                0xFFFF_FFFF, // aux: feedback slot id (sealed) — discarded
+                abc(RETURN, 0, 1, 0),
+            ],
+            constants: vec![const_string(1), const_string(2)],
+            ..Default::default()
+        };
+
+        let out_nc_call =
+            decompile(&build_chunk(11, 1, &strings, &[nc_call], 0), 1, None).unwrap();
+        let out_ncu_call =
+            decompile(&build_chunk(11, 1, &strings, &[ncu_call], 0), 1, None).unwrap();
+        let out_nc_callfb =
+            decompile(&build_chunk(11, 1, &strings, &[nc_callfb], 0), 1, None).unwrap();
+
+        assert!(out_nc_call.contains("method"), "method name must appear: {out_nc_call:?}");
+        assert!(out_nc_call.contains(':'), "should be a colon method call: {out_nc_call:?}");
+        assert_eq!(
+            out_nc_call, out_ncu_call,
+            "NAMECALLUDATA must lift identically to NAMECALL (masked key)"
+        );
+        assert_eq!(
+            out_nc_call, out_nc_callfb,
+            "a CALLFB followup must lift identically to a CALL followup"
+        );
+    }
+
+    #[test]
+    fn v11_callfb_lifts_identically_to_call() {
+        // print(1): GETGLOBAL r0,"print"; LOADN r1,1; <CALL|CALLFB> r0; return
+        let strings = ["print"];
+        let call_proto = Proto {
+            max_stack: 2,
+            words: vec![
+                abc(GETGLOBAL, 0, 0, 0),
+                0, // aux: "print"
+                ad(LOADN, 1, 1),
+                abc(CALL, 0, 2, 1),
+                abc(RETURN, 0, 1, 0),
+            ],
+            constants: vec![const_string(1)],
+            ..Default::default()
+        };
+        let callfb_proto = Proto {
+            max_stack: 2,
+            words: vec![
+                abc(GETGLOBAL, 0, 0, 0),
+                0,
+                ad(LOADN, 1, 1),
+                abc(CALLFB, 0, 2, 1),
+                0xFFFF_FFFF, // aux: feedback slot id (sealed) — discarded
+                abc(RETURN, 0, 1, 0),
+            ],
+            constants: vec![const_string(1)],
+            ..Default::default()
+        };
+        let call_out =
+            decompile(&build_chunk(11, 1, &strings, &[call_proto], 0), 1, None).unwrap();
+        let callfb_out =
+            decompile(&build_chunk(11, 1, &strings, &[callfb_proto], 0), 1, None).unwrap();
+        assert!(call_out.contains("print"), "got: {call_out:?}");
+        assert_eq!(call_out, callfb_out, "CALLFB must lift identically to CALL");
+    }
+
+    #[test]
+    fn v11_newclassmember_lifts_to_field_assign() {
+        // local t = {}; t.method = 5; return t
+        let proto = Proto {
+            max_stack: 2,
+            words: vec![
+                abc(NEWTABLE, 0, 0, 0),
+                0, // aux: array size
+                ad(LOADN, 1, 5),
+                abc(NEWCLASSMEMBER, 0, 0, 1),
+                0, // aux: member-name constant index 0 ("method")
+                abc(RETURN, 0, 2, 0),
+            ],
+            constants: vec![const_string(1)],
+            ..Default::default()
+        };
+        let blob = build_chunk(11, 1, &["method"], &[proto], 0);
+        let out = decompile(&blob, 1, None).expect("NEWCLASSMEMBER chunk must deserialize+lift");
+        assert!(out.contains("method"), "member name must appear: {out:?}");
+    }
+
+    #[test]
+    fn v11_cmpproto_lowers_to_fallthrough_without_panic() {
+        // LOADN r0,1; CMPPROTO r0 (guard, ignored); return — must not panic.
+        let proto = Proto {
+            max_stack: 1,
+            words: vec![
+                ad(LOADN, 0, 1),
+                ad(CMPPROTO, 0, 0),
+                0, // aux: proto id
+                abc(RETURN, 0, 1, 0),
+            ],
+            ..Default::default()
+        };
+        let blob = build_chunk(11, 1, &[], &[proto], 0);
+        let out = decompile(&blob, 1, None).expect("CMPPROTO chunk must deserialize+lift");
+        // No assertion on content — CMPPROTO has no source form; it must simply
+        // lower to a fall-through and not panic / not desync.
+        let _ = out;
+    }
+
+    #[test]
+    fn v10_newclassmember_without_feedback_vector() {
+        // Same NEWCLASSMEMBER program but as a v10 chunk: no feedback vector is read,
+        // proving the version gate is correct (v10 must NOT try to read v11's section).
+        let proto = Proto {
+            max_stack: 2,
+            words: vec![
+                abc(NEWTABLE, 0, 0, 0),
+                0,
+                ad(LOADN, 1, 5),
+                abc(NEWCLASSMEMBER, 0, 0, 1),
+                0,
+                abc(RETURN, 0, 2, 0),
+            ],
+            constants: vec![const_string(1)],
+            ..Default::default()
+        };
+        let blob = build_chunk(10, 1, &["method"], &[proto], 0);
+        let out = decompile(&blob, 1, None).expect("v10 NEWCLASSMEMBER chunk must deserialize");
+        assert!(out.contains("method"), "got: {out:?}");
+    }
+}
+
 fn link_upvalues(
     body: &mut ast::Block,
     upvalues: &mut FxHashMap<ByAddress<Arc<Mutex<ast::Function>>>, Vec<ast::RcLocal>>,

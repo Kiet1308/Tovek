@@ -28,7 +28,7 @@ impl Chunk {
         } else {
             input
         };
-        let (input, functions) = parse_list(input, |i| Function::parse(i, encode_key))?;
+        let (input, functions) = parse_list(input, |i| Function::parse(i, encode_key, version))?;
         let (input, main) = leb128_usize(input)?;
 
         Ok((

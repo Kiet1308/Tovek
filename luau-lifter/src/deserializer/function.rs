@@ -68,7 +68,15 @@ impl Function {
                 | OpCode::LOP_JUMPXEQKNIL
                 | OpCode::LOP_JUMPXEQKB
                 | OpCode::LOP_JUMPXEQKN
-                | OpCode::LOP_JUMPXEQKS => {
+                | OpCode::LOP_JUMPXEQKS
+                // v9/v10/v11 aux-bearing opcodes (getOpLength == 2). Omitting any of
+                // these would desync the instruction stream of every proto that uses them.
+                | OpCode::LOP_GETUDATAKS
+                | OpCode::LOP_SETUDATAKS
+                | OpCode::LOP_NAMECALLUDATA
+                | OpCode::LOP_NEWCLASSMEMBER
+                | OpCode::LOP_CALLFB
+                | OpCode::LOP_CMPPROTO => {
                     let aux = vec[pc + 1];
                     pc += 2;
                     match ins {
@@ -110,7 +118,7 @@ impl Function {
         v
     }
 
-    pub(crate) fn parse(input: &[u8], encode_key: u8) -> IResult<&[u8], Self> {
+    pub(crate) fn parse(input: &[u8], encode_key: u8, version: u8) -> IResult<&[u8], Self> {
         let (input, max_stack_size) = le_u8(input)?;
         let (input, num_parameters) = le_u8(input)?;
         let (input, num_upvalues) = le_u8(input)?;
@@ -170,6 +178,29 @@ impl Function {
                 }
                 input
             }
+        };
+        // Bytecode v11+ appends a per-proto "feedback vector" (runtime call-target
+        // profiling) here, after debuginfo. It carries no source-level meaning, but the
+        // bytes must be consumed or the next proto / the main-id varint will desync.
+        // Layout (lvmload.cpp): varint count, then per slot a raw u8 slot type
+        // (LFT_CALLTARGET == 0) followed by a varint pc. Only LFT_CALLTARGET exists today;
+        // fail loudly on anything else rather than risk misreading an unknown slot layout.
+        let input = if version >= 11 {
+            let (mut input, feedback_count) = leb128_usize(input)?;
+            for _ in 0..feedback_count {
+                let (rest, slot_type) = le_u8(input)?;
+                if slot_type != 0 {
+                    return Err(nom::Err::Failure(nom::error::Error::new(
+                        input,
+                        nom::error::ErrorKind::Tag,
+                    )));
+                }
+                let (rest, _call_target_pc) = leb128_usize(rest)?;
+                input = rest;
+            }
+            input
+        } else {
+            input
         };
         Ok((
             input,
