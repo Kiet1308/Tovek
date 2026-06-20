@@ -934,7 +934,11 @@ fn try_remove_unnecessary_condition(function: &mut Function, node: NodeIndex) ->
         let new_stat = match cond {
             ast::RValue::Call(call) => Some(call.into()),
             ast::RValue::MethodCall(method_call) => Some(method_call.into()),
-            cond if cond.has_side_effects() => Some(
+            // Keep the condition as `local _ = cond` unless it is provably total:
+            // a relational/arithmetic/index/length condition still RAISES on a type
+            // mismatch even with no side effect, and dropping it loses that error
+            // (C11). `is_total_pure` is stricter than `!has_side_effects()`.
+            cond if !ast::is_total_pure(&cond) => Some(
                 ast::Assign {
                     left: vec![ast::RcLocal::default().into()],
                     right: vec![cond],
