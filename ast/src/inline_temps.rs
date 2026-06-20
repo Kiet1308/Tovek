@@ -19,36 +19,59 @@ pub(crate) struct Usage {
 /// left alone because inlining them can alter multi-return behavior, evaluation
 /// order, capture semantics, or error behavior.
 pub fn inline_single_use_temps(block: &mut Block) {
-    inline_nested_blocks(block);
-    while inline_once(block) {}
+    // Set of locals captured by ANY closure, computed ONCE over the whole tree
+    // (`collect_usage` already recurses into every nested block + closure). A
+    // snapshot of a captured local must not be moved past a side-effecting
+    // statement — the call may invoke a closure that mutates the cell (C10:
+    // `local captured = source; bump(); return captured` -> `bump(); return
+    // source` returned 99 not 1, because `bump` mutates the upvalue `source`).
+    // The per-block usage recomputed during recursion is BLIND to a capturing
+    // closure in a sibling/enclosing scope, so the whole-program set is threaded
+    // down (mirrors `eliminate_nil`). The existing `does_not_move_captured_*`
+    // tests pin this captured-dependency protection.
+    let captured = collect_captured(block);
+    inline_in_block(block, &captured);
 }
 
-fn inline_nested_blocks(block: &mut Block) {
+fn collect_captured(block: &Block) -> FxHashSet<RcLocal> {
+    collect_usage(block)
+        .into_iter()
+        .filter(|(_, u)| u.captured)
+        .map(|(l, _)| l)
+        .collect()
+}
+
+fn inline_in_block(block: &mut Block, captured: &FxHashSet<RcLocal>) {
+    inline_nested_blocks(block, captured);
+    while inline_once(block, captured) {}
+}
+
+fn inline_nested_blocks(block: &mut Block, captured: &FxHashSet<RcLocal>) {
     for statement in &mut block.0 {
-        inline_nested_in_statement(statement);
+        inline_nested_in_statement(statement, captured);
     }
 }
 
-fn inline_nested_in_statement(statement: &mut Statement) {
-    inline_closures_in_statement(statement);
+fn inline_nested_in_statement(statement: &mut Statement, captured: &FxHashSet<RcLocal>) {
+    inline_closures_in_statement(statement, captured);
     match statement {
         Statement::If(r#if) => {
-            inline_single_use_temps(&mut r#if.then_block.lock());
-            inline_single_use_temps(&mut r#if.else_block.lock());
+            inline_in_block(&mut r#if.then_block.lock(), captured);
+            inline_in_block(&mut r#if.else_block.lock(), captured);
         }
-        Statement::While(r#while) => inline_single_use_temps(&mut r#while.block.lock()),
-        Statement::Repeat(repeat) => inline_single_use_temps(&mut repeat.block.lock()),
+        Statement::While(r#while) => inline_in_block(&mut r#while.block.lock(), captured),
+        Statement::Repeat(repeat) => inline_in_block(&mut repeat.block.lock(), captured),
         Statement::NumericFor(numeric_for) => {
-            inline_single_use_temps(&mut numeric_for.block.lock())
+            inline_in_block(&mut numeric_for.block.lock(), captured)
         }
         Statement::GenericFor(generic_for) => {
-            inline_single_use_temps(&mut generic_for.block.lock())
+            inline_in_block(&mut generic_for.block.lock(), captured)
         }
         _ => {}
     }
 }
 
-fn inline_closures_in_statement(statement: &mut Statement) {
+fn inline_closures_in_statement(statement: &mut Statement, captured: &FxHashSet<RcLocal>) {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
@@ -57,11 +80,11 @@ fn inline_closures_in_statement(statement: &mut Statement) {
         None
     });
     for function in functions {
-        inline_single_use_temps(&mut function.lock().body);
+        inline_in_block(&mut function.lock().body, captured);
     }
 }
 
-fn inline_once(block: &mut Block) -> bool {
+fn inline_once(block: &mut Block, captured: &FxHashSet<RcLocal>) -> bool {
     let usage = collect_usage(block);
     for index in 0..block.0.len() {
         let Some((local, replacement)) = candidate_decl(&block.0[index]) else {
@@ -70,7 +93,9 @@ fn inline_once(block: &mut Block) -> bool {
         let Some(local_usage) = usage.get(&local) else {
             continue;
         };
-        if local_usage.reads != 1 || local_usage.writes != 1 || local_usage.captured {
+        // Whole-program capture set (not the per-block `usage.captured`, which
+        // misses a capturing closure in a sibling/enclosing scope).
+        if local_usage.reads != 1 || local_usage.writes != 1 || captured.contains(&local) {
             continue;
         }
         if !is_generated_temp(&local) || !is_movable_single_value(&replacement) {
@@ -83,10 +108,10 @@ fn inline_once(block: &mut Block) -> bool {
         let Some(use_index) = direct_use_after(block, index, &local) else {
             continue;
         };
-        if !can_move_between(&replacement, &block.0[index + 1..use_index], &usage) {
+        if !can_move_between(&replacement, &block.0[index + 1..use_index], captured) {
             continue;
         }
-        if replace_direct_rvalue_use(&mut block.0[use_index], &local, replacement, &usage) {
+        if replace_direct_rvalue_use(&mut block.0[use_index], &local, replacement, captured) {
             block.0.remove(index);
             return true;
         }
@@ -198,7 +223,7 @@ fn replace_direct_rvalue_use(
     statement: &mut Statement,
     local: &RcLocal,
     replacement: RValue,
-    usage: &FxHashMap<RcLocal, Usage>,
+    captured: &FxHashSet<RcLocal>,
 ) -> bool {
     let mut before_side_effects = false;
     let mut replaced = false;
@@ -210,7 +235,7 @@ fn replace_direct_rvalue_use(
             rvalue,
             local,
             replacement.clone(),
-            usage,
+            captured,
             &mut before_side_effects,
         ) {
             replaced = true;
@@ -225,11 +250,11 @@ fn replace_first_rvalue_use(
     rvalue: &mut RValue,
     local: &RcLocal,
     replacement: RValue,
-    usage: &FxHashMap<RcLocal, Usage>,
+    captured: &FxHashSet<RcLocal>,
     before_side_effects: &mut bool,
 ) -> bool {
     if matches!(rvalue, RValue::Local(read) if read == local) {
-        if !can_replace_after_prior_effects(&replacement, *before_side_effects, usage) {
+        if !can_replace_after_prior_effects(&replacement, *before_side_effects, captured) {
             return false;
         }
         *rvalue = replacement;
@@ -241,7 +266,7 @@ fn replace_first_rvalue_use(
             child,
             local,
             replacement.clone(),
-            usage,
+            captured,
             before_side_effects,
         ) {
             return true;
@@ -421,7 +446,7 @@ fn is_movable_single_value(rvalue: &RValue) -> bool {
 fn can_move_between(
     replacement: &RValue,
     statements: &[Statement],
-    usage: &FxHashMap<RcLocal, Usage>,
+    captured: &FxHashSet<RcLocal>,
 ) -> bool {
     let read_locals = replacement
         .values_read()
@@ -429,7 +454,7 @@ fn can_move_between(
         .cloned()
         .collect::<FxHashSet<_>>();
     let reads_global = contains_global(replacement);
-    let reads_captured_local = reads_captured_local(replacement, usage);
+    let reads_captured_local = reads_captured_local(replacement, captured);
     for statement in statements {
         if statement_writes_any_local(statement, &read_locals) {
             return false;
@@ -447,17 +472,17 @@ fn can_move_between(
 fn can_replace_after_prior_effects(
     replacement: &RValue,
     before_side_effects: bool,
-    usage: &FxHashMap<RcLocal, Usage>,
+    captured: &FxHashSet<RcLocal>,
 ) -> bool {
     !before_side_effects
-        || !(contains_global(replacement) || reads_captured_local(replacement, usage))
+        || !(contains_global(replacement) || reads_captured_local(replacement, captured))
 }
 
-fn reads_captured_local(rvalue: &RValue, usage: &FxHashMap<RcLocal, Usage>) -> bool {
+fn reads_captured_local(rvalue: &RValue, captured: &FxHashSet<RcLocal>) -> bool {
     rvalue
         .values_read()
         .into_iter()
-        .any(|local| usage.get(local).is_some_and(|usage| usage.captured))
+        .any(|local| captured.contains(local))
 }
 
 fn contains_global(rvalue: &RValue) -> bool {

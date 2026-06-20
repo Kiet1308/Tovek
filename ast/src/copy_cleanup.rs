@@ -5,7 +5,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use crate::{
     inline_temps::{collect_usage, is_generated_temp, statement_writes_any_local, Usage},
     replace_locals::replace_locals,
-    Block, LValue, RValue, RcLocal, Statement, Traverse,
+    Block, LValue, LocalRw, RValue, RcLocal, SideEffects, Statement, Traverse,
 };
 
 /// Remove redundant local copies: `local dst = src` where `dst` is a generated
@@ -24,35 +24,51 @@ use crate::{
 /// `src` while `dst` is still live and so are caught by the src-not-rewritten
 /// gate.
 pub fn copy_cleanup(block: &mut Block) {
-    cleanup_nested_blocks(block);
-    while cleanup_once(block) {}
+    // Whole-program capture set, computed ONCE (the per-block usage recomputed
+    // during recursion is blind to a closure that captures a local but lives in a
+    // sibling/enclosing scope — the C10 family). Mirrors `inline_temps`.
+    let captured: FxHashSet<RcLocal> = collect_usage(block)
+        .into_iter()
+        .filter(|(_, u)| u.captured)
+        .map(|(l, _)| l)
+        .collect();
+    cleanup_in_block(block, &captured);
+}
+
+fn cleanup_in_block(block: &mut Block, captured: &FxHashSet<RcLocal>) {
+    cleanup_nested_blocks(block, captured);
+    while cleanup_once(block, captured) {}
 }
 
 /// Recurse into nested blocks and closures first (mirrors
 /// `inline_temps::inline_single_use_temps`), so the fixpoint at every level only
 /// has to consider its own statement list.
-fn cleanup_nested_blocks(block: &mut Block) {
+fn cleanup_nested_blocks(block: &mut Block, captured: &FxHashSet<RcLocal>) {
     for statement in &mut block.0 {
-        cleanup_nested_in_statement(statement);
+        cleanup_nested_in_statement(statement, captured);
     }
 }
 
-fn cleanup_nested_in_statement(statement: &mut Statement) {
-    cleanup_closures_in_statement(statement);
+fn cleanup_nested_in_statement(statement: &mut Statement, captured: &FxHashSet<RcLocal>) {
+    cleanup_closures_in_statement(statement, captured);
     match statement {
         Statement::If(r#if) => {
-            copy_cleanup(&mut r#if.then_block.lock());
-            copy_cleanup(&mut r#if.else_block.lock());
+            cleanup_in_block(&mut r#if.then_block.lock(), captured);
+            cleanup_in_block(&mut r#if.else_block.lock(), captured);
         }
-        Statement::While(r#while) => copy_cleanup(&mut r#while.block.lock()),
-        Statement::Repeat(repeat) => copy_cleanup(&mut repeat.block.lock()),
-        Statement::NumericFor(numeric_for) => copy_cleanup(&mut numeric_for.block.lock()),
-        Statement::GenericFor(generic_for) => copy_cleanup(&mut generic_for.block.lock()),
+        Statement::While(r#while) => cleanup_in_block(&mut r#while.block.lock(), captured),
+        Statement::Repeat(repeat) => cleanup_in_block(&mut repeat.block.lock(), captured),
+        Statement::NumericFor(numeric_for) => {
+            cleanup_in_block(&mut numeric_for.block.lock(), captured)
+        }
+        Statement::GenericFor(generic_for) => {
+            cleanup_in_block(&mut generic_for.block.lock(), captured)
+        }
         _ => {}
     }
 }
 
-fn cleanup_closures_in_statement(statement: &mut Statement) {
+fn cleanup_closures_in_statement(statement: &mut Statement, captured: &FxHashSet<RcLocal>) {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
@@ -61,11 +77,11 @@ fn cleanup_closures_in_statement(statement: &mut Statement) {
         None
     });
     for function in functions {
-        copy_cleanup(&mut function.lock().body);
+        cleanup_in_block(&mut function.lock().body, captured);
     }
 }
 
-fn cleanup_once(block: &mut Block) -> bool {
+fn cleanup_once(block: &mut Block, captured: &FxHashSet<RcLocal>) -> bool {
     let usage = collect_usage(block);
     for index in 0..block.0.len() {
         let Some((dst, src)) = candidate_copy(&block.0[index]) else {
@@ -75,6 +91,17 @@ fn cleanup_once(block: &mut Block) -> bool {
             continue;
         }
         if src_written_after(block, index, &src) {
+            continue;
+        }
+        // A captured `src` may be mutated by a closure invoked by a side-effecting
+        // statement that sits BETWEEN the decl and a later read of `dst`; collapsing
+        // `dst -> src` would then read the post-mutation value instead of the
+        // snapshot (C10). The per-block `usage` is blind to a mutating closure in a
+        // sibling/enclosing scope, so use the whole-program `captured` set. Made
+        // window-aware so a captured `src` with NO intervening side effect (e.g. a
+        // closure's own `local v = upvalue; print(v.x)`) still collapses.
+        // `src_written_after` already covers DIRECT writes of `src`.
+        if captured.contains(&src) && captured_src_mutated_before_use(block, index, &dst) {
             continue;
         }
 
@@ -130,17 +157,30 @@ fn copy_is_removable(dst: &RcLocal, src: &RcLocal, usage: &HashMap<RcLocal, Usag
         return false;
     }
     // 4. A captured `dst` is referenced by a closure we cannot see through with
-    //    `replace_locals`-by-value reasoning here; reject it.
+    //    `replace_locals`-by-value reasoning here; reject it. (Per-block `usage`
+    //    suffices: `dst` is a generated temp declared in THIS block, so any closure
+    //    that captures it is reached by the same per-block walk.)
     if dst_usage.captured {
         return false;
     }
-    // 5. MANDATORY: a captured `src` could be mutated by a closure that runs in
-    //    the live window — invisible to `src_written_after` (which does not
-    //    recurse into closure bodies). Rejecting captured `src` closes that hole.
-    if usage.get(src).is_some_and(|u| u.captured) {
-        return false;
-    }
+    // The captured-`src` hole (a closure mutating `src` in the live window) is now
+    // handled window-aware in `cleanup_once` with the whole-program capture set.
+    let _ = src;
     true
+}
+
+/// True when, for `local dst = src` at `decl_index`, a side-effecting statement
+/// sits between the decl and the LAST read of `dst`. That is the window in which a
+/// call could invoke a closure that mutates the (captured) `src` cell, so
+/// collapsing `dst -> src` would read the mutated value instead of the snapshot.
+fn captured_src_mutated_before_use(block: &Block, decl_index: usize, dst: &RcLocal) -> bool {
+    let Some(last_use) = (decl_index + 1..block.0.len())
+        .rev()
+        .find(|&i| block.0[i].values_read().iter().any(|r| *r == dst))
+    else {
+        return false;
+    };
+    (decl_index + 1..last_use).any(|i| block.0[i].has_side_effects())
 }
 
 /// Gate 6 — anti-swap / anti-stale-copy: `src` must NOT be reassigned anywhere
@@ -273,6 +313,32 @@ mod tests {
 
     #[test]
     fn does_not_collapse_captured_source() {
+        // A captured `src` with a side-effecting statement BETWEEN the snapshot
+        // and the read of `dst`: the call could invoke `handler` and mutate `v9`,
+        // so collapsing `v2 -> v9` would read the post-mutation value (C10). The
+        // decl must survive.
+        let src = local("v9");
+        let dst = local("v2");
+        let handler = local("handler");
+        let mut block = Block(vec![
+            declare(&handler, closure_capturing(&src)),
+            declare(&dst, local_value(&src)),
+            print(global("tick")), // intervening side effect (could call handler)
+            print(local_value(&dst)),
+        ]);
+
+        copy_cleanup(&mut block);
+
+        assert_eq!(block.0.len(), 4);
+        // dst decl (index 1) must survive.
+        assert!(matches!(&block.0[1], crate::Statement::Assign(_)));
+    }
+
+    #[test]
+    fn collapses_captured_source_without_intervening_call() {
+        // A captured `src` but NO side effect between the snapshot and the read:
+        // nothing can call `handler`, so `v9` cannot change and collapsing
+        // `v2 -> v9` is value-identical. The decl is removed (window-aware C10).
         let src = local("v9");
         let dst = local("v2");
         let handler = local("handler");
@@ -284,9 +350,8 @@ mod tests {
 
         copy_cleanup(&mut block);
 
-        assert_eq!(block.0.len(), 3);
-        // dst decl (index 1) must survive.
-        assert!(matches!(&block.0[1], crate::Statement::Assign(_)));
+        assert_eq!(block.0.len(), 2);
+        assert_eq!(block.0[1].to_string(), "print(v9)");
     }
 
     #[test]
