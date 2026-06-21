@@ -31,6 +31,7 @@ be unsound and were NOT shipped as proposed.
 | C10 | window-aware: keep a captured snapshot only across an intervening call | `ast/inline_temps.rs`, `ast/copy_cleanup.rs` | repro `1`; +1 regression test |
 | C11 | keep an effect-free condition/binding that can RAISE | `ast/side_effects.rs`, `cfg/ssa/structuring.rs`, `restructure/jump.rs`, `cfg/ssa/inline.rs` | repro `false` |
 | C12 | keep a middle loop's break in deeply-nested multi-break loops | `restructure/loop.rs` | repro count 18; corpus byte-identical |
+| C13 | recover a dropped connection write to its captured cell | `ast/recover_dropped_connection.rs` (NEW) | HangingPlacement `local _ = …Connect` → `v22 = …`; 1 corpus file; 0 DECFAIL |
 | L1 | LOADB C>1 wires the correct (unsigned I+1+C) CFG edge, no panic | `luau-lifter/lifter.rs` | corpus byte-identical |
 | L2 | LOADKX lifts (was `unreachable!` aborting the proto) | `luau-lifter/lifter.rs` | corpus byte-identical |
 | L3 | CMPPROTO preserves its `d` jump edge (two-way conditional when D≠0) | `luau-lifter/lifter.rs` | corpus byte-identical; 13/13 repro |
@@ -74,17 +75,15 @@ not trusted.
   stable upvalues are untouched; and `snap` is itself captured so inline/cleanup
   leave it. Harness 11→5, DECFAIL=0, closures-upval eliminated, AuraUI intact.
 
-- **C13** — VERIFIED A MISDIAGNOSIS at the bytecode level (not a decompiler bug).
-  Lifter instrumentation correlating each `:Connect` result register with closure
-  ref-captured registers shows HangingPlacement (the sole instance) has **0
-  collisions** — the connection result is in a register no closure captures, so it
-  is NOT `v22`. The dead `local _` proves no hidden `v22 = result` move; the
-  connection is genuinely discarded in the obfuscated original (a real leak there,
-  faithfully reproduced). Corpus-wide: exactly ONE `local _ = …:Connect` (this one),
-  while all 138 cases where a connection IS in a captured register decompile
-  correctly to `cell = …:Connect`. Both facets (a closure-capture, b self-update
-  `x=x+1` / guarded default) also tested and decompile correctly. The review's
-  "should be `v22 = …`" was an inference the bytecode disproves.
+- **C13** — REAL and NOW FIXED (see table). I first mis-called it a "misdiagnosis"
+  — that was an ERROR; corrected. Proven real at the bytecode level: HangingPlacement
+  func 57 has `MOVE`s writing the `:Connect` result into captured registers, which
+  the SSA drops (`local _ = sig:Connect(function() … cell:Disconnect() … end)`, cell
+  left nil → self-disconnect never fires). SSA-level unification is blocked by the
+  one-register→one-`old_local` conflation (every SSA fix attempt regressed), so it is
+  recovered faithfully at the AST level: a dead `local _ = <call>` whose argument
+  closure ref-captures + `:Disconnect()`s exactly ONE cell with no non-nil assignment
+  is re-targeted to `cell = <call>`. Exactly 1 corpus file changes; 0 DECFAIL.
 
 - **L3 (CMPPROTO), L5 (NATIVECALL)** — NOW FIXED (see table). Both are runtime-only
   JIT pseudo-ops never present in serialized v9 bytecode, so the fixes are correct

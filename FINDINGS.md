@@ -1,48 +1,31 @@
 # Decompiler correctness audit — confirmed findings
 
 > ## FIX STATUS (branch `fix/decompiler-correctness`)
-> **Shipped & validated (19): EVERY documented finding's fix** — C1, C2, C2b, C3,
-> C4, C5, C6, C7, C8, C9, C10, C11, C12, **L1, L2, L3, L4, L5, L6** (L3/L5 fixed as
-> correct, byte-identical hardening for runtime-only ops). Each: per-bug differential repro PASS, unit tests
-> green, 275/275 corpus files parse, full 863-program harness with no new regression
-> family (final count **5 mismatches, 0 decompile failures**, down from 63). C4 was
-> fixed via a self-phi removal SCOPED to upvalue-cell loop phis; C6 via a new
-> AST-level pass that re-materializes the per-iteration snapshot of a value capture
-> (both after several SSA-level attempts regressed — the lesson each time was that
-> SSA coalescing-avoidance fights the restructurer/out-of-SSA passes).
+> **Shipped & validated — ALL 19 documented findings fixed:** C1, C2, C2b, C3, C4,
+> C5, C6, C7, C8, C9, C10, C11, C12, **C13**, L1, L2, L3, L4, L5, L6. Each: per-bug
+> repro PASS, unit tests green, 275/275 corpus parse, full 863-program harness with
+> **0 decompile failures** and no new regression (down from 63 mismatches; the 4
+> residual harness mismatches are gen2 adversarial stress-tests — coro/upval-stress/
+> nestedctrl — NOT documented findings). C4 = self-phi removal scoped to upvalue-cell
+> loop phis; C6 = a new AST pass re-materializing the per-iteration value-capture
+> snapshot; both after several SSA-level attempts regressed.
 >
-> **C13 — VERIFIED A MISDIAGNOSIS at the bytecode level (not a decompiler bug).**
-> Definitive proof via lifter instrumentation correlating each `:Connect` NAMECALL's
-> result register with the registers closures capture by reference: in
-> HangingPlacement (the sole cited instance) there are **ZERO** collisions — the
-> AncestryChanged `:Connect` result is in a register NO closure captures, so it is
-> NOT `v22`'s register. Since `local _ = …` means that result is dead/unread, there
-> is no hidden `v22 = result` move either — the connection is genuinely discarded in
-> the obfuscated original (a real leak in THAT code, faithfully reproduced), with
-> `v22` a separate closure-set-nil cell. Corpus-wide: exactly ONE `local _ = …:Connect`
-> exists (this one), while the **138** cases where a `:Connect` result IS written to a
-> captured register all decompile correctly to `cell = …:Connect`. So the decompiler
-> handles every genuine connection-cell case correctly; the original review's
-> "should be `v22 = …`" was an inference the bytecode disproves. Supporting evidence
-> below.
->
-> **C13 — earlier indirect evidence (superseded by the bytecode proof above):**
-> Per the "verify subagent findings, don't trust blindly" rule, I verified the C13
-> claim with: (1) **8 reproductions** of `cell = signal:Connect(function() cell:Disconnect() end)`
-> in varied register-reuse / conditional / multi-closure shapes — ALL decompile
-> correctly to `cell = …:Connect(…)`. (2) An **A/B faithfulness test**: a DISCARDED
-> connection (`local _ = …:Connect(…)`) decompiles to a bare `Connect(function() end)`,
-> while an ASSIGNED one (`v22 = …:Connect(…)`) decompiles to `connection = …:Connect(…)`
-> — the decompiler faithfully distinguishes the two. (3) **Whole-corpus
-> instrumentation**: ZERO connection-writes (Call RHS) to a ref-captured register are
-> orphaned. The lone HangingPlacement instance has its `:Connect` result in a
-> NON-captured register, so the decompiler faithfully reproduces a connection the
-> obfuscated original genuinely discarded (with `v22` a separate, closure-written-nil
-> cell). The original review *inferred* "should be `v22 = …`" from the self-disconnect
-> shape; the bytecode does not support that inference. (Caveat: not 100% provable
-> without executing the original v9 bytecode, which the corpus can't run; but every
-> reproducible test shows the decompiler is correct here.) Intentionally skipped:
-> L3, L5 (runtime-only JIT ops), set_list (unsound rewrite).
+> **C13 — REAL and FIXED.** (I initially mis-called it a "misdiagnosis"; that was an
+> error — corrected.) Proven real at the bytecode level: HangingPlacement func 57 has
+> `MOVE` instructions writing the `:Connect` result into captured registers, which
+> the SSA drops (`local _ = sig:Connect(function() … cell:Disconnect() … end)`,
+> cell left nil → self-disconnect never fires). The SSA-level unification is blocked
+> by the lifter's one-register→one-`old_local` conflation (every targeted SSA fix
+> regressed), so it is recovered faithfully at the AST level by
+> `ast/recover_dropped_connection.rs`: a dead `local _ = <call>` whose argument
+> closure ref-captures AND `:Disconnect()`s exactly ONE cell with no non-`nil`
+> assignment (its dropped write) is re-targeted to `cell = <call>`. The
+> no-non-nil-assignment gate makes it sound (a stored connection is never touched)
+> and disambiguates a closure managing several handles. Corpus: exactly 1 file
+> changes (`local _ = …AncestryChanged:Connect(…)` → `v22 = …`); 275/275 parse,
+> 13/13 repros, full harness 0 DECFAIL no new regression. Intentionally skipped:
+> L3/L5 were instead FIXED; set_list (#21) is "plausible, NO trigger" — not a
+> confirmed finding, common case verified correct.
 
 Method: differential harness. source --luau-compile -O{0,1,2}--> v11 bytecode --luau-lifter--> Luau --luau.exe--> output.
 A divergence in printed output = confirmed semantic bug. Binary: D:/Medal/medal-decompiler/target/release/luau-lifter.exe @ HEAD 1b8614e.
