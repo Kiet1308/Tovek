@@ -225,6 +225,14 @@ impl<'a> Inliner<'a> {
                         .filter_map(|l| self.local_to_group.get(l))
                         .any(|g| groups_written.contains(g))
                     {
+                        // We are stepping OVER this statement without inlining it
+                        // (it reads a group written by a later statement). If it has
+                        // an observable effect, any still-earlier side-effecting def
+                        // we go on to inline would hop PAST it and reorder effects
+                        // (C9: `c1=A(); m=B(a); … return c1+m` inlined A() past B()).
+                        // Close the side-effect window here, exactly as the
+                        // fall-through path at the bottom of the loop does.
+                        allow_side_effects &= !block[stat_index].has_side_effects();
                         continue;
                     }
 
@@ -706,7 +714,18 @@ pub fn inline(
                                 rvalue,
                                 ast::RValue::Closure(c) if c.function.lock().name.is_some()
                             );
-                            if !keep_named_closure {
+                            // An unused binding whose RHS can RAISE must NOT be deleted:
+                            // evaluating e.g. `a < b` (type error), `t.x` (index nil) or
+                            // `#x` is observable, even though `has_side_effects` reports it
+                            // pure (it is modelled pure only so single-use temps can inline
+                            // back). Deleting it would silently swallow that runtime error
+                            // (bug C11). This is safe — a single-use def that was inlined is
+                            // already emptied by the inliner above (it moves the expression
+                            // to the use site, where the raise still occurs), so a def that
+                            // still reaches here with zero uses is genuinely never evaluated
+                            // elsewhere; keeping it does not double-evaluate.
+                            let keep_can_raise = !ast::is_total_pure(rvalue);
+                            if !keep_named_closure && !keep_can_raise {
                                 block[stat_index] = ast::Empty {}.into();
                                 changed = true;
                             }

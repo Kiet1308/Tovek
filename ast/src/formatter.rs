@@ -1234,28 +1234,54 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn are_table_keys_sequential(table: &Table) -> bool {
-        if table.0.is_empty() || table.0.iter().all(|(k, _)| k.is_none()) {
+        // A table can be rendered as a *pure positional array* `{v1, .., vn}`
+        // (i.e. with every key stripped) only when that does not change which
+        // index each value lands on. That holds in exactly two cases:
+        //
+        //   * every entry is positional (no explicit key), or
+        //   * every entry has an explicit integer key and those keys are
+        //     exactly 1, 2, .., n in order (`{[1]=a,[2]=b}` ≡ `{a,b}`).
+        //
+        // A *mix* of positional and keyed entries can NOT be stripped: in Luau
+        // the positional entries get their own 1-based numbering that ignores
+        // the explicit keys, so dropping the keys relocates values (C2 — e.g.
+        // `{[1]=11,[2]=22,"a","b"}` must keep its keys, otherwise the positional
+        // "a","b" stop overwriting slots 1,2).
+        //
+        // The key match uses an exact float compare, `*x == i+1`, NOT a cast
+        // through `usize`: `f64 as usize` saturates negatives to 0 and truncates
+        // fractions, which made `[0]`, `[-1]`, `[0.5]`, `[1.5]` look sequential
+        // and silently dropped those keys (C2b).
+        if table.0.is_empty() {
             return true;
         }
-
-        let keys_vec = table
-            .0
-            .iter()
-            .filter(|(k, _)| !k.is_none())
-            .map(|(k, _)| k)
-            .collect_vec();
-        if keys_vec.is_empty() {
-            false
-        } else {
-            keys_vec.iter().enumerate().all(|(i, k)| {
-                matches!(k, Some(RValue::Literal(Literal::Number(x)))
-                        if (x - 1f64) as usize == i)
-            })
+        let any_keyed = table.0.iter().any(|(k, _)| !k.is_none());
+        if !any_keyed {
+            return true; // all positional
         }
+        if table.0.iter().any(|(k, _)| k.is_none()) {
+            return false; // mixed positional + keyed — must render keys
+        }
+        // all entries keyed: require keys to be exactly 1..n, integral, in order
+        table.0.iter().enumerate().all(|(i, (k, _))| {
+            matches!(k, Some(RValue::Literal(Literal::Number(x)))
+                    if *x == (i as f64) + 1.0)
+        })
     }
 
     fn contains_table(table: &Table) -> bool {
         table.0.iter().any(|(_, v)| matches!(v, RValue::Table(_x)))
+    }
+
+    /// An expression that yields multiple values when in a tail/spreading
+    /// position (a function/method call, `...`, or a `Select` over one). In a
+    /// table that is NOT the open positional tail (i.e. a keyed entry) it must be
+    /// parenthesized to truncate to a single value.
+    fn is_multret_expression(value: &RValue) -> bool {
+        matches!(
+            value,
+            RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_) | RValue::Select(_)
+        )
     }
 
     pub(crate) fn format_table(&mut self, table: &Table) -> fmt::Result {
@@ -1301,7 +1327,23 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                         }
                     }
                 }
+                // A KEYED last entry (key.is_some(); the spreading multret tail has
+                // key.is_none() and is handled above) truncates its value to one
+                // element. Only when the key is DROPPED (sequential table) does the
+                // entry render positionally and risk spreading, so wrap a multret
+                // value in parens there to keep it truncated — `{[1] = f()}`
+                // (=> 1 element) must NOT render as `{f()}` (=> all of f()'s
+                // results). A rendered key (`field = f()` / `[k] = f()`, non-
+                // sequential) already truncates, so no wrap is needed.
+                let wrap =
+                    is_last && sequential_keys && Self::is_multret_expression(value);
+                if wrap {
+                    write!(self.output, "(")?;
+                }
                 self.format_rvalue(value)?;
+                if wrap {
+                    write!(self.output, ")")?;
+                }
                 if !is_last {
                     write!(self.output, ",")?;
                     write!(self.output, "{}", if should_format { "\n" } else { " " })?;
@@ -2160,7 +2202,21 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             } else {
                 write!(self.output, ", ")?;
             }
+            // A multret value (`Select`, the adjust-to-one wrapper the lifter mints
+            // for `(call())` / `(...)`) in the FINAL position must keep its
+            // truncating parentheses: `return (two())` yields ONE value, not two
+            // (C5). `return` is the only multret context that omitted this wrap;
+            // mirror `format_arg_list`. Non-last values are already arity-truncated
+            // by the trailing comma, so they need no wrap. A bare `RValue::Call`/
+            // `VarArg` (genuine multret) is not a `Select`, so it stays paren-free.
+            let wrap = i + 1 == r#return.values.len() && matches!(rvalue, RValue::Select(_));
+            if wrap {
+                write!(self.output, "(")?;
+            }
             self.format_rvalue(rvalue)?;
+            if wrap {
+                write!(self.output, ")")?;
+            }
         }
 
         Ok(())

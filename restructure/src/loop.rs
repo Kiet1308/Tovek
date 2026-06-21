@@ -88,17 +88,35 @@ impl GraphStructurer {
                 }
 
                 let else_successors = self.function.successor_blocks(else_node).collect_vec();
-                if !(!then_successors.is_empty() && then_successors[0] == else_node)
-                    && !(else_successors.len() == 1 && then_successors[0] == else_successors[0])
-                    && !(then_successors[0] == header && else_node == init_block)
-                {
-                    return false;
+                // When the body (`then_node`) has a successor, validate that it is a
+                // collapsible for shape. When it has NONE — the body breaks/returns
+                // out of the loop (e.g. `for i=1,n do break end`) — there is no
+                // successor to validate; indexing `then_successors[0]` here used to
+                // panic out of bounds and lose the whole function (C8). That case is
+                // handled below: the body is taken verbatim and a trailing `break` is
+                // synthesized unless it already ends in a `return`.
+                if let Some(&then_first) = then_successors.first() {
+                    if then_first != else_node
+                        && !(else_successors.len() == 1 && then_first == else_successors[0])
+                        && !(then_first == header && else_node == init_block)
+                    {
+                        return false;
+                    }
                 }
 
                 let statement = self.function.block_mut(header).unwrap().pop().unwrap();
                 let statements = std::mem::take(&mut self.function.block_mut(header).unwrap().0);
 
-                let body_ast = if then_node == init_block {
+                // The body is just `break` when the for-next's then-edge (continue)
+                // lands on the same block as its else-edge (exit): the loop runs its
+                // empty body once and bails. `then_node == init_block` is the
+                // already-handled form; `then_node == else_node` is the other one
+                // (e.g. `for i = 1, n do break end`). In BOTH we must NOT remove
+                // `then_node` — it is a block we still need (the init block, or the
+                // post-loop block `else_node` that the rewritten edge below targets).
+                // Removing it left `set_edges(init_block, [(else_node, …)])` adding an
+                // edge to a deleted node, panicking out the whole function (C8).
+                let body_ast = if then_node == init_block || then_node == else_node {
                     vec![ast::Break {}.into()].into()
                 } else {
                     let mut body_ast = self.function.remove_block(then_node).unwrap();
@@ -383,6 +401,14 @@ impl GraphStructurer {
                 return changed;
             }
 
+            // The genuine loop-exit target. The `breaks` set above is, by
+            // construction, the predecessors of THIS exit that are dominated by the
+            // body, so those edges are real breaks regardless of the post-dom
+            // recomputation below.
+            let exit = next;
+            // Recomputed exit (may collapse to None for a deeply nested / multi-exit
+            // shape). Used as-is only for continue-origin nodes and the loop
+            // reconstruction further down.
             let next = if self.function.successor_blocks(body).exactly_one().ok() == Some(header)
                 || post_dom
                     .dominators(header)
@@ -392,11 +418,24 @@ impl GraphStructurer {
             } else {
                 None
             };
+            // A node already classified as a break must see the REAL exit so a
+            // `break` is emitted by `refine_virtual_edge_*`; the post-dom
+            // recomputation above must not suppress it. This is C12: in a >=3-deep
+            // nest where an inner loop has multiple break targets and the middle
+            // loop also breaks, `next` collapsed to None and the middle `break` was
+            // silently dropped (its edge absorbed as fall-through), so that loop ran
+            // extra iterations. Continue-only nodes keep the recomputed `next`.
+            let break_set: FxHashSet<NodeIndex> = breaks.iter().copied().collect();
             for node in breaks
                 .into_iter()
                 .chain(continues)
                 .collect::<FxHashSet<_>>()
             {
+                let node_next = if break_set.contains(&node) {
+                    Some(exit)
+                } else {
+                    next
+                };
                 if let Some((then_edge, else_edge)) = self.function.conditional_edges(node) {
                     changed |= self.refine_virtual_edge_conditional(
                         post_dom,
@@ -404,11 +443,16 @@ impl GraphStructurer {
                         then_edge.target(),
                         else_edge.target(),
                         header,
-                        next,
+                        node_next,
                     );
                 } else if let Some(edge) = self.function.unconditional_edge(node) {
-                    changed |=
-                        self.refine_virtual_edge_jump(post_dom, node, edge.target(), header, next);
+                    changed |= self.refine_virtual_edge_jump(
+                        post_dom,
+                        node,
+                        edge.target(),
+                        header,
+                        node_next,
+                    );
                 } else {
                     unreachable!();
                 }

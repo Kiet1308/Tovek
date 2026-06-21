@@ -168,6 +168,19 @@ impl<'a> Destructor<'a> {
                             let mut loc = FxHashMap::default();
                             let mut pred = FxHashMap::default();
 
+                            // The set of parallel destinations. A non-local RHS that
+                            // READS one of these must see its PRE-copy value, so it is
+                            // pre-evaluated into a temp at the FRONT (before any copy
+                            // clobbers it); otherwise the local-to-local copies below
+                            // run first and the expression reads the wrong value
+                            // (C3 — `x,y = y, x+y` lowered to `x=y; y=x+y` computed
+                            // `(new x)+y` and turned Fibonacci into powers of two).
+                            let dst_set: FxHashSet<RcLocal> = assign
+                                .left
+                                .iter()
+                                .filter_map(|l| l.as_local().cloned())
+                                .collect();
+                            let mut result_head = Vec::new();
                             let mut result_end = Vec::new();
                             for i in 0..assign.left.len() {
                                 // TODO: unneccessary clones, take assign.left and assign.right
@@ -178,10 +191,39 @@ impl<'a> Destructor<'a> {
                                         pred.insert(dst.clone(), src.clone());
                                         to_do.push(dst.clone());
                                     }
-                                    rvalue => result_end.push(ast::Assign::new(
-                                        vec![dst.clone().into()],
-                                        vec![rvalue.clone()],
-                                    )),
+                                    rvalue => {
+                                        // The inliner only places side-effect-free,
+                                        // non-upvalue rvalues into a parallel copy, so
+                                        // pre-evaluating one cannot reorder effects.
+                                        //
+                                        // Interference is reading ANOTHER destination
+                                        // (one a copy will clobber), not its OWN: a
+                                        // self-update `x = x + c` reads `x` before it
+                                        // writes `x` in the same statement, so it stays
+                                        // a plain (compound) assign — only a coupled RHS
+                                        // like Fibonacci's `y = x + y` (reads the other
+                                        // destination `x`) needs the pre-spill.
+                                        let reads_other_dst = rvalue
+                                            .values_read()
+                                            .iter()
+                                            .any(|r| *r != dst && dst_set.contains(*r));
+                                        if reads_other_dst {
+                                            let tmp = RcLocal::default();
+                                            result_head.push(ast::Assign::new(
+                                                vec![tmp.clone().into()],
+                                                vec![rvalue.clone()],
+                                            ));
+                                            result_end.push(ast::Assign::new(
+                                                vec![dst.clone().into()],
+                                                vec![tmp.into()],
+                                            ));
+                                        } else {
+                                            result_end.push(ast::Assign::new(
+                                                vec![dst.clone().into()],
+                                                vec![rvalue.clone()],
+                                            ));
+                                        }
+                                    }
                                 }
                             }
 
@@ -193,7 +235,11 @@ impl<'a> Destructor<'a> {
                             }
 
                             let mut spill = None;
-                            let mut result = Vec::new();
+                            // Head spills (pre-evaluated destination-reading rvalues)
+                            // run BEFORE the local-to-local copy resolution; the tail
+                            // (destination writes from temps / non-interfering rvalues)
+                            // runs after.
+                            let mut result = result_head;
                             while let Some(local_b) = to_do.pop() {
                                 while let Some(local_b) = ready.pop() {
                                     let local_a = pred[&local_b].clone();

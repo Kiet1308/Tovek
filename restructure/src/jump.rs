@@ -33,7 +33,16 @@ impl super::GraphStructurer {
             let new_stat = match cond {
                 ast::RValue::Call(call) => Some(call.into()),
                 ast::RValue::MethodCall(method_call) => Some(method_call.into()),
-                cond if cond.has_side_effects() => Some(
+                // The `if cond then end` branch is gone, but evaluating `cond` is
+                // still observable if it can raise — a relational comparison /
+                // arithmetic / concat / index / length on type-mismatched operands
+                // errors (`{} < {}`, `nil.x`, `#5`), even though it is "effect-free"
+                // by `has_side_effects` (which treats those as pure to enable temp
+                // inlining). Dropping such a condition would silently swallow the
+                // error (C11). Keep it as `local _ = cond` unless it is provably
+                // total — a leaf read or a non-raising boolean combinator over
+                // total operands.
+                cond if !ast::is_total_pure(&cond) => Some(
                     ast::Assign {
                         left: vec![ast::RcLocal::default().into()],
                         right: vec![cond],

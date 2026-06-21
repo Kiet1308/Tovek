@@ -212,6 +212,12 @@ pub fn try_decompile_bytecode_with_script_name(
             link_upvalues(&mut body, &mut upvalues);
             ast::deinline::deinline(&mut body);
             ast::cleanup_returns::cleanup_redundant_returns(&mut body);
+            // Restore the per-iteration snapshot of a by-value (`Upvalue::Copy`)
+            // capture that out-of-SSA coalescing merged onto a mutated (loop)
+            // variable (C6). Runs before `name_locals` so the `local snap = L` it
+            // mints gets named, and before `inline_temps`/`copy_cleanup` (which then
+            // protect it as a captured local).
+            ast::materialize_value_captures::materialize_value_captures(&mut body);
             name_locals_with_script_name(&mut body, true, script_name);
             // §2.8: recover OOP colon-method definitions. Runs after name_locals
             // (so first params are named `p`/`pN`) and before inline_temps (whose
@@ -240,6 +246,10 @@ pub fn try_decompile_bytecode_with_script_name(
             // (whose decisions a write-count change here must not perturb). BEFORE
             // `recover_guard_continue` (which must stay last).
             ast::eliminate_nil::eliminate_redundant_nil(&mut body);
+            // C13: re-target a dropped connection write `local _ = sig:Connect(
+            // function() ... cell:Disconnect() ... end)` back to the captured `cell`
+            // the SSA orphaned (the parent never models the closure's by-ref write).
+            ast::recover_dropped_connection::recover_dropped_connection(&mut body);
             // Expression-level de-inline (proposal §7): recover small pure scalar
             // helpers that `-O2` inlined as a sub-expression of a caller's
             // condition/RValue. MUST run after reconstruct_conditional_expressions
@@ -382,7 +392,11 @@ fn decompile_function(
         }
         let mut local_map = FxHashMap::default();
         // TODO: loop until returns false?
-        if ssa::construct::remove_unnecessary_params(&mut function, &mut local_map) {
+        if ssa::construct::remove_unnecessary_params(
+            &mut function,
+            &mut local_map,
+            Some(&upvalue_to_group),
+        ) {
             changed = true;
         }
         ssa::construct::apply_local_map(&mut function, local_map);

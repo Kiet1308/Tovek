@@ -518,6 +518,21 @@ fn make_bool_conditional(
 // local a; if g then a = true else a = false end; return a -> return g and true or false
 // local a; if g then a = false else a = true end; return a -> return not g
 // local a; if g == 1 then a = true else a = false end; return a -> return g == 1
+/// A return value that, in tail/return position, can yield MORE than one value.
+/// Collapsing such an arm of a return-diamond through `and`/`or` (which adjust
+/// their operands to one value) would truncate it, changing semantics. Mirrors
+/// `ast::deinline::is_scalar_return_value` (negated), which is not reachable from
+/// the `cfg` crate.
+fn is_multret_tail(rv: &ast::RValue) -> bool {
+    matches!(
+        rv,
+        ast::RValue::Call(_)
+            | ast::RValue::MethodCall(_)
+            | ast::RValue::VarArg(_)
+            | ast::RValue::Select(_)
+    )
+}
+
 fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool {
     let match_triangle = |assigner, next, next_args: FxHashMap<ast::RcLocal, ast::RValue>| {
         if let Some(edge_to_next) = function.unconditional_edge(assigner)
@@ -772,6 +787,21 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
             let then_value = then_value.clone();
             let else_value = else_value.clone();
 
+            // Both arms are `return <single value>` and the collapsed result is
+            // pushed straight into a multret return position below
+            // (`block.push(Return::new(vec![res]))`). If either value is a multret
+            // tail (a call / method call / vararg / select), the `cond and then or
+            // else` form built by `make_bool_conditional` truncates it to ONE
+            // value, whereas the original `return tail` propagates ALL of its
+            // values (C7: `if flag then return a() end return b()` returned only
+            // a()'s first value). Refuse the collapse so the genuine
+            // `if c then return a() else return b() end` is preserved. A single-LHS
+            // *assignment* (the assign/triangle branches above) truncates anyway,
+            // so this guard is scoped to the return-diamond branch only.
+            if is_multret_tail(&then_value) || is_multret_tail(&else_value) {
+                return false;
+            }
+
             if let Some(res) = make_bool_conditional(function, node, then_value, else_value) {
                 function.remove_block(then_target);
                 function.remove_block(else_target);
@@ -934,7 +964,11 @@ fn try_remove_unnecessary_condition(function: &mut Function, node: NodeIndex) ->
         let new_stat = match cond {
             ast::RValue::Call(call) => Some(call.into()),
             ast::RValue::MethodCall(method_call) => Some(method_call.into()),
-            cond if cond.has_side_effects() => Some(
+            // Keep the condition as `local _ = cond` unless it is provably total:
+            // a relational/arithmetic/index/length condition still RAISES on a type
+            // mismatch even with no side effect, and dropping it loses that error
+            // (C11). `is_total_pure` is stricter than `!has_side_effects()`.
+            cond if !ast::is_total_pure(&cond) => Some(
                 ast::Assign {
                     left: vec![ast::RcLocal::default().into()],
                     right: vec![cond],

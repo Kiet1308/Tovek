@@ -1,0 +1,19 @@
+# Derived / bulky differential-test artifacts — not source.
+# Keep: _bugs/ (minimal repros), *.sh, *.py (scripts).
+_baseline_corpus/
+_check_work/
+_work_O*/
+corpus_fresh/
+corpus_out/
+gen/
+gen2/
+adv/
+bufcat/
+opcg/
+t/
+_rep/
+_results_*.txt
+*.bc
+*.derr
+*.cerr
+dump.txt

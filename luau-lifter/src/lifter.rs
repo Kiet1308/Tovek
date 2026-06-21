@@ -224,13 +224,21 @@ impl<'a> Lifter<'a> {
                             .entry(dest_index)
                             .or_insert_with(|| self.function.new_block());
                     }
-                    // CMPPROTO is a jump-D opcode (runtime proto guard). We lower it as an
-                    // unconditional fall-through (see lift_block), so only the post-instruction
-                    // boundary needs a block. insn_index+2 = the op plus its injected aux NOP.
+                    // CMPPROTO is a jump-D opcode (runtime proto guard). The
+                    // fall-through is insn_index+2 (the op plus its injected aux NOP);
+                    // when D != 0 it ALSO branches to (insn_index+1)+D, so create that
+                    // block too — dropping the D edge silently lost a successor (L3).
                     OpCode::LOP_CMPPROTO => {
                         self.blocks
                             .entry(insn_index + 2)
                             .or_insert_with(|| self.function.new_block());
+                        if *d != 0 {
+                            let dest_index =
+                                (insn_index + 1).checked_add_signed((*d).into()).unwrap();
+                            self.blocks
+                                .entry(dest_index)
+                                .or_insert_with(|| self.function.new_block());
+                        }
                     }
                     _ => {}
                 },
@@ -311,8 +319,18 @@ impl<'a> Lifter<'a> {
                             .into(),
                         );
                         if c != 0 {
+                            // LOADB with C != 0 is an UNCONDITIONAL skip-jump of C
+                            // (C is an unsigned 8-bit skip count in Luau), so the
+                            // successor is I+1+C, exactly as `discover_blocks`
+                            // computes it. The old hard-coded I+2 only matched the
+                            // stock C==1 pair and panicked (or wired the wrong block)
+                            // for C>1 obfuscated bytecode (L1). Mirror discover_blocks
+                            // with the same unsigned widening.
+                            let dest = (block_start + index + 1)
+                                .checked_add_signed((c).into())
+                                .unwrap();
                             edges.push((
-                                self.block_to_node(block_start + index + 2),
+                                self.block_to_node(dest),
                                 BlockEdge::new(BranchType::Unconditional),
                             ));
                         }
@@ -512,7 +530,10 @@ impl<'a> Lifter<'a> {
                     | OpCode::LOP_FASTCALL1
                     | OpCode::LOP_FASTCALL2
                     | OpCode::LOP_FASTCALL2K
-                    | OpCode::LOP_FASTCALL3 => {}
+                    | OpCode::LOP_FASTCALL3
+                    // NATIVECALL is a JIT dispatch hint; the actual call is the
+                    // following CALL, so (like FASTCALL) it lifts to nothing (L5).
+                    | OpCode::LOP_NATIVECALL => {}
                     OpCode::LOP_NAMECALL | OpCode::LOP_NAMECALLUDATA => {
                         let namecall_base = a;
                         let namecall_object = self.register(b as _);
@@ -804,6 +825,19 @@ impl<'a> Lifter<'a> {
                             )
                             .into(),
                         );
+                    }
+                    OpCode::LOP_LOADKX => {
+                        // LOADK whose constant index exceeds the LOADK D field, so
+                        // the full index is carried in `aux` (the deserializer lists
+                        // LOADKX among the aux-bearing ops, decoded BC-form). Stock
+                        // Luau emits it for a proto with > 32768 constants. Without an
+                        // arm it fell to the catch-all `unreachable!` and aborted the
+                        // whole proto (L2). Otherwise identical to LOADK. The injected
+                        // aux NOP is consumed by the `LOP_NOP` arm next iteration.
+                        let constant = self.constant(aux as _);
+                        let target = self.register(a as _);
+                        statements
+                            .push(ast::Assign::new(vec![target.into()], vec![constant.into()]).into());
                     }
                     _ => unreachable!("{:?}", instruction),
                 },
@@ -1178,11 +1212,22 @@ impl<'a> Lifter<'a> {
                         let limit = self.register(a as _);
                         let step = self.register((a + 1) as _);
                         let counter = self.register((a + 2) as _);
+                        let counter_lvalue: ast::LValue = counter.clone().into();
                         statements.push(ast::NumForInit::new(counter, limit, step).into());
 
+                        // The loop header is the block that ends in the matching
+                        // `NumForNext` (the FORNLOOP), which FORNPREP jumps to. Normally
+                        // it is found as the predecessor of the body that loops back to
+                        // it. A degenerate `for i = 1, n do break end` body never loops
+                        // back, so the FORNLOOP is NOT a predecessor of the body — the
+                        // predecessor lookup then finds nothing and the old
+                        // `exactly_one().unwrap()` panicked the whole function out (C8 at
+                        // O1). Fall back to the unique `NumForNext` block over the *same*
+                        // counter, scanning the whole function.
+                        let body_node = self.block_to_node(block_start + index + 1);
                         let loop_node = self
                             .function
-                            .predecessor_blocks(self.block_to_node(block_start + index + 1))
+                            .predecessor_blocks(body_node)
                             .filter(|&p| {
                                 self.function
                                     .block(p)
@@ -1190,8 +1235,23 @@ impl<'a> Lifter<'a> {
                                     .last()
                                     .is_some_and(|s| matches!(s, ast::Statement::NumForNext(_)))
                             })
+                            .unique()
                             .exactly_one()
-                            .unwrap();
+                            .ok()
+                            .or_else(|| {
+                                self.function
+                                    .graph()
+                                    .node_indices()
+                                    .filter(|&n| {
+                                        self.function.block(n).and_then(|b| b.last()).is_some_and(
+                                            |s| matches!(s, ast::Statement::NumForNext(nfn)
+                                                if nfn.counter.0 == counter_lvalue),
+                                        )
+                                    })
+                                    .exactly_one()
+                                    .ok()
+                            })
+                            .expect("FORNPREP: no matching NumForNext (FORNLOOP) block");
                         edges.push((loop_node, BlockEdge::new(BranchType::Unconditional)));
                     }
                     OpCode::LOP_FORNLOOP => {
@@ -1346,17 +1406,39 @@ impl<'a> Lifter<'a> {
                         );
                     }
                     OpCode::LOP_CMPPROTO => {
-                        // Runtime proto-identity guard with no source form; never emitted by
-                        // the compiler. Lower it as an unconditional fall-through (both guard
-                        // arms are semantically equivalent at source level). The fall-through
-                        // is block_start+index+2 (the op plus its injected aux NOP), mirroring
-                        // the LOP_JUMPX lowering below. Note: the `d` jump target is
-                        // intentionally ignored — a nonzero-`d` CMPPROTO would drop that edge,
-                        // which is sound only because the compiler never emits this opcode.
-                        edges.push((
-                            self.block_to_node(block_start + index + 2),
-                            BlockEdge::new(BranchType::Unconditional),
-                        ));
+                        // Runtime proto-identity guard (no source form; never emitted by
+                        // the stock compiler). The fall-through is block_start+index+2
+                        // (the op plus its injected aux NOP). When D == 0 there is no
+                        // jump, so a plain fall-through is exact. When D != 0 the guard
+                        // branches to (block_start+index+1)+D, so emit a genuine two-way
+                        // conditional rather than dropping that edge (L3) — the guard
+                        // predicate is opaque, so R[A] (the value being proto-checked)
+                        // stands in as the condition.
+                        if d != 0 {
+                            statements.push(
+                                ast::If::new(
+                                    self.register(a as _).into(),
+                                    ast::Block::default(),
+                                    ast::Block::default(),
+                                )
+                                .into(),
+                            );
+                            edges.push((
+                                self.block_to_node(
+                                    ((block_start + index + 1) as isize + d as isize) as usize,
+                                ),
+                                BlockEdge::new(BranchType::Then),
+                            ));
+                            edges.push((
+                                self.block_to_node(block_start + index + 2),
+                                BlockEdge::new(BranchType::Else),
+                            ));
+                        } else {
+                            edges.push((
+                                self.block_to_node(block_start + index + 2),
+                                BlockEdge::new(BranchType::Unconditional),
+                            ));
+                        }
                     }
                     _ => unreachable!("{:?}", instruction),
                 },
@@ -1369,7 +1451,15 @@ impl<'a> Lifter<'a> {
                             BlockEdge::new(BranchType::Unconditional),
                         ));
                     }
-                    _ => unreachable!("{:?}", instruction),
+                    // A non-JUMPX E-form op (e.g. LOP_COVERAGE in instrumented
+                    // builds) has no source-level effect. Emit a marker and fall
+                    // through instead of aborting the whole function (L4); the
+                    // `edges.is_empty()` block below wires the natural successor.
+                    _ => {
+                        statements.push(
+                            ast::Comment::new(format!("unhandled E-form op {:?}", op_code)).into(),
+                        );
+                    }
                 },
                 _ => unimplemented!("{:?}", instruction),
             }
@@ -1410,8 +1500,15 @@ impl<'a> Lifter<'a> {
             BytecodeConstant::Boolean(v) => ast::Literal::Boolean(*v),
             BytecodeConstant::Number(v) => ast::Literal::Number(*v),
             BytecodeConstant::String(v) => {
-                // TODO: what does the official deserializer do if v == 0?
-                ast::Literal::String(self.string_table[*v - 1].clone())
+                // A string-constant index of 0 is the "no string" sentinel (the
+                // same `== 0` convention the function-name path uses). `v - 1` would
+                // underflow and `string_table[usize::MAX]` panic the whole proto
+                // (L6); decode it as the empty string instead.
+                if *v == 0 {
+                    ast::Literal::String(Vec::new())
+                } else {
+                    ast::Literal::String(self.string_table[*v - 1].clone())
+                }
             }
             BytecodeConstant::Vector(x, y, z, _) => ast::Literal::Vector(*x, *y, *z),
             BytecodeConstant::Integer(v) => ast::Literal::Number(*v as f64),
@@ -1435,9 +1532,11 @@ impl<'a> Lifter<'a> {
             Some(BytecodeConstant::Boolean(v)) => Shape::Literal(ast::Literal::Boolean(*v)),
             Some(BytecodeConstant::Number(v)) => Shape::Literal(ast::Literal::Number(*v)),
             Some(BytecodeConstant::Integer(v)) => Shape::Literal(ast::Literal::Number(*v as f64)),
-            Some(BytecodeConstant::String(v)) => {
-                Shape::Literal(ast::Literal::String(self.string_table[*v - 1].clone()))
-            }
+            Some(BytecodeConstant::String(v)) => Shape::Literal(if *v == 0 {
+                ast::Literal::String(Vec::new())
+            } else {
+                ast::Literal::String(self.string_table[*v - 1].clone())
+            }),
             Some(BytecodeConstant::Vector(x, y, z, _)) => {
                 Shape::Literal(ast::Literal::Vector(*x, *y, *z))
             }

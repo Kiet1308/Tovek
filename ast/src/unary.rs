@@ -85,58 +85,13 @@ impl Reduce for Unary {
                 // TODO: is this accurate w/ unicode in Luau?
                 RValue::Literal(Literal::Number(value.len() as f64))
             }
-            (
-                RValue::Binary(Binary {
-                    left,
-                    right,
-                    operation: BinaryOperation::GreaterThan,
-                }),
-                UnaryOperation::Not,
-            ) => Binary {
-                left,
-                right,
-                operation: BinaryOperation::LessThanOrEqual,
-            }
-            .reduce(),
-            (
-                RValue::Binary(Binary {
-                    left,
-                    right,
-                    operation: BinaryOperation::LessThanOrEqual,
-                }),
-                UnaryOperation::Not,
-            ) => Binary {
-                left,
-                right,
-                operation: BinaryOperation::GreaterThan,
-            }
-            .reduce(),
-            (
-                RValue::Binary(Binary {
-                    left,
-                    right,
-                    operation: BinaryOperation::GreaterThanOrEqual,
-                }),
-                UnaryOperation::Not,
-            ) => Binary {
-                left,
-                right,
-                operation: BinaryOperation::LessThan,
-            }
-            .reduce(),
-            (
-                RValue::Binary(Binary {
-                    left,
-                    right,
-                    operation: BinaryOperation::LessThan,
-                }),
-                UnaryOperation::Not,
-            ) => Binary {
-                left,
-                right,
-                operation: BinaryOperation::GreaterThanOrEqual,
-            }
-            .reduce(),
+            // NOTE (C1): `not (a < b)` is intentionally NOT rewritten to `a >= b`
+            // (and the `<=`/`>`/`>=` variants likewise). Those flips are unsound for
+            // NaN: `not (nan < 1)` is `true`, but `nan >= 1` is `false`. Ordering
+            // comparisons in normal branch conditions already arrive operand-swapped
+            // (`a >= b` ⇒ `b <= a`), which is NaN-correct, so dropping these flips only
+            // affects an explicit `not (a <rel> b)` expression — kept verbatim here.
+            // The equality flips below stay: `not (a == b)` ≡ `a ~= b` even for NaN.
             (
                 RValue::Binary(Binary {
                     left,
@@ -252,58 +207,10 @@ impl Reduce for Unary {
             (RValue::Literal(Literal::Number(value)), UnaryOperation::Negate) => {
                 RValue::Literal(Literal::Number(-value))
             }
-            (
-                RValue::Binary(Binary {
-                    left,
-                    right,
-                    operation: BinaryOperation::GreaterThan,
-                }),
-                UnaryOperation::Not,
-            ) => Binary {
-                left,
-                right,
-                operation: BinaryOperation::LessThanOrEqual,
-            }
-            .reduce_condition(),
-            (
-                RValue::Binary(Binary {
-                    left,
-                    right,
-                    operation: BinaryOperation::LessThanOrEqual,
-                }),
-                UnaryOperation::Not,
-            ) => Binary {
-                left,
-                right,
-                operation: BinaryOperation::GreaterThan,
-            }
-            .reduce_condition(),
-            (
-                RValue::Binary(Binary {
-                    left,
-                    right,
-                    operation: BinaryOperation::GreaterThanOrEqual,
-                }),
-                UnaryOperation::Not,
-            ) => Binary {
-                left,
-                right,
-                operation: BinaryOperation::LessThan,
-            }
-            .reduce_condition(),
-            (
-                RValue::Binary(Binary {
-                    left,
-                    right,
-                    operation: BinaryOperation::LessThan,
-                }),
-                UnaryOperation::Not,
-            ) => Binary {
-                left,
-                right,
-                operation: BinaryOperation::GreaterThanOrEqual,
-            }
-            .reduce_condition(),
+            // NOTE (C1): see `reduce` above — the `not (a <rel> b)` → flipped-relation
+            // rewrites are omitted here too because they are NaN-unsound, and as a
+            // branch condition this is exactly the case that would silently change
+            // control flow. The equality flip below is NaN-safe and kept.
             (
                 RValue::Binary(Binary {
                     left,
