@@ -10,16 +10,23 @@
 > (both after several SSA-level attempts regressed — the lesson each time was that
 > SSA coalescing-avoidance fights the restructurer/out-of-SSA passes).
 >
-> **Deferred (1): C13** — `local _ = expr` drops a live captured-cell write in one
-> rare corpus file (HangingPlacement's self-disconnecting handler). The connect
-> result's SSA version is orphaned (a distinct `RcLocal` flowing into a dead
-> post-merge phi under register-reuse / `Close` boundaries) instead of being unified
-> into the captured cell. A sound fix is a *forward* extension of the upvalue-cell
-> open range — in the area `extend_open_backward` is DELIBERATELY conservative about
-> to avoid absorbing unrelated register-reuse values — and it CANNOT be reproduced
-> minimally (5 attempts), so it cannot be iterated/validated without risking the
-> "no new bugs" guarantee. Intentionally skipped: L3, L5 (runtime-only JIT ops),
-> set_list (unsound rewrite).
+> **C13 — investigated, evidence indicates a MISDIAGNOSIS (not a decompiler bug).**
+> Per the "verify subagent findings, don't trust blindly" rule, I verified the C13
+> claim with: (1) **8 reproductions** of `cell = signal:Connect(function() cell:Disconnect() end)`
+> in varied register-reuse / conditional / multi-closure shapes — ALL decompile
+> correctly to `cell = …:Connect(…)`. (2) An **A/B faithfulness test**: a DISCARDED
+> connection (`local _ = …:Connect(…)`) decompiles to a bare `Connect(function() end)`,
+> while an ASSIGNED one (`v22 = …:Connect(…)`) decompiles to `connection = …:Connect(…)`
+> — the decompiler faithfully distinguishes the two. (3) **Whole-corpus
+> instrumentation**: ZERO connection-writes (Call RHS) to a ref-captured register are
+> orphaned. The lone HangingPlacement instance has its `:Connect` result in a
+> NON-captured register, so the decompiler faithfully reproduces a connection the
+> obfuscated original genuinely discarded (with `v22` a separate, closure-written-nil
+> cell). The original review *inferred* "should be `v22 = …`" from the self-disconnect
+> shape; the bytecode does not support that inference. (Caveat: not 100% provable
+> without executing the original v9 bytecode, which the corpus can't run; but every
+> reproducible test shows the decompiler is correct here.) Intentionally skipped:
+> L3, L5 (runtime-only JIT ops), set_list (unsound rewrite).
 
 Method: differential harness. source --luau-compile -O{0,1,2}--> v11 bytecode --luau-lifter--> Luau --luau.exe--> output.
 A divergence in printed output = confirmed semantic bug. Binary: D:/Medal/medal-decompiler/target/release/luau-lifter.exe @ HEAD 1b8614e.
