@@ -141,6 +141,11 @@ impl Instruction {
             | 84
             | 85
             | 86
+            // NATIVECALL(62) is an ABC-form call (it mirrors CALL: A=func, B=nargs,
+            // C=nresults), NOT AD-form. Decoding it as AD scrambled A/B/C (L5). It is
+            // a runtime/JIT pseudo-op and does not appear in serialized v9 bytecode,
+            // so this is correctness hardening (the v9 corpus is byte-identical).
+            | 62
             | 87 => {
                 let (a, b, c) = Self::parse_abc(insn);
 
@@ -153,7 +158,7 @@ impl Instruction {
                 })
             }
             // 88 = CMPPROTO (AD-form: A register + D jump offset + AUX proto id).
-            4 | 5 | 12 | 19 | 23..=32 | 54 | 56..=59 | 61 | 62 | 64 | 76..=80 | 88 => {
+            4 | 5 | 12 | 19 | 23..=32 | 54 | 56..=59 | 61 | 64 | 76..=80 | 88 => {
                 let (a, d) = Self::parse_ad(insn);
 
                 Ok(Self::AD {

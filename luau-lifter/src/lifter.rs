@@ -224,13 +224,21 @@ impl<'a> Lifter<'a> {
                             .entry(dest_index)
                             .or_insert_with(|| self.function.new_block());
                     }
-                    // CMPPROTO is a jump-D opcode (runtime proto guard). We lower it as an
-                    // unconditional fall-through (see lift_block), so only the post-instruction
-                    // boundary needs a block. insn_index+2 = the op plus its injected aux NOP.
+                    // CMPPROTO is a jump-D opcode (runtime proto guard). The
+                    // fall-through is insn_index+2 (the op plus its injected aux NOP);
+                    // when D != 0 it ALSO branches to (insn_index+1)+D, so create that
+                    // block too — dropping the D edge silently lost a successor (L3).
                     OpCode::LOP_CMPPROTO => {
                         self.blocks
                             .entry(insn_index + 2)
                             .or_insert_with(|| self.function.new_block());
+                        if *d != 0 {
+                            let dest_index =
+                                (insn_index + 1).checked_add_signed((*d).into()).unwrap();
+                            self.blocks
+                                .entry(dest_index)
+                                .or_insert_with(|| self.function.new_block());
+                        }
                     }
                     _ => {}
                 },
@@ -522,7 +530,10 @@ impl<'a> Lifter<'a> {
                     | OpCode::LOP_FASTCALL1
                     | OpCode::LOP_FASTCALL2
                     | OpCode::LOP_FASTCALL2K
-                    | OpCode::LOP_FASTCALL3 => {}
+                    | OpCode::LOP_FASTCALL3
+                    // NATIVECALL is a JIT dispatch hint; the actual call is the
+                    // following CALL, so (like FASTCALL) it lifts to nothing (L5).
+                    | OpCode::LOP_NATIVECALL => {}
                     OpCode::LOP_NAMECALL | OpCode::LOP_NAMECALLUDATA => {
                         let namecall_base = a;
                         let namecall_object = self.register(b as _);
@@ -1395,17 +1406,39 @@ impl<'a> Lifter<'a> {
                         );
                     }
                     OpCode::LOP_CMPPROTO => {
-                        // Runtime proto-identity guard with no source form; never emitted by
-                        // the compiler. Lower it as an unconditional fall-through (both guard
-                        // arms are semantically equivalent at source level). The fall-through
-                        // is block_start+index+2 (the op plus its injected aux NOP), mirroring
-                        // the LOP_JUMPX lowering below. Note: the `d` jump target is
-                        // intentionally ignored — a nonzero-`d` CMPPROTO would drop that edge,
-                        // which is sound only because the compiler never emits this opcode.
-                        edges.push((
-                            self.block_to_node(block_start + index + 2),
-                            BlockEdge::new(BranchType::Unconditional),
-                        ));
+                        // Runtime proto-identity guard (no source form; never emitted by
+                        // the stock compiler). The fall-through is block_start+index+2
+                        // (the op plus its injected aux NOP). When D == 0 there is no
+                        // jump, so a plain fall-through is exact. When D != 0 the guard
+                        // branches to (block_start+index+1)+D, so emit a genuine two-way
+                        // conditional rather than dropping that edge (L3) — the guard
+                        // predicate is opaque, so R[A] (the value being proto-checked)
+                        // stands in as the condition.
+                        if d != 0 {
+                            statements.push(
+                                ast::If::new(
+                                    self.register(a as _).into(),
+                                    ast::Block::default(),
+                                    ast::Block::default(),
+                                )
+                                .into(),
+                            );
+                            edges.push((
+                                self.block_to_node(
+                                    ((block_start + index + 1) as isize + d as isize) as usize,
+                                ),
+                                BlockEdge::new(BranchType::Then),
+                            ));
+                            edges.push((
+                                self.block_to_node(block_start + index + 2),
+                                BlockEdge::new(BranchType::Else),
+                            ));
+                        } else {
+                            edges.push((
+                                self.block_to_node(block_start + index + 2),
+                                BlockEdge::new(BranchType::Unconditional),
+                            ));
+                        }
                     }
                     _ => unreachable!("{:?}", instruction),
                 },
