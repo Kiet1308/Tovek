@@ -129,6 +129,14 @@ struct Target {
     params: FxHashSet<RcLocal>, // P
     locals: FxHashSet<RcLocal>, // L (declared callee-locals)
     param_order: Vec<RcLocal>,
+    /// Parameters the callee body NEVER reads (F6a). On a non-variadic helper an
+    /// unread param cannot be observed, so a call-site region that matches the body
+    /// minus that param is still a valid de-inline: `try_unify_site` supplies `nil`
+    /// for it (trailing such args are trimmed). Computed once via `count_local_reads`
+    /// over `pat` (which recurses nested blocks; the body is closure-free by
+    /// `body_unsafe`). Empty for the overwhelmingly common all-params-read helper, so
+    /// this changes nothing for those.
+    unread: FxHashSet<RcLocal>,
 }
 
 #[derive(Default, Clone)]
@@ -210,14 +218,29 @@ pub fn deinline(body: &mut Block) {
             true,
             &mut newly,
         );
+        // Fixed point is reached when an iteration rewrites NOTHING. `newly` gains a
+        // binder on EVERY splice (`deinline_block` -> `newly.insert(hit.f_local)`),
+        // so `newly.is_empty()` ⟺ zero sites rewritten this iteration ⟺ the AST is
+        // stable. Terminate on that alone.
+        //
+        // The previous extra guard — `break` when `converted.len()` did not grow —
+        // was UNSOUND as a termination test: `converted` is a SET of binders, so an
+        // iteration that productively rewrites further sites of an ALREADY-converted
+        // binder `f` (the chained / nested case: an inner de-inline in a prior
+        // iteration exposed a fresh `f`-shaped region) mutates the AST yet leaves
+        // `converted.len()` unchanged, stopping the loop one iteration too early and
+        // silently leaving those regions un-reconstructed. Termination still holds
+        // without it: every splice replaces an inlined region with a literal
+        // `f(args)` call, which is never itself a re-matchable inline site — a bare
+        // call to a `Local` callee with `Local`/literal args scores 0 anchors
+        // (`anchors_in_rvalue`), below the `anchors_in_block(&pat) < 2` collection
+        // floor, so it can never be re-collected as a target body. Thus the count of
+        // matchable inlined regions strictly decreases each productive iteration and
+        // is bounded by the initial AST size.
         if newly.is_empty() {
             break;
         }
-        let before = converted.len();
         converted.extend(newly);
-        if converted.len() == before {
-            break;
-        }
     }
     if !converted.is_empty() {
         // Binders of CONVERTED helpers that can return more than one value (a P7-A
@@ -292,6 +315,40 @@ fn nth_effective_index(stmts: &[Statement], from: usize, n: usize) -> Option<usi
         .filter(|(_, s)| !is_match_trivia(s))
         .nth(n)
         .map(|(idx, _)| idx)
+}
+
+/// The raw window width at/after `from` that spans up to `max_eff` EFFECTIVE
+/// (non-trivia) statements — the trivia-aware analogue of a flat `from + max_eff`
+/// ceiling. Interposed `Empty`s / internal markers (an inner de-inline can splice
+/// several of them into a nested candidate region across fixed-point iterations) do
+/// NOT consume the budget, so a window whose *effective* length already equals the
+/// pattern is never cut short by the raw ceiling (DeinlineReportNew §2 / F2). The
+/// per-width matcher loops still gate each width by `canon_top_len == kc`, so the
+/// only effect of a wider ceiling is to KEEP trying widths that the old raw bound
+/// `pat_raw_len + 1` wrongly excluded once two or more trivia were interposed.
+///
+/// Returns the number of raw statements from `from` up to and INCLUDING the
+/// `max_eff`-th effective statement, or all remaining statements when fewer than
+/// `max_eff` effective statements remain. With no interposed trivia this equals
+/// `min(stmts.len() - from, max_eff)` exactly — i.e. byte-identical to the old
+/// ceiling in the common case, so non-nested corpus output cannot move.
+fn raw_width_for_effective(stmts: &[Statement], from: usize, max_eff: usize) -> usize {
+    // Defensive: every caller passes `pat_raw_len + 1 >= 1`, so this never fires in
+    // practice (and a `kc..=0` width range would be empty anyway), but it keeps the
+    // helper total for any future caller.
+    if max_eff == 0 {
+        return 0;
+    }
+    let mut eff = 0usize;
+    for (off, s) in stmts[from..].iter().enumerate() {
+        if !is_match_trivia(s) {
+            eff += 1;
+            if eff == max_eff {
+                return off + 1;
+            }
+        }
+    }
+    stmts.len() - from
 }
 
 fn collapse_value_results(stmts: &mut Vec<Statement>, multivalue: &FxHashSet<RcLocal>) {
@@ -1169,11 +1226,21 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
         }
         // Value target: the callee's `return X` was lowered to `RESULT = X` in
         // the inlined copy. Bind the single result local and unify the value.
+        // The result-write leaf is always a PLAIN reassignment (`RESULT = X`):
+        // `RESULT` is the init-less decl pinned by `result_decl` (prefix=true), and
+        // LocalDeclarer's single-declaration invariant (local_declarations.rs) gives
+        // each local exactly ONE prefix=true decl, so every in-region write to it is
+        // prefix=false / parallel=false. A `local RESULT = X` redeclaration or a
+        // parallel phi-copy here would change scope when spliced, so refuse it —
+        // mirrors the sibling (Assign, Assign) arm's prefix/parallel equality and
+        // `result_decl`'s own `prefix && !parallel` gate (F10a hardening).
         (Statement::Return(pr), Statement::Assign(ca))
             if t.kind == TKind::Value
                 && pr.values.len() == 1
                 && ca.left.len() == 1
-                && ca.right.len() == 1 =>
+                && ca.right.len() == 1
+                && !ca.prefix
+                && !ca.parallel =>
         {
             let r = match &ca.left[0] {
                 LValue::Local(r) => r,
@@ -1645,7 +1712,22 @@ fn deinline_block(
                 }),
             };
             let marker = Statement::Comment(Comment::trailing(CALL_MARKER.to_string()));
-            stmts.splice(i..i + hit.consume, [stmt, marker]);
+            // A chained reconstruction (F1/F2) can consume an INNER reconstructed call
+            // whose own trailing `CALL_MARKER` now sits just past the matched window
+            // (the matcher keeps the smallest `w`, which need not span that trailing
+            // marker). Orphaned, it would render as a duplicate ` -- inlined…` comment
+            // on the new call's line. Swallow any immediately-following internal marker
+            // — a runtime no-op that belonged to the consumed region's last statement —
+            // into the splice. Only CALL_MARKERs exist here (DEF/COLLAPSE markers are
+            // inserted after the loop); `Empty`s are deliberately left untouched so the
+            // non-chained majority of corpus output stays byte-identical.
+            let mut consume = hit.consume;
+            while i + consume < stmts.len()
+                && matches!(&stmts[i + consume], Statement::Comment(c) if is_internal_marker(c))
+            {
+                consume += 1;
+            }
+            stmts.splice(i..i + consume, [stmt, marker]);
             newly.insert(hit.f_local);
             i += 2;
             // The block changed; drop the cached index so the next query rebuilds
@@ -2022,7 +2104,9 @@ fn match_void(
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
     let kc = t.pat.len();
-    let max_w = std::cmp::min(stmts.len() - i, t.pat_raw_len + 1);
+    // F2: an effective-count ceiling (trivia don't consume the budget) so a nested
+    // candidate region carrying 2+ interposed markers is still reachable.
+    let max_w = raw_width_for_effective(stmts, i, t.pat_raw_len + 1);
     let mut site: Option<(usize, Vec<RValue>)> = None;
     let mut ambiguous = false;
     for w in kc..=max_w {
@@ -2089,8 +2173,8 @@ fn match_value(
     let r = result_decl(&stmts[i])?;
     let kc = t.pat.len();
     let body_start = i + 1;
-    let avail = stmts.len() - body_start;
-    let max_w = std::cmp::min(avail, t.pat_raw_len + 1);
+    // F2: effective-count ceiling (interposed trivia don't consume the budget).
+    let max_w = raw_width_for_effective(stmts, body_start, t.pat_raw_len + 1);
     let mut site: Option<(usize, Vec<RValue>)> = None;
     let mut ambiguous = false;
     for w in kc..=max_w {
@@ -2116,6 +2200,13 @@ fn match_value(
             // we must NOT reject on that. Every OTHER callee-temp, though, must be
             // dead after the region (its declaration is being removed).
             if u.result.as_ref() == Some(&r)
+                // The RESULT register must not ALSO be a region-internal callee temp
+                // (a re-declaration / for-counter shadowing it). On genuine -O2 the
+                // result register and the callee's internal temps are distinct, so
+                // this changes no real match; it mirrors `match_value_prefixed`'s
+                // identical conjunct (the getOwnerId reassignment-collision class)
+                // and keeps the two value matchers symmetric (F10b hardening).
+                && !u.callee_locals.contains(&r)
                 && !block_reads_local(region, &r)
                 && !tail_has_live(last_occ, stmts, i, body_start + w, &u.callee_locals)
             {
@@ -2167,8 +2258,8 @@ fn match_value_prefixed(
     let r = result_decl(&stmts[d])?;
     let kc = t.pat.len();
     let region_start = d + 1;
-    let avail = stmts.len() - region_start;
-    let max_w = std::cmp::min(avail, t.pat_raw_len + 1);
+    // F2: effective-count ceiling (interposed trivia don't consume the budget).
+    let max_w = raw_width_for_effective(stmts, region_start, t.pat_raw_len + 1);
     // The prefix (the callee's leading statement) is loop-invariant — neither it
     // nor its return-freeness depends on `w` — so resolve it once up front. A
     // return in the prefix means a different shape (the value branch must be the
@@ -2251,8 +2342,27 @@ fn try_unify_site(t: &Target, cwin: &[Statement]) -> Option<Unified> {
     for p in &t.param_order {
         match b.params.get(p) {
             Some(e) => args.push(e.clone()),
-            None => return None, // a parameter never bound (unread) — refuse
+            // A parameter never bound during unification. If the body NEVER reads it
+            // (F6a), the region legitimately matched the body minus that param: on a
+            // non-variadic helper (`is_variadic` is refused in `collect_targets`) an
+            // unread param is unobservable, so supply `nil` — exactly what Luau passes
+            // for a missing/dropped argument. A read param that failed to bind is a
+            // genuine mismatch and still refuses the whole site. (A write-only param
+            // never reaches here: it fails `unify_local`'s identity branch first.)
+            None if t.unread.contains(p) => args.push(RValue::Literal(Literal::Nil)),
+            None => return None,
         }
+    }
+    // Trim trailing `nil`s we supplied for unread params: `f(a, nil)` ≡ `f(a)` for a
+    // non-variadic helper, and the shorter form reads better. Only OUR inserted nils
+    // are trimmed (the position's param is in `unread`); a real trailing `nil` the
+    // caller passed to a READ param is kept (its param is not in `unread`).
+    while args
+        .last()
+        .is_some_and(|a| matches!(a, RValue::Literal(Literal::Nil)))
+        && t.unread.contains(&t.param_order[args.len() - 1])
+    {
+        args.pop();
     }
     // Argument hoist-safety. Turning the region back into `f(args)` evaluates
     // every argument at the call site (before the body), in parameter order.
@@ -2450,6 +2560,30 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
         for p in &params {
             locals.remove(p);
         }
+        // F6a: parameters the body never READS. Build the read-set in ONE pass over
+        // the RAW body (`g.body.0`) — O(body + params), not a per-param re-traversal,
+        // and over the body the helper ACTUALLY runs, which decouples F6a soundness
+        // from canon's drop-semantics (canon only ever removes read-free statements,
+        // so this yields the identical set today, but is self-evidently correct even
+        // if canon ever changes). The body is closure-free here (`body_unsafe`), so no
+        // read can hide in a nested function.
+        //
+        // A WRITTEN param needs no special case: it appears in the body as an
+        // `LValue::Local(p)`, which `unify_local`'s param-identity branch forces the
+        // candidate to write through the *same* callee local — impossible at the call
+        // site (the caller writes a different register), so the whole match fails in
+        // `unify_block` BEFORE `try_unify_site`'s args loop. That holds whether or not
+        // the param is also read: a pure write-only `p = X` IS classified unread here
+        // (it has zero reads), but it can still never receive a wrong `nil`, because
+        // the site is refused upstream.
+        let mut body_reads: FxHashSet<RcLocal> = FxHashSet::default();
+        collect_reads(&g.body.0, &mut body_reads);
+        let unread: FxHashSet<RcLocal> = g
+            .parameters
+            .iter()
+            .filter(|p| !body_reads.contains(*p))
+            .cloned()
+            .collect();
         let func_ptr = Arc::as_ptr(&func);
         let pat_raw_len = g.body.0.len();
         let param_order = g.parameters.clone();
@@ -2507,6 +2641,7 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
             params,
             locals,
             param_order,
+            unread,
         });
     }
     targets
@@ -3264,6 +3399,7 @@ mod tests {
             params: FxHashSet::default(),
             locals,
             param_order: Vec::new(),
+            unread: FxHashSet::default(),
         }
     }
 
@@ -3470,6 +3606,7 @@ mod tests {
             params,
             locals: FxHashSet::default(),
             param_order: vec![p.clone()],
+            unread: FxHashSet::default(),
         };
 
         let arg = local("arg");
@@ -3483,6 +3620,122 @@ mod tests {
         assert!(
             match_value_prefixed(&cand, 0, &t, false, &mut None).is_none(),
             "an in-place accumulator with a param-LHS must not de-inline"
+        );
+    }
+
+    /// F2: a candidate region carrying TWO interposed `CALL_MARKER`s (two inner
+    /// de-inlines in a chained reconstruction) must still match. The old raw ceiling
+    /// `pat_raw_len + 1` capped the window at 4 raw statements — one short of the 5
+    /// needed (3 calls + 2 markers) — silently missing the outer reconstruction; the
+    /// effective-count ceiling (trivia don't consume the budget) reaches it.
+    #[test]
+    fn void_region_with_two_interposed_markers_matches_f2() {
+        let mk = || Statement::Comment(Comment::trailing(CALL_MARKER.to_string()));
+        let call = |s: &str| Statement::Call(Call::new(global("print"), vec![string(s)]));
+        let pat = vec![call("a"), call("b"), call("c")];
+        let t = void_target(pat, FxHashSet::default());
+        let cand = vec![
+            call("a"),
+            mk(),
+            call("b"),
+            mk(),
+            call("c"),
+            print_x(), // trailing real stmt: the window must stop before it (canon != kc)
+        ];
+        let hit = match_void(&cand, 0, &t, false, false, &mut None)
+            .expect("two interposed markers must not exceed the effective window ceiling");
+        assert_eq!(hit.consume, 5, "window spans the 3 calls + 2 interior markers");
+    }
+
+    /// Build a Void target with the given param order and a set of NEVER-read params
+    /// (F6a). `print(read_param)` twice is the body; the read param binds, the unread
+    /// ones are supplied as `nil` (trailing ones trimmed) by `try_unify_site`.
+    fn unused_param_void_target(param_order: Vec<RcLocal>, read: &RcLocal, unread: &[RcLocal]) -> Target {
+        let pat = vec![
+            Statement::Call(Call::new(global("print"), vec![local_value(read)])),
+            Statement::Call(Call::new(global("print"), vec![local_value(read)])),
+        ];
+        let pat0_kind = std::mem::discriminant(&pat[0]);
+        let pat0_anchor_key = stmt_anchor_key(&pat[0]);
+        let params: FxHashSet<RcLocal> = param_order.iter().cloned().collect();
+        let unread_set: FxHashSet<RcLocal> = unread.iter().cloned().collect();
+        Target {
+            f_local: local("f"),
+            func_ptr: std::ptr::null::<Mutex<Function>>(),
+            kind: TKind::Void,
+            // These F6a tests call `try_unify_site` directly (which never reads
+            // `pat_raw_len`); canon len == raw len == 2 here, so the nominal value is
+            // fine. A window-scan (match_void) test would need the RAW body length.
+            pat_raw_len: pat.len(),
+            value_anchor: ValueAnchor::AtResultDecl,
+            prefix_len: 0,
+            pat0_kind,
+            pat0_anchor_key,
+            pat,
+            params,
+            locals: FxHashSet::default(),
+            param_order,
+            unread: unread_set,
+        }
+    }
+
+    /// F6a: a TRAILING never-read parameter no longer blocks de-inline; the dropped
+    /// arg is trimmed (`f(a, unused)` called `f(x, 999)` reconstructs as `f(x)`).
+    #[test]
+    fn unused_trailing_param_de_inlines_with_trimmed_arg_f6a() {
+        let a = local("a");
+        let unused = local("u");
+        let t = unused_param_void_target(vec![a.clone(), unused.clone()], &a, &[unused.clone()]);
+        let c = local("c");
+        let cand = vec![
+            Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
+            Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
+        ];
+        let u = try_unify_site(&t, &cand).expect("unused trailing param must not block de-inline");
+        assert_eq!(u.args.len(), 1, "trailing nil for the unused param is trimmed");
+        assert!(matches!(&u.args[0], RValue::Local(l) if l == &c));
+    }
+
+    /// F6a: an INTERIOR never-read parameter is preserved as `nil` to keep positions
+    /// (`f(unused, b)` called `f(999, x)` reconstructs as `f(nil, x)`).
+    #[test]
+    fn unused_interior_param_de_inlines_with_nil_f6a() {
+        let unused = local("u");
+        let b = local("b");
+        let t = unused_param_void_target(vec![unused.clone(), b.clone()], &b, &[unused.clone()]);
+        let c = local("c");
+        let cand = vec![
+            Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
+            Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
+        ];
+        let u = try_unify_site(&t, &cand).expect("interior unused param must not block de-inline");
+        assert_eq!(u.args.len(), 2);
+        assert!(
+            matches!(&u.args[0], RValue::Literal(Literal::Nil)),
+            "interior unused param -> nil placeholder"
+        );
+        assert!(matches!(&u.args[1], RValue::Local(l) if l == &c));
+    }
+
+    /// F6a soundness boundary: a param that the body READS but that fails to bind
+    /// (genuine mismatch) still refuses the whole site — only NEVER-read params get
+    /// the nil treatment.
+    #[test]
+    fn read_param_that_fails_to_bind_still_refused_f6a() {
+        let a = local("a");
+        // `a` IS read by the body but is NOT in `unread`.
+        let t = unused_param_void_target(vec![a.clone()], &a, &[]);
+        // candidate whose second print reads a DIFFERENT local than the first ->
+        // `a` binds to the first, the second occurrence mismatches -> refuse.
+        let c = local("c");
+        let d = local("d");
+        let cand = vec![
+            Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
+            Statement::Call(Call::new(global("print"), vec![local_value(&d)])),
+        ];
+        assert!(
+            try_unify_site(&t, &cand).is_none(),
+            "a read param with inconsistent bindings must refuse, never default to nil"
         );
     }
 
@@ -3552,6 +3805,7 @@ mod tests {
             params: FxHashSet::default(),
             locals,
             param_order: Vec::new(),
+            unread: FxHashSet::default(),
         }
     }
 
@@ -3585,6 +3839,7 @@ mod tests {
             params: FxHashSet::default(),
             locals,
             param_order: Vec::new(),
+            unread: FxHashSet::default(),
         }
     }
 
@@ -3717,6 +3972,45 @@ mod tests {
             .expect("if/else value prefix should match without a flip");
         assert_eq!(hit.consume, 3);
         assert_eq!(hit.result, Some(v));
+    }
+
+    /// F10a hardening: a value-return result-write leaf carrying `prefix = true` (a
+    /// `local v = X` redeclaration rather than the plain `v = X` reassignment the
+    /// single-declaration invariant guarantees) must NOT unify as the result lane —
+    /// splicing it would change `v`'s scope. The (Return, Assign) arm now requires
+    /// `!prefix && !parallel`, mirroring `result_decl` and the (Assign, Assign) arm.
+    #[test]
+    fn value_leaf_with_prefix_redeclaration_refused_f10a() {
+        let obj = local("obj");
+        let k = local("k");
+        let body = vec![
+            assign_local(&k, field(local_value(&obj), "Field"), true),
+            if_stmt(
+                bin(local_value(&k), BinaryOperation::Equal, number(1.0)),
+                vec![return_one(string("a"))],
+                vec![return_one(string("b"))],
+            ),
+        ];
+        let t = value_prefix_target(&body);
+
+        let k2 = local("k2");
+        let v = local("v");
+        let candidate = vec![
+            assign_local(&k2, field(local_value(&obj), "Field"), true),
+            init_less_decl(&v),
+            if_stmt(
+                bin(local_value(&k2), BinaryOperation::Equal, number(1.0)),
+                // result-write leaves as `local v = …` (prefix=true) -> refused.
+                vec![assign_local(&v, string("a"), true)],
+                vec![assign_local(&v, string("b"), true)],
+            ),
+            print_x(),
+        ];
+
+        assert!(
+            match_value_prefixed(&candidate, 0, &t, false, &mut None).is_none(),
+            "a prefix=true result-write leaf must not unify as the result lane (F10a)"
+        );
     }
 
     /// P1 regression: a `CALL_MARKER` an inner de-inline spliced between the
