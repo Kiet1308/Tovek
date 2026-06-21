@@ -1273,6 +1273,17 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         table.0.iter().any(|(_, v)| matches!(v, RValue::Table(_x)))
     }
 
+    /// An expression that yields multiple values when in a tail/spreading
+    /// position (a function/method call, `...`, or a `Select` over one). In a
+    /// table that is NOT the open positional tail (i.e. a keyed entry) it must be
+    /// parenthesized to truncate to a single value.
+    fn is_multret_expression(value: &RValue) -> bool {
+        matches!(
+            value,
+            RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_) | RValue::Select(_)
+        )
+    }
+
     pub(crate) fn format_table(&mut self, table: &Table) -> fmt::Result {
         let sequential_keys = Self::are_table_keys_sequential(table);
         let should_space = !table.0.is_empty();
@@ -1316,7 +1327,23 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                         }
                     }
                 }
+                // A KEYED last entry (key.is_some(); the spreading multret tail has
+                // key.is_none() and is handled above) truncates its value to one
+                // element. Only when the key is DROPPED (sequential table) does the
+                // entry render positionally and risk spreading, so wrap a multret
+                // value in parens there to keep it truncated — `{[1] = f()}`
+                // (=> 1 element) must NOT render as `{f()}` (=> all of f()'s
+                // results). A rendered key (`field = f()` / `[k] = f()`, non-
+                // sequential) already truncates, so no wrap is needed.
+                let wrap =
+                    is_last && sequential_keys && Self::is_multret_expression(value);
+                if wrap {
+                    write!(self.output, "(")?;
+                }
                 self.format_rvalue(value)?;
+                if wrap {
+                    write!(self.output, ")")?;
+                }
                 if !is_last {
                     write!(self.output, ",")?;
                     write!(self.output, "{}", if should_format { "\n" } else { " " })?;
