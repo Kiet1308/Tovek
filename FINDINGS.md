@@ -10,7 +10,22 @@
 > (both after several SSA-level attempts regressed — the lesson each time was that
 > SSA coalescing-avoidance fights the restructurer/out-of-SSA passes).
 >
-> **C13 — investigated, evidence indicates a MISDIAGNOSIS (not a decompiler bug).**
+> **C13 — VERIFIED A MISDIAGNOSIS at the bytecode level (not a decompiler bug).**
+> Definitive proof via lifter instrumentation correlating each `:Connect` NAMECALL's
+> result register with the registers closures capture by reference: in
+> HangingPlacement (the sole cited instance) there are **ZERO** collisions — the
+> AncestryChanged `:Connect` result is in a register NO closure captures, so it is
+> NOT `v22`'s register. Since `local _ = …` means that result is dead/unread, there
+> is no hidden `v22 = result` move either — the connection is genuinely discarded in
+> the obfuscated original (a real leak in THAT code, faithfully reproduced), with
+> `v22` a separate closure-set-nil cell. Corpus-wide: exactly ONE `local _ = …:Connect`
+> exists (this one), while the **138** cases where a `:Connect` result IS written to a
+> captured register all decompile correctly to `cell = …:Connect`. So the decompiler
+> handles every genuine connection-cell case correctly; the original review's
+> "should be `v22 = …`" was an inference the bytecode disproves. Supporting evidence
+> below.
+>
+> **C13 — earlier indirect evidence (superseded by the bytecode proof above):**
 > Per the "verify subagent findings, don't trust blindly" rule, I verified the C13
 > claim with: (1) **8 reproductions** of `cell = signal:Connect(function() cell:Disconnect() end)`
 > in varied register-reuse / conditional / multi-closure shapes — ALL decompile
