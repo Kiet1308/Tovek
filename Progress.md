@@ -93,3 +93,78 @@ not trusted.
   (D==0 keeps the exact fall-through). **set_list multret tail** (#21) is "plausible,
   NO trigger constructed" — not a confirmed finding; the common multret-tail-in-
   constructor case was tested and decompiles correctly (`{1,2,multi()}` → 5 values).
+
+---
+
+## C13 (self-update facet) — dead `local _ = v + 1` → `v += 1` — 2026-06-21
+
+Branch `fix/c13-dead-register-writes` (off `main` @ `0c1ee12`). A user bug report
+flagged three faces of the same family ("an assignment to a still-live/captured
+local collapsed to a throwaway `local _ = expr`, losing the write"):
+1. nested mutual-disconnect connections (cell stays `nil`, `nil:Disconnect()`);
+2. **counter self-update** `local _ = v4 + 1` (should be `v4 += 1`);
+3. captured boolean flag `local _ = true` (should be `flag = true`).
+
+**Process (CLAUDE.md):** a 7-agent research+review Workflow (5 research + 2
+adversarial review) mapped the root cause; I re-verified every finding against the
+code/binary; implemented; a 4-agent review Workflow (3 code + 1 perf, read-only
+`Explore` agents so they could not touch the uncommitted tree) signed off; a final
+summary agent confirmed READY-TO-COMMIT. Every subagent claim was re-verified by
+me — including walking back two of my own earlier wrong instincts (a broad
+"coalesce any dead write into the register's live class" rule, and a captured-cell
+"GATE B" — both removed after they were proven to regress or to be inert).
+
+**Root cause.** Out-of-SSA destruction (`cfg/src/ssa/destruct.rs`) builds final
+locals ONLY from copy/phi/upvalue coalescing. A DEAD non-copy self-update
+(`v_k = v_j + 1`) whose result no surviving statement reads becomes a singleton
+congruence class → a fresh local → named `_` by `name_locals` (Arc count 1). In a
+loop the loop-header phi (`coalesce_params`) rescues it, which is exactly why the
+same increment is correct `v4 += 1` inside loops but dropped to `local _ = v4 + 1`
+on a straight-line / dead-on-path branch (corpus: `WeatherClient/MeteorShower.lua`).
+
+**Fix.** New pass `coalesce_dead_register_writes` (in `destruct()`, after
+`coalesce_copies`, before `build_local_map`). It threads the SSA-version→original-
+register map (`local_to_group`, already computed in both lifter callers) into
+`Destructor::new`. For a dead `dst = rhs` whose RHS reads exactly ONE *distinct*
+same-register version (`local_to_group` equality — the lifter's one-register→one-
+old_local invariant, i.e. the compiler's `ADD Rn Rn …`; `v = v + v` dedups to one
+operand), it merges `dst` into that operand's congruence class IFF the EXISTING
+Boissinot interference test (`check_interfere`) permits — the same criterion the
+copy/phi coalescers already enforce, so no new unsoundness. `build_local_map`/
+`local_declarations`/the formatter then render `v += 1` for free (the reassignment
+reads its own LHS). The construct-time `local_to_group` snapshot stays valid for
+every surviving version (the post-construct fixpoint only remaps version→version of
+the SAME register and mints no register-less version); a stale/missing key
+conservatively SKIPS — never mis-merges.
+
+**Why the same-register-read gate is the whole game.** It keeps the change
+surgical and is what makes it sound: a discarded length/field read (`local _ = #v2`
+— `v2` is a *different* register than the fresh result), a discarded call, an
+unused source local (`local _ = Enum.X`, reads no local), and a recovered
+`local function` reused on a register later holding a different live variable (the
+closure RHS reads no local of its OWN register) ALL fail the gate and are preserved
+byte-for-byte. An early broad rule corrupted exactly those recovered-`local
+function` cases (PlantReplicator/PotReplicator/Toolbar) — the self-update gate
+fixes that and leaves them identical.
+
+**Result.** Corpus byte-diff = exactly ONE file (`MeteorShower.luau`: two
+`local _ = v4 + 1` → `v4 += 1`). Corpus-wide `local _ =` 24→22, `+= 1` 274→276 (only
+the two intended sites move; the other 22 legitimate `local _ =` survivors
+untouched). Deterministic (two runs byte-identical). `validate-folder`:
+VALID=262 INVALID=0 scope-files=0 regression-fail=0. Tests: cfg 380, ast 18,
+luau-lifter all green + new `c13_dead_increment.rs` regression (v11 fixture
+`c13_counter_self_update.luaubc`, asserts no `local _ =` and exactly three `+= 1`).
+Perf below the noise floor (a single O(statements) read-only scan; gated out when
+`local_to_group` is empty).
+
+**Facets 1 & 3 NOT fixed here (honest scope).** The counter facet reproduces from
+stock `luau-compile` v11 and is fixed. The connection and flag facets do NOT
+reproduce from the public v11 toolchain — they need the v9-real-bytecode SSA shape
+(consistent with FINDINGS.md:128). The one corpus flag instance (`LoadingScript`)
+was proven (via instrumentation) to be a **de-inline artifact**: the dropped write
+gets a fresh local fully disconnected from the captured cell's register, so NO
+SSA-level coalescing can reach it; fixing it belongs in the de-inline / value-
+capture pass (the high-risk C6 area) and is not safely doable without the user's
+actual bytecode + a deterministic repro. The nested-mutual connection facet has
+zero corpus instances and the single-cell form is already handled by
+`recover_dropped_connection`. These remain open pending real v9 samples.

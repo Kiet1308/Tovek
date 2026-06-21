@@ -407,6 +407,7 @@ fn decompile_function(
         upvalue_to_group,
         upvalues_in.iter().cloned().collect(),
         local_count,
+        local_to_group,
     )
     .destruct();
 

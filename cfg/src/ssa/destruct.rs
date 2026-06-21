@@ -58,6 +58,16 @@ pub struct Destructor<'a> {
     dominators: FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
     liveness: FxHashMap<NodeIndex, LiveSets>,
     undesirable_blocks: FxHashSet<NodeIndex>,
+    // SSA version -> original-register group id (the flattened `all_definitions`
+    // produced by SSA construction: two versions share an id iff they are the
+    // same bytecode register). Consumed only by `coalesce_dead_register_writes`
+    // to recover register identity, which out-of-SSA otherwise discards. It is a
+    // construct-time snapshot; the post-construct fixpoint only ever remaps a
+    // version to another version of the SAME register (never mints a new
+    // register-less version), so every version that SURVIVES into destruct keeps
+    // a valid id and a removed version's stale key is simply never looked up — a
+    // missing lookup conservatively SKIPS the coalesce, never mis-merges.
+    local_to_group: FxHashMap<RcLocal, usize>,
 }
 
 impl<'a> Destructor<'a> {
@@ -66,11 +76,13 @@ impl<'a> Destructor<'a> {
         upvalue_to_group: IndexMap<RcLocal, RcLocal>,
         upvalues_in: FxHashSet<RcLocal>,
         local_count: usize,
+        local_to_group: FxHashMap<RcLocal, usize>,
     ) -> Self {
         Self {
             function,
             upvalue_to_group,
             upvalues_in,
+            local_to_group,
             values: FxHashMap::with_capacity_and_hasher(local_count, Default::default()),
             congruence_classes: FxHashMap::with_capacity_and_hasher(
                 local_count,
@@ -103,6 +115,7 @@ impl<'a> Destructor<'a> {
         self.coalesce_upvalues();
         self.coalesce_params();
         self.coalesce_copies();
+        self.coalesce_dead_register_writes();
 
         super::construct::apply_local_map(self.function, self.build_local_map());
 
@@ -512,6 +525,98 @@ impl<'a> Destructor<'a> {
         let mut dominator_dfs = Dfs::new(&self.dominator_tree, self.function.entry().unwrap());
         while let Some(node) = dominator_dfs.next(self.function.graph()) {
             self.coalesce_copies_for_block(node);
+        }
+    }
+
+    /// Coalesce a DEAD self-update back into its variable — the C13 "lost-write"
+    /// family for the self-update facet. Renders `v = v + 1` (→ `v += 1`) instead
+    /// of a throwaway `local _ = v + 1` that silently drops the increment.
+    ///
+    /// The preceding passes coalesce only copies, phis and upvalue groups, so a
+    /// NON-copy def (`v_k = v_j + 1`) whose result no surviving statement reads
+    /// stays a singleton congruence class → a fresh final local → named `_` by
+    /// `name_locals` (its `Arc` count is 1). In a loop the same write is rescued
+    /// by the loop-header phi (`coalesce_params`); only the no-phi (straight-line
+    /// / dead-branch) shape is dropped.
+    ///
+    /// We target ONLY a provable self-update: a dead `dst = rhs` whose RHS reads
+    /// EXACTLY ONE local that is the SAME original register as `dst`
+    /// (`local_to_group` equality — the lifter maps one register to one original
+    /// local, so this is the compiler's `ADD Rn Rn …`). That read local is the
+    /// variable's live current value, so merging `dst` into its congruence class
+    /// is faithful, and `build_local_map`/`local_declarations`/the formatter then
+    /// render `v += 1` for free (the reassignment's RHS reads its own LHS). The
+    /// merge is gated by the EXISTING Boissinot interference test
+    /// (`check_interfere`), so a value still live across the dead def is never
+    /// clobbered — the same criterion the copy/phi coalescers already enforce.
+    ///
+    /// The same-register-read requirement is what keeps this surgical and leaves
+    /// every legitimate `local _ =` untouched: a discarded length/field read
+    /// (`local _ = #v2` — `v2` is a DIFFERENT register than the fresh result), a
+    /// discarded call, an unused source local (`local _ = Enum.X` — reads no
+    /// local), and a recovered `local function` reused on a register that later
+    /// holds a different live variable (the closure RHS reads no local of its own
+    /// register) all fail the gate and are preserved exactly.
+    fn coalesce_dead_register_writes(&mut self) {
+        if self.local_to_group.is_empty() {
+            return;
+        }
+
+        // `(dead dst, the same-register local its RHS reads)` for every dead
+        // self-update. Collected first (read-only over the function), sorted by
+        // definition order for deterministic, hashmap-independent output.
+        let mut self_updates: Vec<(RcLocal, RcLocal)> = Vec::new();
+        for (_, block) in self.function.blocks() {
+            for statement in block.iter() {
+                let ast::Statement::Assign(assign) = statement else {
+                    continue;
+                };
+                if assign.parallel || assign.left.len() != 1 {
+                    continue;
+                }
+                let Some(dst) = assign.left[0].as_local() else {
+                    continue;
+                };
+                // Genuinely dead (no reader) and not a function upvalue parameter.
+                if self.local_last_use.contains_key(dst) || self.upvalues_in.contains(dst) {
+                    continue;
+                }
+                let Some(&dst_group) = self.local_to_group.get(dst) else {
+                    continue;
+                };
+                // RHS must reference EXACTLY ONE same-register VERSION as the
+                // self-update operand. The same version read more than once
+                // (`v = v + v`, `ADD Rn Rn Rn`) is still a single-operand
+                // self-update; two DISTINCT versions of the register (`v_i + v_j`)
+                // are ambiguous and refused.
+                let same_register_reads: Vec<&ast::RcLocal> = statement
+                    .values_read()
+                    .into_iter()
+                    .filter(|r| self.local_to_group.get(*r) == Some(&dst_group))
+                    .collect();
+                let Some(operand) = same_register_reads.first().copied() else {
+                    continue;
+                };
+                if same_register_reads.iter().any(|r| *r != operand) {
+                    continue;
+                }
+                self_updates.push((dst.clone(), operand.clone()));
+            }
+        }
+        self_updates
+            .sort_by_key(|(dst, _)| self.local_defs.get(dst).copied().map(|(d, _, s)| (d, s)));
+
+        for (dst, operand) in self_updates {
+            let dead_class = self.get_congruence_class(dst.clone()).clone();
+            let live_class = self.get_congruence_class(operand).clone();
+            // A non-copy dead def is its own singleton; anything already merged
+            // (e.g. into an upvalue group) is left to the pass that did so.
+            if Rc::ptr_eq(&dead_class, &live_class) || dead_class.borrow().len() != 1 {
+                continue;
+            }
+            if !self.check_interfere(&live_class, &dead_class) {
+                self.merge_congruence_classes(&live_class, &dead_class);
+            }
         }
     }
 
