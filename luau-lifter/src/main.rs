@@ -63,6 +63,11 @@ struct FolderArgs {
     /// Print one line per decompiled file.
     #[arg(short, long)]
     verbose: bool,
+    /// Do not reuse generated regular local names across functions in one file.
+    ///
+    /// Loop header names such as `i`, `k`, and `v` remain reusable between loops.
+    #[arg(long)]
+    dont_reuse_var: bool,
 }
 
 #[derive(clap::Args, Debug)]
@@ -83,6 +88,11 @@ struct ValidateArgs {
     /// Print a timing line to stderr.
     #[arg(short, long)]
     verbose: bool,
+    /// Do not reuse generated regular local names across functions in one file.
+    ///
+    /// Loop header names such as `i`, `k`, and `v` remain reusable between loops.
+    #[arg(long)]
+    dont_reuse_var: bool,
     /// Path to `luau-analyze.exe` (overrides LUAU_ANALYZE / --tool-dir / ROOT).
     #[arg(long)]
     analyze: Option<PathBuf>,
@@ -107,7 +117,10 @@ fn main() {
         Some("decompile-folder") => match Cli::parse().command {
             Command::DecompileFolder(a) => {
                 let key = if a.encoded { 203 } else { a.key };
-                let code = batch::run(&a.src, &a.out, key, a.threads, a.verbose);
+                let options = luau_lifter::DecompileOptions {
+                    dont_reuse_var: a.dont_reuse_var,
+                };
+                let code = batch::run(&a.src, &a.out, key, a.threads, a.verbose, options);
                 std::process::exit(code);
             }
             _ => unreachable!("argv[1] dispatch guarantees the DecompileFolder variant"),
@@ -129,6 +142,9 @@ fn main() {
                     key,
                     a.threads,
                     a.verbose,
+                    luau_lifter::DecompileOptions {
+                        dont_reuse_var: a.dont_reuse_var,
+                    },
                     a.analyze.as_deref(),
                     a.tool_dir.as_deref(),
                     old_solver,
@@ -151,10 +167,12 @@ fn run_single_file() {
     let file_name = args.next().expect("expected exactly one file");
     let mut key = 1;
     let mut script_name: Option<String> = None;
+    let mut options = luau_lifter::DecompileOptions::default();
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "-e" => key = 203,
+            "--dont-reuse-var" => options.dont_reuse_var = true,
             "--script-name" => {
                 script_name = Some(args.next().expect("--script-name requires a value"));
             }
@@ -163,10 +181,11 @@ fn run_single_file() {
     }
 
     let bytecode = std::fs::read(&file_name).expect("failed to read file");
-    match luau_lifter::try_decompile_bytecode_with_script_name(
+    match luau_lifter::try_decompile_bytecode_with_options(
         &bytecode,
         key,
         script_name.as_deref(),
+        options,
     ) {
         Ok(source) => println!("{source}"),
         Err(err) => {

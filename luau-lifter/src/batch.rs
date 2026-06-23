@@ -10,12 +10,20 @@
 //! shared byte-for-byte with the `validate-folder` driver.
 
 use crate::decompile_core::{build_work, precreate_dirs, process_one, size_pool, Outcome};
+use luau_lifter::DecompileOptions;
 use rayon::prelude::*;
 use std::path::Path;
 use std::time::Instant;
 
 /// Run the folder decompiler. Returns a process exit code (0 = no failures).
-pub fn run(src: &Path, out: &Path, key: u8, threads: usize, verbose: bool) -> i32 {
+pub fn run(
+    src: &Path,
+    out: &Path,
+    key: u8,
+    threads: usize,
+    verbose: bool,
+    options: DecompileOptions,
+) -> i32 {
     let start = Instant::now();
 
     let (_src_root, out_root, work) = match build_work(src, out) {
@@ -38,7 +46,9 @@ pub fn run(src: &Path, out: &Path, key: u8, threads: usize, verbose: bool) -> i3
     // buffer so we don't reallocate it per file.
     let outcomes: Vec<Outcome> = work
         .par_iter()
-        .map_init(Vec::<u8>::new, |b64, w| process_one(w, key, b64, verbose))
+        .map_init(Vec::<u8>::new, |b64, w| {
+            process_one(w, key, b64, verbose, options)
+        })
         .collect();
 
     // Tally on the main thread (collect() preserves input order, so the FAIL

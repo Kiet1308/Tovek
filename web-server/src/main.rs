@@ -22,7 +22,9 @@ use axum::{
     Json, Router,
 };
 use base64::prelude::*;
-use luau_lifter::{decompile_batch as lib_decompile_batch, BatchInput};
+use luau_lifter::{
+    decompile_batch_with_options as lib_decompile_batch_with_options, BatchInput, DecompileOptions,
+};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
@@ -56,6 +58,8 @@ const MAX_CONCURRENT_BATCHES: usize = 4;
 // total allocation; these are cheap early-outs and integrity checks.
 const MDB1_MAGIC: &[u8; 4] = b"MDB1";
 const MDB1_VERSION: u8 = 1;
+const MDB1_FLAG_DONT_REUSE_VAR: u8 = luau_lifter::DONT_REUSE_VAR as u8;
+const MDB1_SUPPORTED_FLAGS: u8 = MDB1_FLAG_DONT_REUSE_VAR;
 const MAX_ENTRIES: usize = 50_000;
 const MAX_NAME_LEN: usize = 4 * 1024; // 4 KiB — a GetFullName() path.
 const MAX_CODE_LEN: usize = 16 * 1024 * 1024; // 16 MiB — one script's bytecode.
@@ -146,7 +150,9 @@ async fn decompile(headers: HeaderMap, body: Bytes) -> Result<String, Error> {
     let script_name = headers
         .get("x-script-name")
         .and_then(|value| value.to_str().ok());
-    let decompiled = luau_lifter::decompile_bytecode_with_script_name(&bytecode, 203, script_name);
+    let options = parse_options_headers(&headers)?;
+    let decompiled =
+        luau_lifter::decompile_bytecode_with_options(&bytecode, 203, script_name, options);
     info!("Successfully decompiled bytecode.");
     Ok(decompiled)
 }
@@ -156,6 +162,7 @@ async fn decompile(headers: HeaderMap, body: Bytes) -> Result<String, Error> {
 async fn decompile_raw(headers: HeaderMap, body: Bytes) -> Result<String, Error> {
     let script_name = header_string(&headers, "x-script-name");
     let key = parse_key_header(&headers)?;
+    let options = parse_options_headers(&headers)?;
     // `Bytes` is already `'static + Send`; move it straight into the blocking task
     // (it derefs to `&[u8]`) so there's no extra copy of the bytecode. Route the
     // single item through `decompile_batch` so a deserialize error AND a lifter
@@ -167,7 +174,7 @@ async fn decompile_raw(headers: HeaderMap, body: Bytes) -> Result<String, Error>
             encode_key: key,
             script_name: script_name.as_deref(),
         }];
-        lib_decompile_batch(&inputs)
+        lib_decompile_batch_with_options(&inputs, options)
             .pop()
             .expect("one input yields exactly one result")
     })
@@ -226,6 +233,7 @@ enum ParsedItem {
     Ready {
         bytecode: Vec<u8>,
         key: u8,
+        options: DecompileOptions,
         id: Option<String>,
         script_name: Option<String>,
     },
@@ -241,6 +249,11 @@ struct JsonBatchRequest {
     /// Decode key applied to every script (default [`DEFAULT_KEY`]).
     #[serde(default)]
     key: Option<u8>,
+    /// Optional decompiler flags. Currently supports `DONT_REUSE_VAR`.
+    #[serde(default)]
+    flags: Option<String>,
+    #[serde(default, alias = "dontReuseVar")]
+    dont_reuse_var: Option<bool>,
     scripts: Vec<JsonBatchItem>,
 }
 
@@ -278,10 +291,11 @@ struct BatchResultItem {
 }
 
 fn parse_batch_request(headers: &HeaderMap, body: &Bytes) -> Result<Vec<ParsedItem>, Error> {
+    let header_options = parse_options_headers(headers)?;
     if is_json_content_type(headers) {
-        parse_json_batch(body)
+        parse_json_batch(body, header_options)
     } else {
-        parse_mdb1_batch(body)
+        parse_mdb1_batch(body, header_options)
     }
 }
 
@@ -301,7 +315,10 @@ fn is_json_content_type(headers: &HeaderMap) -> bool {
         .unwrap_or(false)
 }
 
-fn parse_json_batch(body: &Bytes) -> Result<Vec<ParsedItem>, Error> {
+fn parse_json_batch(
+    body: &Bytes,
+    header_options: DecompileOptions,
+) -> Result<Vec<ParsedItem>, Error> {
     let req: JsonBatchRequest = serde_json::from_slice(body)
         .map_err(|e| Error::BadRequest(format!("invalid JSON batch: {e}")))?;
     if req.scripts.len() > MAX_ENTRIES {
@@ -311,6 +328,8 @@ fn parse_json_batch(body: &Bytes) -> Result<Vec<ParsedItem>, Error> {
         )));
     }
     let key = req.key.unwrap_or(DEFAULT_KEY);
+    let body_options = parse_json_options(req.flags.as_deref(), req.dont_reuse_var)?;
+    let options = header_options.union(body_options);
     let mut out = Vec::with_capacity(req.scripts.len().min(1024));
     for item in req.scripts {
         // A bad base64 payload is bad *data* for one script, not a malformed
@@ -319,6 +338,7 @@ fn parse_json_batch(body: &Bytes) -> Result<Vec<ParsedItem>, Error> {
             Ok(bytecode) => out.push(ParsedItem::Ready {
                 bytecode,
                 key,
+                options,
                 id: item.id,
                 script_name: item.script_name,
             }),
@@ -337,9 +357,12 @@ fn parse_json_batch(body: &Bytes) -> Result<Vec<ParsedItem>, Error> {
 /// never panic or read out of bounds.
 ///
 /// Layout (little-endian):
-///   header: `MDB1`(4) | version u8 | key u8 | flags u8(=0) | reserved u8(=0) | count u32
+///   header: `MDB1`(4) | version u8 | key u8 | flags u8 | reserved u8(=0) | count u32
 ///   entry × count: name_len u32 | name bytes | code_len u32 | code bytes
-fn parse_mdb1_batch(body: &[u8]) -> Result<Vec<ParsedItem>, Error> {
+fn parse_mdb1_batch(
+    body: &[u8],
+    header_options: DecompileOptions,
+) -> Result<Vec<ParsedItem>, Error> {
     let mut pos = 0usize;
 
     let header = take(body, &mut pos, 12)
@@ -358,11 +381,19 @@ fn parse_mdb1_batch(body: &[u8]) -> Result<Vec<ParsedItem>, Error> {
     let key = header[5];
     let flags = header[6];
     let reserved = header[7];
-    if flags != 0 || reserved != 0 {
+    if flags & !MDB1_SUPPORTED_FLAGS != 0 {
+        return Err(Error::BadRequest(format!(
+            "MDB1: unsupported flags byte 0x{flags:02X}"
+        )));
+    }
+    if reserved != 0 {
         return Err(Error::BadRequest(
-            "MDB1: flags/reserved bytes must be zero in v1".into(),
+            "MDB1: reserved byte must be zero in v1".into(),
         ));
     }
+    let mdb1_options =
+        DecompileOptions::from_flag_bits(flags as u32).expect("unsupported MDB1 flags rejected");
+    let options = header_options.union(mdb1_options);
     let count = u32::from_le_bytes([header[8], header[9], header[10], header[11]]) as usize;
     if count > MAX_ENTRIES {
         return Err(Error::BadRequest(format!(
@@ -404,6 +435,7 @@ fn parse_mdb1_batch(body: &[u8]) -> Result<Vec<ParsedItem>, Error> {
         out.push(ParsedItem::Ready {
             bytecode: code.to_vec(),
             key,
+            options,
             id: None,
             script_name,
         });
@@ -442,7 +474,7 @@ fn take<'a>(buf: &'a [u8], pos: &mut usize, n: usize) -> Option<&'a [u8]> {
 // ---------------------------------------------------------------------------
 
 /// Decompile the ready items in parallel (via the library's deterministic,
-/// order-preserving [`lib_decompile_batch`]) and weave the already-failed items
+/// order-preserving batch path) and weave the already-failed items
 /// back in, producing one index-aligned result per input.
 fn decompile_parsed_batch(items: Vec<ParsedItem>) -> Vec<BatchResultItem> {
     let n = items.len();
@@ -454,6 +486,7 @@ fn decompile_parsed_batch(items: Vec<ParsedItem>) -> Vec<BatchResultItem> {
         idx: usize,
         bytecode: Vec<u8>,
         key: u8,
+        options: DecompileOptions,
         id: Option<String>,
         script_name: Option<String>,
     }
@@ -478,12 +511,14 @@ fn decompile_parsed_batch(items: Vec<ParsedItem>) -> Vec<BatchResultItem> {
             ParsedItem::Ready {
                 bytecode,
                 key,
+                options,
                 id,
                 script_name,
             } => ready.push(Ready {
                 idx,
                 bytecode,
                 key,
+                options,
                 id,
                 script_name,
             }),
@@ -492,6 +527,10 @@ fn decompile_parsed_batch(items: Vec<ParsedItem>) -> Vec<BatchResultItem> {
 
     // Scope `inputs` so its borrow of `ready` ends before we move out of `ready`.
     let outcomes = {
+        let options = ready
+            .first()
+            .map(|r| r.options)
+            .unwrap_or_else(DecompileOptions::default);
         let inputs: Vec<BatchInput> = ready
             .iter()
             .map(|r| BatchInput {
@@ -500,7 +539,7 @@ fn decompile_parsed_batch(items: Vec<ParsedItem>) -> Vec<BatchResultItem> {
                 script_name: r.script_name.as_deref(),
             })
             .collect();
-        lib_decompile_batch(&inputs)
+        lib_decompile_batch_with_options(&inputs, options)
     };
 
     for (r, outcome) in ready.into_iter().zip(outcomes) {
@@ -554,6 +593,78 @@ fn header_string(headers: &HeaderMap, name: &str) -> Option<String> {
         .get(name)
         .and_then(|v| v.to_str().ok())
         .map(str::to_owned)
+}
+
+fn parse_options_headers(headers: &HeaderMap) -> Result<DecompileOptions, Error> {
+    let mut options = DecompileOptions::default();
+    if let Some(value) = headers.get("x-decompile-flags") {
+        let value = value
+            .to_str()
+            .map_err(|_| Error::BadRequest("x-decompile-flags must be valid UTF-8".into()))?;
+        options = options.union(parse_flags_text(value)?);
+    }
+    if let Some(value) = headers.get("x-dont-reuse-var") {
+        let value = value
+            .to_str()
+            .map_err(|_| Error::BadRequest("x-dont-reuse-var must be valid UTF-8".into()))?;
+        if parse_bool(value, "x-dont-reuse-var")? {
+            options.dont_reuse_var = true;
+        }
+    }
+    Ok(options)
+}
+
+fn parse_json_options(
+    flags: Option<&str>,
+    dont_reuse_var: Option<bool>,
+) -> Result<DecompileOptions, Error> {
+    let mut options = match flags {
+        Some(flags) => parse_flags_text(flags)?,
+        None => DecompileOptions::default(),
+    };
+    if dont_reuse_var.unwrap_or(false) {
+        options.dont_reuse_var = true;
+    }
+    Ok(options)
+}
+
+fn parse_flags_text(raw: &str) -> Result<DecompileOptions, Error> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Ok(DecompileOptions::default());
+    }
+    if let Ok(bits) = raw.parse::<u32>() {
+        return DecompileOptions::from_flag_bits(bits)
+            .ok_or_else(|| Error::BadRequest(format!("unsupported decompile flag bits: {bits}")));
+    }
+
+    let mut options = DecompileOptions::default();
+    for token in raw
+        .split(|c: char| c == ',' || c == '|' || c == ';' || c.is_ascii_whitespace())
+        .filter(|token| !token.is_empty())
+    {
+        let normalized = token.trim().replace('-', "_").to_ascii_uppercase();
+        match normalized.as_str() {
+            "NONE" => {}
+            "DONT_REUSE_VAR" => options.dont_reuse_var = true,
+            _ => {
+                return Err(Error::BadRequest(format!(
+                    "unsupported decompile flag: {token}"
+                )));
+            }
+        }
+    }
+    Ok(options)
+}
+
+fn parse_bool(raw: &str, field: &str) -> Result<bool, Error> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" => Ok(true),
+        "0" | "false" | "no" | "off" => Ok(false),
+        _ => Err(Error::BadRequest(format!(
+            "{field} must be a boolean (true/false)"
+        ))),
+    }
 }
 
 /// Parse the optional `x-encode-key` header as a `u8`, defaulting to [`DEFAULT_KEY`].

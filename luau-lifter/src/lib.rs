@@ -6,7 +6,7 @@ mod op_code;
 use ast::{
     flatten_guards::flatten_guards,
     local_declarations::LocalDeclarer,
-    name_locals::name_locals_with_script_name,
+    name_locals::{name_locals_with_options, NameLocalOptions},
     replace_locals::replace_locals,
     simplify_gotos::{hoist_locals_for_gotos, simplify_gotos},
     Traverse,
@@ -34,6 +34,38 @@ use triomphe::Arc;
 use std::sync::Once;
 
 use deserializer::bytecode::Bytecode;
+
+pub const DONT_REUSE_VAR: u32 = 1 << 0;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct DecompileOptions {
+    pub dont_reuse_var: bool,
+}
+
+impl DecompileOptions {
+    pub fn from_flag_bits(bits: u32) -> Option<Self> {
+        if bits & !DONT_REUSE_VAR != 0 {
+            return None;
+        }
+        Some(Self {
+            dont_reuse_var: bits & DONT_REUSE_VAR != 0,
+        })
+    }
+
+    pub fn bits(self) -> u32 {
+        if self.dont_reuse_var {
+            DONT_REUSE_VAR
+        } else {
+            0
+        }
+    }
+
+    pub fn union(self, other: Self) -> Self {
+        Self {
+            dont_reuse_var: self.dont_reuse_var || other.dont_reuse_var,
+        }
+    }
+}
 
 // NOTE: the `#[global_allocator]` (mimalloc by default, dhat under the
 // `dhat-heap` feature) lives in the BINARY crate root (`main.rs`), NOT here. A
@@ -65,7 +97,16 @@ pub fn decompile_bytecode_with_script_name(
     encode_key: u8,
     script_name: Option<&str>,
 ) -> String {
-    try_decompile_bytecode_with_script_name(bytecode, encode_key, script_name).unwrap()
+    decompile_bytecode_with_options(bytecode, encode_key, script_name, DecompileOptions::default())
+}
+
+pub fn decompile_bytecode_with_options(
+    bytecode: &[u8],
+    encode_key: u8,
+    script_name: Option<&str>,
+    options: DecompileOptions,
+) -> String {
+    try_decompile_bytecode_with_options(bytecode, encode_key, script_name, options).unwrap()
 }
 
 /// Like [`decompile_bytecode_with_script_name`] but returns the chunk-level
@@ -76,6 +117,20 @@ pub fn try_decompile_bytecode_with_script_name(
     bytecode: &[u8],
     encode_key: u8,
     script_name: Option<&str>,
+) -> Result<String, String> {
+    try_decompile_bytecode_with_options(
+        bytecode,
+        encode_key,
+        script_name,
+        DecompileOptions::default(),
+    )
+}
+
+pub fn try_decompile_bytecode_with_options(
+    bytecode: &[u8],
+    encode_key: u8,
+    script_name: Option<&str>,
+    options: DecompileOptions,
 ) -> Result<String, String> {
     // Reset the per-thread local-id sequence so this decompilation's `RcLocal`
     // ids (and thus the FxHash-iteration order that depends on them, and the
@@ -218,7 +273,14 @@ pub fn try_decompile_bytecode_with_script_name(
             // mints gets named, and before `inline_temps`/`copy_cleanup` (which then
             // protect it as a captured local).
             ast::materialize_value_captures::materialize_value_captures(&mut body);
-            name_locals_with_script_name(&mut body, true, script_name);
+            name_locals_with_options(
+                &mut body,
+                true,
+                script_name,
+                NameLocalOptions {
+                    dont_reuse_var: options.dont_reuse_var,
+                },
+            );
             // §2.8: recover OOP colon-method definitions. Runs after name_locals
             // (so first params are named `p`/`pN`) and before inline_temps (whose
             // receiver-deref shapes — `p:sibling()`, `p._field`, `p.field = ..` —
@@ -304,6 +366,13 @@ pub struct BatchInput<'a> {
 /// install the process-global quiet panic hook once up front via
 /// [`install_quiet_panic_hook`].
 pub fn decompile_batch(items: &[BatchInput<'_>]) -> Vec<Result<String, String>> {
+    decompile_batch_with_options(items, DecompileOptions::default())
+}
+
+pub fn decompile_batch_with_options(
+    items: &[BatchInput<'_>],
+    options: DecompileOptions,
+) -> Vec<Result<String, String>> {
     use rayon::prelude::*;
     items
         .par_iter()
@@ -315,10 +384,11 @@ pub fn decompile_batch(items: &[BatchInput<'_>]) -> Vec<Result<String, String>> 
             // the per-thread id counter, and the next item on this worker calls
             // `reset_local_ids()` before minting any id (see `try_decompile_*`).
             let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                try_decompile_bytecode_with_script_name(
+                try_decompile_bytecode_with_options(
                     item.bytecode,
                     item.encode_key,
                     item.script_name,
+                    options,
                 )
             }));
             match caught {

@@ -17,6 +17,7 @@
 //! batched — is not used here.
 
 use crate::decompile_core::{build_work, precreate_dirs, process_one_capture, size_pool, Outcome};
+use luau_lifter::DecompileOptions;
 use rayon::prelude::*;
 use rustc_hash::FxHashMap;
 use std::path::{Path, PathBuf};
@@ -64,6 +65,7 @@ pub fn run(
     key: u8,
     threads: usize,
     verbose: bool,
+    options: DecompileOptions,
     analyze_arg: Option<&Path>,
     tool_dir: Option<&Path>,
     old_solver: bool,
@@ -105,7 +107,7 @@ pub fn run(
     let mut records: Vec<FileRecord> = work
         .par_iter()
         .map_init(Vec::<u8>::new, |b64, w| {
-            let (outcome, source) = process_one_capture(w, key, b64, false);
+            let (outcome, source) = process_one_capture(w, key, b64, false, options);
             let mut rec = FileRecord {
                 rel: w.rel.clone(),
                 output: w.output.clone(),

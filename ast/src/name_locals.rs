@@ -34,6 +34,11 @@ struct Hint {
     score: u8,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct NameLocalOptions {
+    pub dont_reuse_var: bool,
+}
+
 /// Turn an arbitrary hint string (a field name, service name, type name, ...)
 /// into a valid local identifier, or `None` if it can't be used.
 fn sanitize_with_case(raw: &str, case: IdentifierCase) -> Option<String> {
@@ -1692,6 +1697,7 @@ fn collect_collapse_candidates(block: &mut Block, out: &mut FxHashSet<usize>) {
 
 struct Namer {
     rename: bool,
+    dont_reuse_var: bool,
     module_hint: Option<String>,
     /// Names that may not currently be assigned to a local: every global
     /// referenced in the program (added once in `collect`, kept reserved
@@ -1701,6 +1707,14 @@ struct Namer {
     /// locals in disjoint/sibling scopes may reuse the same base name while two
     /// simultaneously-visible locals never collide.
     reserved: FxHashSet<String>,
+    /// Names already assigned in this file when `dont_reuse_var` is enabled.
+    /// Regular locals consult this set. Loop header locals add to it, but do not
+    /// consult it, so sibling `for i` / `for k, v` loops stay idiomatic while
+    /// later regular locals still avoid those names.
+    used_file_names: FxHashSet<String>,
+    /// Next suffix to try for a base in `dont_reuse_var` mode, avoiding repeated
+    /// scans through `v2`, `v3`, ... in large files.
+    next_file_suffix: FxHashMap<String, usize>,
     /// Preferred base name for a local, keyed by `local_ptr`.
     hints: FxHashMap<usize, Hint>,
     /// Broader context names that are safer than a narrow type name when usage
@@ -1740,6 +1754,12 @@ struct Namer {
     /// table declaration `local X = {}` to name the class table `class`.
     /// See `collect_class_signals`.
     class_signal_locals: FxHashSet<usize>,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum ReusePolicy {
+    FileUnique,
+    LoopReusable,
 }
 
 impl Namer {
@@ -2304,20 +2324,40 @@ impl Namer {
 
     /// Reserve `base` if free, otherwise `base2`, `base3`, ... Returns the chosen
     /// name and records it in `scope` so it can be released when that scope ends.
-    fn unique(&mut self, base: &str, scope: &mut Vec<String>) -> String {
-        let name = if !self.reserved.contains(base) {
+    fn name_is_taken(&self, name: &str, policy: ReusePolicy) -> bool {
+        self.reserved.contains(name)
+            || (self.dont_reuse_var
+                && policy == ReusePolicy::FileUnique
+                && self.used_file_names.contains(name))
+    }
+
+    fn unique(&mut self, base: &str, scope: &mut Vec<String>, policy: ReusePolicy) -> String {
+        let name = if !self.name_is_taken(base, policy) {
             base.to_string()
+        } else if self.dont_reuse_var && policy == ReusePolicy::FileUnique {
+            let mut counter = self.next_file_suffix.get(base).copied().unwrap_or(2);
+            loop {
+                let candidate = format!("{}{}", base, counter);
+                counter += 1;
+                if !self.name_is_taken(&candidate, policy) {
+                    self.next_file_suffix.insert(base.to_string(), counter);
+                    break candidate;
+                }
+            }
         } else {
             let mut counter = 2;
             loop {
                 let candidate = format!("{}{}", base, counter);
-                if !self.reserved.contains(&candidate) {
+                if !self.name_is_taken(&candidate, policy) {
                     break candidate;
                 }
                 counter += 1;
             }
         };
         self.reserved.insert(name.clone());
+        if self.dont_reuse_var {
+            self.used_file_names.insert(name.clone());
+        }
         scope.push(name.clone());
         name
     }
@@ -2330,7 +2370,13 @@ impl Namer {
         }
     }
 
-    fn name_one(&mut self, local: &RcLocal, default_prefix: &str, scope: &mut Vec<String>) {
+    fn name_one(
+        &mut self,
+        local: &RcLocal,
+        default_prefix: &str,
+        scope: &mut Vec<String>,
+        policy: ReusePolicy,
+    ) {
         let ptr = local_ptr(local);
         let mut lock = local.0 .0.lock();
         if !self.named.insert(ptr) {
@@ -2338,6 +2384,9 @@ impl Namer {
                 && name != "_"
                 && self.reserved.insert(name.clone())
             {
+                if self.dont_reuse_var {
+                    self.used_file_names.insert(name.clone());
+                }
                 scope.push(name.clone());
             }
             return;
@@ -2353,7 +2402,7 @@ impl Namer {
             if self.closure_locals.contains(&ptr)
                 && let Some(hint) = self.hints.get(&ptr).map(|hint| hint.name.clone())
             {
-                lock.0 = Some(self.unique(&hint, scope));
+                lock.0 = Some(self.unique(&hint, scope, policy));
             } else {
                 lock.0 = Some("_".to_string());
             }
@@ -2364,7 +2413,7 @@ impl Namer {
             .get(&ptr)
             .map(|hint| hint.name.clone())
             .unwrap_or_else(|| default_prefix.to_string());
-        lock.0 = Some(self.unique(&base, scope));
+        lock.0 = Some(self.unique(&base, scope, policy));
     }
 
     /// First pass: gather reserved globals and per-local naming hints.
@@ -2626,7 +2675,7 @@ impl Namer {
             {
                 for lvalue in &assign.left {
                     if let Some(local) = lvalue.as_local() {
-                        self.name_one(local, "v", &mut block_scope);
+                        self.name_one(local, "v", &mut block_scope, ReusePolicy::FileUnique);
                     }
                 }
             }
@@ -2645,7 +2694,7 @@ impl Namer {
                 let mut function = function.lock();
                 let mut param_scope: Vec<String> = Vec::new();
                 for param in &function.parameters {
-                    self.name_one(param, "p", &mut param_scope);
+                    self.name_one(param, "p", &mut param_scope, ReusePolicy::FileUnique);
                 }
                 self.apply(&mut function.body);
                 self.release(param_scope);
@@ -2663,14 +2712,24 @@ impl Namer {
                 Statement::Repeat(repeat) => self.apply(&mut repeat.block.lock()),
                 Statement::NumericFor(numeric_for) => {
                     let mut loop_scope: Vec<String> = Vec::new();
-                    self.name_one(&numeric_for.counter, "v", &mut loop_scope);
+                    self.name_one(
+                        &numeric_for.counter,
+                        "v",
+                        &mut loop_scope,
+                        ReusePolicy::LoopReusable,
+                    );
                     self.apply(&mut numeric_for.block.lock());
                     self.release(loop_scope);
                 }
                 Statement::GenericFor(generic_for) => {
                     let mut loop_scope: Vec<String> = Vec::new();
                     for res_local in &generic_for.res_locals {
-                        self.name_one(res_local, "v", &mut loop_scope);
+                        self.name_one(
+                            res_local,
+                            "v",
+                            &mut loop_scope,
+                            ReusePolicy::LoopReusable,
+                        );
                     }
                     self.apply(&mut generic_for.block.lock());
                     self.release(loop_scope);
@@ -2828,6 +2887,15 @@ pub fn name_locals(block: &mut Block, rename: bool) {
 }
 
 pub fn name_locals_with_script_name(block: &mut Block, rename: bool, script_name: Option<&str>) {
+    name_locals_with_options(block, rename, script_name, NameLocalOptions::default());
+}
+
+pub fn name_locals_with_options(
+    block: &mut Block,
+    rename: bool,
+    script_name: Option<&str>,
+    options: NameLocalOptions,
+) {
     // Gather, before naming, the whole-tree facts the scoring heuristics need:
     // which locals alias `createElement`, then per-local usage.
     let mut create_element_aliases = FxHashSet::default();
@@ -2850,8 +2918,11 @@ pub fn name_locals_with_script_name(block: &mut Block, rename: bool, script_name
 
     let mut namer = Namer {
         rename,
+        dont_reuse_var: options.dont_reuse_var,
         module_hint: script_name.and_then(script_module_hint),
         reserved: FxHashSet::default(),
+        used_file_names: FxHashSet::default(),
+        next_file_suffix: FxHashMap::default(),
         hints: FxHashMap::default(),
         context_hints: FxHashMap::default(),
         isa_families: FxHashMap::default(),
@@ -2873,7 +2944,7 @@ pub fn name_locals_with_script_name(block: &mut Block, rename: bool, script_name
 
 #[cfg(test)]
 mod tests {
-    use super::{name_locals, name_locals_with_script_name};
+    use super::{name_locals, name_locals_with_options, name_locals_with_script_name};
     use crate::formatter::Formatter;
     use crate::{
         Assign, Binary, BinaryOperation, Block, Call, Closure, Function, GenericFor, Global, If,
@@ -3686,6 +3757,43 @@ mod tests {
         );
     }
 
+    #[test]
+    fn dont_reuse_var_suffixes_regular_sibling_closure_locals() {
+        let part_a = RcLocal::default();
+        let part_b = RcLocal::default();
+
+        let mut fn_a = Function::default();
+        fn_a.body = Block(vec![declare_part(&part_a), use_local(&part_a)]);
+        let closure_a = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(fn_a))),
+            upvalues: Vec::new(),
+        });
+
+        let mut fn_b = Function::default();
+        fn_b.body = Block(vec![declare_part(&part_b), use_local(&part_b)]);
+        let closure_b = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(fn_b))),
+            upvalues: Vec::new(),
+        });
+
+        let mut block = Block(vec![
+            Statement::Call(Call::new(closure_a, vec![])),
+            Statement::Call(Call::new(closure_b, vec![])),
+        ]);
+
+        name_locals_with_options(
+            &mut block,
+            true,
+            None,
+            super::NameLocalOptions {
+                dont_reuse_var: true,
+            },
+        );
+
+        assert_eq!(name_of(&part_a), "part");
+        assert_eq!(name_of(&part_b), "part2");
+    }
+
     // Two SIBLING numeric `for` loops both name their counter `i` — the second
     // loop's variable is out of scope of the first, so no `i2`.
     #[test]
@@ -3713,6 +3821,88 @@ mod tests {
 
         assert_eq!(name_of(&i_a), "i");
         assert_eq!(name_of(&i_b), "i", "sibling for loop should reuse `i`");
+    }
+
+    #[test]
+    fn dont_reuse_var_keeps_sibling_loop_headers_reusable() {
+        let i_a = RcLocal::default();
+        let i_b = RcLocal::default();
+        let k_a = RcLocal::default();
+        let v_a = RcLocal::default();
+        let k_b = RcLocal::default();
+        let v_b = RcLocal::default();
+
+        let for_a = Statement::NumericFor(NumericFor::new(
+            number(1.0),
+            number(10.0),
+            number(1.0),
+            i_a.clone(),
+            Block(vec![use_local(&i_a)]),
+        ));
+        let for_b = Statement::NumericFor(NumericFor::new(
+            number(1.0),
+            number(10.0),
+            number(1.0),
+            i_b.clone(),
+            Block(vec![use_local(&i_b)]),
+        ));
+        let generic_a = Statement::GenericFor(GenericFor::new(
+            vec![k_a.clone(), v_a.clone()],
+            vec![global("pairs")],
+            Block(vec![use_local(&k_a), use_local(&v_a)]),
+        ));
+        let generic_b = Statement::GenericFor(GenericFor::new(
+            vec![k_b.clone(), v_b.clone()],
+            vec![global("pairs")],
+            Block(vec![use_local(&k_b), use_local(&v_b)]),
+        ));
+
+        let mut block = Block(vec![for_a, for_b, generic_a, generic_b]);
+        name_locals_with_options(
+            &mut block,
+            true,
+            None,
+            super::NameLocalOptions {
+                dont_reuse_var: true,
+            },
+        );
+
+        assert_eq!(name_of(&i_a), "i");
+        assert_eq!(name_of(&i_b), "i");
+        assert_eq!(name_of(&k_a), "k");
+        assert_eq!(name_of(&v_a), "v");
+        assert_eq!(name_of(&k_b), "k");
+        assert_eq!(name_of(&v_b), "v");
+    }
+
+    #[test]
+    fn dont_reuse_var_regular_local_avoids_prior_loop_header_name() {
+        let k = RcLocal::default();
+        let loop_v = RcLocal::default();
+        let regular_v = RcLocal::default();
+
+        let generic = Statement::GenericFor(GenericFor::new(
+            vec![k.clone(), loop_v.clone()],
+            vec![global("pairs")],
+            Block(vec![use_local(&loop_v)]),
+        ));
+        let mut block = Block(vec![
+            generic,
+            declare(&regular_v, number(1.0)),
+            use_local(&regular_v),
+        ]);
+
+        name_locals_with_options(
+            &mut block,
+            true,
+            None,
+            super::NameLocalOptions {
+                dont_reuse_var: true,
+            },
+        );
+
+        assert_eq!(name_of(&loop_v), "v");
+        assert_eq!(name_of(&regular_v), "v2");
     }
 
     #[test]

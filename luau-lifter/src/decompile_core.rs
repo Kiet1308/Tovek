@@ -9,6 +9,7 @@
 //! Both drivers MUST go through here so they never drift apart.
 
 use base64::prelude::*;
+use luau_lifter::DecompileOptions;
 use std::collections::HashSet;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
@@ -113,8 +114,14 @@ pub(crate) fn size_pool(threads: usize) {
 /// Decode + decompile + write one file. Never panics out: a panic anywhere in
 /// the decompile pipeline is caught and reported as a `Fail`. Thin wrapper used
 /// by `decompile-folder`, which discards the source string.
-pub(crate) fn process_one(w: &Work, key: u8, b64: &mut Vec<u8>, verbose: bool) -> Outcome {
-    decode_and_decompile(w, key, b64, true, false, verbose).0
+pub(crate) fn process_one(
+    w: &Work,
+    key: u8,
+    b64: &mut Vec<u8>,
+    verbose: bool,
+    options: DecompileOptions,
+) -> Outcome {
+    decode_and_decompile(w, key, b64, true, false, verbose, options).0
 }
 
 /// Like [`process_one`] but returns the decompiled source on success so the
@@ -129,8 +136,9 @@ pub(crate) fn process_one_capture(
     key: u8,
     b64: &mut Vec<u8>,
     write_skipped: bool,
+    options: DecompileOptions,
 ) -> (Outcome, Option<String>) {
-    decode_and_decompile(w, key, b64, write_skipped, true, false)
+    decode_and_decompile(w, key, b64, write_skipped, true, false, options)
 }
 
 /// The actual decode/decompile/write logic shared by both entry points.
@@ -148,6 +156,7 @@ fn decode_and_decompile(
     write_skipped: bool,
     capture: bool,
     verbose: bool,
+    options: DecompileOptions,
 ) -> (Outcome, Option<String>) {
     let text = match std::fs::read(&w.input) {
         Ok(t) => t,
@@ -194,7 +203,7 @@ fn decode_and_decompile(
     // catch_unwind is the backstop for deep panics in the lifter/ssa/restructure
     // passes. The common deserialize-failure path already comes back as Err.
     let result = catch_unwind(AssertUnwindSafe(|| {
-        luau_lifter::try_decompile_bytecode_with_script_name(&bytecode, key, Some(&w.rel))
+        luau_lifter::try_decompile_bytecode_with_options(&bytecode, key, Some(&w.rel), options)
     }));
 
     let source = match result {
