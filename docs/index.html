@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tovek — decompiled Luau you can actually read</title>
 <meta name="description" content="Tovek is a high-readability, high-performance Luau decompiler. It rebuilds names, methods and structure — turning v1, v2, v3 bytecode soup into source close to the original. A modern fork of medal.">
-<meta name="theme-color" content="#080a0e">
+<meta name="theme-color" content="#0d0b08">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Tovek — decompiled Luau you can actually read">
 <meta property="og:description" content="A high-readability, high-performance Luau decompiler. Real names, recovered methods, reversed -O2 inlining, up to 32× faster. A modern fork of medal.">
@@ -14,357 +14,396 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23080a0e'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='20' font-weight='700' text-anchor='middle' fill='%23c2f95a'%3ET%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d0b08'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-style='italic' font-size='21' font-weight='700' text-anchor='middle' fill='%23f0a048'%3ET%3C/text%3E%3C/svg%3E">
 
 <script>document.documentElement.classList.add('js');</script>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   :root{
-    --ink:#080a0e; --ink-2:#0c0f15; --ink-3:#11161f; --ink-4:#19202c;
-    --line:rgba(180,205,235,.10); --line-2:rgba(180,205,235,.18);
-    --text:#e7ebf2; --muted:#8b94a4; --faint:#7a8493;
-    --acc:#c2f95a; --acc-d:#9ad62f; --acc-soft:rgba(194,249,90,.14);
-    --cy:#5fdde6; --coral:#ff9d6b; --gold:#f5d57a; --rose:#ff8e8e;
-    --r:14px; --r-lg:20px;
-    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-    --disp:'Bricolage Grotesque',system-ui,sans-serif;
-    --maxw:1180px;
+    --bg:#0d0b08; --bg-2:#121009; --panel:#14110d; --panel-2:#181410;
+    --line:rgba(235,220,190,.085); --line-2:rgba(235,220,190,.16);
+    --text:#f0eade; --muted:#a89f8f; --faint:#8a8173;
+    --acc:#f0a048; --acc-deep:#c97f2e; --acc-soft:rgba(240,160,72,.12);
+    --rose:#e27d75; --gold:#d9b26a; --cy:#8fc7c9; --sage:#a8c48a;
+    --code:#d8d1c3;
+    --r:12px; --r-lg:18px;
+    --mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --serif:'Instrument Serif',Georgia,serif;
+    --sans:'Instrument Sans',system-ui,sans-serif;
+    --maxw:1160px;
   }
   html{scroll-behavior:smooth}
   body{
-    font-family:var(--disp); color:var(--text); background:var(--ink);
-    line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+    font-family:var(--sans); color:var(--text); background:var(--bg);
+    line-height:1.62; -webkit-font-smoothing:antialiased; overflow-x:hidden;
     background-image:
-      radial-gradient(900px 520px at 84% -8%, rgba(194,249,90,.11), transparent 60%),
-      radial-gradient(760px 540px at -6% 14%, rgba(95,221,230,.08), transparent 56%);
+      radial-gradient(1000px 560px at 88% -10%, rgba(240,160,72,.09), transparent 62%),
+      radial-gradient(720px 520px at -8% 22%, rgba(143,199,201,.05), transparent 58%);
   }
-  /* faint engineering grid + grain overlays */
+  /* faint dot matrix, fading down from the top */
   body::before{
     content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
-    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-    background-size:54px 54px;
-    -webkit-mask-image:radial-gradient(circle at 50% 0%,#000,transparent 72%);
-            mask-image:radial-gradient(circle at 50% 0%,#000,transparent 72%);
-    opacity:.5;
+    background-image:radial-gradient(rgba(235,220,190,.14) 1px, transparent 1px);
+    background-size:30px 30px;
+    -webkit-mask-image:radial-gradient(ellipse 90% 60% at 50% 0%, #000 20%, transparent 78%);
+            mask-image:radial-gradient(ellipse 90% 60% at 50% 0%, #000 20%, transparent 78%);
+    opacity:.30;
   }
-  .grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.045;mix-blend-mode:overlay;
+  .grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
-  main,header,footer{position:relative;z-index:2}
+  /* forensic hex rail down the right edge */
+  .hexrail{position:fixed;top:0;right:10px;height:100vh;z-index:0;pointer-events:none;
+    writing-mode:vertical-rl;font-family:var(--mono);font-size:10px;letter-spacing:.35em;
+    color:var(--text);opacity:.05;white-space:nowrap;overflow:hidden;user-select:none}
+  main,header,footer,.ticker{position:relative;z-index:2}
 
+  ::selection{background:var(--acc);color:#1a1206}
   a{color:inherit;text-decoration:none}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
-  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--acc);font-weight:500;display:inline-flex;align-items:center;gap:9px}
-  .eyebrow::before{content:"";width:22px;height:1px;background:var(--acc);opacity:.7}
-  h1,h2,h3{font-weight:700;letter-spacing:-.02em;line-height:1.04}
+  h1,h2{font-family:var(--serif);font-weight:400;letter-spacing:.005em;line-height:1.02}
+  h1 em,h2 em{font-style:italic;color:var(--acc)}
   .mono{font-family:var(--mono)}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:none;
+    color:var(--acc);font-weight:500;display:inline-block}
+  .lede{color:var(--muted);font-size:clamp(16px,1.6vw,18.5px);max-width:44em}
+  .lede b{color:var(--text);font-weight:600}
+  .lede code,.pass p code,.note-rows code,.rung code,.cmp-cap code,.cmp-hint code,.legend code{
+    font-family:var(--mono);font-size:.86em;color:var(--acc);background:var(--acc-soft);
+    padding:1px 6px;border-radius:5px;white-space:nowrap}
 
-  /* ---------- nav ---------- */
-  .nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
-    background:rgba(8,10,14,.72);border-bottom:1px solid var(--line)}
-  .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
-  .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:19px;letter-spacing:-.02em}
-  .brand .mark{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
-    background:linear-gradient(145deg,#1c2330,#0d1118);border:1px solid var(--line-2);
-    font-family:var(--mono);font-weight:700;color:var(--acc);box-shadow:0 0 0 1px rgba(194,249,90,.10) inset}
-  .brand b{color:var(--acc);font-weight:700}
-  .nav-links{display:flex;align-items:center;gap:30px}
-  .nav-links a{font-size:14.5px;color:var(--muted);transition:color .2s}
-  .nav-links a:hover{color:var(--text)}
-  .nav-cta{display:flex;align-items:center;gap:12px}
-
-  .btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--disp);font-weight:600;
-    font-size:14.5px;padding:11px 18px;border-radius:11px;cursor:pointer;border:1px solid transparent;
+  .btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--sans);font-weight:600;
+    font-size:14.5px;padding:12px 20px;border-radius:10px;cursor:pointer;border:1px solid transparent;
     transition:transform .15s,box-shadow .2s,background .2s,border-color .2s;white-space:nowrap}
   .btn:active{transform:translateY(1px)}
-  .btn-acc{background:var(--acc);color:#0a0d05;box-shadow:0 6px 24px -8px rgba(194,249,90,.6)}
-  .btn-acc:hover{box-shadow:0 10px 34px -8px rgba(194,249,90,.75);transform:translateY(-1px)}
-  .btn-ghost{background:rgba(255,255,255,.03);color:var(--text);border-color:var(--line-2)}
-  .btn-ghost:hover{border-color:var(--acc);background:rgba(194,249,90,.06)}
+  .btn-acc{background:var(--acc);color:#1a1206;box-shadow:0 8px 28px -10px rgba(240,160,72,.65)}
+  .btn-acc:hover{box-shadow:0 12px 36px -10px rgba(240,160,72,.85);transform:translateY(-1px);background:#f7ac57}
+  .btn-ghost{background:rgba(255,255,255,.025);color:var(--text);border-color:var(--line-2)}
+  .btn-ghost:hover{border-color:var(--acc);background:var(--acc-soft)}
   .btn svg{width:16px;height:16px}
+  a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+  section[id],#top,#features,#transform,#demo{scroll-margin-top:84px}
+
+  /* ---------- nav ---------- */
+  .nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+    background:rgba(13,11,8,.78);border-bottom:1px solid var(--line)}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:66px;gap:18px}
+  .brand{display:flex;align-items:baseline;gap:10px;flex:0 0 auto}
+  .brand .t{font-family:var(--serif);font-style:italic;font-size:26px;color:var(--text);line-height:1}
+  .brand .t b{color:var(--acc);font-weight:400}
+  .brand .sub{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--faint)}
+  .nav-links{display:flex;align-items:center;gap:26px}
+  .nav-links a{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--muted);transition:color .2s}
+  .nav-links a:hover{color:var(--acc)}
+  .nav-cta{display:flex;align-items:center;gap:10px}
+  .nav-cta .btn{padding:9px 15px;font-size:13.5px}
 
   /* ---------- hero ---------- */
-  .hero{padding:74px 0 30px}
-  .hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:52px;align-items:center}
-  .hero h1{font-size:clamp(40px,6.2vw,76px);font-weight:800;margin:22px 0 0}
-  .hero h1 .em{color:var(--acc);position:relative;white-space:nowrap}
-  .hero h1 .em::after{content:"";position:absolute;left:0;right:0;bottom:.07em;height:.5em;
-    background:var(--acc-soft);z-index:-1;border-radius:3px}
-  .lede{font-size:clamp(16px,1.7vw,19.5px);color:var(--muted);max-width:33em;margin:24px 0 0}
-  .lede code{font-family:var(--mono);color:var(--coral);font-size:.92em;background:rgba(255,157,107,.10);padding:1px 6px;border-radius:5px}
+  .hero{padding:84px 0 72px}
+  .hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:center}
+  .hero h1{font-size:clamp(46px,6.4vw,86px);margin:20px 0 0}
+  .hero h1 em{white-space:nowrap}
+  .hero .lede{margin-top:24px}
   .hero-cta{display:flex;flex-wrap:wrap;gap:14px;margin-top:34px}
-  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
-  .chip{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--muted);
-    border:1px solid var(--line-2);border-radius:99px;padding:6px 13px;display:inline-flex;gap:7px;align-items:center}
-  .chip .dot{width:6px;height:6px;border-radius:99px;background:var(--acc);box-shadow:0 0 8px var(--acc)}
-  a.chip{transition:border-color .2s,color .2s}
-  a.chip:hover{border-color:var(--acc);color:var(--text)}
-  .chip svg{width:14px;height:14px}
+  .hero-meta{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:32px;
+    font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .hero-meta .dot{color:var(--acc)}
+  .hero-meta a{color:var(--muted);transition:color .2s}
+  .hero-meta a:hover{color:var(--acc)}
 
-  /* ---------- code window ---------- */
-  .win{background:linear-gradient(180deg,var(--ink-3),var(--ink-2));border:1px solid var(--line-2);
-    border-radius:var(--r-lg);overflow:hidden;box-shadow:0 40px 80px -40px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.02) inset;position:relative}
-  .win::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:var(--r-lg);
-    box-shadow:0 1px 0 rgba(255,255,255,.05) inset}
-  .win-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);
-    background:rgba(255,255,255,.015)}
-  .dots{display:flex;gap:7px}
-  .dots i{width:11px;height:11px;border-radius:99px;background:#2a313d;display:block}
-  .win-name{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-left:6px}
-  .win-name .ext{color:var(--faint)}
-  .win-tag{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--acc);border:1px solid rgba(194,249,90,.3);border-radius:99px;padding:3px 10px;display:inline-flex;gap:7px;align-items:center}
+  /* ---------- code window chrome ---------- */
+  .win{background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line-2);
+    border-radius:var(--r-lg);overflow:hidden;position:relative;
+    box-shadow:0 44px 90px -44px rgba(0,0,0,.9),0 1px 0 rgba(255,255,255,.045) inset}
+  .win-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;
+    border-bottom:1px solid var(--line);background:rgba(255,255,255,.015)}
+  .win-file{font-family:var(--mono);font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:9px;min-width:0}
+  .win-file::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--acc);opacity:.8;flex:0 0 auto}
+  .win-file .ext{color:var(--faint)}
+  .win-tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;flex:0 0 auto;
+    color:var(--acc);border:1px solid rgba(240,160,72,.35);border-radius:99px;padding:3px 11px;display:inline-flex;gap:7px;align-items:center}
   .win-tag .blink{width:6px;height:6px;border-radius:99px;background:var(--acc);box-shadow:0 0 8px var(--acc);animation:blink 1.4s steps(2) infinite}
   @keyframes blink{50%{opacity:.25}}
-  pre{font-family:var(--mono);font-size:13.5px;line-height:1.62;padding:20px 22px;overflow-x:auto;tab-size:4;color:#d4dae4}
-  pre.sm{font-size:12.7px;padding:16px 18px}
-  /* syntax */
-  .k{color:var(--coral)} .fn{color:var(--acc)} .s{color:var(--cy)} .n{color:var(--gold)}
-  .c{color:var(--faint);font-style:italic} .g{color:#9fc6ff} .p{color:#7b8493}
-  .hl{color:var(--acc);font-weight:500;text-shadow:0 0 14px rgba(194,249,90,.45)}
-  .bad{color:var(--rose);border-bottom:1px dashed rgba(255,142,142,.5)}
-  .cur{display:inline-block;width:8px;height:1.05em;background:var(--acc);vertical-align:-2px;margin-left:2px;animation:blink 1.2s steps(2) infinite}
+  pre{font-family:var(--mono);font-size:13px;line-height:1.66;padding:20px 22px;overflow-x:auto;tab-size:4;color:var(--code)}
+  pre.sm{font-size:12.4px;padding:16px 18px}
+  pre::-webkit-scrollbar{height:8px;width:8px}
+  pre::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px}
+  pre::-webkit-scrollbar-thumb:hover{background:var(--acc-deep)}
+  /* syntax — warm forensic scheme */
+  .k{color:#e08f4f} .fn{color:#f2c97d} .s{color:var(--sage)} .n{color:#e8b394}
+  .c{color:#6c655a;font-style:italic} .g{color:#9fb6ce} .p{color:#7c7466}
+  .hl{color:#ffd9a3;text-shadow:0 0 16px rgba(240,160,72,.4)}
+  .bad{color:var(--rose);border-bottom:1px dashed rgba(226,125,117,.5)}
 
-  /* ---------- transform showcase ---------- */
-  section{padding:64px 0}
-  .sec-head{max-width:none}
-  .sec-head h2{font-size:clamp(28px,3.6vw,44px);margin-top:14px}
-  .sec-head p{color:var(--muted);max-width:42em;margin-top:14px;font-size:16.5px}
-  .xform{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;margin-top:40px}
-  .xform .win{border-radius:var(--r)}
-  .xform .win.before{border-color:rgba(255,142,142,.18)}
-  .xform .arrow{display:grid;place-items:center;padding:0 18px;color:var(--acc)}
-  .xform .arrow .ring{width:54px;height:54px;border-radius:99px;border:1px solid var(--line-2);
-    display:grid;place-items:center;background:var(--ink-2);box-shadow:0 0 30px -8px rgba(194,249,90,.5)}
-  .xform .arrow svg{width:22px;height:22px}
-  .xform .lab{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-top:9px;text-align:center}
-  .xform-note{font-family:var(--mono);font-size:11.5px;color:var(--faint);text-align:center;margin-top:20px;max-width:60em;margin-inline:auto}
-  .xform-feats{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px}
-  .xform-feats span{font-family:var(--mono);font-size:11px;color:var(--acc);border:1px solid rgba(194,249,90,.22);border-radius:99px;padding:4px 11px;background:rgba(194,249,90,.05)}
+  /* ---------- the decompile slider ---------- */
+  .duel{position:relative;height:416px;overflow:hidden;background:#0f0c09;user-select:none;-webkit-user-select:none;touch-action:pan-y}
+  .duel .pane{position:absolute;inset:0;margin:0;overflow:hidden;padding:18px 20px;font-size:12.4px}
+  .duel .pane.before{background:
+      radial-gradient(560px 300px at 20% 0%, rgba(226,125,117,.07), transparent 65%),#0f0c09}
+  .duel .pane.before .k,.duel .pane.before .s,.duel .pane.before .g,
+  .duel .pane.before .n,.duel .pane.before .fn{color:#948a7b}
+  .duel .pane.before{color:#7f776a}
+  .duel .pane.after{background:
+      radial-gradient(560px 300px at 80% 0%, rgba(240,160,72,.08), transparent 65%),#131009;
+    clip-path:inset(0 0 0 var(--cut,46%))}
+  .duel-bar{position:absolute;top:0;bottom:0;left:var(--cut,46%);width:2px;margin-left:-1px;
+    background:linear-gradient(180deg,transparent,var(--acc) 12%,var(--acc) 88%,transparent);
+    box-shadow:0 0 22px rgba(240,160,72,.55);pointer-events:none;z-index:3}
+  .duel-knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:36px;height:36px;border-radius:99px;background:var(--acc);color:#1a1206;
+    display:grid;place-items:center;box-shadow:0 6px 20px -4px rgba(240,160,72,.7)}
+  .duel-knob svg{width:17px;height:17px}
+  .duel-tag{position:absolute;top:12px;z-index:4;pointer-events:none;font-family:var(--mono);
+    font-size:10px;letter-spacing:.18em;text-transform:uppercase;padding:4px 10px;border-radius:99px;
+    border:1px solid var(--line-2);background:rgba(13,11,8,.72);backdrop-filter:blur(4px)}
+  .duel-tag.raw{left:12px;color:var(--rose);border-color:rgba(226,125,117,.4)}
+  .duel-tag.tvk{right:12px;color:var(--acc);border-color:rgba(240,160,72,.4)}
+  .duel input[type=range]{position:absolute;inset:0;width:100%;height:100%;opacity:0;
+    cursor:ew-resize;margin:0;z-index:5;touch-action:pan-y;-webkit-appearance:none;appearance:none}
+  .duel:focus-within .duel-bar{box-shadow:0 0 0 3px rgba(240,160,72,.35),0 0 22px rgba(240,160,72,.6)}
+  .duel-hint{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--faint);
+    text-align:center;margin-top:12px}
+  .duel-hint b{color:var(--acc);font-weight:500}
+
+  /* ---------- ticker ---------- */
+  .ticker{border-block:1px solid var(--line);background:rgba(255,255,255,.012);overflow:hidden}
+  .ticker-track{display:flex;width:max-content;animation:tick 46s linear infinite}
+  .ticker:hover .ticker-track{animation-play-state:paused}
+  .ticker-group{display:flex;align-items:center;flex:0 0 auto}
+  .ti{display:inline-flex;align-items:center;gap:10px;padding:13px 26px;font-family:var(--mono);
+    font-size:12px;color:var(--faint);white-space:nowrap;border-right:1px solid var(--line)}
+  .ti b{color:var(--acc);font-weight:500}
+  .ti .to{color:var(--text)}
+  @keyframes tick{to{transform:translateX(-50%)}}
+
+  /* ---------- sections ---------- */
+  section{padding:92px 0}
+  .sec-head h2{font-size:clamp(34px,4.6vw,58px);margin-top:16px}
+  .sec-head p{color:var(--muted);max-width:46em;margin-top:16px;font-size:16.5px}
+  .sec-head p b{color:var(--text);font-weight:600}
 
   /* ---------- stats ---------- */
-  .stats{border-block:1px solid var(--line);background:rgba(255,255,255,.012)}
-  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
-  .stat{padding:14px 26px;border-left:1px solid var(--line)}
+  .stats{padding:0;border-block:1px solid var(--line);background:rgba(255,255,255,.012)}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+  .stat{padding:28px 26px;border-left:1px solid var(--line)}
   .stat:first-child{border-left:0}
-  .stat .v{font-size:clamp(34px,4.4vw,52px);font-weight:800;letter-spacing:-.03em;line-height:1;font-family:var(--mono);color:var(--text)}
+  .stat .v{font-family:var(--serif);font-size:clamp(38px,4.6vw,58px);line-height:1;color:var(--text)}
   .stat .v .num{color:var(--acc)}
-  .stat .l{color:var(--muted);font-size:13.5px;margin-top:9px}
+  .stat .l{color:var(--muted);font-size:13.5px;margin-top:10px;line-height:1.5}
+  .stat .l code{font-family:var(--mono);font-size:.9em;color:var(--rose)}
 
-  /* ---------- features ---------- */
-  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:42px}
-  .card{background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.008));
-    border:1px solid var(--line);border-radius:var(--r);padding:24px;position:relative;overflow:hidden;
-    transition:transform .22s,border-color .22s,box-shadow .22s}
-  .card:hover{transform:translateY(-4px);border-color:var(--line-2);box-shadow:0 24px 50px -30px rgba(0,0,0,.9)}
-  .card::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:0;transition:opacity .25s}
-  .card:hover::before{opacity:.7}
-  .card .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;margin-bottom:16px;
-    background:var(--acc-soft);border:1px solid rgba(194,249,90,.22);color:var(--acc)}
-  .card .ic svg{width:19px;height:19px}
-  .card h3{font-size:18.5px;font-weight:700}
-  .card p{color:var(--muted);font-size:14.5px;margin-top:8px}
-  .card .snip{font-family:var(--mono);font-size:12px;margin-top:15px;padding:11px 13px;border-radius:9px;
-    background:rgba(0,0,0,.35);border:1px solid var(--line);line-height:1.7;overflow-x:auto}
-  .card .snip .from{color:var(--rose)} .card .snip .to{color:var(--acc)} .card .snip .ar{color:var(--faint)}
+  /* ---------- pass index ---------- */
+  .passes{margin-top:48px;border-top:1px solid var(--line)}
+  .pass{display:grid;grid-template-columns:76px 250px 1fr auto;gap:10px 28px;align-items:baseline;
+    padding:21px 14px;border-bottom:1px solid var(--line);position:relative;transition:background .25s}
+  .pass::before{content:"";position:absolute;left:0;top:-1px;bottom:-1px;width:2px;background:var(--acc);
+    opacity:0;transition:opacity .25s}
+  .pass:hover{background:linear-gradient(90deg,var(--acc-soft),transparent 55%)}
+  .pass:hover::before{opacity:1}
+  .pass .pnum{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--faint);transition:color .25s}
+  .pass:hover .pnum{color:var(--acc)}
+  .pass h3{font-family:var(--serif);font-weight:400;font-size:23px;letter-spacing:.01em;line-height:1.15}
+  .pass p{color:var(--muted);font-size:14.5px;line-height:1.55}
+  .pass .pchip{font-family:var(--mono);font-size:11.5px;color:var(--faint);border:1px solid var(--line-2);
+    border-radius:99px;padding:5px 13px;white-space:nowrap;transition:color .25s,border-color .25s;justify-self:end}
+  .pass:hover .pchip{color:var(--acc);border-color:rgba(240,160,72,.4)}
 
-  /* ---------- demo ---------- */
-  .demo-grid{display:grid;grid-template-columns:.82fr 1.18fr;gap:38px;align-items:center;margin-top:36px}
-  .demo-note{display:flex;flex-direction:column;gap:18px}
-  .demo-note .row{display:flex;gap:13px;align-items:flex-start}
-  .demo-note .row .b{width:26px;height:26px;flex:0 0 auto;border-radius:7px;display:grid;place-items:center;
-    background:var(--acc-soft);border:1px solid rgba(194,249,90,.22);color:var(--acc);font-family:var(--mono);font-size:12px;font-weight:700}
-  .demo-note .row p{color:var(--muted);font-size:14.5px}
-  .demo-note .row b{color:var(--text);font-weight:600}
+  /* ---------- real output ---------- */
+  .demo-grid{display:grid;grid-template-columns:.82fr 1.18fr;gap:44px;align-items:center;margin-top:44px}
+  .note-rows{display:flex;flex-direction:column;gap:20px}
+  .note-rows .row{display:flex;gap:14px;align-items:flex-start}
+  .note-rows .row .b{width:27px;height:27px;flex:0 0 auto;border-radius:99px;display:grid;place-items:center;
+    border:1px solid rgba(240,160,72,.35);color:var(--acc);font-family:var(--mono);font-size:12px}
+  .note-rows .row p{color:var(--muted);font-size:14.5px}
+  .note-rows .row b{color:var(--text);font-weight:600}
 
-  /* ---------- compare ---------- */
-  .tablewrap{margin-top:38px;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;overflow-x:auto}
-  table{width:100%;border-collapse:collapse;min-width:560px}
-  th,td{text-align:left;padding:16px 22px;border-bottom:1px solid var(--line);font-size:14.8px;vertical-align:top}
-  thead th{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:rgba(255,255,255,.02)}
-  thead th.tk{color:var(--acc)}
-  tbody tr:last-child td{border-bottom:0}
-  td:first-child{color:var(--muted);width:30%}
-  td.medal{color:var(--faint)}
-  td.tk{color:var(--text);background:rgba(194,249,90,.045);border-left:1px solid rgba(194,249,90,.18)}
-  td.tk code,td.medal code{font-family:var(--mono);font-size:.86em;color:inherit}
-  th.tk{background:rgba(194,249,90,.06);border-left:1px solid rgba(194,249,90,.18)}
-
-  /* ---------- get started ---------- */
-  .start-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:40px}
-  .term{background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
-  .term .win-bar{background:rgba(255,255,255,.02)}
-  .cmd{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:13px}
-  .cmd:last-child{border-bottom:0}
-  .cmd .pr{color:var(--acc)} .cmd .t{color:#cdd4df;flex:1;overflow-x:auto;white-space:nowrap}
-  .cmd .t .cc{color:var(--faint)}
-  .cmd .cp{flex:0 0 auto;font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--line);
-    background:transparent;border-radius:7px;padding:5px 9px;cursor:pointer;transition:.2s}
-  .cmd .cp:hover{border-color:var(--acc);color:var(--acc)}
-  .dlbox{background:linear-gradient(165deg,rgba(194,249,90,.07),rgba(255,255,255,.01));border:1px solid var(--line-2);
-    border-radius:var(--r);padding:26px;display:flex;flex-direction:column;gap:14px}
-  .dlbox h3{font-size:20px}
-  .dlbox p{color:var(--muted);font-size:14px}
-  .dl-links{display:flex;flex-direction:column;gap:10px;margin-top:4px}
-  .dl{display:flex;align-items:center;gap:13px;padding:13px 15px;border:1px solid var(--line);border-radius:11px;
-    background:rgba(0,0,0,.25);transition:.2s}
-  .dl:hover{border-color:var(--acc);background:rgba(194,249,90,.05)}
-  .dl .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--ink-4);color:var(--acc);flex:0 0 auto}
-  .dl .ic svg{width:17px;height:17px}
-  .dl .meta{display:flex;flex-direction:column;line-height:1.3}
-  .dl .meta b{font-size:14.5px;font-family:var(--mono)}
-  .dl .meta span{font-size:12px;color:var(--muted)}
-  .dl .sz{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--faint)}
-  .build-note{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:16px;
-    padding:13px 16px;border:1px dashed var(--line-2);border-radius:10px}
-  .build-note code{color:var(--cy)}
-
-  /* ---------- credits ---------- */
-  .credits{text-align:center}
-  .credits .box{max-width:640px;margin:30px auto 0;border:1px solid var(--line);border-radius:var(--r-lg);
-    padding:40px 32px;background:rgba(255,255,255,.012)}
-  .credits .names{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:22px}
-  .credits .who{font-family:var(--mono);font-size:14px;color:var(--text);border:1px solid var(--line-2);border-radius:99px;padding:9px 18px}
-  .credits .who span{color:var(--muted)}
-  .credits p{color:var(--muted)}
-
-  /* ---------- footer ---------- */
-  footer{border-top:1px solid var(--line);padding:44px 0;margin-top:30px}
-  .foot{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
-  .foot .l{color:var(--faint);font-size:13.5px}
-  .foot .links{display:flex;gap:24px;flex-wrap:wrap}
-  .foot .links a{color:var(--muted);font-size:14px;transition:.2s}
-  .foot .links a:hover{color:var(--acc)}
-
-  /* ---------- reveal (JS-gated so content is visible if JS/IO is unavailable) ---------- */
-  .reveal{transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0ms)}
-  .js .reveal{opacity:0;transform:translateY(18px)}
-  .reveal.in{opacity:1;transform:none}
-  section[id],#top{scroll-margin-top:80px}
-  a:focus-visible,button:focus-visible,select:focus-visible,.btn:focus-visible,.cp:focus-visible,.dl:focus-visible{outline:2px solid var(--acc);outline-offset:3px;border-radius:8px}
-
-  /* ---------- 4-way matrix ---------- */
-  table.quad{min-width:780px}
-  .quad td:first-child,.quad th:first-child{width:26%}
-  th.src,td.src{color:var(--gold)}
-  th.src{background:rgba(245,213,122,.06)}
-  td.src{color:#d9c489}
-  th.lx,td.lx{color:var(--faint)}
-  th.lx{background:rgba(255,255,255,.015)}
-  .quad td.tk{color:var(--text)}
-  .quad .yes{color:var(--acc);font-weight:600}
-  .quad .no{color:var(--rose)}
-  .quad code{font-family:var(--mono);font-size:.84em}
-  .ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:38px}
-  .rung{border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 20px;background:rgba(255,255,255,.012);position:relative}
-  .rung .step{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
-  .rung h4{font-size:18px;font-weight:700;margin-top:10px;letter-spacing:-.01em}
-  .rung p{color:var(--muted);font-size:13px;margin-top:7px;line-height:1.5}
-  .rung.best{border-color:rgba(194,249,90,.4);background:linear-gradient(180deg,rgba(194,249,90,.06),rgba(255,255,255,.01));box-shadow:0 24px 50px -34px rgba(194,249,90,.5)}
-  .rung.best h4{color:var(--acc)}
-  .rung.src h4{color:var(--gold)}
-  .rung .bar{height:4px;border-radius:99px;margin-top:14px;background:var(--line-2)}
-  .rung:nth-child(1) .bar{width:18%;background:var(--rose)}
-  .rung:nth-child(2) .bar{width:42%;background:var(--coral)}
-  .rung:nth-child(3) .bar{width:66%;background:var(--cy)}
-  .rung:nth-child(4) .bar{width:100%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
-
-  .rung code,.field-lede code,.cmp-cap code,.cmp-hint code{font-family:var(--mono);font-size:.85em;color:var(--coral);background:rgba(255,157,107,.10);padding:1px 5px;border-radius:5px}
-  .legend{display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px;margin-top:18px;padding-top:16px;
-    border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--faint)}
-  .legend b{color:var(--muted)}
-
-  /* ---------- comparison picker ---------- */
-  .cmp{margin-top:36px}
-  .cmp-controls{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:center;justify-content:space-between;margin-bottom:20px}
-  .cmp-pick{display:inline-flex;align-items:center;gap:11px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
-  .cmp-pick select{font-family:var(--disp);font-size:14px;font-weight:500;color:var(--text);background:var(--ink-3);
-    border:1px solid var(--line-2);border-radius:10px;padding:10px 36px 10px 14px;cursor:pointer;
+  /* ---------- showdown ---------- */
+  .cmp{margin-top:42px}
+  .cmp-controls{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:center;justify-content:space-between;margin-bottom:22px}
+  .cmp-pick{display:inline-flex;align-items:center;gap:12px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+  .cmp-pick select{font-family:var(--sans);font-size:14px;font-weight:500;color:var(--text);background:var(--panel-2);
+    border:1px solid var(--line-2);border-radius:10px;padding:11px 38px 11px 15px;cursor:pointer;
     appearance:none;-webkit-appearance:none;text-transform:none;letter-spacing:0;max-width:min(72vw,440px);
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b94a4' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 12px center;background-size:15px;transition:border-color .2s}
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a89f8f' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 13px center;background-size:15px;transition:border-color .2s}
   .cmp-pick select:hover{border-color:var(--acc)}
-  .cmp-seg{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line-2);border-radius:13px;background:rgba(0,0,0,.28);flex-wrap:wrap}
+  .cmp-seg{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line-2);border-radius:12px;background:rgba(0,0,0,.3);flex-wrap:wrap}
   .cmp-seg-btn{font-family:var(--mono);font-size:12.5px;color:var(--muted);background:transparent;border:0;
-    border-radius:9px;padding:9px 14px;cursor:pointer;transition:.16s;white-space:nowrap}
+    border-radius:8px;padding:9px 15px;cursor:pointer;transition:.16s;white-space:nowrap}
   .cmp-seg-btn:hover{color:var(--text)}
-  .cmp-seg-btn.on{background:var(--acc);color:#0a0d05;font-weight:600}
-  .cmp-seg-btn[data-dec="luaexpert"].on{background:var(--rose);color:#1c0707}
-  .cmp-seg-btn[data-dec="medal"].on{background:var(--gold);color:#1c1503}
-  .cmp-seg-btn[data-dec="source"].on{background:var(--cy);color:#04181a}
-  .cmp-cap{font-size:15px;color:var(--muted);line-height:1.55;margin-bottom:16px;min-height:4.4em}
+  .cmp-seg-btn.on{background:var(--acc);color:#1a1206;font-weight:600}
+  .cmp-seg-btn[data-dec="luaexpert"].on{background:var(--rose);color:#210b09}
+  .cmp-seg-btn[data-dec="medal"].on{background:var(--gold);color:#1e1605}
+  .cmp-seg-btn[data-dec="source"].on{background:var(--cy);color:#0a1c1d}
+  .cmp-cap{font-size:15px;color:var(--muted);line-height:1.58;margin-bottom:18px;min-height:4.4em;max-width:72em}
   .cmp-cap b{color:var(--text);font-weight:600}
   .cmp-win{border-radius:var(--r)}
   .cmp-codes{min-height:330px}
   .cmp-pre{margin:0}
   .cmp-pre[hidden]{display:none}
-  .cmp-win .win-tag.t-riv{color:var(--rose);border-color:rgba(255,142,142,.35)}
+  .cmp-win .win-tag.t-riv{color:var(--rose);border-color:rgba(226,125,117,.4)}
   .cmp-win .win-tag.t-riv .blink{background:var(--rose);box-shadow:0 0 7px var(--rose);animation:none}
-  .cmp-win .win-tag.t-med{color:var(--gold);border-color:rgba(245,213,122,.35)}
+  .cmp-win .win-tag.t-med{color:var(--gold);border-color:rgba(217,178,106,.4)}
   .cmp-win .win-tag.t-med .blink{background:var(--gold);box-shadow:0 0 7px var(--gold);animation:none}
-  .cmp-win .win-tag.t-src{color:var(--cy);border-color:rgba(95,221,230,.35)}
+  .cmp-win .win-tag.t-src{color:var(--cy);border-color:rgba(143,199,201,.4)}
   .cmp-win .win-tag.t-src .blink{background:var(--cy);box-shadow:0 0 7px var(--cy);animation:none}
-  .cmp-hint{font-family:var(--mono);font-size:12px;color:var(--faint);margin-top:15px;line-height:1.7}
+  .cmp-hint{font-family:var(--mono);font-size:12px;color:var(--faint);margin-top:16px;line-height:1.7}
   .cmp-hint b{color:var(--muted)}
 
+  /* ---------- field: ladder + matrix ---------- */
+  .ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:44px}
+  .rung{border:1px solid var(--line);border-radius:var(--r);padding:20px 20px 22px;background:rgba(255,255,255,.012);transition:border-color .25s}
+  .rung:hover{border-color:var(--line-2)}
+  .rung .step{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+  .rung h4{font-family:var(--serif);font-weight:400;font-size:24px;margin-top:12px}
+  .rung p{color:var(--muted);font-size:13.5px;margin-top:8px;line-height:1.55}
+  .rung.best{border-color:rgba(240,160,72,.45);background:linear-gradient(180deg,var(--acc-soft),rgba(255,255,255,.01));box-shadow:0 26px 54px -36px rgba(240,160,72,.55)}
+  .rung.best h4{color:var(--acc);font-style:italic}
+  .rung.src h4{color:var(--cy)}
+  .rung .bar{height:3px;border-radius:99px;margin-top:16px;background:var(--line-2)}
+  .rung:nth-child(1) .bar{width:100%;background:var(--cy)}
+  .rung:nth-child(2) .bar{width:22%;background:var(--gold)}
+  .rung:nth-child(3) .bar{width:58%;background:var(--rose)}
+  .rung:nth-child(4) .bar{width:100%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+
+  .tablewrap{margin-top:40px;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;overflow-x:auto;background:rgba(0,0,0,.16)}
+  table{width:100%;border-collapse:collapse;min-width:780px}
+  th,td{text-align:left;padding:15px 22px;border-bottom:1px solid var(--line);font-size:14.6px;vertical-align:top}
+  thead th{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:rgba(255,255,255,.02);font-weight:500}
+  tbody tr:last-child td{border-bottom:0}
+  td:first-child,th:first-child{width:26%}
+  td:first-child{color:var(--muted)}
+  td code,th code{font-family:var(--mono);font-size:.85em}
+  th.src{color:var(--cy);background:rgba(143,199,201,.06)}
+  td.src{color:#9fbfc0}
+  th.lx{color:var(--faint)}
+  td.lx{color:var(--faint)}
+  td.medal{color:var(--faint)}
+  th.tk{color:var(--acc);background:rgba(240,160,72,.07);border-left:1px solid rgba(240,160,72,.22)}
+  td.tk{color:var(--text);background:rgba(240,160,72,.05);border-left:1px solid rgba(240,160,72,.22)}
+  .yes{color:var(--acc);font-weight:600}
+  td.src .yes{color:var(--cy)}
+  .no{color:var(--rose)}
+  .legend{display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px;margin-top:20px;padding-top:18px;
+    border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .legend b{color:var(--muted)}
+
+  /* ---------- get started ---------- */
+  .start-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:44px}
+  .dlbox{background:linear-gradient(170deg,var(--acc-soft),rgba(255,255,255,.01));border:1px solid var(--line-2);
+    border-radius:var(--r-lg);padding:28px;display:flex;flex-direction:column;gap:14px}
+  .dlbox h3{font-family:var(--serif);font-weight:400;font-size:26px}
+  .dlbox>p{color:var(--muted);font-size:14px}
+  .dl-links{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+  .dl{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:11px;
+    background:rgba(0,0,0,.28);transition:.2s}
+  .dl:hover{border-color:var(--acc);background:rgba(240,160,72,.07)}
+  .dl .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--panel-2);color:var(--acc);flex:0 0 auto;border:1px solid var(--line)}
+  .dl .ic svg{width:17px;height:17px}
+  .dl .meta{display:flex;flex-direction:column;line-height:1.35;min-width:0}
+  .dl .meta b{font-size:14px;font-family:var(--mono);font-weight:500}
+  .dl .meta span{font-size:12px;color:var(--muted)}
+  .dl .sz{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint);flex:0 0 auto}
+  .term{background:var(--panel);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;align-self:start}
+  .cmd{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:13px}
+  .cmd:last-of-type{border-bottom:0}
+  .cmd .pr{color:var(--acc)}
+  .cmd .t{color:var(--code);flex:1;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+  .cmd .t::-webkit-scrollbar{display:none}
+  .cmd .t .cc{color:var(--faint)}
+  .cmd .cp{flex:0 0 auto;font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--line);
+    background:transparent;border-radius:7px;padding:5px 10px;cursor:pointer;transition:.2s}
+  .cmd .cp:hover{border-color:var(--acc);color:var(--acc)}
+  .build-note{font-family:var(--mono);font-size:12px;color:var(--muted);margin:14px 18px 18px;
+    padding:13px 16px;border:1px dashed var(--line-2);border-radius:10px;line-height:1.8}
+  .build-note code{color:var(--acc)}
+
+  /* ---------- memorial ---------- */
+  .mem{text-align:center;max-width:660px;margin:0 auto}
+  .mem .star{color:var(--acc);font-size:18px;letter-spacing:.5em;display:block}
+  .mem h2{font-size:clamp(30px,3.8vw,44px);margin-top:22px}
+  .mem>p{color:var(--muted);margin-top:16px;font-size:15.5px}
+  .mem a{color:var(--acc);border-bottom:1px solid rgba(240,160,72,.35);transition:border-color .2s}
+  .mem a:hover{border-color:var(--acc)}
+  .mem .names{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:26px}
+  .mem .who{font-family:var(--mono);font-size:13.5px;color:var(--text);border:1px solid var(--line-2);border-radius:99px;padding:9px 20px}
+  .mem .who span{color:var(--faint)}
+  .mem .prayer{font-family:var(--serif);font-style:italic;font-size:19px;color:var(--muted);margin-top:28px}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--line);padding:40px 0;margin-top:20px}
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
+  .foot .l{color:var(--faint);font-size:12.5px;font-family:var(--mono)}
+  .foot .links{display:flex;gap:22px;flex-wrap:wrap}
+  .foot .links a{color:var(--muted);font-size:13px;font-family:var(--mono);transition:.2s}
+  .foot .links a:hover{color:var(--acc)}
+
+  /* ---------- reveal (JS-gated so content is never stuck hidden) ---------- */
+  .reveal{transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0ms)}
+  .js .reveal{opacity:0;transform:translateY(18px)}
+  .reveal.in{opacity:1;transform:none}
+
   /* ---------- responsive ---------- */
+  @media(max-width:1240px){.hexrail{display:none}}
   @media(max-width:1024px){
-    .xform{grid-template-columns:1fr}
-    .xform .arrow{padding:14px 0}
-    .xform .arrow .ring{transform:rotate(90deg)}
+    .hero-grid{grid-template-columns:1fr;gap:40px}
+    .hero h1 em{white-space:normal}
+    .pass{grid-template-columns:56px 1fr auto;grid-template-rows:auto auto}
+    .pass h3{grid-column:2}
+    .pass p{grid-column:2/4;grid-row:2}
+    .pass .pchip{grid-column:3;grid-row:1}
   }
   @media(max-width:920px){
-    .hero-grid{grid-template-columns:1fr;gap:36px}
-    .feat-grid{grid-template-columns:repeat(2,1fr)}
     .demo-grid{grid-template-columns:1fr}
     .start-grid{grid-template-columns:1fr}
     .stat-grid{grid-template-columns:repeat(2,1fr)}
     .stat{border-top:1px solid var(--line)}
     .stat:nth-child(-n+2){border-top:0}
     .stat:nth-child(odd){border-left:0}
-    .xform{grid-template-columns:1fr}
-    .xform .arrow{padding:16px 0}
-    .xform .arrow .ring{transform:rotate(90deg)}
     .ladder{grid-template-columns:repeat(2,1fr)}
-    .vs{grid-template-columns:1fr}
-    .wins{grid-template-columns:1fr}
     .cmp-controls{align-items:flex-start;flex-direction:column;gap:14px}
     .cmp-pick{flex-direction:column;align-items:flex-start;gap:7px}
     .cmp-pick select{max-width:100%}
   }
   @media(max-width:680px){
-    .ladder{grid-template-columns:1fr}
     .nav-links{display:none}
     .nav-cta .btn-ghost{display:none}
-    .feat-grid{grid-template-columns:1fr}
-    .hero{padding:48px 0 16px}
-    pre{font-size:12px;padding:16px 14px}
-    pre.sm{font-size:11.5px;padding:14px 12px}
-    .stat{padding:14px 16px}
-    .stat .v{font-size:clamp(28px,7vw,40px)}
+    .hero{padding:56px 0 48px}
+    .ladder{grid-template-columns:1fr}
+    .pass{grid-template-columns:44px 1fr;padding:18px 8px}
+    .pass .pchip{display:none}
+    .pass p{grid-column:2}
+    pre{font-size:11.8px;padding:16px 14px}
+    pre.sm{font-size:11.2px;padding:14px 12px}
+    .duel{height:392px}
+    .duel .pane{font-size:10.8px;padding:14px 12px}
+    .stat{padding:20px 16px}
   }
   @media(prefers-reduced-motion:reduce){
     *{animation:none!important}
     .reveal{opacity:1!important;transform:none!important;transition:none!important}
-    .card:hover,.btn:hover,.dl:hover{transform:none!important}
+    .btn:hover,.dl:hover{transform:none!important}
+    .ticker-track{animation:none!important;width:auto;flex-wrap:wrap}
+    .ticker-group{flex-wrap:wrap}
+    .ticker-group+.ticker-group{display:none}
     html{scroll-behavior:auto}
   }
 </style>
 </head>
 <body>
 <div class="grain"></div>
+<div class="hexrail" aria-hidden="true">1B 4C 75 61 75 00 03 F0 A0 48 76 31 20 76 32 20 76 33 00 47 65 74 53 65 72 76 69 63 65 00 54 4F 56 45 4B 00 1B 4C 75 61 75 00 03 F0 A0 48 76 31 20 76 32 20 76 33 00 47 65 74 53 65 72 76 69 63 65 00 54 4F 56 45 4B</div>
 
 <header class="nav">
   <div class="wrap">
-    <a class="brand" href="#top"><span class="mark">T</span> tov<b>ek</b></a>
+    <a class="brand" href="#top"><span class="t">Tove<b>k</b></span><span class="sub">LUAU DECOMPILER</span></a>
     <nav class="nav-links">
-      <a href="#transform">Transform</a>
-      <a href="#features">Features</a>
-      <a href="#demo">Demo</a>
-      <a href="#duel">Compare</a>
-      <a href="#compare">The field</a>
-      <a href="#start">Get started</a>
+      <a href="#passes">passes</a>
+      <a href="#output">output</a>
+      <a href="#duel">showdown</a>
+      <a href="#compare">compare</a>
+      <a href="#start">get started</a>
     </nav>
     <div class="nav-cta">
       <a class="btn btn-ghost" href="https://github.com/Kiet1308/Tovek" target="_blank" rel="noopener">
@@ -385,118 +424,50 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <span class="eyebrow reveal">A Luau decompiler · beta 0.6.0</span>
-        <h1 class="reveal" style="--d:60ms">Decompiled Luau<br>you can <span class="em">actually read.</span></h1>
-        <p class="lede reveal" style="--d:140ms">Tovek rebuilds names, methods and control flow — turning <code>v1, v2, v3</code> bytecode soup into source close to what a human wrote. And it does it up to <b style="color:var(--text)">32× faster</b> than before. A modern fork of <b style="color:var(--text)">medal</b>.</p>
-        <div class="hero-cta reveal" style="--d:220ms">
+        <span class="eyebrow reveal">@@ &minus;bytecode &nbsp;+source @@ &nbsp;&middot;&nbsp; beta 0.6.0</span>
+        <h1 class="reveal" style="--d:70ms">Decompiled Luau<br>you can <em data-scramble>actually read.</em></h1>
+        <p class="lede reveal" style="--d:150ms">Tovek rebuilds the names, methods and control flow the compiler threw away — turning <code>v1, v2, v3</code> soup into source close to what a human wrote. Up to <b>32× faster</b>, deterministic, and validated against Luau&rsquo;s own front end. A modern fork of <b>medal</b>.</p>
+        <div class="hero-cta reveal" style="--d:230ms">
           <a class="btn btn-acc" href="https://github.com/Kiet1308/Tovek/releases/latest" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>
             Download for Windows
           </a>
-          <a class="btn btn-ghost" href="#transform">See the difference →</a>
+          <a class="btn btn-ghost" href="#duel">See the showdown ↓</a>
         </div>
-        <div class="chips reveal" style="--d:300ms">
-          <span class="chip"><span class="dot"></span>beta 0.6.0</span>
-          <a class="chip" href="https://discord.gg/phY6VUDSF7" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.32 4.37A19.8 19.8 0 0 0 15.4 2.8a.07.07 0 0 0-.08.04c-.21.38-.45.88-.61 1.27a18.3 18.3 0 0 0-5.42 0A12.6 12.6 0 0 0 8.67 2.84.07.07 0 0 0 8.59 2.8 19.7 19.7 0 0 0 3.68 4.37a.06.06 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.05 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.29 1.23-1.99a.08.08 0 0 0-.04-.11c-.65-.25-1.27-.55-1.87-.89a.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01 14.2 14.2 0 0 0 12.06 0 .07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.37.7.79 1.36 1.23 1.99a.08.08 0 0 0 .08.03 19.8 19.8 0 0 0 6-3.03.08.08 0 0 0 .03-.05c.5-5.99-.84-10.45-3.55-14.74a.05.05 0 0 0-.03-.02ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg>Discord</a>
-          <span class="chip">MIT licensed</span>
-          <span class="chip">fork of medal</span>
-          <span class="chip">262/262 valid output</span>
+        <div class="hero-meta reveal" style="--d:300ms">
+          <span><span class="dot">●</span> MIT licensed</span>
+          <span><span class="dot">●</span> open source</span>
+          <span><span class="dot">●</span> 262/262 valid output</span>
+          <a href="https://discord.gg/phY6VUDSF7" target="_blank" rel="noopener"><span class="dot">●</span> Discord ↗</a>
         </div>
       </div>
 
-      <div class="win reveal" style="--d:240ms">
-        <div class="win-bar">
-          <span class="dots"><i></i><i></i><i></i></span>
-          <span class="win-name">BugSpawner.client<span class="ext">.luau</span></span>
-          <span class="win-tag"><span class="blink"></span>decoded</span>
-        </div>
-<pre><span class="k">local</span> <span class="hl">Players</span> <span class="p">=</span> <span class="g">game</span><span class="p">:</span><span class="fn">GetService</span><span class="p">(</span><span class="s">"Players"</span><span class="p">)</span>
-<span class="k">local</span> <span class="hl">RunService</span> <span class="p">=</span> <span class="g">game</span><span class="p">:</span><span class="fn">GetService</span><span class="p">(</span><span class="s">"RunService"</span><span class="p">)</span>
-
-<span class="k">local</span> <span class="hl">player</span> <span class="p">=</span> <span class="hl">Players</span><span class="p">.</span>LocalPlayer
-<span class="k">local</span> <span class="hl">humanoid</span> <span class="p">=</span> <span class="hl">player</span><span class="p">.</span>Character<span class="p">:</span><span class="fn">WaitForChild</span><span class="p">(</span><span class="s">"Humanoid"</span><span class="p">)</span>
-
-<span class="c">-- [-O2 INLINED, UNHOOKABLE] reconstructed definition;</span>
-<span class="k">local</span> <span class="k">function</span> <span class="fn hl">isAlive</span><span class="p">(</span><span class="hl">instance</span><span class="p">)</span>
-	<span class="k">return</span> <span class="hl">instance</span><span class="p">.</span>Health <span class="p">&gt;</span> <span class="n">0</span>
-<span class="k">end</span>
-
-<span class="k">local</span> <span class="hl">connection</span> <span class="p">=</span> <span class="hl">RunService</span><span class="p">.</span>Heartbeat<span class="p">:</span><span class="fn">Connect</span><span class="p">(</span><span class="k">function</span><span class="p">(</span><span class="hl">dt</span><span class="p">)</span>
-	<span class="c">-- [-O2 INLINED, UNHOOKABLE] reconstructed call</span>
-	<span class="k">if</span> <span class="fn hl">isAlive</span><span class="p">(</span><span class="hl">humanoid</span><span class="p">)</span> <span class="k">then</span>
-		<span class="fn">print</span><span class="p">(</span><span class="s">`hp: {humanoid.Health}`</span><span class="p">)</span>
-	<span class="k">end</span>
-<span class="k">end</span><span class="p">)</span><span class="cur"></span></pre>
-      </div>
-    </div>
-  </section>
-
-  <!-- STATS -->
-  <section class="stats" style="padding:0">
-    <div class="wrap">
-      <div class="stat-grid">
-        <div class="stat reveal"><div class="v"><span class="num" data-to="2">0</span>×</div><div class="l">faster on a single file</div></div>
-        <div class="stat reveal" style="--d:80ms"><div class="v"><span class="num" data-to="32">0</span>×</div><div class="l">faster across a corpus</div></div>
-        <div class="stat reveal" style="--d:160ms"><div class="v"><span class="num" data-to="262">0</span>/262</div><div class="l">outputs re-parse in Luau</div></div>
-        <div class="stat reveal" style="--d:240ms"><div class="v"><span class="num" data-to="100">0</span>%</div><div class="l">deterministic · byte-identical</div></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- TRANSFORM -->
-  <section id="transform">
-    <div class="wrap">
-      <div class="sec-head reveal">
-        <span class="eyebrow">// the difference</span>
-        <h2>From bytecode soup to source you can read.</h2>
-        <p>Most decompilers stop at <em>correct</em>. Tovek keeps going — recovering the names, services and idioms the Luau compiler stripped away, so the output reads like the original.</p>
-      </div>
-
-      <div class="xform">
-        <div>
-          <div class="win before reveal">
-            <div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="win-name">raw decompile<span class="ext">.luau</span></span></div>
-<pre class="sm"><span class="k">local</span> <span class="bad">v1</span> <span class="p">=</span> <span class="g">game</span><span class="p">:</span><span class="fn">GetService</span><span class="p">(</span><span class="s">"Players"</span><span class="p">)</span>
-<span class="k">local</span> <span class="bad">v2</span> <span class="p">=</span> <span class="g">game</span><span class="p">:</span><span class="fn">GetService</span><span class="p">(</span><span class="s">"RunService"</span><span class="p">)</span>
-<span class="k">local</span> <span class="bad">v3</span> <span class="p">=</span> <span class="fn">require</span><span class="p">(</span><span class="g">script</span><span class="p">.</span>Parent<span class="p">.</span>Config<span class="p">)</span>
-
-<span class="k">local</span> <span class="bad">v4</span> <span class="p">=</span> <span class="bad">v1</span><span class="p">.</span>LocalPlayer
-<span class="k">local</span> <span class="bad">v5</span> <span class="p">=</span> <span class="bad">v4</span><span class="p">.</span>Character<span class="p">:</span><span class="fn">WaitForChild</span><span class="p">(</span><span class="s">"Humanoid"</span><span class="p">)</span>
-
-<span class="k">local</span> <span class="bad">v6</span> <span class="p">=</span> <span class="p">{}</span>
-<span class="bad">v6</span><span class="p">.</span>spawned <span class="p">=</span> <span class="n">0</span>
-<span class="bad">v6</span><span class="p">.</span>elapsed <span class="p">=</span> <span class="n">0</span>
-
-<span class="k">local</span> <span class="k">function</span> <span class="fn">u1</span><span class="p">(</span><span class="bad">p</span><span class="p">)</span>
-	<span class="k">for</span> _<span class="p">,</span> <span class="bad">v7</span> <span class="k">in</span> <span class="fn">ipairs</span><span class="p">(</span><span class="bad">p</span><span class="p">:</span><span class="fn">GetChildren</span><span class="p">())</span> <span class="k">do</span>
-		<span class="k">if</span> <span class="bad">v7</span><span class="p">:</span><span class="fn">IsA</span><span class="p">(</span><span class="s">"BasePart"</span><span class="p">)</span> <span class="k">then</span>
-			<span class="k">local</span> <span class="bad">v8</span> <span class="p">=</span> <span class="bad">v7</span><span class="p">:</span><span class="fn">Clone</span><span class="p">()</span>
-			<span class="bad">v8</span><span class="p">.</span>Parent <span class="p">=</span> <span class="g">workspace</span>
-			<span class="bad">v6</span><span class="p">.</span>spawned <span class="p">=</span> <span class="bad">v6</span><span class="p">.</span>spawned <span class="p">+</span> <span class="n">1</span>
-		<span class="k">end</span>
-	<span class="k">end</span>
-<span class="k">end</span>
-
-<span class="k">local</span> <span class="bad">v9</span> <span class="p">=</span> <span class="bad">v2</span><span class="p">.</span>Heartbeat<span class="p">:</span><span class="fn">Connect</span><span class="p">(</span><span class="k">function</span><span class="p">(</span><span class="bad">p2</span><span class="p">)</span>
-	<span class="bad">v6</span><span class="p">.</span>elapsed <span class="p">=</span> <span class="bad">v6</span><span class="p">.</span>elapsed <span class="p">+</span> <span class="bad">p2</span>
-	<span class="k">if</span> <span class="bad">v5</span><span class="p">.</span>Health <span class="p">&gt;</span> <span class="n">0</span> <span class="k">then</span>
-		<span class="fn">print</span><span class="p">((</span><span class="s">"alive: %* · %*s"</span><span class="p">):</span><span class="fn">format</span><span class="p">(</span><span class="bad">v6</span><span class="p">.</span>spawned<span class="p">,</span> <span class="bad">v6</span><span class="p">.</span>elapsed<span class="p">))</span>
-	<span class="k">end</span>
-<span class="k">end</span><span class="p">)</span></pre>
+      <div class="reveal" style="--d:220ms">
+        <div class="win">
+          <div class="win-bar">
+            <span class="win-file">HeartbeatMonitor.client<span class="ext">.luac → .luau</span></span>
+            <span class="win-tag"><span class="blink"></span>live seam</span>
           </div>
-          <div class="lab">v1 · v2 · u1 · inlined -O2 body · duplicated GetService</div>
-        </div>
+          <div class="duel" id="duel-hero" style="--cut:46%">
+<pre class="pane before" aria-hidden="true"><span class="k">local</span> <span class="bad">v1</span> = game:GetService(<span class="s">"Players"</span>)
+<span class="k">local</span> <span class="bad">v2</span> = game:GetService(<span class="s">"RunService"</span>)
+<span class="k">local</span> <span class="bad">v3</span> = require(script.Parent.Config)
 
-        <div class="arrow reveal" style="--d:120ms">
-          <div class="ring">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m0 0-6-6m6 6-6 6"/></svg>
-          </div>
-        </div>
+<span class="k">local</span> <span class="bad">v4</span> = <span class="bad">v1</span>.LocalPlayer
+<span class="k">local</span> <span class="bad">v5</span> = <span class="bad">v4</span>.Character:WaitForChild(<span class="s">"Humanoid"</span>)
 
-        <div>
-          <div class="win reveal" style="--d:160ms">
-            <div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="win-name">tovek<span class="ext">.luau</span></span><span class="win-tag"><span class="blink"></span>tovek</span></div>
-<pre class="sm"><span class="k">local</span> <span class="hl">Players</span> <span class="p">=</span> <span class="g">game</span><span class="p">:</span><span class="fn">GetService</span><span class="p">(</span><span class="s">"Players"</span><span class="p">)</span>
+<span class="k">local</span> <span class="bad">v6</span> = {}
+<span class="bad">v6</span>.spawned = <span class="n">0</span>
+<span class="bad">v6</span>.elapsed = <span class="n">0</span>
+
+<span class="k">local</span> <span class="bad">v9</span> = <span class="bad">v2</span>.Heartbeat:Connect(<span class="k">function</span>(<span class="bad">p2</span>)
+	<span class="c">-- upvalues: (copy) v6, (copy) v5</span>
+	<span class="bad">v6</span>.elapsed = <span class="bad">v6</span>.elapsed + <span class="bad">p2</span>
+	<span class="k">if</span> <span class="bad">v5</span>.Health &gt; <span class="n">0</span> <span class="k">then</span>
+		print((<span class="s">"alive: %* · %*s"</span>):format(<span class="bad">v6</span>.spawned, <span class="bad">v6</span>.elapsed))
+	<span class="k">end</span>
+<span class="k">end</span>)</pre>
+<pre class="pane after"><span class="k">local</span> <span class="hl">Players</span> <span class="p">=</span> <span class="g">game</span><span class="p">:</span><span class="fn">GetService</span><span class="p">(</span><span class="s">"Players"</span><span class="p">)</span>
 <span class="k">local</span> <span class="hl">RunService</span> <span class="p">=</span> <span class="g">game</span><span class="p">:</span><span class="fn">GetService</span><span class="p">(</span><span class="s">"RunService"</span><span class="p">)</span>
 <span class="k">local</span> <span class="hl">config</span> <span class="p">=</span> <span class="fn">require</span><span class="p">(</span><span class="g">script</span><span class="p">.</span>Parent<span class="p">.</span>Config<span class="p">)</span>
 
@@ -508,124 +479,149 @@
 	elapsed <span class="p">=</span> <span class="n">0</span>
 <span class="p">}</span>
 
-<span class="c">-- [-O2 INLINED, UNHOOKABLE] reconstructed definition;</span>
-<span class="k">local</span> <span class="k">function</span> <span class="fn hl">isAlive</span><span class="p">(</span><span class="hl">instance</span><span class="p">)</span>
-	<span class="k">return</span> <span class="hl">instance</span><span class="p">.</span>Health <span class="p">&gt;</span> <span class="n">0</span>
-<span class="k">end</span>
-
-<span class="k">local</span> <span class="k">function</span> <span class="fn hl">spawnWave</span><span class="p">(</span><span class="hl">folder</span><span class="p">)</span>
-	<span class="k">for</span> _<span class="p">,</span> <span class="hl">child</span> <span class="k">in</span> <span class="fn">ipairs</span><span class="p">(</span><span class="hl">folder</span><span class="p">:</span><span class="fn">GetChildren</span><span class="p">())</span> <span class="k">do</span>
-		<span class="k">if</span> <span class="hl">child</span><span class="p">:</span><span class="fn">IsA</span><span class="p">(</span><span class="s">"BasePart"</span><span class="p">)</span> <span class="k">then</span>
-			<span class="k">local</span> <span class="hl">clone</span> <span class="p">=</span> <span class="hl">child</span><span class="p">:</span><span class="fn">Clone</span><span class="p">()</span>
-			<span class="hl">clone</span><span class="p">.</span>Parent <span class="p">=</span> <span class="g">workspace</span>
-			<span class="hl">stats</span><span class="p">.</span>spawned <span class="p">+=</span> <span class="n">1</span>
-		<span class="k">end</span>
-	<span class="k">end</span>
-<span class="k">end</span>
-
 <span class="k">local</span> <span class="hl">connection</span> <span class="p">=</span> <span class="hl">RunService</span><span class="p">.</span>Heartbeat<span class="p">:</span><span class="fn">Connect</span><span class="p">(</span><span class="k">function</span><span class="p">(</span><span class="hl">dt</span><span class="p">)</span>
 	<span class="hl">stats</span><span class="p">.</span>elapsed <span class="p">+=</span> <span class="hl">dt</span>
-	<span class="c">-- [-O2 INLINED, UNHOOKABLE] reconstructed call</span>
-	<span class="k">if</span> <span class="fn hl">isAlive</span><span class="p">(</span><span class="hl">humanoid</span><span class="p">)</span> <span class="k">then</span>
+	<span class="k">if</span> <span class="hl">humanoid</span><span class="p">.</span>Health <span class="p">&gt;</span> <span class="n">0</span> <span class="k">then</span>
 		<span class="fn">print</span><span class="p">(</span><span class="s">`alive: {stats.spawned} · {stats.elapsed}s`</span><span class="p">)</span>
 	<span class="k">end</span>
 <span class="k">end</span><span class="p">)</span></pre>
+            <div class="duel-bar" aria-hidden="true"><span class="duel-knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8 4 12l4 4M16 8l4 4-4 4"/></svg></span></div>
+            <span class="duel-tag raw" aria-hidden="true">naive decompile</span>
+            <span class="duel-tag tvk" aria-hidden="true">tovek</span>
+            <input type="range" min="4" max="96" value="46" step="0.1" aria-label="Drag the seam between the naive decompile and Tovek's output">
           </div>
-          <div class="lab" style="color:var(--acc)">names · recovered helper · += · loop + :IsA · backticks</div>
         </div>
+        <p class="duel-hint">&#8596; <b>drag the seam</b> — same script, before and after Tovek</p>
       </div>
-      <p class="xform-note">An illustrative before → after — every transformation shown is a genuine Tovek pass. The demo further down is verbatim, unedited output.</p>
-      <div class="xform-feats"><span>name inference</span><span>service + require handles</span><span>-O2 de-inline</span><span>compound +=</span><span>:Clone → clone</span><span>loop + :IsA naming</span><span>table rebuild</span><span>backtick interpolation</span><span>event param dt</span></div>
     </div>
   </section>
 
-  <!-- FEATURES -->
-  <section id="features">
+  <!-- TICKER -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <div class="ticker-group">
+        <span class="ti">v1, v2, v3 <b>→</b> <span class="to">Players, player, humanoid</span></span>
+        <span class="ti">x = x + 1 <b>→</b> <span class="to">x += 1</span></span>
+        <span class="ti">(1 / 0) <b>→</b> <span class="to">math.huge</span></span>
+        <span class="ti">function T.f(self, x) <b>→</b> <span class="to">function T:f(x)</span></span>
+        <span class="ti">7 inlined copies <b>→</b> <span class="to">1 named helper</span></span>
+        <span class="ti">("%*"):format(x) <b>→</b> <span class="to">`{x}`</span></span>
+        <span class="ti">-3.141592653589793 <b>→</b> <span class="to">-math.pi</span></span>
+        <span class="ti">47 dead ternaries <b>→</b> <span class="to">0</span></span>
+        <span class="ti">20.6s <b>→</b> <span class="to">0.65s</span></span>
+      </div>
+      <div class="ticker-group">
+        <span class="ti">v1, v2, v3 <b>→</b> <span class="to">Players, player, humanoid</span></span>
+        <span class="ti">x = x + 1 <b>→</b> <span class="to">x += 1</span></span>
+        <span class="ti">(1 / 0) <b>→</b> <span class="to">math.huge</span></span>
+        <span class="ti">function T.f(self, x) <b>→</b> <span class="to">function T:f(x)</span></span>
+        <span class="ti">7 inlined copies <b>→</b> <span class="to">1 named helper</span></span>
+        <span class="ti">("%*"):format(x) <b>→</b> <span class="to">`{x}`</span></span>
+        <span class="ti">-3.141592653589793 <b>→</b> <span class="to">-math.pi</span></span>
+        <span class="ti">47 dead ternaries <b>→</b> <span class="to">0</span></span>
+        <span class="ti">20.6s <b>→</b> <span class="to">0.65s</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <section class="stats">
     <div class="wrap">
+      <div class="stat-grid">
+        <div class="stat reveal"><div class="v"><span class="num" data-to="2">2</span>×</div><div class="l">faster than upstream &middot; single file</div></div>
+        <div class="stat reveal" style="--d:80ms"><div class="v"><span class="num" data-to="32">32</span>×</div><div class="l">faster than upstream &middot; full corpus</div></div>
+        <div class="stat reveal" style="--d:160ms"><div class="v"><span class="num" data-to="262">262</span>/262</div><div class="l">game-dump scripts re-parse in Luau</div></div>
+        <div class="stat reveal" style="--d:240ms"><div class="v"><span class="num" data-to="100">100</span>%</div><div class="l">deterministic &middot; byte-identical</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PASSES -->
+  <section id="passes">
+    <div class="wrap">
+      <span id="features"></span><span id="transform"></span>
       <div class="sec-head reveal">
-        <span class="eyebrow">// what makes it different</span>
-        <h2>Engineered for readability.</h2>
-        <p>A pipeline of analysis passes that the upstream decompiler never had — each one undoing another layer of what the compiler did to your code.</p>
+        <span class="eyebrow">@@ 01 &middot; the passes @@</span>
+        <h2>Six passes. <em>Three guarantees.</em></h2>
+        <p>Each pass undoes one thing the Luau compiler did to your code — read in order, they are a restoration log. The last three aren&rsquo;t passes at all: they are guarantees about the tool itself. All nine are new since the fork.</p>
       </div>
 
-      <div class="feat-grid">
-        <div class="card reveal">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg></div>
-          <h3>Real variable names</h3>
-          <p>Locals and parameters are inferred from how they're used — never a wall of <code class="mono" style="color:var(--rose)">v1, v2, v3</code>.</p>
-          <div class="snip"><span class="from">v7</span><span class="ar">:Connect(…)</span> <span class="ar">→</span> <span class="to">connection</span><span class="ar">:Connect(…)</span></div>
+      <div class="passes">
+        <div class="pass reveal">
+          <span class="pnum">PASS 01</span>
+          <h3>Name inference</h3>
+          <p>Locals and parameters are named from how they&rsquo;re used — inferred, never invented. No more walls of <code>v1, v2, v3</code>.</p>
+          <code class="pchip">v9 → connection</code>
         </div>
-
-        <div class="card reveal" style="--d:70ms">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></div>
-          <h3>Handles preserved</h3>
-          <p><code>GetService</code> and <code>require</code> stay as one named header local instead of being inlined at every call site.</p>
-          <div class="snip"><span class="from">game:GetService("Players")</span> <span class="ar">×N → declared</span> <span class="to">once</span></div>
+        <div class="pass reveal">
+          <span class="pnum">PASS 02</span>
+          <h3>Handle preservation</h3>
+          <p><code>GetService</code> and <code>require</code> survive as one named header local instead of being inlined at every call site.</p>
+          <code class="pchip">GetService ×N → once</code>
         </div>
-
-        <div class="card reveal" style="--d:140ms">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/></svg></div>
-          <h3>OOP method recovery</h3>
-          <p>Methods written with an explicit <code>self</code> are rendered back with colon-call syntax.</p>
-          <div class="snip"><span class="from">function T.f(self, x)</span> <span class="ar">→</span> <span class="to">function T:f(x)</span></div>
+        <div class="pass reveal">
+          <span class="pnum">PASS 03</span>
+          <h3>Method recovery</h3>
+          <p>Functions written with an explicit <code>self</code> come back as real colon methods.</p>
+          <code class="pchip">T.f(self, x) → T:f(x)</code>
         </div>
-
-        <div class="card reveal">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 4v4h4"/></svg></div>
-          <h3>Reverses the -O2 optimizer</h3>
-          <p>Single-use temporaries, inlined expressions and exploded table literals are reassembled — with the original inline points left as comments.</p>
+        <div class="pass reveal">
+          <span class="pnum">PASS 04</span>
+          <h3>-O2 de-inline</h3>
+          <p>Helpers the optimizer pasted into every call site are rebuilt as one named function, with each seam marked in a comment.</p>
+          <code class="pchip">7 copies → 1 helper</code>
         </div>
-
-        <div class="card reveal" style="--d:70ms">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 8-4 4 4 4M17 8l4 4-4 4M14 4l-4 16"/></svg></div>
+        <div class="pass reveal">
+          <span class="pnum">PASS 05</span>
           <h3>Idiomatic syntax</h3>
-          <p>Compound assignments, backtick interpolation, normalized conditions and far fewer redundant parentheses.</p>
-          <div class="snip"><span class="from">x = x + 1</span> <span class="ar">→</span> <span class="to">x += 1</span></div>
+          <p>Compound assignment, backtick interpolation, normalized conditions and far fewer redundant parentheses.</p>
+          <code class="pchip">x = x + 1 → x += 1</code>
         </div>
-
-        <div class="card reveal" style="--d:140ms">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg></div>
-          <h3>Deterministic &amp; validated</h3>
-          <p>Byte-identical output regardless of thread count, and the full corpus re-parses cleanly under Luau's own front end.</p>
+        <div class="pass reveal">
+          <span class="pnum">PASS 06</span>
+          <h3>Symbolic constants</h3>
+          <p>Evaluated floats fold back into the constants the author actually wrote.</p>
+          <code class="pchip">(1 / 0) → math.huge</code>
         </div>
-
-        <div class="card reveal">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6l2 2h8v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg></div>
-          <h3>Batch tooling</h3>
-          <p><code>decompile-folder</code> and <code>validate-folder</code> chew through an entire SynSaveInstance dump in parallel.</p>
+        <div class="pass reveal">
+          <span class="pnum">SPEC 01</span>
+          <h3>Determinism &amp; validation</h3>
+          <p>Byte-identical output at any thread count, and the full corpus re-parses cleanly under Luau&rsquo;s own front end.</p>
+          <code class="pchip">262/262 · byte-identical</code>
         </div>
-
-        <div class="card reveal" style="--d:70ms">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 9 8m10 8.5L15 12m-2-6-2 12"/><rect x="2" y="9" width="6" height="6" rx="1"/></svg></div>
-          <h3>Run it anywhere</h3>
-          <p>Standalone CLI, a tiny HTTP server for the executor workflow, or a Cloudflare Worker for serverless deploys.</p>
+        <div class="pass reveal">
+          <span class="pnum">SPEC 02</span>
+          <h3>Batch, anywhere</h3>
+          <p><code>decompile-folder</code> and <code>validate-folder</code> chew through a whole SaveInstance dump — as a CLI, an HTTP server, or a Cloudflare Worker.</p>
+          <code class="pchip">CLI · HTTP · Worker</code>
         </div>
-
-        <div class="card reveal" style="--d:140ms">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg></div>
-          <h3>mimalloc fast path</h3>
-          <p>The decompiler is allocation-bound; a per-thread allocator plus parallel per-function lifting deliver the speedups.</p>
+        <div class="pass reveal">
+          <span class="pnum">SPEC 03</span>
+          <h3>The fast path</h3>
+          <p>mimalloc plus parallel per-function lifting. The 32× is measured on a real corpus, not marketing.</p>
+          <code class="pchip">20.6s → 0.65s</code>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- DEMO -->
-  <section id="demo">
+  <!-- REAL OUTPUT -->
+  <section id="output">
     <div class="wrap">
+      <span id="demo"></span>
       <div class="sec-head reveal">
-        <span class="eyebrow">// real output</span>
-        <h2>This is unedited Tovek output.</h2>
+        <span class="eyebrow">@@ 02 &middot; real output @@</span>
+        <h2>This is unedited <em>Tovek</em> output.</h2>
       </div>
       <div class="demo-grid">
-        <div class="demo-note">
+        <div class="note-rows">
           <div class="row reveal"><span class="b">1</span><p><b>Recovered functions.</b> Helpers the <code>-O2</code> compiler inlined are rebuilt as named <code>local function</code>s, with the seam marked.</p></div>
           <div class="row reveal" style="--d:80ms"><span class="b">2</span><p><b>Inferred from usage.</b> <code>color</code> from <code>Color3.fromRGB</code>; <code>track</code> &amp; <code>cleanupConnections</code> from their debug names.</p></div>
           <div class="row reveal" style="--d:160ms"><span class="b">3</span><p><b>Tables rebuilt.</b> A module table written field-by-field is reassembled into a single literal.</p></div>
           <div class="row reveal" style="--d:240ms"><span class="b">4</span><p><b>Honest by default.</b> Parameters with no usage signal stay a neutral <code>p</code> — names are inferred, never invented.</p></div>
         </div>
         <div class="win reveal" style="--d:120ms">
-          <div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="win-name">ShovelHighlight<span class="ext">.luau</span></span><span class="win-tag"><span class="blink"></span>tovek</span></div>
+          <div class="win-bar"><span class="win-file">ShovelHighlight<span class="ext">.luau</span></span><span class="win-tag"><span class="blink"></span>tovek</span></div>
 <pre><span class="k">local</span> <span class="hl">ShovelHighlight</span> <span class="p">=</span> <span class="p">{</span>
 	_initialized <span class="p">=</span> <span class="k">false</span><span class="p">,</span>
 	_connections <span class="p">=</span> <span class="p">{},</span>
@@ -652,26 +648,26 @@
     </div>
   </section>
 
-  <!-- COMPARE: pick a decompiler -->
+  <!-- SHOWDOWN: pick a decompiler -->
   <section id="duel">
     <div class="wrap">
       <div class="sec-head reveal">
-        <span class="eyebrow">// same code, four decompilers</span>
-        <h2>Pick a decompiler. Watch the code change.</h2>
-        <p class="field-lede">The same script, run through every option that matters, lined up against the source a human actually wrote. <b style="color:var(--text)">lua.expert</b> is the strongest <i>free</i> decompiler there is — so switch to it and back, and read the difference yourself. Every panel is real, unedited output.</p>
+        <span class="eyebrow">@@ 03 &middot; the showdown @@</span>
+        <h2>Pick a decompiler. <em>Watch the code change.</em></h2>
+        <p>The same script, run through every option that matters, lined up against the source a human actually wrote. <b>lua.expert</b> is the strongest free alternative in the field — so switch between it and Tovek, and read the difference yourself. Every panel is real, unedited output. (<b>medal</b> predates Roblox&rsquo;s v9 bytecode, so its panels decompile the same source recompiled with standard Luau.)</p>
       </div>
 
       <div class="cmp reveal" id="cmp">
         <div class="cmp-controls">
           <label class="cmp-pick" for="cmpEx"><span>Example</span>
             <select id="cmpEx" aria-label="Choose an example script">
-            <option value="0">Un-inlines the optimizer · ShovelHighlight</option>
+            <option value="0">Reverses optimizer inlining · ShovelHighlight</option>
             <option value="1">Smart names + no dead stores · InitNpcQuest</option>
             <option value="2">Un-inlines a builder, 6× over · GardenVisualRegistry</option>
             <option value="3">Reverses inlined guards · AfkClient</option>
             <option value="4">math.huge, not (1 / 0) · ChatTipsClient</option>
             <option value="5">Catches what lua.expert gets wrong · ChatTipsClient</option>
-            <option value="6">Keeps a snapshot lua.expert re-reads · BossFightButton</option>
+            <option value="6">Keeps a snapshot; lua.expert re-reads · BossFightButton</option>
             <option value="7">Recovers real methods · collision</option>
             <option value="8">Tiny module, byte-for-byte · Sounds</option>
             <option value="9">math.pi, not a raw float · Fertilizer</option>
@@ -679,11 +675,11 @@
             <option value="11">Rebuilds React tables · DetailButton</option>
             </select>
           </label>
-          <div class="cmp-seg" aria-label="Choose a decompiler">
+          <div class="cmp-seg" role="group" aria-label="Choose a decompiler">
             <button type="button" class="cmp-seg-btn" data-dec="source" aria-pressed="false">Source</button>
             <button type="button" class="cmp-seg-btn" data-dec="medal" aria-pressed="false">medal</button>
-            <button type="button" class="cmp-seg-btn" data-dec="luaexpert" aria-pressed="false">lua.expert</button>
-            <button type="button" class="cmp-seg-btn on" data-dec="tovek" aria-pressed="true">Tovek</button>
+            <button type="button" class="cmp-seg-btn on" data-dec="luaexpert" aria-pressed="true">lua.expert</button>
+            <button type="button" class="cmp-seg-btn" data-dec="tovek" aria-pressed="false">Tovek</button>
           </div>
         </div>
 
@@ -691,9 +687,8 @@
 
         <div class="win cmp-win">
           <div class="win-bar">
-            <span class="dots"><i></i><i></i><i></i></span>
-            <span class="win-name" id="cmpTitle">ShovelHighlight.luau</span>
-            <span class="win-tag" id="cmpTag"><span class="blink"></span><span id="cmpTagText">tovek</span></span>
+            <span class="win-file" id="cmpTitle">ShovelHighlight.luau</span>
+            <span class="win-tag t-riv" id="cmpTag"><span class="blink"></span><span id="cmpTagText">rival</span></span>
           </div>
           <div class="cmp-codes">
             <pre class="sm cmp-pre" data-ex="0" data-dec="source" hidden><span class="k">local</span> <span class="k">function</span> updateTarget(<span class="g">self</span>, localPlayer: Player)
@@ -748,7 +743,7 @@
 					v13.DepthMode = <span class="g">Enum</span>.HighlightDepthMode.AlwaysOnTop
 					v13.Adornee = v12
 					v13.Parent = v12</pre>
-            <pre class="sm cmp-pre" data-ex="0" data-dec="luaexpert" hidden>	<span class="k">else</span>
+            <pre class="sm cmp-pre" data-ex="0" data-dec="luaexpert">	<span class="k">else</span>
 		p1._equippedShovelType = <span class="k">nil</span>
 	<span class="k">end</span>
 <span class="k">end</span>
@@ -782,7 +777,7 @@
 				ShovelHoverHighlight.FillTransparency = <span class="n">0.5</span>
 				ShovelHoverHighlight.OutlineTransparency = <span class="n">0</span>
 				ShovelHoverHighlight.DepthMode = <span class="g">Enum</span>.HighlightDepthMode.AlwaysOnTop</pre>
-            <pre class="sm cmp-pre" data-ex="0" data-dec="tovek">
+            <pre class="sm cmp-pre" data-ex="0" data-dec="tovek" hidden>
 <span class="k">local</span> <span class="k">function</span> updateTarget(p, p2)
 	<span class="k">if</span> <span class="k">not</span> p._equippedShovelType <span class="k">then</span>
 		clearHighlight(p) <span class="c">-- inlined by Luau -O2 (UNHOOKABLE)</span>
@@ -1569,19 +1564,19 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
 	}</pre>
           </div>
         </div>
-        <p class="cmp-hint">&#8596; <b>medal</b> can&rsquo;t read Roblox&rsquo;s v9 bytecode at all, so its panels show the same source compiled with standard Luau &mdash; even then it stops at raw <code>v1, v2</code>. <b>lua.expert</b> reads v9 but stops at &ldquo;correct.&rdquo; <b style="color:var(--acc)">Tovek</b> keeps going.</p>
+        <p class="cmp-hint">&#8596; <b>medal</b> predates Roblox&rsquo;s v9 bytecode, so its panels show the same source compiled with standard Luau &mdash; where it still stops at raw <code>v1, v2</code>. <b>lua.expert</b> reads v9 but stops at &ldquo;correct.&rdquo; <b style="color:var(--acc)">Tovek</b> keeps going.</p>
       </div>
     </div>
   </section>
 
   <!-- RECEIPTS -->
-  <section class="stats" style="padding:0">
+  <section class="stats">
     <div class="wrap">
       <div class="stat-grid">
-        <div class="stat reveal"><div class="v"><span class="num">47</span>&#8594;<span class="num" style="color:var(--acc)">0</span></div><div class="l">dead <code style="font-family:var(--mono);color:var(--coral)">if x then true else false</code> ternaries, in one file</div></div>
+        <div class="stat reveal"><div class="v"><span class="num">47</span>&#8594;<span class="num" style="color:var(--acc)">0</span></div><div class="l">dead <code>if x then true else false</code> ternaries, in one file</div></div>
         <div class="stat reveal" style="--d:80ms"><div class="v"><span class="num">7</span>&#8594;<span class="num" style="color:var(--acc)">1</span></div><div class="l">copies of one inlined helper &mdash; Tovek restores the call</div></div>
         <div class="stat reveal" style="--d:160ms"><div class="v"><span class="num" style="color:var(--acc)">0</span></div><div class="l">redundant nil-stores, watermarks &amp; per-line noise Tovek leaves behind</div></div>
-        <div class="stat reveal" style="--d:240ms"><div class="v"><span class="num">100</span>%</div><div class="l">Tovek outputs re-parse under Luau&rsquo;s own front end</div></div>
+        <div class="stat reveal" style="--d:240ms"><div class="v"><span class="num" style="color:var(--acc)">&minus;445</span></div><div class="l">lines vs lua.expert on one file &mdash; six inlined builders restored to calls</div></div>
       </div>
     </div>
   </section>
@@ -1590,9 +1585,9 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
   <section id="compare">
     <div class="wrap">
       <div class="sec-head reveal">
-        <span class="eyebrow">// the field at a glance</span>
-        <h2>Four decompilers, one original.</h2>
-        <p class="field-lede">Every column read the same code. Each rung gets closer to what the developer wrote &mdash; Tovek is the only one that lands on it.</p>
+        <span class="eyebrow">@@ 04 &middot; the field @@</span>
+        <h2>Three decompilers. <em>One original.</em></h2>
+        <p>Every decompiler read the same code; Source is what it started as. Each rung gets closer to what the developer wrote — Tovek is the only one that lands on it.</p>
       </div>
 
       <div class="ladder reveal">
@@ -1603,19 +1598,19 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
           <div class="bar"></div>
         </div>
         <div class="rung">
-          <div class="step">rung 01 &middot; open</div>
+          <div class="step">01 &middot; open</div>
           <h4>medal</h4>
-          <p>The open-source upstream Tovek forks. Raw <code>v1, v2, v_u_3</code>, no idioms &mdash; and it can&rsquo;t even read Roblox&rsquo;s v9 bytecode.</p>
+          <p>The open-source upstream Tovek forks. Raw <code>v1, v2, v_u_3</code>, no idioms &mdash; and it predates Roblox&rsquo;s v9 bytecode entirely.</p>
           <div class="bar"></div>
         </div>
         <div class="rung">
-          <div class="step">rung 02 &middot; closed</div>
+          <div class="step">02 &middot; closed</div>
           <h4>lua.expert</h4>
-          <p>The strongest free decompiler &mdash; API-only. Recovers names and loops, but leaves inlining, <code>(1/0)</code>, dead ternaries and per-line noise.</p>
+          <p>The strongest free alternative &mdash; API-only. Recovers names and loops, but leaves inlining, <code>(1/0)</code>, dead ternaries and per-line noise.</p>
           <div class="bar"></div>
         </div>
         <div class="rung best">
-          <div class="step">rung 03 &middot; open &middot; MIT</div>
+          <div class="step">03 &middot; open &middot; MIT</div>
           <h4>Tovek</h4>
           <p>Names, real methods, de-inlined helpers, normalized conditions, idioms. The only output that reads like the source.</p>
           <div class="bar"></div>
@@ -1623,7 +1618,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
       </div>
 
       <div class="tablewrap reveal">
-        <table class="quad">
+        <table>
           <thead><tr><th></th><th class="src">Source</th><th>medal</th><th class="lx">lua.expert</th><th class="tk">Tovek</th></tr></thead>
           <tbody>
             <tr><td>Reads Roblox v9 bytecode</td><td class="src">&mdash;</td><td class="medal"><span class="no">no</span></td><td class="lx"><span class="yes">yes</span></td><td class="tk"><span class="yes">yes</span></td></tr>
@@ -1641,7 +1636,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
           </tbody>
         </table>
       </div>
-      <div class="legend"><span><b style="color:var(--gold)">Source</b> &mdash; the bar everything is measured against</span><span><b>Tovek</b> is the only column that matches it across the board</span></div>
+      <div class="legend"><span><b style="color:var(--cy)">Source</b> &mdash; the bar everything is measured against</span><span><b>Tovek</b> is the only column that matches it across the board</span></div>
     </div>
   </section>
   <script>window.__cmpCaps={"0": "The optimizer inlined the <code>clearHighlight</code> helper. <b style=\"color:var(--rose)\">lua.expert</b> copy-pastes its teardown body again and again, nested branches deep. <b>Tovek</b> restores the <code>clearHighlight(p)</code> call at every site and flattens it with guard-returns.", "1": "The compiler inlined <code>getMainGui</code>. <b>Tovek</b> names the result <code>main</code> (from <code>FindFirstChild(\"Main\")</code>) and drops the dead stores. <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> leave it <code>v1</code>/<code>v35</code> and write <code>= nil</code> in two branches where it is <i>already</i> nil.", "2": "A proxy-<code>Part</code> builder \u2014 Name, Shape, Size, CFrame, Color, Material and five physics flags \u2014 inlined by Luau <code>-O2</code> at all six call sites. <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> reproduce the inlining verbatim, pasting the same ~13-line body six times (<code>PotMass</code>, <code>PotAccent</code>, <code>PlantStem</code>\u2026). <b>Tovek</b> restores the single <code>createProxyPart</code> helper and six one-line calls \u2014 445 fewer lines than lua.expert.", "3": "An inlined <code>isAfkEnabled()</code> guard. <b style=\"color:var(--rose)\">lua.expert</b> flattens it into one unreadable nested-ternary line. <b>Tovek</b> rebuilds the named function and restores the call.", "4": "<b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> spell infinity <code>(1 / 0)</code>; lua.expert also wraps the test in a pointless <code>if \u2026 then \u2026 else false</code>. <b>Tovek</b> restores <code>math.huge</code> and the bare boolean \u2014 identical to source. (In one file it kills 47 such dead ternaries.)", "5": "Sometimes <b style=\"color:var(--rose)\">lua.expert</b> reads <span style=\"color:var(--rose)\">wrong</span>: it folds away a captured snapshot, leaving <code>t._configVersion == t._configVersion</code> \u2014 always true, so a config-reload guard becomes dead. <b>Tovek</b> (and even raw medal) keep the snapshot.", "6": "Reading the player's level, <b style=\"color:var(--rose)\">lua.expert</b> calls <code>DataController:GetData()</code> a <em>second</em> time inside the guard (<code>GetData() and v12.Level or 1</code>) instead of reusing the snapshot it just took \u2014 so if the data clears between the two calls the level wrongly collapses to <code>1</code> and the boss-entry gate misfires. <b>Tovek</b> keeps the single captured read (<code>data and data.Level or 1</code>), exactly like the source.", "7": "<b style=\"color:var(--rose)\">lua.expert</b> defines the method with a dot and a leaked <code>self</code> (<code>p1</code>) then calls it with a colon; <b style=\"color:var(--gold)\">medal</b> leaks <code>self</code> as <code>_</code>. <b>Tovek</b> recovers the real <code>:</code> method.", "8": "<b>Tovek</b> recovers the module name <code>Sounds</code> and stays clean \u2014 its output is essentially the source. <b style=\"color:var(--rose)\">lua.expert</b> calls it <code>t</code>; <b style=\"color:var(--gold)\">medal</b> calls it <code>v1</code>. Both bolt comment tags onto every function.", "9": "<b>Tovek</b> recovers the symbolic constant <code>-math.pi</code>; <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> print the evaluated float <code>-3.141592653589793</code>.", "10": "<b>Tovek</b> names the local <code>mouse</code> (from <code>:GetMouse()</code>) and keeps <code>ReplicatedStorage</code> as a header handle. <b style=\"color:var(--rose)\">lua.expert</b> leaves it <code>v1</code>; <b style=\"color:var(--gold)\">medal</b> leaves it <code>v_u_3</code>.", "11": "<b style=\"color:var(--rose)\">lua.expert</b> builds a partial props table then shreds the rest into <code>t.X = \u2026</code> assignments, and recomputes a boolean with a 3-arm ternary. <b>Tovek</b> keeps one <code>{ \u2026 }</code> literal and a flat boolean."};window.__cmpTitles={"0": "ShovelHighlight.luau", "1": "InitNpcQuest.client.luau", "2": "GardenVisualRegistry.luau", "3": "AfkClient.client.luau", "4": "ChatTipsClient.luau \u00b7 isFiniteNumber", "5": "ChatTipsClient.luau \u00b7 waitForDelay", "6": "BossFightButton.client.luau", "7": "collision.client.luau", "8": "Sounds.luau", "9": "FertilizerIdleAnimation.client.luau", "10": "getMouseCF.client.luau", "11": "DetailButton.luau"};</script>
@@ -1650,20 +1645,20 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
   <section id="start">
     <div class="wrap">
       <div class="sec-head reveal">
-        <span class="eyebrow">// get started</span>
-        <h2>Download a binary, or build it yourself.</h2>
+        <span class="eyebrow">@@ 05 &middot; get started @@</span>
+        <h2>Download a binary, or <em>build it yourself</em>.</h2>
       </div>
       <div class="start-grid">
         <div class="dlbox reveal">
           <h3>Prebuilt binaries</h3>
-          <p>Windows x64. No install — just run. Server build is for the executor → HTTP workflow.</p>
+          <p>Windows x64. No install — just run. The server build is for the executor → HTTP workflow.</p>
           <div class="dl-links">
-            <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v0.6.0-beta/luau-lifter.exe">
+            <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/latest/download/luau-lifter.exe">
               <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2M7 11l5 5 5-5M12 4v12"/></svg></span>
               <span class="meta"><b>luau-lifter.exe</b><span>Standalone CLI decompiler</span></span>
               <span class="sz">~3.4 MB</span>
             </a>
-            <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v0.6.0-beta/web-server.exe">
+            <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/latest/download/web-server.exe">
               <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.01M7 17h.01"/></svg></span>
               <span class="meta"><b>web-server.exe</b><span>HTTP decompiler server</span></span>
               <span class="sz">~3.5 MB</span>
@@ -1674,7 +1669,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
         </div>
 
         <div class="term reveal" style="--d:90ms">
-          <div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="win-name">terminal</span></div>
+          <div class="win-bar"><span class="win-file">terminal</span><span class="win-tag"><span class="blink"></span>ready</span></div>
           <div class="cmd"><span class="pr">$</span><span class="t">luau-lifter script.luac</span><button class="cp" data-copy="luau-lifter script.luac">copy</button></div>
           <div class="cmd"><span class="pr">$</span><span class="t">luau-lifter decompile-folder <span class="cc">./dump ./out</span></span><button class="cp" data-copy="luau-lifter decompile-folder ./dump ./out">copy</button></div>
           <div class="cmd"><span class="pr">$</span><span class="t">luau-lifter validate-folder <span class="cc">./dump ./out</span></span><button class="cp" data-copy="luau-lifter validate-folder ./dump ./out">copy</button></div>
@@ -1687,18 +1682,18 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
     </div>
   </section>
 
-  <!-- CREDITS -->
-  <section class="credits">
+  <!-- IN MEMORY -->
+  <section id="memoriam">
     <div class="wrap">
-      <span class="eyebrow reveal" style="justify-content:center;display:flex">// in memory</span>
-      <div class="box reveal">
-        <h2 style="font-size:26px">Built on the work of medal.</h2>
-        <p style="margin-top:14px">Tovek is a fork of the <a href="https://github.com/Stefanuk12/medal-decompiler" style="color:var(--acc)" target="_blank" rel="noopener">medal</a> decompiler. All credit for the foundation goes, in honour and memory, to:</p>
+      <div class="mem reveal">
+        <span class="star" aria-hidden="true">✦</span>
+        <h2>Built on the work of <em>medal</em>.</h2>
+        <p>Tovek is a fork of the <a href="https://github.com/Stefanuk12/medal-decompiler" target="_blank" rel="noopener">medal</a> decompiler. All credit for the foundation goes, in honour and memory, to:</p>
         <div class="names">
           <span class="who">Jujhar Singh <span>· KowalskiFX</span></span>
           <span class="who">Mathias Pedersen <span>· Costomality</span></span>
         </div>
-        <p style="margin-top:22px;font-size:14.5px">Keep the Singh and Pedersen families in your prayers. We love you both.</p>
+        <p class="prayer">Keep the Singh and Pedersen families in your prayers. We love you both.</p>
       </div>
     </div>
   </section>
@@ -1737,16 +1732,43 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
   if(hasIO){
     var io = new IntersectionObserver(function(es){
       es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
-    }, {threshold:.14, rootMargin:'0px 0px -40px 0px'});
+    }, {threshold:.12, rootMargin:'0px 0px -40px 0px'});
     reveals.forEach(function(el){ io.observe(el); });
   } else {
     reveals.forEach(function(el){ el.classList.add('in'); });
   }
 
+  // headline decode — the headline "decompiles" itself on load
+  (function(){
+    var el = document.querySelector('[data-scramble]');
+    if(!el || reduce) return;
+    var final = el.textContent, glyphs = 'v123pu_={};:()#%';
+    var frame = 0, total = 24;
+    function tick(){
+      frame++;
+      var done = Math.floor((frame/total)*final.length), out = '';
+      for(var i=0;i<final.length;i++){
+        out += (i<done || final[i]===' ') ? final[i] : glyphs[(Math.random()*glyphs.length)|0];
+      }
+      el.textContent = out;
+      if(done < final.length) setTimeout(tick, 44); else el.textContent = final;
+    }
+    setTimeout(tick, 380);
+  })();
+
+  // decompile slider — the range input drives the clip seam
+  document.querySelectorAll('.duel').forEach(function(d){
+    var r = d.querySelector('input[type=range]');
+    if(!r) return;
+    function set(){ d.style.setProperty('--cut', r.value + '%'); }
+    r.addEventListener('input', set);
+    set();
+  });
+
   // count-up stats
   function countUp(el){
     var to = +el.dataset.to;
-    if(reduce){ el.textContent = to; return; }
+    if(reduce || to < 10){ el.textContent = to; return; }
     var dur = 1100, t0 = performance.now();
     function tick(t){
       var p = Math.min(1,(t-t0)/dur), e = 1-Math.pow(1-p,3);
@@ -1757,6 +1779,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
   }
   var nums = document.querySelectorAll('.num[data-to]');
   if(hasIO){
+    if(!reduce) nums.forEach(function(el){ if(+el.dataset.to >= 10) el.textContent = '0'; });
     var cio = new IntersectionObserver(function(es){
       es.forEach(function(e){ if(e.isIntersecting){ countUp(e.target); cio.unobserve(e.target); } });
     }, {threshold:.6});
@@ -1796,7 +1819,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
     var pres = cmp.querySelectorAll('.cmp-pre');
     var segs = cmp.querySelectorAll('.cmp-seg-btn');
     var tagInfo = {source:['original','t-src'], medal:['upstream','t-med'], luaexpert:['rival','t-riv'], tovek:['tovek','']};
-    var curEx = '0', curDec = 'tovek';
+    var curEx = sel.value || '0', curDec = 'luaexpert';
     function render(){
       for(var i=0;i<pres.length;i++){
         var p = pres[i];
