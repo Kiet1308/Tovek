@@ -464,11 +464,11 @@ fn make_bool_conditional(
             Some(truthy) => truthy,
             None if !then_value.has_side_effects() => {
                 let value = match &r#if.condition {
-                    ast::RValue::Binary(ast::Binary {
-                        right: box ref value,
-                        operation: ast::BinaryOperation::And,
-                        ..
-                    }) => value,
+                    ast::RValue::Binary(binary)
+                        if binary.operation == ast::BinaryOperation::And =>
+                    {
+                        binary.right.as_ref()
+                    }
                     value => value,
                 };
                 !value.has_side_effects() && *value == then_value

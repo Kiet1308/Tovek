@@ -102,7 +102,7 @@ impl<'a> Inliner<'a> {
                                     operation,
                                 }) if operation.is_comparator()
                                     && left.has_side_effects()
-                                    && let box ast::RValue::Local(ref local) = right
+                                    && let ast::RValue::Local(local) = right.as_ref()
                                     && local == read =>
                                 {
                                     *right = std::mem::replace(

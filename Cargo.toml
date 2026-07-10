@@ -12,7 +12,7 @@ members = [
 ]
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 authors = [
     "Mathias Pedersen <mathias.pedersen834@gmail.com>",
     "Jujhar Singh <jujharsmc@gmail.com>",

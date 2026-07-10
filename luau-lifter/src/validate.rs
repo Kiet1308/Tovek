@@ -375,7 +375,7 @@ fn run_analyze_phase(
     let heavy_idx = ok
         .iter()
         .enumerate()
-        .max_by_key(|(_, &(_, lc))| lc)
+        .max_by_key(|entry| entry.1.1)
         .map(|(i, _)| i)
         .unwrap();
     let heavy: [&Path; 1] = [ok[heavy_idx].0];
