@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tovek — decompiled Luau you can actually read</title>
-<meta name="description" content="Tovek is a high-readability, high-performance Luau decompiler. It rebuilds names, methods and structure — turning v1, v2, v3 bytecode soup into source close to the original. A modern fork of medal.">
+<meta name="description" content="Tovek is a high-readability, semantics-first Luau decompiler. It recovers names, -O2 helpers, structured control flow, tables and UI trees from Luau bytecode v4–v11.">
 <meta name="theme-color" content="#0d0b08">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Tovek — decompiled Luau you can actually read">
-<meta property="og:description" content="A high-readability, high-performance Luau decompiler. Real names, recovered methods, reversed -O2 inlining, up to 32× faster. A modern fork of medal.">
+<meta property="og:description" content="Readable Luau with recovered -O2 helpers, structured control flow, rebuilt React tables, capture-safe cleanup and bytecode v11 support.">
 <meta property="og:url" content="https://kiet1308.github.io/Tovek/">
 <meta name="twitter:card" content="summary_large_image">
 
@@ -424,9 +424,9 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <span class="eyebrow reveal">@@ &minus;bytecode &nbsp;+source @@ &nbsp;&middot;&nbsp; beta 0.6.0</span>
+        <span class="eyebrow reveal">@@ &minus;bytecode &nbsp;+source @@ &nbsp;&middot;&nbsp; release 0.7.0</span>
         <h1 class="reveal" style="--d:70ms">Decompiled Luau<br>you can <em data-scramble>actually read.</em></h1>
-        <p class="lede reveal" style="--d:150ms">Tovek rebuilds the names, methods and control flow the compiler threw away — turning <code>v1, v2, v3</code> soup into source close to what a human wrote. Up to <b>32× faster</b>, deterministic, and validated against Luau&rsquo;s own front end. A modern fork of <b>medal</b>.</p>
+        <p class="lede reveal" style="--d:150ms">Tovek rebuilds names, optimized-away helpers, structured control flow and declarative tables — while preserving captures, side effects, multi-value behavior and NaN semantics. It reads Luau bytecode through <b>v11</b>, runs up to <b>32× faster</b>, and validates every release against Luau&rsquo;s own front end.</p>
         <div class="hero-cta reveal" style="--d:230ms">
           <a class="btn btn-acc" href="https://github.com/Kiet1308/Tovek/releases/latest" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>
@@ -445,46 +445,56 @@
       <div class="reveal" style="--d:220ms">
         <div class="win">
           <div class="win-bar">
-            <span class="win-file">HeartbeatMonitor.client<span class="ext">.luac → .luau</span></span>
+            <span class="win-file">Sounds<span class="ext">.luac → .luau</span></span>
             <span class="win-tag"><span class="blink"></span>live seam</span>
           </div>
           <div class="duel" id="duel-hero" style="--cut:46%">
-<pre class="pane before" aria-hidden="true"><span class="k">local</span> <span class="bad">v1</span> = game:GetService(<span class="s">"Players"</span>)
-<span class="k">local</span> <span class="bad">v2</span> = game:GetService(<span class="s">"RunService"</span>)
-<span class="k">local</span> <span class="bad">v3</span> = require(script.Parent.Config)
+<pre class="pane before" aria-hidden="true"><span class="k">local</span> <span class="bad">v_u_1</span> = game:GetService(<span class="s">"SoundService"</span>)
+<span class="k">local</span> <span class="bad">v_u_4</span> = {
+	[<span class="s">"Id"</span>] = {
+		[<span class="s">"MatchFound"</span>] = <span class="s">""</span>,
+		[<span class="s">"CountdownTick"</span>] = <span class="s">""</span>,
+		[<span class="s">"Start"</span>] = <span class="s">""</span>
+	},
+	[<span class="s">"play"</span>] = <span class="k">function</span>(<span class="bad">p_u_2</span>)
+		<span class="c">-- upvalues: (copy) v_u_1</span>
+		<span class="k">if</span> typeof(<span class="bad">p_u_2</span>) == <span class="s">"string"</span> <span class="k">and</span> <span class="bad">p_u_2</span> ~= <span class="s">""</span> <span class="k">then</span>
+			pcall(<span class="k">function</span>()
+				<span class="c">-- upvalues: (copy) p_u_2, (ref) v_u_1</span>
+				<span class="k">local</span> <span class="bad">v_u_3</span> = Instance.new(<span class="s">"Sound"</span>)
+				<span class="bad">v_u_3</span>.SoundId = <span class="bad">p_u_2</span>
+				<span class="bad">v_u_3</span>.Volume = <span class="n">0.6</span>
+				<span class="bad">v_u_1</span>:PlayLocalSound(<span class="bad">v_u_3</span>)
+				task.delay(<span class="n">5</span>, <span class="k">function</span>()
+					<span class="c">-- upvalues: (copy) v_u_3</span>
+					<span class="bad">v_u_3</span>:Destroy()
+				<span class="k">end</span>)
+			<span class="k">end</span>)
+		<span class="k">end</span>
+	<span class="k">end</span></pre>
+<pre class="pane after"><span class="k">local</span> <span class="g">SoundService</span> = <span class="g">game</span>:GetService(<span class="s">"SoundService"</span>)
+<span class="k">local</span> <span class="hl">Sounds</span> = {
+	Id = {
+		MatchFound = <span class="s">""</span>,
+		CountdownTick = <span class="s">""</span>,
+		Start = <span class="s">""</span>
+	},
+	play = <span class="k">function</span>(<span class="hl">soundId</span>)
+		<span class="k">if</span> typeof(<span class="hl">soundId</span>) ~= <span class="s">"string"</span> <span class="k">or</span> <span class="hl">soundId</span> == <span class="s">""</span> <span class="k">then</span>
+			<span class="k">return</span>
+		<span class="k">end</span>
 
-<span class="k">local</span> <span class="bad">v4</span> = <span class="bad">v1</span>.LocalPlayer
-<span class="k">local</span> <span class="bad">v5</span> = <span class="bad">v4</span>.Character:WaitForChild(<span class="s">"Humanoid"</span>)
-
-<span class="k">local</span> <span class="bad">v6</span> = {}
-<span class="bad">v6</span>.spawned = <span class="n">0</span>
-<span class="bad">v6</span>.elapsed = <span class="n">0</span>
-
-<span class="k">local</span> <span class="bad">v9</span> = <span class="bad">v2</span>.Heartbeat:Connect(<span class="k">function</span>(<span class="bad">p2</span>)
-	<span class="c">-- upvalues: (copy) v6, (copy) v5</span>
-	<span class="bad">v6</span>.elapsed = <span class="bad">v6</span>.elapsed + <span class="bad">p2</span>
-	<span class="k">if</span> <span class="bad">v5</span>.Health &gt; <span class="n">0</span> <span class="k">then</span>
-		print((<span class="s">"alive: %* · %*s"</span>):format(<span class="bad">v6</span>.spawned, <span class="bad">v6</span>.elapsed))
+		pcall(<span class="k">function</span>()
+			<span class="k">local</span> <span class="hl">sound</span> = Instance.new(<span class="s">"Sound"</span>)
+			<span class="hl">sound</span>.SoundId = <span class="hl">soundId</span>
+			<span class="hl">sound</span>.Volume = <span class="n">0.6</span>
+			<span class="g">SoundService</span>:PlayLocalSound(<span class="hl">sound</span>)
+			task.delay(<span class="n">5</span>, <span class="k">function</span>()
+				<span class="hl">sound</span>:Destroy()
+			<span class="k">end</span>)
+		<span class="k">end</span>)
 	<span class="k">end</span>
-<span class="k">end</span>)</pre>
-<pre class="pane after"><span class="k">local</span> <span class="hl">Players</span> <span class="p">=</span> <span class="g">game</span><span class="p">:</span><span class="fn">GetService</span><span class="p">(</span><span class="s">"Players"</span><span class="p">)</span>
-<span class="k">local</span> <span class="hl">RunService</span> <span class="p">=</span> <span class="g">game</span><span class="p">:</span><span class="fn">GetService</span><span class="p">(</span><span class="s">"RunService"</span><span class="p">)</span>
-<span class="k">local</span> <span class="hl">config</span> <span class="p">=</span> <span class="fn">require</span><span class="p">(</span><span class="g">script</span><span class="p">.</span>Parent<span class="p">.</span>Config<span class="p">)</span>
-
-<span class="k">local</span> <span class="hl">player</span> <span class="p">=</span> <span class="hl">Players</span><span class="p">.</span>LocalPlayer
-<span class="k">local</span> <span class="hl">humanoid</span> <span class="p">=</span> <span class="hl">player</span><span class="p">.</span>Character<span class="p">:</span><span class="fn">WaitForChild</span><span class="p">(</span><span class="s">"Humanoid"</span><span class="p">)</span>
-
-<span class="k">local</span> <span class="hl">stats</span> <span class="p">=</span> <span class="p">{</span>
-	spawned <span class="p">=</span> <span class="n">0</span><span class="p">,</span>
-	elapsed <span class="p">=</span> <span class="n">0</span>
-<span class="p">}</span>
-
-<span class="k">local</span> <span class="hl">connection</span> <span class="p">=</span> <span class="hl">RunService</span><span class="p">.</span>Heartbeat<span class="p">:</span><span class="fn">Connect</span><span class="p">(</span><span class="k">function</span><span class="p">(</span><span class="hl">dt</span><span class="p">)</span>
-	<span class="hl">stats</span><span class="p">.</span>elapsed <span class="p">+=</span> <span class="hl">dt</span>
-	<span class="k">if</span> <span class="hl">humanoid</span><span class="p">.</span>Health <span class="p">&gt;</span> <span class="n">0</span> <span class="k">then</span>
-		<span class="fn">print</span><span class="p">(</span><span class="s">`alive: {stats.spawned} · {stats.elapsed}s`</span><span class="p">)</span>
-	<span class="k">end</span>
-<span class="k">end</span><span class="p">)</span></pre>
+}</pre>
             <div class="duel-bar" aria-hidden="true"><span class="duel-knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8 4 12l4 4M16 8l4 4-4 4"/></svg></span></div>
             <span class="duel-tag raw" aria-hidden="true">naive decompile</span>
             <span class="duel-tag tvk" aria-hidden="true">tovek</span>
@@ -500,26 +510,26 @@
   <div class="ticker" aria-hidden="true">
     <div class="ticker-track">
       <div class="ticker-group">
+        <span class="ti">phi + captured loops <b>→</b> <span class="to">stable upvalues</span></span>
+        <span class="ti">7 inlined copies <b>→</b> <span class="to">1 named helper</span></span>
+        <span class="ti">raw branch chains <b>→</b> <span class="to">elseif · continue · repeat</span></span>
+        <span class="ti">exploded React fields <b>→</b> <span class="to">1 declarative tree</span></span>
         <span class="ti">v1, v2, v3 <b>→</b> <span class="to">Players, player, humanoid</span></span>
         <span class="ti">x = x + 1 <b>→</b> <span class="to">x += 1</span></span>
-        <span class="ti">(1 / 0) <b>→</b> <span class="to">math.huge</span></span>
-        <span class="ti">function T.f(self, x) <b>→</b> <span class="to">function T:f(x)</span></span>
-        <span class="ti">7 inlined copies <b>→</b> <span class="to">1 named helper</span></span>
-        <span class="ti">("%*"):format(x) <b>→</b> <span class="to">`{x}`</span></span>
-        <span class="ti">-3.141592653589793 <b>→</b> <span class="to">-math.pi</span></span>
-        <span class="ti">47 dead ternaries <b>→</b> <span class="to">0</span></span>
-        <span class="ti">20.6s <b>→</b> <span class="to">0.65s</span></span>
+        <span class="ti">Vector3.new(0, 0, 0) <b>→</b> <span class="to">Vector3.zero</span></span>
+        <span class="ti">discarded throwing work <b>→</b> <span class="to">preserved</span></span>
+        <span class="ti">Luau v4…v11 <b>→</b> <span class="to">one pipeline</span></span>
       </div>
       <div class="ticker-group">
+        <span class="ti">phi + captured loops <b>→</b> <span class="to">stable upvalues</span></span>
+        <span class="ti">7 inlined copies <b>→</b> <span class="to">1 named helper</span></span>
+        <span class="ti">raw branch chains <b>→</b> <span class="to">elseif · continue · repeat</span></span>
+        <span class="ti">exploded React fields <b>→</b> <span class="to">1 declarative tree</span></span>
         <span class="ti">v1, v2, v3 <b>→</b> <span class="to">Players, player, humanoid</span></span>
         <span class="ti">x = x + 1 <b>→</b> <span class="to">x += 1</span></span>
-        <span class="ti">(1 / 0) <b>→</b> <span class="to">math.huge</span></span>
-        <span class="ti">function T.f(self, x) <b>→</b> <span class="to">function T:f(x)</span></span>
-        <span class="ti">7 inlined copies <b>→</b> <span class="to">1 named helper</span></span>
-        <span class="ti">("%*"):format(x) <b>→</b> <span class="to">`{x}`</span></span>
-        <span class="ti">-3.141592653589793 <b>→</b> <span class="to">-math.pi</span></span>
-        <span class="ti">47 dead ternaries <b>→</b> <span class="to">0</span></span>
-        <span class="ti">20.6s <b>→</b> <span class="to">0.65s</span></span>
+        <span class="ti">Vector3.new(0, 0, 0) <b>→</b> <span class="to">Vector3.zero</span></span>
+        <span class="ti">discarded throwing work <b>→</b> <span class="to">preserved</span></span>
+        <span class="ti">Luau v4…v11 <b>→</b> <span class="to">one pipeline</span></span>
       </div>
     </div>
   </div>
@@ -541,64 +551,70 @@
     <div class="wrap">
       <span id="features"></span><span id="transform"></span>
       <div class="sec-head reveal">
-        <span class="eyebrow">@@ 01 &middot; the passes @@</span>
-        <h2>Six passes. <em>Three guarantees.</em></h2>
-        <p>Each pass undoes one thing the Luau compiler did to your code — read in order, they are a restoration log. The last three aren&rsquo;t passes at all: they are guarantees about the tool itself. All nine are new since the fork.</p>
+        <span class="eyebrow">@@ 01 &middot; v0.7 pipeline @@</span>
+        <h2>Six recovery layers. <em>Four guarantees.</em></h2>
+        <p>Version 0.7 rebuilds the pipeline from SSA destruction to final AST cleanup. Read P0–P5 in order: correctness first, source recovery second, cleanup last. The final four rows are release guarantees.</p>
       </div>
 
       <div class="passes">
         <div class="pass reveal">
-          <span class="pnum">PASS 01</span>
-          <h3>Name inference</h3>
-          <p>Locals and parameters are named from how they&rsquo;re used — inferred, never invented. No more walls of <code>v1, v2, v3</code>.</p>
+          <span class="pnum">LAYER P0</span>
+          <h3>Semantic correctness</h3>
+          <p>SSA and phi nodes, loop-carried state, captures, upvalues and multi-value calls are rebuilt without stale snapshots, accidental globals or swallowed evaluations.</p>
+          <code class="pchip">phi · upvalues · multivalue</code>
+        </div>
+        <div class="pass reveal">
+          <span class="pnum">LAYER P1</span>
+          <h3>Optimizer reversal</h3>
+          <p>Statement helpers, expression helpers, CPS continuations and repeated branch tails erased by Luau <code>-O2</code> return as concise calls when scope and capture proofs allow it.</p>
+          <code class="pchip">-O2 copies → helper</code>
+        </div>
+        <div class="pass reveal">
+          <span class="pnum">LAYER P2</span>
+          <h3>Naming &amp; source recovery</h3>
+          <p>Locals, parameters, services, modules, callbacks and React roles are inferred from usage and consistent call sites, with lexical shadowing protection and intact long names.</p>
           <code class="pchip">v9 → connection</code>
         </div>
         <div class="pass reveal">
-          <span class="pnum">PASS 02</span>
-          <h3>Handle preservation</h3>
-          <p><code>GetService</code> and <code>require</code> survive as one named header local instead of being inlined at every call site.</p>
-          <code class="pchip">GetService ×N → once</code>
+          <span class="pnum">LAYER P3</span>
+          <h3>Structured control flow</h3>
+          <p>Guard <code>continue</code>, <code>elseif</code>, repeat-style loops, ancestor walks and compound assignments are recovered with goto, loop-ownership and NaN safety gates.</p>
+          <code class="pchip">branches → structured Luau</code>
         </div>
         <div class="pass reveal">
-          <span class="pnum">PASS 03</span>
-          <h3>Method recovery</h3>
-          <p>Functions written with an explicit <code>self</code> come back as real colon methods.</p>
-          <code class="pchip">T.f(self, x) → T:f(x)</code>
+          <span class="pnum">LAYER P4</span>
+          <h3>Tables &amp; React/UI</h3>
+          <p>Exploded literals, computed event keys, props, children, callbacks and nested <code>createElement</code> trees are rebuilt leaf-to-root without changing evaluation order.</p>
+          <code class="pchip">t.X ×N → { … }</code>
         </div>
         <div class="pass reveal">
-          <span class="pnum">PASS 04</span>
-          <h3>-O2 de-inline</h3>
-          <p>Helpers the optimizer pasted into every call site are rebuilt as one named function, with each seam marked in a comment.</p>
-          <code class="pchip">7 copies → 1 helper</code>
-        </div>
-        <div class="pass reveal">
-          <span class="pnum">PASS 05</span>
-          <h3>Idiomatic syntax</h3>
-          <p>Compound assignment, backtick interpolation, normalized conditions and far fewer redundant parentheses.</p>
-          <code class="pchip">x = x + 1 → x += 1</code>
-        </div>
-        <div class="pass reveal">
-          <span class="pnum">PASS 06</span>
-          <h3>Symbolic constants</h3>
-          <p>Evaluated floats fold back into the constants the author actually wrote.</p>
-          <code class="pchip">(1 / 0) → math.huge</code>
+          <span class="pnum">LAYER P5</span>
+          <h3>Safe cleanup &amp; idioms</h3>
+          <p>Capture-aware aliases, dead stores, void returns and loop exits are cleaned up; module shapes, callback assignments and exact Roblox constants are restored without deleting throws or side effects.</p>
+          <code class="pchip">CFrame.new() → CFrame.identity</code>
         </div>
         <div class="pass reveal">
           <span class="pnum">SPEC 01</span>
-          <h3>Determinism &amp; validation</h3>
-          <p>Byte-identical output at any thread count, and the full corpus re-parses cleanly under Luau&rsquo;s own front end.</p>
-          <code class="pchip">262/262 · byte-identical</code>
+          <h3>Modern bytecode</h3>
+          <p>One decoder covers Luau bytecode v4 through v11, including Roblox v9, feedback vectors, newer call/compare formats, class members and userdata opcodes.</p>
+          <code class="pchip">v4 → v11</code>
         </div>
         <div class="pass reveal">
           <span class="pnum">SPEC 02</span>
-          <h3>Batch, anywhere</h3>
-          <p><code>decompile-folder</code> and <code>validate-folder</code> chew through a whole SaveInstance dump — as a CLI, an HTTP server, or a Cloudflare Worker.</p>
-          <code class="pchip">CLI · HTTP · Worker</code>
+          <h3>Deterministic &amp; verified</h3>
+          <p>Output stays byte-identical at any thread count. The 262-script release corpus re-parses with zero decode, decompile, scope, goto or regression failures.</p>
+          <code class="pchip">262/262 · byte-identical</code>
         </div>
         <div class="pass reveal">
           <span class="pnum">SPEC 03</span>
+          <h3>Batch, anywhere</h3>
+          <p>Run single files, whole SaveInstance dumps, parser validation, raw bytecode or batch requests through the CLI, HTTP server or Cloudflare Worker.</p>
+          <code class="pchip">CLI · HTTP · Worker</code>
+        </div>
+        <div class="pass reveal">
+          <span class="pnum">SPEC 04</span>
           <h3>The fast path</h3>
-          <p>mimalloc plus parallel per-function lifting. The 32× is measured on a real corpus, not marketing.</p>
+          <p>mimalloc, parallel per-function lifting and near-linear cleanup keep the richer v0.7 pipeline fast. The 32× corpus result is measured, not estimated.</p>
           <code class="pchip">20.6s → 0.65s</code>
         </div>
       </div>
@@ -668,8 +684,8 @@
             <option value="4">math.huge, not (1 / 0) · ChatTipsClient</option>
             <option value="5">Catches what lua.expert gets wrong · ChatTipsClient</option>
             <option value="6">Keeps a snapshot; lua.expert re-reads · BossFightButton</option>
-            <option value="7">Recovers real methods · collision</option>
-            <option value="8">Tiny module, byte-for-byte · Sounds</option>
+            <option value="7">Rebuilds module shape + clean guards · collision</option>
+            <option value="8">Tiny module, close to source · Sounds</option>
             <option value="9">math.pi, not a raw float · Fertilizer</option>
             <option value="10">Even the tiny ones · getMouseCF</option>
             <option value="11">Rebuilds React tables · DetailButton</option>
@@ -678,17 +694,17 @@
           <div class="cmp-seg" role="group" aria-label="Choose a decompiler">
             <button type="button" class="cmp-seg-btn" data-dec="source" aria-pressed="false">Source</button>
             <button type="button" class="cmp-seg-btn" data-dec="medal" aria-pressed="false">medal</button>
-            <button type="button" class="cmp-seg-btn on" data-dec="luaexpert" aria-pressed="true">lua.expert</button>
-            <button type="button" class="cmp-seg-btn" data-dec="tovek" aria-pressed="false">Tovek</button>
+            <button type="button" class="cmp-seg-btn" data-dec="luaexpert" aria-pressed="false">lua.expert</button>
+            <button type="button" class="cmp-seg-btn on" data-dec="tovek" aria-pressed="true">Tovek</button>
           </div>
         </div>
 
-        <p class="cmp-cap" id="cmpCap">The optimizer inlined the <code>clearHighlight</code> helper. <b style="color:var(--rose)">lua.expert</b> copy-pastes its teardown body again and again, nested branches deep. <b>Tovek</b> restores the <code>clearHighlight(p)</code> call at every site and flattens it with guard-returns.</p>
+        <p class="cmp-cap" id="cmpCap">The optimizer inlined the <code>clearHighlight</code> helper. <b style="color:var(--rose)">lua.expert</b> copy-pastes its teardown body again and again, nested branches deep. <b>Tovek</b> reconstructs the helper once and restores calls at the original branch sites.</p>
 
         <div class="win cmp-win">
           <div class="win-bar">
             <span class="win-file" id="cmpTitle">ShovelHighlight.luau</span>
-            <span class="win-tag t-riv" id="cmpTag"><span class="blink"></span><span id="cmpTagText">rival</span></span>
+            <span class="win-tag" id="cmpTag"><span class="blink"></span><span id="cmpTagText">tovek</span></span>
           </div>
           <div class="cmp-codes">
             <pre class="sm cmp-pre" data-ex="0" data-dec="source" hidden><span class="k">local</span> <span class="k">function</span> updateTarget(<span class="g">self</span>, localPlayer: Player)
@@ -743,7 +759,7 @@
 					v13.DepthMode = <span class="g">Enum</span>.HighlightDepthMode.AlwaysOnTop
 					v13.Adornee = v12
 					v13.Parent = v12</pre>
-            <pre class="sm cmp-pre" data-ex="0" data-dec="luaexpert">	<span class="k">else</span>
+            <pre class="sm cmp-pre" data-ex="0" data-dec="luaexpert" hidden>	<span class="k">else</span>
 		p1._equippedShovelType = <span class="k">nil</span>
 	<span class="k">end</span>
 <span class="k">end</span>
@@ -777,32 +793,19 @@
 				ShovelHoverHighlight.FillTransparency = <span class="n">0.5</span>
 				ShovelHoverHighlight.OutlineTransparency = <span class="n">0</span>
 				ShovelHoverHighlight.DepthMode = <span class="g">Enum</span>.HighlightDepthMode.AlwaysOnTop</pre>
-            <pre class="sm cmp-pre" data-ex="0" data-dec="tovek" hidden>
-<span class="k">local</span> <span class="k">function</span> updateTarget(p, p2)
-	<span class="k">if</span> <span class="k">not</span> p._equippedShovelType <span class="k">then</span>
-		clearHighlight(p) <span class="c">-- inlined by Luau -O2 (UNHOOKABLE)</span>
-		<span class="k">return</span>
-	<span class="k">end</span>
+            <pre class="sm cmp-pre" data-ex="0" data-dec="tovek"><span class="k">local</span> <span class="k">function</span> updateTarget(ShovelHighlight2, player)
+	<span class="k">if</span> ShovelHighlight2._equippedShovelType <span class="k">then</span>
+		<span class="k">local</span> v = interactionTargeting.ResolveActionTarget(player, ShovelHighlight2._equippedShovelType == <span class="s">"PlantShovel"</span> <span class="k">and</span> <span class="s">"PlantShovel"</span> <span class="k">or</span> <span class="s">"PotShovel"</span>, {
+			fallbackRadius = <span class="n">84</span>
+		})
 
-	<span class="k">local</span> v = interactionTargeting.ResolveActionTarget(p2, p._equippedShovelType == <span class="s">"PlantShovel"</span> <span class="k">and</span> <span class="s">"PlantShovel"</span> <span class="k">or</span> <span class="s">"PotShovel"</span>, {
-		fallbackRadius = <span class="n">84</span>
-	})
+		<span class="k">if</span> v <span class="k">then</span>
+			<span class="k">local</span> highlightableModel = findHighlightableModel(v.clientRoot)
 
-	<span class="k">if</span> <span class="k">not</span> v <span class="k">then</span>
-		clearHighlight(p) <span class="c">-- inlined by Luau -O2 (UNHOOKABLE)</span>
-		<span class="k">return</span>
-	<span class="k">end</span>
-
-	<span class="k">local</span> highlightableModel = findHighlightableModel(v.clientRoot)
-
-	<span class="k">if</span> <span class="k">not</span> highlightableModel <span class="k">then</span>
-		clearHighlight(p) <span class="c">-- inlined by Luau -O2 (UNHOOKABLE)</span>
-		<span class="k">return</span>
-	<span class="k">end</span>
-
-	<span class="k">if</span> p._lastTarget ~= highlightableModel <span class="k">then</span>
-		clearHighlight(p) <span class="c">-- inlined by Luau -O2 (UNHOOKABLE)</span>
-		<span class="k">local</span> highlight = <span class="g">Instance</span>.new(<span class="s">"Highlight"</span>)</pre>
+			<span class="k">if</span> highlightableModel <span class="k">then</span>
+				<span class="k">if</span> ShovelHighlight2._lastTarget ~= highlightableModel <span class="k">then</span>
+					clearHighlight(ShovelHighlight2) <span class="c">-- inlined by Luau -O2 (UNHOOKABLE)</span>
+					<span class="k">local</span> highlight = <span class="g">Instance</span>.new(<span class="s">"Highlight"</span>)</pre>
             <pre class="sm cmp-pre" data-ex="1" data-dec="source" hidden><span class="k">local</span> <span class="k">function</span> getMainGui(): ScreenGui?
 	<span class="k">local</span> localPlayer = <span class="g">Players</span>.LocalPlayer
 	<span class="k">if</span> <span class="k">not</span> localPlayer <span class="k">then</span>
@@ -917,7 +920,7 @@
 		PotMass.CanQuery = <span class="k">false</span>
 		PotMass.CastShadow = <span class="k">false</span>
 		PotMass.Parent = Model</pre>
-            <pre class="sm cmp-pre" data-ex="2" data-dec="tovek" hidden><span class="k">local</span> <span class="k">function</span> createProxyPart(parent, name, shape, size, p, color, material)
+            <pre class="sm cmp-pre" data-ex="2" data-dec="tovek" hidden><span class="k">local</span> <span class="k">function</span> createProxyPart(model, name, shape, size, p, color, material)
 	<span class="k">local</span> part = <span class="g">Instance</span>.new(<span class="s">"Part"</span>)
 	part.Name = name
 	part.Shape = shape
@@ -930,7 +933,7 @@
 	part.CanTouch = <span class="k">false</span>
 	part.CanQuery = <span class="k">false</span>
 	part.CastShadow = <span class="k">false</span>
-	part.Parent = parent
+	part.Parent = model
 <span class="k">end</span></pre>
             <pre class="sm cmp-pre" data-ex="3" data-dec="source" hidden><span class="k">local</span> <span class="g">Players</span> = <span class="g">game</span>:GetService(<span class="s">"Players"</span>)
 <span class="k">local</span> <span class="g">ReplicatedStorage</span> = <span class="g">game</span>:GetService(<span class="s">"ReplicatedStorage"</span>)
@@ -1002,7 +1005,7 @@
 		<span class="k">return</span> <span class="k">false</span>
 	<span class="k">end</span>
 
-	<span class="k">if</span> placeId <span class="k">and</span> placeId &gt; <span class="n">0</span> <span class="k">then</span>
+	<span class="k">if</span> placeId <span class="k">and</span> <span class="k">not</span> (placeId &lt;= <span class="n">0</span>) <span class="k">then</span>
 		<span class="k">return</span> <span class="g">game</span>.PlaceId == placeId
 	<span class="k">else</span>
 		<span class="k">return</span> <span class="g">game</span>.PlaceId == <span class="n">0</span>
@@ -1225,11 +1228,9 @@
 	<span class="k">end</span>)
 <span class="k">end</span></pre>
             <pre class="sm cmp-pre" data-ex="7" data-dec="tovek" hidden><span class="k">local</span> <span class="g">Workspace</span> = <span class="g">game</span>:GetService(<span class="s">"Workspace"</span>)
-<span class="k">local</span> class = {}
-<span class="k">local</span> v = { <span class="g">Workspace</span>:WaitForChild(<span class="s">"World"</span>):WaitForChild(<span class="s">"PlantedSeeds"</span>), <span class="g">Workspace</span>:WaitForChild(<span class="s">"World"</span>):WaitForChild(<span class="s">"PlacedPots"</span>), <span class="g">Workspace</span>:WaitForChild(<span class="s">"World"</span>):WaitForChild(<span class="s">"PlacedHangingItems"</span>) }
 
-<span class="k">local</span> <span class="k">function</span> isCloudPart(p)
-	<span class="k">local</span> parent = p.Parent
+<span class="k">local</span> <span class="k">function</span> isCloudPart(part)
+	<span class="k">local</span> parent = part.Parent
 
 	<span class="k">while</span> parent <span class="k">do</span>
 		<span class="k">if</span> parent:IsA(<span class="s">"Model"</span>) <span class="k">and</span> parent.Name == <span class="s">"Cloud"</span> <span class="k">then</span>
@@ -1242,21 +1243,19 @@
 	<span class="k">return</span> <span class="k">false</span>
 <span class="k">end</span>
 
-<span class="k">function</span> class:DisableCollision(folder)
-	<span class="k">for</span> _, part <span class="k">in</span> folder:GetDescendants() <span class="k">do</span>
-		<span class="k">if</span> <span class="k">not</span> part:IsA(<span class="s">"BasePart"</span>) <span class="k">then</span>
-			<span class="k">continue</span>
-		<span class="k">end</span>
+<span class="k">local</span> class = {
+	DisableCollision = <span class="k">function</span>(<span class="g">self</span>, folder)
+		<span class="k">for</span> _, part <span class="k">in</span> folder:GetDescendants() <span class="k">do</span>
+			<span class="k">if</span> <span class="k">not</span> part:IsA(<span class="s">"BasePart"</span>) <span class="k">or</span> isCloudPart(part) <span class="k">then</span>
+				<span class="k">continue</span>
+			<span class="k">end</span>
 
-		<span class="k">if</span> isCloudPart(part) <span class="k">then</span>
-			<span class="k">continue</span>
+			part.CanCollide = <span class="k">false</span>
 		<span class="k">end</span>
-
-		part.CanCollide = <span class="k">false</span>
 	<span class="k">end</span>
-<span class="k">end</span>
+}
 
-<span class="k">for</span> _, v2 <span class="k">in</span> v <span class="k">do</span>
+<span class="k">for</span> _, v2 <span class="k">in</span> { <span class="g">Workspace</span>:WaitForChild(<span class="s">"World"</span>):WaitForChild(<span class="s">"PlantedSeeds"</span>), <span class="g">Workspace</span>:WaitForChild(<span class="s">"World"</span>):WaitForChild(<span class="s">"PlacedPots"</span>), <span class="g">Workspace</span>:WaitForChild(<span class="s">"World"</span>):WaitForChild(<span class="s">"PlacedHangingItems"</span>) } <span class="k">do</span>
 	class:DisableCollision(v2)
 	v2.DescendantAdded:Connect(<span class="k">function</span>(part)
 		<span class="k">if</span> part:IsA(<span class="s">"BasePart"</span>) <span class="k">and</span> <span class="k">not</span> isCloudPart(part) <span class="k">then</span>
@@ -1471,7 +1470,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
 <span class="k">local</span> remotes = <span class="g">ReplicatedStorage</span>:WaitForChild(<span class="s">"Shared"</span>):WaitForChild(<span class="s">"Remotes"</span>)
 <span class="k">local</span> mouse = <span class="g">Players</span>.LocalPlayer:GetMouse()
 
-<span class="k">function</span> remotes.GetMouseCF.OnClientInvoke()
+remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
 	<span class="k">return</span> mouse.Hit
 <span class="k">end</span></pre>
             <pre class="sm cmp-pre" data-ex="11" data-dec="source" hidden><span class="k">local</span> React = <span class="g">require</span>(Packages.React)
@@ -1547,8 +1546,8 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
 <span class="k">local</span> theme = <span class="g">require</span>(<span class="g">script</span>.Parent.Parent.theme)
 <span class="k">local</span> createElement = react.createElement
 <span class="k">return</span> <span class="k">function</span>(props)
-	<span class="k">local</span> v = props.disabled == <span class="k">true</span> <span class="k">and</span> <span class="k">true</span> <span class="k">or</span> props.onActivated == <span class="k">nil</span>
-	<span class="k">local</span> v3 = {
+	<span class="k">local</span> v = props.disabled == <span class="k">true</span> <span class="k">or</span> props.onActivated == <span class="k">nil</span>
+	<span class="k">return</span> createElement(<span class="s">"ImageButton"</span>, {
 		Name = <span class="s">"DetailButton"</span>,
 		BackgroundTransparency = <span class="n">1</span>,
 		Image = theme.Asset.DetailButton,
@@ -1560,8 +1559,12 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
 		Size = props.size <span class="k">or</span> <span class="g">UDim2</span>.fromScale(<span class="n">0.34</span>, <span class="n">0.18</span>),
 		AutoButtonColor = <span class="k">false</span>,
 		Active = <span class="k">not</span> v,
-		LayoutOrder = props.layoutOrder <span class="k">or</span> <span class="n">0</span>
-	}</pre>
+		LayoutOrder = props.layoutOrder <span class="k">or</span> <span class="n">0</span>,
+		[react.Event.Activated] = <span class="k">function</span>()
+			<span class="k">if</span> <span class="k">not</span> v <span class="k">and</span> props.onActivated <span class="k">then</span>
+				props.onActivated()
+			<span class="k">end</span>
+		<span class="k">end</span></pre>
           </div>
         </div>
         <p class="cmp-hint">&#8596; <b>medal</b> predates Roblox&rsquo;s v9 bytecode, so its panels show the same source compiled with standard Luau &mdash; where it still stops at raw <code>v1, v2</code>. <b>lua.expert</b> reads v9 but stops at &ldquo;correct.&rdquo; <b style="color:var(--acc)">Tovek</b> keeps going.</p>
@@ -1573,10 +1576,10 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
   <section class="stats">
     <div class="wrap">
       <div class="stat-grid">
-        <div class="stat reveal"><div class="v"><span class="num">47</span>&#8594;<span class="num" style="color:var(--acc)">0</span></div><div class="l">dead <code>if x then true else false</code> ternaries, in one file</div></div>
-        <div class="stat reveal" style="--d:80ms"><div class="v"><span class="num">7</span>&#8594;<span class="num" style="color:var(--acc)">1</span></div><div class="l">copies of one inlined helper &mdash; Tovek restores the call</div></div>
-        <div class="stat reveal" style="--d:160ms"><div class="v"><span class="num" style="color:var(--acc)">0</span></div><div class="l">redundant nil-stores, watermarks &amp; per-line noise Tovek leaves behind</div></div>
-        <div class="stat reveal" style="--d:240ms"><div class="v"><span class="num" style="color:var(--acc)">&minus;445</span></div><div class="l">lines vs lua.expert on one file &mdash; six inlined builders restored to calls</div></div>
+        <div class="stat reveal"><div class="v"><span class="num">531</span></div><div class="l">AST tests across recovery, cleanup and semantics</div></div>
+        <div class="stat reveal" style="--d:80ms"><div class="v"><span class="num">25</span></div><div class="l">CFG, SSA and phi-node tests passed</div></div>
+        <div class="stat reveal" style="--d:160ms"><div class="v"><span class="num">17</span></div><div class="l">lifter and integration tests passed</div></div>
+        <div class="stat reveal" style="--d:240ms"><div class="v"><span class="num" style="color:var(--acc)">0</span></div><div class="l">decode, decompile, goto, scope or regression failures</div></div>
       </div>
     </div>
   </section>
@@ -1587,7 +1590,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
       <div class="sec-head reveal">
         <span class="eyebrow">@@ 04 &middot; the field @@</span>
         <h2>Three decompilers. <em>One original.</em></h2>
-        <p>Every decompiler read the same code; Source is what it started as. Each rung gets closer to what the developer wrote — Tovek is the only one that lands on it.</p>
+        <p>Every decompiler read the same code; Source is the reference, not a promise that lost debug information can always be recovered. Compare structure, readability and semantic care — then inspect the real output yourself.</p>
       </div>
 
       <div class="ladder reveal">
@@ -1612,7 +1615,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
         <div class="rung best">
           <div class="step">03 &middot; open &middot; MIT</div>
           <h4>Tovek</h4>
-          <p>Names, real methods, de-inlined helpers, normalized conditions, idioms. The only output that reads like the source.</p>
+          <p>Names, recovered helpers, structured control flow, rebuilt UI tables and semantics-gated cleanup. Source-like where evidence is strong; deliberately neutral where it is not.</p>
           <div class="bar"></div>
         </div>
       </div>
@@ -1621,11 +1624,14 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
         <table>
           <thead><tr><th></th><th class="src">Source</th><th>medal</th><th class="lx">lua.expert</th><th class="tk">Tovek</th></tr></thead>
           <tbody>
-            <tr><td>Reads Roblox v9 bytecode</td><td class="src">&mdash;</td><td class="medal"><span class="no">no</span></td><td class="lx"><span class="yes">yes</span></td><td class="tk"><span class="yes">yes</span></td></tr>
+            <tr><td>Luau bytecode coverage</td><td class="src">&mdash;</td><td class="medal">up to v6</td><td class="lx">Roblox v9</td><td class="tk"><span class="yes">v4&ndash;v11</span></td></tr>
+            <tr><td>Semantic cleanup gates</td><td class="src">original behavior</td><td class="medal">no cleanup layer</td><td class="lx">closed implementation</td><td class="tk">capture &middot; effect &middot; NaN-safe</td></tr>
             <tr><td>Local &amp; parameter names</td><td class="src">real</td><td class="medal"><code>v1, v_u_3</code></td><td class="lx"><code>p1, v1</code> + some</td><td class="tk">inferred + handle names</td></tr>
             <tr><td>Module table name</td><td class="src"><code>ShovelHighlight</code></td><td class="medal"><code>v2</code></td><td class="lx"><code>t</code></td><td class="tk">recovered</td></tr>
             <tr><td>OOP <code>:</code> methods &amp; <code>self</code></td><td class="src"><span class="yes">yes</span></td><td class="medal"><code>.m(_, &hellip;)</code></td><td class="lx"><code>.m(p1, &hellip;)</code> + mismatch</td><td class="tk"><code>:m(&hellip;)</code>, real <code>self</code></td></tr>
             <tr><td>Luau <code>-O2</code> inlined helpers</td><td class="src">&mdash;</td><td class="medal">left inlined</td><td class="lx"><span class="no">inlined &amp; duplicated</span></td><td class="tk">de-inlined + marked</td></tr>
+            <tr><td>Structured control flow</td><td class="src"><span class="yes">authored</span></td><td class="medal">raw branches</td><td class="lx">loops + basic guards</td><td class="tk"><code>elseif</code> &middot; <code>continue</code> &middot; <code>repeat</code></td></tr>
+            <tr><td>Tables &amp; React/UI trees</td><td class="src">declarative</td><td class="medal">exploded fields</td><td class="lx">partial table + <code>t.X</code></td><td class="tk">literals + computed keys</td></tr>
             <tr><td>Redundant <code>x = nil</code> stores</td><td class="src">none</td><td class="medal"><span class="no">kept</span></td><td class="lx"><span class="no">kept</span></td><td class="tk">removed</td></tr>
             <tr><td><code>math.huge</code> / <code>math.pi</code></td><td class="src">symbolic</td><td class="medal"><code>(1 / 0)</code></td><td class="lx"><code>(1 / 0)</code> / raw float</td><td class="tk"><code>math.huge</code> / <code>math.pi</code></td></tr>
             <tr><td>Dead <code>if x then true else false</code></td><td class="src"><span class="yes">none</span></td><td class="medal">&mdash;</td><td class="lx"><span class="no">dozens (47 in one file)</span></td><td class="tk">normalized away</td></tr>
@@ -1636,10 +1642,10 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
           </tbody>
         </table>
       </div>
-      <div class="legend"><span><b style="color:var(--cy)">Source</b> &mdash; the bar everything is measured against</span><span><b>Tovek</b> is the only column that matches it across the board</span></div>
+      <div class="legend"><span><b style="color:var(--cy)">Source</b> &mdash; the reference everything is measured against</span><span><b>Tovek</b> favors source-like structure without inventing evidence or relaxing Luau semantics</span></div>
     </div>
   </section>
-  <script>window.__cmpCaps={"0": "The optimizer inlined the <code>clearHighlight</code> helper. <b style=\"color:var(--rose)\">lua.expert</b> copy-pastes its teardown body again and again, nested branches deep. <b>Tovek</b> restores the <code>clearHighlight(p)</code> call at every site and flattens it with guard-returns.", "1": "The compiler inlined <code>getMainGui</code>. <b>Tovek</b> names the result <code>main</code> (from <code>FindFirstChild(\"Main\")</code>) and drops the dead stores. <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> leave it <code>v1</code>/<code>v35</code> and write <code>= nil</code> in two branches where it is <i>already</i> nil.", "2": "A proxy-<code>Part</code> builder \u2014 Name, Shape, Size, CFrame, Color, Material and five physics flags \u2014 inlined by Luau <code>-O2</code> at all six call sites. <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> reproduce the inlining verbatim, pasting the same ~13-line body six times (<code>PotMass</code>, <code>PotAccent</code>, <code>PlantStem</code>\u2026). <b>Tovek</b> restores the single <code>createProxyPart</code> helper and six one-line calls \u2014 445 fewer lines than lua.expert.", "3": "An inlined <code>isAfkEnabled()</code> guard. <b style=\"color:var(--rose)\">lua.expert</b> flattens it into one unreadable nested-ternary line. <b>Tovek</b> rebuilds the named function and restores the call.", "4": "<b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> spell infinity <code>(1 / 0)</code>; lua.expert also wraps the test in a pointless <code>if \u2026 then \u2026 else false</code>. <b>Tovek</b> restores <code>math.huge</code> and the bare boolean \u2014 identical to source. (In one file it kills 47 such dead ternaries.)", "5": "Sometimes <b style=\"color:var(--rose)\">lua.expert</b> reads <span style=\"color:var(--rose)\">wrong</span>: it folds away a captured snapshot, leaving <code>t._configVersion == t._configVersion</code> \u2014 always true, so a config-reload guard becomes dead. <b>Tovek</b> (and even raw medal) keep the snapshot.", "6": "Reading the player's level, <b style=\"color:var(--rose)\">lua.expert</b> calls <code>DataController:GetData()</code> a <em>second</em> time inside the guard (<code>GetData() and v12.Level or 1</code>) instead of reusing the snapshot it just took \u2014 so if the data clears between the two calls the level wrongly collapses to <code>1</code> and the boss-entry gate misfires. <b>Tovek</b> keeps the single captured read (<code>data and data.Level or 1</code>), exactly like the source.", "7": "<b style=\"color:var(--rose)\">lua.expert</b> defines the method with a dot and a leaked <code>self</code> (<code>p1</code>) then calls it with a colon; <b style=\"color:var(--gold)\">medal</b> leaks <code>self</code> as <code>_</code>. <b>Tovek</b> recovers the real <code>:</code> method.", "8": "<b>Tovek</b> recovers the module name <code>Sounds</code> and stays clean \u2014 its output is essentially the source. <b style=\"color:var(--rose)\">lua.expert</b> calls it <code>t</code>; <b style=\"color:var(--gold)\">medal</b> calls it <code>v1</code>. Both bolt comment tags onto every function.", "9": "<b>Tovek</b> recovers the symbolic constant <code>-math.pi</code>; <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> print the evaluated float <code>-3.141592653589793</code>.", "10": "<b>Tovek</b> names the local <code>mouse</code> (from <code>:GetMouse()</code>) and keeps <code>ReplicatedStorage</code> as a header handle. <b style=\"color:var(--rose)\">lua.expert</b> leaves it <code>v1</code>; <b style=\"color:var(--gold)\">medal</b> leaves it <code>v_u_3</code>.", "11": "<b style=\"color:var(--rose)\">lua.expert</b> builds a partial props table then shreds the rest into <code>t.X = \u2026</code> assignments, and recomputes a boolean with a 3-arm ternary. <b>Tovek</b> keeps one <code>{ \u2026 }</code> literal and a flat boolean."};window.__cmpTitles={"0": "ShovelHighlight.luau", "1": "InitNpcQuest.client.luau", "2": "GardenVisualRegistry.luau", "3": "AfkClient.client.luau", "4": "ChatTipsClient.luau \u00b7 isFiniteNumber", "5": "ChatTipsClient.luau \u00b7 waitForDelay", "6": "BossFightButton.client.luau", "7": "collision.client.luau", "8": "Sounds.luau", "9": "FertilizerIdleAnimation.client.luau", "10": "getMouseCF.client.luau", "11": "DetailButton.luau"};</script>
+  <script>window.__cmpCaps={"0": "The optimizer inlined the <code>clearHighlight</code> helper. <b style=\"color:var(--rose)\">lua.expert</b> copy-pastes its teardown body again and again, nested branches deep. <b>Tovek</b> reconstructs the helper once and restores calls at the original branch sites.", "1": "The compiler inlined <code>getMainGui</code>. <b>Tovek</b> names the result <code>main</code> (from <code>FindFirstChild(\"Main\")</code>) and drops the dead stores. <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> leave it <code>v1</code>/<code>v35</code> and write <code>= nil</code> in two branches where it is <i>already</i> nil.", "2": "A proxy-<code>Part</code> builder \u2014 Name, Shape, Size, CFrame, Color, Material and five physics flags \u2014 inlined by Luau <code>-O2</code> at all six call sites. <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> reproduce the inlining verbatim, pasting the same ~13-line body six times (<code>PotMass</code>, <code>PotAccent</code>, <code>PlantStem</code>\u2026). <b>Tovek</b> restores the single <code>createProxyPart</code> helper and six one-line calls \u2014 445 fewer lines than lua.expert.", "3": "An inlined <code>isAfkEnabled()</code> guard. <b style=\"color:var(--rose)\">lua.expert</b> flattens it into one unreadable nested-ternary line. <b>Tovek</b> rebuilds the named function and restores the call.", "4": "<b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> spell infinity <code>(1 / 0)</code>; lua.expert also wraps the test in a pointless <code>if \u2026 then \u2026 else false</code>. <b>Tovek</b> restores <code>math.huge</code> and the bare boolean \u2014 identical to source. (In one file it kills 47 such dead ternaries.)", "5": "Sometimes <b style=\"color:var(--rose)\">lua.expert</b> reads <span style=\"color:var(--rose)\">wrong</span>: it folds away a captured snapshot, leaving <code>t._configVersion == t._configVersion</code> \u2014 always true, so a config-reload guard becomes dead. <b>Tovek</b> (and even raw medal) keep the snapshot.", "6": "Reading the player's level, <b style=\"color:var(--rose)\">lua.expert</b> calls <code>DataController:GetData()</code> a <em>second</em> time inside the guard (<code>GetData() and v12.Level or 1</code>) instead of reusing the snapshot it just took \u2014 so if the data clears between the two calls the level wrongly collapses to <code>1</code> and the boss-entry gate misfires. <b>Tovek</b> keeps the single captured read (<code>data and data.Level or 1</code>), exactly like the source.", "7": "<b style=\"color:var(--rose)\">lua.expert</b> leaves a dot-defined method beside a colon call, while <b style=\"color:var(--gold)\">medal</b> keeps a separate table and raw control flow. <b>Tovek</b> rebuilds the module shape as one table and combines the two collision-skip checks without changing behavior.", "8": "<b>Tovek</b> recovers the module name <code>Sounds</code> and stays clean \u2014 its output is essentially the source. <b style=\"color:var(--rose)\">lua.expert</b> calls it <code>t</code>; <b style=\"color:var(--gold)\">medal</b> calls it <code>v1</code>. Both bolt comment tags onto every function.", "9": "<b>Tovek</b> recovers the symbolic constant <code>-math.pi</code>; <b style=\"color:var(--rose)\">lua.expert</b> and <b style=\"color:var(--gold)\">medal</b> print the evaluated float <code>-3.141592653589793</code>.", "10": "<b>Tovek</b> names the local <code>mouse</code> (from <code>:GetMouse()</code>) and keeps <code>ReplicatedStorage</code> as a header handle. <b style=\"color:var(--rose)\">lua.expert</b> leaves it <code>v1</code>; <b style=\"color:var(--gold)\">medal</b> leaves it <code>v_u_3</code>.", "11": "<b style=\"color:var(--rose)\">lua.expert</b> builds a partial props table then shreds the rest into <code>t.X = \u2026</code> assignments, and recomputes a boolean with a 3-arm ternary. <b>Tovek</b> keeps one <code>{ \u2026 }</code> literal and a flat boolean."};window.__cmpTitles={"0": "ShovelHighlight.luau", "1": "InitNpcQuest.client.luau", "2": "GardenVisualRegistry.luau", "3": "AfkClient.client.luau", "4": "ChatTipsClient.luau \u00b7 isFiniteNumber", "5": "ChatTipsClient.luau \u00b7 waitForDelay", "6": "BossFightButton.client.luau", "7": "collision.client.luau", "8": "Sounds.luau", "9": "FertilizerIdleAnimation.client.luau", "10": "getMouseCF.client.luau", "11": "DetailButton.luau"};</script>
 
   <!-- GET STARTED -->
   <section id="start">
@@ -1702,7 +1708,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
 
 <footer>
   <div class="wrap foot">
-    <div class="l">© <span id="yr">2026</span> Tovek · beta 0.6.0 · MIT licensed · a fork of medal</div>
+    <div class="l">© <span id="yr">2026</span> Tovek · release 0.7.0 · MIT licensed · a fork of medal</div>
     <div class="links">
       <a href="https://discord.gg/phY6VUDSF7" target="_blank" rel="noopener">Discord</a>
       <a href="https://github.com/Kiet1308/Tovek" target="_blank" rel="noopener">GitHub</a>
@@ -1819,7 +1825,7 @@ Remotes.GetMouseCF.OnClientInvoke = <span class="k">function</span>()
     var pres = cmp.querySelectorAll('.cmp-pre');
     var segs = cmp.querySelectorAll('.cmp-seg-btn');
     var tagInfo = {source:['original','t-src'], medal:['upstream','t-med'], luaexpert:['rival','t-riv'], tovek:['tovek','']};
-    var curEx = sel.value || '0', curDec = 'luaexpert';
+    var curEx = sel.value || '0', curDec = 'tovek';
     function render(){
       for(var i=0;i<pres.length;i++){
         var p = pres[i];
