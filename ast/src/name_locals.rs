@@ -49,8 +49,17 @@ fn sanitize_with_case(raw: &str, case: IdentifierCase) -> Option<String> {
     if chars.is_empty() {
         return None;
     }
+    // SCREAMING_SNAKE_CASE is already a deliberate, readable source naming
+    // convention. Lowercasing only its first character would manufacture the
+    // malformed hybrid `dEFAULT_BRUSH`. This check is intentionally performed
+    // on the sanitized identifier so every character considered here is one we
+    // can actually emit.
+    let is_constant = chars.iter().any(|c| c.is_ascii_uppercase())
+        && chars
+            .iter()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || *c == '_');
     match case {
-        IdentifierCase::LowerCamel if chars[0].is_ascii_uppercase() => {
+        IdentifierCase::LowerCamel if chars[0].is_ascii_uppercase() && !is_constant => {
             chars[0] = chars[0].to_ascii_lowercase();
         }
         IdentifierCase::Pascal if chars[0].is_ascii_lowercase() => {
@@ -449,6 +458,41 @@ fn binary_lookup_method_call(binary: &Binary) -> Option<&MethodCall> {
         },
         _ => None,
     }
+}
+
+/// A dynamic child-name lookup cannot recover the concrete source name, but its
+/// assigned result is still unambiguously a child Instance. Kept outside
+/// [`rvalue_hint`] for two reasons: path expressions passed to `require` yield a
+/// module export, not the child itself; and the generic `child` hypernym must use
+/// a lower score than concrete body evidence such as `result:IsA("BasePart")`.
+fn dynamic_child_lookup_rvalue_hint(rvalue: &RValue) -> Option<String> {
+    fn lookup(rvalue: &RValue) -> Option<&MethodCall> {
+        match rvalue {
+            RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call)) => {
+                Some(method_call)
+            }
+            // `receiver and receiver:FindFirstChild(name)` only nil-guards the
+            // receiver; the yielded truthy value is still the lookup result.
+            RValue::Binary(binary) if binary.operation == BinaryOperation::And => {
+                lookup(&binary.right)
+            }
+            // An `or nil` tail preserves the child-or-nil domain. Any other
+            // fallback may change the value's type and must not inherit `child`.
+            RValue::Binary(binary)
+                if binary.operation == BinaryOperation::Or
+                    && matches!(&*binary.right, RValue::Literal(Literal::Nil)) =>
+            {
+                lookup(&binary.left)
+            }
+            _ => None,
+        }
+    }
+
+    let method_call = lookup(rvalue)?;
+    (CHILD_LOOKUP_METHODS.contains(&method_call.method.as_str())
+        && !method_call.arguments.is_empty()
+        && method_call.arguments.first().and_then(string_literal).is_none())
+    .then(|| "child".to_string())
 }
 
 /// Name a local after the operand its short-circuit expression *yields*: `A or B`
@@ -2872,6 +2916,28 @@ impl Namer {
         }
     }
 
+    /// Apply a name-string API-slot fact to a non-parameter local. The usage
+    /// census is whole-tree, so this works even when the use occurs later or in
+    /// a nested branch. As with parameter dataflow, contradictory Instance use,
+    /// an Instance type guard, or disagreement between API slots suppresses the
+    /// hint rather than producing a confident but false name.
+    fn api_slot_local_hint(&mut self, local: &RcLocal) {
+        let slot = self.usage.get(&local_ptr(local)).and_then(|usage| {
+            (!usage.api_slot_conflict
+                && !usage.typeof_conflict
+                && !usage.instance_method_seen
+                && matches!(usage.typeof_type, None | Some("string")))
+            .then_some(usage.api_slot)
+            .flatten()
+        });
+        if let Some(slot) = slot {
+            // A positional API contract is stronger than the collection-name
+            // singularization tier (47): `names` may describe what the strings
+            // refer to, while `childName` describes what each value actually is.
+            self.set_hint_str(local, slot, 50);
+        }
+    }
+
     /// Name an event callback's parameters from the event's known signature
     /// (`RunService.Heartbeat:Connect(function(dt) ... end)`). These are
     /// documented API conventions (near-deterministic), but still scored low so an
@@ -3190,6 +3256,15 @@ impl Namer {
                                     if let Some(hint) = rvalue_hint(rvalue) {
                                         self.set_hint(local, hint, 60);
                                     }
+                                    // A dynamic FindFirstChild/WaitForChild result
+                                    // has only the honest hypernym `child`. Keep it
+                                    // below concrete body/type evidence (`IsA`,
+                                    // collection context), and out of rvalue_hint
+                                    // so nested require paths cannot leak it onto
+                                    // the module export local.
+                                    if let Some(hint) = dynamic_child_lookup_rvalue_hint(rvalue) {
+                                        self.set_hint(local, hint, 50);
+                                    }
                                 }
                                 if let RValue::Closure(closure) = rvalue
                                     && let Some(name) = closure
@@ -3253,6 +3328,11 @@ impl Namer {
                     // collection it iterates: `for index, crop in crops`.
                     let element_name = self.collection_element_name(&generic_for.right);
                     for (index, res_local) in generic_for.res_locals.iter().enumerate() {
+                        // Loop binders are not function parameters, but they can
+                        // carry the same exact API-slot dataflow. In particular,
+                        // `for _, name in ipairs({...}); FindFirstChild(name)`
+                        // should expose that the iterated string is a child name.
+                        self.api_slot_local_hint(res_local);
                         if index == 1
                             && let Some(element_name) = &element_name
                         {
@@ -3772,7 +3852,7 @@ pub fn name_locals_with_options(
 mod tests {
     use super::{
         name_locals, name_locals_with_options, name_locals_with_script_name, pluralize,
-        sanitize_preserve,
+        sanitize, sanitize_preserve,
     };
     use crate::formatter::Formatter;
     use crate::{
@@ -3802,6 +3882,34 @@ mod tests {
         assert_eq!(
             sanitize_preserve("createAnimationFromKeyframeSequence"),
             Some("createAnimationFromKeyframeSequence".to_string())
+        );
+    }
+
+    #[test]
+    fn lowercase_sanitizer_preserves_constant_identifiers() {
+        assert_eq!(sanitize("DEFAULT_BRUSH"), Some("DEFAULT_BRUSH".to_string()));
+        assert_eq!(sanitize("RGB24"), Some("RGB24".to_string()));
+        assert_eq!(sanitize("BasePart"), Some("basePart".to_string()));
+    }
+
+    #[test]
+    fn constant_field_hint_preserves_its_casing() {
+        let brush = RcLocal::default();
+        let mut block = Block(vec![
+            declare(
+                &brush,
+                RValue::Index(Index::new(global("config"), string("DEFAULT_BRUSH"))),
+            ),
+            use_local(&brush),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&brush), "DEFAULT_BRUSH");
+        assert!(
+            block
+                .to_string()
+                .contains("local DEFAULT_BRUSH = config.DEFAULT_BRUSH")
         );
     }
 
@@ -4024,6 +4132,179 @@ mod tests {
         name_locals(&mut block, true);
         assert_eq!(name_of(&kids), "children");
         assert_eq!(name_of(&mouse), "mouse");
+    }
+
+    #[test]
+    fn ipairs_child_names_flow_through_dynamic_lookup() {
+        let index = RcLocal::default();
+        let child_name = RcLocal::default();
+        let child = RcLocal::default();
+
+        let child_decl = declare(
+            &child,
+            RValue::MethodCall(MethodCall::new(
+                global("workspace"),
+                "FindFirstChild".to_string(),
+                vec![RValue::Local(child_name.clone())],
+            )),
+        );
+        let loop_body = Block(vec![child_decl, use_local(&child)]);
+        let generic_for = GenericFor::new(
+            vec![index.clone(), child_name.clone()],
+            vec![RValue::Call(Call::new(
+                global("ipairs"),
+                vec![RValue::Table(Table(vec![
+                    (None, string("RevealRigs")),
+                    (None, string("DoubleRigs")),
+                ]))],
+            ))],
+            loop_body,
+        );
+        let mut block = Block(vec![Statement::GenericFor(generic_for)]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&index), "i");
+        assert_eq!(name_of(&child_name), "childName");
+        assert_eq!(name_of(&child), "child");
+        let output = block.to_string();
+        assert!(
+            output.contains("for i, childName in ipairs"),
+            "unexpected loop binder naming:\n{output}"
+        );
+        assert!(
+            output.contains("local child = workspace:FindFirstChild(childName)"),
+            "dynamic lookup result should be named child:\n{output}"
+        );
+    }
+
+    #[test]
+    fn dynamic_lookup_hypernym_does_not_leak_through_require() {
+        let module_name = named_local("moduleName");
+        let module = RcLocal::default();
+        let lookup = RValue::MethodCall(MethodCall::new(
+            global("script"),
+            "FindFirstChild".to_string(),
+            vec![RValue::Local(module_name)],
+        ));
+        let mut block = Block(vec![
+            declare(
+                &module,
+                RValue::Call(Call::new(global("require"), vec![lookup])),
+            ),
+            use_local(&module),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&module), "v");
+    }
+
+    #[test]
+    fn concrete_isa_evidence_beats_dynamic_child_hypernym() {
+        let child_name = named_local("childName");
+        let child = RcLocal::default();
+        let lookup = RValue::MethodCall(MethodCall::new(
+            global("workspace"),
+            "FindFirstChild".to_string(),
+            vec![RValue::Local(child_name)],
+        ));
+        let isa = RValue::MethodCall(MethodCall::new(
+            RValue::Local(child.clone()),
+            "IsA".to_string(),
+            vec![string("BasePart")],
+        ));
+        let mut block = Block(vec![
+            declare(&child, lookup),
+            If::new(isa, Block(vec![use_local(&child)]), Block::default()).into(),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&child), "part");
+    }
+
+    #[test]
+    fn loop_api_slot_refuses_conflicting_or_non_string_type_facts() {
+        fn typeof_guard(local: &RcLocal, ty: &str) -> RValue {
+            RValue::Binary(Binary::new(
+                RValue::Call(Call::new(
+                    global("typeof"),
+                    vec![RValue::Local(local.clone())],
+                )),
+                string(ty),
+                BinaryOperation::Equal,
+            ))
+        }
+        fn loop_with_guards(value: &RcLocal, guards: &[&str]) -> Statement {
+            let mut body = guards
+                .iter()
+                .map(|ty| {
+                    If::new(
+                        typeof_guard(value, ty),
+                        Block(vec![use_local(value)]),
+                        Block::default(),
+                    )
+                    .into()
+                })
+                .collect::<Vec<Statement>>();
+            body.push(method_stmt(
+                global("workspace"),
+                "FindFirstChild",
+                vec![RValue::Local(value.clone())],
+            ));
+            Statement::GenericFor(GenericFor::new(
+                vec![RcLocal::default(), value.clone()],
+                vec![RValue::Call(Call::new(
+                    global("ipairs"),
+                    vec![global("values")],
+                ))],
+                Block(body),
+            ))
+        }
+
+        let number_value = RcLocal::default();
+        let conflicting_value = RcLocal::default();
+        let mut block = Block(vec![
+            loop_with_guards(&number_value, &["number"]),
+            loop_with_guards(&conflicting_value, &["string", "Instance"]),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_ne!(name_of(&number_value), "childName");
+        assert_ne!(name_of(&conflicting_value), "childName");
+    }
+
+    #[test]
+    fn conflicting_loop_api_slots_do_not_guess_a_name() {
+        let index = RcLocal::default();
+        let value = RcLocal::default();
+        let loop_body = Block(vec![
+            method_stmt(
+                global("workspace"),
+                "FindFirstChild",
+                vec![RValue::Local(value.clone())],
+            ),
+            method_stmt(
+                global("instance"),
+                "GetAttribute",
+                vec![RValue::Local(value.clone())],
+            ),
+        ]);
+        let generic_for = GenericFor::new(
+            vec![index, value.clone()],
+            vec![RValue::Call(Call::new(
+                global("ipairs"),
+                vec![global("values")],
+            ))],
+            loop_body,
+        );
+        let mut block = Block(vec![Statement::GenericFor(generic_for)]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&value), "v");
     }
 
     #[test]
@@ -6105,10 +6386,10 @@ mod tests {
         assert_eq!(name_of(&visual), "visual");
     }
 
-    /// A dynamic (non-literal) lookup argument yields no hint — refusal-by-default
-    /// keeps the generic name rather than inventing one.
+    /// A dynamic (non-literal) lookup cannot recover a concrete child name, but
+    /// the API contract still proves that the yielded value is a child.
     #[test]
-    fn guarded_lookup_refuses_dynamic_arg() {
+    fn guarded_dynamic_lookup_uses_child_hypernym() {
         let key = named_local("key");
         let result = RcLocal::default();
 
@@ -6125,7 +6406,46 @@ mod tests {
         let mut block = Block(vec![declare(&result, dynamic), use_local(&result)]);
 
         name_locals(&mut block, true);
+        assert_eq!(name_of(&result), "child");
+    }
+
+    #[test]
+    fn dynamic_lookup_refuses_non_child_or_fallback() {
+        let child_name = named_local("childName");
+        let result = RcLocal::default();
+        let lookup = RValue::MethodCall(MethodCall::new(
+            global("workspace"),
+            "FindFirstChild".to_string(),
+            vec![RValue::Local(child_name)],
+        ));
+        let with_table_fallback =
+            RValue::Binary(Binary::new(lookup, RValue::Table(Table::default()), BinaryOperation::Or));
+        let mut block = Block(vec![declare(&result, with_table_fallback), use_local(&result)]);
+
+        name_locals(&mut block, true);
+
         assert_eq!(name_of(&result), "v");
+    }
+
+    #[test]
+    fn dynamic_lookup_allows_nil_or_fallback() {
+        let child_name = named_local("childName");
+        let result = RcLocal::default();
+        let lookup = RValue::MethodCall(MethodCall::new(
+            global("workspace"),
+            "FindFirstChild".to_string(),
+            vec![RValue::Local(child_name)],
+        ));
+        let with_nil_fallback = RValue::Binary(Binary::new(
+            lookup,
+            RValue::Literal(Literal::Nil),
+            BinaryOperation::Or,
+        ));
+        let mut block = Block(vec![declare(&result, with_nil_fallback), use_local(&result)]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&result), "child");
     }
 
     /// A specific (non-generic) child stays bare even when the receiver is named —

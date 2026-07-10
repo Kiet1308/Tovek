@@ -1,5 +1,112 @@
 # Changelog
 
+## v0.8 — Control-Flow and Output Quality Update
+
+This update significantly improves control-flow reconstruction, prevents large amounts of duplicated code, and guarantees that successfully decompiled Luau output never contains `goto` or labels.
+
+### Cleaner output
+
+The decompiler now recognizes shared continuations instead of copying the same logic into every branch.
+
+Before:
+
+```luau
+if specialFrame then
+    for _, frame in frames do
+        if frame == specialFrame then
+            return findTemplate()
+        end
+    end
+
+    table.insert(frames, specialFrame)
+end
+
+if normalFrame then
+    for _, frame in frames do
+        if frame == normalFrame then
+            return findTemplate2()
+        end
+    end
+
+    table.insert(frames, normalFrame)
+end
+
+return findTemplate3()
+```
+
+After:
+
+```luau
+addFrame(specialFrame)
+addFrame(normalFrame)
+
+for _, frame in frames do
+    local template = frame:FindFirstChild("Template")
+
+    if template then
+        return template
+    end
+end
+
+return nil
+```
+
+- Reduced one real `AuraUI` function by more than 1,000 duplicated lines.
+- Reconstructed deeply nested branches as cleaner sequential code.
+- Removed unnecessary duplicate helpers such as `findTemplate2` through `findTemplate6`.
+- Avoided large tail duplication while preserving local scope, evaluation order, and control-flow semantics.
+- Preserved inferred constant identifiers in `SCREAMING_SNAKE_CASE`, so field-derived names such as `config.DEFAULT_BRUSH` now produce `DEFAULT_BRUSH` instead of the malformed `dEFAULT_BRUSH`.
+
+### Semantic loop and child-lookup names
+
+- Generic-for values passed to `FindFirstChild` or `WaitForChild` are now recognized as child-name strings and named `childName` instead of `vN`.
+- Results of dynamic child lookups are named `child` when no more specific evidence is available.
+- Concrete usage still wins over the generic hypernym; for example, a lookup result checked with `IsA("BasePart")` is named `part` rather than `child`.
+- Conflicting API roles, contradictory/non-string type evidence, module paths passed through `require`, and non-child `or` fallbacks are rejected instead of receiving misleading names.
+
+Before:
+
+```luau
+for _, v20: string in ipairs({ "RevealRigs", "DoubleRigs" }) do
+    local v21: Instance = workspace:FindFirstChild(v20)
+
+    if v21 then
+        watchRevealRigs(v21)
+    end
+end
+```
+
+After:
+
+```luau
+for _, childName: string in ipairs({ "RevealRigs", "DoubleRigs" }) do
+    local child: Instance = workspace:FindFirstChild(childName)
+
+    if child then
+        watchRevealRigs(child)
+    end
+end
+```
+
+### No `goto` in Luau output
+
+- Successfully decompiled output is now guaranteed to contain no `goto` statements or labels, including inside nested closures.
+- Reconstructs jumps using valid Luau structures such as `if`, loops, `break`, and `continue`.
+- Uses a localized state dispatcher only for rare irreducible control-flow regions.
+- Preserves local lifetimes and correctly replays enclosing `break` and `continue` behavior across dispatcher boundaries.
+- Rejects an unsupported control-flow shape instead of returning invalid Luau source.
+- Web and worker entry points now report structuring failures instead of panicking or returning invalid output.
+
+### Validation
+
+- Full workspace test suite passed.
+- 262/262 bytecode samples decompiled successfully.
+- 0 syntax errors.
+- 0 scope errors.
+- 0 decompilation failures.
+- 0 output files containing `goto` or labels.
+- Output remained deterministic across single-threaded and 24-thread release runs.
+
 ## v0.7.0 — HugeUpgrade P0–P5
 
 Tovek 0.7 is the largest correctness and readability upgrade so far. It rebuilds the decompiler pipeline from SSA destruction through final AST cleanup, with every transformation gated for Luau semantics, capture safety, side-effect ordering, multi-value behavior, NaN behavior, and deterministic output.
