@@ -801,8 +801,7 @@ fn normalize_loop_entry_region(label: &str, region: &[Statement]) -> Option<Vec<
     let hit_statement = replacement.pop()?;
     let hit_local = RcLocal::default();
     let mut hit_region = vec![hit_statement];
-    let replaced_gotos =
-        replace_label_gotos_with_breaks(&mut hit_region, label, &hit_local, 0)?;
+    let replaced_gotos = replace_label_gotos_with_breaks(&mut hit_region, label, &hit_local, 0)?;
     if replaced_gotos == 0 || seq_contains_goto(&hit_region, label) {
         return None;
     }
@@ -1440,7 +1439,10 @@ mod tests {
             panic!("hit flag reset should assign a local:\n{}", block);
         };
         assert!(
-            matches!(reset_hit.right.as_slice(), [RValue::Literal(Literal::Boolean(false))]),
+            matches!(
+                reset_hit.right.as_slice(),
+                [RValue::Literal(Literal::Boolean(false))]
+            ),
             "hit flag must reset before each replacement execution:\n{}",
             block
         );
@@ -1582,12 +1584,7 @@ mod tests {
                     )
                     .into(),
                     label("tail"),
-                    If::new(
-                        global("again"),
-                        vec![goto("tail")].into(),
-                        Block::default(),
-                    )
-                    .into(),
+                    If::new(global("again"), vec![goto("tail")].into(), Block::default()).into(),
                     print(&stage),
                 ]),
             )

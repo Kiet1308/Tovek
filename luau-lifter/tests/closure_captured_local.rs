@@ -44,8 +44,14 @@ fn closure_captured_nil_init_is_one_variable() {
     // Both connections must be declared once and then plain-assigned (not
     // re-declared with a fresh `local`), and the closures must reference the
     // assigned cell.
-    assert!(out.contains("connection = "), "missing plain assignment for connection:\n{out}");
-    assert!(out.contains("connection2 = "), "missing plain assignment for connection2:\n{out}");
+    assert!(
+        out.contains("connection = "),
+        "missing plain assignment for connection:\n{out}"
+    );
+    assert!(
+        out.contains("connection2 = "),
+        "missing plain assignment for connection2:\n{out}"
+    );
     assert!(
         out.contains("connection:Disconnect()") && out.contains("connection2:Disconnect()"),
         "closures must reference the assigned connections, not dead nil locals:\n{out}"

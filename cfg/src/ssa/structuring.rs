@@ -1098,7 +1098,9 @@ mod tests {
         let mut function = Function::new(0);
         let node = function.new_block();
         *function.block_mut(node).unwrap() =
-            Block(vec![If::new(condition, Block::default(), Block::default()).into()]);
+            Block(vec![
+                If::new(condition, Block::default(), Block::default()).into()
+            ]);
         function.set_entry(node);
         make_bool_conditional(&mut function, node, then_value, else_value).map(|r| r.to_string())
     }

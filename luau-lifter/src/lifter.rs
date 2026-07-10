@@ -1244,8 +1244,10 @@ impl<'a> Lifter<'a> {
                                     .node_indices()
                                     .filter(|&n| {
                                         self.function.block(n).and_then(|b| b.last()).is_some_and(
-                                            |s| matches!(s, ast::Statement::NumForNext(nfn)
-                                                if nfn.counter.0 == counter_lvalue),
+                                            |s| {
+                                                matches!(s, ast::Statement::NumForNext(nfn)
+                                                if nfn.counter.0 == counter_lvalue)
+                                            },
                                         )
                                     })
                                     .exactly_one()

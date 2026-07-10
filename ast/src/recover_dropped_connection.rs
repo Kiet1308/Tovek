@@ -1,8 +1,8 @@
 use rustc_hash::FxHashSet;
 
 use crate::{
-    inline_temps::collect_usage,
-    Block, LValue, Literal, RValue, RcLocal, Select, Statement, Traverse, Upvalue,
+    inline_temps::collect_usage, Block, LValue, Literal, RValue, RcLocal, Select, Statement,
+    Traverse, Upvalue,
 };
 
 /// Recover a connection assignment the SSA dropped (C13).
@@ -53,8 +53,12 @@ fn recover_in_block(
                 recover_in_block(&mut r#if.then_block.lock(), usage, assigned);
                 recover_in_block(&mut r#if.else_block.lock(), usage, assigned);
             }
-            Statement::While(r#while) => recover_in_block(&mut r#while.block.lock(), usage, assigned),
-            Statement::Repeat(repeat) => recover_in_block(&mut repeat.block.lock(), usage, assigned),
+            Statement::While(r#while) => {
+                recover_in_block(&mut r#while.block.lock(), usage, assigned)
+            }
+            Statement::Repeat(repeat) => {
+                recover_in_block(&mut repeat.block.lock(), usage, assigned)
+            }
             Statement::NumericFor(numeric_for) => {
                 recover_in_block(&mut numeric_for.block.lock(), usage, assigned)
             }
@@ -213,7 +217,10 @@ fn statement_rvalues_deep(statement: &Statement) -> Vec<&RValue> {
 fn statement_block_children(statement: &Statement) -> Vec<Block> {
     match statement {
         Statement::If(r#if) => {
-            vec![r#if.then_block.lock().clone(), r#if.else_block.lock().clone()]
+            vec![
+                r#if.then_block.lock().clone(),
+                r#if.else_block.lock().clone(),
+            ]
         }
         Statement::While(r#while) => vec![r#while.block.lock().clone()],
         Statement::Repeat(repeat) => vec![repeat.block.lock().clone()],

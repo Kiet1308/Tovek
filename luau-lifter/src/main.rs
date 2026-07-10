@@ -68,6 +68,13 @@ struct FolderArgs {
     /// Loop header names such as `i`, `k`, and `v` remain reusable between loops.
     #[arg(long)]
     dont_reuse_var: bool,
+    /// Disable P1 terminal-helper synthesis (diagnostic/ablation switch).
+    #[arg(long)]
+    no_synth_helpers: bool,
+    /// Permit relational negation flips without proving operands non-NaN.
+    /// Faster/cleaner output, but changes behavior when either operand is NaN.
+    #[arg(long)]
+    assume_no_nan: bool,
 }
 
 #[derive(clap::Args, Debug)]
@@ -93,6 +100,13 @@ struct ValidateArgs {
     /// Loop header names such as `i`, `k`, and `v` remain reusable between loops.
     #[arg(long)]
     dont_reuse_var: bool,
+    /// Disable P1 terminal-helper synthesis (diagnostic/ablation switch).
+    #[arg(long)]
+    no_synth_helpers: bool,
+    /// Permit relational negation flips without proving operands non-NaN.
+    /// Default is off to preserve exact NaN semantics.
+    #[arg(long)]
+    assume_no_nan: bool,
     /// Path to `luau-analyze.exe` (overrides LUAU_ANALYZE / --tool-dir / ROOT).
     #[arg(long)]
     analyze: Option<PathBuf>,
@@ -119,6 +133,8 @@ fn main() {
                 let key = if a.encoded { 203 } else { a.key };
                 let options = luau_lifter::DecompileOptions {
                     dont_reuse_var: a.dont_reuse_var,
+                    no_synth_helpers: a.no_synth_helpers,
+                    assume_no_nan: a.assume_no_nan,
                 };
                 let code = batch::run(&a.src, &a.out, key, a.threads, a.verbose, options);
                 std::process::exit(code);
@@ -144,6 +160,8 @@ fn main() {
                     a.verbose,
                     luau_lifter::DecompileOptions {
                         dont_reuse_var: a.dont_reuse_var,
+                        no_synth_helpers: a.no_synth_helpers,
+                        assume_no_nan: a.assume_no_nan,
                     },
                     a.analyze.as_deref(),
                     a.tool_dir.as_deref(),
@@ -173,6 +191,8 @@ fn run_single_file() {
         match arg.as_str() {
             "-e" => key = 203,
             "--dont-reuse-var" => options.dont_reuse_var = true,
+            "--no-synth-helpers" => options.no_synth_helpers = true,
+            "--assume-no-nan" => options.assume_no_nan = true,
             "--script-name" => {
                 script_name = Some(args.next().expect("--script-name requires a value"));
             }

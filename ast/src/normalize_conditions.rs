@@ -62,10 +62,12 @@
 //!   and would de-booleanize a non-boolean `X` in value context (`not (not 0)` is
 //!   `true`, but `0` is not). The double-`not` strip here is gated on
 //!   `is_boolean(X)` for exactly that reason.
-//! * Relational operators (`< <= > >=`) are NEVER flipped: `a >= b` differs from
-//!   `not (a < b)` when an operand is NaN. A `not (a < b)` is kept verbatim. This
-//!   is also why the pass must NOT call `reduce`/`reduce_condition` (which *do*
-//!   flip them) and must run before `recover_guard_continue`.
+//! * Relational operators (`< <= > >=`) are flipped only when both operands are
+//!   proven non-NaN, because `a >= b` differs from `not (a < b)` if either side
+//!   is NaN. The opt-in `assume_no_nan` mode deliberately relaxes that gate for
+//!   source-like output when callers accept the semantic tradeoff. This pass
+//!   still avoids `reduce`/`reduce_condition`, whose unconditional flips are not
+//!   safe in the default mode, and runs before `recover_guard_continue`.
 //!
 //! Rewrites are positional (operands keep their order; `and`/`or` short-circuit
 //! exactly like the ternary), so no side-effect / evaluation-order analysis is
@@ -73,34 +75,133 @@
 //! boolean-operator level per recursion — so a single post-order pass converges
 //! with no fixpoint loop.
 
+use rustc_hash::{FxHashMap, FxHashSet};
+
 use crate::{
-    binary::is_boolean, Binary, BinaryOperation, Block, IfExpression, Literal, RValue, Statement,
-    Traverse, Unary, UnaryOperation,
+    binary::is_boolean, inline_temps::collect_usage, Binary, BinaryOperation, Block, IfExpression,
+    LValue, Literal, RValue, RcLocal, Statement, Traverse, Unary, UnaryOperation,
 };
 
-/// See module docs. Walks `block`, every nested block, and every closure body.
-pub fn normalize_conditions(block: &mut Block) {
-    for statement in &mut block.0 {
-        normalize_in_statement(statement);
+#[derive(Clone, Default)]
+struct NonNanFacts {
+    locals: FxHashSet<RcLocal>,
+}
+
+impl NonNanFacts {
+    fn proves(&self, value: &RValue) -> bool {
+        proves_non_nan(value, &self.locals)
     }
 }
 
-fn normalize_in_statement(statement: &mut Statement) {
+fn record_non_nan_assignments(
+    statement: &Statement,
+    facts: &mut NonNanFacts,
+    usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>,
+) {
+    let Statement::Assign(assign) = statement else {
+        return;
+    };
+    let before = facts.clone();
+    for left in &assign.left {
+        if let LValue::Local(local) = left {
+            facts.locals.remove(local);
+        }
+    }
+    // Evaluate every RHS against the facts that existed before this parallel
+    // assignment, then publish the proven destinations together. This mirrors
+    // Luau's simultaneous-assignment semantics.
+    let additions: Vec<_> = assign
+        .left
+        .iter()
+        .zip(&assign.right)
+        .filter_map(|(left, right)| {
+            let LValue::Local(local) = left else {
+                return None;
+            };
+            (usage.get(local).is_some_and(|usage| usage.writes == 1) && before.proves(right))
+                .then(|| local.clone())
+        })
+        .collect();
+    for local in additions {
+        facts.locals.insert(local);
+    }
+}
+
+fn proves_non_nan(value: &RValue, locals: &FxHashSet<RcLocal>) -> bool {
+    match value {
+        RValue::Literal(Literal::Number(number)) => !number.is_nan(),
+        RValue::Local(local) => locals.contains(local),
+        RValue::Unary(unary) if unary.operation == UnaryOperation::Negate => {
+            proves_non_nan(&unary.value, locals)
+        }
+        _ => false,
+    }
+}
+
+/// See module docs. Walks `block`, every nested block, and every closure body.
+pub fn normalize_conditions(block: &mut Block) {
+    normalize_conditions_with_options(block, false);
+}
+
+pub fn normalize_conditions_with_options(block: &mut Block, assume_no_nan: bool) {
+    let usage = collect_usage(block);
+    normalize_block(block, assume_no_nan, &NonNanFacts::default(), &usage);
+}
+
+fn normalize_block(
+    block: &mut Block,
+    assume_no_nan: bool,
+    incoming_facts: &NonNanFacts,
+    usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>,
+) {
+    let mut facts = incoming_facts.clone();
+    for statement in &mut block.0 {
+        normalize_in_statement(statement, assume_no_nan, &facts, usage);
+        record_non_nan_assignments(statement, &mut facts, usage);
+    }
+}
+
+fn normalize_in_statement(
+    statement: &mut Statement,
+    assume_no_nan: bool,
+    facts: &NonNanFacts,
+    usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>,
+) {
     // Closures embedded in this statement's expressions are independent scopes;
     // `post_traverse_rvalues` stops at the `Closure` node (empty `Traverse`
     // impl), so descend into their bodies explicitly.
-    normalize_closures_in_statement(statement);
+    normalize_closures_in_statement(statement, assume_no_nan);
 
     // Nested statement blocks are not reached by `post_traverse_rvalues` either.
     match statement {
         Statement::If(r#if) => {
-            normalize_conditions(&mut r#if.then_block.lock());
-            normalize_conditions(&mut r#if.else_block.lock());
+            normalize_block(&mut r#if.then_block.lock(), assume_no_nan, facts, usage);
+            normalize_block(&mut r#if.else_block.lock(), assume_no_nan, facts, usage);
         }
-        Statement::While(r#while) => normalize_conditions(&mut r#while.block.lock()),
-        Statement::Repeat(repeat) => normalize_conditions(&mut repeat.block.lock()),
-        Statement::NumericFor(numeric_for) => normalize_conditions(&mut numeric_for.block.lock()),
-        Statement::GenericFor(generic_for) => normalize_conditions(&mut generic_for.block.lock()),
+        Statement::While(r#while) => {
+            normalize_block(&mut r#while.block.lock(), assume_no_nan, facts, usage)
+        }
+        Statement::Repeat(repeat) => {
+            normalize_block(&mut repeat.block.lock(), assume_no_nan, facts, usage)
+        }
+        Statement::NumericFor(numeric_for) => {
+            let mut body_facts = facts.clone();
+            if usage
+                .get(&numeric_for.counter)
+                .is_some_and(|usage| usage.writes == 1)
+            {
+                body_facts.locals.insert(numeric_for.counter.clone());
+            }
+            normalize_block(
+                &mut numeric_for.block.lock(),
+                assume_no_nan,
+                &body_facts,
+                usage,
+            )
+        }
+        Statement::GenericFor(generic_for) => {
+            normalize_block(&mut generic_for.block.lock(), assume_no_nan, facts, usage)
+        }
         _ => {}
     }
 
@@ -110,12 +211,12 @@ fn normalize_in_statement(statement: &mut Statement) {
     // children are normalized before their parent, so cascades resolve in one
     // pass.
     statement.post_traverse_rvalues(&mut |rvalue: &mut RValue| -> Option<()> {
-        normalize_node(rvalue);
+        normalize_node(rvalue, assume_no_nan, facts);
         None
     });
 }
 
-fn normalize_closures_in_statement(statement: &mut Statement) {
+fn normalize_closures_in_statement(statement: &mut Statement, assume_no_nan: bool) {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
@@ -124,12 +225,12 @@ fn normalize_closures_in_statement(statement: &mut Statement) {
         None
     });
     for function in functions {
-        normalize_conditions(&mut function.lock().body);
+        normalize_conditions_with_options(&mut function.lock().body, assume_no_nan);
     }
 }
 
 /// Apply the single-node rewrites. Children are already normalized (post-order).
-fn normalize_node(rvalue: &mut RValue) {
+fn normalize_node(rvalue: &mut RValue, assume_no_nan: bool, facts: &NonNanFacts) {
     match rvalue {
         RValue::IfExpression(_) => {
             let RValue::IfExpression(if_expr) =
@@ -137,25 +238,35 @@ fn normalize_node(rvalue: &mut RValue) {
             else {
                 unreachable!()
             };
-            *rvalue = collapse_if_expression(if_expr);
+            *rvalue = collapse_if_expression(if_expr, assume_no_nan, facts);
         }
         RValue::Unary(unary) if unary.operation == UnaryOperation::Not => {
             let RValue::Unary(unary) = std::mem::replace(rvalue, RValue::Literal(Literal::Nil))
             else {
                 unreachable!()
             };
-            *rvalue = normalize_not(*unary.value);
+            *rvalue = normalize_not(*unary.value, assume_no_nan, facts);
+        }
+        RValue::Binary(binary) if is_boolean_and_true_or(binary) => {
+            let RValue::Binary(binary) = std::mem::replace(rvalue, RValue::Literal(Literal::Nil))
+            else {
+                unreachable!()
+            };
+            *rvalue = collapse_boolean_and_true_or(binary);
+        }
+        RValue::Binary(binary) if is_exact_inverted_ternary(binary) => {
+            let RValue::Binary(binary) = std::mem::replace(rvalue, RValue::Literal(Literal::Nil))
+            else {
+                unreachable!()
+            };
+            *rvalue = inverted_ternary(binary);
         }
         // Part C (§2.4) — left-reassociate a same-operator `and`/`or` spine.
         RValue::Binary(binary)
-            if matches!(
-                binary.operation,
-                BinaryOperation::And | BinaryOperation::Or
-            ) =>
+            if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) =>
         {
             let operation = binary.operation;
-            let RValue::Binary(binary) =
-                std::mem::replace(rvalue, RValue::Literal(Literal::Nil))
+            let RValue::Binary(binary) = std::mem::replace(rvalue, RValue::Literal(Literal::Nil))
             else {
                 unreachable!()
             };
@@ -163,6 +274,60 @@ fn normalize_node(rvalue: &mut RValue) {
         }
         _ => {}
     }
+    normalize_comparison_order(rvalue);
+}
+
+/// `(X and true) or Y -> X or Y` is value-exact only when `X` is already a
+/// boolean. Both forms evaluate `X` first and evaluate `Y` iff `X` is false.
+fn is_boolean_and_true_or(binary: &Binary) -> bool {
+    if binary.operation != BinaryOperation::Or {
+        return false;
+    }
+    let RValue::Binary(and) = &*binary.left else {
+        return false;
+    };
+    and.operation == BinaryOperation::And
+        && matches!(&*and.right, RValue::Literal(Literal::Boolean(true)))
+        && is_boolean(&and.left)
+}
+
+fn collapse_boolean_and_true_or(binary: Binary) -> RValue {
+    let RValue::Binary(and) = *binary.left else {
+        unreachable!()
+    };
+    Binary::new(*and.left, *binary.right, BinaryOperation::Or).into()
+}
+
+fn is_guaranteed_truthy(value: &RValue) -> bool {
+    matches!(
+        value,
+        RValue::Literal(
+            Literal::Boolean(true) | Literal::Number(_) | Literal::String(_) | Literal::Vector(..),
+        ) | RValue::Table(_)
+            | RValue::Closure(_)
+    )
+}
+
+fn is_exact_inverted_ternary(binary: &Binary) -> bool {
+    if binary.operation != BinaryOperation::Or {
+        return false;
+    }
+    let RValue::Binary(and) = &*binary.left else {
+        return false;
+    };
+    and.operation == BinaryOperation::And
+        && matches!(&*and.left, RValue::Unary(unary) if unary.operation == UnaryOperation::Not)
+        && is_guaranteed_truthy(&and.right)
+}
+
+fn inverted_ternary(binary: Binary) -> RValue {
+    let RValue::Binary(and) = *binary.left else {
+        unreachable!()
+    };
+    let RValue::Unary(not) = *and.left else {
+        unreachable!()
+    };
+    IfExpression::new(*not.value, *binary.right, *and.right).into()
 }
 
 /// Part C (§2.4). Flatten the maximal contiguous same-operator (`and`/`or`)
@@ -212,7 +377,11 @@ fn collect_spine(rvalue: RValue, operation: BinaryOperation, operands: &mut Vec<
 
 /// Part A. Collapse an owned `IfExpression`; returns the original (rebuilt) when
 /// no rule applies — e.g. `else nil`, or a non-boolean condition.
-fn collapse_if_expression(if_expr: IfExpression) -> RValue {
+fn collapse_if_expression(
+    if_expr: IfExpression,
+    assume_no_nan: bool,
+    facts: &NonNanFacts,
+) -> RValue {
     let IfExpression {
         condition,
         then_value,
@@ -229,7 +398,7 @@ fn collapse_if_expression(if_expr: IfExpression) -> RValue {
 
     // `if C then false else true` -> `not C`  (unconditional; `not` booleanizes).
     if then_false && else_true {
-        return normalize_not(condition);
+        return normalize_not(condition, assume_no_nan, facts);
     }
     // `if C then true else false` -> `C`  (only when C is already boolean;
     // checked before the `else false` rule so we emit `C`, not `C and true`).
@@ -253,7 +422,7 @@ fn collapse_if_expression(if_expr: IfExpression) -> RValue {
 
 /// Part B. Returns the value-exact, simplified form of `not inner`. `inner` is
 /// already normalized.
-fn normalize_not(inner: RValue) -> RValue {
+fn normalize_not(inner: RValue, assume_no_nan: bool, facts: &NonNanFacts) -> RValue {
     match inner {
         // not (a == b) -> a ~= b ; not (a ~= b) -> a == b. Always exact:
         // `==`/`~=` are total booleans and exact complements (even for NaN).
@@ -262,6 +431,18 @@ fn normalize_not(inner: RValue) -> RValue {
         }
         RValue::Binary(binary) if binary.operation == BinaryOperation::NotEqual => {
             Binary::new(*binary.left, *binary.right, BinaryOperation::Equal).into()
+        }
+        RValue::Binary(binary)
+            if is_relational(binary.operation)
+                && (assume_no_nan
+                    || (facts.proves(&binary.left) && facts.proves(&binary.right))) =>
+        {
+            Binary::new(
+                *binary.left,
+                *binary.right,
+                relational_complement(binary.operation),
+            )
+            .into()
         }
         // not true -> false, not false -> true. Exact, and avoids leaving a
         // `not true` behind when De Morgan negates a boolean-literal operand.
@@ -278,18 +459,17 @@ fn normalize_not(inner: RValue) -> RValue {
         // operand negations recurse through `normalize_not`, so a `not X` operand
         // is kept value-safe (NOT stripped via `negate`).
         RValue::Binary(binary)
-            if matches!(
-                binary.operation,
-                BinaryOperation::And | BinaryOperation::Or
-            ) && (negation_simplifies(&binary.left) || negation_simplifies(&binary.right)) =>
+            if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or)
+                && (negation_simplifies(&binary.left, assume_no_nan, facts)
+                    || negation_simplifies(&binary.right, assume_no_nan, facts)) =>
         {
             let flipped = if binary.operation == BinaryOperation::And {
                 BinaryOperation::Or
             } else {
                 BinaryOperation::And
             };
-            let left = normalize_not(*binary.left);
-            let right = normalize_not(*binary.right);
+            let left = normalize_not(*binary.left, assume_no_nan, facts);
+            let right = normalize_not(*binary.right, assume_no_nan, facts);
             Binary::new(left, right, flipped).into()
         }
         // Relational comparators, plain locals/fields/calls, non-boolean `not`,
@@ -303,7 +483,7 @@ fn normalize_not(inner: RValue) -> RValue {
 /// strip a boolean double-`not`) rather than just wrap it in a fresh `not`? This
 /// keeps `not (p and p.Parent)` (plain guard) untouched while expanding
 /// `not (a == 1 and b == 2)`.
-fn negation_simplifies(x: &RValue) -> bool {
+fn negation_simplifies(x: &RValue, assume_no_nan: bool, facts: &NonNanFacts) -> bool {
     match x {
         RValue::Unary(unary) if unary.operation == UnaryOperation::Not => is_boolean(&unary.value),
         RValue::Binary(binary)
@@ -315,15 +495,64 @@ fn negation_simplifies(x: &RValue) -> bool {
             true
         }
         RValue::Binary(binary)
-            if matches!(
-                binary.operation,
-                BinaryOperation::And | BinaryOperation::Or
-            ) =>
+            if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) =>
         {
-            negation_simplifies(&binary.left) || negation_simplifies(&binary.right)
+            negation_simplifies(&binary.left, assume_no_nan, facts)
+                || negation_simplifies(&binary.right, assume_no_nan, facts)
+        }
+        RValue::Binary(binary) if is_relational(binary.operation) => {
+            assume_no_nan || (facts.proves(&binary.left) && facts.proves(&binary.right))
         }
         _ => false,
     }
+}
+
+fn is_relational(operation: BinaryOperation) -> bool {
+    matches!(
+        operation,
+        BinaryOperation::LessThan
+            | BinaryOperation::LessThanOrEqual
+            | BinaryOperation::GreaterThan
+            | BinaryOperation::GreaterThanOrEqual
+    )
+}
+
+fn relational_complement(operation: BinaryOperation) -> BinaryOperation {
+    match operation {
+        BinaryOperation::LessThan => BinaryOperation::GreaterThanOrEqual,
+        BinaryOperation::LessThanOrEqual => BinaryOperation::GreaterThan,
+        BinaryOperation::GreaterThan => BinaryOperation::LessThanOrEqual,
+        BinaryOperation::GreaterThanOrEqual => BinaryOperation::LessThan,
+        _ => unreachable!("relational_complement requires a relational operator"),
+    }
+}
+
+fn swapped_comparison(operation: BinaryOperation) -> Option<BinaryOperation> {
+    Some(match operation {
+        BinaryOperation::Equal | BinaryOperation::NotEqual => operation,
+        BinaryOperation::LessThan => BinaryOperation::GreaterThan,
+        BinaryOperation::LessThanOrEqual => BinaryOperation::GreaterThanOrEqual,
+        BinaryOperation::GreaterThan => BinaryOperation::LessThan,
+        BinaryOperation::GreaterThanOrEqual => BinaryOperation::LessThanOrEqual,
+        _ => return None,
+    })
+}
+
+/// Put a literal on the right (`5 < x` -> `x > 5`). This is an operator-level
+/// identity, including NaN behavior; it does not complement a predicate.
+fn normalize_comparison_order(value: &mut RValue) {
+    let RValue::Binary(binary) = value else {
+        return;
+    };
+    if !matches!(&*binary.left, RValue::Literal(_)) || matches!(&*binary.right, RValue::Literal(_))
+    {
+        return;
+    }
+    let Some(operation) = swapped_comparison(binary.operation) else {
+        return;
+    };
+    std::mem::swap(&mut binary.left, &mut binary.right);
+    binary.operation = operation;
 }
 
 fn is_bool_lit(value: &RValue, expected: bool) -> bool {
@@ -332,10 +561,10 @@ fn is_bool_lit(value: &RValue, expected: bool) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_conditions;
+    use super::{normalize_conditions, normalize_conditions_with_options};
     use crate::{
         Assign, Binary, BinaryOperation, Block, Call, Global, IfExpression, Index, LValue, Literal,
-        Local, RValue, RcLocal, Return, Statement, Unary, UnaryOperation,
+        Local, MethodCall, RValue, RcLocal, Return, Statement, Unary, UnaryOperation,
     };
 
     fn local(name: &str) -> RcLocal {
@@ -416,7 +645,209 @@ mod tests {
         block.to_string()
     }
 
+    fn render_assuming_no_nan(statement: Statement) -> String {
+        let mut block = Block(vec![statement]);
+        normalize_conditions_with_options(&mut block, true);
+        block.to_string()
+    }
+
+    #[derive(Clone, Debug)]
+    enum TestValue {
+        Nil,
+        Boolean(bool),
+        Number(f64),
+        String(Vec<u8>),
+    }
+
+    fn test_value_eq(left: &TestValue, right: &TestValue) -> bool {
+        match (left, right) {
+            (TestValue::Nil, TestValue::Nil) => true,
+            (TestValue::Boolean(left), TestValue::Boolean(right)) => left == right,
+            (TestValue::Number(left), TestValue::Number(right)) => {
+                left.to_bits() == right.to_bits()
+            }
+            (TestValue::String(left), TestValue::String(right)) => left == right,
+            _ => false,
+        }
+    }
+
+    fn lua_equal(left: &TestValue, right: &TestValue) -> bool {
+        match (left, right) {
+            (TestValue::Nil, TestValue::Nil) => true,
+            (TestValue::Boolean(left), TestValue::Boolean(right)) => left == right,
+            (TestValue::Number(left), TestValue::Number(right)) => left == right,
+            (TestValue::String(left), TestValue::String(right)) => left == right,
+            _ => false,
+        }
+    }
+
+    fn truthy(value: &TestValue) -> bool {
+        !matches!(value, TestValue::Nil | TestValue::Boolean(false))
+    }
+
+    fn eval(value: &RValue, environment: &[(RcLocal, TestValue)]) -> TestValue {
+        match value {
+            RValue::Local(local) => environment
+                .iter()
+                .find(|(candidate, _)| candidate == local)
+                .map(|(_, value)| value.clone())
+                .expect("truth-table local missing from environment"),
+            RValue::Literal(Literal::Nil) => TestValue::Nil,
+            RValue::Literal(Literal::Boolean(value)) => TestValue::Boolean(*value),
+            RValue::Literal(Literal::Number(value)) => TestValue::Number(*value),
+            RValue::Literal(Literal::String(value)) => TestValue::String(value.clone()),
+            RValue::Unary(unary) if unary.operation == UnaryOperation::Not => {
+                TestValue::Boolean(!truthy(&eval(&unary.value, environment)))
+            }
+            RValue::Unary(unary) if unary.operation == UnaryOperation::Negate => {
+                let TestValue::Number(value) = eval(&unary.value, environment) else {
+                    panic!("numeric truth-table negation received a non-number")
+                };
+                TestValue::Number(-value)
+            }
+            RValue::Binary(binary) if binary.operation == BinaryOperation::And => {
+                let left = eval(&binary.left, environment);
+                if truthy(&left) {
+                    eval(&binary.right, environment)
+                } else {
+                    left
+                }
+            }
+            RValue::Binary(binary) if binary.operation == BinaryOperation::Or => {
+                let left = eval(&binary.left, environment);
+                if truthy(&left) {
+                    left
+                } else {
+                    eval(&binary.right, environment)
+                }
+            }
+            RValue::Binary(binary)
+                if matches!(
+                    binary.operation,
+                    BinaryOperation::Equal | BinaryOperation::NotEqual
+                ) =>
+            {
+                let equal = lua_equal(
+                    &eval(&binary.left, environment),
+                    &eval(&binary.right, environment),
+                );
+                TestValue::Boolean(if binary.operation == BinaryOperation::Equal {
+                    equal
+                } else {
+                    !equal
+                })
+            }
+            RValue::Binary(binary) if binary.operation.is_comparator() => {
+                let TestValue::Number(left) = eval(&binary.left, environment) else {
+                    panic!("relational truth-table operand is not numeric")
+                };
+                let TestValue::Number(right) = eval(&binary.right, environment) else {
+                    panic!("relational truth-table operand is not numeric")
+                };
+                let result = match binary.operation {
+                    BinaryOperation::LessThan => left < right,
+                    BinaryOperation::LessThanOrEqual => left <= right,
+                    BinaryOperation::GreaterThan => left > right,
+                    BinaryOperation::GreaterThanOrEqual => left >= right,
+                    _ => unreachable!(),
+                };
+                TestValue::Boolean(result)
+            }
+            RValue::IfExpression(if_expression) => {
+                if truthy(&eval(&if_expression.condition, environment)) {
+                    eval(&if_expression.then_value, environment)
+                } else {
+                    eval(&if_expression.else_value, environment)
+                }
+            }
+            other => panic!("unsupported truth-table expression: {other:?}"),
+        }
+    }
+
+    /// Exhaustively compare concrete values over {nil, false, truthy-number} for
+    /// up to four variables. This catches truthiness-preserving but value-unsafe
+    /// rewrites (the central `and`/`or` pitfall) automatically.
+    fn assert_ternary_domain_preserved(input: RValue, locals: &[RcLocal]) {
+        assert!(locals.len() <= 4);
+        let before = input.clone();
+        let mut block = Block(vec![ret(input)]);
+        normalize_conditions(&mut block);
+        let Statement::Return(output) = &block.0[0] else {
+            unreachable!()
+        };
+        let after = &output.values[0];
+        let domain = [
+            TestValue::Nil,
+            TestValue::Boolean(false),
+            TestValue::Number(7.0),
+        ];
+
+        for mut case in 0..3usize.pow(locals.len() as u32) {
+            let mut environment = Vec::with_capacity(locals.len());
+            for local in locals {
+                environment.push((local.clone(), domain[case % 3].clone()));
+                case /= 3;
+            }
+            let before_value = eval(&before, &environment);
+            let after_value = eval(after, &environment);
+            assert!(
+                test_value_eq(&before_value, &after_value),
+                "truth table mismatch for {environment:?}: before={before_value:?}, after={after_value:?}; expression={after:?}"
+            );
+        }
+    }
+
     // ---- Part A: IfExpression collapse ----
+
+    #[test]
+    fn exhaustive_truth_table_for_value_sensitive_rules() {
+        let a = local("a");
+        let b = local("b");
+        let c = local("c");
+
+        assert_ternary_domain_preserved(
+            if_expr(eq(lv(&a), lv(&b)), eq(lv(&b), lv(&c)), boolean(false)),
+            &[a.clone(), b.clone(), c.clone()],
+        );
+        assert_ternary_domain_preserved(
+            or(and(not(lv(&a)), number(1.0)), lv(&b)),
+            &[a.clone(), b.clone()],
+        );
+        assert_ternary_domain_preserved(
+            or(and(not(lv(&a)), boolean(true)), lv(&b)),
+            &[a.clone(), b.clone()],
+        );
+        assert_ternary_domain_preserved(
+            not(and(eq(lv(&a), lv(&b)), ne(lv(&b), lv(&c)))),
+            &[a, b, c],
+        );
+    }
+
+    #[test]
+    fn exhaustive_nan_table_keeps_default_relational_negation_exact() {
+        let a = local("a");
+        let b = local("b");
+        let before = not(lt(lv(&a), lv(&b)));
+        let mut block = Block(vec![ret(before.clone())]);
+        normalize_conditions(&mut block);
+        let Statement::Return(output) = &block.0[0] else {
+            unreachable!()
+        };
+        let after = &output.values[0];
+        let numbers = [f64::NAN, -1.0, 0.0, 1.0];
+        for left in numbers {
+            for right in numbers {
+                let environment = vec![
+                    (a.clone(), TestValue::Number(left)),
+                    (b.clone(), TestValue::Number(right)),
+                ];
+                assert!(test_value_eq(
+                    &eval(&before, &environment),
+                    &eval(after, &environment)
+                ));
+            }
+        }
+    }
 
     #[test]
     fn comparator_then_value_else_false_becomes_and() {
@@ -457,7 +888,11 @@ mod tests {
         let a = local("a");
         let b = local("b");
         assert_eq!(
-            render(ret(if_expr(eq(lv(&a), lv(&b)), boolean(true), boolean(false)))),
+            render(ret(if_expr(
+                eq(lv(&a), lv(&b)),
+                boolean(true),
+                boolean(false)
+            ))),
             "return a == b"
         );
     }
@@ -478,7 +913,11 @@ mod tests {
         let a = local("a");
         let b = local("b");
         assert_eq!(
-            render(ret(if_expr(eq(lv(&a), lv(&b)), boolean(false), boolean(true)))),
+            render(ret(if_expr(
+                eq(lv(&a), lv(&b)),
+                boolean(false),
+                boolean(true)
+            ))),
             "return a ~= b"
         );
     }
@@ -502,7 +941,11 @@ mod tests {
             RValue::Index(Index::new(field(&p, "_marketFrame"), string("Visible")));
         let then = or(market_frame_visible, boolean(false));
         assert_eq!(
-            render(ret(if_expr(field(&p, "_marketFrame"), then, boolean(false)))),
+            render(ret(if_expr(
+                field(&p, "_marketFrame"),
+                then,
+                boolean(false)
+            ))),
             "return if p._marketFrame then p._marketFrame.Visible or false else false"
         );
     }
@@ -611,6 +1054,162 @@ mod tests {
         let a = local("a");
         let b = local("b");
         assert_eq!(render(ret(not(lt(lv(&a), lv(&b))))), "return not (a < b)");
+    }
+
+    #[test]
+    fn flips_relational_when_both_operands_are_proven_non_nan() {
+        assert_eq!(
+            render(ret(not(lt(number(1.0), number(2.0))))),
+            "return 1 >= 2"
+        );
+    }
+
+    #[test]
+    fn one_non_nan_operand_is_not_enough() {
+        let x = local("x");
+        assert_eq!(
+            render(ret(not(lt(lv(&x), number(2.0))))),
+            "return not (x < 2)"
+        );
+    }
+
+    #[test]
+    fn length_is_not_non_nan_without_primitive_type_proof() {
+        let value = local("value");
+        let length = Unary::new(lv(&value), UnaryOperation::Length).into();
+        assert_eq!(
+            render(ret(not(lt(length, number(0.0))))),
+            "return not (#value < 0)"
+        );
+    }
+
+    #[test]
+    fn mutable_standard_library_global_is_not_non_nan_proof() {
+        let huge = RValue::Index(Index::new(global("math"), string("huge")));
+        assert_eq!(
+            render(ret(not(lt(huge, number(0.0))))),
+            "return not (math.huge < 0)"
+        );
+    }
+
+    #[test]
+    fn single_assignment_non_nan_propagates_to_relational() {
+        let x = local("x");
+        let mut declaration = Assign::new(vec![LValue::Local(x.clone())], vec![number(5.0)]);
+        declaration.prefix = true;
+        let mut block = Block(vec![
+            Statement::Assign(declaration),
+            ret(not(lt(lv(&x), number(10.0)))),
+        ]);
+        normalize_conditions(&mut block);
+        assert_eq!(block.to_string(), "local x = 5\nreturn x >= 10");
+    }
+
+    #[test]
+    fn later_assignment_does_not_prove_earlier_use_non_nan() {
+        let x = local("x");
+        let mut assignment = Assign::new(vec![LValue::Local(x.clone())], vec![number(1.0)]);
+        assignment.prefix = false;
+        let mut block = Block(vec![
+            ret(not(lt(lv(&x), number(0.0)))),
+            Statement::Assign(assignment),
+        ]);
+
+        normalize_conditions(&mut block);
+
+        assert_eq!(block.to_string(), "return not (x < 0)\nx = 1");
+    }
+
+    #[test]
+    fn branch_assignment_does_not_prove_post_branch_use() {
+        let condition = local("condition");
+        let x = local("x");
+        let assignment: Statement =
+            Assign::new(vec![LValue::Local(x.clone())], vec![number(1.0)]).into();
+        let branch: Statement =
+            crate::If::new(lv(&condition), Block(vec![assignment]), Block::default()).into();
+        let mut block = Block(vec![branch, ret(not(lt(lv(&x), number(0.0))))]);
+
+        normalize_conditions(&mut block);
+
+        assert!(block.to_string().ends_with("return not (x < 0)"));
+    }
+
+    #[test]
+    fn assume_no_nan_flag_flips_unknown_relational() {
+        let x = local("x");
+        let y = local("y");
+        assert_eq!(
+            render_assuming_no_nan(ret(not(lt(lv(&x), lv(&y))))),
+            "return x >= y"
+        );
+    }
+
+    #[test]
+    fn literal_left_comparison_is_swapped_exactly() {
+        let x = local("x");
+        assert_eq!(render(ret(lt(number(5.0), lv(&x)))), "return x > 5");
+    }
+
+    #[test]
+    fn inverted_truthy_and_or_becomes_if_expression() {
+        let condition = local("condition");
+        let fallback = local("fallback");
+        assert_eq!(
+            render(ret(or(
+                and(not(lv(&condition)), number(1.0)),
+                lv(&fallback),
+            ))),
+            "return if condition then fallback else 1"
+        );
+    }
+
+    #[test]
+    fn boolean_and_true_or_collapses_before_inverted_ternary() {
+        let a = local("a");
+        let b = local("b");
+        let fallback = local("fallback");
+        assert_eq!(
+            render(ret(or(
+                and(not(eq(lv(&a), lv(&b))), boolean(true)),
+                lv(&fallback),
+            ))),
+            "return a ~= b or fallback"
+        );
+    }
+
+    #[test]
+    fn isa_is_not_assumed_boolean_without_receiver_type() {
+        let instance = local("instance");
+        let fallback = local("fallback");
+        let is_part = MethodCall::new(lv(&instance), "IsA".into(), vec![string("Part")]).into();
+        assert_eq!(
+            render(ret(or(and(is_part, boolean(true)), lv(&fallback),))),
+            "return instance:IsA(\"Part\") and true or fallback"
+        );
+    }
+
+    #[test]
+    fn nonboolean_and_true_or_is_not_collapsed() {
+        let value = local("value");
+        let fallback = local("fallback");
+        assert_eq!(
+            render(ret(or(and(lv(&value), boolean(true)), lv(&fallback),))),
+            "return value and true or fallback"
+        );
+    }
+
+    #[test]
+    fn inverted_and_or_refuses_falsy_middle_value() {
+        let condition = local("condition");
+        let fallback = local("fallback");
+        assert_eq!(
+            render(ret(or(
+                and(not(lv(&condition)), boolean(false)),
+                lv(&fallback),
+            ))),
+            "return not condition and false or fallback"
+        );
     }
 
     #[test]
@@ -760,7 +1359,11 @@ mod tests {
         //   -> body return collapses to `return a == b`.
         let a = local("a");
         let b = local("b");
-        let body = vec![ret(if_expr(eq(lv(&a), lv(&b)), boolean(true), boolean(false)))];
+        let body = vec![ret(if_expr(
+            eq(lv(&a), lv(&b)),
+            boolean(true),
+            boolean(false),
+        ))];
         let stmt: Statement =
             crate::GenericFor::new(vec![local("x")], vec![global("pairs")], Block(body)).into();
         assert!(
@@ -889,13 +1492,10 @@ mod tests {
             string("number"),
         );
         let p_eq_p = eq(lv(&p), lv(&p));
-        let neg_huge: RValue =
-            Unary::new(field(&math, "huge"), UnaryOperation::Negate).into();
-        let p_gt_neg_huge =
-            Binary::new(lv(&p), neg_huge, BinaryOperation::GreaterThan).into();
+        let neg_huge: RValue = Unary::new(field(&math, "huge"), UnaryOperation::Negate).into();
+        let p_gt_neg_huge = Binary::new(lv(&p), neg_huge, BinaryOperation::GreaterThan).into();
         let inner = and(p_eq_p, p_gt_neg_huge);
-        let p_lt_huge =
-            Binary::new(lv(&p), field(&math, "huge"), BinaryOperation::LessThan).into();
+        let p_lt_huge = Binary::new(lv(&p), field(&math, "huge"), BinaryOperation::LessThan).into();
         // Right-leaning as the decompiler builds it: A and (B and C).
         let spine = and(typeof_number, and(inner, p_lt_huge));
         assert_eq!(
@@ -931,7 +1531,10 @@ mod tests {
         let d = local("d");
         let e = local("e");
         let f = local("f");
-        let spine = or(eq(lv(&a), lv(&b)), or(eq(lv(&c), lv(&d)), eq(lv(&e), lv(&f))));
+        let spine = or(
+            eq(lv(&a), lv(&b)),
+            or(eq(lv(&c), lv(&d)), eq(lv(&e), lv(&f))),
+        );
         assert_eq!(
             render(ret(not(spine))),
             "return a ~= b and c ~= d and e ~= f"

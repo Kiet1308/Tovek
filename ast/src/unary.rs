@@ -178,8 +178,10 @@ impl Reduce for Unary {
         if self.operation == UnaryOperation::Length {
             let value = self.value.reduce();
             return if !value.has_side_effects()
-                && matches!(value, RValue::Literal(Literal::String(_)) | RValue::Table(_))
-            {
+                && matches!(
+                    value,
+                    RValue::Literal(Literal::String(_)) | RValue::Table(_)
+                ) {
                 RValue::Literal(Literal::Boolean(true))
             } else {
                 Unary {
@@ -357,7 +359,9 @@ mod tests {
     #[test]
     fn length_of_local_or_side_effect_stays_a_length() {
         assert!(is_length(&len_condition(RValue::Local(RcLocal::default()))));
-        assert!(is_length(&len_condition(RValue::Global(Global::from("foo")))));
+        assert!(is_length(&len_condition(RValue::Global(Global::from(
+            "foo"
+        )))));
     }
 
     #[test]

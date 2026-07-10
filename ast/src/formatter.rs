@@ -48,9 +48,7 @@ fn compound_assign_target_matches(target: &LValue, binary_left: &RValue) -> bool
     match (target, binary_left) {
         (LValue::Local(t), RValue::Local(l)) => t == l,
         (LValue::Index(lhs), RValue::Index(rhs)) => {
-            pure_repeatable(&lhs.left)
-                && pure_repeatable(&lhs.right)
-                && lhs == rhs
+            pure_repeatable(&lhs.left) && pure_repeatable(&lhs.right) && lhs == rhs
         }
         _ => false,
     }
@@ -71,9 +69,7 @@ fn pure_repeatable(rvalue: &RValue) -> bool {
         RValue::Local(_) | RValue::Literal(_) => true,
         RValue::Index(index) => pure_repeatable(&index.left) && pure_repeatable(&index.right),
         RValue::Unary(unary) => pure_repeatable(&unary.value),
-        RValue::Binary(binary) => {
-            pure_repeatable(&binary.left) && pure_repeatable(&binary.right)
-        }
+        RValue::Binary(binary) => pure_repeatable(&binary.left) && pure_repeatable(&binary.right),
         RValue::Global(_)
         | RValue::Call(_)
         | RValue::MethodCall(_)
@@ -191,14 +187,38 @@ mod tests {
         let total = local("total");
         let text = local("text");
         let block = Block(vec![
-            reassign(&total, binary(local_value(&total), number(1.0), BinaryOperation::Add)),
-            reassign(&total, binary(local_value(&total), number(2.0), BinaryOperation::Sub)),
-            reassign(&total, binary(local_value(&total), number(3.0), BinaryOperation::Mul)),
-            reassign(&total, binary(local_value(&total), number(4.0), BinaryOperation::Div)),
-            reassign(&total, binary(local_value(&total), number(7.0), BinaryOperation::IDiv)),
-            reassign(&total, binary(local_value(&total), number(5.0), BinaryOperation::Mod)),
-            reassign(&total, binary(local_value(&total), number(6.0), BinaryOperation::Pow)),
-            reassign(&text, binary(local_value(&text), string("!"), BinaryOperation::Concat)),
+            reassign(
+                &total,
+                binary(local_value(&total), number(1.0), BinaryOperation::Add),
+            ),
+            reassign(
+                &total,
+                binary(local_value(&total), number(2.0), BinaryOperation::Sub),
+            ),
+            reassign(
+                &total,
+                binary(local_value(&total), number(3.0), BinaryOperation::Mul),
+            ),
+            reassign(
+                &total,
+                binary(local_value(&total), number(4.0), BinaryOperation::Div),
+            ),
+            reassign(
+                &total,
+                binary(local_value(&total), number(7.0), BinaryOperation::IDiv),
+            ),
+            reassign(
+                &total,
+                binary(local_value(&total), number(5.0), BinaryOperation::Mod),
+            ),
+            reassign(
+                &total,
+                binary(local_value(&total), number(6.0), BinaryOperation::Pow),
+            ),
+            reassign(
+                &text,
+                binary(local_value(&text), string("!"), BinaryOperation::Concat),
+            ),
         ]);
 
         assert_eq!(
@@ -232,8 +252,14 @@ mod tests {
         let x = local("x");
         let a = local("a");
         let block = Block(vec![
-            reassign(&x, binary(local_value(&a), local_value(&x), BinaryOperation::Sub)),
-            reassign(&x, binary(local_value(&a), local_value(&x), BinaryOperation::Add)),
+            reassign(
+                &x,
+                binary(local_value(&a), local_value(&x), BinaryOperation::Sub),
+            ),
+            reassign(
+                &x,
+                binary(local_value(&a), local_value(&x), BinaryOperation::Add),
+            ),
         ]);
 
         assert_eq!(block.to_string(), "x = a - x\nx = a + x");
@@ -243,9 +269,18 @@ mod tests {
     fn no_compound_assignment_for_operations_without_a_compound_form() {
         let x = local("x");
         let block = Block(vec![
-            reassign(&x, binary(local_value(&x), number(1.0), BinaryOperation::Equal)),
-            reassign(&x, binary(local_value(&x), boolean(true), BinaryOperation::And)),
-            reassign(&x, binary(local_value(&x), boolean(false), BinaryOperation::Or)),
+            reassign(
+                &x,
+                binary(local_value(&x), number(1.0), BinaryOperation::Equal),
+            ),
+            reassign(
+                &x,
+                binary(local_value(&x), boolean(true), BinaryOperation::And),
+            ),
+            reassign(
+                &x,
+                binary(local_value(&x), boolean(false), BinaryOperation::Or),
+            ),
         ]);
 
         assert_eq!(
@@ -279,12 +314,19 @@ mod tests {
         let count = local("count");
         let mut declaration = Assign::new(
             vec![LValue::Local(count.clone())],
-            vec![binary(local_value(&count), number(1.0), BinaryOperation::Add)],
+            vec![binary(
+                local_value(&count),
+                number(1.0),
+                BinaryOperation::Add,
+            )],
         );
         declaration.prefix = true;
         let block = Block(vec![
             Assign::new(
-                vec![LValue::Index(Index::new(local_value(&record), string("Count")))],
+                vec![LValue::Index(Index::new(
+                    local_value(&record),
+                    string("Count"),
+                ))],
                 vec![binary(
                     RValue::Index(Index::new(local_value(&record), string("Count"))),
                     number(1.0),
@@ -328,7 +370,11 @@ mod tests {
         let lhs = || Index::new(local_value(&t), key());
         let block = Block(vec![Assign::new(
             vec![LValue::Index(lhs())],
-            vec![binary(RValue::Index(lhs()), number(1.0), BinaryOperation::Add)],
+            vec![binary(
+                RValue::Index(lhs()),
+                number(1.0),
+                BinaryOperation::Add,
+            )],
         )
         .into()]);
 
@@ -342,7 +388,11 @@ mod tests {
         let lhs = || Index::new(base(), string("k"));
         let block = Block(vec![Assign::new(
             vec![LValue::Index(lhs())],
-            vec![binary(RValue::Index(lhs()), number(1.0), BinaryOperation::Add)],
+            vec![binary(
+                RValue::Index(lhs()),
+                number(1.0),
+                BinaryOperation::Add,
+            )],
         )
         .into()]);
 
@@ -365,7 +415,11 @@ mod tests {
         };
         let block = Block(vec![Assign::new(
             vec![LValue::Index(lhs())],
-            vec![binary(RValue::Index(lhs()), number(1.0), BinaryOperation::Add)],
+            vec![binary(
+                RValue::Index(lhs()),
+                number(1.0),
+                BinaryOperation::Add,
+            )],
         )
         .into()]);
 
@@ -445,9 +499,10 @@ mod tests {
     fn escape_string_keeps_apostrophe_bare_inside_double_quotes() {
         // The delimiter is always `"`, so a `'` is the same byte whether written
         // `'` or `\'`. The formatter must emit a bare `'` (idiomatic, value-exact).
-        let block = Block(vec![
-            Return::new(vec![string("No part tagged 'BossPortal' found")]).into(),
-        ]);
+        let block = Block(vec![Return::new(vec![string(
+            "No part tagged 'BossPortal' found",
+        )])
+        .into()]);
         assert_eq!(
             block.to_string(),
             "return \"No part tagged 'BossPortal' found\""
@@ -469,11 +524,13 @@ mod tests {
         let a = local("a");
         let b = local("b");
         let c = local("c");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall::new(
-            string("[%*] %* [%*kg]"),
-            "format".to_string(),
-            vec![local_value(&a), local_value(&b), local_value(&c)],
-        ))])
+        let block = Block(vec![Return::new(vec![RValue::MethodCall(
+            MethodCall::new(
+                string("[%*] %* [%*kg]"),
+                "format".to_string(),
+                vec![local_value(&a), local_value(&b), local_value(&c)],
+            ),
+        )])
         .into()]);
 
         assert_eq!(block.to_string(), "return `[{a}] {b} [{c}kg]`");
@@ -483,11 +540,13 @@ mod tests {
     fn format_interpolation_double_percent_becomes_literal_percent() {
         // `("100%% %*"):format(x)` -> `` `100% {x}` ``
         let x = local("x");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall::new(
-            string("100%% %*"),
-            "format".to_string(),
-            vec![local_value(&x)],
-        ))])
+        let block = Block(vec![Return::new(vec![RValue::MethodCall(
+            MethodCall::new(
+                string("100%% %*"),
+                "format".to_string(),
+                vec![local_value(&x)],
+            ),
+        )])
         .into()]);
 
         assert_eq!(block.to_string(), "return `100% {x}`");
@@ -497,11 +556,13 @@ mod tests {
     fn format_interpolation_aborts_on_other_specifier() {
         // A `%d` is not `%*`; keep the normal `:format` call unchanged.
         let x = local("x");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall::new(
-            string("count: %d"),
-            "format".to_string(),
-            vec![local_value(&x)],
-        ))])
+        let block = Block(vec![Return::new(vec![RValue::MethodCall(
+            MethodCall::new(
+                string("count: %d"),
+                "format".to_string(),
+                vec![local_value(&x)],
+            ),
+        )])
         .into()]);
 
         assert_eq!(block.to_string(), "return (\"count: %d\"):format(x)");
@@ -511,11 +572,13 @@ mod tests {
     fn format_interpolation_aborts_on_arity_mismatch() {
         // Two `%*` but only one argument — abort to `:format`.
         let x = local("x");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall::new(
-            string("%* and %*"),
-            "format".to_string(),
-            vec![local_value(&x)],
-        ))])
+        let block = Block(vec![Return::new(vec![RValue::MethodCall(
+            MethodCall::new(
+                string("%* and %*"),
+                "format".to_string(),
+                vec![local_value(&x)],
+            ),
+        )])
         .into()]);
 
         assert_eq!(block.to_string(), "return (\"%* and %*\"):format(x)");
@@ -526,11 +589,13 @@ mod tests {
         // Static `` ` ``, `{` must be escaped inside the backtick string; `"`, `'`,
         // and `}` stay bare.
         let x = local("x");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall::new(
-            string("a`b{c} \"d\" 'e' %*"),
-            "format".to_string(),
-            vec![local_value(&x)],
-        ))])
+        let block = Block(vec![Return::new(vec![RValue::MethodCall(
+            MethodCall::new(
+                string("a`b{c} \"d\" 'e' %*"),
+                "format".to_string(),
+                vec![local_value(&x)],
+            ),
+        )])
         .into()]);
 
         assert_eq!(block.to_string(), "return `a\\`b\\{c} \"d\" 'e' {x}`");
@@ -542,14 +607,16 @@ mod tests {
         // shape: the call argument is rendered via the normal rvalue path.
         let fruit = local("fruit");
         let weight = local("weight");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall::new(
-            string("%* [%*kg]"),
-            "format".to_string(),
-            vec![
-                local_value(&fruit),
-                RValue::Call(Call::new(global("tostring"), vec![local_value(&weight)])),
-            ],
-        ))])
+        let block = Block(vec![Return::new(vec![RValue::MethodCall(
+            MethodCall::new(
+                string("%* [%*kg]"),
+                "format".to_string(),
+                vec![
+                    local_value(&fruit),
+                    RValue::Call(Call::new(global("tostring"), vec![local_value(&weight)])),
+                ],
+            ),
+        )])
         .into()]);
 
         assert_eq!(block.to_string(), "return `{fruit} [{tostring(weight)}kg]`");
@@ -854,6 +921,19 @@ mod tests {
     }
 
     #[test]
+    fn callback_property_keeps_assignment_function_syntax() {
+        let remotes = local("remotes");
+        let block = Block(vec![method_assignment(
+            &remotes,
+            "OnClientInvoke",
+            vec![],
+            Block::default(),
+        )]);
+
+        assert_eq!(block.to_string(), "remotes.OnClientInvoke = function() end");
+    }
+
+    #[test]
     fn formats_if_expression_in_return() {
         let flag = local("flag");
         let block = Block(vec![Return::new(vec![IfExpression::new(
@@ -961,10 +1041,7 @@ mod tests {
             closure_call(Block::default()),
         ]);
 
-        assert_eq!(
-            block.to_string(),
-            "f(); -- note\n(function() end)()"
-        );
+        assert_eq!(block.to_string(), "f(); -- note\n(function() end)()");
     }
 
     #[test]
@@ -1335,8 +1412,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 // (=> 1 element) must NOT render as `{f()}` (=> all of f()'s
                 // results). A rendered key (`field = f()` / `[k] = f()`, non-
                 // sequential) already truncates, so no wrap is needed.
-                let wrap =
-                    is_last && sequential_keys && Self::is_multret_expression(value);
+                let wrap = is_last && sequential_keys && Self::is_multret_expression(value);
                 if wrap {
                     write!(self.output, "(")?;
                 }
@@ -2022,6 +2098,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         if assign.left.len() == 1
             && assign.right.len() == 1
             && let RValue::Closure(closure) = &assign.right[0]
+            && !Self::is_callback_property(&assign.left[0])
         {
             let left = &assign.left[0];
             if assign.prefix || left.as_global().is_some() || {
@@ -2117,6 +2194,20 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
 
         Ok(())
+    }
+
+    fn is_callback_property(left: &LValue) -> bool {
+        let LValue::Index(index) = left else {
+            return false;
+        };
+        matches!(
+            index.right.as_ref(),
+            RValue::Literal(Literal::String(key))
+                if matches!(
+                    key.as_slice(),
+                    b"OnClientInvoke" | b"OnServerInvoke" | b"OnIncomingMessage"
+                )
+        )
     }
 
     pub(crate) fn format_while(&mut self, r#while: &While) -> fmt::Result {

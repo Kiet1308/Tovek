@@ -114,7 +114,7 @@ checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
 name = "ast"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "array_tool",
  "by_address",
@@ -267,7 +267,7 @@ dependencies = [
 
 [[package]]
 name = "cfg"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "array_tool",
  "ast",
@@ -834,7 +834,7 @@ checksum = "953f07c43838f8e6f9758cab68bf5bed85465e7587ebe0b823f1bcd81978ad3a"
 
 [[package]]
 name = "lua51-deserializer"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "either",
  "enum-as-inner",
@@ -846,7 +846,7 @@ dependencies = [
 
 [[package]]
 name = "lua51-lifter"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "ast",
@@ -872,7 +872,7 @@ dependencies = [
 
 [[package]]
 name = "luau-lifter"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "ast",
@@ -900,7 +900,7 @@ dependencies = [
 
 [[package]]
 name = "luau-worker"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "base64",
  "chrono",
@@ -1198,7 +1198,7 @@ dependencies = [
 
 [[package]]
 name = "restructure"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "array_tool",
  "ast",
@@ -1812,7 +1812,7 @@ dependencies = [
 
 [[package]]
 name = "web-server"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "axum",
  "base64",

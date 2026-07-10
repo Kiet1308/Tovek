@@ -226,53 +226,10 @@ fn contains_unsupported_value(value: &RValue) -> bool {
 fn complexity_allowed(condition: &RValue, then_value: &RValue, else_value: &RValue) -> bool {
     is_nil(then_value)
         || is_nil(else_value)
-        || expression_cost(condition) + expression_cost(then_value) + expression_cost(else_value)
+        || 1 + crate::expression_budget::expression_cost(condition)
+            + crate::expression_budget::expression_cost(then_value)
+            + crate::expression_budget::expression_cost(else_value)
             <= MAX_NON_OPTIONAL_EXPRESSION_COST
-}
-
-pub(crate) fn expression_cost(value: &RValue) -> usize {
-    match value {
-        RValue::Local(_) | RValue::Global(_) | RValue::Literal(_) | RValue::VarArg(_) => 1,
-        RValue::Unary(unary) => 1 + expression_cost(&unary.value),
-        RValue::Binary(binary) => {
-            1 + expression_cost(&binary.left) + expression_cost(&binary.right)
-        }
-        RValue::Index(index) => 1 + expression_cost(&index.left) + expression_cost(&index.right),
-        RValue::Call(call) => {
-            8 + expression_cost(&call.value)
-                + call.arguments.iter().map(expression_cost).sum::<usize>()
-        }
-        RValue::MethodCall(method_call) => {
-            8 + expression_cost(&method_call.value)
-                + method_call
-                    .arguments
-                    .iter()
-                    .map(expression_cost)
-                    .sum::<usize>()
-        }
-        RValue::Table(table) => {
-            4 + table
-                .0
-                .iter()
-                .map(|(key, value)| {
-                    key.as_ref().map_or(0, expression_cost) + expression_cost(value)
-                })
-                .sum::<usize>()
-        }
-        RValue::IfExpression(if_expression) => {
-            4 + expression_cost(&if_expression.condition)
-                + expression_cost(&if_expression.then_value)
-                + expression_cost(&if_expression.else_value)
-        }
-        RValue::Closure(_) => 100,
-        RValue::Select(select) => match select {
-            Select::VarArg(var_arg) => expression_cost(&RValue::VarArg(var_arg.clone())),
-            Select::Call(call) => expression_cost(&RValue::Call(call.clone())),
-            Select::MethodCall(method_call) => {
-                expression_cost(&RValue::MethodCall(method_call.clone()))
-            }
-        },
-    }
 }
 
 fn collect_usage(block: &Block) -> FxHashMap<RcLocal, Usage> {

@@ -496,7 +496,12 @@ impl UpvaluesOpen {
         if block_len == 0 {
             return;
         }
-        let ranges = self.open.entry(node).or_default().entry(local.clone()).or_default();
+        let ranges = self
+            .open
+            .entry(node)
+            .or_default()
+            .entry(local.clone())
+            .or_default();
         let mut new_locs = locs.clone();
         if let Some(prev) = ranges.get(&from) {
             new_locs.extend(prev.iter().copied());

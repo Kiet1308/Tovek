@@ -27,48 +27,48 @@ pub fn copy_cleanup(block: &mut Block) {
     // Whole-program capture set, computed ONCE (the per-block usage recomputed
     // during recursion is blind to a closure that captures a local but lives in a
     // sibling/enclosing scope — the C10 family). Mirrors `inline_temps`.
-    let captured: FxHashSet<RcLocal> = collect_usage(block)
+    let mut captured: FxHashSet<RcLocal> = collect_usage(block)
         .into_iter()
         .filter(|(_, u)| u.captured)
         .map(|(l, _)| l)
         .collect();
-    cleanup_in_block(block, &captured);
+    cleanup_in_block(block, &mut captured, true);
 }
 
-fn cleanup_in_block(block: &mut Block, captured: &FxHashSet<RcLocal>) {
+fn cleanup_in_block(block: &mut Block, captured: &mut FxHashSet<RcLocal>, function_root: bool) {
     cleanup_nested_blocks(block, captured);
-    while cleanup_once(block, captured) {}
+    while cleanup_once(block, captured, function_root) {}
 }
 
 /// Recurse into nested blocks and closures first (mirrors
 /// `inline_temps::inline_single_use_temps`), so the fixpoint at every level only
 /// has to consider its own statement list.
-fn cleanup_nested_blocks(block: &mut Block, captured: &FxHashSet<RcLocal>) {
+fn cleanup_nested_blocks(block: &mut Block, captured: &mut FxHashSet<RcLocal>) {
     for statement in &mut block.0 {
         cleanup_nested_in_statement(statement, captured);
     }
 }
 
-fn cleanup_nested_in_statement(statement: &mut Statement, captured: &FxHashSet<RcLocal>) {
+fn cleanup_nested_in_statement(statement: &mut Statement, captured: &mut FxHashSet<RcLocal>) {
     cleanup_closures_in_statement(statement, captured);
     match statement {
         Statement::If(r#if) => {
-            cleanup_in_block(&mut r#if.then_block.lock(), captured);
-            cleanup_in_block(&mut r#if.else_block.lock(), captured);
+            cleanup_in_block(&mut r#if.then_block.lock(), captured, false);
+            cleanup_in_block(&mut r#if.else_block.lock(), captured, false);
         }
-        Statement::While(r#while) => cleanup_in_block(&mut r#while.block.lock(), captured),
-        Statement::Repeat(repeat) => cleanup_in_block(&mut repeat.block.lock(), captured),
+        Statement::While(r#while) => cleanup_in_block(&mut r#while.block.lock(), captured, false),
+        Statement::Repeat(repeat) => cleanup_in_block(&mut repeat.block.lock(), captured, false),
         Statement::NumericFor(numeric_for) => {
-            cleanup_in_block(&mut numeric_for.block.lock(), captured)
+            cleanup_in_block(&mut numeric_for.block.lock(), captured, false)
         }
         Statement::GenericFor(generic_for) => {
-            cleanup_in_block(&mut generic_for.block.lock(), captured)
+            cleanup_in_block(&mut generic_for.block.lock(), captured, false)
         }
         _ => {}
     }
 }
 
-fn cleanup_closures_in_statement(statement: &mut Statement, captured: &FxHashSet<RcLocal>) {
+fn cleanup_closures_in_statement(statement: &mut Statement, captured: &mut FxHashSet<RcLocal>) {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
@@ -77,11 +77,11 @@ fn cleanup_closures_in_statement(statement: &mut Statement, captured: &FxHashSet
         None
     });
     for function in functions {
-        cleanup_in_block(&mut function.lock().body, captured);
+        cleanup_in_block(&mut function.lock().body, captured, true);
     }
 }
 
-fn cleanup_once(block: &mut Block, captured: &FxHashSet<RcLocal>) -> bool {
+fn cleanup_once(block: &mut Block, captured: &mut FxHashSet<RcLocal>, function_root: bool) -> bool {
     let usage = collect_usage(block);
     for index in 0..block.0.len() {
         let Some((dst, src)) = candidate_copy(&block.0[index]) else {
@@ -91,6 +91,25 @@ fn cleanup_once(block: &mut Block, captured: &FxHashSet<RcLocal>) -> bool {
             continue;
         }
         if src_written_after(block, index, &src) {
+            continue;
+        }
+        let dst_was_captured = usage.get(&dst).is_some_and(|usage| usage.captured);
+        // A captured alias is removable when its source was not already an
+        // externally mutable cell and is never written after the snapshot.
+        // Rewriting the closure's upvalue from `dst` to `src` then preserves the
+        // exact stable binding (Thunderstorm's `local v3 = sound` pattern).
+        if dst_was_captured && captured.contains(&src) {
+            continue;
+        }
+        // A nested block cannot see writes in its enclosing continuation or on
+        // an enclosing-loop back-edge. Only extend a captured destination's
+        // lifetime onto `src` when either this is the whole function body (whose
+        // suffix `src_written_after` scans), or `src` is a binding declared in
+        // this exact lexical block before the snapshot. The latter is recreated
+        // on every block activation and covers Thunderstorm's body-local
+        // `sound`; it deliberately excludes outer loop cells and the snapshots
+        // minted by `materialize_value_captures`.
+        if dst_was_captured && !function_root && !source_declared_before(block, index, &src) {
             continue;
         }
         // A captured `src` may be mutated by a closure invoked by a side-effecting
@@ -112,9 +131,29 @@ fn cleanup_once(block: &mut Block, captured: &FxHashSet<RcLocal>) -> bool {
         let mut map: FxHashMap<RcLocal, RcLocal> = FxHashMap::default();
         map.insert(dst, src);
         replace_locals(block, &map);
+        if dst_was_captured {
+            // The replacement made `src` captured. Thread this monotone fact
+            // through the remaining fixed point so a later alias cannot treat
+            // the newly captured cell as an ordinary local.
+            captured.extend(map.into_values());
+        }
         return true;
     }
     false
+}
+
+fn source_declared_before(block: &Block, index: usize, source: &RcLocal) -> bool {
+    block.0[..index].iter().any(|statement| {
+        matches!(
+            statement,
+            Statement::Assign(assign)
+                if assign.prefix
+                    && assign
+                        .left
+                        .iter()
+                        .any(|left| matches!(left, LValue::Local(local) if local == source))
+        )
+    })
 }
 
 /// Detect `local dst = src` where the RHS is a bare local. Returns `(dst, src)`.
@@ -136,7 +175,11 @@ fn candidate_copy(statement: &Statement) -> Option<(RcLocal, RcLocal)> {
 
 /// Gates that depend only on usage counts and capture flags (everything except
 /// the positional src-write check, which needs the statement window).
-fn copy_is_removable(dst: &RcLocal, src: &RcLocal, usage: &HashMap<RcLocal, Usage, impl std::hash::BuildHasher>) -> bool {
+fn copy_is_removable(
+    dst: &RcLocal,
+    src: &RcLocal,
+    usage: &HashMap<RcLocal, Usage, impl std::hash::BuildHasher>,
+) -> bool {
     // 1. A self-copy `local v = v` carries no information; nothing to do (and
     //    rewriting `v -> v` would loop). Also it would never be `prefix`-real.
     if dst == src {
@@ -156,15 +199,8 @@ fn copy_is_removable(dst: &RcLocal, src: &RcLocal, usage: &HashMap<RcLocal, Usag
     if dst_usage.writes != 1 || dst_usage.reads < 1 {
         return false;
     }
-    // 4. A captured `dst` is referenced by a closure we cannot see through with
-    //    `replace_locals`-by-value reasoning here; reject it. (Per-block `usage`
-    //    suffices: `dst` is a generated temp declared in THIS block, so any closure
-    //    that captures it is reached by the same per-block walk.)
-    if dst_usage.captured {
-        return false;
-    }
-    // The captured-`src` hole (a closure mutating `src` in the live window) is now
-    // handled window-aware in `cleanup_once` with the whole-program capture set.
+    // Captured destinations are decided in `cleanup_once`, which has both the
+    // whole-function capture set and the positional source-write proof.
     let _ = src;
     true
 }
@@ -173,8 +209,8 @@ fn copy_is_removable(dst: &RcLocal, src: &RcLocal, usage: &HashMap<RcLocal, Usag
 /// nested control-flow block. `LocalRw::values_read` does NOT recurse into nested
 /// blocks (`If::values_read` returns only the condition), so a plain
 /// `values_read` scan would miss a read inside an `if`/`while`/`for` body. (A read
-/// inside a CLOSURE means `local` is captured, which gate 4 of `copy_is_removable`
-/// already rejects, so closures need no recursion here.)
+/// inside a CLOSURE is represented by the separate capture gates, so closures
+/// need no recursion here.)
 fn reads_local_deep(statement: &Statement, local: &RcLocal) -> bool {
     if statement.values_read().iter().any(|r| *r == local) {
         return true;
@@ -210,8 +246,7 @@ fn captured_src_mutated_before_use(block: &Block, decl_index: usize, dst: &RcLoc
     // read), a side effect earlier in that same statement could precede the read,
     // which the window above cannot see. Conservatively block when that statement
     // itself has a side effect.
-    !block.0[bound].values_read().iter().any(|r| *r == dst)
-        && block.0[bound].has_side_effects()
+    !block.0[bound].values_read().iter().any(|r| *r == dst) && block.0[bound].has_side_effects()
 }
 
 /// Gate 6 — anti-swap / anti-stale-copy: `src` must NOT be reassigned anywhere
@@ -232,7 +267,7 @@ mod tests {
     use super::copy_cleanup;
     use crate::{
         Assign, Block, Call, Closure, Function, Global, If, Index, LValue, Literal, Local, RValue,
-        RcLocal, Upvalue,
+        RcLocal, Upvalue, While,
     };
     use by_address::ByAddress;
     use parking_lot::Mutex;
@@ -281,7 +316,10 @@ mod tests {
         let dst = local("v2");
         let mut block = Block(vec![
             declare(&dst, local_value(&src)),
-            print(RValue::Index(Index::new(local_value(&dst), string("floors")))),
+            print(RValue::Index(Index::new(
+                local_value(&dst),
+                string("floors"),
+            ))),
         ]);
 
         copy_cleanup(&mut block);
@@ -318,10 +356,7 @@ mod tests {
 
         copy_cleanup(&mut block);
 
-        assert_eq!(
-            block.to_string(),
-            "local v3 = v1\nv1 = v2\nv2 = v3"
-        );
+        assert_eq!(block.to_string(), "local v3 = v1\nv1 = v2\nv2 = v3");
     }
 
     #[test]
@@ -332,6 +367,7 @@ mod tests {
         let mut block = Block(vec![
             declare(&dst, local_value(&src)),
             declare(&handler, closure_capturing(&dst)),
+            assign(LValue::Local(src.clone()), string("changed")),
             print(local_value(&dst)),
         ]);
 
@@ -339,7 +375,108 @@ mod tests {
 
         // The decl must survive (dst captured).
         assert!(matches!(&block.0[0], crate::Statement::Assign(_)));
-        assert_eq!(block.0.len(), 3);
+        assert_eq!(block.0.len(), 4);
+    }
+
+    #[test]
+    fn collapses_captured_destination_onto_stable_source() {
+        let sound = local("sound");
+        let snapshot = local("v3");
+        let handler = local("handler");
+        let mut block = Block(vec![
+            declare(&snapshot, local_value(&sound)),
+            declare(&handler, closure_capturing(&snapshot)),
+        ]);
+
+        copy_cleanup(&mut block);
+
+        assert_eq!(block.0.len(), 1);
+        let crate::Statement::Assign(assign) = &block.0[0] else {
+            panic!()
+        };
+        let RValue::Closure(closure) = &assign.right[0] else {
+            panic!()
+        };
+        assert!(matches!(closure.upvalues.as_slice(), [Upvalue::Ref(local)] if local == &sound));
+    }
+
+    #[test]
+    fn keeps_nested_captured_snapshot_before_enclosing_source_write() {
+        let source = local("source");
+        let snapshot = local("v3");
+        let handler = local("handler");
+        let branch = If::new(
+            global("condition"),
+            Block(vec![
+                declare(&snapshot, local_value(&source)),
+                declare(&handler, closure_capturing(&snapshot)),
+            ]),
+            Block::default(),
+        );
+        let branch_ref = branch.then_block.clone();
+        let mut block = Block(vec![
+            branch.into(),
+            assign(LValue::Local(source), string("changed")),
+        ]);
+
+        copy_cleanup(&mut block);
+
+        let branch = branch_ref.lock();
+        assert_eq!(branch.0.len(), 2);
+        assert!(matches!(&branch.0[0], crate::Statement::Assign(_)));
+    }
+
+    #[test]
+    fn keeps_captured_snapshot_of_loop_mutated_outer_cell() {
+        let source = local("source");
+        let snapshot = local("v3");
+        let handler = local("handler");
+        let loop_ = While::new(
+            global("condition"),
+            Block(vec![
+                assign(LValue::Local(source.clone()), global("nextValue")),
+                declare(&snapshot, local_value(&source)),
+                declare(&handler, closure_capturing(&snapshot)),
+            ]),
+        );
+        let body_ref = loop_.block.clone();
+        let mut block = Block(vec![loop_.into()]);
+
+        copy_cleanup(&mut block);
+
+        let body = body_ref.lock();
+        assert_eq!(body.0.len(), 3);
+        assert!(matches!(&body.0[1], crate::Statement::Assign(_)));
+    }
+
+    #[test]
+    fn collapses_nested_captured_snapshot_of_same_block_binding() {
+        let sound = local("sound");
+        let snapshot = local("v3");
+        let handler = local("handler");
+        let branch = If::new(
+            global("condition"),
+            Block(vec![
+                declare(&sound, global("newSound")),
+                declare(&snapshot, local_value(&sound)),
+                declare(&handler, closure_capturing(&snapshot)),
+            ]),
+            Block::default(),
+        );
+        let branch_ref = branch.then_block.clone();
+        let mut block = Block(vec![branch.into()]);
+
+        copy_cleanup(&mut block);
+
+        let branch = branch_ref.lock();
+        assert_eq!(branch.0.len(), 2);
+        let crate::Statement::Assign(assign) = &branch.0[1] else {
+            panic!()
+        };
+        let RValue::Closure(closure) = &assign.right[0] else {
+            panic!()
+        };
+        assert!(matches!(closure.upvalues.as_slice(), [Upvalue::Ref(local)] if local == &sound));
     }
 
     #[test]
@@ -476,7 +613,10 @@ mod tests {
             RValue::Literal(Literal::Boolean(true)),
             Block(vec![
                 declare(&dst, local_value(&src)),
-                print(RValue::Index(Index::new(local_value(&dst), string("floors")))),
+                print(RValue::Index(Index::new(
+                    local_value(&dst),
+                    string("floors"),
+                ))),
             ]),
             Block(vec![]),
         )
@@ -484,10 +624,7 @@ mod tests {
 
         copy_cleanup(&mut block);
 
-        assert_eq!(
-            block.to_string(),
-            "if true then\n\tprint(v9.floors)\nend"
-        );
+        assert_eq!(block.to_string(), "if true then\n\tprint(v9.floors)\nend");
     }
 
     #[test]
@@ -498,7 +635,10 @@ mod tests {
         let function = Arc::new(Mutex::new(Function::default()));
         function.lock().body = Block(vec![
             declare(&dst, local_value(&src)),
-            print(RValue::Index(Index::new(local_value(&dst), string("floors")))),
+            print(RValue::Index(Index::new(
+                local_value(&dst),
+                string("floors"),
+            ))),
         ]);
         let closure = RValue::Closure(Closure {
             function: ByAddress(function.clone()),
@@ -521,7 +661,10 @@ mod tests {
         let mut block = Block(vec![
             declare(&mid, local_value(&src)),
             declare(&dst, local_value(&mid)),
-            print(RValue::Index(Index::new(local_value(&dst), string("floors")))),
+            print(RValue::Index(Index::new(
+                local_value(&dst),
+                string("floors"),
+            ))),
         ]);
 
         copy_cleanup(&mut block);

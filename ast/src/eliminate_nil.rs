@@ -239,7 +239,11 @@ fn apply_assign(assign: &Assign, nil: &mut FxHashSet<RcLocal>, excluded: &FxHash
 
 /// Forward "definitely-nil" walk over `statements`, threading `nil` and deleting
 /// redundant `x = nil` stores in place. Recurses into nested blocks and closures.
-fn walk(statements: &mut Vec<Statement>, nil: &mut FxHashSet<RcLocal>, excluded: &FxHashSet<RcLocal>) {
+fn walk(
+    statements: &mut Vec<Statement>,
+    nil: &mut FxHashSet<RcLocal>,
+    excluded: &FxHashSet<RcLocal>,
+) {
     // Unstructured control flow at this level: clean nested blocks/closures
     // independently but do not delete or track here. Report the conservative
     // `nil − written` to the caller so an `if`-merge above cannot trust a stale
@@ -308,7 +312,7 @@ fn walk(statements: &mut Vec<Statement>, nil: &mut FxHashSet<RcLocal>, excluded:
 mod tests {
     use super::eliminate_redundant_nil;
     use crate::{
-        Assign, Block, Call, Closure, Function, Global, If, Index, Label, LValue, Literal, Local,
+        Assign, Block, Call, Closure, Function, Global, If, Index, LValue, Label, Literal, Local,
         MethodCall, NumericFor, RValue, RcLocal, Statement, Upvalue, While,
     };
     use by_address::ByAddress;
@@ -400,7 +404,10 @@ mod tests {
         // Exactly one `main = nil` survives (the inner, post-assignment one).
         assert_eq!(text.matches("main = nil").count(), 1, "\n{text}");
         // Both `else` arms are now empty.
-        assert!(!text.contains("else\n\tmain = nil") && !text.contains("else\n\t\tmain = nil"), "\n{text}");
+        assert!(
+            !text.contains("else\n\tmain = nil") && !text.contains("else\n\t\tmain = nil"),
+            "\n{text}"
+        );
     }
 
     /// A plain `local x; x = nil` is redundant and removed.
@@ -604,7 +611,10 @@ mod tests {
         let mut block = Block(vec![
             declare_bare(&t),
             Assign::new(
-                vec![LValue::Index(Index::new(RValue::Local(t.clone()), string("field")))],
+                vec![LValue::Index(Index::new(
+                    RValue::Local(t.clone()),
+                    string("field"),
+                ))],
                 vec![nil()],
             )
             .into(),

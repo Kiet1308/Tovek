@@ -33,19 +33,25 @@
 //! * Negation goes through [`negate`], which flips `==`/`~=` and strips double
 //!   `not`, but deliberately does NOT flip relational operators (`not (a < b)` is
 //!   kept verbatim) because `a >= b` differs from `not (a < b)` for NaN.
+//! * Adjacent guards with an exactly equal terminal action are folded into one
+//!   `or` guard. `if a then return end; if b then return end` and
+//!   `if a or b then return end` evaluate `a`, then evaluate `b` only when `a`
+//!   is falsy, and perform the same terminal action. Runs are capped at four
+//!   disjuncts so the readability rewrite cannot manufacture a huge condition.
 //!
 //! ## Placement (HARD invariant)
 //!
-//! This MUST run as the last AST transform, with only the formatter after it. The
-//! manufactured `not (a < b)` would be silently turned into the NaN-unsafe
-//! `a >= b` if any later `reduce`/`reduce_condition` pass touched it (see
-//! `Unary::reduce`). Turning `not (a < b)` into the source-faithful `a >= b` is the
-//! separate `normalize_conditions` job (proposal §10), out of scope here.
+//! This MUST run as the last **condition-changing** AST transform. A later
+//! control-neutral cleanup may truncate unreachable statements/void tail
+//! returns, but no later `reduce`/`reduce_condition` pass may touch the
+//! manufactured `not (a < b)` and turn it into the NaN-unsafe `a >= b`.
 
 use crate::{
-    conditional_expressions::expression_cost,
+    deinline::rvalue_exact_eq,
+    expression_budget::guard_expression_cost as expression_cost,
     flatten_guards::{block_size, contains_goto_or_label, negate},
-    Binary, BinaryOperation, Block, Continue, If, RValue, Statement, Traverse, UnaryOperation,
+    Binary, BinaryOperation, Block, Continue, If, RValue, Statement, Traverse, Unary,
+    UnaryOperation,
 };
 
 /// A single heavy predicate (e.g. a `string.find(...)` call) over an otherwise
@@ -54,6 +60,16 @@ use crate::{
 /// or a call plus a comparison", so a lone cheap `if a.b then ...` stays untouched
 /// while a genuinely heavy single condition fires.
 const COND_COST_THRESHOLD: usize = 24;
+
+/// Keep folded guard conditions compact enough to scan at a glance. This is a
+/// condition-leaf cap rather than a statement cap, so re-running the pass cannot
+/// grow an already-folded four-way guard.
+const MAX_MERGED_GUARD_DISJUNCTS: usize = 4;
+
+/// Four syntactically tiny checks are readable on one line; two call-heavy
+/// predicates often are not. The AST cost gate prevents guard folding from
+/// trading vertical noise for an opaque, extremely long condition.
+const MAX_MERGED_GUARD_COST: usize = 48;
 
 /// See module docs.
 pub fn recover_guard_continue(block: &mut Block) {
@@ -71,6 +87,7 @@ fn process_block(block: &mut Block, is_loop_body: bool) {
     if is_loop_body {
         peel_trailing_guards(&mut block.0);
     }
+    merge_adjacent_terminal_guards(&mut block.0);
 }
 
 fn descend_into(statement: &mut Statement) {
@@ -155,6 +172,176 @@ fn peel_trailing_guards(body: &mut Vec<Statement>) {
         body.extend(build_guards(condition));
         body.extend(body_stmts);
         // loop: the appended BODY tail may itself be a trailing guard
+    }
+}
+
+/// Fold a maximal readable prefix of adjacent, one-sided guards that perform
+/// exactly the same terminal action. The conditions remain in their original
+/// left-to-right order, and `or` preserves the original conditional evaluation
+/// of every later predicate (including side effects).
+fn merge_adjacent_terminal_guards(body: &mut Vec<Statement>) {
+    let input = std::mem::take(body);
+    let mut output = Vec::with_capacity(input.len());
+    let mut input = input.into_iter().peekable();
+
+    while let Some(first) = input.next() {
+        let Some(mut disjuncts) = guard_disjunct_count(&first) else {
+            output.push(first);
+            continue;
+        };
+        let mut merged_cost = guard_condition_cost(&first).unwrap();
+        let mut run = Vec::with_capacity(MAX_MERGED_GUARD_DISJUNCTS);
+        run.push(first);
+
+        while let Some(next) = input.peek() {
+            if !guards_have_same_terminal(&run[0], next) {
+                break;
+            }
+            let Some(next_disjuncts) = guard_disjunct_count(next) else {
+                break;
+            };
+            let next_cost = guard_condition_cost(next).unwrap();
+            if disjuncts + next_disjuncts > MAX_MERGED_GUARD_DISJUNCTS
+                || merged_cost.saturating_add(1).saturating_add(next_cost) > MAX_MERGED_GUARD_COST
+            {
+                break;
+            }
+            disjuncts += next_disjuncts;
+            merged_cost += 1 + next_cost;
+            run.push(input.next().unwrap());
+        }
+
+        if run.len() == 1 {
+            output.push(run.pop().unwrap());
+        } else {
+            output.push(merge_guard_run(run));
+        }
+    }
+    *body = output;
+}
+
+fn merge_guard_run(guards: Vec<Statement>) -> Statement {
+    let mut guards = guards.into_iter();
+    let Statement::If(first) = guards.next().unwrap() else {
+        unreachable!()
+    };
+    let mut conditions = Vec::with_capacity(guards.size_hint().0 + 1);
+    conditions.push(first.condition);
+    let terminal = std::mem::take(&mut first.then_block.lock().0)
+        .pop()
+        .expect("mergeable guard must have one terminal statement");
+
+    for guard in guards {
+        let Statement::If(guard) = guard else {
+            unreachable!()
+        };
+        conditions.push(guard.condition);
+    }
+
+    If::new(
+        merge_guard_conditions(conditions),
+        Block(vec![terminal]),
+        Block::default(),
+    )
+    .into()
+}
+
+/// Prefer the positive-source shape `not (a and b)` when every guard predicate
+/// can be inverted without introducing another wrapper. Otherwise retain the
+/// direct `guard1 or guard2` form, which is always exact and usually clearer for
+/// already-positive predicates such as `failedCheck()`.
+fn merge_guard_conditions(conditions: Vec<RValue>) -> RValue {
+    if conditions.iter().all(can_invert_guard_cleanly) {
+        let mut iter = conditions.into_iter().map(negate);
+        let first = iter.next().expect("a merged run has at least two guards");
+        let conjunction = iter.fold(first, |left, right| {
+            Binary::new(left, right, BinaryOperation::And).into()
+        });
+        Unary::new(conjunction, UnaryOperation::Not).into()
+    } else {
+        let mut iter = conditions.into_iter();
+        let first = iter.next().expect("a merged run has at least two guards");
+        iter.fold(first, |left, right| {
+            Binary::new(left, right, BinaryOperation::Or).into()
+        })
+    }
+}
+
+fn can_invert_guard_cleanly(condition: &RValue) -> bool {
+    matches!(
+        condition,
+        RValue::Unary(unary) if unary.operation == UnaryOperation::Not
+    ) || matches!(
+        condition,
+        RValue::Binary(binary)
+            if matches!(binary.operation, BinaryOperation::Equal | BinaryOperation::NotEqual)
+    )
+}
+
+fn guard_disjunct_count(statement: &Statement) -> Option<usize> {
+    let Statement::If(r#if) = statement else {
+        return None;
+    };
+    if !r#if.else_block.lock().0.is_empty() || !is_bare_terminator(&r#if.then_block.lock().0) {
+        return None;
+    }
+    Some(or_disjunct_count(&r#if.condition))
+}
+
+fn guard_condition_cost(statement: &Statement) -> Option<usize> {
+    let Statement::If(r#if) = statement else {
+        return None;
+    };
+    Some(expression_cost(&r#if.condition))
+}
+
+fn or_disjunct_count(value: &RValue) -> usize {
+    match value {
+        RValue::Binary(binary) if binary.operation == BinaryOperation::Or => {
+            or_disjunct_count(&binary.left)
+                .saturating_add(or_disjunct_count(&binary.right))
+                .min(MAX_MERGED_GUARD_DISJUNCTS + 1)
+        }
+        RValue::Unary(unary) if unary.operation == UnaryOperation::Not => {
+            and_conjunct_count(&unary.value)
+        }
+        _ => 1,
+    }
+}
+
+fn and_conjunct_count(value: &RValue) -> usize {
+    match value {
+        RValue::Binary(binary) if binary.operation == BinaryOperation::And => {
+            and_conjunct_count(&binary.left)
+                .saturating_add(and_conjunct_count(&binary.right))
+                .min(MAX_MERGED_GUARD_DISJUNCTS + 1)
+        }
+        _ => 1,
+    }
+}
+
+fn guards_have_same_terminal(left: &Statement, right: &Statement) -> bool {
+    let (Statement::If(left), Statement::If(right)) = (left, right) else {
+        return false;
+    };
+    if !right.else_block.lock().0.is_empty() {
+        return false;
+    }
+
+    let left_then = left.then_block.lock();
+    let right_then = right.then_block.lock();
+    match (left_then.0.as_slice(), right_then.0.as_slice()) {
+        ([Statement::Continue(_)], [Statement::Continue(_)])
+        | ([Statement::Break(_)], [Statement::Break(_)]) => true,
+        ([Statement::Return(left)], [Statement::Return(right)]) => {
+            left.values.len() == right.values.len()
+                && left
+                    .values
+                    .iter()
+                    .zip(&right.values)
+                    .all(|(left, right)| rvalue_exact_eq(left, right))
+        }
+        _ => false,
     }
 }
 
@@ -264,7 +451,7 @@ fn is_bare_terminator(stmts: &[Statement]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::recover_guard_continue;
+    use super::{or_disjunct_count, recover_guard_continue};
     use crate::{
         Binary, BinaryOperation, Block, Break, Call, Continue, GenericFor, Global, Goto, If, Local,
         RValue, RcLocal, Repeat, Return, Statement, Unary, UnaryOperation, While,
@@ -334,7 +521,10 @@ mod tests {
             return false;
         };
         r#if.else_block.lock().0.is_empty()
-            && matches!(r#if.then_block.lock().0.as_slice(), [Statement::Continue(_)])
+            && matches!(
+                r#if.then_block.lock().0.as_slice(),
+                [Statement::Continue(_)]
+            )
     }
 
     fn guard_condition(stmt: &Statement) -> RValue {
@@ -344,8 +534,20 @@ mod tests {
         r#if.condition.clone()
     }
 
+    fn contains_binary_operation(value: &RValue, operation: BinaryOperation) -> bool {
+        match value {
+            RValue::Binary(binary) => {
+                binary.operation == operation
+                    || contains_binary_operation(&binary.left, operation)
+                    || contains_binary_operation(&binary.right, operation)
+            }
+            RValue::Unary(unary) => contains_binary_operation(&unary.value, operation),
+            _ => false,
+        }
+    }
+
     #[test]
-    fn splits_top_level_and() {
+    fn folds_split_top_level_and_guards() {
         let a = local("a");
         let b = local("b");
         let mut block = Block(vec![gen_for(vec![if_then(
@@ -356,13 +558,20 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 4, "two guards + two body statements:\n{}", block);
-        assert!(is_continue_guard(&body[0]) && is_continue_guard(&body[1]));
-        // each guard negates one conjunct
+        assert_eq!(
+            body.len(),
+            3,
+            "one folded guard + two body statements:\n{}",
+            block
+        );
+        assert!(is_continue_guard(&body[0]));
         assert!(matches!(guard_condition(&body[0]),
-            RValue::Unary(u) if u.operation == UnaryOperation::Not));
+            RValue::Unary(u)
+                if u.operation == UnaryOperation::Not
+                    && matches!(&*u.value,
+                        RValue::Binary(b) if b.operation == BinaryOperation::And)));
+        assert!(matches!(&body[1], Statement::Call(_)));
         assert!(matches!(&body[2], Statement::Call(_)));
-        assert!(matches!(&body[3], Statement::Call(_)));
     }
 
     #[test]
@@ -376,7 +585,12 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 3, "one or-guard + two body statements:\n{}", block);
+        assert_eq!(
+            body.len(),
+            3,
+            "one or-guard + two body statements:\n{}",
+            block
+        );
         assert!(is_continue_guard(&body[0]));
         assert!(
             matches!(guard_condition(&body[0]),
@@ -404,14 +618,16 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        // guards: [if not A], [if f1 or f2], [if c ~= d]  + body call
-        assert_eq!(body.len(), 4, "three guards + body:\n{}", block);
-        assert!(is_continue_guard(&body[0]) && is_continue_guard(&body[1]) && is_continue_guard(&body[2]));
-        assert!(matches!(guard_condition(&body[1]),
-            RValue::Binary(b) if b.operation == BinaryOperation::Or));
-        // equality conjunct negates to `~=`
-        assert!(matches!(guard_condition(&body[2]),
-            RValue::Binary(b) if b.operation == BinaryOperation::NotEqual));
+        // Four disjuncts fit the readability cap and become one guard + body.
+        assert_eq!(body.len(), 2, "one four-way guard + body:\n{}", block);
+        assert!(is_continue_guard(&body[0]));
+        let condition = guard_condition(&body[0]);
+        assert!(matches!(condition,
+            RValue::Binary(ref b) if b.operation == BinaryOperation::Or));
+        assert!(contains_binary_operation(
+            &condition,
+            BinaryOperation::NotEqual
+        ));
     }
 
     #[test]
@@ -426,7 +642,12 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 3, "single guard (no or-split) + body:\n{}", block);
+        assert_eq!(
+            body.len(),
+            3,
+            "single guard (no or-split) + body:\n{}",
+            block
+        );
         assert!(is_continue_guard(&body[0]));
         // condition is `not (a or b)`
         assert!(matches!(guard_condition(&body[0]),
@@ -445,9 +666,14 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 4, "two guards + two body statements:\n{}", block);
-        assert!(is_continue_guard(&body[0]) && is_continue_guard(&body[1]));
-        assert!(matches!(&body[2], Statement::Call(_)) && matches!(&body[3], Statement::Call(_)));
+        assert_eq!(
+            body.len(),
+            3,
+            "one folded guard + two body statements:\n{}",
+            block
+        );
+        assert!(is_continue_guard(&body[0]));
+        assert!(matches!(&body[1], Statement::Call(_)) && matches!(&body[2], Statement::Call(_)));
     }
 
     #[test]
@@ -464,8 +690,13 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert!(matches!(guard_condition(&body[0]),
-            RValue::Binary(b) if b.operation == BinaryOperation::NotEqual));
+        let condition = guard_condition(&body[0]);
+        assert!(matches!(condition,
+            RValue::Unary(ref unary) if unary.operation == UnaryOperation::Not));
+        assert!(contains_binary_operation(
+            &condition,
+            BinaryOperation::Equal
+        ));
     }
 
     #[test]
@@ -482,7 +713,12 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 1, "compact positive conjunction must stay untouched:\n{}", block);
+        assert_eq!(
+            body.len(),
+            1,
+            "compact positive conjunction must stay untouched:\n{}",
+            block
+        );
         assert!(!is_continue_guard(&body[0]));
     }
 
@@ -498,7 +734,12 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 2, "negated conjunction collapses to one or-guard + body:\n{}", block);
+        assert_eq!(
+            body.len(),
+            2,
+            "negated conjunction collapses to one or-guard + body:\n{}",
+            block
+        );
         assert!(is_continue_guard(&body[0]));
         assert!(matches!(guard_condition(&body[0]),
             RValue::Binary(b) if b.operation == BinaryOperation::Or));
@@ -523,8 +764,8 @@ mod tests {
             panic!("expected while");
         };
         let body = w.block.lock();
-        assert_eq!(body.0.len(), 4, "while-loop guard recovery:\n{}", block);
-        assert!(is_continue_guard(&body.0[0]) && is_continue_guard(&body.0[1]));
+        assert_eq!(body.0.len(), 3);
+        assert!(is_continue_guard(&body.0[0]));
     }
 
     #[test]
@@ -543,10 +784,13 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 5, "three guards + two body statements:\n{}", block);
-        assert!(
-            is_continue_guard(&body[0]) && is_continue_guard(&body[1]) && is_continue_guard(&body[2])
+        assert_eq!(
+            body.len(),
+            3,
+            "one folded guard + two body statements:\n{}",
+            block
         );
+        assert!(is_continue_guard(&body[0]));
     }
 
     #[test]
@@ -576,9 +820,14 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 4, "two guards + prep + return:\n{}", block);
-        assert!(is_continue_guard(&body[0]) && is_continue_guard(&body[1]));
-        assert!(matches!(&body[3], Statement::Return(_)));
+        assert_eq!(
+            body.len(),
+            3,
+            "one folded guard + prep + return:\n{}",
+            block
+        );
+        assert!(is_continue_guard(&body[0]));
+        assert!(matches!(&body[2], Statement::Return(_)));
     }
 
     #[test]
@@ -593,16 +842,137 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        for guard in body.iter().take(2) {
+        for guard in body.iter().take(1) {
             let Statement::If(r#if) = guard else {
                 panic!("expected guard if");
             };
             assert!(
-                matches!(r#if.then_block.lock().0.as_slice(), [Statement::Continue(_)]),
+                matches!(
+                    r#if.then_block.lock().0.as_slice(),
+                    [Statement::Continue(_)]
+                ),
                 "continue must be the sole/last statement of its block (Luau rule):\n{}",
                 block
             );
         }
+    }
+
+    #[test]
+    fn merges_adjacent_exact_return_guards() {
+        let a = local("a");
+        let b = local("b");
+        let result = local("result");
+        let mut block = Block(vec![
+            if_then(
+                call_val("first"),
+                vec![Return::new(vec![lv(&result)]).into()],
+            ),
+            if_then(
+                call_val("second"),
+                vec![Return::new(vec![lv(&result)]).into()],
+            ),
+        ]);
+
+        recover_guard_continue(&mut block);
+
+        assert_eq!(
+            block.0.len(),
+            1,
+            "equal return guards should fold:\n{block}"
+        );
+        let Statement::If(guard) = &block.0[0] else {
+            panic!("expected folded guard")
+        };
+        assert!(matches!(guard.condition,
+            RValue::Binary(ref binary) if binary.operation == BinaryOperation::Or));
+        assert!(matches!(guard.then_block.lock().0.as_slice(),
+            [Statement::Return(ret)] if ret.values == vec![lv(&result)]));
+
+        // Keep these locals alive in the constructed function and ensure local
+        // identity does not accidentally affect condition folding.
+        let _ = (a, b);
+    }
+
+    #[test]
+    fn refuses_different_return_values() {
+        let a = local("a");
+        let b = local("b");
+        let left = local("left");
+        let right = local("right");
+        let mut block = Block(vec![
+            if_then(lv(&a), vec![Return::new(vec![lv(&left)]).into()]),
+            if_then(lv(&b), vec![Return::new(vec![lv(&right)]).into()]),
+        ]);
+
+        recover_guard_continue(&mut block);
+
+        assert_eq!(block.0.len(), 2, "different return values must not fold");
+    }
+
+    #[test]
+    fn caps_merged_guard_at_four_disjuncts() {
+        let conditions: Vec<_> = (0..5).map(|i| local(&format!("c{i}"))).collect();
+        let guards = conditions
+            .iter()
+            .map(|condition| if_then(lv(condition), vec![Continue {}.into()]))
+            .collect();
+        let mut block = Block(vec![gen_for(guards)]);
+
+        recover_guard_continue(&mut block);
+
+        let body = loop_body(&block);
+        assert_eq!(
+            body.len(),
+            2,
+            "four-way guard plus the fifth guard:\n{block}"
+        );
+        assert_eq!(or_disjunct_count(&guard_condition(&body[0])), 4);
+        assert_eq!(or_disjunct_count(&guard_condition(&body[1])), 1);
+    }
+
+    #[test]
+    fn canonical_not_and_guard_keeps_cap_on_second_pass() {
+        let conditions: Vec<_> = (0..5).map(|i| local(&format!("c{i}"))).collect();
+        let guards = conditions
+            .iter()
+            .map(|condition| if_then(not(lv(condition)), vec![Continue {}.into()]))
+            .collect();
+        let mut block = Block(vec![gen_for(guards)]);
+
+        recover_guard_continue(&mut block);
+        recover_guard_continue(&mut block);
+
+        let body = loop_body(&block);
+        assert_eq!(
+            body.len(),
+            2,
+            "four-way guard plus the fifth guard:\n{block}"
+        );
+        assert_eq!(or_disjunct_count(&guard_condition(&body[0])), 4);
+        assert_eq!(or_disjunct_count(&guard_condition(&body[1])), 1);
+    }
+
+    #[test]
+    fn cost_cap_keeps_call_heavy_guard_runs_scannable() {
+        let argument = local("argument");
+        let guards = (0..4)
+            .map(|index| {
+                let condition = Call::new(
+                    global(&format!("predicate{index}")),
+                    vec![lv(&argument), lv(&argument), lv(&argument)],
+                )
+                .into();
+                if_then(condition, vec![Continue {}.into()])
+            })
+            .collect();
+        let mut block = Block(vec![gen_for(guards)]);
+
+        recover_guard_continue(&mut block);
+
+        let body = loop_body(&block);
+        assert_eq!(body.len(), 2, "cost cap should split the run:\n{block}");
+        assert_eq!(or_disjunct_count(&guard_condition(&body[0])), 3);
+        assert_eq!(or_disjunct_count(&guard_condition(&body[1])), 1);
     }
 
     // --- refusal cases ---
@@ -615,7 +985,12 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 1, "trivial guard must be left untouched:\n{}", block);
+        assert_eq!(
+            body.len(),
+            1,
+            "trivial guard must be left untouched:\n{}",
+            block
+        );
         assert!(!is_continue_guard(&body[0]));
     }
 
@@ -635,7 +1010,10 @@ mod tests {
         let Statement::If(r#if) = &body[0] else {
             panic!("expected if to remain");
         };
-        assert!(!r#if.else_block.lock().0.is_empty(), "else branch must be preserved");
+        assert!(
+            !r#if.else_block.lock().0.is_empty(),
+            "else branch must be preserved"
+        );
     }
 
     #[test]
@@ -650,7 +1028,11 @@ mod tests {
 
         let body = loop_body(&block);
         assert_eq!(body.len(), 2);
-        assert!(!is_continue_guard(&body[0]), "non-trailing if must be left intact:\n{}", block);
+        assert!(
+            !is_continue_guard(&body[0]),
+            "non-trailing if must be left intact:\n{}",
+            block
+        );
     }
 
     #[test]
@@ -666,7 +1048,11 @@ mod tests {
 
         // no enclosing loop -> nothing peeled
         assert_eq!(block.0.len(), 1);
-        assert!(!is_continue_guard(&block.0[0]), "must not synthesize continue outside a loop:\n{}", block);
+        assert!(
+            !is_continue_guard(&block.0[0]),
+            "must not synthesize continue outside a loop:\n{}",
+            block
+        );
     }
 
     #[test]
@@ -691,14 +1077,22 @@ mod tests {
 
         let body = loop_body(&block);
         // the repeat's own trailing-ish if must be untouched...
-        assert!(!is_continue_guard(&body[0]), "must not synthesize continue targeting a repeat:\n{}", block);
+        assert!(
+            !is_continue_guard(&body[0]),
+            "must not synthesize continue targeting a repeat:\n{}",
+            block
+        );
         // ...but the nested for must have its guards recovered
         let Statement::GenericFor(gf) = &body[1] else {
             panic!("expected nested for");
         };
         let inner = gf.block.lock();
-        assert_eq!(inner.0.len(), 4, "nested for inside repeat should still fire:\n{}", block);
-        assert!(is_continue_guard(&inner.0[0]) && is_continue_guard(&inner.0[1]));
+        assert_eq!(
+            inner.0.len(),
+            3,
+            "nested for inside repeat should still fire"
+        );
+        assert!(is_continue_guard(&inner.0[0]));
     }
 
     #[test]
@@ -714,7 +1108,12 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 1, "existing `if bad then continue end` must be kept as-is:\n{}", block);
+        assert_eq!(
+            body.len(),
+            1,
+            "existing `if bad then continue end` must be kept as-is:\n{}",
+            block
+        );
         assert!(is_continue_guard(&body[0]));
         // still guarded by `bad`, not `not bad`
         assert!(matches!(guard_condition(&body[0]), RValue::Local(l) if l == bad));
@@ -733,8 +1132,16 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 1, "trailing `if bad then break end` must be kept:\n{}", block);
-        assert!(matches!(body[0].as_if().unwrap().then_block.lock().0.as_slice(), [Statement::Break(_)]));
+        assert_eq!(
+            body.len(),
+            1,
+            "trailing `if bad then break end` must be kept:\n{}",
+            block
+        );
+        assert!(matches!(
+            body[0].as_if().unwrap().then_block.lock().0.as_slice(),
+            [Statement::Break(_)]
+        ));
     }
 
     #[test]
@@ -749,7 +1156,12 @@ mod tests {
         recover_guard_continue(&mut block);
 
         let body = loop_body(&block);
-        assert_eq!(body.len(), 1, "goto in body must block the transform:\n{}", block);
+        assert_eq!(
+            body.len(),
+            1,
+            "goto in body must block the transform:\n{}",
+            block
+        );
         assert!(!is_continue_guard(&body[0]));
     }
 
@@ -773,7 +1185,7 @@ mod tests {
             panic!("expected inner for");
         };
         let inner_body = gf.block.lock();
-        assert_eq!(inner_body.0.len(), 4, "inner for guards recovered:\n{}", block);
-        assert!(is_continue_guard(&inner_body.0[0]) && is_continue_guard(&inner_body.0[1]));
+        assert_eq!(inner_body.0.len(), 3, "inner for guards recovered");
+        assert!(is_continue_guard(&inner_body.0[0]));
     }
 }

@@ -62,7 +62,6 @@ fn sanitize_with_case(raw: &str, case: IdentifierCase) -> Option<String> {
     if chars[0].is_ascii_digit() {
         chars.insert(0, '_');
     }
-    chars.truncate(32);
     let name: String = chars.into_iter().collect();
     // `self` is rejected here (it is not a Lua keyword, so it is not in
     // RESERVED_KEYWORDS): a local accidentally named `self` (e.g. an
@@ -170,11 +169,10 @@ fn call_hint(call: &Call) -> Option<String> {
     {
         return rvalue_hint(&call.arguments[0]);
     }
-    // Bare time reads name the local after the captured clock value:
-    // `local timestamp = os.clock()` / `tick()`. Requires ZERO arguments. We use
-    // `timestamp` rather than `now`: such a value is very often STORED and read
-    // later as a subtraction base (`os.clock() - timestamp`), where `now` would be
-    // misleading (it is a past/start time by then) but `timestamp` stays accurate.
+    // A bare time read is an instantaneous sample. The whole-tree usage pass
+    // upgrades it to `lastTime` when it is later used as the subtraction base in
+    // `os.clock() - local`; keeping the RHS-only fallback as `now` avoids calling
+    // every unrelated clock sample a persistent timestamp.
     // The offset form (`os.clock() + delay`) is a `Binary` RHS that never reaches
     // `call_hint`, so it correctly stays unnamed (source names those
     // `deadline`/`elapsed`).
@@ -188,7 +186,7 @@ fn call_hint(call: &Call) -> Option<String> {
             _ => false,
         };
         if is_time {
-            return Some("timestamp".to_string());
+            return Some("now".to_string());
         }
     }
     // Constructor-style calls read as their type:
@@ -208,11 +206,34 @@ fn call_hint(call: &Call) -> Option<String> {
         // Alternate constructors (`Color3.fromRGB`, `Vector3.fromAxis`, ...) name
         // the local after the constructor type exactly as `.new` does. Their
         // arguments are scalars, so only the type-name fallback applies.
-        if matches!(method, b"fromRGB" | b"fromHSV" | b"fromHex" | b"fromName" | b"fromAxis") {
+        if matches!(
+            method,
+            b"fromRGB" | b"fromHSV" | b"fromHex" | b"fromName" | b"fromAxis"
+        ) {
             return constructor_type_name(&index.left);
         }
     }
     None
+}
+
+fn instance_constructor_hint(rvalue: &RValue) -> Option<String> {
+    let (RValue::Call(call) | RValue::Select(Select::Call(call))) = rvalue else {
+        return None;
+    };
+    let RValue::Index(callee) = &*call.value else {
+        return None;
+    };
+    if global_name(&callee.left) != Some("Instance") || index_key(callee) != Some("new") {
+        return None;
+    }
+    call.arguments
+        .first()
+        .and_then(string_literal)
+        .and_then(sanitize)
+}
+
+fn is_instance_compatible_placeholder(rvalue: &RValue) -> bool {
+    matches!(rvalue, RValue::Literal(Literal::Nil))
 }
 
 /// The variable name for a `Type.new(...)` / `Type.fromRGB(...)` constructor,
@@ -305,7 +326,15 @@ fn strip_verb_prefix(name: &str) -> Option<&str> {
         }
     }
     const VERBS: &[&str] = &[
-        "get", "find", "create", "clone", "resolve", "ensure", "build", "make", "normalize",
+        "get",
+        "find",
+        "create",
+        "clone",
+        "resolve",
+        "ensure",
+        "build",
+        "make",
+        "normalize",
     ];
     for verb in VERBS {
         if let Some(rest) = name.strip_prefix(verb)
@@ -538,6 +567,24 @@ fn is_default_name(name: &str) -> bool {
     stem == "v" || stem == "p"
 }
 
+fn is_generic_semantic_name(name: &str) -> bool {
+    is_default_name(name)
+        || matches!(
+            name,
+            "_" | "i" | "j" | "k" | "n" | "x" | "y" | "fn" | "key" | "value" | "item" | "result"
+        )
+}
+
+fn is_constant_identifier(name: &str) -> bool {
+    let mut has_letter = false;
+    !name.is_empty()
+        && name.chars().all(|character| {
+            has_letter |= character.is_ascii_uppercase();
+            character.is_ascii_uppercase() || character.is_ascii_digit() || character == '_'
+        })
+        && has_letter
+}
+
 fn capitalize_first(s: &str) -> String {
     let mut chars = s.chars();
     match chars.next() {
@@ -709,7 +756,7 @@ fn strip_script_suffixes(mut name: &str) -> &str {
     }
 }
 
-fn script_module_hint(script_name: &str) -> Option<String> {
+pub(crate) fn script_module_hint(script_name: &str) -> Option<String> {
     let trimmed = script_name.trim();
     if trimmed.is_empty() {
         return None;
@@ -744,7 +791,18 @@ fn script_module_hint(script_name: &str) -> Option<String> {
         return None;
     }
 
-    sanitize_pascal(stem)
+    let compound = stem
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            let Some(first) = chars.next() else {
+                return String::new();
+            };
+            first.to_ascii_uppercase().to_string() + chars.as_str()
+        })
+        .collect::<String>();
+    sanitize_pascal(&compound)
 }
 
 fn state_name_from_setter(setter: &str) -> Option<String> {
@@ -849,15 +907,58 @@ fn singularize(name: &str) -> Option<String> {
     // them falls back to the default iterator name rather than inventing junk.
     const NON_PLURAL: &[&str] = &[
         // singular nouns ending in s/is/us/ss
-        "status", "data", "address", "class", "process", "bonus", "physics", "analysis",
-        "axis", "props", "series", "species", "news", "progress", "pass", "mass", "boss",
-        "loss", "glass", "lens", "gas", "basis", "access", "success", "focus", "bias",
-        "canvas", "radius", "virus", "index", "this", "kudos",
+        "status",
+        "data",
+        "address",
+        "class",
+        "process",
+        "bonus",
+        "physics",
+        "analysis",
+        "axis",
+        "props",
+        "series",
+        "species",
+        "news",
+        "progress",
+        "pass",
+        "mass",
+        "boss",
+        "loss",
+        "glass",
+        "lens",
+        "gas",
+        "basis",
+        "access",
+        "success",
+        "focus",
+        "bias",
+        "canvas",
+        "radius",
+        "virus",
+        "index",
+        "this",
+        "kudos",
         // Latin/irregular plurals our drop-`s`/`-es` rules would mangle
-        "indices", "vertices", "matrices", "analyses", "axes", "crises", "bases",
-        "theses", "diagnoses", "hypotheses", "parentheses",
+        "indices",
+        "vertices",
+        "matrices",
+        "analyses",
+        "axes",
+        "crises",
+        "bases",
+        "theses",
+        "diagnoses",
+        "hypotheses",
+        "parentheses",
         // singular ends in `ie`, so `ies`->`y` is wrong (movie -> "movy")
-        "movies", "cookies", "zombies", "rookies", "newbies", "selfies", "calories",
+        "movies",
+        "cookies",
+        "zombies",
+        "rookies",
+        "newbies",
+        "selfies",
+        "calories",
         "brownies",
     ];
     if NON_PLURAL.contains(&lower.as_str()) {
@@ -905,6 +1006,49 @@ fn singularize(name: &str) -> Option<String> {
         return None;
     }
     sanitize(&singular)
+}
+
+fn pluralize(name: &str) -> Option<String> {
+    if !name.is_ascii() || name.is_empty() {
+        return None;
+    }
+    if matches!(name, "children" | "people" | "data") {
+        return Some(name.to_string());
+    }
+    if singularize(name).is_some() {
+        return Some(name.to_string());
+    }
+    if name == "visible" {
+        return Some("visibility".to_string());
+    }
+    if let Some(stem) = name.strip_suffix("Entry") {
+        return Some(format!("{stem}Entries"));
+    }
+    if name == "child" {
+        return Some("children".to_string());
+    }
+    if name == "person" {
+        return Some("people".to_string());
+    }
+    let bytes = name.as_bytes();
+    if name.ends_with('y')
+        && bytes.len() >= 2
+        && !matches!(
+            bytes[bytes.len() - 2].to_ascii_lowercase(),
+            b'a' | b'e' | b'i' | b'o' | b'u'
+        )
+    {
+        return Some(format!("{}ies", &name[..name.len() - 1]));
+    }
+    if name.ends_with('s')
+        || name.ends_with('x')
+        || name.ends_with('z')
+        || name.ends_with("ch")
+        || name.ends_with("sh")
+    {
+        return Some(format!("{name}es"));
+    }
+    Some(format!("{name}s"))
 }
 
 /// `pairs(x)`/`ipairs(x)`/`next(x)` -> `x`; anything else is returned unchanged.
@@ -1151,10 +1295,42 @@ struct LocalUsage {
     create_element_fill_in_loop: bool,
     /// `table.insert(local, ...)` inside a loop.
     table_insert_in_loop: bool,
+    /// Homogeneous collection fills whose values are RBXScriptConnections.
+    /// Unknown/mixed fills conflict so a table is never optimistically called
+    /// `connections` after also storing unrelated values.
+    connection_fills: u32,
+    unknown_collection_fill: bool,
+    /// Semantic sources written into an array/map container. Local sources are
+    /// stored by address (never as `RcLocal`) so the census cannot perturb the
+    /// Arc-count based unused-local test. They are resolved after the naming
+    /// collector has seen the whole tree.
+    collection_value_sources: FxHashSet<FillSource>,
+    /// Semantic sources used as dynamic map keys (`map[key] = value`). These are
+    /// optional: a unanimous value can still name a collection when its keys are
+    /// opaque, while a unanimous key upgrades `models` to `modelsByPlayer`.
+    collection_key_sources: FxHashSet<FillSource>,
+    unknown_collection_key: bool,
+    /// At least one fill had no trustworthy semantic source. A mixed/unknown
+    /// collection is deliberately left at its existing name.
+    unknown_semantic_fill: bool,
+    /// Exact update-shape facts for otherwise mute numeric/boolean state.
+    counter_updates: u32,
+    counter_invalid_write: bool,
+    boolean_writes: u32,
+    boolean_invalid_write: bool,
+    boolean_guarded: bool,
+    /// Used as the saved side of `os.clock() - local` / `tick() - local`.
+    elapsed_clock_base: bool,
+    clock_writes: u32,
+    clock_invalid_write: bool,
+    /// A multi-result/vararg assignment may write this slot without an explicit
+    /// one-to-one RHS node. Such a write invalidates every value-shape consensus.
+    unknown_value_write: bool,
     /// Returned from its enclosing block/function.
     returned: bool,
     /// Stored as the value of a callback-shaped table field (`onClose = local`).
     callback_field_name: Option<String>,
+    callback_name_conflict: bool,
     /// Implied type from a `typeof(x)`/`type(x)` guard, collapsed to a small
     /// stable tag (see [`type_tag`]). `None` until a guard is seen.
     typeof_type: Option<&'static str>,
@@ -1194,6 +1370,173 @@ struct LocalUsage {
     or_default_conflict: bool,
 }
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum FillSource {
+    Static(String),
+    Local(usize),
+}
+
+fn note_callback_name(local: &RcLocal, name: String, usage: &mut FxHashMap<usize, LocalUsage>) {
+    let entry = usage.entry(local_ptr(local)).or_default();
+    match &entry.callback_field_name {
+        None => entry.callback_field_name = Some(name),
+        Some(existing) if existing != &name => entry.callback_name_conflict = true,
+        _ => {}
+    }
+}
+
+fn is_connection_value(value: &RValue) -> bool {
+    match value {
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
+            matches!(call.method.as_str(), "Connect" | "Once" | "ConnectParallel")
+        }
+        RValue::Table(table) if !table.0.is_empty() => {
+            table.0.iter().all(|(_, value)| is_connection_value(value))
+        }
+        _ => false,
+    }
+}
+
+fn table_entry_hint(table: &Table) -> Option<String> {
+    let mut stem = None;
+    for (key, _) in &table.0 {
+        let Some(key) = key.as_ref().and_then(string_literal) else {
+            continue;
+        };
+        let Some(prefix) = key.strip_suffix("Key").filter(|prefix| !prefix.is_empty()) else {
+            continue;
+        };
+        let Some(candidate) = sanitize(prefix) else {
+            continue;
+        };
+        match &stem {
+            None => stem = Some(candidate),
+            Some(existing) if existing != &candidate => return None,
+            _ => {}
+        }
+    }
+    stem.and_then(|stem| sanitize_preserve(&format!("{stem}Entry")))
+}
+
+fn fill_source(value: &RValue) -> Option<FillSource> {
+    let source = match value {
+        RValue::Local(local) => match current_name(local) {
+            Some(name) if !is_generic_semantic_name(&name) => FillSource::Static(name),
+            _ => FillSource::Local(local_ptr(local)),
+        },
+        RValue::Table(table) => FillSource::Static(table_entry_hint(table)?),
+        _ => FillSource::Static(rvalue_hint(value)?),
+    };
+    match &source {
+        FillSource::Static(name) if is_generic_semantic_name(name) => None,
+        _ => Some(source),
+    }
+}
+
+fn note_map_key(local: &RcLocal, key: &RValue, usage: &mut FxHashMap<usize, LocalUsage>) {
+    let entry = usage.entry(local_ptr(local)).or_default();
+    if let Some(source) = fill_source(key) {
+        entry.collection_key_sources.insert(source);
+    } else {
+        entry.unknown_collection_key = true;
+    }
+}
+
+fn note_collection_fill(local: &RcLocal, value: &RValue, usage: &mut FxHashMap<usize, LocalUsage>) {
+    let entry = usage.entry(local_ptr(local)).or_default();
+    if is_connection_value(value) {
+        entry.connection_fills += 1;
+        entry
+            .collection_value_sources
+            .insert(FillSource::Static("connection".to_string()));
+    } else {
+        entry.unknown_collection_fill = true;
+        if let Some(source) = fill_source(value) {
+            entry.collection_value_sources.insert(source);
+        } else {
+            entry.unknown_semantic_fill = true;
+        }
+    }
+}
+
+fn is_number(value: &RValue, expected: f64) -> bool {
+    matches!(value, RValue::Literal(Literal::Number(number)) if *number == expected)
+}
+
+fn is_counter_update(local: &RcLocal, value: &RValue) -> bool {
+    let RValue::Binary(binary) = value else {
+        return false;
+    };
+    if binary.operation != BinaryOperation::Add {
+        return false;
+    }
+    (matches!(&*binary.left, RValue::Local(source) if local_ptr(source) == local_ptr(local))
+        && is_number(&binary.right, 1.0))
+        || (is_number(&binary.left, 1.0)
+            && matches!(&*binary.right, RValue::Local(source)
+                if local_ptr(source) == local_ptr(local)))
+}
+
+fn note_local_write(local: &RcLocal, value: &RValue, usage: &mut FxHashMap<usize, LocalUsage>) {
+    let entry = usage.entry(local_ptr(local)).or_default();
+    if is_counter_update(local, value) {
+        entry.counter_updates += 1;
+    } else if !is_number(value, 0.0) {
+        entry.counter_invalid_write = true;
+    }
+
+    match value {
+        RValue::Literal(Literal::Boolean(_)) => entry.boolean_writes += 1,
+        // A nil declaration is an uninitialized boolean cell, not evidence of a
+        // second semantic type. Every concrete write still has to be boolean.
+        RValue::Literal(Literal::Nil) => {}
+        _ => entry.boolean_invalid_write = true,
+    }
+
+    if is_time_read(value) {
+        entry.clock_writes += 1;
+    } else if !matches!(value, RValue::Literal(Literal::Nil)) {
+        entry.clock_invalid_write = true;
+    }
+}
+
+fn note_unknown_local_write(local: &RcLocal, usage: &mut FxHashMap<usize, LocalUsage>) {
+    let entry = usage.entry(local_ptr(local)).or_default();
+    entry.counter_invalid_write = true;
+    entry.boolean_invalid_write = true;
+    entry.clock_invalid_write = true;
+    entry.unknown_value_write = true;
+}
+
+fn is_time_read(value: &RValue) -> bool {
+    let (RValue::Call(call) | RValue::Select(Select::Call(call))) = value else {
+        return false;
+    };
+    if !call.arguments.is_empty() {
+        return false;
+    }
+    match &*call.value {
+        RValue::Global(global) => global.0.as_slice() == b"tick",
+        RValue::Index(index) => {
+            global_name(&index.left) == Some("os")
+                && matches!(index_key(index), Some("clock") | Some("time"))
+        }
+        _ => false,
+    }
+}
+
+fn note_elapsed_clock_base(binary: &Binary, usage: &mut FxHashMap<usize, LocalUsage>) {
+    if binary.operation == BinaryOperation::Sub
+        && is_time_read(&binary.left)
+        && let RValue::Local(local) = &*binary.right
+    {
+        usage
+            .entry(local_ptr(local))
+            .or_default()
+            .elapsed_clock_base = true;
+    }
+}
+
 fn note_call_usage(
     call: &Call,
     in_loop: bool,
@@ -1203,23 +1546,46 @@ fn note_call_usage(
     if let RValue::Local(local) = &*call.value {
         usage.entry(local_ptr(local)).or_default().used_as_callee = true;
     }
-    if in_loop
-        && let RValue::Index(index) = &*call.value
+    if let RValue::Index(index) = &*call.value
         && index_key(index) == Some("insert")
         && let RValue::Global(global) = &*index.left
         && global.0.as_slice() == b"table"
         && let Some(RValue::Local(local)) = call.arguments.first()
     {
+        if let Some(value) = call.arguments.get(1) {
+            note_collection_fill(local, value, usage);
+        }
         let pushes_element = call
             .arguments
             .get(1)
             .is_some_and(|value| is_create_element_call(value, aliases));
         let entry = usage.entry(local_ptr(local)).or_default();
-        entry.table_insert_in_loop = true;
+        entry.table_insert_in_loop |= in_loop;
         // `table.insert(children, e(...))` in a loop is an array-style children map.
-        if pushes_element {
+        if in_loop && pushes_element {
             entry.create_element_fill_count += 1;
             entry.create_element_fill_in_loop = true;
+        }
+    }
+
+    // Stable standard-library argument slots (§2.C). These are positional API
+    // contracts, not guesses from surrounding syntax, and disagreement is
+    // handled by the same conflict-on-consensus gate as other slots.
+    if let RValue::Index(callee) = &*call.value
+        && let RValue::Global(namespace) = &*callee.left
+        && let Some(member) = string_literal(&callee.right)
+    {
+        let namespace = namespace.0.as_slice();
+        let slots: &[&str] = match (namespace, member) {
+            (b"math", "clamp") => &["value", "min", "max"],
+            (b"task", "wait") | (b"task", "delay") => &["duration"],
+            (b"string", "format") => &["formatString"],
+            _ => &[],
+        };
+        for (argument, slot) in call.arguments.iter().zip(slots) {
+            if let RValue::Local(local) = argument {
+                note_api_slot(local, slot, usage);
+            }
         }
     }
 }
@@ -1331,7 +1697,9 @@ fn event_signature(event: &str) -> Option<&'static [Option<&'static str>]> {
         "ChildAdded" | "ChildRemoved" => &[Some("child")],
         "DescendantAdded" | "DescendantRemoving" => &[Some("descendant")],
         "AncestryChanged" => &[None, Some("parent")],
-        "CharacterAdded" | "CharacterRemoving" | "CharacterAppearanceLoaded" => &[Some("character")],
+        "CharacterAdded" | "CharacterRemoving" | "CharacterAppearanceLoaded" => {
+            &[Some("character")]
+        }
         "PlayerAdded" | "PlayerRemoving" => &[Some("player")],
         "Triggered" | "PromptTriggered" => &[Some("player")],
         "Touched" | "TouchEnded" => &[Some("otherPart")],
@@ -1355,6 +1723,16 @@ fn note_method_usage(method_call: &MethodCall, usage: &mut FxHashMap<usize, Loca
                 .entry(local_ptr(local))
                 .or_default()
                 .string_method_seen = true;
+        }
+    }
+    if matches!(method, "Connect" | "Once" | "ConnectParallel")
+        && let Some(RValue::Local(callback)) = method_call.arguments.first()
+        && let RValue::Index(event) = &*method_call.value
+        && let Some(event) = index_key(event)
+    {
+        let name = format!("on{}", capitalize_first(event));
+        if let Some(name) = sanitize_preserve(&name) {
+            note_callback_name(callback, name, usage);
         }
     }
     note_method_arg_usage(method_call, usage);
@@ -1503,7 +1881,8 @@ fn gather_usage(
                         }
                     }
                 }
-                Either::Right(RValue::Call(call)) => {
+                Either::Right(RValue::Call(call))
+                | Either::Right(RValue::Select(Select::Call(call))) => {
                     note_call_usage(call, in_loop, aliases, usage)
                 }
                 Either::Right(RValue::Table(table)) => {
@@ -1512,10 +1891,7 @@ fn gather_usage(
                             && let Some(key) = string_literal(key)
                             && is_callback_key(key)
                         {
-                            usage
-                                .entry(local_ptr(local))
-                                .or_default()
-                                .callback_field_name = Some(key.to_string());
+                            note_callback_name(local, key.to_string(), usage);
                         }
                     }
                 }
@@ -1526,6 +1902,7 @@ fn gather_usage(
                 Either::Right(RValue::Binary(binary)) => {
                     note_type_guard(binary, usage);
                     note_or_default(binary, usage);
+                    note_elapsed_clock_base(binary, usage);
                 }
                 _ => {}
             }
@@ -1538,9 +1915,16 @@ fn gather_usage(
             Statement::Assign(assign) => {
                 for (lvalue, rvalue) in assign.left.iter().zip(assign.right.iter()) {
                     note_field_store(lvalue, rvalue, usage);
+                    if let LValue::Local(local) = lvalue {
+                        note_local_write(local, rvalue, usage);
+                    }
                     if let crate::LValue::Index(index) = lvalue
                         && let RValue::Local(local) = &*index.left
                     {
+                        if string_literal(&index.right).is_none() {
+                            note_collection_fill(local, rvalue, usage);
+                            note_map_key(local, &index.right, usage);
+                        }
                         let create_element = is_create_element_call(rvalue, aliases);
                         let entry = usage.entry(local_ptr(local)).or_default();
                         if in_loop {
@@ -1551,6 +1935,17 @@ fn gather_usage(
                             if in_loop {
                                 entry.create_element_fill_in_loop = true;
                             }
+                        }
+                    }
+                }
+                if assign
+                    .right
+                    .last()
+                    .is_some_and(|value| matches!(value, RValue::Select(_) | RValue::VarArg(_)))
+                {
+                    for lvalue in assign.left.iter().skip(assign.right.len()) {
+                        if let LValue::Local(local) = lvalue {
+                            note_unknown_local_write(local, usage);
                         }
                     }
                 }
@@ -1567,6 +1962,21 @@ fn gather_usage(
                     if let RValue::Local(local) = unwrap_iter_arg(rvalue) {
                         usage.entry(local_ptr(local)).or_default().iterated = true;
                     }
+                }
+            }
+            Statement::If(node) => {
+                if let RValue::Local(local) = &node.condition {
+                    usage.entry(local_ptr(local)).or_default().boolean_guarded = true;
+                }
+            }
+            Statement::While(node) => {
+                if let RValue::Local(local) = &node.condition {
+                    usage.entry(local_ptr(local)).or_default().boolean_guarded = true;
+                }
+            }
+            Statement::Repeat(node) => {
+                if let RValue::Local(local) = &node.condition {
+                    usage.entry(local_ptr(local)).or_default().boolean_guarded = true;
                 }
             }
             _ => {}
@@ -1588,8 +1998,12 @@ fn gather_usage(
                 gather_usage(&mut r#if.then_block.lock(), in_loop, aliases, usage);
                 gather_usage(&mut r#if.else_block.lock(), in_loop, aliases, usage);
             }
-            Statement::While(r#while) => gather_usage(&mut r#while.block.lock(), true, aliases, usage),
-            Statement::Repeat(repeat) => gather_usage(&mut repeat.block.lock(), true, aliases, usage),
+            Statement::While(r#while) => {
+                gather_usage(&mut r#while.block.lock(), true, aliases, usage)
+            }
+            Statement::Repeat(repeat) => {
+                gather_usage(&mut repeat.block.lock(), true, aliases, usage)
+            }
             Statement::NumericFor(numeric_for) => {
                 gather_usage(&mut numeric_for.block.lock(), true, aliases, usage)
             }
@@ -1685,9 +2099,7 @@ fn collect_collapse_candidates(block: &mut Block, out: &mut FxHashSet<usize>) {
             Statement::While(r#while) => {
                 collect_collapse_candidates(&mut r#while.block.lock(), out)
             }
-            Statement::Repeat(repeat) => {
-                collect_collapse_candidates(&mut repeat.block.lock(), out)
-            }
+            Statement::Repeat(repeat) => collect_collapse_candidates(&mut repeat.block.lock(), out),
             Statement::NumericFor(nf) => collect_collapse_candidates(&mut nf.block.lock(), out),
             Statement::GenericFor(gf) => collect_collapse_candidates(&mut gf.block.lock(), out),
             _ => {}
@@ -1723,6 +2135,13 @@ struct Namer {
     /// Class families observed through `:IsA(...)`, used to avoid naming a
     /// mixed-class local after only the first branch that inspected it.
     isa_families: FxHashMap<usize, String>,
+    isa_conflicts: FxHashSet<usize>,
+    isa_derived_hints: FxHashMap<usize, String>,
+    /// Exact `Instance.new("Class")` assignment consensus. This is gathered
+    /// across all writes before any class hint is applied, so branch traversal
+    /// order cannot choose a misleading first class.
+    instance_assignment_hints: FxHashMap<usize, String>,
+    instance_assignment_conflicts: FxHashSet<usize>,
     /// Root locals declared from a table literal. A root-level final return of
     /// one of these locals can safely use the script/module name.
     module_table_locals: FxHashSet<usize>,
@@ -1756,6 +2175,12 @@ struct Namer {
     class_signal_locals: FxHashSet<usize>,
 }
 
+struct ParamConsensus {
+    calls: usize,
+    names: Vec<Option<String>>,
+    valid: Vec<bool>,
+}
+
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum ReusePolicy {
     FileUnique,
@@ -1783,8 +2208,7 @@ impl Namer {
                 .is_some_and(|u| u.reads == 1 && u.writes == 3 && !u.captured)
     }
 
-    fn set_hint(&mut self, local: &RcLocal, name: String, score: u8) {
-        let ptr = local_ptr(local);
+    fn set_hint_ptr(&mut self, ptr: usize, name: String, score: u8) {
         let replace = match self.hints.get(&ptr) {
             Some(existing) => score > existing.score,
             None => true,
@@ -1792,6 +2216,10 @@ impl Namer {
         if replace {
             self.hints.insert(ptr, Hint { name, score });
         }
+    }
+
+    fn set_hint(&mut self, local: &RcLocal, name: String, score: u8) {
+        self.set_hint_ptr(local_ptr(local), name, score);
     }
 
     fn set_hint_str(&mut self, local: &RcLocal, name: &'static str, score: u8) {
@@ -1804,6 +2232,31 @@ impl Namer {
         self.set_hint_str(local, name, score);
     }
 
+    fn set_isa_derived_hint(&mut self, local: &RcLocal, name: String, score: u8) {
+        let ptr = local_ptr(local);
+        self.set_hint_ptr(ptr, name.clone(), score);
+        if self
+            .hints
+            .get(&ptr)
+            .is_some_and(|hint| hint.score == score && hint.name == name)
+        {
+            self.isa_derived_hints.insert(ptr, name);
+        }
+    }
+
+    fn note_instance_assignment(&mut self, local: &RcLocal, name: String) {
+        let ptr = local_ptr(local);
+        match self.instance_assignment_hints.get(&ptr) {
+            None => {
+                self.instance_assignment_hints.insert(ptr, name);
+            }
+            Some(existing) if existing != &name => {
+                self.instance_assignment_conflicts.insert(ptr);
+            }
+            _ => {}
+        }
+    }
+
     fn set_isa_hint(&mut self, local: &RcLocal, class_name: &str) {
         let Some(hint) = class_name_hint(class_name) else {
             return;
@@ -1811,26 +2264,41 @@ impl Namer {
 
         let ptr = local_ptr(local);
         let family = class_hint_family(class_name);
+        if self.isa_conflicts.contains(&ptr) {
+            return;
+        }
         if let Some(existing_family) = self.isa_families.get(&ptr) {
             if existing_family != &family {
+                self.isa_conflicts.insert(ptr);
+                if let Some(derived) = self.isa_derived_hints.remove(&ptr)
+                    && self
+                        .hints
+                        .get(&ptr)
+                        .is_some_and(|hint| hint.score <= 56 && hint.name == derived)
+                {
+                    self.hints.remove(&ptr);
+                }
                 if let Some(fallback) = self.context_hints.get(&ptr).cloned() {
                     self.set_hint(local, fallback, 56);
                 }
                 return;
             }
-            if family == "script"
-                && let Some(existing) = self.hints.get(&ptr)
-                && existing.score == 55
-                && existing.name != hint
+            if self
+                .isa_derived_hints
+                .get(&ptr)
+                .is_some_and(|existing| existing != &hint)
             {
-                self.set_hint_str(local, "script", 56);
+                // Several concrete classes from one semantic family should use
+                // the honest family name (`ParticleEmitter|Beam` -> `effect`),
+                // never whichever `:IsA` happened to be visited first.
+                self.set_isa_derived_hint(local, family.clone(), 56);
                 return;
             }
         } else {
             self.isa_families.insert(ptr, family);
         }
 
-        self.set_hint(local, hint, 55);
+        self.set_isa_derived_hint(local, hint, 55);
     }
 
     fn hint_name(&self, local: &RcLocal) -> Option<&str> {
@@ -1841,6 +2309,94 @@ impl Namer {
 
     fn local_known_name(&self, local: &RcLocal) -> Option<String> {
         current_name(local).or_else(|| self.hint_name(local).map(str::to_string))
+    }
+
+    fn resolve_fill_source(&self, source: &FillSource) -> Option<String> {
+        let name = match source {
+            FillSource::Static(name) => name.clone(),
+            FillSource::Local(ptr) => self.hints.get(ptr)?.name.clone(),
+        };
+        (!is_generic_semantic_name(&name)).then_some(name)
+    }
+
+    fn unanimous_fill_name(&self, sources: &FxHashSet<FillSource>) -> Option<String> {
+        let mut result = None;
+        for source in sources {
+            let name = self.resolve_fill_source(source)?;
+            match &result {
+                None => result = Some(name),
+                Some(existing) if existing != &name => return None,
+                _ => {}
+            }
+        }
+        result
+    }
+
+    /// Apply whole-tree state/container facts after `collect` has populated every
+    /// RHS-derived hint. Deferring this step lets `map[k] = valueLocal` resolve
+    /// `valueLocal` even when its declaration appears later in traversal order.
+    fn usage_based_hints(&mut self) {
+        let mut candidates = Vec::new();
+        let ambiguous_instances: Vec<usize> = self
+            .instance_assignment_hints
+            .keys()
+            .copied()
+            .filter(|ptr| self.instance_assignment_conflicts.contains(ptr))
+            .collect();
+        for ptr in ambiguous_instances {
+            // A lookup-derived class word (score 60) is no more trustworthy than
+            // the conflicting constructor class. Remove it instead of letting
+            // traversal order choose either concrete class.
+            if self.hints.get(&ptr).is_some_and(|hint| hint.score <= 60) {
+                self.hints.remove(&ptr);
+            }
+        }
+        for (&ptr, name) in &self.instance_assignment_hints {
+            if !self.instance_assignment_conflicts.contains(&ptr)
+                && !self.collapse_candidates.contains(&ptr)
+                && !self
+                    .usage
+                    .get(&ptr)
+                    .is_some_and(|usage| usage.unknown_value_write)
+            {
+                candidates.push((ptr, name.clone(), 65));
+            }
+        }
+        for (&ptr, usage) in &self.usage {
+            if self.collapse_candidates.contains(&ptr) {
+                continue;
+            }
+
+            if !usage.unknown_semantic_fill
+                && let Some(value) = self.unanimous_fill_name(&usage.collection_value_sources)
+                && let Some(values) = pluralize(&value)
+            {
+                let key = (!usage.unknown_collection_key)
+                    .then(|| self.unanimous_fill_name(&usage.collection_key_sources))
+                    .flatten();
+                let (name, score) = match key {
+                    Some(key) if !name_ends_with_word(&values, &key) => {
+                        (format!("{values}By{}", capitalize_first(&key)), 53)
+                    }
+                    _ => (values, 52),
+                };
+                if let Some(name) = sanitize_preserve(&name) {
+                    candidates.push((ptr, name, score));
+                }
+            }
+            if usage.counter_updates > 0 && !usage.counter_invalid_write {
+                candidates.push((ptr, "count".to_string(), 46));
+            }
+            if usage.boolean_writes > 0 && usage.boolean_guarded && !usage.boolean_invalid_write {
+                candidates.push((ptr, "flag".to_string(), 38));
+            }
+            if usage.elapsed_clock_base && usage.clock_writes > 0 && !usage.clock_invalid_write {
+                candidates.push((ptr, "lastTime".to_string(), 61));
+            }
+        }
+        for (ptr, name, score) in candidates {
+            self.set_hint_ptr(ptr, name, score);
+        }
     }
 
     fn callable_name(&self, rvalue: &RValue) -> Option<String> {
@@ -2029,11 +2585,8 @@ impl Namer {
     /// inline `_:GetService("TweenService")` call.
     fn is_tween_service(&self, receiver: &RValue) -> bool {
         match receiver {
-            RValue::Local(local) => {
-                self.local_known_name(local).as_deref() == Some("TweenService")
-            }
-            RValue::MethodCall(method_call)
-            | RValue::Select(Select::MethodCall(method_call)) => {
+            RValue::Local(local) => self.local_known_name(local).as_deref() == Some("TweenService"),
+            RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call)) => {
                 method_call.method == "GetService"
                     && method_call.arguments.first().and_then(string_literal)
                         == Some("TweenService")
@@ -2065,15 +2618,18 @@ impl Namer {
     /// A local initialized to a table literal that is filled with React elements
     /// (`children`, score 48) or filled in a loop and returned (`result`, 35).
     fn children_or_result_hint(&mut self, local: &RcLocal) {
-        let (children, result) = match self.usage.get(&local_ptr(local)) {
+        let (children, result, connections) = match self.usage.get(&local_ptr(local)) {
             Some(usage) => (
                 usage.create_element_fill_count >= 2 || usage.create_element_fill_in_loop,
                 (usage.keyed_assign_in_loop || usage.table_insert_in_loop) && usage.returned,
+                usage.connection_fills > 0 && !usage.unknown_collection_fill,
             ),
-            None => (false, false),
+            None => (false, false, false),
         };
         if children {
             self.set_hint_str(local, "children", 48);
+        } else if connections {
+            self.set_hint_str(local, "connections", 52);
         } else if result {
             self.set_hint_str(local, "result", 35);
         }
@@ -2092,14 +2648,63 @@ impl Namer {
     /// takes that key as its name (score 62). The key is a literal source string,
     /// so this is safe; it still yields to `useState` (95) and friends.
     fn callback_hint(&mut self, local: &RcLocal) {
-        let key = self
-            .usage
-            .get(&local_ptr(local))
-            .and_then(|usage| usage.callback_field_name.clone());
+        let key = self.usage.get(&local_ptr(local)).and_then(|usage| {
+            (!usage.callback_name_conflict)
+                .then(|| usage.callback_field_name.clone())
+                .flatten()
+        });
         if let Some(key) = key
             && let Some(name) = sanitize_preserve(&key)
         {
             self.set_hint(local, name, 62);
+        }
+    }
+
+    fn callsite_argument_name(&self, value: &RValue) -> Option<String> {
+        let name = match value {
+            RValue::Local(local) => self.local_known_name(local),
+            RValue::Index(index) => index_key(index).and_then(sanitize),
+            _ => rvalue_hint(value),
+        }?;
+        (!is_default_name(&name) && name != "_").then_some(name)
+    }
+
+    /// Name local-function parameters from unanimous semantic call-site sources
+    /// (`render(petData)` / `render(record.PetData)` -> `petData`). Definitions
+    /// and calls are collected in separate whole-tree walks so declaration order
+    /// is irrelevant. Any unknown or disagreeing site invalidates that slot.
+    fn interprocedural_param_hints(&mut self, block: &Block) {
+        let mut definitions = FxHashMap::<usize, Vec<RcLocal>>::default();
+        let mut invalid = FxHashSet::default();
+        collect_local_function_definitions(block, &mut definitions, &mut invalid);
+        definitions.retain(|binder, _| !invalid.contains(binder));
+        if definitions.is_empty() {
+            return;
+        }
+
+        let mut consensus = FxHashMap::<usize, ParamConsensus>::default();
+        collect_local_function_calls(block, &definitions, self, &mut consensus);
+        let mut hints = Vec::new();
+        for (binder, state) in consensus {
+            if state.calls == 0 {
+                continue;
+            }
+            let Some(parameters) = definitions.get(&binder) else {
+                continue;
+            };
+            for (index, parameter) in parameters.iter().enumerate() {
+                if state.valid.get(index) == Some(&true)
+                    && let Some(name) = state.names.get(index).and_then(Clone::clone)
+                {
+                    hints.push((parameter.clone(), name));
+                }
+            }
+        }
+        // Drop all temporary RcLocal clones before `apply` performs Arc-count-
+        // based unused detection; only pointer-keyed hints remain in `self`.
+        drop(definitions);
+        for (parameter, name) in hints {
+            self.set_hint(&parameter, name, 49);
         }
     }
 
@@ -2143,10 +2748,12 @@ impl Namer {
         let Some(usage) = self.usage.get(&local_ptr(param)) else {
             return;
         };
-        // A `.UserId`/`.Character`/`.DisplayName` read is a strong Player tell.
-        let is_player = ["UserId", "Character", "DisplayName"]
-            .iter()
-            .any(|field| usage.string_fields_read.contains(*field));
+        // `.UserId` alone is common on plain data records and must not turn a
+        // pet/user entry into `player`. `.Character` is Player-specific; the
+        // UserId+DisplayName pair is also strong enough when Character is absent.
+        let is_player = usage.string_fields_read.contains("Character")
+            || (usage.string_fields_read.contains("UserId")
+                && usage.string_fields_read.contains("DisplayName"));
         let instance_shaped = usage.instance_method_seen;
         let typeof_conflict = usage.typeof_conflict;
         let typeof_type = usage.typeof_type;
@@ -2210,7 +2817,10 @@ impl Namer {
         let attr_name = if usage.attr_key_conflict {
             None
         } else {
-            usage.attr_key.as_deref().and_then(param_name_from_field_key)
+            usage
+                .attr_key
+                .as_deref()
+                .and_then(param_name_from_field_key)
         };
         // A name-string API slot — but a name string can't be an Instance, so a
         // contradicting instance use refuses it.
@@ -2221,8 +2831,7 @@ impl Namer {
         };
         // A string-method receiver is a string (=> the `value` hypernym, matching
         // the typeof-string tier). Refuse on a contradicting Instance use.
-        let string_value =
-            usage.string_method_seen && !instance_shaped && !is_instance_typeof;
+        let string_value = usage.string_method_seen && !instance_shaped && !is_instance_typeof;
         // A literal/empty-table default reveals a scalar/table type. Refuse on a
         // contradicting Instance use (an Instance param can't default to 0/{}).
         let or_default = if usage.or_default_conflict || instance_shaped || is_instance_typeof {
@@ -2234,7 +2843,10 @@ impl Namer {
         // contradicting scalar/Instance evidence.
         let callee = usage.used_as_callee
             && !instance_shaped
-            && !matches!(typeof_type, Some("string") | Some("number") | Some("Instance"));
+            && !matches!(
+                typeof_type,
+                Some("string") | Some("number") | Some("Instance")
+            );
 
         // The immutable `usage` borrow ends here; the `set_hint` calls take
         // `&mut self`. Scores arbitrate — order below is immaterial.
@@ -2391,6 +3003,12 @@ impl Namer {
             }
             return;
         }
+        if let Some(name) = lock.0.clone()
+            && is_constant_identifier(&name)
+        {
+            lock.0 = Some(self.unique(&name, scope, policy));
+            return;
+        }
         if !(self.rename || lock.0.is_none()) {
             return;
         }
@@ -2491,6 +3109,7 @@ impl Namer {
                         if let Some(local) = lvalue.as_local()
                             && let Some(rvalue) = assign.right.get(index)
                         {
+                            self.children_or_result_hint(local);
                             if matches!(rvalue, RValue::Closure(_)) {
                                 self.closure_locals.insert(local_ptr(local));
                                 // A closure stored under an `onClose`/`setX` field
@@ -2504,7 +3123,6 @@ impl Namer {
                                 if let Some(hint) = table_collection_hint(table) {
                                     self.set_hint(local, hint, 90);
                                 }
-                                self.children_or_result_hint(local);
                                 // An EMPTY table later used as a metatable
                                 // (`X.__index = X` / `setmetatable(_, X)`) or colon-
                                 // invoked (`X:method()`) is an OOP class table; name
@@ -2526,10 +3144,10 @@ impl Namer {
                                 // its metatable / method defs / return, hence always
                                 // multi-use, so this never drops a real class (all 3
                                 // corpus sites keep `class`).
-                                let inlinable_temp =
-                                    self.counts.get(&local_ptr(local)).is_some_and(|u| {
-                                        u.reads == 1 && u.writes == 1 && !u.captured
-                                    });
+                                let inlinable_temp = self
+                                    .counts
+                                    .get(&local_ptr(local))
+                                    .is_some_and(|u| u.reads == 1 && u.writes == 1 && !u.captured);
                                 if table.0.is_empty()
                                     && !inlinable_temp
                                     && self.class_signal_locals.contains(&local_ptr(local))
@@ -2549,8 +3167,25 @@ impl Namer {
                             // common hoisted-init names are preserved.
                             let collapse_candidate = self.is_collapse_candidate(local);
                             if !collapse_candidate {
-                                if let Some(hint) = rvalue_hint(rvalue) {
-                                    self.set_hint(local, hint, 60);
+                                if let Some(hint) = instance_constructor_hint(rvalue) {
+                                    self.note_instance_assignment(local, hint);
+                                } else {
+                                    if !is_instance_compatible_placeholder(rvalue) {
+                                        self.instance_assignment_conflicts.insert(local_ptr(local));
+                                    }
+                                    if let Some(hint) = rvalue_hint(rvalue) {
+                                        self.set_hint(local, hint, 60);
+                                    }
+                                }
+                                if let RValue::Closure(closure) = rvalue
+                                    && let Some(name) = closure
+                                        .function
+                                        .lock()
+                                        .name
+                                        .as_deref()
+                                        .and_then(sanitize_preserve)
+                                {
+                                    self.set_hint(local, name, 80);
                                 }
                             }
                             // §2.7 predicate/boolean naming fires only on DECLARATIONS
@@ -2588,8 +3223,7 @@ impl Namer {
                             // Generic guarded-lookup children get parent-qualified
                             // (`plantedSeedsClient`) rather than colliding to
                             // `client`/`client2`.
-                            if let Some((name, score)) =
-                                self.guarded_lookup_qualified_hint(rvalue)
+                            if let Some((name, score)) = self.guarded_lookup_qualified_hint(rvalue)
                             {
                                 self.set_hint(local, name, score);
                             }
@@ -2724,12 +3358,7 @@ impl Namer {
                 Statement::GenericFor(generic_for) => {
                     let mut loop_scope: Vec<String> = Vec::new();
                     for res_local in &generic_for.res_locals {
-                        self.name_one(
-                            res_local,
-                            "v",
-                            &mut loop_scope,
-                            ReusePolicy::LoopReusable,
-                        );
+                        self.name_one(res_local, "v", &mut loop_scope, ReusePolicy::LoopReusable);
                     }
                     self.apply(&mut generic_for.block.lock());
                     self.release(loop_scope);
@@ -2738,6 +3367,183 @@ impl Namer {
             }
         }
         self.release(block_scope);
+    }
+}
+
+fn collect_local_function_definitions(
+    block: &Block,
+    definitions: &mut FxHashMap<usize, Vec<RcLocal>>,
+    invalid: &mut FxHashSet<usize>,
+) {
+    for statement in &block.0 {
+        if let Statement::Assign(assign) = statement {
+            let multi_tail = assign
+                .right
+                .last()
+                .is_some_and(|value| matches!(value, RValue::Select(_) | RValue::VarArg(_)));
+            for (index, left) in assign.left.iter().enumerate() {
+                let LValue::Local(binder) = left else {
+                    continue;
+                };
+                let ptr = local_ptr(binder);
+                match assign.right.get(index) {
+                    Some(RValue::Closure(closure)) => {
+                        let parameters = closure.function.lock().parameters.clone();
+                        if definitions.insert(ptr, parameters).is_some() {
+                            invalid.insert(ptr);
+                        }
+                    }
+                    Some(RValue::Literal(Literal::Nil)) if assign.prefix => {}
+                    None if assign.prefix && !multi_tail => {}
+                    _ => {
+                        invalid.insert(ptr);
+                    }
+                }
+            }
+        }
+        for value in crate::deinline::stmt_rvalues(statement) {
+            collect_definitions_in_rvalue(value, definitions, invalid);
+        }
+        match statement {
+            Statement::If(node) => {
+                collect_local_function_definitions(&node.then_block.lock(), definitions, invalid);
+                collect_local_function_definitions(&node.else_block.lock(), definitions, invalid);
+            }
+            Statement::While(node) => {
+                collect_local_function_definitions(&node.block.lock(), definitions, invalid)
+            }
+            Statement::Repeat(node) => {
+                collect_local_function_definitions(&node.block.lock(), definitions, invalid)
+            }
+            Statement::NumericFor(node) => {
+                collect_local_function_definitions(&node.block.lock(), definitions, invalid)
+            }
+            Statement::GenericFor(node) => {
+                collect_local_function_definitions(&node.block.lock(), definitions, invalid)
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_definitions_in_rvalue(
+    value: &RValue,
+    definitions: &mut FxHashMap<usize, Vec<RcLocal>>,
+    invalid: &mut FxHashSet<usize>,
+) {
+    if let RValue::Closure(closure) = value {
+        collect_local_function_definitions(&closure.function.lock().body, definitions, invalid);
+        return;
+    }
+    for child in value.rvalues() {
+        collect_definitions_in_rvalue(child, definitions, invalid);
+    }
+}
+
+fn record_local_function_call(
+    call: &Call,
+    definitions: &FxHashMap<usize, Vec<RcLocal>>,
+    namer: &Namer,
+    consensus: &mut FxHashMap<usize, ParamConsensus>,
+) {
+    let RValue::Local(binder) = &*call.value else {
+        return;
+    };
+    let ptr = local_ptr(binder);
+    let Some(parameters) = definitions.get(&ptr) else {
+        return;
+    };
+    let state = consensus.entry(ptr).or_insert_with(|| ParamConsensus {
+        calls: 0,
+        names: vec![None; parameters.len()],
+        valid: vec![true; parameters.len()],
+    });
+    state.calls += 1;
+    for index in 0..parameters.len() {
+        let Some(name) = call
+            .arguments
+            .get(index)
+            .and_then(|argument| namer.callsite_argument_name(argument))
+        else {
+            state.valid[index] = false;
+            continue;
+        };
+        match &state.names[index] {
+            None => state.names[index] = Some(name),
+            Some(existing) if existing != &name => state.valid[index] = false,
+            _ => {}
+        }
+    }
+}
+
+fn collect_local_function_calls(
+    block: &Block,
+    definitions: &FxHashMap<usize, Vec<RcLocal>>,
+    namer: &Namer,
+    consensus: &mut FxHashMap<usize, ParamConsensus>,
+) {
+    for statement in &block.0 {
+        if let Statement::Call(call) = statement {
+            record_local_function_call(call, definitions, namer, consensus);
+        }
+        for value in crate::deinline::stmt_rvalues(statement) {
+            collect_calls_in_rvalue(value, definitions, namer, consensus);
+        }
+        match statement {
+            Statement::If(node) => {
+                collect_local_function_calls(
+                    &node.then_block.lock(),
+                    definitions,
+                    namer,
+                    consensus,
+                );
+                collect_local_function_calls(
+                    &node.else_block.lock(),
+                    definitions,
+                    namer,
+                    consensus,
+                );
+            }
+            Statement::While(node) => {
+                collect_local_function_calls(&node.block.lock(), definitions, namer, consensus)
+            }
+            Statement::Repeat(node) => {
+                collect_local_function_calls(&node.block.lock(), definitions, namer, consensus)
+            }
+            Statement::NumericFor(node) => {
+                collect_local_function_calls(&node.block.lock(), definitions, namer, consensus)
+            }
+            Statement::GenericFor(node) => {
+                collect_local_function_calls(&node.block.lock(), definitions, namer, consensus)
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_calls_in_rvalue(
+    value: &RValue,
+    definitions: &FxHashMap<usize, Vec<RcLocal>>,
+    namer: &Namer,
+    consensus: &mut FxHashMap<usize, ParamConsensus>,
+) {
+    match value {
+        RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+            record_local_function_call(call, definitions, namer, consensus)
+        }
+        RValue::Closure(closure) => {
+            collect_local_function_calls(
+                &closure.function.lock().body,
+                definitions,
+                namer,
+                consensus,
+            );
+            return;
+        }
+        _ => {}
+    }
+    for child in value.rvalues() {
+        collect_calls_in_rvalue(child, definitions, namer, consensus);
     }
 }
 
@@ -2926,6 +3732,10 @@ pub fn name_locals_with_options(
         hints: FxHashMap::default(),
         context_hints: FxHashMap::default(),
         isa_families: FxHashMap::default(),
+        isa_conflicts: FxHashSet::default(),
+        isa_derived_hints: FxHashMap::default(),
+        instance_assignment_hints: FxHashMap::default(),
+        instance_assignment_conflicts: FxHashSet::default(),
         module_table_locals: FxHashSet::default(),
         named: FxHashSet::default(),
         closure_locals: FxHashSet::default(),
@@ -2936,6 +3746,8 @@ pub fn name_locals_with_options(
         class_signal_locals,
     };
     namer.collect(block, true);
+    namer.usage_based_hints();
+    namer.interprocedural_param_hints(block);
     namer.apply(block);
     if rename {
         avoid_shadowing(block, FxHashMap::default());
@@ -2944,12 +3756,15 @@ pub fn name_locals_with_options(
 
 #[cfg(test)]
 mod tests {
-    use super::{name_locals, name_locals_with_options, name_locals_with_script_name};
+    use super::{
+        name_locals, name_locals_with_options, name_locals_with_script_name, pluralize,
+        sanitize_preserve,
+    };
     use crate::formatter::Formatter;
     use crate::{
         Assign, Binary, BinaryOperation, Block, Call, Closure, Function, GenericFor, Global, If,
-        Index, LValue, Literal, MethodCall, NumericFor, RValue, RcLocal, Return, Statement, Table,
-        Upvalue,
+        Index, LValue, Literal, MethodCall, NumericFor, RValue, RcLocal, Return, Select, Statement,
+        Table, Upvalue,
     };
     use by_address::ByAddress;
     use parking_lot::Mutex;
@@ -2966,6 +3781,14 @@ mod tests {
 
     fn number(value: f64) -> RValue {
         RValue::Literal(Literal::Number(value))
+    }
+
+    #[test]
+    fn identifier_hints_are_not_truncated_to_32_characters() {
+        assert_eq!(
+            sanitize_preserve("createAnimationFromKeyframeSequence"),
+            Some("createAnimationFromKeyframeSequence".to_string())
+        );
     }
 
     fn boolean(value: bool) -> RValue {
@@ -3496,7 +4319,7 @@ mod tests {
     }
 
     #[test]
-    fn mixed_effect_isa_keeps_specific_effect_name() {
+    fn mixed_effect_isa_uses_family_name() {
         let index = RcLocal::default();
         let value = RcLocal::default();
 
@@ -3537,7 +4360,132 @@ mod tests {
 
         name_locals(&mut block, true);
 
-        assert_eq!(name_of(&value), "emitter");
+        assert_eq!(name_of(&value), "effect");
+    }
+
+    #[test]
+    fn later_cross_family_isa_clears_prior_family_hint() {
+        let index = RcLocal::default();
+        let value = RcLocal::default();
+        let mut checks = Vec::new();
+        for class in ["ParticleEmitter", "Beam", "Part"] {
+            checks.push(
+                If::new(
+                    RValue::MethodCall(MethodCall::new(
+                        RValue::Local(value.clone()),
+                        "IsA".to_string(),
+                        vec![string(class)],
+                    )),
+                    Block(vec![use_local(&value)]),
+                    Block::default(),
+                )
+                .into(),
+            );
+        }
+        let mut block = Block(vec![Statement::GenericFor(GenericFor::new(
+            vec![index, value.clone()],
+            vec![RValue::MethodCall(MethodCall::new(
+                global("model"),
+                "GetChildren".to_string(),
+                vec![],
+            ))],
+            Block(checks),
+        ))]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&value), "child");
+    }
+
+    #[test]
+    fn lookup_and_constructor_class_conflict_is_refused() {
+        let model = RcLocal::default();
+        let lookup = RValue::MethodCall(MethodCall::new(
+            global("workspace"),
+            "FindFirstChild".to_string(),
+            vec![string("Folder")],
+        ));
+        let constructor = RValue::Call(Call::new(
+            RValue::Index(Index::new(global("Instance"), string("new"))),
+            vec![string("Model")],
+        ));
+        let mut block = Block(vec![
+            declare(&model, lookup),
+            Statement::Assign(Assign::new(
+                vec![LValue::Local(model.clone())],
+                vec![constructor],
+            )),
+            use_local(&model),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&model), "v");
+    }
+
+    #[test]
+    fn conflicting_instance_constructor_assignments_are_refused() {
+        let value = RcLocal::default();
+        let constructor = |class| {
+            RValue::Call(Call::new(
+                RValue::Index(Index::new(global("Instance"), string("new"))),
+                vec![string(class)],
+            ))
+        };
+        let mut block = Block(vec![
+            declare(&value, RValue::Literal(Literal::Nil)),
+            Statement::Assign(Assign::new(
+                vec![LValue::Local(value.clone())],
+                vec![constructor("Model")],
+            )),
+            Statement::Assign(Assign::new(
+                vec![LValue::Local(value.clone())],
+                vec![constructor("Folder")],
+            )),
+            use_local(&value),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&value), "v");
+    }
+
+    #[test]
+    fn non_instance_write_invalidates_constructor_consensus() {
+        let value = RcLocal::default();
+        let constructor = RValue::Call(Call::new(
+            RValue::Index(Index::new(global("Instance"), string("new"))),
+            vec![string("Model")],
+        ));
+        let mut block = Block(vec![
+            declare(&value, constructor),
+            Statement::Assign(Assign::new(
+                vec![LValue::Local(value.clone())],
+                vec![string("done")],
+            )),
+            use_local(&value),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&value), "v");
+    }
+
+    #[test]
+    fn multi_result_write_invalidates_constructor_consensus() {
+        let ignored = RcLocal::default();
+        let value = RcLocal::default();
+        let constructor = RValue::Call(Call::new(
+            RValue::Index(Index::new(global("Instance"), string("new"))),
+            vec![string("Model")],
+        ));
+        let mut block = Block(vec![
+            declare(&value, constructor),
+            Statement::Assign(Assign::new(
+                vec![LValue::Local(ignored), LValue::Local(value.clone())],
+                vec![RValue::Select(Select::Call(Call::new(
+                    global("getState"),
+                    vec![],
+                )))],
+            )),
+            use_local(&value),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&value), "v");
     }
 
     #[test]
@@ -4174,6 +5122,35 @@ mod tests {
         assert_eq!(name_of(&p), "callback");
     }
 
+    #[test]
+    fn props_param_refused_when_invoked_as_selected_call() {
+        let p = RcLocal::default();
+        let (a, b, c) = (RcLocal::default(), RcLocal::default(), RcLocal::default());
+        let out_a = RcLocal::default();
+        let out_b = RcLocal::default();
+        let mut selected = Assign::new(
+            vec![LValue::Local(out_a), LValue::Local(out_b)],
+            vec![RValue::Select(Select::Call(Call::new(
+                RValue::Local(p.clone()),
+                vec![],
+            )))],
+        );
+        selected.prefix = true;
+        let mut function = Function::default();
+        function.parameters = vec![p.clone()];
+        function.body = Block(vec![
+            declare(&a, field(&p, "x")),
+            declare(&b, field(&p, "y")),
+            declare(&c, field(&p, "z")),
+            Statement::Assign(selected),
+            ret(vec![create_element(vec![string("Frame")])]),
+        ]);
+        let comp = RcLocal::default();
+        let mut block = Block(vec![declare(&comp, closure_of(function)), use_local(&comp)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&p), "callback");
+    }
+
     // ===== §param dataflow naming v1 =====
 
     /// Build a top-level closure with the given params + body, name the whole
@@ -4197,7 +5174,11 @@ mod tests {
         let (this, p) = (RcLocal::default(), RcLocal::default());
         name_param_fn(
             vec![this.clone(), p.clone()],
-            vec![keyed_assign(&this, string("Range"), RValue::Local(p.clone()))],
+            vec![keyed_assign(
+                &this,
+                string("Range"),
+                RValue::Local(p.clone()),
+            )],
         );
         assert_eq!(name_of(&p), "range");
     }
@@ -4208,7 +5189,11 @@ mod tests {
         let (this, p) = (RcLocal::default(), RcLocal::default());
         name_param_fn(
             vec![this.clone(), p.clone()],
-            vec![keyed_assign(&this, string("_balance"), RValue::Local(p.clone()))],
+            vec![keyed_assign(
+                &this,
+                string("_balance"),
+                RValue::Local(p.clone()),
+            )],
         );
         assert_eq!(name_of(&p), "balance");
     }
@@ -4220,7 +5205,11 @@ mod tests {
         let (this, p) = (RcLocal::default(), RcLocal::default());
         name_param_fn(
             vec![this.clone(), p.clone()],
-            vec![keyed_assign(&this, string("Value"), RValue::Local(p.clone()))],
+            vec![keyed_assign(
+                &this,
+                string("Value"),
+                RValue::Local(p.clone()),
+            )],
         );
         assert_ne!(name_of(&p), "value");
         assert_eq!(name_of(&p), "p2"); // param0 `this` takes `p`; refused param1 -> `p2`
@@ -4263,7 +5252,11 @@ mod tests {
         let p = RcLocal::default();
         name_param_fn(
             vec![p.clone()],
-            vec![method_stmt(global("workspace"), "FindFirstChild", vec![RValue::Local(p.clone())])],
+            vec![method_stmt(
+                global("workspace"),
+                "FindFirstChild",
+                vec![RValue::Local(p.clone())],
+            )],
         );
         assert_eq!(name_of(&p), "childName");
     }
@@ -4291,7 +5284,11 @@ mod tests {
         name_param_fn(
             vec![p.clone()],
             vec![
-                method_stmt(global("workspace"), "WaitForChild", vec![RValue::Local(p.clone())]),
+                method_stmt(
+                    global("workspace"),
+                    "WaitForChild",
+                    vec![RValue::Local(p.clone())],
+                ),
                 method_stmt(RValue::Local(p.clone()), "Destroy", vec![]),
             ],
         );
@@ -4323,7 +5320,10 @@ mod tests {
             RValue::Table(Table::default()),
             BinaryOperation::Or,
         ));
-        name_param_fn(vec![p.clone()], vec![declare(&x, or_default), use_local(&x)]);
+        name_param_fn(
+            vec![p.clone()],
+            vec![declare(&x, or_default), use_local(&x)],
+        );
         assert_eq!(name_of(&p), "options");
     }
 
@@ -4347,7 +5347,11 @@ mod tests {
             vec![this.clone(), p.clone()],
             vec![
                 keyed_assign(&this, string("Label"), RValue::Local(p.clone())),
-                method_stmt(RValue::Local(p.clone()), "gsub", vec![string("a"), string("b")]),
+                method_stmt(
+                    RValue::Local(p.clone()),
+                    "gsub",
+                    vec![string("a"), string("b")],
+                ),
             ],
         );
         assert_eq!(name_of(&p), "label");
@@ -4375,7 +5379,11 @@ mod tests {
         let p = RcLocal::default();
         name_param_fn(
             vec![p.clone()],
-            vec![method_stmt(global("model"), "GetAttribute", vec![RValue::Local(p.clone())])],
+            vec![method_stmt(
+                global("model"),
+                "GetAttribute",
+                vec![RValue::Local(p.clone())],
+            )],
         );
         assert_eq!(name_of(&p), "attributeName");
     }
@@ -4403,8 +5411,16 @@ mod tests {
         name_param_fn(
             vec![p.clone()],
             vec![
-                method_stmt(global("a"), "SetAttribute", vec![string("Foo"), RValue::Local(p.clone())]),
-                method_stmt(global("b"), "SetAttribute", vec![string("Bar"), RValue::Local(p.clone())]),
+                method_stmt(
+                    global("a"),
+                    "SetAttribute",
+                    vec![string("Foo"), RValue::Local(p.clone())],
+                ),
+                method_stmt(
+                    global("b"),
+                    "SetAttribute",
+                    vec![string("Bar"), RValue::Local(p.clone())],
+                ),
             ],
         );
         assert_eq!(name_of(&p), "p");
@@ -4418,7 +5434,11 @@ mod tests {
         name_param_fn(
             vec![p.clone()],
             vec![
-                method_stmt(global("a"), "FindFirstChild", vec![RValue::Local(p.clone())]),
+                method_stmt(
+                    global("a"),
+                    "FindFirstChild",
+                    vec![RValue::Local(p.clone())],
+                ),
                 method_stmt(global("b"), "GetAttribute", vec![RValue::Local(p.clone())]),
             ],
         );
@@ -4434,7 +5454,10 @@ mod tests {
             number(1.0),
             BinaryOperation::Or,
         ));
-        name_param_fn(vec![p.clone()], vec![declare(&x, or_default), use_local(&x)]);
+        name_param_fn(
+            vec![p.clone()],
+            vec![declare(&x, or_default), use_local(&x)],
+        );
         assert_eq!(name_of(&p), "value");
     }
 
@@ -4562,6 +5585,57 @@ mod tests {
         assert_eq!(name_of(&counter), "i");
     }
 
+    #[test]
+    fn connection_collection_named_from_table_insert() {
+        let connections = RcLocal::default();
+        let callback = RcLocal::default();
+        let connection = RValue::MethodCall(MethodCall::new(
+            global("signal"),
+            "Connect".to_string(),
+            vec![RValue::Local(callback)],
+        ));
+        let insert = Statement::Call(Call::new(
+            RValue::Index(Index::new(global("table"), string("insert"))),
+            vec![RValue::Local(connections.clone()), connection],
+        ));
+        let mut block = Block(vec![
+            declare(&connections, RValue::Table(Table::default())),
+            insert,
+            use_local(&connections),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&connections), "connections");
+    }
+
+    #[test]
+    fn mixed_collection_fill_refuses_connections_name() {
+        let values = RcLocal::default();
+        let callback = RcLocal::default();
+        let connection = RValue::MethodCall(MethodCall::new(
+            global("signal"),
+            "Connect".to_string(),
+            vec![RValue::Local(callback)],
+        ));
+        let insert = |value| {
+            Statement::Call(Call::new(
+                RValue::Index(Index::new(global("table"), string("insert"))),
+                vec![RValue::Local(values.clone()), value],
+            ))
+        };
+        let mut block = Block(vec![
+            declare(&values, RValue::Table(Table::default())),
+            insert(connection),
+            insert(string("not a connection")),
+            use_local(&values),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_ne!(name_of(&values), "connections");
+    }
+
     /// `react.useRef(...)` reads as `ref`.
     #[test]
     fn ref_named_from_use_ref_call() {
@@ -4595,6 +5669,50 @@ mod tests {
         name_locals(&mut block, true);
         assert_eq!(name_of(&on_close), "onClose");
         assert_eq!(name_of(&layout), "fn");
+    }
+
+    #[test]
+    fn forward_declared_callback_named_from_event_use() {
+        let handler = RcLocal::default();
+        let declaration = Statement::Assign(Assign {
+            left: vec![LValue::Local(handler.clone())],
+            right: Vec::new(),
+            prefix: true,
+            parallel: false,
+        });
+        let definition = Statement::Assign(Assign::new(
+            vec![LValue::Local(handler.clone())],
+            vec![closure_of(Function::default())],
+        ));
+        let connect = Statement::MethodCall(MethodCall::new(
+            RValue::Index(Index::new(global("folder"), string("ChildAdded"))),
+            "Connect".to_string(),
+            vec![RValue::Local(handler.clone())],
+        ));
+        let mut block = Block(vec![declaration, definition, connect]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&handler), "onChildAdded");
+    }
+
+    #[test]
+    fn debug_function_name_outranks_event_context() {
+        let handler = RcLocal::default();
+        let mut function = Function::default();
+        function.name = Some("rebuildCache".to_string());
+        let mut block = Block(vec![
+            declare(&handler, closure_of(function)),
+            Statement::MethodCall(MethodCall::new(
+                RValue::Index(Index::new(global("folder"), string("ChildAdded"))),
+                "Connect".to_string(),
+                vec![RValue::Local(handler.clone())],
+            )),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&handler), "rebuildCache");
     }
 
     /// The element variable is singularized from the iterated collection name.
@@ -4723,7 +5841,10 @@ mod tests {
     fn callback_named_from_setter_field() {
         let setter = RcLocal::default();
         let handlers = RcLocal::default();
-        let table = Table(vec![(Some(string("setVisible")), RValue::Local(setter.clone()))]);
+        let table = Table(vec![(
+            Some(string("setVisible")),
+            RValue::Local(setter.clone()),
+        )]);
         let mut block = Block(vec![
             declare(&setter, closure_of(Function::default())),
             declare(&handlers, RValue::Table(table)),
@@ -4763,7 +5884,10 @@ mod tests {
         let local_player = named_local("localPlayer");
         let character = RcLocal::default();
         let value = RValue::Binary(Binary::new(
-            RValue::Index(Index::new(RValue::Local(local_player.clone()), string("Character"))),
+            RValue::Index(Index::new(
+                RValue::Local(local_player.clone()),
+                string("Character"),
+            )),
             RValue::MethodCall(MethodCall::new(
                 RValue::Index(Index::new(
                     RValue::Local(local_player.clone()),
@@ -4813,7 +5937,10 @@ mod tests {
         let inst = named_local("inst");
         let humanoid = RcLocal::default();
         let mut block = Block(vec![
-            declare(&humanoid, guarded_find(RValue::Local(inst.clone()), "Humanoid")),
+            declare(
+                &humanoid,
+                guarded_find(RValue::Local(inst.clone()), "Humanoid"),
+            ),
             use_local(&humanoid),
             use_local(&inst),
         ]);
@@ -4878,9 +6005,15 @@ mod tests {
         let mut block = Block(vec![
             declare(&world, find_first_child(global("workspace"), "World")),
             use_local(&world),
-            declare(&seeds, guarded_find(RValue::Local(world.clone()), "PlantedSeeds")),
+            declare(
+                &seeds,
+                guarded_find(RValue::Local(world.clone()), "PlantedSeeds"),
+            ),
             use_local(&seeds),
-            declare(&pots, guarded_find(RValue::Local(world.clone()), "PlacedPots")),
+            declare(
+                &pots,
+                guarded_find(RValue::Local(world.clone()), "PlacedPots"),
+            ),
             use_local(&pots),
             declare(
                 &seeds_client,
@@ -4925,7 +6058,10 @@ mod tests {
         let mut block = Block(vec![
             declare(&world, find_first_child(global("workspace"), "World")),
             use_local(&world),
-            declare(&seeds, guarded_find(RValue::Local(world.clone()), "PlantedSeeds")),
+            declare(
+                &seeds,
+                guarded_find(RValue::Local(world.clone()), "PlantedSeeds"),
+            ),
             Statement::GenericFor(loop_for),
         ]);
 
@@ -5017,9 +6153,15 @@ mod tests {
         let mut block = Block(vec![
             declare(&world, find_first_child(global("workspace"), "World")),
             use_local(&world),
-            declare(&seeds, guarded_find(RValue::Local(world.clone()), "PlantedSeeds")),
+            declare(
+                &seeds,
+                guarded_find(RValue::Local(world.clone()), "PlantedSeeds"),
+            ),
             use_local(&seeds),
-            declare(&pots, guarded_find(RValue::Local(world.clone()), "PlacedPots")),
+            declare(
+                &pots,
+                guarded_find(RValue::Local(world.clone()), "PlacedPots"),
+            ),
             use_local(&pots),
             declare(
                 &seeds_server,
@@ -5136,8 +6278,18 @@ mod tests {
         let mut function = Function::default();
         function.parameters = vec![p.clone()];
         function.body = Block(vec![
-            If::new(guard("string"), Block(vec![use_local(&p)]), Block::default()).into(),
-            If::new(guard("number"), Block(vec![use_local(&p)]), Block::default()).into(),
+            If::new(
+                guard("string"),
+                Block(vec![use_local(&p)]),
+                Block::default(),
+            )
+            .into(),
+            If::new(
+                guard("number"),
+                Block(vec![use_local(&p)]),
+                Block::default(),
+            )
+            .into(),
         ]);
         let (f, decl) = declare_closure_fn(function);
         let mut block = Block(vec![decl, use_local(&f)]);
@@ -5191,9 +6343,10 @@ mod tests {
         assert_eq!(name_of(&p), "part");
     }
 
-    /// A param read via `.UserId` reads as `player`.
+    /// `.UserId` alone can describe a plain data record, so it must not invent
+    /// the semantically stronger `player` name.
     #[test]
-    fn player_field_names_param_player() {
+    fn user_id_field_alone_does_not_name_player() {
         let p = RcLocal::default();
         let mut function = Function::default();
         function.parameters = vec![p.clone()];
@@ -5204,7 +6357,128 @@ mod tests {
         let (f, decl) = declare_closure_fn(function);
         let mut block = Block(vec![decl, use_local(&f)]);
         name_locals(&mut block, true);
+        assert_eq!(name_of(&p), "p");
+    }
+
+    /// `.Character` is a Player-specific field and remains a strong signal.
+    #[test]
+    fn character_field_names_param_player() {
+        let p = RcLocal::default();
+        name_param_fn(
+            vec![p.clone()],
+            vec![Statement::Call(Call::new(
+                global("print"),
+                vec![field(&p, "Character")],
+            ))],
+        );
         assert_eq!(name_of(&p), "player");
+    }
+
+    #[test]
+    fn standard_library_slots_name_parameters() {
+        let value = RcLocal::default();
+        let min = RcLocal::default();
+        let max = RcLocal::default();
+        let duration = RcLocal::default();
+        let clamp = RValue::Index(Index::new(global("math"), string("clamp")));
+        let wait = RValue::Index(Index::new(global("task"), string("wait")));
+        name_param_fn(
+            vec![value.clone(), min.clone(), max.clone(), duration.clone()],
+            vec![
+                Statement::Call(Call::new(
+                    clamp,
+                    vec![
+                        RValue::Local(value.clone()),
+                        RValue::Local(min.clone()),
+                        RValue::Local(max.clone()),
+                    ],
+                )),
+                Statement::Call(Call::new(wait, vec![RValue::Local(duration.clone())])),
+            ],
+        );
+        assert_eq!(name_of(&value), "value");
+        assert_eq!(name_of(&min), "min");
+        assert_eq!(name_of(&max), "max");
+        assert_eq!(name_of(&duration), "duration");
+    }
+
+    #[test]
+    fn unanimous_call_sites_name_local_function_parameter() {
+        let parameter = RcLocal::default();
+        let mut function = Function::default();
+        function.parameters = vec![parameter.clone()];
+        function.body = Block(vec![use_local(&parameter)]);
+        let binder = RcLocal::default();
+        let call = |owner: &str, key: &str| {
+            Statement::Call(Call::new(
+                RValue::Local(binder.clone()),
+                vec![RValue::Index(Index::new(global(owner), string(key)))],
+            ))
+        };
+        let mut block = Block(vec![
+            declare(&binder, closure_of(function)),
+            call("record", "PetData"),
+            call("cache", "PetData"),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&parameter), "petData");
+    }
+
+    #[test]
+    fn disagreeing_call_sites_do_not_name_parameter() {
+        let parameter = RcLocal::default();
+        let mut function = Function::default();
+        function.parameters = vec![parameter.clone()];
+        function.body = Block(vec![use_local(&parameter)]);
+        let binder = RcLocal::default();
+        let mut block = Block(vec![
+            declare(&binder, closure_of(function)),
+            Statement::Call(Call::new(
+                RValue::Local(binder.clone()),
+                vec![RValue::Index(Index::new(
+                    global("record"),
+                    string("PetData"),
+                ))],
+            )),
+            Statement::Call(Call::new(
+                RValue::Local(binder),
+                vec![RValue::Index(Index::new(
+                    global("record"),
+                    string("Config"),
+                ))],
+            )),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&parameter), "p");
+    }
+
+    #[test]
+    fn reassigned_function_binder_disables_callsite_consensus() {
+        let parameter = RcLocal::default();
+        let mut function = Function::default();
+        function.parameters = vec![parameter.clone()];
+        function.body = Block(vec![use_local(&parameter)]);
+        let binder = RcLocal::default();
+        let mut block = Block(vec![
+            declare(&binder, closure_of(function)),
+            Statement::Assign(Assign::new(
+                vec![LValue::Local(binder.clone())],
+                vec![global("other")],
+            )),
+            Statement::Call(Call::new(
+                RValue::Local(binder),
+                vec![RValue::Index(Index::new(
+                    global("record"),
+                    string("PetData"),
+                ))],
+            )),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&parameter), "p");
     }
 
     /// A bare `RunService.Heartbeat:Connect(function(p) ...)` names `p` -> `dt`.
@@ -5500,7 +6774,10 @@ mod tests {
     #[test]
     fn predicate_non_predicate_call_refused() {
         let v = RcLocal::default();
-        let mut block = Block(vec![declare(&v, predicate_call("frobnicate")), use_local(&v)]);
+        let mut block = Block(vec![
+            declare(&v, predicate_call("frobnicate")),
+            use_local(&v),
+        ]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "v");
     }
@@ -5517,7 +6794,10 @@ mod tests {
             declare(&is_ready, closure_of(function)),
             declare(
                 &v,
-                RValue::Call(Call::new(RValue::Local(is_ready.clone()), vec![global("x")])),
+                RValue::Call(Call::new(
+                    RValue::Local(is_ready.clone()),
+                    vec![global("x")],
+                )),
             ),
             use_local(&v),
             use_local(&is_ready),
@@ -5546,7 +6826,11 @@ mod tests {
     #[test]
     fn bool_field_eq_true_names_field() {
         let v = RcLocal::default();
-        let cmp = bool_compare(index_of("obj", "Visible"), boolean(true), BinaryOperation::Equal);
+        let cmp = bool_compare(
+            index_of("obj", "Visible"),
+            boolean(true),
+            BinaryOperation::Equal,
+        );
         let mut block = Block(vec![declare(&v, cmp), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "visible");
@@ -5596,7 +6880,10 @@ mod tests {
                 &folder,
                 RValue::Call(Call::new(global("getOrCreateWorkspaceFolder"), vec![])),
             ),
-            declare(&fx, RValue::Call(Call::new(global("getOrCreateFXPart"), vec![]))),
+            declare(
+                &fx,
+                RValue::Call(Call::new(global("getOrCreateFXPart"), vec![])),
+            ),
             use_local(&folder),
             use_local(&fx),
         ]);
@@ -5724,7 +7011,10 @@ mod tests {
     fn empty_table_without_signal_not_class() {
         let t = RcLocal::default();
         let field_assign: Statement = Assign::new(
-            vec![LValue::Index(Index::new(RValue::Local(t.clone()), string("x")))],
+            vec![LValue::Index(Index::new(
+                RValue::Local(t.clone()),
+                string("x"),
+            ))],
             vec![number(1.0)],
         )
         .into();
@@ -5762,8 +7052,14 @@ mod tests {
         let a = RcLocal::default();
         let b = RcLocal::default();
         let mut block = Block(vec![
-            declare(&a, RValue::Call(Call::new(global("cloneFromNode"), vec![global("x")]))),
-            declare(&b, RValue::Call(Call::new(global("cloneAndPosition"), vec![global("x")]))),
+            declare(
+                &a,
+                RValue::Call(Call::new(global("cloneFromNode"), vec![global("x")])),
+            ),
+            declare(
+                &b,
+                RValue::Call(Call::new(global("cloneAndPosition"), vec![global("x")])),
+            ),
             use_local(&a),
             use_local(&b),
         ]);
@@ -5783,7 +7079,10 @@ mod tests {
         let inv = RcLocal::default();
         let out = RcLocal::default();
         let mut block = Block(vec![
-            declare(&inv, RValue::Call(Call::new(global("getInventory"), vec![]))),
+            declare(
+                &inv,
+                RValue::Call(Call::new(global("getInventory"), vec![])),
+            ),
             declare(&out, RValue::Call(Call::new(global("getOutput"), vec![]))),
             use_local(&inv),
             use_local(&out),
@@ -5809,7 +7108,11 @@ mod tests {
     #[test]
     fn bool_field_eq_false_refused() {
         let v = RcLocal::default();
-        let cmp = bool_compare(index_of("obj", "Locked"), boolean(false), BinaryOperation::Equal);
+        let cmp = bool_compare(
+            index_of("obj", "Locked"),
+            boolean(false),
+            BinaryOperation::Equal,
+        );
         let mut block = Block(vec![declare(&v, cmp), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "v");
@@ -5820,7 +7123,11 @@ mod tests {
     #[test]
     fn bool_field_neq_false_names_field() {
         let v = RcLocal::default();
-        let cmp = bool_compare(index_of("obj", "Enabled"), boolean(false), BinaryOperation::NotEqual);
+        let cmp = bool_compare(
+            index_of("obj", "Enabled"),
+            boolean(false),
+            BinaryOperation::NotEqual,
+        );
         let mut block = Block(vec![declare(&v, cmp), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "enabled");
@@ -5832,7 +7139,11 @@ mod tests {
     #[test]
     fn bool_field_neq_true_refused() {
         let v = RcLocal::default();
-        let cmp = bool_compare(index_of("obj", "Favorite"), boolean(true), BinaryOperation::NotEqual);
+        let cmp = bool_compare(
+            index_of("obj", "Favorite"),
+            boolean(true),
+            BinaryOperation::NotEqual,
+        );
         let mut block = Block(vec![declare(&v, cmp), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "v");
@@ -5871,7 +7182,11 @@ mod tests {
     #[test]
     fn bool_field_eq_number_refused() {
         let v = RcLocal::default();
-        let cmp = bool_compare(index_of("obj", "Count"), number(5.0), BinaryOperation::Equal);
+        let cmp = bool_compare(
+            index_of("obj", "Count"),
+            number(5.0),
+            BinaryOperation::Equal,
+        );
         let mut block = Block(vec![declare(&v, cmp), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "v");
@@ -5891,7 +7206,11 @@ mod tests {
     #[test]
     fn bool_field_leading_underscore_stripped() {
         let v = RcLocal::default();
-        let cmp = bool_compare(index_of("obj", "_isOpen"), boolean(true), BinaryOperation::Equal);
+        let cmp = bool_compare(
+            index_of("obj", "_isOpen"),
+            boolean(true),
+            BinaryOperation::Equal,
+        );
         let mut block = Block(vec![declare(&v, cmp), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "isOpen");
@@ -5903,7 +7222,11 @@ mod tests {
     #[test]
     fn bool_field_literal_on_left_names_field() {
         let v = RcLocal::default();
-        let cmp = bool_compare(boolean(true), index_of("obj", "Visible"), BinaryOperation::Equal);
+        let cmp = bool_compare(
+            boolean(true),
+            index_of("obj", "Visible"),
+            BinaryOperation::Equal,
+        );
         let mut block = Block(vec![declare(&v, cmp), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "visible");
@@ -6026,7 +7349,10 @@ mod tests {
             use_local(&c),
             declare(&conn, method_call(global("sig"), "Connect", vec![])),
             use_local(&conn),
-            declare(&track, method_call(global("humanoid"), "LoadAnimation", vec![])),
+            declare(
+                &track,
+                method_call(global("humanoid"), "LoadAnimation", vec![]),
+            ),
             use_local(&track),
         ]);
         name_locals(&mut block, true);
@@ -6057,10 +7383,13 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &v,
-                call(global("tonumber"), vec![RValue::Index(Index::new(
-                    global("config"),
-                    string("PlaceId"),
-                ))]),
+                call(
+                    global("tonumber"),
+                    vec![RValue::Index(Index::new(
+                        global("config"),
+                        string("PlaceId"),
+                    ))],
+                ),
             ),
             use_local(&v),
         ]);
@@ -6081,18 +7410,229 @@ mod tests {
     }
 
     #[test]
-    fn names_bare_time_as_timestamp() {
+    fn names_bare_time_as_now() {
         let a = RcLocal::default();
         let b = RcLocal::default();
         let mut block = Block(vec![
-            declare(&a, call(RValue::Index(Index::new(global("os"), string("clock"))), vec![])),
+            declare(
+                &a,
+                call(
+                    RValue::Index(Index::new(global("os"), string("clock"))),
+                    vec![],
+                ),
+            ),
             use_local(&a),
             declare(&b, call(global("tick"), vec![])),
             use_local(&b),
         ]);
         name_locals(&mut block, true);
-        assert_eq!(name_of(&a), "timestamp");
-        assert_eq!(name_of(&b), "timestamp2");
+        assert_eq!(name_of(&a), "now");
+        assert_eq!(name_of(&b), "now2");
+    }
+
+    #[test]
+    fn saved_clock_subtraction_base_named_last_time() {
+        let saved = RcLocal::default();
+        let clock = || {
+            call(
+                RValue::Index(Index::new(global("os"), string("clock"))),
+                vec![],
+            )
+        };
+        let mut block = Block(vec![
+            declare(&saved, clock()),
+            Statement::Call(Call::new(
+                global("print"),
+                vec![RValue::Binary(Binary::new(
+                    clock(),
+                    RValue::Local(saved.clone()),
+                    BinaryOperation::Sub,
+                ))],
+            )),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&saved), "lastTime");
+    }
+
+    #[test]
+    fn non_clock_subtraction_base_is_not_named_last_time() {
+        let duration = RcLocal::default();
+        let clock = || {
+            call(
+                RValue::Index(Index::new(global("os"), string("clock"))),
+                vec![],
+            )
+        };
+        let mut block = Block(vec![
+            declare(&duration, number(5.0)),
+            Statement::Call(Call::new(
+                global("print"),
+                vec![RValue::Binary(Binary::new(
+                    clock(),
+                    RValue::Local(duration.clone()),
+                    BinaryOperation::Sub,
+                ))],
+            )),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&duration), "v");
+    }
+
+    #[test]
+    fn multi_result_overwrite_invalidates_last_time() {
+        let ignored = RcLocal::default();
+        let saved = RcLocal::default();
+        let clock = || {
+            call(
+                RValue::Index(Index::new(global("os"), string("clock"))),
+                vec![],
+            )
+        };
+        let mut block = Block(vec![
+            declare(&saved, clock()),
+            Statement::Assign(Assign::new(
+                vec![LValue::Local(ignored), LValue::Local(saved.clone())],
+                vec![RValue::Select(Select::Call(Call::new(
+                    global("getState"),
+                    vec![],
+                )))],
+            )),
+            Statement::Call(Call::new(
+                global("print"),
+                vec![RValue::Binary(Binary::new(
+                    clock(),
+                    RValue::Local(saved.clone()),
+                    BinaryOperation::Sub,
+                ))],
+            )),
+        ]);
+        name_locals(&mut block, true);
+        assert_ne!(name_of(&saved), "lastTime");
+    }
+
+    #[test]
+    fn increment_only_local_named_count() {
+        let value = RcLocal::default();
+        let mut block = Block(vec![
+            declare(&value, number(0.0)),
+            Statement::Assign(Assign::new(
+                vec![LValue::Local(value.clone())],
+                vec![RValue::Binary(Binary::new(
+                    RValue::Local(value.clone()),
+                    number(1.0),
+                    BinaryOperation::Add,
+                ))],
+            )),
+            use_local(&value),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&value), "count");
+    }
+
+    #[test]
+    fn guarded_boolean_cell_named_flag() {
+        let value = RcLocal::default();
+        let mut block = Block(vec![
+            declare(&value, boolean(false)),
+            Statement::If(If::new(
+                RValue::Local(value.clone()),
+                Block(vec![Statement::Assign(Assign::new(
+                    vec![LValue::Local(value.clone())],
+                    vec![boolean(true)],
+                ))]),
+                Block::default(),
+            )),
+            use_local(&value),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&value), "flag");
+    }
+
+    #[test]
+    fn connection_map_named_from_value_and_key_roles() {
+        let map = RcLocal::default();
+        let event = RValue::Index(Index::new(global("button"), string("Activated")));
+        let connection = RValue::MethodCall(MethodCall::new(
+            event,
+            "Connect".to_string(),
+            vec![global("handler")],
+        ));
+        let mut block = Block(vec![
+            declare(&map, RValue::Table(Table::default())),
+            Statement::Assign(Assign::new(
+                vec![LValue::Index(Index::new(
+                    RValue::Local(map.clone()),
+                    RValue::Index(Index::new(global("Players"), string("LocalPlayer"))),
+                ))],
+                vec![connection],
+            )),
+            use_local(&map),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&map), "connectionsByLocalPlayer");
+    }
+
+    #[test]
+    fn unknown_map_key_prevents_partial_by_suffix() {
+        let map = RcLocal::default();
+        let connection = || {
+            RValue::MethodCall(MethodCall::new(
+                global("event"),
+                "Connect".to_string(),
+                vec![global("handler")],
+            ))
+        };
+        let mut block = Block(vec![
+            declare(&map, RValue::Table(Table::default())),
+            Statement::Assign(Assign::new(
+                vec![LValue::Index(Index::new(
+                    RValue::Local(map.clone()),
+                    RValue::Index(Index::new(global("Players"), string("LocalPlayer"))),
+                ))],
+                vec![connection()],
+            )),
+            Statement::Assign(Assign::new(
+                vec![LValue::Index(Index::new(
+                    RValue::Local(map.clone()),
+                    call(global("getKey"), vec![]),
+                ))],
+                vec![connection()],
+            )),
+            use_local(&map),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&map), "connections");
+    }
+
+    #[test]
+    fn generic_map_key_is_not_used_as_by_suffix() {
+        let map = RcLocal::default();
+        let key = named_local("k");
+        let connection = RValue::MethodCall(MethodCall::new(
+            global("event"),
+            "Connect".to_string(),
+            vec![global("handler")],
+        ));
+        let mut block = Block(vec![
+            declare(&map, RValue::Table(Table::default())),
+            Statement::Assign(Assign::new(
+                vec![LValue::Index(Index::new(
+                    RValue::Local(map.clone()),
+                    RValue::Local(key),
+                ))],
+                vec![connection],
+            )),
+            use_local(&map),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&map), "connections");
+    }
+
+    #[test]
+    fn pluralizer_preserves_existing_plural() {
+        assert_eq!(pluralize("points").as_deref(), Some("points"));
+        assert_eq!(pluralize("models").as_deref(), Some("models"));
+        assert_eq!(pluralize("status").as_deref(), Some("statuses"));
     }
 
     #[test]
@@ -6188,12 +7728,19 @@ mod tests {
                 &a,
                 call(
                     global("tostring"),
-                    vec![method_call(global("inst"), "GetAttribute", vec![string("OwnerId")])],
+                    vec![method_call(
+                        global("inst"),
+                        "GetAttribute",
+                        vec![string("OwnerId")],
+                    )],
                 ),
             ),
             use_local(&a),
             // tonumber(x, 16): 2 args -> no name signal -> stays default.
-            declare(&b, call(global("tonumber"), vec![global("x"), number(16.0)])),
+            declare(
+                &b,
+                call(global("tonumber"), vec![global("x"), number(16.0)]),
+            ),
             use_local(&b),
         ]);
         name_locals(&mut block, true);

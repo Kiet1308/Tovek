@@ -66,11 +66,17 @@ impl LocalDeclarer {
                 Statement::If(r#if) => {
                     let if_node = self.graph.add_node((None, stat_index));
                     self.graph.add_edge(node, if_node, ());
-                    let then_node =
-                        self.visit(r#if.then_block.clone(), stat_index, locals_declared_by_scope);
+                    let then_node = self.visit(
+                        r#if.then_block.clone(),
+                        stat_index,
+                        locals_declared_by_scope,
+                    );
                     self.graph.add_edge(if_node, then_node, ());
-                    let else_node =
-                        self.visit(r#if.else_block.clone(), stat_index, locals_declared_by_scope);
+                    let else_node = self.visit(
+                        r#if.else_block.clone(),
+                        stat_index,
+                        locals_declared_by_scope,
+                    );
                     self.graph.add_edge(if_node, else_node, ());
                 }
                 Statement::While(r#while) => {
@@ -231,8 +237,8 @@ impl LocalDeclarer {
 mod tests {
     use super::LocalDeclarer;
     use crate::{
-        Assign, Block, Call, Global, LValue, Literal, Local, NumericFor, RValue, RcLocal, Statement,
-        While,
+        Assign, Block, Call, Global, LValue, Literal, Local, NumericFor, RValue, RcLocal,
+        Statement, While,
     };
     use parking_lot::Mutex;
     use rustc_hash::FxHashSet;

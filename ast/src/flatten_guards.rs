@@ -6,7 +6,10 @@
 
 use std::collections::VecDeque;
 
-use crate::{Binary, BinaryOperation, Block, If, RValue, Statement, Unary, UnaryOperation};
+use crate::{
+    binary::is_boolean, Binary, BinaryOperation, Block, If, RValue, Statement, Unary,
+    UnaryOperation,
+};
 
 // Statements that divert control out of the current linear flow. `goto` is
 // deliberately excluded: it would entangle this pass with the label/goto
@@ -69,7 +72,10 @@ pub(crate) fn negate(cond: RValue) -> RValue {
     match cond {
         RValue::Unary(u) if u.operation == UnaryOperation::Not => *u.value,
         RValue::Binary(b)
-            if matches!(b.operation, BinaryOperation::Equal | BinaryOperation::NotEqual) =>
+            if matches!(
+                b.operation,
+                BinaryOperation::Equal | BinaryOperation::NotEqual
+            ) =>
         {
             let operation = match b.operation {
                 BinaryOperation::Equal => BinaryOperation::NotEqual,
@@ -93,6 +99,65 @@ enum Pull {
     Then,
 }
 
+/// Once the main branch is this large, removing one indentation level is a
+/// larger readability win than the small cost of an explicit `not (...)`.
+const COMPLEX_NEGATION_DENEST_MIN_BODY_SIZE: usize = 4;
+const MAX_LIFTED_GUARD_BODY_SIZE: usize = 2;
+
+/// A lifted else-guard is worthwhile only when its negation is already compact
+/// (`not flag`, `a ~= b`, double-not removal), or a later condition-normalization
+/// step can De-Morgan it into at least one simpler operand. Refuse arithmetic,
+/// relational and plain boolean spines that would merely gain `not (...)`.
+fn negation_is_readable(condition: &RValue) -> bool {
+    match condition {
+        RValue::Local(_)
+        | RValue::Global(_)
+        | RValue::Literal(_)
+        | RValue::Index(_)
+        | RValue::Call(_)
+        | RValue::MethodCall(_)
+        | RValue::VarArg(_)
+        | RValue::Select(_) => true,
+        RValue::Unary(unary) if unary.operation == UnaryOperation::Not => true,
+        RValue::Binary(binary)
+            if matches!(
+                binary.operation,
+                BinaryOperation::Equal | BinaryOperation::NotEqual
+            ) =>
+        {
+            true
+        }
+        RValue::Binary(binary)
+            if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) =>
+        {
+            negation_has_simplifiable_operand(&binary.left)
+                || negation_has_simplifiable_operand(&binary.right)
+        }
+        _ => false,
+    }
+}
+
+fn negation_has_simplifiable_operand(value: &RValue) -> bool {
+    match value {
+        RValue::Unary(unary) if unary.operation == UnaryOperation::Not => is_boolean(&unary.value),
+        RValue::Binary(binary)
+            if matches!(
+                binary.operation,
+                BinaryOperation::Equal | BinaryOperation::NotEqual
+            ) =>
+        {
+            true
+        }
+        RValue::Binary(binary)
+            if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) =>
+        {
+            negation_has_simplifiable_operand(&binary.left)
+                || negation_has_simplifiable_operand(&binary.right)
+        }
+        _ => false,
+    }
+}
+
 // If `f` has a terminating branch worth lifting into a guard clause, returns the
 // guard `if` plus the statements to inline after it. Otherwise hands `f` back.
 // `has_rest` says whether more statements follow this `if` in its block.
@@ -112,10 +177,16 @@ fn guard_split(f: If, has_rest: bool) -> Result<(Statement, Vec<Statement>), If>
         let e = f.else_block.lock();
         !e.0.is_empty() && ends_in_terminator(&e.0)
     };
+    let then_size = block_size(&f.then_block.lock().0);
+    let else_size = block_size(&f.else_block.lock().0);
 
     let pull = match (else_term, then_term) {
-        (true, false) => Pull::Else,
-        (false, true) => Pull::Then,
+        (true, false) if else_size <= MAX_LIFTED_GUARD_BODY_SIZE && then_size > else_size => {
+            Pull::Else
+        }
+        (false, true) if then_size <= MAX_LIFTED_GUARD_BODY_SIZE && else_size > then_size => {
+            Pull::Then
+        }
         (true, true) => {
             // When both branches terminate, whichever one we inline ends in a
             // terminator. Splicing it ahead of trailing statements would leave a
@@ -125,11 +196,9 @@ fn guard_split(f: If, has_rest: bool) -> Result<(Statement, Vec<Statement>), If>
             if has_rest {
                 return Err(f);
             }
-            let then_size = block_size(&f.then_block.lock().0);
-            let else_size = block_size(&f.else_block.lock().0);
-            // Both branches are single-statement terminators: there is no nesting
-            // to remove, so leave the explicit `if c then ... else ... end`.
-            if then_size <= 1 && else_size <= 1 {
+            let smaller = then_size.min(else_size);
+            let larger = then_size.max(else_size);
+            if smaller > MAX_LIFTED_GUARD_BODY_SIZE || larger <= smaller {
                 return Err(f);
             }
             // Lift the smaller branch as the guard; keep the larger as main flow.
@@ -139,8 +208,15 @@ fn guard_split(f: If, has_rest: bool) -> Result<(Statement, Vec<Statement>), If>
                 Pull::Then
             }
         }
-        (false, false) => return Err(f),
+        _ => return Err(f),
     };
+
+    if matches!(pull, Pull::Else) && !negation_is_readable(&f.condition) {
+        let main_size = block_size(&f.then_block.lock().0);
+        if main_size < COMPLEX_NEGATION_DENEST_MIN_BODY_SIZE {
+            return Err(f);
+        }
+    }
 
     let If {
         condition,
@@ -202,4 +278,135 @@ pub fn flatten_guards(block: &mut Block) {
         }
     }
     block.0 = out;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::flatten_guards;
+    use crate::{
+        Binary, BinaryOperation, Block, Call, Global, If, Literal, Local, RValue, RcLocal, Return,
+        Statement, UnaryOperation,
+    };
+
+    fn local(name: &str) -> RcLocal {
+        RcLocal::new(Local::new(Some(name.into())))
+    }
+
+    fn lv(local: &RcLocal) -> RValue {
+        RValue::Local(local.clone())
+    }
+
+    fn call(name: &str) -> Statement {
+        Call::new(RValue::Global(Global::from(name)), vec![]).into()
+    }
+
+    fn returning_branch() -> Block {
+        Block(vec![call("prepare"), Return::default().into()])
+    }
+
+    #[test]
+    fn refuses_guard_when_complex_negation_is_uglier() {
+        let a = local("a");
+        let b = local("b");
+        let condition = Binary::new(lv(&a), lv(&b), BinaryOperation::And).into();
+        let mut block = Block(vec![If::new(
+            condition,
+            returning_branch(),
+            Block(vec![Return::new(vec![Literal::Nil.into()]).into()]),
+        )
+        .into()]);
+
+        flatten_guards(&mut block);
+
+        assert_eq!(block.0.len(), 1);
+        assert!(matches!(&block.0[0], Statement::If(r#if)
+            if !r#if.else_block.lock().0.is_empty()));
+    }
+
+    #[test]
+    fn lifts_else_guard_when_equality_negation_simplifies() {
+        let a = local("a");
+        let b = local("b");
+        let condition = Binary::new(lv(&a), lv(&b), BinaryOperation::Equal).into();
+        let mut block = Block(vec![If::new(
+            condition,
+            returning_branch(),
+            Block(vec![Return::new(vec![Literal::Nil.into()]).into()]),
+        )
+        .into()]);
+
+        flatten_guards(&mut block);
+
+        assert_eq!(block.0.len(), 3);
+        let Statement::If(guard) = &block.0[0] else {
+            panic!("expected guard")
+        };
+        assert!(guard.else_block.lock().0.is_empty());
+        assert!(matches!(&guard.condition,
+            RValue::Binary(binary) if binary.operation == BinaryOperation::NotEqual));
+    }
+
+    #[test]
+    fn lifts_else_guard_for_atomic_condition() {
+        let ready = local("ready");
+        let mut block = Block(vec![If::new(
+            lv(&ready),
+            returning_branch(),
+            Block(vec![Return::new(vec![Literal::Nil.into()]).into()]),
+        )
+        .into()]);
+
+        flatten_guards(&mut block);
+
+        let Statement::If(guard) = &block.0[0] else {
+            panic!("expected guard")
+        };
+        assert!(matches!(&guard.condition,
+            RValue::Unary(unary) if unary.operation == UnaryOperation::Not));
+    }
+
+    #[test]
+    fn refuses_equal_large_terminal_branches() {
+        let ready = local("ready");
+        let branch = || {
+            Block(vec![
+                call("first"),
+                call("second"),
+                call("third"),
+                Return::default().into(),
+            ])
+        };
+        let mut block = Block(vec![If::new(lv(&ready), branch(), branch()).into()]);
+
+        flatten_guards(&mut block);
+
+        assert_eq!(block.0.len(), 1);
+        assert!(matches!(&block.0[0], Statement::If(r#if)
+            if !r#if.else_block.lock().0.is_empty()));
+    }
+
+    #[test]
+    fn refuses_large_terminal_guard_branch() {
+        let ready = local("ready");
+        let mut block = Block(vec![If::new(
+            lv(&ready),
+            Block(vec![
+                call("main1"),
+                call("main2"),
+                call("main3"),
+                call("main4"),
+            ]),
+            Block(vec![
+                call("cleanup1"),
+                call("cleanup2"),
+                call("cleanup3"),
+                Return::default().into(),
+            ]),
+        )
+        .into()]);
+
+        flatten_guards(&mut block);
+
+        assert_eq!(block.0.len(), 1);
+    }
 }

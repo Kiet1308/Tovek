@@ -36,33 +36,118 @@ use std::sync::Once;
 use deserializer::bytecode::Bytecode;
 
 pub const DONT_REUSE_VAR: u32 = 1 << 0;
+pub const NO_SYNTH_HELPERS: u32 = 1 << 1;
+pub const ASSUME_NO_NAN: u32 = 1 << 2;
+
+// ---- TEMPORARY PROFILING (env-gated, remove before ship) ----
+#[doc(hidden)]
+pub mod prof {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::Instant;
+
+    pub static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    pub fn on() -> bool {
+        *ENABLED.get_or_init(|| std::env::var("MEDAL_PROF").is_ok())
+    }
+
+    macro_rules! counters {
+        ($($name:ident),* $(,)?) => {
+            $(pub static $name: AtomicU64 = AtomicU64::new(0);)*
+            pub fn dump() {
+                eprintln!("---- MEDAL_PROF (us) ----");
+                $(eprintln!("{:<28} {:>10}", stringify!($name), $name.load(Ordering::Relaxed));)*
+            }
+        };
+    }
+    counters!(
+        DESER_LIFT,
+        PAR_LOOP_WALL,
+        F_SSA_CONSTRUCT,
+        F_SIMPLE_FAST,
+        F_STRUCTURE_JUMPS,
+        F_SSA_INLINE,
+        F_STRUCTURE_CONDS,
+        F_REMOVE_PARAMS,
+        F_APPLY_MAP,
+        F_DESTRUCT,
+        F_RESTRUCTURE,
+        F_SIMPLIFY_GOTOS,
+        F_FLATTEN_GUARDS,
+        F_DECLARE_LOCALS,
+        F_HOIST,
+        S_LINK_UPVALUES,
+        S_DEINLINE,
+        S_CLEANUP_RETURNS,
+        S_MATERIALIZE,
+        S_REHOIST_CONSTANTS,
+        S_NAME_LOCALS,
+        S_RECOVER_METHODS,
+        S_INLINE_TEMPS_1,
+        S_COND_EXPRS,
+        S_REBUILD_TABLES,
+        S_MATERIALIZE_CALL_RECEIVERS,
+        S_COPY_CLEANUP,
+        S_REBALANCE_EXPRS,
+        S_CLEANUP_FINAL,
+        S_ELIMINATE_NIL,
+        S_RECOVER_CONN,
+        S_EXPR_DEINLINE,
+        S_NORMALIZE_CONDS,
+        S_GUARD_CONTINUE,
+        S_FORMAT,
+    );
+
+    pub struct Timer(Option<(Instant, &'static AtomicU64)>);
+    impl Timer {
+        pub fn new(c: &'static AtomicU64) -> Self {
+            Timer(on().then(|| (Instant::now(), c)))
+        }
+    }
+    impl Drop for Timer {
+        fn drop(&mut self) {
+            if let Some((s, c)) = self.0.take() {
+                c.fetch_add(s.elapsed().as_micros() as u64, Ordering::Relaxed);
+            }
+        }
+    }
+}
+macro_rules! ptime {
+    ($c:ident) => {
+        let _t = crate::prof::Timer::new(&crate::prof::$c);
+    };
+}
+// ---- END TEMPORARY PROFILING ----
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DecompileOptions {
     pub dont_reuse_var: bool,
+    pub no_synth_helpers: bool,
+    pub assume_no_nan: bool,
 }
 
 impl DecompileOptions {
     pub fn from_flag_bits(bits: u32) -> Option<Self> {
-        if bits & !DONT_REUSE_VAR != 0 {
+        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN) != 0 {
             return None;
         }
         Some(Self {
             dont_reuse_var: bits & DONT_REUSE_VAR != 0,
+            no_synth_helpers: bits & NO_SYNTH_HELPERS != 0,
+            assume_no_nan: bits & ASSUME_NO_NAN != 0,
         })
     }
 
     pub fn bits(self) -> u32 {
-        if self.dont_reuse_var {
-            DONT_REUSE_VAR
-        } else {
-            0
-        }
+        u32::from(self.dont_reuse_var) * DONT_REUSE_VAR
+            | u32::from(self.no_synth_helpers) * NO_SYNTH_HELPERS
+            | u32::from(self.assume_no_nan) * ASSUME_NO_NAN
     }
 
     pub fn union(self, other: Self) -> Self {
         Self {
             dont_reuse_var: self.dont_reuse_var || other.dont_reuse_var,
+            no_synth_helpers: self.no_synth_helpers || other.no_synth_helpers,
+            assume_no_nan: self.assume_no_nan || other.assume_no_nan,
         }
     }
 }
@@ -97,7 +182,12 @@ pub fn decompile_bytecode_with_script_name(
     encode_key: u8,
     script_name: Option<&str>,
 ) -> String {
-    decompile_bytecode_with_options(bytecode, encode_key, script_name, DecompileOptions::default())
+    decompile_bytecode_with_options(
+        bytecode,
+        encode_key,
+        script_name,
+        DecompileOptions::default(),
+    )
 }
 
 pub fn decompile_bytecode_with_options(
@@ -138,6 +228,7 @@ pub fn try_decompile_bytecode_with_options(
     // did. Without this, parallel `decompile-folder` runs are nondeterministic
     // even though each file is processed on a single thread. See ast::RcLocal.
     ast::reset_local_ids();
+    let deser_timer = prof::Timer::new(&prof::DESER_LIFT);
     let chunk =
         deserializer::deserialize(bytecode, encode_key).map_err(|e| format!("deserialize: {e}"))?;
     match chunk {
@@ -175,9 +266,11 @@ pub fn try_decompile_bytecode_with_options(
             // per-function creation ORDER, which is thread-independent) — verified
             // byte-identical to the serial path — so no post-merge renumber is
             // needed; the strided bases alone make the whole pipeline deterministic.
+            drop(deser_timer);
             let id_base = ast::current_local_id();
             let func_count = lifted.len() as u64;
             const ID_STRIDE: u64 = 1 << 40;
+            let par_timer = prof::Timer::new(&prof::PAR_LOOP_WALL);
             // Decompile every function in parallel. Each function is independent
             // (its only cross-function coupling was the shared monotonic id
             // counter, now made per-function and scheduling-independent via the
@@ -249,6 +342,7 @@ pub fn try_decompile_bytecode_with_options(
                     }
                 })
                 .collect::<Vec<_>>();
+            drop(par_timer);
             let mut upvalues = decompiled.into_iter().collect::<FxHashMap<_, _>>();
 
             // The rayon driver thread participated in the pool, so its thread-local
@@ -264,40 +358,101 @@ pub fn try_decompile_bytecode_with_options(
             let main = ByAddress(main);
             upvalues.remove(&main);
             let mut body = Arc::try_unwrap(main.0).unwrap().into_inner().body;
-            link_upvalues(&mut body, &mut upvalues);
-            ast::deinline::deinline(&mut body);
-            ast::cleanup_returns::cleanup_redundant_returns(&mut body);
+            {
+                ptime!(S_LINK_UPVALUES);
+                link_upvalues(&mut body, &mut upvalues);
+            }
+            // Reverse continuation cloning introduced while structuring inlined
+            // early returns.  This is the structured cross-jumping half of P1:
+            // exact common tails are shared before the statement de-inliner tries
+            // to recover helper calls from the now-compact regions.
+            ast::factor_common_tails::factor_common_tails(&mut body);
+            loop {
+                ptime!(S_DEINLINE);
+                ast::deinline::deinline(&mut body);
+                // Replacing an inlined region by a call can make formerly
+                // different branch tails identical. Cross-jump those fresh
+                // tails, then let de-inline consume any newly exposed site.
+                if !ast::factor_common_tails::factor_common_tails(&mut body) {
+                    break;
+                }
+            }
+            // Tier-B fallback for terminal continuations that cannot be hoisted
+            // through every structured branch. It has its own bounded fixed point;
+            // running de-inline again was measured byte-identical on the corpus.
+            if !options.no_synth_helpers {
+                ast::synthesize_terminal_helpers::synthesize_terminal_helpers(&mut body);
+            }
+            {
+                ptime!(S_CLEANUP_RETURNS);
+                ast::cleanup_returns::cleanup_redundant_returns(&mut body);
+            }
             // Restore the per-iteration snapshot of a by-value (`Upvalue::Copy`)
             // capture that out-of-SSA coalescing merged onto a mutated (loop)
             // variable (C6). Runs before `name_locals` so the `local snap = L` it
             // mints gets named, and before `inline_temps`/`copy_cleanup` (which then
             // protect it as a captured local).
-            ast::materialize_value_captures::materialize_value_captures(&mut body);
-            name_locals_with_options(
-                &mut body,
-                true,
-                script_name,
-                NameLocalOptions {
-                    dont_reuse_var: options.dont_reuse_var,
-                },
-            );
+            {
+                ptime!(S_MATERIALIZE);
+                ast::materialize_value_captures::materialize_value_captures(&mut body);
+            }
+            {
+                ptime!(S_REHOIST_CONSTANTS);
+                ast::rehoist_constants::rehoist_constants(&mut body);
+            }
+            {
+                ptime!(S_NAME_LOCALS);
+                name_locals_with_options(
+                    &mut body,
+                    true,
+                    script_name,
+                    NameLocalOptions {
+                        dont_reuse_var: options.dont_reuse_var,
+                    },
+                );
+            }
             // §2.8: recover OOP colon-method definitions. Runs after name_locals
             // (so first params are named `p`/`pN`) and before inline_temps (whose
             // receiver-deref shapes — `p:sibling()`, `p._field`, `p.field = ..` —
             // this pass keys on must still be present). Renames a genuine
             // receiver param[0] to `self`; the formatter then emits colon-form.
-            ast::recover_methods::recover_methods(&mut body);
-            ast::inline_temps::inline_single_use_temps(&mut body);
-            ast::conditional_expressions::reconstruct_conditional_expressions(&mut body);
-            ast::rebuild_table_literals::rebuild_table_literals(&mut body);
-            ast::inline_temps::inline_single_use_temps(&mut body);
+            {
+                ptime!(S_RECOVER_METHODS);
+                ast::recover_methods::recover_methods(&mut body);
+            }
+            {
+                ptime!(S_INLINE_TEMPS_1);
+                ast::inline_temps::inline_single_use_temps(&mut body);
+            }
+            {
+                ptime!(S_COND_EXPRS);
+                ast::conditional_expressions::reconstruct_conditional_expressions(&mut body);
+            }
+            // Rebuild declarative table trees from the leaves upward. Inlining a
+            // child table can make a parent's formerly-separated field writes
+            // contiguous, so the two monotone passes share capture facts and a
+            // fixed point.
+            {
+                ptime!(S_REBUILD_TABLES);
+                ast::inline_temps::rebuild_ui_expression_trees(&mut body);
+            }
+            // Calls make property-assignment receivers hard to scan and can
+            // already exist before the UI inliner. Restore the single-value
+            // receiver temp after all UI-tree collapsing is complete.
+            {
+                ptime!(S_MATERIALIZE_CALL_RECEIVERS);
+                ast::materialize_call_receivers::materialize_call_assignment_receivers(&mut body);
+            }
             // Redundant local-copy cleanup (proposal §2.9 A): delete junk
             // `local dst = src` aliases and substitute `src` for `dst`. Runs
             // AFTER the second inline_temps (the copies are only stabilized once
             // all single-use temps + table rebuild are done) and BEFORE
             // expr_deinline (which neither creates nor consumes this idiom). With
             // pass (B) below it reproduces the source `lastStats.floors += 1`.
-            ast::copy_cleanup::copy_cleanup(&mut body);
+            {
+                ptime!(S_COPY_CLEANUP);
+                ast::copy_cleanup::copy_cleanup(&mut body);
+            }
             // Eliminate redundant `x = nil` stores left by SSA phi-node
             // materialization (a predeclared `local x` then explicit `x = nil` on
             // every path it stays nil). A forward "definitely-nil" dataflow deletes
@@ -307,11 +462,17 @@ pub fn try_decompile_bytecode_with_options(
             // after the write-count-gated `inline_single_use_temps`/`copy_cleanup`
             // (whose decisions a write-count change here must not perturb). BEFORE
             // `recover_guard_continue` (which must stay last).
-            ast::eliminate_nil::eliminate_redundant_nil(&mut body);
+            {
+                ptime!(S_ELIMINATE_NIL);
+                ast::eliminate_nil::eliminate_redundant_nil(&mut body);
+            }
             // C13: re-target a dropped connection write `local _ = sig:Connect(
             // function() ... cell:Disconnect() ... end)` back to the captured `cell`
             // the SSA orphaned (the parent never models the closure's by-ref write).
-            ast::recover_dropped_connection::recover_dropped_connection(&mut body);
+            {
+                ptime!(S_RECOVER_CONN);
+                ast::recover_dropped_connection::recover_dropped_connection(&mut body);
+            }
             // Expression-level de-inline (proposal §7): recover small pure scalar
             // helpers that `-O2` inlined as a sub-expression of a caller's
             // condition/RValue. MUST run after reconstruct_conditional_expressions
@@ -320,18 +481,62 @@ pub fn try_decompile_bytecode_with_options(
             // disjunction that no longer matches the conjunctive helper body. Run
             // here and both sides are the same freshly-reconstructed tree; the
             // emitted `not helperName(args)` is then preserved by normalize.
-            ast::expr_deinline::expr_deinline(&mut body);
+            {
+                ptime!(S_EXPR_DEINLINE);
+                ast::expr_deinline::expr_deinline(&mut body);
+            }
+            // Balance only after expression de-inline has had the original
+            // scalar tree available for helper matching. Expanding a long
+            // conditional before this point would hide recoverable helpers such
+            // as `getEffectKind` behind fresh statement-level control flow.
+            {
+                ptime!(S_REBALANCE_EXPRS);
+                ast::rebalance_expressions::rebalance_expressions(&mut body);
+            }
+            // P5: low-risk final cleanup. This may fold literal boolean branches,
+            // so it runs before the final condition normalization/guard passes.
+            {
+                ptime!(S_CLEANUP_FINAL);
+                ast::cleanup_final::cleanup_final(&mut body, script_name);
+            }
             // Normalize boolean/condition shapes (proposal §10): collapse
             // reconstructed `if c then a else b` ternaries into and/or/not and
-            // De-Morgan `not (...)` conditions. NaN-safe (never flips relational)
-            // and never calls reduce, so it is safe before recover_guard_continue.
-            ast::normalize_conditions::normalize_conditions(&mut body);
-            // MUST remain the last AST transform (only the formatter follows). Do
-            // not insert any reduce/reduce_condition/normalize pass after it: the
+            // De-Morgan `not (...)` conditions. NaN-safe by default (relational
+            // complements require proof for both operands) and never calls the
+            // generic reducer, so it is safe before recover_guard_continue.
+            {
+                ptime!(S_NORMALIZE_CONDS);
+                ast::canonicalize_branches::canonicalize_branches(&mut body);
+                ast::normalize_conditions::normalize_conditions_with_options(
+                    &mut body,
+                    options.assume_no_nan,
+                );
+            }
+            // MUST remain the last condition-changing AST transform. Do not
+            // insert any reduce/reduce_condition/normalize pass after it: the
             // manufactured `not (a < b)` would be turned into the NaN-unsafe
             // `a >= b` if any later pass reduced it.
-            ast::recover_guard_continue::recover_guard_continue(&mut body);
-            Ok(body.to_string())
+            {
+                ptime!(S_GUARD_CONTINUE);
+                ast::recover_guard_continue::recover_guard_continue(&mut body);
+            }
+            // Late conditional/guard reconstruction can expose an already-dead
+            // suffix after `return` (and Luau requires return to be last in its
+            // block). This cleanup only truncates unreachable statements and
+            // removes redundant function-tail void returns; it never rewrites a
+            // condition, so the NaN-safety invariant above remains intact.
+            {
+                ptime!(S_CLEANUP_RETURNS);
+                ast::cleanup_returns::cleanup_redundant_returns(&mut body);
+            }
+            let out = {
+                ptime!(S_FORMAT);
+                body.to_string()
+            };
+            if prof::on() {
+                prof::dump();
+            }
+            Ok(out)
         }
     }
 }
@@ -417,8 +622,10 @@ fn decompile_function(
     mut function: Function,
     upvalues_in: Vec<ast::RcLocal>,
 ) -> (ByAddress<Arc<Mutex<ast::Function>>>, Vec<ast::RcLocal>) {
-    let (local_count, local_groups, upvalue_in_groups, upvalue_passed_groups) =
-        cfg::ssa::construct(&mut function, &upvalues_in);
+    let (local_count, local_groups, upvalue_in_groups, upvalue_passed_groups) = {
+        ptime!(F_SSA_CONSTRUCT);
+        cfg::ssa::construct(&mut function, &upvalues_in)
+    };
     let upvalue_to_group = upvalue_in_groups
         .into_iter()
         .chain(
@@ -445,12 +652,25 @@ fn decompile_function(
     while changed {
         changed = false;
 
-        let dominators = simple_fast(function.graph(), function.entry().unwrap());
-        changed |= structure_jumps(&mut function, &dominators);
+        let dominators = {
+            ptime!(F_SIMPLE_FAST);
+            simple_fast(function.graph(), function.entry().unwrap())
+        };
+        {
+            ptime!(F_STRUCTURE_JUMPS);
+            changed |= structure_jumps(&mut function, &dominators);
+        }
 
-        ssa::inline::inline(&mut function, &local_to_group, &upvalue_to_group);
+        {
+            ptime!(F_SSA_INLINE);
+            ssa::inline::inline(&mut function, &local_to_group, &upvalue_to_group);
+        }
 
-        if structure_conditionals(&mut function)
+        let sc = {
+            ptime!(F_STRUCTURE_CONDS);
+            structure_conditionals(&mut function)
+        };
+        if sc
         // || {
         //     let post_dominators = post_dominators(function.graph_mut());
         //     structure_for_loops(&mut function, &dominators, &post_dominators)
@@ -462,36 +682,60 @@ fn decompile_function(
         }
         let mut local_map = FxHashMap::default();
         // TODO: loop until returns false?
-        if ssa::construct::remove_unnecessary_params(
-            &mut function,
-            &mut local_map,
-            Some(&upvalue_to_group),
-        ) {
+        let rp = {
+            ptime!(F_REMOVE_PARAMS);
+            ssa::construct::remove_unnecessary_params(
+                &mut function,
+                &mut local_map,
+                Some(&upvalue_to_group),
+            )
+        };
+        if rp {
             changed = true;
         }
-        ssa::construct::apply_local_map(&mut function, local_map);
+        {
+            ptime!(F_APPLY_MAP);
+            ssa::construct::apply_local_map(&mut function, local_map);
+        }
     }
     // cfg::dot::render_to(&function, &mut std::io::stdout()).unwrap();
-    ssa::Destructor::new(
-        &mut function,
-        upvalue_to_group,
-        upvalues_in.iter().cloned().collect(),
-        local_count,
-    )
-    .destruct();
-
+    {
+        ptime!(F_DESTRUCT);
+        ssa::Destructor::new(
+            &mut function,
+            upvalue_to_group,
+            upvalues_in.iter().cloned().collect(),
+            local_count,
+        )
+        .destruct();
+    }
     let params = std::mem::take(&mut function.parameters);
     let is_variadic = function.is_variadic;
-    let mut lifted = restructure::lift(function);
-    simplify_gotos(&mut lifted);
-    flatten_guards(&mut lifted);
+    let mut lifted = {
+        ptime!(F_RESTRUCTURE);
+        restructure::lift(function)
+    };
+    {
+        ptime!(F_SIMPLIFY_GOTOS);
+        simplify_gotos(&mut lifted);
+    }
+    {
+        ptime!(F_FLATTEN_GUARDS);
+        flatten_guards(&mut lifted);
+    }
     let block = Arc::new(lifted.into());
-    LocalDeclarer::default().declare_locals(
-        // TODO: why does block.clone() not work?
-        Arc::clone(&block),
-        &upvalues_in.iter().chain(params.iter()).cloned().collect(),
-    );
-    hoist_locals_for_gotos(&mut block.lock());
+    {
+        ptime!(F_DECLARE_LOCALS);
+        LocalDeclarer::default().declare_locals(
+            // TODO: why does block.clone() not work?
+            Arc::clone(&block),
+            &upvalues_in.iter().chain(params.iter()).cloned().collect(),
+        );
+    }
+    {
+        ptime!(F_HOIST);
+        hoist_locals_for_gotos(&mut block.lock());
+    }
 
     {
         let mut ast_function = ast_function.lock();
@@ -500,6 +744,29 @@ fn decompile_function(
         ast_function.is_variadic = is_variadic;
     }
     (ByAddress(ast_function), upvalues_in)
+}
+
+#[cfg(test)]
+mod option_tests {
+    use super::{DecompileOptions, ASSUME_NO_NAN, DONT_REUSE_VAR, NO_SYNTH_HELPERS};
+
+    #[test]
+    fn decompile_option_bits_round_trip() {
+        let options = DecompileOptions {
+            dont_reuse_var: true,
+            no_synth_helpers: true,
+            assume_no_nan: true,
+        };
+        assert_eq!(
+            DecompileOptions::from_flag_bits(options.bits()),
+            Some(options)
+        );
+        assert_eq!(
+            options.bits(),
+            DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN
+        );
+        assert!(DecompileOptions::from_flag_bits(1 << 31).is_none());
+    }
 }
 
 #[cfg(test)]
@@ -666,7 +933,10 @@ mod v11_fixtures {
             None,
         )
         .expect("v11 non-empty feedback must deserialize");
-        assert_eq!(empty, with_fb, "feedback vector must not affect source output");
+        assert_eq!(
+            empty, with_fb,
+            "feedback vector must not affect source output"
+        );
     }
 
     #[test]
@@ -687,7 +957,10 @@ mod v11_fixtures {
         // silent skip (which would desync) or a panic.
         let blob = build_chunk(11, 1, &[], &[simple_return_proto(vec![(1, 0)])], 0);
         let err = decompile(&blob, 1, None);
-        assert!(err.is_err(), "unknown feedback slot type must be a deserialize error");
+        assert!(
+            err.is_err(),
+            "unknown feedback slot type must be a deserialize error"
+        );
     }
 
     #[test]
@@ -791,15 +1064,20 @@ mod v11_fixtures {
             ..Default::default()
         };
 
-        let out_nc_call =
-            decompile(&build_chunk(11, 1, &strings, &[nc_call], 0), 1, None).unwrap();
+        let out_nc_call = decompile(&build_chunk(11, 1, &strings, &[nc_call], 0), 1, None).unwrap();
         let out_ncu_call =
             decompile(&build_chunk(11, 1, &strings, &[ncu_call], 0), 1, None).unwrap();
         let out_nc_callfb =
             decompile(&build_chunk(11, 1, &strings, &[nc_callfb], 0), 1, None).unwrap();
 
-        assert!(out_nc_call.contains("method"), "method name must appear: {out_nc_call:?}");
-        assert!(out_nc_call.contains(':'), "should be a colon method call: {out_nc_call:?}");
+        assert!(
+            out_nc_call.contains("method"),
+            "method name must appear: {out_nc_call:?}"
+        );
+        assert!(
+            out_nc_call.contains(':'),
+            "should be a colon method call: {out_nc_call:?}"
+        );
         assert_eq!(
             out_nc_call, out_ncu_call,
             "NAMECALLUDATA must lift identically to NAMECALL (masked key)"
@@ -839,8 +1117,7 @@ mod v11_fixtures {
             constants: vec![const_string(1)],
             ..Default::default()
         };
-        let call_out =
-            decompile(&build_chunk(11, 1, &strings, &[call_proto], 0), 1, None).unwrap();
+        let call_out = decompile(&build_chunk(11, 1, &strings, &[call_proto], 0), 1, None).unwrap();
         let callfb_out =
             decompile(&build_chunk(11, 1, &strings, &[callfb_proto], 0), 1, None).unwrap();
         assert!(call_out.contains("print"), "got: {call_out:?}");
@@ -952,9 +1229,21 @@ mod v11_fixtures {
 
         // Batch (outer-parallel) decompilation must match item-for-item, in order.
         let inputs = vec![
-            super::BatchInput { bytecode: &ret, encode_key: 1, script_name: None },
-            super::BatchInput { bytecode: &print, encode_key: 1, script_name: None },
-            super::BatchInput { bytecode: &field, encode_key: 1, script_name: None },
+            super::BatchInput {
+                bytecode: &ret,
+                encode_key: 1,
+                script_name: None,
+            },
+            super::BatchInput {
+                bytecode: &print,
+                encode_key: 1,
+                script_name: None,
+            },
+            super::BatchInput {
+                bytecode: &field,
+                encode_key: 1,
+                script_name: None,
+            },
         ];
         let out = super::decompile_batch(&inputs);
         assert_eq!(out.len(), 3);
@@ -976,8 +1265,16 @@ mod v11_fixtures {
         let garbage: &[u8] = &[99u8, 0, 0];
 
         let inputs = vec![
-            super::BatchInput { bytecode: garbage, encode_key: 1, script_name: None },
-            super::BatchInput { bytecode: &good, encode_key: 1, script_name: None },
+            super::BatchInput {
+                bytecode: garbage,
+                encode_key: 1,
+                script_name: None,
+            },
+            super::BatchInput {
+                bytecode: &good,
+                encode_key: 1,
+                script_name: None,
+            },
         ];
         let out = super::decompile_batch(&inputs);
         assert_eq!(out.len(), 2);
@@ -996,6 +1293,52 @@ mod v11_fixtures {
     #[test]
     fn batch_empty_is_empty() {
         assert!(super::decompile_batch(&[]).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod correctness_regressions {
+    use base64::prelude::{Engine as _, BASE64_STANDARD};
+
+    /// Compiled with `luau-compile --binary -O2 -g0` from a closure that rebuilds
+    /// a captured table, followed by a numeric loop that reads it inside an outer
+    /// while loop. The nested loop phis form a mutually-recursive SCC. Keep the
+    /// auditable source beside the test even though the test embeds bytecode to
+    /// avoid a runtime dependency on a particular Luau compiler binary.
+    const NESTED_LOOP_UPVALUE_REBIND_SOURCE: &str =
+        include_str!("../tests/fixtures/nested_loop_upvalue_rebind.luau");
+    const NESTED_LOOP_UPVALUE_REBIND: &str = "CwMMBWl0ZW1zBmFjdGl2ZQRkYXRhCmZsb29ySW5kZXgDa2V5BXRhYmxlBmluc2VydAR0YXNrBHdhaXQJZ2V0Rmxvb3JzBXByaW50BXNwYXduAAMOAQEAAAApNQEAAAAAAAAKAQAAGQABABYAAQAGAQAAAgIAAAIDAABMAR0AGgUcAA8GBRgAAAAAGgYZAA8GBRgAAAAAAgcAAAIIAABMBhIAGgoRAA8LCuMBAAAAGgsOAA8LCiYCAAAAGgsLAAkMAAA2DQUAEAQNPgMAAAAQCQ1KBAAAAEo0DAMNAAAADAsIAAAcYIAVCwMBOgbt/wIAAAA6AeL/AgAAABYAAQAJAwEDAgMDAwQDBQUCAwQDBgMHBAAcYIAABAAAAAAHAAAACAAcNQAAAAAAAAATAQAARgEAAAwCAgAABACABAMBAFcCAgIAAAAAGgIQAAYCAQAMAwQAAAAwQBUDAQAVAgABBAQBADQCAAAEAwEAOAIGAAwFBgAAAFBADQYABFcFAgEBAAAAOQL6/xgA6v8LAAAAFgABAAcDCAMJBAAEAIADCgQAADBAAwsEAABQQAEAAQAAAAIABwAWAwAAAQIAB0EAAABAAAAADAEDAAAIEIAGAgAAFQECARYAAQAEBgEDCAMMBAAIEIABAQEAAAAAAg==";
+
+    #[test]
+    fn nested_loop_reads_live_rebound_upvalue_cell() {
+        let bytecode = BASE64_STANDARD.decode(NESTED_LOOP_UPVALUE_REBIND).unwrap();
+        let output = super::try_decompile_bytecode_with_script_name(&bytecode, 1, None).unwrap();
+        assert!(NESTED_LOOP_UPVALUE_REBIND_SOURCE.contains("#cache"));
+
+        let cell = output
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("\tlocal ")
+                    .and_then(|decl| decl.strip_suffix(" = {}"))
+                    .filter(|name| !name.contains(char::is_whitespace))
+            })
+            .expect("fixture must declare the captured table cell");
+        let stale_alias_suffix = format!(" = {cell}");
+
+        assert!(
+            !output.lines().any(|line| {
+                let line = line.trim();
+                line.starts_with("local ") && line.ends_with(&stale_alias_suffix)
+            }),
+            "must not snapshot the captured table before the loop:\n{output}"
+        );
+        assert!(
+            output.lines().any(|line| {
+                let line = line.trim();
+                line.starts_with("for ") && line.ends_with(&format!("#{cell} do"))
+            }),
+            "the numeric loop must read the cell rebound by the child closure:\n{output}"
+        );
     }
 }
 

@@ -26,8 +26,8 @@ use triomphe::Arc;
 
 use crate::{
     Assign, Binary, BinaryOperation, Block, Call, Comment, Function, GenericFor, If, LValue,
-    Literal, LocalRw, MethodCall, NumericFor, RValue, RcLocal, Repeat, Return, Select, SideEffects,
-    Statement, Table, Traverse, Unary, UnaryOperation, While,
+    Literal, LocalRw, MethodCall, NumericFor, RValue, RcLocal, Reduce, Repeat, Return, Select,
+    SideEffects, Statement, Table, Traverse, Unary, UnaryOperation, While,
 };
 
 const DEF_MARKER: &str = " [-O2 INLINED, UNHOOKABLE] reconstructed definition;";
@@ -36,6 +36,77 @@ const DEF_MARKER: &str = " [-O2 INLINED, UNHOOKABLE] reconstructed definition;";
 const CALL_MARKER: &str = "inlined by Luau -O2 (UNHOOKABLE)";
 
 type FnPtr = *const Mutex<Function>;
+
+// ---- TEMPORARY PROFILING (env-gated, remove before ship) ----
+#[doc(hidden)]
+pub mod dprof {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    pub static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    #[inline(always)]
+    pub fn on() -> bool {
+        *ON.get_or_init(|| std::env::var("MEDAL_PROF").is_ok())
+    }
+    #[inline(always)]
+    pub fn inc(c: &AtomicU64, n: u64) {
+        if on() {
+            c.fetch_add(n, Ordering::Relaxed);
+        }
+    }
+    pub static COLLECT_TARGETS_US: AtomicU64 = AtomicU64::new(0);
+    pub static CANON_TOP_LEN_CALLS: AtomicU64 = AtomicU64::new(0);
+    pub static CANON_TOP_LEN_US: AtomicU64 = AtomicU64::new(0);
+    pub static CANON_RECURSE_CALLS: AtomicU64 = AtomicU64::new(0);
+    pub static CANON_RECURSE_US: AtomicU64 = AtomicU64::new(0);
+    pub static UNIFY_CALLS: AtomicU64 = AtomicU64::new(0);
+    pub static UNIFY_US: AtomicU64 = AtomicU64::new(0);
+    pub static MATCH_CALLS: AtomicU64 = AtomicU64::new(0);
+    pub static MATCH_US: AtomicU64 = AtomicU64::new(0);
+    pub static WIDTH_ITERS: AtomicU64 = AtomicU64::new(0);
+    pub static COLLAPSE_US: AtomicU64 = AtomicU64::new(0);
+    pub static ITERATIONS: AtomicU64 = AtomicU64::new(0);
+    pub static BHR_CALLS: AtomicU64 = AtomicU64::new(0);
+    pub static BHR_US: AtomicU64 = AtomicU64::new(0);
+    pub fn dump() {
+        if std::env::var("MEDAL_PROF").is_err() {
+            return;
+        }
+        eprintln!("---- DEINLINE PROF (times in ns) ----");
+        for (n, v) in [
+            ("iterations", &ITERATIONS),
+            ("collect_targets_us", &COLLECT_TARGETS_US),
+            ("match_calls", &MATCH_CALLS),
+            ("match_us", &MATCH_US),
+            ("width_iters", &WIDTH_ITERS),
+            ("canon_top_len_calls", &CANON_TOP_LEN_CALLS),
+            ("canon_top_len_us", &CANON_TOP_LEN_US),
+            ("canon_recurse_calls", &CANON_RECURSE_CALLS),
+            ("canon_recurse_us", &CANON_RECURSE_US),
+            ("unify_calls", &UNIFY_CALLS),
+            ("unify_us", &UNIFY_US),
+            ("block_has_return_calls", &BHR_CALLS),
+            ("block_has_return_us", &BHR_US),
+            ("collapse_us", &COLLAPSE_US),
+        ] {
+            eprintln!("{:<24} {:>12}", n, v.load(Ordering::Relaxed));
+        }
+    }
+    pub struct T(Option<std::time::Instant>, &'static AtomicU64);
+    impl T {
+        #[inline(always)]
+        pub fn new(c: &'static AtomicU64) -> Self {
+            T(on().then(std::time::Instant::now), c)
+        }
+    }
+    impl Drop for T {
+        fn drop(&mut self) {
+            if let Some(s) = self.0 {
+                self.1
+                    .fetch_add(s.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            }
+        }
+    }
+}
+// ---- END TEMPORARY PROFILING ----
 
 /// De-inline rejection reason (P11-C telemetry). Recorded by `deinline_reject!`
 /// at each `collect_targets` gate so a corpus run can report WHICH gate refuses
@@ -137,6 +208,14 @@ struct Target {
     /// `body_unsafe`). Empty for the overwhelmingly common all-params-read helper, so
     /// this changes nothing for those.
     unread: FxHashSet<RcLocal>,
+    /// At least one branch condition reads a parameter.  Only such targets can
+    /// change statement shape after constant argument propagation, so this is a
+    /// cold precomputed gate for the Tier-B partial-evaluation fallback.
+    specializable: bool,
+    /// The pattern retains a void `return` inside a loop.  Such a return is
+    /// lowered by inlining into a loop guard plus a cloned caller continuation;
+    /// the CPS matcher verifies that continuation before refolding it.
+    cps_loop_return: bool,
 }
 
 #[derive(Default, Clone)]
@@ -147,6 +226,12 @@ pub(crate) struct Bindings {
     /// For Value targets: the single caller local that every `return X` in the
     /// pattern maps to (i.e. the inlined result local `RESULT`).
     result: Option<RcLocal>,
+}
+
+impl Bindings {
+    pub(crate) fn local_binding(&self, pattern: &RcLocal) -> Option<&RcLocal> {
+        self.locals.get(pattern)
+    }
 }
 
 /// The only target context the *expression*-level unifier (`unify_rvalue` and the
@@ -196,7 +281,11 @@ pub fn deinline(body: &mut Block) {
     let mut write_counts: FxHashMap<RcLocal, usize> = FxHashMap::default();
     crate::expr_deinline::collect_write_counts(&body.0, &mut write_counts);
     loop {
-        let targets = collect_targets(body, &write_counts);
+        dprof::inc(&dprof::ITERATIONS, 1);
+        let targets = {
+            let _t = dprof::T::new(&dprof::COLLECT_TARGETS_US);
+            collect_targets(body, &write_counts)
+        };
         if targets.is_empty() {
             break;
         }
@@ -212,6 +301,7 @@ pub fn deinline(body: &mut Block) {
             &mut body.0,
             &targets,
             &decl_map,
+            &[],
             &[],
             None,
             true,
@@ -252,9 +342,13 @@ pub fn deinline(body: &mut Block) {
                 multivalue.insert(l.clone());
             }
         });
-        collapse_value_results(&mut body.0, &multivalue);
+        {
+            let _t = dprof::T::new(&dprof::COLLAPSE_US);
+            collapse_value_results(&mut body.0, &multivalue);
+        }
         insert_def_markers(&mut body.0, &converted);
     }
+    dprof::dump();
 }
 
 // ===================================================================
@@ -292,8 +386,7 @@ fn is_internal_marker(c: &Comment) -> bool {
 /// the two must agree on what counts as a no-op. A genuine SOURCE comment is NOT
 /// trivia (it refuses the body via `body_unsafe`) and must never be skipped here.
 fn is_match_trivia(s: &Statement) -> bool {
-    matches!(s, Statement::Empty(_))
-        || matches!(s, Statement::Comment(c) if is_internal_marker(c))
+    matches!(s, Statement::Empty(_)) || matches!(s, Statement::Comment(c) if is_internal_marker(c))
 }
 
 /// Absolute index of the `n`-th (0-based) NON-trivia statement at/after `from`
@@ -419,7 +512,9 @@ fn collapse_value_results(stmts: &mut Vec<Statement>, multivalue: &FxHashSet<RcL
             // appended to that line; for the multi-line `if f(args) then … end`
             // shape it stays a leading header above the block.
             if matches!(collapsed, Statement::If(_)) {
-                out.push(Statement::Comment(Comment::new(COLLAPSE_MARKER.to_string())));
+                out.push(Statement::Comment(Comment::new(
+                    COLLAPSE_MARKER.to_string(),
+                )));
                 out.push(collapsed);
             } else {
                 out.push(collapsed);
@@ -675,7 +770,7 @@ fn rvalue_closure_reads(rv: &RValue, v: &RcLocal) -> usize {
 /// closure bodies). Mirrors `count_local_reads`/`rvalue_closure_reads` exactly
 /// (set-presence ⟺ count > 0), but enumerates all read locals instead of
 /// counting one.
-fn collect_reads(stmts: &[Statement], out: &mut FxHashSet<RcLocal>) {
+pub(crate) fn collect_reads(stmts: &[Statement], out: &mut FxHashSet<RcLocal>) {
     for s in stmts {
         for r in s.values_read() {
             out.insert(r.clone());
@@ -864,6 +959,40 @@ pub(crate) fn canon(stmts: &[Statement]) -> Vec<Statement> {
     canon_tail(stmts, true)
 }
 
+/// Per-position memo for the tail-canon of a contiguous candidate window,
+/// keyed by `(absolute_start, raw_width)`. Values are `Rc`-shared so a cache hit
+/// hands out a cheap handle instead of re-running the deep-clone `canon`. Only
+/// tail-position contiguous windows (the void attempt-1 path and the `match_value`
+/// region) use it — both compute the identical `canon_recurse(canon_top(win,true))`,
+/// so they share one cache safely. The non-contiguous `match_value_prefixed` union
+/// and the rewritten `value_tail_ret` window are NOT cached (they are rare and not
+/// a plain slice). The cache is cleared per position (`stmts` mutates on splice, so
+/// absolute indices are only valid within a single `try_match_at` call).
+type CanonCache = FxHashMap<(usize, usize), std::rc::Rc<Vec<Statement>>>;
+
+/// Tail-canon of the contiguous window `stmts[start..start+w]`, memoized in `cache`.
+/// Byte-identical to `canon_recurse(canon_top(&stmts[start..start+w], true), true)`;
+/// the only effect is that repeated requests for the same `(start, w)` — different
+/// active targets with equal pattern length — pay the deep clone once.
+fn canon_window(
+    cache: &mut CanonCache,
+    stmts: &[Statement],
+    start: usize,
+    w: usize,
+) -> std::rc::Rc<Vec<Statement>> {
+    if let Some(c) = cache.get(&(start, w)) {
+        return c.clone();
+    }
+    dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
+    let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
+    let c = std::rc::Rc::new(canon_recurse(
+        canon_top(&stmts[start..start + w], true),
+        true,
+    ));
+    cache.insert((start, w), c.clone());
+    c
+}
+
 /// `tail` = whether this block sits in the function's tail-control position, i.e.
 /// a `return` here exits with *nothing* of the function left to run after it.
 ///
@@ -918,40 +1047,45 @@ fn canon_top(stmts: &[Statement], tail: bool) -> Vec<Statement> {
 /// into loop bodies, where a `return` exits across iterations + the loop).
 fn canon_recurse(s: Vec<Statement>, tail: bool) -> Vec<Statement> {
     let n = s.len();
-    s.iter()
+    // Consume the owned Vec by value: a leaf statement (Assign/Call/Return/…) is
+    // MOVED through untouched — no second deep clone — since `canon_top` already
+    // produced this owned Vec. Only the block-bearing statements are rebuilt (their
+    // child blocks are re-canon'd into fresh `Block`s; the shared original block Arc
+    // must not be mutated). This halves the per-leaf clone cost in the hot matcher.
+    s.into_iter()
         .enumerate()
-        .map(|(j, st)| canon_children(st, tail && j + 1 == n))
+        .map(|(j, st)| canon_children_owned(st, tail && j + 1 == n))
         .collect()
 }
 
-fn canon_children(s: &Statement, tail: bool) -> Statement {
+fn canon_children_owned(s: Statement, tail: bool) -> Statement {
     match s {
         Statement::If(f) => Statement::If(If::new(
-            f.condition.clone(),
+            f.condition,
             Block(canon_tail(&f.then_block.lock().0, tail)),
             Block(canon_tail(&f.else_block.lock().0, tail)),
         )),
         Statement::While(w) => Statement::While(While::new(
-            w.condition.clone(),
+            w.condition,
             Block(canon_tail(&w.block.lock().0, false)),
         )),
         Statement::Repeat(r) => Statement::Repeat(Repeat::new(
-            r.condition.clone(),
+            r.condition,
             Block(canon_tail(&r.block.lock().0, false)),
         )),
         Statement::NumericFor(nf) => Statement::NumericFor(NumericFor {
-            initial: nf.initial.clone(),
-            limit: nf.limit.clone(),
-            step: nf.step.clone(),
-            counter: nf.counter.clone(),
             block: Arc::new(Mutex::new(Block(canon_tail(&nf.block.lock().0, false)))),
+            initial: nf.initial,
+            limit: nf.limit,
+            step: nf.step,
+            counter: nf.counter,
         }),
         Statement::GenericFor(gf) => Statement::GenericFor(GenericFor::new(
-            gf.res_locals.clone(),
-            gf.right.clone(),
+            gf.res_locals,
+            gf.right,
             Block(canon_tail(&gf.block.lock().0, false)),
         )),
-        other => other.clone(),
+        other => other,
     }
 }
 
@@ -960,22 +1094,22 @@ fn unguard(mut stmts: Vec<Statement>) -> Vec<Statement> {
     let mut i = 0;
     while i < stmts.len() {
         if let Statement::If(f) = &stmts[i] {
-            // A "guard" is `if cond then return [X] end` (empty else, then-block is
-            // a single return). The early-return splits the body: when `cond` holds
-            // we exit (returning X); otherwise we run the rest. Re-nest it into the
-            // positive form the structurer produces for inlined copies:
-            //   void  return:  `if not cond then REST end`        (return is a no-op
-            //                                                       tail fall-through)
-            //   value return:  `if not cond then REST else return X end`
-            //                                                       (X is the result)
-            let guard: Option<Option<RValue>> = {
+            // A guard may do work before returning:
+            // `if cond then PREFIX; return [X] end; REST`.  Re-nest the shared
+            // continuation into the exact structured form produced at inlined
+            // sites: `if not cond then REST else PREFIX; return X end`.  For a
+            // void return the terminal return is omitted; tail fall-through is
+            // equivalent and `PREFIX` remains in the else arm.
+            let guard: Option<(Vec<Statement>, Option<RValue>)> = {
                 let then = f.then_block.lock();
                 let els = f.else_block.lock();
-                if els.0.is_empty() && then.0.len() == 1 {
-                    match &then.0[0] {
-                        Statement::Return(r) if r.values.is_empty() => Some(None),
-                        Statement::Return(r) if r.values.len() == 1 => {
-                            Some(Some(r.values[0].clone()))
+                if els.0.is_empty() {
+                    match then.0.split_last() {
+                        Some((Statement::Return(r), prefix)) if r.values.is_empty() => {
+                            Some((prefix.to_vec(), None))
+                        }
+                        Some((Statement::Return(r), prefix)) if r.values.len() == 1 => {
+                            Some((prefix.to_vec(), Some(r.values[0].clone())))
                         }
                         _ => None,
                     }
@@ -983,19 +1117,18 @@ fn unguard(mut stmts: Vec<Statement>) -> Vec<Statement> {
                     None
                 }
             };
-            if let Some(ret_val) = guard {
+            if let Some((mut early_prefix, ret_val)) = guard {
                 if i + 1 < stmts.len() {
                     let cond = f.condition.clone();
                     let suffix: Vec<Statement> = stmts.split_off(i + 1);
                     let folded = unguard(suffix);
-                    let else_block = match ret_val {
-                        None => Block::default(),
-                        Some(x) => Block(vec![Statement::Return(Return { values: vec![x] })]),
-                    };
+                    if let Some(x) = ret_val {
+                        early_prefix.push(Statement::Return(Return { values: vec![x] }));
+                    }
                     out.push(Statement::If(If::new(
                         negate_canon(cond),
                         Block(folded),
-                        else_block,
+                        Block(early_prefix),
                     )));
                     return out;
                 }
@@ -1017,8 +1150,7 @@ fn is_foldable_guard(s: &Statement) -> bool {
         let then = f.then_block.lock();
         let els = f.else_block.lock();
         els.0.is_empty()
-            && then.0.len() == 1
-            && matches!(&then.0[0], Statement::Return(r) if r.values.len() <= 1)
+            && matches!(then.0.last(), Some(Statement::Return(r)) if r.values.len() <= 1)
     } else {
         false
     }
@@ -1034,6 +1166,8 @@ fn is_foldable_guard(s: &Statement) -> bool {
 /// length becomes that guard's index + 1; otherwise no change). The debug_assert
 /// pins it to the real `canon_top` length in debug / test builds.
 fn canon_top_len(stmts: &[Statement], tail: bool) -> usize {
+    dprof::inc(&dprof::CANON_TOP_LEN_CALLS, 1);
+    let _t = dprof::T::new(&dprof::CANON_TOP_LEN_US);
     let total = stmts.iter().filter(|s| !is_match_trivia(s)).count();
     let n = if !tail || total == 0 {
         total
@@ -1273,7 +1407,12 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
     }
 }
 
-fn unify_lvalue(ctx: &MatchCtx, p: &LValue, c: &LValue, b: &mut Bindings) -> Result<(), ()> {
+pub(crate) fn unify_lvalue(
+    ctx: &MatchCtx,
+    p: &LValue,
+    c: &LValue,
+    b: &mut Bindings,
+) -> Result<(), ()> {
     match (p, c) {
         (LValue::Local(pl), LValue::Local(cl)) => unify_local(ctx, pl, cl, b),
         (LValue::Global(a), LValue::Global(d)) => {
@@ -1405,7 +1544,12 @@ fn unify_call(ctx: &MatchCtx, a: &Call, d: &Call, b: &mut Bindings) -> Result<()
     Ok(())
 }
 
-fn unify_method(ctx: &MatchCtx, a: &MethodCall, d: &MethodCall, b: &mut Bindings) -> Result<(), ()> {
+fn unify_method(
+    ctx: &MatchCtx,
+    a: &MethodCall,
+    d: &MethodCall,
+    b: &mut Bindings,
+) -> Result<(), ()> {
     if a.method != d.method || a.arguments.len() != d.arguments.len() {
         return Err(());
     }
@@ -1440,7 +1584,12 @@ fn unify_select(ctx: &MatchCtx, a: &Select, d: &Select, b: &mut Bindings) -> Res
     }
 }
 
-fn unify_local(ctx: &MatchCtx, pl: &RcLocal, cl: &RcLocal, b: &mut Bindings) -> Result<(), ()> {
+pub(crate) fn unify_local(
+    ctx: &MatchCtx,
+    pl: &RcLocal,
+    cl: &RcLocal,
+    b: &mut Bindings,
+) -> Result<(), ()> {
     if ctx.locals.contains(pl) {
         if let Some(prev) = b.locals.get(pl) {
             return if prev == cl { Ok(()) } else { Err(()) };
@@ -1590,6 +1739,7 @@ fn deinline_block(
     targets: &[Target],
     decl_map: &FxHashMap<RcLocal, usize>,
     outer_active: &[usize],
+    outer_continuation: &[Statement],
     current_func: Option<FnPtr>,
     is_func_tail: bool,
     is_func_body_top: bool,
@@ -1599,6 +1749,17 @@ fn deinline_block(
     //    A child block/closure only sees targets whose declaration lexically
     //    precedes it — `active` grows as we pass each declaration in THIS block.
     let n = stmts.len();
+    // A site at the end of an `if` arm continues after the enclosing `if`, not
+    // at the end of the arm's Vec.  Preserve that lexical continuation while we
+    // recurse so the CPS verifier can compare loop-return clones at any nesting
+    // depth.  Statement clones keep block/closure Arcs shared and are only built
+    // for branch statements; no quadratic canonicalization is done here.
+    let branch_continuations: Vec<Option<Vec<Statement>>> = (0..n)
+        .map(|index| {
+            matches!(stmts[index], Statement::If(_))
+                .then(|| semantic_continuation(&stmts[index + 1..], outer_continuation))
+        })
+        .collect();
     {
         let mut active: Vec<usize> = outer_active.to_vec();
         for (j, s) in stmts.iter_mut().enumerate() {
@@ -1610,6 +1771,7 @@ fn deinline_block(
                         targets,
                         decl_map,
                         &active,
+                        branch_continuations[j].as_deref().unwrap_or_default(),
                         current_func,
                         child_tail,
                         false,
@@ -1620,6 +1782,7 @@ fn deinline_block(
                         targets,
                         decl_map,
                         &active,
+                        branch_continuations[j].as_deref().unwrap_or_default(),
                         current_func,
                         child_tail,
                         false,
@@ -1631,6 +1794,7 @@ fn deinline_block(
                     targets,
                     decl_map,
                     &active,
+                    &[],
                     current_func,
                     false,
                     false,
@@ -1641,6 +1805,7 @@ fn deinline_block(
                     targets,
                     decl_map,
                     &active,
+                    &[],
                     current_func,
                     false,
                     false,
@@ -1651,6 +1816,7 @@ fn deinline_block(
                     targets,
                     decl_map,
                     &active,
+                    &[],
                     current_func,
                     false,
                     false,
@@ -1661,6 +1827,7 @@ fn deinline_block(
                     targets,
                     decl_map,
                     &active,
+                    &[],
                     current_func,
                     false,
                     false,
@@ -1690,6 +1857,14 @@ fn deinline_block(
     // never-matching blocks pay nothing) and reused across positions; the driver
     // invalidates it after each splice, after which the next query rebuilds it.
     let mut last_occ: Option<FxHashMap<RcLocal, usize>> = None;
+    // Per-position canon cache, reused across the whole block scan (cleared at the
+    // top of each `try_match_at`). Within one position the canon of a contiguous
+    // tail-window `stmts[start..start+w]` depends ONLY on `(start, w)`, not on which
+    // target requested it, yet several active targets that share a pattern length
+    // recompute the very same deep-clone. Memoizing by `(start, w)` collapses those
+    // to one canon per distinct window. Single-threaded (the serial tail), so `Rc`
+    // is fine; the whole `deinline` pass never runs inside the parallel region.
+    let mut canon_cache: CanonCache = FxHashMap::default();
     while i < stmts.len() {
         if let Some(hit) = try_match_at(
             stmts,
@@ -1699,7 +1874,9 @@ fn deinline_block(
             current_func,
             is_func_tail,
             is_func_body_top,
+            outer_continuation,
             &mut last_occ,
+            &mut canon_cache,
         ) {
             let call = Call::new(RValue::Local(hit.f_local.clone()), hit.args);
             let stmt = match &hit.result {
@@ -1837,6 +2014,7 @@ fn recurse_into_closures(
                 targets,
                 decl_map,
                 active,
+                &[],
                 Some(fp),
                 true,
                 true,
@@ -2015,11 +2193,18 @@ fn try_match_at(
     current_func: Option<FnPtr>,
     is_func_tail: bool,
     is_func_body_top: bool,
+    outer_continuation: &[Statement],
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    canon_cache: &mut CanonCache,
 ) -> Option<Hit> {
     if active.is_empty() {
         return None; // no targets in scope here — nothing to match (skip the scan)
     }
+    // Fresh per-position: `stmts` mutates on each splice, so absolute (start, w)
+    // keys from a prior position no longer describe the same window content.
+    canon_cache.clear();
+    dprof::inc(&dprof::MATCH_CALLS, 1);
+    let _mt = dprof::T::new(&dprof::MATCH_US);
     let mut found: Option<Hit> = None;
     // Cheap O(1) prefilter anchor: the first non-`Empty` statement at/after `i`.
     // Every candidate window is `canon`'d before unification, and `canon` drops
@@ -2039,7 +2224,9 @@ fn try_match_at(
     // reconstructed call (the call stayed correct, but lost its UNHOOKABLE
     // annotation). Nothing legitimately begins a match at a marker position, so
     // the canon-alignment was cosmetic-negative; keep the original predicate.
-    let anchor_stmt = stmts[i..].iter().find(|s| !matches!(s, Statement::Empty(_)));
+    let anchor_stmt = stmts[i..]
+        .iter()
+        .find(|s| !matches!(s, Statement::Empty(_)));
     let anchor_disc = anchor_stmt.map(std::mem::discriminant);
     // Second prefilter dimension: the fixed-name anchor of that first statement
     // (method / global-call name). Computed once per position; compared to each
@@ -2077,9 +2264,18 @@ fn try_match_at(
             continue;
         }
         let hit = match (t.kind, t.value_anchor) {
-            (TKind::Void, _) => match_void(stmts, i, t, is_func_tail, is_func_body_top, last_occ),
+            (TKind::Void, _) => match_void(
+                stmts,
+                i,
+                t,
+                is_func_tail,
+                is_func_body_top,
+                outer_continuation,
+                last_occ,
+                canon_cache,
+            ),
             (TKind::Value, ValueAnchor::AtResultDecl) => {
-                match_value(stmts, i, t, is_func_body_top, last_occ)
+                match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache)
             }
             (TKind::Value, ValueAnchor::AtPrefix) => {
                 match_value_prefixed(stmts, i, t, is_func_body_top, last_occ)
@@ -2101,7 +2297,9 @@ fn match_void(
     t: &Target,
     is_func_tail: bool,
     is_func_body_top: bool,
+    outer_continuation: &[Statement],
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    canon_cache: &mut CanonCache,
 ) -> Option<Hit> {
     let kc = t.pat.len();
     // F2: an effective-count ceiling (trivia don't consume the budget) so a nested
@@ -2110,6 +2308,7 @@ fn match_void(
     let mut site: Option<(usize, Vec<RValue>)> = None;
     let mut ambiguous = false;
     for w in kc..=max_w {
+        dprof::inc(&dprof::WIDTH_ITERS, 1);
         let raw = &stmts[i..i + w];
         // Never replace a function's ENTIRE top-level body with a single call:
         // the ambiguous thin-wrapper case (`B(x)=A(x)`).
@@ -2117,17 +2316,36 @@ fn match_void(
             continue;
         }
         // Attempt 1 — plain canon, with tail-safety for consuming a caller return.
-        // Check the cheap top-level canon length (and the blocked gate) before
-        // paying for the deep nested-block rebuild (`canon_recurse`).
-        let plain_blocked = block_has_return(raw) && !(is_func_tail && i + w == stmts.len());
-        if !plain_blocked {
-            // Cheap non-allocating length pre-check before the canon allocations.
-            if canon_top_len(raw, true) == kc {
-                let plain = canon_recurse(canon_top(raw, true), true);
-                if let Some(u) = try_unify_site(t, &plain) {
+        // Order the pure gates cheapest-reject-first: the non-allocating top-level
+        // canon-length check rejects the large majority of widths, so evaluate it
+        // BEFORE the recursive `block_has_return` return-safety scan (both are
+        // side-effect-free, so this reordering is byte-identical — it only avoids
+        // computing `block_has_return` for windows whose length already can't match).
+        if canon_top_len(raw, true) == kc {
+            let plain_blocked = {
+                dprof::inc(&dprof::BHR_CALLS, 1);
+                let _t = dprof::T::new(&dprof::BHR_US);
+                block_has_return(raw) && !(is_func_tail && i + w == stmts.len())
+            };
+            if !plain_blocked {
+                let plain = canon_window(canon_cache, stmts, i, w);
+                if let Some(u) = try_unify_site_any(t, &plain) {
                     // every callee-temp must be dead after the consumed window, else
                     // a later use would reference a now-removed declaration.
                     if !tail_has_live(last_occ, stmts, i, i + w, &u.callee_locals) {
+                        record_site(&mut site, &mut ambiguous, w, &u.args);
+                    }
+                }
+            }
+            // Tier C/CPS: a return from inside an inlined loop becomes a loop
+            // guard followed by a cloned caller continuation.  Verify the clone
+            // against the actual suffix before replacing only the helper prefix.
+            if t.cps_loop_return && (i + w < stmts.len() || !outer_continuation.is_empty()) {
+                let plain = canon_window(canon_cache, stmts, i, w);
+                let continuation = semantic_continuation(&stmts[i + w..], outer_continuation);
+                if let Some(u) = try_unify_cps_site(t, &plain, &continuation) {
+                    let live = tail_has_live(last_occ, stmts, i, i + w, &u.callee_locals);
+                    if !live {
                         record_site(&mut site, &mut ambiguous, w, &u.args);
                     }
                 }
@@ -2139,7 +2357,7 @@ fn match_void(
             let rewritten = rewrite_return_to_void(raw, &ret);
             if canon_top_len(&rewritten, true) == kc {
                 let folded = canon_recurse(canon_top(&rewritten, true), true);
-                if let Some(u) = try_unify_site(t, &folded) {
+                if let Some(u) = try_unify_site_any(t, &folded) {
                     if !tail_has_live(last_occ, stmts, i, i + w, &u.callee_locals) {
                         record_site(&mut site, &mut ambiguous, w, &u.args);
                     }
@@ -2169,6 +2387,7 @@ fn match_value(
     t: &Target,
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    canon_cache: &mut CanonCache,
 ) -> Option<Hit> {
     let r = result_decl(&stmts[i])?;
     let kc = t.pat.len();
@@ -2183,16 +2402,19 @@ fn match_value(
             continue;
         }
         let region = &stmts[body_start..body_start + w];
+        // Cheapest-reject-first: the non-allocating top-level canon-length check
+        // rejects most widths, so run it BEFORE the recursive `block_has_return`
+        // return-safety scan. Both are pure `continue` gates, so the order is
+        // byte-identical; it just avoids scanning returns for wrong-length regions.
+        if canon_top_len(region, true) != kc {
+            continue;
+        }
         // the region assigns RESULT; it must not itself contain returns.
         if block_has_return(region) {
             continue;
         }
-        // Reject by cheap (non-allocating) top-level canon length before the deep rebuild.
-        if canon_top_len(region, true) != kc {
-            continue;
-        }
-        let cwin = canon_recurse(canon_top(region, true), true);
-        if let Some(u) = try_unify_site(t, &cwin) {
+        let cwin = canon_window(canon_cache, stmts, body_start, w);
+        if let Some(u) = try_unify_site_any(t, &cwin) {
             // RESULT must be exactly the declared local and only written (never
             // read) inside the region, so the region is its full computation.
             // A later reassignment of RESULT is FINE: the replacement re-declares
@@ -2249,11 +2471,11 @@ fn match_value_prefixed(
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
     let p = t.prefix_len; // effective callee-prefix statement count (>= 1)
-    // P1: the interposed init-less `local RESULT` decl is the p-th EFFECTIVE
-    // statement at/after i — `i + p` (the old fixed offset) would land on a
-    // CALL_MARKER/`Empty` an inner de-inline spliced between the prefix and the
-    // decl, making `result_decl` bail and silently killing chained AtPrefix
-    // reconstruction. Count only non-trivia statements instead.
+                          // P1: the interposed init-less `local RESULT` decl is the p-th EFFECTIVE
+                          // statement at/after i — `i + p` (the old fixed offset) would land on a
+                          // CALL_MARKER/`Empty` an inner de-inline spliced between the prefix and the
+                          // decl, making `result_decl` bail and silently killing chained AtPrefix
+                          // reconstruction. Count only non-trivia statements instead.
     let d = nth_effective_index(stmts, i, p)?;
     let r = result_decl(&stmts[d])?;
     let kc = t.pat.len();
@@ -2293,8 +2515,12 @@ fn match_value_prefixed(
         if canon_top_len(&union, true) != kc {
             continue;
         }
-        let cwin = canon_recurse(canon_top(&union, true), true);
-        if let Some(u) = try_unify_site(t, &cwin) {
+        let cwin = {
+            dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
+            let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
+            canon_recurse(canon_top(&union, true), true)
+        };
+        if let Some(u) = try_unify_site_any(t, &cwin) {
             // RESULT must be exactly the interposed decl, written-only inside the
             // union (its full computation), NOT also a callee-prefix binder (the
             // getOwnerId reassignment-collision class), and every OTHER callee temp
@@ -2334,10 +2560,16 @@ struct Unified {
 }
 
 fn try_unify_site(t: &Target, cwin: &[Statement]) -> Option<Unified> {
+    dprof::inc(&dprof::UNIFY_CALLS, 1);
+    let _t = dprof::T::new(&dprof::UNIFY_US);
     let mut b = Bindings::default();
     if unify_block(t, &t.pat, cwin, &mut b).is_err() {
         return None;
     }
+    finish_unified(t, cwin, b)
+}
+
+fn finish_unified(t: &Target, cwin: &[Statement], b: Bindings) -> Option<Unified> {
     let mut args = Vec::with_capacity(t.param_order.len());
     for p in &t.param_order {
         match b.params.get(p) {
@@ -2368,9 +2600,9 @@ fn try_unify_site(t: &Target, cwin: &[Statement]) -> Option<Unified> {
     // every argument at the call site (before the body), in parameter order.
     // That is sound only when each argument can be moved to the front without
     // changing observable behaviour:
-    //   * no side effects — a side-effecting arg (Call/MethodCall, and per this
-    //     crate's `SideEffects`, also Global/Index reads) would be reordered
-    //     relative to the body's own effects; and
+    //   * total and effect-free — Luau operators can invoke metamethods or throw,
+    //     even though the generic `SideEffects` trait only propagates operand
+    //     effects, so admit only atomic Local/Literal snapshots;
     //   * value stability — it must read no local the region writes, so its value
     //     can't change between the front and its in-body use point.
     // A genuine inlined arg with side effects survives in the copy as a `local`
@@ -2385,8 +2617,8 @@ fn try_unify_site(t: &Target, cwin: &[Statement]) -> Option<Unified> {
     // call IN the region mutates between the call-site (front) and `x`'s in-body use
     // — making `f(x)` snapshot a stale value. This is unreachable on genuine -O2
     // output, for THREE independent reasons:
-    //   1. The arg side-effect gate just below refuses any non-trivial arg, so `a`
-    //      can only be a plain `Local`/literal/operator tree, never a call result.
+    //   1. The arg gate just below refuses every non-trivial arg, so `a` can only
+    //      be a plain `Local`/literal, never an operator or call result.
     //   2. This pass runs BEFORE `inline_temps` (luau-lifter `lib.rs`: deinline at
     //      ~line 204, inline_single_use_temps at ~213). At deinline time no
     //      single-use temp has been forwarded yet, so a value that would be unstable
@@ -2410,7 +2642,7 @@ fn try_unify_site(t: &Target, cwin: &[Statement]) -> Option<Unified> {
     let mut region_writes: FxHashSet<RcLocal> = FxHashSet::default();
     collect_written(cwin, &mut region_writes);
     for a in &args {
-        if a.has_side_effects() {
+        if !matches!(a, RValue::Local(_) | RValue::Literal(_)) || a.has_side_effects() {
             return None;
         }
         for r in a.values_read() {
@@ -2424,6 +2656,583 @@ fn try_unify_site(t: &Target, cwin: &[Statement]) -> Option<Unified> {
         result: b.result,
         callee_locals: b.locals.values().cloned().collect(),
     })
+}
+
+/// Exact Tier-A match first; when a parameter controls a branch, fall back to a
+/// verified partial evaluation.  The fallback never trusts the partial match:
+/// it only uses it to seed arguments, specializes a deep copy of the recovered
+/// definition, then requires a full structural unification against the site.
+fn try_unify_site_any(t: &Target, cwin: &[Statement]) -> Option<Unified> {
+    try_unify_site(t, cwin).or_else(|| try_unify_specialized_site(t, cwin))
+}
+
+fn try_unify_cps_site(
+    t: &Target,
+    cwin: &[Statement],
+    continuation: &[Statement],
+) -> Option<Unified> {
+    if !t.cps_loop_return
+        || continuation.is_empty()
+        || !sequence_has_return_tail(continuation)
+        || has_depth_zero_loop_control(continuation, 0)
+    {
+        return None;
+    }
+    let continuation = canon(continuation);
+    let mut bindings = Bindings::default();
+    if !cps_unify_block(t, &t.pat, cwin, &continuation, true, &mut bindings) {
+        return None;
+    }
+    finish_unified(t, cwin, bindings)
+}
+
+fn cps_unify_block(
+    t: &Target,
+    pattern: &[Statement],
+    candidate: &[Statement],
+    continuation: &[Statement],
+    allow_fallthrough_continuation: bool,
+    bindings: &mut Bindings,
+) -> bool {
+    if candidate.len() < pattern.len() {
+        return false;
+    }
+
+    // The inliner copies the caller continuation not only at an early-return
+    // edge, but also after the callee's ordinary fallthrough.  Consequently a
+    // structured branch can be `CALLEE_PREFIX; CONTINUATION` while the recovered
+    // helper branch is just `CALLEE_PREFIX`.  Match the helper prefix first, then
+    // accept only an empty suffix (fall through to the continuation outside the
+    // current structured block) or a fully verified cloned continuation.
+    let mut trial = bindings.clone();
+    for (index, (left, right)) in pattern.iter().zip(&candidate[..pattern.len()]).enumerate() {
+        let statement_reaches_callee_end =
+            allow_fallthrough_continuation && index + 1 == pattern.len();
+        if !cps_unify_stmt(
+            t,
+            left,
+            right,
+            continuation,
+            statement_reaches_callee_end,
+            &mut trial,
+        ) {
+            return false;
+        }
+    }
+
+    let suffix = &candidate[pattern.len()..];
+    if !suffix.is_empty() {
+        if !allow_fallthrough_continuation {
+            return false;
+        }
+        let suffix = canon(suffix);
+        if !crate::factor_common_tails::block_alpha_eq(continuation, &suffix) {
+            return false;
+        }
+    }
+    *bindings = trial;
+    true
+}
+
+fn cps_unify_stmt(
+    t: &Target,
+    pattern: &Statement,
+    candidate: &Statement,
+    continuation: &[Statement],
+    reaches_callee_end: bool,
+    bindings: &mut Bindings,
+) -> bool {
+    let ctx = t.ctx();
+    match (pattern, candidate) {
+        (Statement::If(left), Statement::If(right)) => {
+            unify_rvalue(&ctx, &left.condition, &right.condition, bindings).is_ok()
+                && cps_unify_block(
+                    t,
+                    &left.then_block.lock().0,
+                    &right.then_block.lock().0,
+                    continuation,
+                    reaches_callee_end,
+                    bindings,
+                )
+                && cps_unify_block(
+                    t,
+                    &left.else_block.lock().0,
+                    &right.else_block.lock().0,
+                    continuation,
+                    reaches_callee_end,
+                    bindings,
+                )
+        }
+        (Statement::GenericFor(left), Statement::GenericFor(right)) => {
+            left.res_locals.len() == right.res_locals.len()
+                && left.right.len() == right.right.len()
+                && left
+                    .res_locals
+                    .iter()
+                    .zip(&right.res_locals)
+                    .all(|(pl, cl)| unify_local(&ctx, pl, cl, bindings).is_ok())
+                && left
+                    .right
+                    .iter()
+                    .zip(&right.right)
+                    .all(|(pl, cl)| unify_rvalue(&ctx, pl, cl, bindings).is_ok())
+                && cps_unify_loop_body(
+                    t,
+                    &left.block.lock().0,
+                    &right.block.lock().0,
+                    continuation,
+                    bindings,
+                )
+        }
+        (Statement::NumericFor(left), Statement::NumericFor(right)) => {
+            unify_rvalue(&ctx, &left.initial, &right.initial, bindings).is_ok()
+                && unify_rvalue(&ctx, &left.limit, &right.limit, bindings).is_ok()
+                && unify_rvalue(&ctx, &left.step, &right.step, bindings).is_ok()
+                && unify_local(&ctx, &left.counter, &right.counter, bindings).is_ok()
+                && cps_unify_loop_body(
+                    t,
+                    &left.block.lock().0,
+                    &right.block.lock().0,
+                    continuation,
+                    bindings,
+                )
+        }
+        (Statement::While(left), Statement::While(right)) => {
+            unify_rvalue(&ctx, &left.condition, &right.condition, bindings).is_ok()
+                && cps_unify_loop_body(
+                    t,
+                    &left.block.lock().0,
+                    &right.block.lock().0,
+                    continuation,
+                    bindings,
+                )
+        }
+        (Statement::Repeat(left), Statement::Repeat(right)) => {
+            unify_rvalue(&ctx, &left.condition, &right.condition, bindings).is_ok()
+                && cps_unify_loop_body(
+                    t,
+                    &left.block.lock().0,
+                    &right.block.lock().0,
+                    continuation,
+                    bindings,
+                )
+        }
+        (Statement::Return(_), _) => false,
+        _ => unify_stmt(t, pattern, candidate, bindings).is_ok(),
+    }
+}
+
+fn cps_unify_loop_body(
+    t: &Target,
+    pattern: &[Statement],
+    candidate: &[Statement],
+    continuation: &[Statement],
+    bindings: &mut Bindings,
+) -> bool {
+    // An exact `return` here would exit the caller and skip K; after refolding it
+    // exits only the helper and the caller executes K. Every loop-return edge must
+    // therefore go through the continuation-proving rule below.
+    if !block_has_return(pattern) {
+        let mut exact = bindings.clone();
+        if cps_unify_block(t, pattern, candidate, continuation, false, &mut exact) {
+            *bindings = exact;
+            return true;
+        }
+    }
+    cps_unify_loop_exit(t, pattern, candidate, continuation, bindings)
+}
+
+/// Match the canonical lowering of `if C then return end` inside an inlined
+/// loop.  The caller cannot jump out of the helper directly, so the structurer
+/// emits `if not C then continue end; CONTINUATION`.  We accept it only when the
+/// copied suffix is alpha-equivalent to the actual parent continuation.
+fn cps_unify_loop_exit(
+    t: &Target,
+    pattern: &[Statement],
+    candidate: &[Statement],
+    continuation: &[Statement],
+    bindings: &mut Bindings,
+) -> bool {
+    let [Statement::If(pattern_guard)] = pattern else {
+        return false;
+    };
+    let Some((Statement::If(candidate_guard), copied_continuation)) = candidate.split_first()
+    else {
+        return false;
+    };
+    let pattern_then = pattern_guard.then_block.lock();
+    let pattern_else = pattern_guard.else_block.lock();
+    let candidate_then = candidate_guard.then_block.lock();
+    let candidate_else = candidate_guard.else_block.lock();
+    if !pattern_else.0.is_empty()
+        || !matches!(pattern_then.0.as_slice(), [Statement::Return(ret)] if ret.values.is_empty())
+        || !candidate_else.0.is_empty()
+    {
+        return false;
+    }
+
+    let ctx = t.ctx();
+    // Before `recover_guard_continue`, the structurer represents the callee's
+    // loop return directly as `if C then CONTINUATION end`.  This is the shape
+    // present when de-inline runs, and the copied branch must equal K in full.
+    if copied_continuation.is_empty() {
+        let candidate_then = canon(&candidate_then.0);
+        let continuation_equal =
+            crate::factor_common_tails::block_alpha_eq(continuation, &candidate_then);
+        if continuation_equal {
+            let mut trial = bindings.clone();
+            if unify_rvalue(
+                &ctx,
+                &pattern_guard.condition,
+                &candidate_guard.condition,
+                &mut trial,
+            )
+            .is_ok()
+            {
+                *bindings = trial;
+                return true;
+            }
+        }
+    }
+
+    // Also recognize the normalized form produced later by
+    // `recover_guard_continue`: `if not C then continue end; CONTINUATION`.
+    if !matches!(candidate_then.0.as_slice(), [Statement::Continue(_)]) {
+        return false;
+    }
+    let mut trial = bindings.clone();
+    if unify_rvalue(
+        &ctx,
+        &pattern_guard.condition,
+        &negate_canon(candidate_guard.condition.clone()),
+        &mut trial,
+    )
+    .is_err()
+    {
+        return false;
+    }
+    let copied = canon(copied_continuation);
+    let equal = crate::factor_common_tails::block_alpha_eq(&continuation, &copied);
+    if equal {
+        *bindings = trial;
+    }
+    equal
+}
+
+fn try_unify_specialized_site(t: &Target, cwin: &[Statement]) -> Option<Unified> {
+    if !t.specializable || t.params.is_empty() {
+        return None;
+    }
+
+    let mut seed = Bindings::default();
+    seed_unify_block(t, &t.pat, cwin, &mut seed);
+    if !seed
+        .params
+        .values()
+        .any(|value| matches!(value, RValue::Literal(_)))
+    {
+        return None;
+    }
+    if t.param_order
+        .iter()
+        .any(|param| !seed.params.contains_key(param) && !t.unread.contains(param))
+    {
+        return None;
+    }
+    // Seeding intentionally tolerates structural mismatches, but substituting a
+    // repeated identity-producing argument (`{}` / closure-valued if-expression)
+    // would erase the exact unifier's per-occurrence identity guard: two separate
+    // constructors in the candidate could collapse to one `f({})` argument.
+    if seed
+        .params
+        .iter()
+        .any(|(param, value)| is_identity_producing(value) && count_local_reads(&t.pat, param) > 1)
+    {
+        return None;
+    }
+
+    // `canon` deep-copies every block-bearing statement, avoiding mutation of
+    // the recovered function body's shared Arcs while we prune constant arms.
+    let mut specialized = canon(&t.pat);
+    specialize_block(&mut specialized, &seed.params);
+    let specialized = canon(&specialized);
+
+    let mut verified = Bindings {
+        params: seed.params,
+        ..Bindings::default()
+    };
+    if unify_block(t, &specialized, cwin, &mut verified).is_err() {
+        return None;
+    }
+    finish_unified(t, cwin, verified)
+}
+
+/// Harvest parameter bindings from structurally corresponding prefixes.  A
+/// mismatch is expected for a specialized site, so failures are ignored here;
+/// every harvested binding is re-checked by `unify_block` after specialization.
+fn seed_unify_block(t: &Target, pattern: &[Statement], candidate: &[Statement], b: &mut Bindings) {
+    for (left, right) in pattern.iter().zip(candidate) {
+        seed_unify_stmt(t, left, right, b);
+    }
+}
+
+fn seed_unify_values(ctx: &MatchCtx, pattern: &[RValue], candidate: &[RValue], b: &mut Bindings) {
+    for (left, right) in pattern.iter().zip(candidate) {
+        let _ = unify_rvalue(ctx, left, right, b);
+    }
+}
+
+fn seed_unify_stmt(t: &Target, pattern: &Statement, candidate: &Statement, b: &mut Bindings) {
+    let ctx = t.ctx();
+    match (pattern, candidate) {
+        (Statement::Assign(left), Statement::Assign(right)) => {
+            if left.prefix != right.prefix || left.parallel != right.parallel {
+                return;
+            }
+            for (pl, cl) in left.left.iter().zip(&right.left) {
+                let _ = unify_lvalue(&ctx, pl, cl, b);
+            }
+            seed_unify_values(&ctx, &left.right, &right.right, b);
+        }
+        (Statement::Call(left), Statement::Call(right)) => {
+            let _ = unify_rvalue(&ctx, &left.value, &right.value, b);
+            seed_unify_values(&ctx, &left.arguments, &right.arguments, b);
+        }
+        (Statement::MethodCall(left), Statement::MethodCall(right))
+            if left.method == right.method =>
+        {
+            let _ = unify_rvalue(&ctx, &left.value, &right.value, b);
+            seed_unify_values(&ctx, &left.arguments, &right.arguments, b);
+        }
+        (Statement::If(left), Statement::If(right)) => {
+            let _ = unify_rvalue(&ctx, &left.condition, &right.condition, b);
+            seed_unify_block(t, &left.then_block.lock().0, &right.then_block.lock().0, b);
+            seed_unify_block(t, &left.else_block.lock().0, &right.else_block.lock().0, b);
+        }
+        (Statement::While(left), Statement::While(right)) => {
+            let _ = unify_rvalue(&ctx, &left.condition, &right.condition, b);
+            seed_unify_block(t, &left.block.lock().0, &right.block.lock().0, b);
+        }
+        (Statement::Repeat(left), Statement::Repeat(right)) => {
+            let _ = unify_rvalue(&ctx, &left.condition, &right.condition, b);
+            seed_unify_block(t, &left.block.lock().0, &right.block.lock().0, b);
+        }
+        (Statement::NumericFor(left), Statement::NumericFor(right)) => {
+            let _ = unify_rvalue(&ctx, &left.initial, &right.initial, b);
+            let _ = unify_rvalue(&ctx, &left.limit, &right.limit, b);
+            let _ = unify_rvalue(&ctx, &left.step, &right.step, b);
+            let _ = unify_local(&ctx, &left.counter, &right.counter, b);
+            seed_unify_block(t, &left.block.lock().0, &right.block.lock().0, b);
+        }
+        (Statement::GenericFor(left), Statement::GenericFor(right)) => {
+            for (pl, cl) in left.res_locals.iter().zip(&right.res_locals) {
+                let _ = unify_local(&ctx, pl, cl, b);
+            }
+            seed_unify_values(&ctx, &left.right, &right.right, b);
+            seed_unify_block(t, &left.block.lock().0, &right.block.lock().0, b);
+        }
+        (Statement::Return(left), Statement::Return(right)) => {
+            seed_unify_values(&ctx, &left.values, &right.values, b);
+        }
+        (Statement::SetList(left), Statement::SetList(right)) => {
+            let _ = unify_local(&ctx, &left.object_local, &right.object_local, b);
+            seed_unify_values(&ctx, &left.values, &right.values, b);
+            if let (Some(pl), Some(cl)) = (&left.tail, &right.tail) {
+                let _ = unify_rvalue(&ctx, pl, cl, b);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) {
+    if let RValue::Local(local) = value
+        && let Some(replacement) = bindings.get(local)
+    {
+        *value = replacement.clone();
+        return;
+    }
+    for child in value.rvalues_mut() {
+        specialize_rvalue(child, bindings);
+    }
+    let owned = std::mem::replace(value, RValue::Literal(Literal::Nil));
+    *value = match owned {
+        RValue::Binary(binary)
+            if matches!(
+                binary.operation,
+                BinaryOperation::Equal | BinaryOperation::NotEqual
+            ) && matches!(
+                (&*binary.left, &*binary.right),
+                (RValue::Literal(_), RValue::Literal(_))
+            ) =>
+        {
+            let (RValue::Literal(left), RValue::Literal(right)) = (&*binary.left, &*binary.right)
+            else {
+                unreachable!()
+            };
+            if let Some(equal) = runtime_literal_equal(left, right) {
+                RValue::Literal(Literal::Boolean(
+                    if binary.operation == BinaryOperation::Equal {
+                        equal
+                    } else {
+                        !equal
+                    },
+                ))
+            } else {
+                RValue::Binary(binary)
+            }
+        }
+        RValue::Binary(binary)
+            if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or)
+                && matches!(&*binary.left, RValue::Literal(_)) =>
+        {
+            let truthy = specialized_truth(&binary.left).unwrap();
+            match binary.operation {
+                BinaryOperation::And if truthy => *binary.right,
+                BinaryOperation::And => *binary.left,
+                BinaryOperation::Or if truthy => *binary.left,
+                BinaryOperation::Or => *binary.right,
+                _ => unreachable!(),
+            }
+        }
+        other => other.reduce(),
+    };
+}
+
+fn runtime_literal_equal(left: &Literal, right: &Literal) -> Option<bool> {
+    match (left, right) {
+        (Literal::Number(left), Literal::Number(right)) => Some(left == right),
+        (Literal::Nil, Literal::Nil) => Some(true),
+        (Literal::Boolean(left), Literal::Boolean(right)) => Some(left == right),
+        (Literal::String(left), Literal::String(right)) => Some(left == right),
+        // Keep vector/other literal kinds out of the partial evaluator: their
+        // runtime equality representation is VM-specific, while cross-kind Lua
+        // primitives are always unequal.
+        (left, right) if std::mem::discriminant(left) != std::mem::discriminant(right) => {
+            Some(false)
+        }
+        _ => None,
+    }
+}
+
+fn specialized_truth(value: &RValue) -> Option<bool> {
+    match value {
+        RValue::Literal(Literal::Nil) => Some(false),
+        RValue::Literal(Literal::Boolean(value)) => Some(*value),
+        RValue::Literal(_) => Some(true),
+        _ => None,
+    }
+}
+
+fn specialize_block(stmts: &mut Vec<Statement>, bindings: &FxHashMap<RcLocal, RValue>) {
+    let mut output = Vec::with_capacity(stmts.len());
+    for mut statement in std::mem::take(stmts) {
+        for value in statement.rvalues_mut() {
+            specialize_rvalue(value, bindings);
+        }
+
+        match &mut statement {
+            Statement::If(node) => {
+                specialize_block(&mut node.then_block.lock().0, bindings);
+                specialize_block(&mut node.else_block.lock().0, bindings);
+                if let Some(take_then) = specialized_truth(&node.condition) {
+                    let selected = if take_then {
+                        std::mem::take(&mut node.then_block.lock().0)
+                    } else {
+                        std::mem::take(&mut node.else_block.lock().0)
+                    };
+                    output.extend(selected);
+                    if sequence_has_terminal_tail(&output) {
+                        break;
+                    }
+                    continue;
+                }
+            }
+            Statement::While(node) => specialize_block(&mut node.block.lock().0, bindings),
+            Statement::Repeat(node) => specialize_block(&mut node.block.lock().0, bindings),
+            Statement::NumericFor(node) => specialize_block(&mut node.block.lock().0, bindings),
+            Statement::GenericFor(node) => specialize_block(&mut node.block.lock().0, bindings),
+            _ => {}
+        }
+
+        let terminal = matches!(
+            statement,
+            Statement::Return(_) | Statement::Break(_) | Statement::Continue(_)
+        );
+        output.push(statement);
+        if terminal {
+            break;
+        }
+    }
+    *stmts = output;
+}
+
+fn sequence_has_terminal_tail(stmts: &[Statement]) -> bool {
+    stmts
+        .iter()
+        .rev()
+        .find(|statement| !matches!(statement, Statement::Empty(_) | Statement::Comment(_)))
+        .is_some_and(|statement| match statement {
+            Statement::Return(_) | Statement::Break(_) | Statement::Continue(_) => true,
+            Statement::If(node) => {
+                sequence_has_terminal_tail(&node.then_block.lock().0)
+                    && sequence_has_terminal_tail(&node.else_block.lock().0)
+            }
+            _ => false,
+        })
+}
+
+/// CPS loop-return refolding copies a caller continuation into a callee loop.
+/// Only `return` has the same target at both locations; `break`/`continue` are
+/// lexically bound to different loops and cannot be compared structurally.
+fn sequence_has_return_tail(stmts: &[Statement]) -> bool {
+    stmts
+        .iter()
+        .rev()
+        .find(|statement| !matches!(statement, Statement::Empty(_) | Statement::Comment(_)))
+        .is_some_and(|statement| match statement {
+            Statement::Return(_) => true,
+            Statement::If(node) => {
+                sequence_has_return_tail(&node.then_block.lock().0)
+                    && sequence_has_return_tail(&node.else_block.lock().0)
+            }
+            _ => false,
+        })
+}
+
+fn has_depth_zero_loop_control(stmts: &[Statement], loop_depth: usize) -> bool {
+    stmts.iter().any(|statement| match statement {
+        Statement::Break(_) | Statement::Continue(_) => loop_depth == 0,
+        Statement::If(node) => {
+            has_depth_zero_loop_control(&node.then_block.lock().0, loop_depth)
+                || has_depth_zero_loop_control(&node.else_block.lock().0, loop_depth)
+        }
+        Statement::While(node) => has_depth_zero_loop_control(&node.block.lock().0, loop_depth + 1),
+        Statement::Repeat(node) => {
+            has_depth_zero_loop_control(&node.block.lock().0, loop_depth + 1)
+        }
+        Statement::NumericFor(node) => {
+            has_depth_zero_loop_control(&node.block.lock().0, loop_depth + 1)
+        }
+        Statement::GenericFor(node) => {
+            has_depth_zero_loop_control(&node.block.lock().0, loop_depth + 1)
+        }
+        _ => false,
+    })
+}
+
+/// Compose the statements executed after a site in the current block with the
+/// continuation inherited from enclosing `if` arms.  The outer segment is
+/// unreachable when the local segment definitely transfers control.
+fn semantic_continuation(local: &[Statement], outer: &[Statement]) -> Vec<Statement> {
+    if local.is_empty() {
+        return outer.to_vec();
+    }
+    let mut result = local.to_vec();
+    if !sequence_has_terminal_tail(local) {
+        result.extend_from_slice(outer);
+    }
+    result
 }
 
 /// `stmts[i]` is an init-less `local R` declaration -> returns R.
@@ -2448,6 +3257,49 @@ fn block_reads_local(stmts: &[Statement], target: &RcLocal) -> bool {
 
 fn args_vec_eq(a: &[RValue], b: &[RValue]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(x, y)| rvalue_exact_eq(x, y))
+}
+
+fn branch_conditions_read_any(stmts: &[Statement], params: &FxHashSet<RcLocal>) -> bool {
+    stmts.iter().any(|statement| match statement {
+        Statement::If(node) => {
+            node.condition
+                .values_read()
+                .into_iter()
+                .any(|local| params.contains(local))
+                || branch_conditions_read_any(&node.then_block.lock().0, params)
+                || branch_conditions_read_any(&node.else_block.lock().0, params)
+        }
+        Statement::While(node) => branch_conditions_read_any(&node.block.lock().0, params),
+        Statement::Repeat(node) => branch_conditions_read_any(&node.block.lock().0, params),
+        Statement::NumericFor(node) => branch_conditions_read_any(&node.block.lock().0, params),
+        Statement::GenericFor(node) => branch_conditions_read_any(&node.block.lock().0, params),
+        _ => false,
+    })
+}
+
+fn is_void_return_guard(statement: &Statement) -> bool {
+    let Statement::If(node) = statement else {
+        return false;
+    };
+    node.else_block.lock().0.is_empty()
+        && matches!(node.then_block.lock().0.last(), Some(Statement::Return(ret)) if ret.values.is_empty())
+}
+
+fn has_loop_void_return(stmts: &[Statement], inside_loop: bool) -> bool {
+    stmts.iter().any(|statement| {
+        (inside_loop && is_void_return_guard(statement))
+            || match statement {
+                Statement::If(node) => {
+                    has_loop_void_return(&node.then_block.lock().0, inside_loop)
+                        || has_loop_void_return(&node.else_block.lock().0, inside_loop)
+                }
+                Statement::While(node) => has_loop_void_return(&node.block.lock().0, true),
+                Statement::Repeat(node) => has_loop_void_return(&node.block.lock().0, true),
+                Statement::NumericFor(node) => has_loop_void_return(&node.block.lock().0, true),
+                Statement::GenericFor(node) => has_loop_void_return(&node.block.lock().0, true),
+                _ => false,
+            }
+    })
 }
 
 // ===================================================================
@@ -2492,11 +3344,17 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
         // unprovable from the inlined body, so it is left for `body_unsafe`-style
         // refusal here.) Every soundness gate downstream is unchanged.
         if g.is_variadic {
-            deinline_reject!(RejectReason::Variadic, g.name.as_deref().unwrap_or("<anon>"));
+            deinline_reject!(
+                RejectReason::Variadic,
+                g.name.as_deref().unwrap_or("<anon>")
+            );
             continue;
         }
         if body_unsafe(&g.body.0) {
-            deinline_reject!(RejectReason::UnsafeBody, g.name.as_deref().unwrap_or("<anon>"));
+            deinline_reject!(
+                RejectReason::UnsafeBody,
+                g.name.as_deref().unwrap_or("<anon>")
+            );
             continue;
         }
         let kind = match classify_returns(&g.body.0) {
@@ -2512,13 +3370,19 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
         };
         let pat = canon(&g.body.0);
         if pat.is_empty() {
-            deinline_reject!(RejectReason::EmptyPattern, g.name.as_deref().unwrap_or("<anon>"));
+            deinline_reject!(
+                RejectReason::EmptyPattern,
+                g.name.as_deref().unwrap_or("<anon>")
+            );
             continue;
         }
+        let cps_loop_return = kind == TKind::Void && has_loop_void_return(&pat, false);
         match kind {
-            // void: canon must have removed/folded all returns.
+            // Ordinary void targets must canon away every return.  A narrowly
+            // recognized loop-return target is retained for the continuation-
+            // proving CPS matcher below.
             TKind::Void => {
-                if block_has_return(&pat) {
+                if block_has_return(&pat) && !cps_loop_return {
                     deinline_reject!(
                         RejectReason::UnsupportedReturnShape,
                         g.name.as_deref().unwrap_or("<anon>")
@@ -2542,19 +3406,28 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
             let nc: usize = pat.iter().map(crate::deinline::dbg_stmt_node_count).sum();
             let nm = g.name.as_deref().unwrap_or("<none>");
             eprintln!(
-                "ANCHORTRACE\tanchors={}\tstmts={}\tnodes={}\tkind={:?}\tname={}",
+                "ANCHORTRACE\tanchors={}\tstmts={}\tnodes={}\tkind={:?}\tname={}\tlocal={}\tcps={}",
                 a,
                 pat.len(),
                 nc,
-                match kind { TKind::Void => "Void", TKind::Value => "Value" },
-                nm
+                match kind {
+                    TKind::Void => "Void",
+                    TKind::Value => "Value",
+                },
+                nm,
+                f_local,
+                cps_loop_return,
             );
         }
         if anchors_in_block(&pat) < 2 {
-            deinline_reject!(RejectReason::LowAnchorScore, g.name.as_deref().unwrap_or("<anon>"));
+            deinline_reject!(
+                RejectReason::LowAnchorScore,
+                g.name.as_deref().unwrap_or("<anon>")
+            );
             continue;
         }
         let params: FxHashSet<RcLocal> = g.parameters.iter().cloned().collect();
+        let specializable = branch_conditions_read_any(&pat, &params);
         let mut locals: FxHashSet<RcLocal> = FxHashSet::default();
         collect_declared_locals(&pat, &mut locals);
         for p in &params {
@@ -2642,6 +3515,8 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
             locals,
             param_order,
             unread,
+            specializable,
+            cps_loop_return,
         });
     }
     targets
@@ -2928,7 +3803,7 @@ fn block_has_return(stmts: &[Statement]) -> bool {
     })
 }
 
-fn collect_declared_locals(stmts: &[Statement], out: &mut FxHashSet<RcLocal>) {
+pub(crate) fn collect_declared_locals(stmts: &[Statement], out: &mut FxHashSet<RcLocal>) {
     for s in stmts {
         match s {
             Statement::Assign(a) if a.prefix => {
@@ -3066,20 +3941,68 @@ pub(crate) fn dbg_stmt_node_count(s: &Statement) -> usize {
     }
     match s {
         Statement::If(f) => {
-            n += f.then_block.lock().0.iter().map(dbg_stmt_node_count).sum::<usize>();
-            n += f.else_block.lock().0.iter().map(dbg_stmt_node_count).sum::<usize>();
+            n += f
+                .then_block
+                .lock()
+                .0
+                .iter()
+                .map(dbg_stmt_node_count)
+                .sum::<usize>();
+            n += f
+                .else_block
+                .lock()
+                .0
+                .iter()
+                .map(dbg_stmt_node_count)
+                .sum::<usize>();
         }
-        Statement::While(w) => n += w.block.lock().0.iter().map(dbg_stmt_node_count).sum::<usize>(),
-        Statement::Repeat(r) => n += r.block.lock().0.iter().map(dbg_stmt_node_count).sum::<usize>(),
-        Statement::NumericFor(nf) => n += nf.block.lock().0.iter().map(dbg_stmt_node_count).sum::<usize>(),
-        Statement::GenericFor(gf) => n += gf.block.lock().0.iter().map(dbg_stmt_node_count).sum::<usize>(),
+        Statement::While(w) => {
+            n += w
+                .block
+                .lock()
+                .0
+                .iter()
+                .map(dbg_stmt_node_count)
+                .sum::<usize>()
+        }
+        Statement::Repeat(r) => {
+            n += r
+                .block
+                .lock()
+                .0
+                .iter()
+                .map(dbg_stmt_node_count)
+                .sum::<usize>()
+        }
+        Statement::NumericFor(nf) => {
+            n += nf
+                .block
+                .lock()
+                .0
+                .iter()
+                .map(dbg_stmt_node_count)
+                .sum::<usize>()
+        }
+        Statement::GenericFor(gf) => {
+            n += gf
+                .block
+                .lock()
+                .0
+                .iter()
+                .map(dbg_stmt_node_count)
+                .sum::<usize>()
+        }
         _ => {}
     }
     n
 }
 
 fn dbg_rvalue_node_count(rv: &RValue) -> usize {
-    1 + rv.rvalues().iter().map(|c| dbg_rvalue_node_count(c)).sum::<usize>()
+    1 + rv
+        .rvalues()
+        .iter()
+        .map(|c| dbg_rvalue_node_count(c))
+        .sum::<usize>()
 }
 
 fn anchors_in_stmt(s: &Statement, n: &mut usize) {
@@ -3400,6 +4323,8 @@ mod tests {
             locals,
             param_order: Vec::new(),
             unread: FxHashSet::default(),
+            specializable: false,
+            cps_loop_return: false,
         }
     }
 
@@ -3460,22 +4385,491 @@ mod tests {
         assert!(matches!(classify_returns(&body), Some(TKind::Value)));
     }
 
+    #[test]
+    fn void_guard_with_prefix_canonicalizes_all_early_returns() {
+        let body = vec![
+            Statement::If(If::new(
+                global("disabled"),
+                Block(vec![Statement::Return(Return::default())]),
+                Block::default(),
+            )),
+            print_x(),
+            Statement::If(If::new(
+                global("created"),
+                Block(vec![
+                    Statement::Call(Call::new(global("markCreated"), vec![])),
+                    Statement::Return(Return::default()),
+                ]),
+                Block::default(),
+            )),
+            Statement::If(If::new(
+                global("notDestroyed"),
+                Block(vec![
+                    Statement::If(If::new(
+                        global("disconnect"),
+                        Block(vec![Statement::Call(Call::new(
+                            global("markDisconnect"),
+                            vec![],
+                        ))]),
+                        Block::default(),
+                    )),
+                    Statement::Return(Return::default()),
+                ]),
+                Block::default(),
+            )),
+            Statement::Call(Call::new(global("markDestroyed"), vec![])),
+        ];
+
+        let canonical = canon(&body);
+        assert!(
+            !block_has_return(&canonical),
+            "all void early returns should become structured branches:\n{}",
+            Block(canonical)
+        );
+    }
+
+    #[test]
+    fn constant_specialized_void_site_refolds_after_verified_partial_evaluation() {
+        let debug = local("debug");
+        let event = local("event");
+        let key = local("key");
+        let raw = vec![
+            Statement::If(If::new(
+                RValue::Unary(Unary::new(local_value(&debug), UnaryOperation::Not)),
+                Block(vec![Statement::Return(Return::default())]),
+                Block::default(),
+            )),
+            Statement::Call(Call::new(
+                global("emit"),
+                vec![local_value(&event), local_value(&key)],
+            )),
+            Statement::If(If::new(
+                RValue::Binary(Binary::new(
+                    local_value(&event),
+                    string("CREATED"),
+                    BinaryOperation::Equal,
+                )),
+                Block(vec![
+                    Statement::Call(Call::new(global("markCreated"), vec![local_value(&key)])),
+                    Statement::Return(Return::default()),
+                ]),
+                Block::default(),
+            )),
+            Statement::Call(Call::new(global("markOther"), vec![local_value(&key)])),
+        ];
+        let pat = canon(&raw);
+        let mut params = FxHashSet::default();
+        params.insert(event.clone());
+        params.insert(key.clone());
+        let target = Target {
+            f_local: local("logEvent"),
+            func_ptr: std::ptr::null::<Mutex<Function>>(),
+            kind: TKind::Void,
+            pat_raw_len: raw.len(),
+            value_anchor: ValueAnchor::AtResultDecl,
+            prefix_len: 0,
+            pat0_kind: std::mem::discriminant(&pat[0]),
+            pat0_anchor_key: stmt_anchor_key(&pat[0]),
+            pat,
+            params,
+            locals: FxHashSet::default(),
+            param_order: vec![event, key],
+            unread: FxHashSet::default(),
+            specializable: true,
+            cps_loop_return: false,
+        };
+
+        let caller_key = local("callerKey");
+        let candidate = canon(&[Statement::If(If::new(
+            local_value(&debug),
+            Block(vec![
+                Statement::Call(Call::new(
+                    global("emit"),
+                    vec![string("OTHER"), local_value(&caller_key)],
+                )),
+                Statement::Call(Call::new(
+                    global("markOther"),
+                    vec![local_value(&caller_key)],
+                )),
+            ]),
+            Block::default(),
+        ))]);
+
+        let unified = try_unify_site_any(&target, &candidate)
+            .expect("literal-specialized branch must refold only after exact verification");
+        assert_eq!(unified.args.len(), 2);
+        assert!(rvalue_exact_eq(&unified.args[0], &string("OTHER")));
+        assert!(rvalue_exact_eq(&unified.args[1], &local_value(&caller_key)));
+
+        let mut wrong = candidate.clone();
+        let Statement::If(node) = &mut wrong[0] else {
+            panic!()
+        };
+        node.then_block.lock().0[1] = Statement::Call(Call::new(
+            global("differentEffect"),
+            vec![local_value(&caller_key)],
+        ));
+        assert!(
+            try_unify_site_any(&target, &wrong).is_none(),
+            "a non-specialization body difference must remain refused"
+        );
+    }
+
+    #[test]
+    fn specialized_site_refuses_repeated_table_identity() {
+        let flag = local("flag");
+        let value = local("value");
+        let raw = vec![Statement::Call(Call::new(
+            global("consume"),
+            vec![local_value(&flag), local_value(&value), local_value(&value)],
+        ))];
+        let pat = canon(&raw);
+        let mut params = FxHashSet::default();
+        params.insert(flag.clone());
+        params.insert(value.clone());
+        let target = Target {
+            f_local: local("consumeTwice"),
+            func_ptr: std::ptr::null::<Mutex<Function>>(),
+            kind: TKind::Void,
+            pat_raw_len: raw.len(),
+            value_anchor: ValueAnchor::AtResultDecl,
+            prefix_len: 0,
+            pat0_kind: std::mem::discriminant(&pat[0]),
+            pat0_anchor_key: stmt_anchor_key(&pat[0]),
+            pat,
+            params,
+            locals: FxHashSet::default(),
+            param_order: vec![flag, value],
+            unread: FxHashSet::default(),
+            specializable: true,
+            cps_loop_return: false,
+        };
+        let candidate = canon(&[Statement::Call(Call::new(
+            global("consume"),
+            vec![
+                string("enabled"),
+                RValue::Table(Table::default()),
+                RValue::Table(Table::default()),
+            ],
+        ))]);
+
+        assert!(
+            try_unify_specialized_site(&target, &candidate).is_none(),
+            "two fresh tables must never collapse into one reconstructed argument"
+        );
+    }
+
+    #[test]
+    fn vector_equality_is_not_partially_evaluated() {
+        let vector = Literal::Vector(1.0, 2.0, 3.0);
+        assert_eq!(runtime_literal_equal(&vector, &vector), None);
+
+        let mut expression = RValue::Binary(Binary::new(
+            RValue::Literal(vector.clone()),
+            RValue::Literal(vector),
+            BinaryOperation::Equal,
+        ));
+        specialize_rvalue(&mut expression, &FxHashMap::default());
+        assert!(matches!(expression, RValue::Binary(_)));
+    }
+
+    #[test]
+    fn statement_deinline_refuses_metamethod_risk_argument() {
+        let parameter = local("parameter");
+        let raw = vec![
+            print_x(),
+            Statement::Call(Call::new(global("consume"), vec![local_value(&parameter)])),
+        ];
+        let pat = canon(&raw);
+        let mut params = FxHashSet::default();
+        params.insert(parameter.clone());
+        let target = Target {
+            f_local: local("effectThenConsume"),
+            func_ptr: std::ptr::null::<Mutex<Function>>(),
+            kind: TKind::Void,
+            pat_raw_len: raw.len(),
+            value_anchor: ValueAnchor::AtResultDecl,
+            prefix_len: 0,
+            pat0_kind: std::mem::discriminant(&pat[0]),
+            pat0_anchor_key: stmt_anchor_key(&pat[0]),
+            pat,
+            params,
+            locals: FxHashSet::default(),
+            param_order: vec![parameter],
+            unread: FxHashSet::default(),
+            specializable: false,
+            cps_loop_return: false,
+        };
+        let left = local("left");
+        let right = local("right");
+        let candidate = canon(&[
+            print_x(),
+            Statement::Call(Call::new(
+                global("consume"),
+                vec![RValue::Binary(Binary::new(
+                    local_value(&left),
+                    local_value(&right),
+                    BinaryOperation::Add,
+                ))],
+            )),
+        ]);
+
+        assert!(
+            try_unify_site(&target, &candidate).is_none(),
+            "moving a potentially metamethod-backed operator before print is unsound"
+        );
+    }
+
+    #[test]
+    fn loop_return_cps_site_requires_exact_caller_continuation() {
+        let frames = local("frames");
+        let frame = local("frame");
+        let existing = local("existing");
+        let loop_guard = Statement::If(If::new(
+            RValue::Binary(Binary::new(
+                local_value(&existing),
+                local_value(&frame),
+                BinaryOperation::Equal,
+            )),
+            Block(vec![Statement::Return(Return::default())]),
+            Block::default(),
+        ));
+        let raw = vec![Statement::If(If::new(
+            local_value(&frame),
+            Block(vec![
+                Statement::GenericFor(GenericFor::new(
+                    vec![existing.clone()],
+                    vec![local_value(&frames)],
+                    Block(vec![loop_guard]),
+                )),
+                Statement::Call(Call::new(
+                    global("insertFrame"),
+                    vec![local_value(&frames), local_value(&frame)],
+                )),
+            ]),
+            Block::default(),
+        ))];
+        let pat = canon(&raw);
+        let mut params = FxHashSet::default();
+        params.insert(frame.clone());
+        let mut locals = FxHashSet::default();
+        collect_declared_locals(&pat, &mut locals);
+        let target = Target {
+            f_local: local("addFrame"),
+            func_ptr: std::ptr::null::<Mutex<Function>>(),
+            kind: TKind::Void,
+            pat_raw_len: raw.len(),
+            value_anchor: ValueAnchor::AtResultDecl,
+            prefix_len: 0,
+            pat0_kind: std::mem::discriminant(&pat[0]),
+            pat0_anchor_key: stmt_anchor_key(&pat[0]),
+            pat,
+            params,
+            locals,
+            param_order: vec![frame],
+            unread: FxHashSet::default(),
+            specializable: false,
+            cps_loop_return: true,
+        };
+
+        let actual = local("actual");
+        let caller_existing = local("callerExisting");
+        let continuation = vec![
+            Statement::Call(Call::new(global("afterHelper"), vec![local_value(&actual)])),
+            Statement::Return(Return::default()),
+        ];
+        let mut loop_body = vec![Statement::If(If::new(
+            RValue::Binary(Binary::new(
+                local_value(&caller_existing),
+                local_value(&actual),
+                BinaryOperation::NotEqual,
+            )),
+            Block(vec![Statement::Continue(crate::Continue {})]),
+            Block::default(),
+        ))];
+        loop_body.extend(continuation.clone());
+        let mut normal_path = vec![
+            Statement::GenericFor(GenericFor::new(
+                vec![caller_existing.clone()],
+                vec![local_value(&frames)],
+                Block(loop_body),
+            )),
+            Statement::Call(Call::new(
+                global("insertFrame"),
+                vec![local_value(&frames), local_value(&actual)],
+            )),
+        ];
+        // Luau clones K after both the loop-return edge and the helper's normal
+        // fallthrough.  The enclosing empty arm reaches the external K directly.
+        normal_path.extend(continuation.clone());
+        let candidate = canon(&[Statement::If(If::new(
+            local_value(&actual),
+            Block(normal_path),
+            Block::default(),
+        ))]);
+
+        let unified = try_unify_cps_site(&target, &candidate, &continuation)
+            .expect("verified cloned continuation should recover the loop-return helper");
+        assert!(rvalue_exact_eq(&unified.args[0], &local_value(&actual)));
+
+        let structured_loop_body = vec![Statement::If(If::new(
+            RValue::Binary(Binary::new(
+                local_value(&caller_existing),
+                local_value(&actual),
+                BinaryOperation::Equal,
+            )),
+            Block(continuation.clone()),
+            Block::default(),
+        ))];
+        let mut structured_normal_path = vec![
+            Statement::GenericFor(GenericFor::new(
+                vec![caller_existing],
+                vec![local_value(&frames)],
+                Block(structured_loop_body),
+            )),
+            Statement::Call(Call::new(
+                global("insertFrame"),
+                vec![local_value(&frames), local_value(&actual)],
+            )),
+        ];
+        structured_normal_path.extend(continuation.clone());
+        let structured_candidate = canon(&[Statement::If(If::new(
+            local_value(&actual),
+            Block(structured_normal_path),
+            Block::default(),
+        ))]);
+        let structured = try_unify_cps_site(&target, &structured_candidate, &continuation)
+            .expect("pre-guard-continue structured loop exit should also refold");
+        assert!(rvalue_exact_eq(&structured.args[0], &local_value(&actual)));
+
+        let wrong_continuation = vec![
+            Statement::Call(Call::new(
+                global("differentAfter"),
+                vec![local_value(&actual)],
+            )),
+            Statement::Return(Return::default()),
+        ];
+        assert!(
+            try_unify_cps_site(&target, &candidate, &wrong_continuation).is_none(),
+            "a different caller continuation must refuse CPS refolding"
+        );
+    }
+
+    #[test]
+    fn cps_continuation_is_only_accepted_at_true_tail_positions() {
+        let target = void_target(vec![print_x()], FxHashSet::default());
+        let continuation = vec![
+            Statement::Call(Call::new(global("after"), Vec::new())),
+            Statement::Return(Return::default()),
+        ];
+        let pattern = vec![
+            Statement::If(If::new(
+                RValue::Literal(Literal::Boolean(true)),
+                Block(vec![Statement::Call(Call::new(
+                    global("inside"),
+                    Vec::new(),
+                ))]),
+                Block::default(),
+            )),
+            Statement::Call(Call::new(global("laterInCallee"), Vec::new())),
+        ];
+        let mut nested = vec![Statement::Call(Call::new(global("inside"), Vec::new()))];
+        nested.extend(continuation.clone());
+        let candidate = vec![
+            Statement::If(If::new(
+                RValue::Literal(Literal::Boolean(true)),
+                Block(nested),
+                Block::default(),
+            )),
+            Statement::Call(Call::new(global("laterInCallee"), Vec::new())),
+        ];
+
+        assert!(!cps_unify_block(
+            &target,
+            &pattern,
+            &candidate,
+            &continuation,
+            true,
+            &mut Bindings::default(),
+        ));
+    }
+
+    #[test]
+    fn cps_exact_loop_return_cannot_skip_caller_continuation() {
+        let target = void_target(vec![print_x()], FxHashSet::default());
+        let continuation = vec![Statement::Return(Return::default())];
+        let pattern = vec![Statement::While(While::new(
+            RValue::Literal(Literal::Boolean(true)),
+            Block(vec![Statement::Return(Return::default())]),
+        ))];
+        let candidate = canon(&pattern);
+
+        assert!(!cps_unify_block(
+            &target,
+            &pattern,
+            &candidate,
+            &continuation,
+            true,
+            &mut Bindings::default(),
+        ));
+    }
+
+    #[test]
+    fn cps_exact_repeat_return_cannot_skip_caller_continuation() {
+        let target = void_target(vec![print_x()], FxHashSet::default());
+        let continuation = vec![Statement::Return(Return::default())];
+        let pattern = vec![Statement::Repeat(Repeat::new(
+            RValue::Literal(Literal::Boolean(false)),
+            Block(vec![Statement::Return(Return::default())]),
+        ))];
+        let candidate = canon(&pattern);
+
+        assert!(!cps_unify_block(
+            &target,
+            &pattern,
+            &candidate,
+            &continuation,
+            true,
+            &mut Bindings::default(),
+        ));
+    }
+
+    #[test]
+    fn cps_continuation_requires_return_not_loop_control() {
+        assert!(!sequence_has_return_tail(&[Statement::Break(Break {})]));
+        assert!(!sequence_has_return_tail(&[Statement::Continue(
+            crate::Continue {},
+        )]));
+        assert!(sequence_has_return_tail(&[Statement::Return(
+            Return::default(),
+        )]));
+
+        let mixed = vec![
+            Statement::If(If::new(
+                RValue::Literal(Literal::Boolean(true)),
+                Block(vec![Statement::Break(Break {})]),
+                Block::default(),
+            )),
+            Statement::Return(Return::default()),
+        ];
+        assert!(sequence_has_return_tail(&mixed));
+        assert!(has_depth_zero_loop_control(&mixed, 0));
+    }
+
     /// P7-A: a call/method-call leaf (`return g(x)`) is an admissible Value leaf —
     /// the single-LHS `RESULT = g(x)` inlined site truncates it to one value, so
     /// the candidate shape proves the arity. (Refused pre-P7-A.)
     #[test]
     fn call_leaf_is_an_admissible_value_leaf_p7a() {
         let c = local("c");
-        let body = vec![
-            Statement::If(If::new(
-                local_value(&c),
-                Block(vec![return_one(RValue::Call(Call::new(
-                    global("g"),
-                    vec![local_value(&c)],
-                )))]),
-                Block(vec![return_one(RValue::Literal(Literal::Nil))]),
-            )),
-        ];
+        let body = vec![Statement::If(If::new(
+            local_value(&c),
+            Block(vec![return_one(RValue::Call(Call::new(
+                global("g"),
+                vec![local_value(&c)],
+            )))]),
+            Block(vec![return_one(RValue::Literal(Literal::Nil))]),
+        ))];
         let pat = canon(&body);
         assert!(value_leaf_shape(&pat), "call leaf must be admissible");
         assert!(matches!(classify_returns(&body), Some(TKind::Value)));
@@ -3557,15 +4951,16 @@ mod tests {
         let pat = vec![print_x(), Statement::Call(Call::new(global("foo"), vec![]))];
         let t = void_target(pat, FxHashSet::default());
         let cand = vec![print_x(), Statement::Call(Call::new(global("foo"), vec![]))];
+        let mut canon_cache = CanonCache::default();
 
         // is_func_body_top = true AND the window is the whole body -> refused.
         assert!(
-            match_void(&cand, 0, &t, false, true, &mut None).is_none(),
+            match_void(&cand, 0, &t, false, true, &[], &mut None, &mut canon_cache,).is_none(),
             "replacing a function's entire body with one call must be refused"
         );
         // Not the whole body (is_func_body_top = false) -> matches.
         assert!(
-            match_void(&cand, 0, &t, false, false, &mut None).is_some(),
+            match_void(&cand, 0, &t, false, false, &[], &mut None, &mut canon_cache,).is_some(),
             "the same region matches when it is not the whole body"
         );
     }
@@ -3607,6 +5002,8 @@ mod tests {
             locals: FxHashSet::default(),
             param_order: vec![p.clone()],
             unread: FxHashSet::default(),
+            specializable: false,
+            cps_loop_return: false,
         };
 
         let arg = local("arg");
@@ -3642,15 +5039,23 @@ mod tests {
             call("c"),
             print_x(), // trailing real stmt: the window must stop before it (canon != kc)
         ];
-        let hit = match_void(&cand, 0, &t, false, false, &mut None)
+        let mut canon_cache = CanonCache::default();
+        let hit = match_void(&cand, 0, &t, false, false, &[], &mut None, &mut canon_cache)
             .expect("two interposed markers must not exceed the effective window ceiling");
-        assert_eq!(hit.consume, 5, "window spans the 3 calls + 2 interior markers");
+        assert_eq!(
+            hit.consume, 5,
+            "window spans the 3 calls + 2 interior markers"
+        );
     }
 
     /// Build a Void target with the given param order and a set of NEVER-read params
     /// (F6a). `print(read_param)` twice is the body; the read param binds, the unread
     /// ones are supplied as `nil` (trailing ones trimmed) by `try_unify_site`.
-    fn unused_param_void_target(param_order: Vec<RcLocal>, read: &RcLocal, unread: &[RcLocal]) -> Target {
+    fn unused_param_void_target(
+        param_order: Vec<RcLocal>,
+        read: &RcLocal,
+        unread: &[RcLocal],
+    ) -> Target {
         let pat = vec![
             Statement::Call(Call::new(global("print"), vec![local_value(read)])),
             Statement::Call(Call::new(global("print"), vec![local_value(read)])),
@@ -3676,6 +5081,8 @@ mod tests {
             locals: FxHashSet::default(),
             param_order,
             unread: unread_set,
+            specializable: false,
+            cps_loop_return: false,
         }
     }
 
@@ -3692,7 +5099,11 @@ mod tests {
             Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
         ];
         let u = try_unify_site(&t, &cand).expect("unused trailing param must not block de-inline");
-        assert_eq!(u.args.len(), 1, "trailing nil for the unused param is trimmed");
+        assert_eq!(
+            u.args.len(),
+            1,
+            "trailing nil for the unused param is trimmed"
+        );
         assert!(matches!(&u.args[0], RValue::Local(l) if l == &c));
     }
 
@@ -3787,7 +5198,10 @@ mod tests {
     fn value_prefix_target(body: &[Statement]) -> Target {
         let pat = canon(body);
         assert_eq!(pat.len(), 2, "test body must canon to [prefix, branch]");
-        assert!(matches!(pat[0], Statement::Assign(_)), "prefix must be an Assign");
+        assert!(
+            matches!(pat[0], Statement::Assign(_)),
+            "prefix must be an Assign"
+        );
         let mut locals = FxHashSet::default();
         collect_declared_locals(&pat, &mut locals);
         let pat0_kind = std::mem::discriminant(&pat[0]);
@@ -3806,6 +5220,8 @@ mod tests {
             locals,
             param_order: Vec::new(),
             unread: FxHashSet::default(),
+            specializable: false,
+            cps_loop_return: false,
         }
     }
 
@@ -3840,6 +5256,8 @@ mod tests {
             locals,
             param_order: Vec::new(),
             unread: FxHashSet::default(),
+            specializable: false,
+            cps_loop_return: false,
         }
     }
 
@@ -3871,7 +5289,11 @@ mod tests {
                 bin(
                     local_value(&place_id),
                     BinaryOperation::And,
-                    bin(local_value(&place_id), BinaryOperation::GreaterThan, number(0.0)),
+                    bin(
+                        local_value(&place_id),
+                        BinaryOperation::GreaterThan,
+                        number(0.0),
+                    ),
                 ),
                 vec![return_one(bin(
                     field(global("game"), "PlaceId"),
@@ -4069,7 +5491,11 @@ mod tests {
             assign_local(&a, field(local_value(&obj), "A"), true),
             assign_local(&b, field(local_value(&obj), "B"), true),
             if_stmt(
-                bin(local_value(&a), BinaryOperation::GreaterThan, local_value(&b)),
+                bin(
+                    local_value(&a),
+                    BinaryOperation::GreaterThan,
+                    local_value(&b),
+                ),
                 vec![return_one(local_value(&a))],
                 vec![return_one(local_value(&b))],
             ),
@@ -4085,7 +5511,11 @@ mod tests {
             assign_local(&b2, field(local_value(&obj), "B"), true),
             init_less_decl(&v),
             if_stmt(
-                bin(local_value(&a2), BinaryOperation::GreaterThan, local_value(&b2)),
+                bin(
+                    local_value(&a2),
+                    BinaryOperation::GreaterThan,
+                    local_value(&b2),
+                ),
                 vec![assign_local(&v, local_value(&a2), false)],
                 vec![assign_local(&v, local_value(&b2), false)],
             ),
@@ -4167,7 +5597,11 @@ mod tests {
                 bin(
                     local_value(&place_id),
                     BinaryOperation::And,
-                    bin(local_value(&place_id), BinaryOperation::GreaterThan, number(0.0)),
+                    bin(
+                        local_value(&place_id),
+                        BinaryOperation::GreaterThan,
+                        number(0.0),
+                    ),
                 ),
                 vec![return_one(bin(
                     field(global("game"), "PlaceId"),
@@ -4281,9 +5715,21 @@ mod tests {
         };
 
         let mut b = Bindings::default();
-        assert!(unify_rvalue(&ctx, &local_value(&p), &RValue::Table(Table::default()), &mut b).is_ok());
+        assert!(unify_rvalue(
+            &ctx,
+            &local_value(&p),
+            &RValue::Table(Table::default()),
+            &mut b
+        )
+        .is_ok());
         assert!(
-            unify_rvalue(&ctx, &local_value(&p), &RValue::Table(Table::default()), &mut b).is_err(),
+            unify_rvalue(
+                &ctx,
+                &local_value(&p),
+                &RValue::Table(Table::default()),
+                &mut b
+            )
+            .is_err(),
             "two distinct `{{}}` arguments must not be shared across param occurrences"
         );
 
@@ -4413,7 +5859,11 @@ mod tests {
         ];
         assert!(body_unsafe(&real_comment));
 
-        assert_eq!(canon_top(&marked, true).len(), 1, "marker dropped by canon_top");
+        assert_eq!(
+            canon_top(&marked, true).len(),
+            1,
+            "marker dropped by canon_top"
+        );
     }
 
     /// Exhaustive equivalence: `canon_top_len(stmts, tail) == canon_top(stmts, tail).len()`
@@ -4430,17 +5880,20 @@ mod tests {
                 0 => Statement::Empty(Empty {}),
                 1 => Statement::Comment(Comment::trailing(CALL_MARKER.to_string())), // internal trivia
                 2 => Statement::Comment(Comment::new(" source".to_string())),        // NOT trivia
-                3 => print_x(),                                                       // plain stmt
-                4 => void_return(),                                                   // void return
-                5 => return_one(number(1.0)),                                         // value return
-                6 => if_stmt(global("c"), vec![void_return()], vec![]),               // foldable void guard
-                7 => if_stmt(global("c"), vec![return_one(number(2.0))], vec![]),     // foldable value guard
-                8 => if_stmt(global("c"), vec![void_return()], vec![print_x()]),      // else nonempty
-                9 => if_stmt(global("c"), vec![print_x(), void_return()], vec![]),    // then len 2
-                10 => if_stmt(global("c"), vec![print_x()], vec![]),                  // then non-return
+                3 => print_x(),                                                      // plain stmt
+                4 => void_return(),                                                  // void return
+                5 => return_one(number(1.0)),                                        // value return
+                6 => if_stmt(global("c"), vec![void_return()], vec![]), // foldable void guard
+                7 => if_stmt(global("c"), vec![return_one(number(2.0))], vec![]), // foldable value guard
+                8 => if_stmt(global("c"), vec![void_return()], vec![print_x()]),  // else nonempty
+                9 => if_stmt(global("c"), vec![print_x(), void_return()], vec![]), // then len 2
+                10 => if_stmt(global("c"), vec![print_x()], vec![]),              // then non-return
                 _ => if_stmt(
                     global("c"),
-                    vec![Statement::Return(Return::new(vec![number(1.0), number(2.0)]))],
+                    vec![Statement::Return(Return::new(vec![
+                        number(1.0),
+                        number(2.0),
+                    ]))],
                     vec![],
                 ), // 2-value return then-block
             }

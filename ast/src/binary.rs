@@ -46,10 +46,8 @@ impl BinaryOperation {
 /// callers only use a `true` result to *skip* a coercion that would be a no-op,
 /// never to perform a rewrite that depends on a `false` answer.
 ///
-/// Note this deliberately does NOT treat `not X` as boolean even though Luau's
-/// `not` always yields a boolean: adding that arm would change `Unary::reduce`'s
-/// existing `ensure_boolean` output. Keep it a pure extraction of the predicate
-/// that used to live inside `Unary::reduce`.
+/// `not X` is always boolean regardless of `X`. Method names alone are not type
+/// proofs: an arbitrary table can expose an `IsA` method returning any value.
 pub(crate) fn is_boolean(r: &RValue) -> bool {
     match r {
         RValue::Binary(binary) if binary.operation.is_comparator() => true,
@@ -58,6 +56,7 @@ pub(crate) fn is_boolean(r: &RValue) -> bool {
             right,
             operation: BinaryOperation::And | BinaryOperation::Or,
         }) => is_boolean(left) && is_boolean(right),
+        RValue::Unary(unary) if unary.operation == crate::UnaryOperation::Not => true,
         RValue::Literal(Literal::Boolean(_)) => true,
         // strings, numbers and tables are intentionally not matched: callers run
         // after reduce_condition, so a constant would already be folded.
@@ -411,9 +410,12 @@ mod tests {
     #[test]
     fn or_idempotence_folds_only_pure_operand() {
         let x = RcLocal::default();
-        let folded =
-            Binary::new(RValue::Local(x.clone()), RValue::Local(x.clone()), BinaryOperation::Or)
-                .reduce();
+        let folded = Binary::new(
+            RValue::Local(x.clone()),
+            RValue::Local(x.clone()),
+            BinaryOperation::Or,
+        )
+        .reduce();
         assert_eq!(folded, RValue::Local(x));
 
         let kept = Binary::new(global("foo"), global("foo"), BinaryOperation::Or).reduce();
@@ -446,12 +448,17 @@ mod tests {
     fn and_true_or_false_keep_left() {
         let x = RcLocal::default();
         assert_eq!(
-            Binary::new(RValue::Local(x.clone()), boolean(true), BinaryOperation::And)
-                .reduce_condition(),
+            Binary::new(
+                RValue::Local(x.clone()),
+                boolean(true),
+                BinaryOperation::And
+            )
+            .reduce_condition(),
             RValue::Local(x.clone())
         );
         // A side-effecting left is preserved here too (it is the result).
-        let kept = Binary::new(global("foo"), boolean(false), BinaryOperation::Or).reduce_condition();
+        let kept =
+            Binary::new(global("foo"), boolean(false), BinaryOperation::Or).reduce_condition();
         assert_eq!(kept, global("foo"));
     }
 }

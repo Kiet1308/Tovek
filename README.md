@@ -1,6 +1,6 @@
 # Tovek
 
-**A high-readability, high-performance Luau decompiler.** `beta 0.4`
+**A high-readability, high-performance Luau decompiler.** `v0.7.0`
 
 [**💬 Join the Tovek Discord →**](https://discord.gg/phY6VUDSF7)
 
@@ -23,7 +23,7 @@ It also happens to be a lot faster.
 | Local & parameter names | `v1`, `v2`, `v3` … | Inferred from usage — `player`, `connection`, `track`, `dt`, `child`, `color` … |
 | Service / module handles | `game:GetService("X")` inlined at every call site | Preserved once as a named header local (`local Players = game:GetService("Players")`) |
 | OOP methods | `function T.method(self, ...)` | `function T:method(...)` with real `self` recovery |
-| Compiler `-O2` artifacts | left inlined | de-inlined: single-use temps, expressions, table literals rebuilt |
+| Compiler `-O2` artifacts | left inlined | de-inlined: temps, expressions and UI tables rebuilt; dead branches/discards removed |
 | Compound assignment | `x = x + 1` | `x += 1` (including indexed targets) |
 | Strings | `string.format("%*", a, b)` | backtick interpolation `` `{a}{b}` `` |
 | Boolean / guard chains | raw `and`/`or` spaghetti | normalized conditions, collapsed predicates, `x and x:FindFirstChild(...)` → named |
@@ -42,11 +42,18 @@ A few of the things Tovek does that upstream medal does not:
 - **OOP recovery.** Method tables defined with an explicit `self` first parameter are
   rendered back with colon-call syntax (`function T:method()`), the way they were written.
 - **Reverses the Luau optimizer.** Tovek undoes `-O2` inlining — single-use temporaries,
-  inlined expressions, and exploded table constructors are reassembled, with the original
-  inlining points left as unobtrusive trailing comments.
+  inlined expressions, and exploded table constructors are reassembled. Computed React event
+  keys, drained `children` fields, callbacks, props and nested child tables are rebuilt from the
+  leaves upward into declarative UI trees, with the original inlining points left as unobtrusive
+  trailing comments.
 - **Idiomatic cleanup.** Compound assignments, backtick string interpolation,
   left-associated `and`/`or` (far fewer redundant parentheses), atomic `math.pi`, dropped
-  needless `\'` escapes, and removal of redundant local copies.
+  needless `\'` escapes, and removal of redundant local copies, constant-only branches and
+  discarded pure expressions. Roblox zero/one/identity constructors use their canonical
+  properties, callback fields keep assignment syntax, long identifiers stay intact, and
+  function-heavy returned tables recover a named module shape. Oversized truthy-selection
+  chains return to `if`/`elseif`, while long left-associated concatenations become a named
+  accumulator with `..=` updates instead of a parenthesized one-line wall.
 - **Modern bytecode coverage.** Reads every Luau bytecode version up to **v11** — including
   the v10/v11 format extensions (the per-proto feedback vector and the `CALLFB` / `CMPPROTO` /
   class-member opcodes) on top of the **v9** Roblox ships today, plus the previously-missing
@@ -160,6 +167,10 @@ Decompile **and** validate every output with Luau's own parser:
 ```sh
 luau-lifter validate-folder ./dump ./out
 ```
+
+Condition normalization is NaN-safe by default. `--assume-no-nan` permits the
+more aggressive rewrite `not (a < b)` → `a >= b` when static proof is unavailable;
+use it only when inputs cannot be NaN, because the two forms differ for NaN.
 
 ### Web server + executor
 

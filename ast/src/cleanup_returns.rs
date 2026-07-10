@@ -15,12 +15,8 @@
 //! This pass strips that trailing value-less return from every closure/function
 //! body so the output matches idiomatic source.
 //!
-//! Scope (phase 1): only the *function tail* — the last statement of a function
-//! body. Two positions are deliberately left untouched:
-//!
-//!   * The main chunk's own tail. A top-level `return` carries module-return
-//!     meaning, so we never strip the body handed to [`cleanup_redundant_returns`].
-//!   * Returns inside nested branches / loop tails. A `return` there is a real
+//! Scope: only the *function/chunk tail* — the last statement of a body. Returns
+//! inside nested branches / loop tails are deliberately left untouched: a `return` there is a real
 //!     early exit (it skips the rest of the enclosing function), not a
 //!     fall-through no-op, so removing it would change control flow.
 //!
@@ -30,13 +26,42 @@
 
 use crate::{Block, RValue, Statement, Traverse};
 
-/// Entry point. `block` is treated as the current function's body whose own tail
-/// must be preserved (the main chunk carries module-return meaning); every nested
-/// closure/function body reached from it is cleaned.
+/// Entry point. Falling off the end of a chunk and `return` with zero values are
+/// equivalent, so the root tail is cleaned just like every nested function tail.
 pub fn cleanup_redundant_returns(block: &mut Block) {
+    clean_same_function_block(block);
+    strip_trailing_void_return(block);
+}
+
+/// Recurse through control-flow blocks belonging to one function without
+/// mistaking a branch tail for the function tail.
+fn clean_same_function_block(block: &mut Block) {
+    truncate_after_unconditional_transfer(block);
     for statement in &mut block.0 {
         clean_nested_in_statement(statement);
     }
+}
+
+/// Luau's grammar requires `return` to be the last statement in its block, and
+/// anything after an unconditional return/break/continue is unreachable anyway.
+/// Preserve legacy low-level blocks containing labels: an external goto may
+/// enter their suffix, so ordinary fallthrough reasoning is insufficient there.
+fn truncate_after_unconditional_transfer(block: &mut Block) {
+    let Some(terminal) = block.0.iter().position(|statement| {
+        matches!(
+            statement,
+            Statement::Return(_) | Statement::Break(_) | Statement::Continue(_)
+        )
+    }) else {
+        return;
+    };
+    if block.0[terminal + 1..]
+        .iter()
+        .any(|statement| matches!(statement, Statement::Label(_)))
+    {
+        return;
+    }
+    block.0.truncate(terminal + 1);
 }
 
 fn clean_nested_in_statement(statement: &mut Statement) {
@@ -46,12 +71,17 @@ fn clean_nested_in_statement(statement: &mut Statement) {
     //    closure boundary, so nested-in-nested closures are handled by the
     //    recursive `cleanup_redundant_returns` call inside `clean_function_body`.
     let mut functions = Vec::new();
-    statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
+    for rvalue in crate::deinline::stmt_rvalues_mut(statement) {
+        rvalue.post_traverse_rvalues(&mut |nested| -> Option<()> {
+            if let RValue::Closure(closure) = nested {
+                functions.push(closure.function.clone());
+            }
+            None
+        });
         if let RValue::Closure(closure) = rvalue {
             functions.push(closure.function.clone());
         }
-        None
-    });
+    }
     for function in functions {
         clean_function_body(&mut function.lock().body);
     }
@@ -61,16 +91,16 @@ fn clean_nested_in_statement(statement: &mut Statement) {
     //    strip a return there (phase 1: function-tail only).
     match statement {
         Statement::If(r#if) => {
-            cleanup_redundant_returns(&mut r#if.then_block.lock());
-            cleanup_redundant_returns(&mut r#if.else_block.lock());
+            clean_same_function_block(&mut r#if.then_block.lock());
+            clean_same_function_block(&mut r#if.else_block.lock());
         }
-        Statement::While(r#while) => cleanup_redundant_returns(&mut r#while.block.lock()),
-        Statement::Repeat(repeat) => cleanup_redundant_returns(&mut repeat.block.lock()),
+        Statement::While(r#while) => clean_same_function_block(&mut r#while.block.lock()),
+        Statement::Repeat(repeat) => clean_same_function_block(&mut repeat.block.lock()),
         Statement::NumericFor(numeric_for) => {
-            cleanup_redundant_returns(&mut numeric_for.block.lock())
+            clean_same_function_block(&mut numeric_for.block.lock())
         }
         Statement::GenericFor(generic_for) => {
-            cleanup_redundant_returns(&mut generic_for.block.lock())
+            clean_same_function_block(&mut generic_for.block.lock())
         }
         _ => {}
     }
@@ -79,8 +109,8 @@ fn clean_nested_in_statement(statement: &mut Statement) {
 /// Clean one function/closure body: strip its trailing value-less return, then
 /// recurse to clean every closure nested within it.
 fn clean_function_body(body: &mut Block) {
+    clean_same_function_block(body);
     strip_trailing_void_return(body);
-    cleanup_redundant_returns(body);
 }
 
 fn strip_trailing_void_return(body: &mut Block) {
@@ -100,7 +130,8 @@ fn strip_trailing_void_return(body: &mut Block) {
 mod tests {
     use super::cleanup_redundant_returns;
     use crate::{
-        Block, Call, Closure, Empty, Function, Global, If, Label, Literal, RValue, Return, Statement,
+        Assign, Block, Call, Closure, Empty, Function, Global, If, Index, LValue, Label, Literal,
+        RValue, Return, Statement,
     };
     use by_address::ByAddress;
     use parking_lot::Mutex;
@@ -157,26 +188,19 @@ mod tests {
     }
 
     #[test]
-    fn preserves_main_chunk_tail_return() {
-        // The block handed to the entry point is the main chunk: its own
-        // value-less tail return is module-return-shaped and must survive.
+    fn strips_main_chunk_tail_void_return() {
         let mut block = Block(vec![call("init"), void_return()]);
 
         cleanup_redundant_returns(&mut block);
 
-        assert_eq!(block.to_string(), "init()\nreturn");
+        assert_eq!(block.to_string(), "init()");
     }
 
     #[test]
     fn preserves_return_inside_nested_branch() {
         // The early `return` inside the `if` is a real exit, not a tail no-op.
         let f = function(vec![
-            If::new(
-                global("cond"),
-                Block(vec![void_return()]),
-                Block(vec![]),
-            )
-            .into(),
+            If::new(global("cond"), Block(vec![void_return()]), Block(vec![])).into(),
             call("after"),
         ]);
         let mut block = Block(vec![Call::new(global("use"), vec![closure(&f)]).into()]);
@@ -192,12 +216,7 @@ mod tests {
     #[test]
     fn strips_function_tail_but_keeps_inner_branch_return() {
         let f = function(vec![
-            If::new(
-                global("cond"),
-                Block(vec![void_return()]),
-                Block(vec![]),
-            )
-            .into(),
+            If::new(global("cond"), Block(vec![void_return()]), Block(vec![])).into(),
             call("after"),
             void_return(),
         ]);
@@ -223,7 +242,10 @@ mod tests {
 
         cleanup_redundant_returns(&mut block);
 
-        assert_eq!(outer.lock().body.to_string(), "use(function()\n\tinner()\nend)");
+        assert_eq!(
+            outer.lock().body.to_string(),
+            "use(function()\n\tinner()\nend)"
+        );
         assert_eq!(inner.lock().body.to_string(), "inner()");
     }
 
@@ -316,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    fn keeps_main_chunk_tail_while_cleaning_nested_closure() {
+    fn cleans_main_chunk_tail_and_nested_closure() {
         let f = function(vec![call("setState"), void_return()]);
         let mut block = Block(vec![
             Call::new(global("use"), vec![closure(&f)]).into(),
@@ -326,6 +348,54 @@ mod tests {
         cleanup_redundant_returns(&mut block);
 
         assert_eq!(f.lock().body.to_string(), "setState()");
-        assert!(block.to_string().ends_with("\nreturn"));
+        assert_eq!(block.to_string(), "use(function()\n\tsetState()\nend)");
+    }
+
+    #[test]
+    fn removes_unreachable_statements_after_value_return() {
+        let mut block = Block(vec![Return::new(vec![string("done")]).into(), call("dead")]);
+
+        cleanup_redundant_returns(&mut block);
+
+        assert_eq!(block.0.len(), 1);
+        assert_eq!(block.to_string(), "return \"done\"");
+    }
+
+    #[test]
+    fn removes_unreachable_return_after_return_in_nested_branch() {
+        let mut block = Block(vec![If::new(
+            global("cond"),
+            Block(vec![
+                Return::new(vec![string("done")]).into(),
+                void_return(),
+            ]),
+            Block::default(),
+        )
+        .into()]);
+
+        cleanup_redundant_returns(&mut block);
+
+        let Statement::If(node) = &block.0[0] else {
+            panic!()
+        };
+        assert_eq!(node.then_block.lock().0.len(), 1);
+    }
+
+    #[test]
+    fn cleans_closure_nested_in_indexed_lhs() {
+        let inner = function(vec![Return::new(vec![string("done")]).into(), call("dead")]);
+        let mut block = Block(vec![Statement::Assign(Assign {
+            left: vec![LValue::Index(Index::new(
+                global("targets"),
+                closure(&inner),
+            ))],
+            right: vec![string("value")],
+            prefix: false,
+            parallel: false,
+        })]);
+
+        cleanup_redundant_returns(&mut block);
+
+        assert_eq!(inner.lock().body.0.len(), 1);
     }
 }

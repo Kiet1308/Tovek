@@ -109,7 +109,9 @@ fn collect_written_outside_closures(block: &Block, set: &mut FxHashSet<RcLocal>)
             Statement::While(r#while) => {
                 collect_written_outside_closures(&r#while.block.lock(), set)
             }
-            Statement::Repeat(repeat) => collect_written_outside_closures(&repeat.block.lock(), set),
+            Statement::Repeat(repeat) => {
+                collect_written_outside_closures(&repeat.block.lock(), set)
+            }
             Statement::NumericFor(numeric_for) => {
                 collect_written_outside_closures(&numeric_for.block.lock(), set)
             }
@@ -139,7 +141,9 @@ fn snapshot_value_captures(
                 .iter()
                 .enumerate()
                 .filter_map(|(i, upvalue)| match upvalue {
-                    Upvalue::Copy(local) if loop_mutated.contains(local) => Some((i, local.clone())),
+                    Upvalue::Copy(local) if loop_mutated.contains(local) => {
+                        Some((i, local.clone()))
+                    }
                     _ => None,
                 })
                 .collect();

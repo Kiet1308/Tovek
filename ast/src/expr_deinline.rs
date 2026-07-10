@@ -142,7 +142,15 @@ pub fn expr_deinline(body: &mut Block) {
             .push(i);
     }
     let mut converted: FxHashSet<RcLocal> = FxHashSet::default();
-    walk_block(&mut body.0, &targets, &by_root, &decl_map, &[], None, &mut converted);
+    walk_block(
+        &mut body.0,
+        &targets,
+        &by_root,
+        &decl_map,
+        &[],
+        None,
+        &mut converted,
+    );
     if !converted.is_empty() {
         insert_def_markers(&mut body.0, &converted);
     }
@@ -312,21 +320,61 @@ fn walk_block(
         for s in stmts.iter_mut() {
             match s {
                 Statement::If(f) => {
-                    walk_block(&mut f.then_block.lock().0, targets, by_root, decl_map, &active, current_func, converted);
-                    walk_block(&mut f.else_block.lock().0, targets, by_root, decl_map, &active, current_func, converted);
+                    walk_block(
+                        &mut f.then_block.lock().0,
+                        targets,
+                        by_root,
+                        decl_map,
+                        &active,
+                        current_func,
+                        converted,
+                    );
+                    walk_block(
+                        &mut f.else_block.lock().0,
+                        targets,
+                        by_root,
+                        decl_map,
+                        &active,
+                        current_func,
+                        converted,
+                    );
                 }
-                Statement::While(w) => {
-                    walk_block(&mut w.block.lock().0, targets, by_root, decl_map, &active, current_func, converted)
-                }
-                Statement::Repeat(r) => {
-                    walk_block(&mut r.block.lock().0, targets, by_root, decl_map, &active, current_func, converted)
-                }
-                Statement::NumericFor(nf) => {
-                    walk_block(&mut nf.block.lock().0, targets, by_root, decl_map, &active, current_func, converted)
-                }
-                Statement::GenericFor(gf) => {
-                    walk_block(&mut gf.block.lock().0, targets, by_root, decl_map, &active, current_func, converted)
-                }
+                Statement::While(w) => walk_block(
+                    &mut w.block.lock().0,
+                    targets,
+                    by_root,
+                    decl_map,
+                    &active,
+                    current_func,
+                    converted,
+                ),
+                Statement::Repeat(r) => walk_block(
+                    &mut r.block.lock().0,
+                    targets,
+                    by_root,
+                    decl_map,
+                    &active,
+                    current_func,
+                    converted,
+                ),
+                Statement::NumericFor(nf) => walk_block(
+                    &mut nf.block.lock().0,
+                    targets,
+                    by_root,
+                    decl_map,
+                    &active,
+                    current_func,
+                    converted,
+                ),
+                Statement::GenericFor(gf) => walk_block(
+                    &mut gf.block.lock().0,
+                    targets,
+                    by_root,
+                    decl_map,
+                    &active,
+                    current_func,
+                    converted,
+                ),
                 _ => {}
             }
             for rv in stmt_rvalues_mut(s) {
@@ -569,13 +617,22 @@ mod tests {
     /// String), 9 nodes, scalar (Binary) root: a valid expression-deinline target.
     fn num_positive(v: &RValue) -> RValue {
         bin(
-            bin(call(global("typeof"), vec![v.clone()]), BinaryOperation::Equal, string("number")),
+            bin(
+                call(global("typeof"), vec![v.clone()]),
+                BinaryOperation::Equal,
+                string("number"),
+            ),
             BinaryOperation::And,
             bin(v.clone(), BinaryOperation::GreaterThan, number(0.0)),
         )
     }
 
-    fn helper_decl(f: &RcLocal, name: &str, params: Vec<RcLocal>, body: Vec<Statement>) -> Statement {
+    fn helper_decl(
+        f: &RcLocal,
+        name: &str,
+        params: Vec<RcLocal>,
+        body: Vec<Statement>,
+    ) -> Statement {
         let func = Arc::new(Mutex::new(Function {
             name: Some(name.to_string()),
             parameters: params,
@@ -621,7 +678,12 @@ mod tests {
         let x = local("x");
         let r = local("r");
         let mut block = Block(vec![
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
             local_decl(&r, num_positive(&lv(&x))),
         ]);
         expr_deinline(&mut block);
@@ -645,7 +707,12 @@ mod tests {
         let x = local("x");
         let r = local("r");
         let mut block = Block(vec![
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
             local_decl(&r, not_rv(num_positive(&lv(&x)))),
         ]);
         expr_deinline(&mut block);
@@ -667,13 +734,21 @@ mod tests {
         let r = local("r");
         let get_x = || call(global("getX"), vec![]);
         let mut block = Block(vec![
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
             local_decl(&r, num_positive(&get_x())),
         ]);
         expr_deinline(&mut block);
         let rv = rhs_of(block.0.last().unwrap());
         assert!(!is_call_to(rv, &f), "side-effecting arg must be refused");
-        assert!(matches!(rv, RValue::Binary(_)), "expression must stay inlined");
+        assert!(
+            matches!(rv, RValue::Binary(_)),
+            "expression must stay inlined"
+        );
     }
 
     #[test]
@@ -686,11 +761,19 @@ mod tests {
         let r = local("r");
         let mut block = Block(vec![
             local_decl(&r, num_positive(&lv(&x))),
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
         ]);
         expr_deinline(&mut block);
         let rv = rhs_of(&block.0[0]);
-        assert!(!is_call_to(rv, &f), "out-of-scope use must not be rewritten");
+        assert!(
+            !is_call_to(rv, &f),
+            "out-of-scope use must not be rewritten"
+        );
     }
 
     #[test]
@@ -702,11 +785,19 @@ mod tests {
         let r = local("r");
         let triv = |v: &RValue| bin(v.clone(), BinaryOperation::GreaterThan, number(0.0));
         let mut block = Block(vec![
-            helper_decl(&f, "isPositive", vec![p.clone()], vec![Return::new(vec![triv(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![triv(&lv(&p))]).into()],
+            ),
             local_decl(&r, triv(&lv(&x))),
         ]);
         expr_deinline(&mut block);
-        assert!(!is_call_to(rhs_of(block.0.last().unwrap()), &f), "trivial helper must be refused");
+        assert!(
+            !is_call_to(rhs_of(block.0.last().unwrap()), &f),
+            "trivial helper must be refused"
+        );
     }
 
     #[test]
@@ -720,17 +811,29 @@ mod tests {
         // E = `typeof(p) == "number" and rec` (reads f) — contrived but reads f_local.
         let body_e = |v: &RValue, fl: &RcLocal| {
             bin(
-                bin(call(global("typeof"), vec![v.clone()]), BinaryOperation::Equal, string("number")),
+                bin(
+                    call(global("typeof"), vec![v.clone()]),
+                    BinaryOperation::Equal,
+                    string("number"),
+                ),
                 BinaryOperation::And,
                 lv(fl),
             )
         };
         let mut block = Block(vec![
-            helper_decl(&f, "rec", vec![p.clone()], vec![Return::new(vec![body_e(&lv(&p), &f)]).into()]),
+            helper_decl(
+                &f,
+                "rec",
+                vec![p.clone()],
+                vec![Return::new(vec![body_e(&lv(&p), &f)]).into()],
+            ),
             local_decl(&r, body_e(&lv(&x), &f)),
         ]);
         expr_deinline(&mut block);
-        assert!(!is_call_to(rhs_of(block.0.last().unwrap()), &f), "recursive helper must be refused");
+        assert!(
+            !is_call_to(rhs_of(block.0.last().unwrap()), &f),
+            "recursive helper must be refused"
+        );
     }
 
     #[test]
@@ -744,16 +847,28 @@ mod tests {
         let r = local("r");
         // diverged copy: typeof(x) == "number" and y > 0  (x vs y)
         let diverged = bin(
-            bin(call(global("typeof"), vec![lv(&x)]), BinaryOperation::Equal, string("number")),
+            bin(
+                call(global("typeof"), vec![lv(&x)]),
+                BinaryOperation::Equal,
+                string("number"),
+            ),
             BinaryOperation::And,
             bin(lv(&y), BinaryOperation::GreaterThan, number(0.0)),
         );
         let mut block = Block(vec![
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
             local_decl(&r, diverged),
         ]);
         expr_deinline(&mut block);
-        assert!(!is_call_to(rhs_of(block.0.last().unwrap()), &f), "inconsistent param binding must refuse");
+        assert!(
+            !is_call_to(rhs_of(block.0.last().unwrap()), &f),
+            "inconsistent param binding must refuse"
+        );
     }
 
     #[test]
@@ -767,13 +882,26 @@ mod tests {
         let x = local("x");
         let r = local("r");
         let mut block = Block(vec![
-            helper_decl(&f1, "checkA", vec![p1.clone()], vec![Return::new(vec![num_positive(&lv(&p1))]).into()]),
-            helper_decl(&f2, "checkB", vec![p2.clone()], vec![Return::new(vec![num_positive(&lv(&p2))]).into()]),
+            helper_decl(
+                &f1,
+                "checkA",
+                vec![p1.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p1))]).into()],
+            ),
+            helper_decl(
+                &f2,
+                "checkB",
+                vec![p2.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p2))]).into()],
+            ),
             local_decl(&r, num_positive(&lv(&x))),
         ]);
         expr_deinline(&mut block);
         let rv = rhs_of(block.0.last().unwrap());
-        assert!(!is_call_to(rv, &f1) && !is_call_to(rv, &f2), "ambiguous match must be refused");
+        assert!(
+            !is_call_to(rv, &f1) && !is_call_to(rv, &f2),
+            "ambiguous match must be refused"
+        );
     }
 
     #[test]
@@ -783,7 +911,12 @@ mod tests {
         let x = local("x");
         let r = local("r");
         let mut block = Block(vec![
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
             local_decl(&r, num_positive(&lv(&x))),
         ]);
         expr_deinline(&mut block);
@@ -802,13 +935,26 @@ mod tests {
         let x = local("x");
         let r = local("r");
         // E root = Call, but include nested anchors so only the root gate decides.
-        let e = |v: &RValue| call(global("transform"), vec![call(global("typeof"), vec![v.clone()]), string("number")]);
+        let e = |v: &RValue| {
+            call(
+                global("transform"),
+                vec![call(global("typeof"), vec![v.clone()]), string("number")],
+            )
+        };
         let mut block = Block(vec![
-            helper_decl(&f, "getThing", vec![p.clone()], vec![Return::new(vec![e(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "getThing",
+                vec![p.clone()],
+                vec![Return::new(vec![e(&lv(&p))]).into()],
+            ),
             local_decl(&r, e(&lv(&x))),
         ]);
         expr_deinline(&mut block);
-        assert!(!is_call_to(rhs_of(block.0.last().unwrap()), &f), "Call-rooted helper must not be a target");
+        assert!(
+            !is_call_to(rhs_of(block.0.last().unwrap()), &f),
+            "Call-rooted helper must not be a target"
+        );
     }
 
     #[test]
@@ -824,11 +970,19 @@ mod tests {
         let r = local("r");
         let sum = || bin(lv(&a), BinaryOperation::Add, lv(&b));
         let mut block = Block(vec![
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
             local_decl(&r, num_positive(&sum())),
         ]);
         expr_deinline(&mut block);
-        assert!(!is_call_to(rhs_of(block.0.last().unwrap()), &f), "throwing compound arg must be refused");
+        assert!(
+            !is_call_to(rhs_of(block.0.last().unwrap()), &f),
+            "throwing compound arg must be refused"
+        );
     }
 
     #[test]
@@ -838,7 +992,12 @@ mod tests {
         let p = local("p");
         let r = local("r");
         let mut block = Block(vec![
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
             local_decl(&r, num_positive(&number(5.0))),
         ]);
         expr_deinline(&mut block);
@@ -864,12 +1023,20 @@ mod tests {
             parallel: false,
         });
         let mut block = Block(vec![
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
             reassign,
             local_decl(&r, num_positive(&lv(&x))),
         ]);
         expr_deinline(&mut block);
-        assert!(!is_call_to(rhs_of(block.0.last().unwrap()), &f), "reassigned helper must be refused");
+        assert!(
+            !is_call_to(rhs_of(block.0.last().unwrap()), &f),
+            "reassigned helper must be refused"
+        );
     }
 
     #[test]
@@ -881,10 +1048,18 @@ mod tests {
         let r = local("r");
         let field = RValue::Index(Index::new(lv(&obj), string("field")));
         let mut block = Block(vec![
-            helper_decl(&f, "isNumPositive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+            helper_decl(
+                &f,
+                "isNumPositive",
+                vec![p.clone()],
+                vec![Return::new(vec![num_positive(&lv(&p))]).into()],
+            ),
             local_decl(&r, num_positive(&field)),
         ]);
         expr_deinline(&mut block);
-        assert!(!is_call_to(rhs_of(block.0.last().unwrap()), &f), "field-access arg must be refused");
+        assert!(
+            !is_call_to(rhs_of(block.0.last().unwrap()), &f),
+            "field-access arg must be refused"
+        );
     }
 }

@@ -49,9 +49,7 @@
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{
-    Block, Index, LValue, Literal, LocalRw, RValue, RcLocal, Select, Statement, Traverse,
-};
+use crate::{Block, Index, LValue, Literal, LocalRw, RValue, RcLocal, Select, Statement, Traverse};
 
 /// Stable id-key for an `RcLocal` (mirrors name_locals::local_ptr): identity is
 /// the address of the inner `Arc<Mutex<Local>>`. Two clones of the same local
@@ -266,12 +264,7 @@ fn convert_statement(statement: &mut Statement, scan: &ScriptScan) {
 
 /// Evaluate the AND-gate for one method definition and, if it passes, rename
 /// param[0] to `self`.
-fn try_convert_method(
-    prefix: &RValue,
-    method: &str,
-    closure: &crate::Closure,
-    scan: &ScriptScan,
-) {
+fn try_convert_method(prefix: &RValue, method: &str, closure: &crate::Closure, scan: &ScriptScan) {
     let function = closure.function.lock();
     let Some(p0) = function.parameters.first() else {
         return;
@@ -308,8 +301,8 @@ fn try_convert_method(
     gather_receiver_signals(&function.body, prefix, p0_key, scan, &mut signals);
 
     // signal d: method called colon-style anywhere, unless also a static dot-call.
-    let signal_d = scan.colon_call_methods.contains(method)
-        && !scan.static_dot_call_methods.contains(method);
+    let signal_d =
+        scan.colon_call_methods.contains(method) && !scan.static_dot_call_methods.contains(method);
 
     if !(signals.sibling_a || signals.assign_lhs_index || signals.underscore_field || signal_d) {
         return;
@@ -501,7 +494,11 @@ fn statement_mentions_self_name(statement: &Statement) -> bool {
     {
         return true;
     }
-    if statement.rvalues().into_iter().any(rvalue_mentions_self_name) {
+    if statement
+        .rvalues()
+        .into_iter()
+        .any(rvalue_mentions_self_name)
+    {
         return true;
     }
     if let Statement::Assign(assign) = statement {
@@ -775,9 +772,11 @@ mod tests {
             t,
             "Get",
             vec![p.clone()],
-            Block(vec![
-                Assign::new(vec![LValue::Local(f)], vec![nested_closure]).into()
-            ]),
+            Block(vec![Assign::new(
+                vec![LValue::Local(f)],
+                vec![nested_closure],
+            )
+            .into()]),
         )]);
         let mut block = block;
         recover_methods(&mut block);

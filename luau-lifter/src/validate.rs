@@ -573,7 +573,9 @@ fn check_bgm_regression(records: &[FileRecord]) -> Option<String> {
 
     // 1) Must contain a hoisted loop local: `^\tlocal <ident>$`.
     if !out_text.lines().any(is_hoisted_local) {
-        return Some(format!("REGRESSION {TARGET} missing hoisted loop local declaration"));
+        return Some(format!(
+            "REGRESSION {TARGET} missing hoisted loop local declaration"
+        ));
     }
     // 2) Must NOT declare the random sound inside the inner loop:
     //    `^\t\tlocal <ident> = children[math.random`.
