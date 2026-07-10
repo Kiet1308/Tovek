@@ -529,6 +529,18 @@ pub fn try_decompile_bytecode_with_options(
                 ptime!(S_CLEANUP_RETURNS);
                 ast::cleanup_returns::cleanup_redundant_returns(&mut body);
             }
+            // Luau has no `goto` or labels.  The structurer uses them only as an
+            // internal edge representation, so allowing either AST node to reach
+            // formatting would produce source that Luau cannot parse.  Keep this
+            // as a hard chunk-level invariant (including every nested closure): a
+            // future unsupported CFG shape must be reported as a decompile error,
+            // never silently returned as invalid Luau.
+            if ast::simplify_gotos::function_tree_has_goto_or_label(&body) {
+                return Err(
+                    "control-flow structuring failed: residual goto/label would be invalid Luau"
+                        .to_string(),
+                );
+            }
             let out = {
                 ptime!(S_FORMAT);
                 body.to_string()
@@ -736,6 +748,11 @@ fn decompile_function(
         ptime!(F_HOIST);
         hoist_locals_for_gotos(&mut block.lock());
     }
+    // General irreducible Relooper fallback runs after LocalDeclarer: its state
+    // transitions cross synthetic loop iterations, so declarations live across
+    // those transitions must already be known and can be hoisted outside exactly
+    // that local dispatcher (without guessing parameters/upvalues).
+    ast::simplify_gotos::structure_irreducible_dispatchers(&mut block.lock());
 
     {
         let mut ast_function = ast_function.lock();

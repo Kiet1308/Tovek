@@ -2,9 +2,7 @@ use futures_util::StreamExt;
 extern crate console_error_panic_hook;
 
 use base64::prelude::*;
-use luau_lifter::{
-    decompile_bytecode_with_options, try_decompile_bytecode_with_options, DecompileOptions,
-};
+use luau_lifter::{try_decompile_bytecode_with_options, DecompileOptions};
 use serde::{Deserialize, Serialize};
 use worker::*;
 
@@ -207,14 +205,16 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                         let bytecode = BASE64_STANDARD
                             .decode(msg.encoded_bytecode)
                             .expect("bytecode must be base64 encoded");
+                        let decompilation = try_decompile_bytecode_with_options(
+                            &bytecode,
+                            1,
+                            msg.script_name.as_deref(),
+                            options,
+                        )
+                        .unwrap_or_else(|reason| format!("-- decompile failed: {reason}"));
                         let resp = DecompileResponse {
                             id: msg.id,
-                            decompilation: decompile_bytecode_with_options(
-                                &bytecode,
-                                1,
-                                msg.script_name.as_deref(),
-                                options,
-                            ),
+                            decompilation,
                         };
                         server
                             .send_with_str(serde_json::to_string(&resp).unwrap())

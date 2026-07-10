@@ -3009,6 +3009,20 @@ impl Namer {
             lock.0 = Some(self.unique(&name, scope, policy));
             return;
         }
+        // Late irreducible-control-flow dispatchers deliberately carry semantic
+        // names.  They are minted after the normal hint-gathering phase, so
+        // renaming them through the default path would degrade the rare fallback
+        // to opaque `vN` state variables.  Preserve the readable base while still
+        // applying normal collision handling across nested dispatchers/user names.
+        if let Some(name) = lock.0.clone()
+            && matches!(
+                name.as_str(),
+                "controlFlowState" | "controlFlowJumped" | "controlFlowExit"
+            )
+        {
+            lock.0 = Some(self.unique(&name, scope, policy));
+            return;
+        }
         if !(self.rename || lock.0.is_none()) {
             return;
         }

@@ -152,7 +152,8 @@ async fn decompile(headers: HeaderMap, body: Bytes) -> Result<String, Error> {
         .and_then(|value| value.to_str().ok());
     let options = parse_options_headers(&headers)?;
     let decompiled =
-        luau_lifter::decompile_bytecode_with_options(&bytecode, 203, script_name, options);
+        luau_lifter::try_decompile_bytecode_with_options(&bytecode, 203, script_name, options)
+            .map_err(Error::BadRequest)?;
     info!("Successfully decompiled bytecode.");
     Ok(decompiled)
 }

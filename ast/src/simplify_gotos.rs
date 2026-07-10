@@ -5,7 +5,7 @@ use triomphe::Arc;
 use crate::{
     Assign, Binary, Block, Break, Call, Continue, GenericFor, If, Index, LValue, Literal,
     MethodCall, NumericFor, RValue, RcLocal, Repeat, Return, Select, SetList, Statement, Table,
-    Unary, While,
+    Traverse, Unary, While,
 };
 
 // ===================================================================
@@ -253,7 +253,7 @@ fn collect_defined_labels(stmts: &[Statement], out: &mut FxHashSet<String>) {
 
 fn seq_contains_goto(stmts: &[Statement], label: &str) -> bool {
     stmts.iter().any(|s| match s {
-        Statement::Goto(g) => g.0 .0 == label,
+        Statement::Goto(g) => g.0.0 == label,
         Statement::If(f) => {
             seq_contains_goto(&f.then_block.lock().0, label)
                 || seq_contains_goto(&f.else_block.lock().0, label)
@@ -269,7 +269,7 @@ fn seq_contains_goto(stmts: &[Statement], label: &str) -> bool {
 fn seq_contains_label_or_other_goto(stmts: &[Statement], allowed_goto: &str) -> bool {
     stmts.iter().any(|s| match s {
         Statement::Label(_) => true,
-        Statement::Goto(g) => g.0 .0 != allowed_goto,
+        Statement::Goto(g) => g.0.0 != allowed_goto,
         Statement::If(f) => {
             seq_contains_label_or_other_goto(&f.then_block.lock().0, allowed_goto)
                 || seq_contains_label_or_other_goto(&f.else_block.lock().0, allowed_goto)
@@ -297,8 +297,8 @@ fn relabel(stmts: &mut [Statement], rename: &FxHashMap<String, String>) {
                 }
             }
             Statement::Goto(g) => {
-                if let Some(new) = rename.get(&g.0 .0) {
-                    g.0 .0 = new.clone();
+                if let Some(new) = rename.get(&g.0.0) {
+                    g.0.0 = new.clone();
                 }
             }
             Statement::If(f) => {
@@ -325,11 +325,16 @@ struct GotoFixer {
     // If a continuation ends with a synthesized loop-body fall-through
     // `continue`, this records which loop owns that continue.
     continue_owner: FxHashMap<String, usize>,
-    // labels whose trailing `continue` belongs to a `for` loop (which always
-    // terminates). Only for these is it safe, when inlining outside the loop, to
-    // treat the `continue` as "loop exhausted -> exit" (a `while`/`repeat` may be
-    // infinite, so the same rewrite would wrongly drop a real back-edge).
-    exhaustible: FxHashSet<String>,
+    // Labels whose resolved continuation reaches the synthetic fall-through of
+    // a finite `for`.  An edge emitted after that owner loop has already
+    // exhausted must execute the shared tail once and then resume at the edge's
+    // own continuation; it must not retry the iterator.  This provenance is
+    // distinct from a source-level goto into a loop (which Luau cannot express).
+    exhausted_for_tail: FxHashSet<String>,
+    // Function-wide across every fixpoint iteration.  A copied continuation can
+    // itself expose a goto only on the next snapshot, so resetting freshness per
+    // iteration can collide with an earlier `dupN` and silently retarget edges.
+    reserved_labels: FxHashSet<String>,
     fresh_counter: usize,
     loop_counter: usize,
 }
@@ -358,14 +363,14 @@ impl GotoFixer {
         &mut self,
         block: &Block,
         after: &[Statement],
-        after_exhaustible: bool,
+        after_exhausted_for: bool,
         current_loop: Option<usize>,
     ) {
         for (i, s) in block.0.iter().enumerate() {
             if let Statement::Label(l) = s {
                 let cont = Self::resolve(&block.0[i + 1..], after);
-                if after_exhaustible && matches!(cont.last(), Some(Statement::Continue(_))) {
-                    self.exhaustible.insert(l.0.clone());
+                if after_exhausted_for && matches!(cont.last(), Some(Statement::Continue(_))) {
+                    self.exhausted_for_tail.insert(l.0.clone());
                 }
                 if matches!(cont.last(), Some(Statement::Continue(_)))
                     && let Some(loop_id) = current_loop
@@ -382,18 +387,19 @@ impl GotoFixer {
                     self.collect(
                         &f.then_block.lock(),
                         &after_if,
-                        after_exhaustible,
+                        after_exhausted_for,
                         current_loop,
                     );
                     self.collect(
                         &f.else_block.lock(),
                         &after_if,
-                        after_exhaustible,
+                        after_exhausted_for,
                         current_loop,
                     );
                 }
-                // falling off a loop body re-enters the loop == `continue`. Only
-                // `for` loops are exhaustible; `while`/`repeat` may be infinite.
+                // Falling off a loop body re-enters that loop. Only a finite
+                // numeric/generic for also has an exhausted continuation that
+                // can own an outside shared-tail edge.
                 Statement::While(w) => {
                     let loop_id = self.next_loop_id();
                     self.collect(&w.block.lock(), &[Continue {}.into()], false, Some(loop_id));
@@ -422,8 +428,13 @@ impl GotoFixer {
             let rename: FxHashMap<String, String> = defined
                 .into_iter()
                 .map(|name| {
-                    self.fresh_counter += 1;
-                    (name, format!("dup{}", self.fresh_counter))
+                    loop {
+                        self.fresh_counter += 1;
+                        let candidate = format!("dup{}", self.fresh_counter);
+                        if self.reserved_labels.insert(candidate.clone()) {
+                            break (name, candidate);
+                        }
+                    }
                 })
                 .collect();
             relabel(seq, &rename);
@@ -436,19 +447,17 @@ impl GotoFixer {
         copy
     }
 
-    // Like `fresh_copy`, but for a continuation that ends in a synthesized
-    // `continue` (a loop body's fall-through) being inlined at a site *outside*
-    // that loop. The site is reached after the loop is exhausted, so re-entering
-    // the loop is equivalent to leaving it — i.e. running the site's own
-    // continuation. So drop the trailing `continue` and append `site_after`.
-    fn fresh_copy_replace_continue(
+    fn fresh_copy_exhausted_for_tail(
         &mut self,
         label: &str,
         site_after: &[Statement],
     ) -> Vec<Statement> {
         let mut copy: Vec<Statement> = {
-            let cont = &self.continuations[label];
-            cont[..cont.len() - 1].iter().map(dc_stmt).collect()
+            let continuation = &self.continuations[label];
+            continuation[..continuation.len() - 1]
+                .iter()
+                .map(dc_stmt)
+                .collect()
         };
         copy.extend(site_after.iter().map(dc_stmt));
         self.relabel_fresh(&mut copy);
@@ -463,37 +472,71 @@ impl GotoFixer {
         block: &mut Block,
         after: &[Statement],
         current_loop: Option<usize>,
+        definitely_exhausted_fors: &FxHashSet<usize>,
     ) -> usize {
         let stmts = std::mem::take(&mut block.0);
         let loop_after: [Statement; 1] = [Continue {}.into()];
         let mut replaced = 0;
         let mut inline_at: FxHashMap<usize, Vec<Statement>> = FxHashMap::default();
+        let mut exhausted_here = definitely_exhausted_fors.clone();
 
         for (i, s) in stmts.iter().enumerate() {
             match s {
                 Statement::If(f) => {
                     let child_after = Self::resolve(&stmts[i + 1..], after);
-                    replaced += self.rewrite(&mut f.then_block.lock(), &child_after, current_loop);
-                    replaced += self.rewrite(&mut f.else_block.lock(), &child_after, current_loop);
+                    replaced += self.rewrite(
+                        &mut f.then_block.lock(),
+                        &child_after,
+                        current_loop,
+                        &exhausted_here,
+                    );
+                    replaced += self.rewrite(
+                        &mut f.else_block.lock(),
+                        &child_after,
+                        current_loop,
+                        &exhausted_here,
+                    );
                 }
                 Statement::While(w) => {
                     let loop_id = self.next_loop_id();
-                    replaced += self.rewrite(&mut w.block.lock(), &loop_after, Some(loop_id))
+                    replaced += self.rewrite(
+                        &mut w.block.lock(),
+                        &loop_after,
+                        Some(loop_id),
+                        &exhausted_here,
+                    )
                 }
                 Statement::Repeat(r) => {
                     let loop_id = self.next_loop_id();
-                    replaced += self.rewrite(&mut r.block.lock(), &loop_after, Some(loop_id))
+                    replaced += self.rewrite(
+                        &mut r.block.lock(),
+                        &loop_after,
+                        Some(loop_id),
+                        &exhausted_here,
+                    )
                 }
                 Statement::NumericFor(nf) => {
                     let loop_id = self.next_loop_id();
-                    replaced += self.rewrite(&mut nf.block.lock(), &loop_after, Some(loop_id))
+                    replaced += self.rewrite(
+                        &mut nf.block.lock(),
+                        &loop_after,
+                        Some(loop_id),
+                        &exhausted_here,
+                    );
+                    exhausted_here.insert(loop_id);
                 }
                 Statement::GenericFor(gf) => {
                     let loop_id = self.next_loop_id();
-                    replaced += self.rewrite(&mut gf.block.lock(), &loop_after, Some(loop_id))
+                    replaced += self.rewrite(
+                        &mut gf.block.lock(),
+                        &loop_after,
+                        Some(loop_id),
+                        &exhausted_here,
+                    );
+                    exhausted_here.insert(loop_id);
                 }
                 Statement::Goto(g) => {
-                    let label = g.0 .0.clone();
+                    let label = g.0.0.clone();
                     let plan = if let Some(cont) = self.continuations.get(&label) {
                         if !seq_duplicable(cont)
                             || seq_size(cont) > MAX_DUP_SIZE
@@ -505,7 +548,12 @@ impl GotoFixer {
                                 && self.continue_owner.get(&label).copied() == current_loop)
                         {
                             1
-                        } else if trailing_continue_only(cont) && self.exhaustible.contains(&label)
+                        } else if trailing_continue_only(cont)
+                            && self.exhausted_for_tail.contains(&label)
+                            && self
+                                .continue_owner
+                                .get(&label)
+                                .is_some_and(|owner| exhausted_here.contains(owner))
                         {
                             2
                         } else {
@@ -520,8 +568,8 @@ impl GotoFixer {
                         replaced += 1;
                     } else if plan == 2 {
                         let site_after = Self::resolve(&stmts[i + 1..], after);
-                        let c = self.fresh_copy_replace_continue(&label, &site_after);
-                        inline_at.insert(i, c);
+                        let copy = self.fresh_copy_exhausted_for_tail(&label, &site_after);
+                        inline_at.insert(i, copy);
                         replaced += 1;
                     }
                 }
@@ -614,7 +662,7 @@ fn collect_goto_targets(block: &Block, out: &mut FxHashSet<String>) {
     for s in &block.0 {
         match s {
             Statement::Goto(g) => {
-                out.insert(g.0 .0.clone());
+                out.insert(g.0.0.clone());
             }
             Statement::If(f) => {
                 collect_goto_targets(&f.then_block.lock(), out);
@@ -646,6 +694,712 @@ fn remove_dead_labels(block: &mut Block, targets: &FxHashSet<String>) {
             _ => {}
         }
     }
+}
+
+// ===================================================================
+// Forward-edge structuring without tail duplication
+// ===================================================================
+//
+// Tail duplication is the cleanest representation for a small continuation,
+// but deliberately stops at `MAX_DUP_SIZE` to avoid turning one cross-edge into
+// hundreds or thousands of repeated source lines.  A forward goto whose label
+// is in the same lexical block has a compact structured representation instead:
+// use a one-bit escape flag and guard only the statements the jump skips.
+//
+//     if C then goto L end; A; ::L::; B
+//
+// becomes
+//
+//     escaped = false
+//     if C then escaped = true end
+//     if not escaped then A end
+//     B
+//
+// The recursive rewrite propagates an escape through nested loops with `break`;
+// this is effectively a single-target, zero-dispatch Relooper Multiple region.
+// It is both smaller and more readable than duplicating a large `B` tail.
+
+fn set_local_number(local: &RcLocal, value: usize) -> Statement {
+    Assign::new(
+        vec![LValue::Local(local.clone())],
+        vec![Literal::Number(value as f64).into()],
+    )
+    .into()
+}
+
+enum EscapeMode<'a> {
+    Forward {
+        label: &'a str,
+        signal: &'a RcLocal,
+    },
+    Restart {
+        label: &'a str,
+        signal: &'a RcLocal,
+    },
+    Dispatch {
+        label_states: &'a FxHashMap<String, usize>,
+        state: &'a RcLocal,
+        signal: &'a RcLocal,
+    },
+}
+
+impl EscapeMode<'_> {
+    fn signal(&self) -> &RcLocal {
+        match self {
+            Self::Forward { signal, .. }
+            | Self::Restart { signal, .. }
+            | Self::Dispatch { signal, .. } => signal,
+        }
+    }
+
+    fn goto_assignments(&self, goto: &crate::Goto) -> Option<Vec<Statement>> {
+        match self {
+            Self::Forward { label, signal } | Self::Restart { label, signal }
+                if goto.0.0 == *label =>
+            {
+                Some(vec![set_local_bool(signal, true)])
+            }
+            Self::Dispatch {
+                label_states,
+                state,
+                signal,
+            } => label_states.get(&goto.0.0).map(|target| {
+                vec![
+                    set_local_number(state, *target),
+                    set_local_bool(signal, true),
+                ]
+            }),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum EscapeBoundary {
+    /// Reaching the end of this lexical sequence is enough to reach the target.
+    FallThrough,
+    /// The sequence is directly inside the synthetic restart/dispatcher loop.
+    Continue,
+    /// The sequence is inside an original nested loop; escape it one level.
+    Break,
+}
+
+fn rewrite_escape_sequence(
+    statements: Vec<Statement>,
+    mode: &EscapeMode<'_>,
+    boundary: EscapeBoundary,
+) -> (Vec<Statement>, usize) {
+    let mut input = statements.into_iter();
+    let mut output = Vec::new();
+
+    while let Some(mut statement) = input.next() {
+        if let Statement::Goto(goto) = &statement
+            && let Some(assignments) = mode.goto_assignments(goto)
+        {
+            output.extend(assignments);
+            match boundary {
+                EscapeBoundary::FallThrough => {}
+                EscapeBoundary::Continue => output.push(Continue {}.into()),
+                EscapeBoundary::Break => output.push(Break {}.into()),
+            }
+            return (output, 1);
+        }
+
+        let child_changes = match &mut statement {
+            Statement::If(node) => {
+                let then_body = std::mem::take(&mut node.then_block.lock().0);
+                let else_body = std::mem::take(&mut node.else_block.lock().0);
+                let (then_body, then_changes) = rewrite_escape_sequence(then_body, mode, boundary);
+                let (else_body, else_changes) = rewrite_escape_sequence(else_body, mode, boundary);
+                node.then_block.lock().0 = then_body;
+                node.else_block.lock().0 = else_body;
+                then_changes + else_changes
+            }
+            Statement::While(node) => {
+                let body = std::mem::take(&mut node.block.lock().0);
+                let (body, changes) = rewrite_escape_sequence(body, mode, EscapeBoundary::Break);
+                node.block.lock().0 = body;
+                changes
+            }
+            Statement::Repeat(node) => {
+                let body = std::mem::take(&mut node.block.lock().0);
+                let (body, changes) = rewrite_escape_sequence(body, mode, EscapeBoundary::Break);
+                node.block.lock().0 = body;
+                changes
+            }
+            Statement::NumericFor(node) => {
+                let body = std::mem::take(&mut node.block.lock().0);
+                let (body, changes) = rewrite_escape_sequence(body, mode, EscapeBoundary::Break);
+                node.block.lock().0 = body;
+                changes
+            }
+            Statement::GenericFor(node) => {
+                let body = std::mem::take(&mut node.block.lock().0);
+                let (body, changes) = rewrite_escape_sequence(body, mode, EscapeBoundary::Break);
+                node.block.lock().0 = body;
+                changes
+            }
+            _ => 0,
+        };
+        output.push(statement);
+
+        if child_changes == 0 {
+            continue;
+        }
+
+        let remainder = input.collect::<Vec<_>>();
+        let (remainder, remainder_changes) = rewrite_escape_sequence(remainder, mode, boundary);
+        let signal = mode.signal().clone();
+        match boundary {
+            EscapeBoundary::FallThrough if !remainder.is_empty() => output.push(
+                If::new(
+                    RValue::Unary(Unary {
+                        value: Box::new(RValue::Local(signal)),
+                        operation: crate::UnaryOperation::Not,
+                    }),
+                    remainder.into(),
+                    Block::default(),
+                )
+                .into(),
+            ),
+            EscapeBoundary::Continue => output.push(
+                If::new(
+                    RValue::Local(signal),
+                    vec![Continue {}.into()].into(),
+                    remainder.into(),
+                )
+                .into(),
+            ),
+            EscapeBoundary::Break => output.push(
+                If::new(
+                    RValue::Local(signal),
+                    vec![Break {}.into()].into(),
+                    remainder.into(),
+                )
+                .into(),
+            ),
+            EscapeBoundary::FallThrough => {}
+        }
+        return (output, child_changes + remainder_changes);
+    }
+
+    (output, 0)
+}
+
+/// Structure one direct forward label in `block`.  Returns true only after at
+/// least one goto was removed.  Back-edges (a goto in the label's continuation)
+/// are left for the loop structurer; mixing the two would turn iteration into a
+/// one-shot guard.
+fn structure_one_forward_label(block: &mut Block) -> bool {
+    for label_index in 0..block.0.len() {
+        let Statement::Label(label_statement) = &block.0[label_index] else {
+            continue;
+        };
+        let label = label_statement.0.clone();
+        if seq_contains_goto(&block.0[label_index + 1..], &label) {
+            continue;
+        }
+        let Some(first_source) = block.0[..label_index]
+            .iter()
+            .position(|statement| seq_contains_goto(std::slice::from_ref(statement), &label))
+        else {
+            continue;
+        };
+        let mut intervening_labels = FxHashSet::default();
+        collect_defined_labels(&block.0[first_source..label_index], &mut intervening_labels);
+        if !intervening_labels.is_empty() {
+            // Guarding this region would nest another entry label inside an
+            // `if`, turning outside edges to that label into illegal scope
+            // entries.  The Multiple dispatcher below handles the combined
+            // multi-label region without changing lexical visibility.
+            continue;
+        }
+
+        // Most forward edges are a one-branch skip.  Recover the source-like
+        // guard directly before reaching for an escape flag:
+        // `if C then goto L end; A; ::L::` -> `if not C then A end`.
+        let simple_guard = match &block.0[first_source] {
+            Statement::If(node)
+                if node.else_block.lock().0.is_empty()
+                    && matches!(
+                        node.then_block.lock().0.as_slice(),
+                        [Statement::Goto(goto)] if goto.0.0 == label
+                    ) =>
+            {
+                Some((node.condition.clone(), true))
+            }
+            Statement::If(node)
+                if node.then_block.lock().0.is_empty()
+                    && matches!(
+                        node.else_block.lock().0.as_slice(),
+                        [Statement::Goto(goto)] if goto.0.0 == label
+                    ) =>
+            {
+                Some((node.condition.clone(), false))
+            }
+            _ => None,
+        };
+        if let Some((condition, negate)) = simple_guard
+            && first_source + 1 < label_index
+            && !seq_contains_goto(&block.0[first_source + 1..label_index], &label)
+        {
+            let mut region = block.0.drain(first_source..label_index).collect::<Vec<_>>();
+            region.remove(0);
+            let condition = if negate {
+                RValue::Unary(Unary {
+                    value: Box::new(condition),
+                    operation: crate::UnaryOperation::Not,
+                })
+            } else {
+                condition
+            };
+            block.0.insert(
+                first_source,
+                If::new(condition, region.into(), Block::default()).into(),
+            );
+            return true;
+        }
+
+        let escaped = RcLocal::default();
+        let region = block.0.drain(first_source..label_index).collect::<Vec<_>>();
+        let mode = EscapeMode::Forward {
+            label: &label,
+            signal: &escaped,
+        };
+        let (mut region, changes) =
+            rewrite_escape_sequence(region, &mode, EscapeBoundary::FallThrough);
+        debug_assert!(changes > 0);
+        region.insert(0, set_local_bool(&escaped, false));
+        block.0.splice(first_source..first_source, region);
+        return true;
+    }
+    false
+}
+
+fn structure_forward_gotos(block: &mut Block) -> usize {
+    let mut changed = 0;
+    for statement in &mut block.0 {
+        match statement {
+            Statement::If(node) => {
+                changed += structure_forward_gotos(&mut node.then_block.lock());
+                changed += structure_forward_gotos(&mut node.else_block.lock());
+            }
+            Statement::While(node) => changed += structure_forward_gotos(&mut node.block.lock()),
+            Statement::Repeat(node) => changed += structure_forward_gotos(&mut node.block.lock()),
+            Statement::NumericFor(node) => {
+                changed += structure_forward_gotos(&mut node.block.lock())
+            }
+            Statement::GenericFor(node) => {
+                changed += structure_forward_gotos(&mut node.block.lock())
+            }
+            _ => {}
+        }
+    }
+    while structure_one_forward_label(block) {
+        changed += 1;
+    }
+    changed
+}
+
+// A single-entry backward edge is a natural loop.  This is the cyclic sibling
+// of the forward guard above and handles residual shapes that the CFG loop
+// matcher could not recognize after other regions were collapsed:
+//
+//     ::head::; BODY; if C then goto head end; TAIL
+//
+// becomes a compact `while true` around BODY.  A restart flag is only needed to
+// propagate the back-edge through nested loops; direct back-edges become
+// `continue`.  Regions containing control for an *enclosing* loop or another
+// label/goto are intentionally left to the more general structurer.
+
+fn structure_one_backward_label(block: &mut Block) -> bool {
+    for label_index in 0..block.0.len() {
+        let Statement::Label(label_statement) = &block.0[label_index] else {
+            continue;
+        };
+        let label = label_statement.0.clone();
+        if seq_contains_goto(&block.0[..label_index], &label) {
+            continue; // multiple entry: not a natural single-entry loop
+        }
+        let Some(last_source_offset) = block.0[label_index + 1..]
+            .iter()
+            .rposition(|statement| seq_contains_goto(std::slice::from_ref(statement), &label))
+        else {
+            continue;
+        };
+        let last_source = label_index + 1 + last_source_offset;
+        let region = &block.0[label_index + 1..=last_source];
+        if seq_needs_loop(region) || seq_contains_label_or_other_goto(region, &label) {
+            continue;
+        }
+
+        let restart = RcLocal::default();
+        let region = block
+            .0
+            .drain(label_index + 1..=last_source)
+            .collect::<Vec<_>>();
+        let mode = EscapeMode::Restart {
+            label: &label,
+            signal: &restart,
+        };
+        let (mut region, changes) =
+            rewrite_escape_sequence(region, &mode, EscapeBoundary::Continue);
+        debug_assert!(changes > 0);
+        region.insert(0, set_local_bool(&restart, false));
+        if !region.last().is_some_and(is_terminator) {
+            region.push(Break {}.into());
+        }
+        block.0[label_index] = While::new(Literal::Boolean(true).into(), region.into()).into();
+        return true;
+    }
+    false
+}
+
+fn structure_backward_gotos(block: &mut Block) -> usize {
+    let mut changed = 0;
+    for statement in &mut block.0 {
+        match statement {
+            Statement::If(node) => {
+                changed += structure_backward_gotos(&mut node.then_block.lock());
+                changed += structure_backward_gotos(&mut node.else_block.lock());
+            }
+            Statement::While(node) => changed += structure_backward_gotos(&mut node.block.lock()),
+            Statement::Repeat(node) => changed += structure_backward_gotos(&mut node.block.lock()),
+            Statement::NumericFor(node) => {
+                changed += structure_backward_gotos(&mut node.block.lock())
+            }
+            Statement::GenericFor(node) => {
+                changed += structure_backward_gotos(&mut node.block.lock())
+            }
+            _ => {}
+        }
+    }
+    while structure_one_backward_label(block) {
+        changed += 1;
+    }
+    changed
+}
+
+// General irreducible-region fallback (Relooper "Multiple" shape).  The common
+// reducible cases above stay as ordinary guards/loops; only a lexical block with
+// several mutually-entered direct labels receives a tiny local dispatcher.
+// This avoids both source-level goto and whole-function state machines.
+
+fn direct_dispatch_labels(block: &Block) -> Option<FxHashMap<String, usize>> {
+    let mut direct = FxHashMap::default();
+    let mut all = FxHashSet::default();
+    let mut next_state = 1usize; // state 0 is entry before the first label
+    for statement in &block.0 {
+        if let Statement::Label(label) = statement {
+            if direct.insert(label.0.clone(), next_state).is_some() {
+                return None;
+            }
+            next_state += 1;
+        }
+    }
+    collect_defined_labels(&block.0, &mut all);
+    (!direct.is_empty() && direct.len() == all.len()).then_some(direct)
+}
+
+#[derive(Default)]
+struct EnclosingControlCounts {
+    breaks: usize,
+    continues: usize,
+}
+
+/// A dispatcher adds a synthetic `while`, which would capture `break` and
+/// `continue` originally targeting the enclosing source loop.  Encode those
+/// exits, leave all controls owned by nested original loops untouched, then
+/// replay the requested action immediately after the dispatcher.
+fn encode_enclosing_loop_controls(
+    statements: Vec<Statement>,
+    action: &RcLocal,
+    counts: &mut EnclosingControlCounts,
+) -> Vec<Statement> {
+    let mut output = Vec::new();
+    for mut statement in statements {
+        match &mut statement {
+            Statement::Break(_) => {
+                counts.breaks += 1;
+                output.push(set_local_number(action, 1));
+                output.push(Break {}.into());
+                break;
+            }
+            Statement::Continue(_) => {
+                counts.continues += 1;
+                output.push(set_local_number(action, 2));
+                output.push(Break {}.into());
+                break;
+            }
+            Statement::If(node) => {
+                let then_body = std::mem::take(&mut node.then_block.lock().0);
+                let else_body = std::mem::take(&mut node.else_block.lock().0);
+                node.then_block.lock().0 =
+                    encode_enclosing_loop_controls(then_body, action, counts);
+                node.else_block.lock().0 =
+                    encode_enclosing_loop_controls(else_body, action, counts);
+                output.push(statement);
+            }
+            // These loops own their own break/continue.
+            Statement::While(_)
+            | Statement::Repeat(_)
+            | Statement::NumericFor(_)
+            | Statement::GenericFor(_) => output.push(statement),
+            _ => output.push(statement),
+        }
+    }
+    output
+}
+
+fn structure_direct_label_dispatcher(
+    block: &mut Block,
+    externally_targeted: &FxHashSet<String>,
+) -> bool {
+    let Some(label_states) = direct_dispatch_labels(block) else {
+        return false;
+    };
+    if label_states
+        .keys()
+        .any(|label| externally_targeted.contains(label))
+    {
+        // A parent/sibling edge still needs this lexical label. Consuming it in
+        // a child-only dispatcher would leave a dangling goto in the ancestor.
+        return false;
+    }
+    let mut targets = FxHashSet::default();
+    collect_goto_targets(block, &mut targets);
+    if targets.is_empty()
+        || targets
+            .iter()
+            .any(|target| !label_states.contains_key(target))
+    {
+        return false;
+    }
+
+    // This fallback runs after LocalDeclarer.  Pull declarations at this lexical
+    // level outside the synthetic loop so a state transition cannot redeclare
+    // and nil-out a value on the next dispatcher iteration.  Initializers remain
+    // in their original segment as ordinary assignments.  Declarations inside
+    // original nested loops/branches stay there; a nested dispatcher handles its
+    // own direct declaration level recursively.
+    let mut declarations = Vec::new();
+    let mut original = Vec::with_capacity(block.0.len());
+    for statement in std::mem::take(&mut block.0) {
+        match statement {
+            Statement::Assign(mut assign) if assign.prefix => {
+                for left in &assign.left {
+                    if let LValue::Local(local) = left
+                        && !declarations.contains(local)
+                    {
+                        declarations.push(local.clone());
+                    }
+                }
+                if !assign.right.is_empty() {
+                    assign.prefix = false;
+                    original.push(Statement::Assign(assign));
+                }
+            }
+            other => original.push(other),
+        }
+    }
+
+    let state = RcLocal::new(crate::Local::new(Some("controlFlowState".to_string())));
+    let jumped = RcLocal::new(crate::Local::new(Some("controlFlowJumped".to_string())));
+    let exit_action = RcLocal::new(crate::Local::new(Some("controlFlowExit".to_string())));
+    declarations.push(state.clone());
+    declarations.push(jumped.clone());
+    declarations.push(exit_action.clone());
+    let mut segments = vec![Vec::new()];
+    for statement in original {
+        if matches!(statement, Statement::Label(_)) {
+            segments.push(Vec::new());
+        } else {
+            segments.last_mut().unwrap().push(statement);
+        }
+    }
+    debug_assert_eq!(segments.len(), label_states.len() + 1);
+
+    let mut dispatch_else = Block(vec![Break {}.into()]);
+    let mut total_changes = 0;
+    let mode = EscapeMode::Dispatch {
+        label_states: &label_states,
+        state: &state,
+        signal: &jumped,
+    };
+    let mut control_counts = EnclosingControlCounts::default();
+    for (segment_state, segment) in segments.into_iter().enumerate().rev() {
+        let segment = encode_enclosing_loop_controls(segment, &exit_action, &mut control_counts);
+        let (mut segment, changes) =
+            rewrite_escape_sequence(segment, &mode, EscapeBoundary::Continue);
+        total_changes += changes;
+        if !segment.last().is_some_and(is_terminator) {
+            if segment_state + 1 < label_states.len() + 1 {
+                segment.push(set_local_number(&state, segment_state + 1));
+                segment.push(Continue {}.into());
+            } else {
+                segment.push(Break {}.into());
+            }
+        }
+        let condition = Binary::new(
+            RValue::Local(state.clone()),
+            Literal::Number(segment_state as f64).into(),
+            crate::BinaryOperation::Equal,
+        )
+        .into();
+        dispatch_else = Block(vec![
+            If::new(condition, segment.into(), dispatch_else).into(),
+        ]);
+    }
+    debug_assert!(total_changes > 0);
+
+    let dispatcher_body = Block(vec![
+        set_local_bool(&jumped, false),
+        dispatch_else.0.pop().unwrap(),
+    ]);
+    let mut declaration = Assign::new(
+        declarations.into_iter().map(LValue::Local).collect(),
+        Vec::new(),
+    );
+    declaration.prefix = true;
+    block.0 = vec![
+        declaration.into(),
+        set_local_number(&state, 0),
+        set_local_number(&exit_action, 0),
+        While::new(Literal::Boolean(true).into(), dispatcher_body).into(),
+    ];
+    if control_counts.breaks != 0 {
+        block.0.push(
+            If::new(
+                Binary::new(
+                    RValue::Local(exit_action.clone()),
+                    Literal::Number(1.0).into(),
+                    crate::BinaryOperation::Equal,
+                )
+                .into(),
+                vec![Break {}.into()].into(),
+                Block::default(),
+            )
+            .into(),
+        );
+    }
+    if control_counts.continues != 0 {
+        block.0.push(
+            If::new(
+                Binary::new(
+                    RValue::Local(exit_action),
+                    Literal::Number(2.0).into(),
+                    crate::BinaryOperation::Equal,
+                )
+                .into(),
+                vec![Continue {}.into()].into(),
+                Block::default(),
+            )
+            .into(),
+        );
+    }
+    true
+}
+
+fn collect_goto_target_counts(block: &Block, counts: &mut FxHashMap<String, usize>) {
+    for statement in &block.0 {
+        match statement {
+            Statement::Goto(goto) => *counts.entry(goto.0.0.clone()).or_default() += 1,
+            Statement::If(node) => {
+                collect_goto_target_counts(&node.then_block.lock(), counts);
+                collect_goto_target_counts(&node.else_block.lock(), counts);
+            }
+            Statement::While(node) => collect_goto_target_counts(&node.block.lock(), counts),
+            Statement::Repeat(node) => collect_goto_target_counts(&node.block.lock(), counts),
+            Statement::NumericFor(node) => collect_goto_target_counts(&node.block.lock(), counts),
+            Statement::GenericFor(node) => collect_goto_target_counts(&node.block.lock(), counts),
+            _ => {}
+        }
+    }
+}
+
+fn child_external_targets(
+    whole_counts: &FxHashMap<String, usize>,
+    child: &Block,
+    inherited: &FxHashSet<String>,
+) -> FxHashSet<String> {
+    let mut child_counts = FxHashMap::default();
+    collect_goto_target_counts(child, &mut child_counts);
+    let mut external = inherited.clone();
+    for (label, total) in whole_counts {
+        if child_counts.get(label).copied().unwrap_or_default() < *total {
+            external.insert(label.clone());
+        }
+    }
+    external
+}
+
+fn structure_irreducible_dispatchers_inner(
+    block: &mut Block,
+    externally_targeted: &FxHashSet<String>,
+) -> usize {
+    if !block_has_goto_or_label(block) {
+        return 0;
+    }
+    let mut whole_counts = FxHashMap::default();
+    collect_goto_target_counts(block, &mut whole_counts);
+    let mut changed = 0;
+    for statement in &mut block.0 {
+        match statement {
+            Statement::If(node) => {
+                let then_external = child_external_targets(
+                    &whole_counts,
+                    &node.then_block.lock(),
+                    externally_targeted,
+                );
+                let else_external = child_external_targets(
+                    &whole_counts,
+                    &node.else_block.lock(),
+                    externally_targeted,
+                );
+                changed += structure_irreducible_dispatchers_inner(
+                    &mut node.then_block.lock(),
+                    &then_external,
+                );
+                changed += structure_irreducible_dispatchers_inner(
+                    &mut node.else_block.lock(),
+                    &else_external,
+                );
+            }
+            Statement::While(node) => {
+                let external =
+                    child_external_targets(&whole_counts, &node.block.lock(), externally_targeted);
+                changed +=
+                    structure_irreducible_dispatchers_inner(&mut node.block.lock(), &external)
+            }
+            Statement::Repeat(node) => {
+                let external =
+                    child_external_targets(&whole_counts, &node.block.lock(), externally_targeted);
+                changed +=
+                    structure_irreducible_dispatchers_inner(&mut node.block.lock(), &external)
+            }
+            Statement::NumericFor(node) => {
+                let external =
+                    child_external_targets(&whole_counts, &node.block.lock(), externally_targeted);
+                changed +=
+                    structure_irreducible_dispatchers_inner(&mut node.block.lock(), &external)
+            }
+            Statement::GenericFor(node) => {
+                let external =
+                    child_external_targets(&whole_counts, &node.block.lock(), externally_targeted);
+                changed +=
+                    structure_irreducible_dispatchers_inner(&mut node.block.lock(), &external)
+            }
+            _ => {}
+        }
+    }
+    if structure_direct_label_dispatcher(block, externally_targeted) {
+        changed += 1;
+    }
+    changed
+}
+
+pub fn structure_irreducible_dispatchers(block: &mut Block) -> usize {
+    structure_irreducible_dispatchers_inner(block, &FxHashSet::default())
 }
 
 // ===================================================================
@@ -867,7 +1621,7 @@ fn try_structure_loop_entry_goto_at(block: &mut Block, loop_index: usize) -> boo
 
     let Some((goto_index, label)) =
         ((loop_index + 1)..block.0.len()).find_map(|i| match &block.0[i] {
-            Statement::Goto(g) if labels.contains(&g.0 .0) => Some((i, g.0 .0.clone())),
+            Statement::Goto(g) if labels.contains(&g.0.0) => Some((i, g.0.0.clone())),
             _ => None,
         })
     else {
@@ -973,8 +1727,8 @@ fn compute_needy(block: &Block, enclosing: &FxHashSet<String>, needy: &mut FxHas
     for s in &block.0 {
         match s {
             Statement::Goto(g) => {
-                if !visible.contains(&g.0 .0) {
-                    needy.insert(g.0 .0.clone());
+                if !visible.contains(&g.0.0) {
+                    needy.insert(g.0.0.clone());
                 }
             }
             Statement::If(f) => {
@@ -991,18 +1745,37 @@ fn compute_needy(block: &Block, enclosing: &FxHashSet<String>, needy: &mut FxHas
 }
 
 // Raise one needy label one level up into `block`. Returns true if it did.
-fn raise_once(block: &mut Block, needy: &FxHashSet<String>, counter: &mut usize) -> bool {
+fn fresh_generated_label(
+    prefix: &str,
+    counter: &mut usize,
+    reserved: &mut FxHashSet<String>,
+) -> String {
+    loop {
+        *counter += 1;
+        let candidate = format!("{prefix}{}", *counter);
+        if reserved.insert(candidate.clone()) {
+            return candidate;
+        }
+    }
+}
+
+fn raise_once(
+    block: &mut Block,
+    needy: &FxHashSet<String>,
+    counter: &mut usize,
+    reserved: &mut FxHashSet<String>,
+) -> bool {
     // first, raise within nested blocks (deeper labels reach their branch top)
     for s in block.0.iter_mut() {
         let raised = match s {
             Statement::If(f) => {
-                raise_once(&mut f.then_block.lock(), needy, counter)
-                    || raise_once(&mut f.else_block.lock(), needy, counter)
+                raise_once(&mut f.then_block.lock(), needy, counter, reserved)
+                    || raise_once(&mut f.else_block.lock(), needy, counter, reserved)
             }
-            Statement::While(w) => raise_once(&mut w.block.lock(), needy, counter),
-            Statement::Repeat(r) => raise_once(&mut r.block.lock(), needy, counter),
-            Statement::NumericFor(nf) => raise_once(&mut nf.block.lock(), needy, counter),
-            Statement::GenericFor(gf) => raise_once(&mut gf.block.lock(), needy, counter),
+            Statement::While(w) => raise_once(&mut w.block.lock(), needy, counter, reserved),
+            Statement::Repeat(r) => raise_once(&mut r.block.lock(), needy, counter, reserved),
+            Statement::NumericFor(nf) => raise_once(&mut nf.block.lock(), needy, counter, reserved),
+            Statement::GenericFor(gf) => raise_once(&mut gf.block.lock(), needy, counter, reserved),
             _ => false,
         };
         if raised {
@@ -1036,8 +1809,7 @@ fn raise_once(block: &mut Block, needy: &FxHashSet<String>, counter: &mut usize)
     }
 
     if let Some((j, region, label)) = found {
-        *counter += 1;
-        let after = format!("after{}", counter);
+        let after = fresh_generated_label("after", counter, reserved);
         let mut insert: Vec<Statement> = vec![crate::Goto::new(after.clone().into()).into(), label];
         insert.extend(region);
         insert.push(crate::Label(after).into());
@@ -1072,17 +1844,30 @@ fn body_has_needy(body: &Block, needy: &FxHashSet<String>) -> bool {
 // Turn a `while`/`repeat` that traps a needy label into explicit goto form, so
 // the label rises to the loop's parent scope. Returns true if it un-structured
 // one. (Numeric/generic `for` loops are left intact.)
-fn unstructure_one_loop(block: &mut Block, needy: &FxHashSet<String>, counter: &mut usize) -> bool {
+fn unstructure_one_loop(
+    block: &mut Block,
+    needy: &FxHashSet<String>,
+    counter: &mut usize,
+    reserved: &mut FxHashSet<String>,
+) -> bool {
     for s in block.0.iter_mut() {
         let done = match s {
             Statement::If(f) => {
-                unstructure_one_loop(&mut f.then_block.lock(), needy, counter)
-                    || unstructure_one_loop(&mut f.else_block.lock(), needy, counter)
+                unstructure_one_loop(&mut f.then_block.lock(), needy, counter, reserved)
+                    || unstructure_one_loop(&mut f.else_block.lock(), needy, counter, reserved)
             }
-            Statement::While(w) => unstructure_one_loop(&mut w.block.lock(), needy, counter),
-            Statement::Repeat(r) => unstructure_one_loop(&mut r.block.lock(), needy, counter),
-            Statement::NumericFor(nf) => unstructure_one_loop(&mut nf.block.lock(), needy, counter),
-            Statement::GenericFor(gf) => unstructure_one_loop(&mut gf.block.lock(), needy, counter),
+            Statement::While(w) => {
+                unstructure_one_loop(&mut w.block.lock(), needy, counter, reserved)
+            }
+            Statement::Repeat(r) => {
+                unstructure_one_loop(&mut r.block.lock(), needy, counter, reserved)
+            }
+            Statement::NumericFor(nf) => {
+                unstructure_one_loop(&mut nf.block.lock(), needy, counter, reserved)
+            }
+            Statement::GenericFor(gf) => {
+                unstructure_one_loop(&mut gf.block.lock(), needy, counter, reserved)
+            }
             _ => false,
         };
         if done {
@@ -1097,10 +1882,8 @@ fn unstructure_one_loop(block: &mut Block, needy: &FxHashSet<String>, counter: &
     });
 
     if let Some(j) = target {
-        *counter += 1;
-        let head = format!("loop{}", counter);
-        *counter += 1;
-        let exit = format!("exit{}", counter);
+        let head = fresh_generated_label("loop", counter, reserved);
+        let exit = fresh_generated_label("exit", counter, reserved);
         let goto = |name: &str| -> Statement { crate::Goto::new(name.into()).into() };
         let label = |name: String| -> Statement { crate::Label(name).into() };
 
@@ -1123,8 +1906,7 @@ fn unstructure_one_loop(block: &mut Block, needy: &FxHashSet<String>, counter: &
                 out
             }
             Statement::Repeat(r) => {
-                *counter += 1;
-                let cont = format!("loop{}", counter);
+                let cont = fresh_generated_label("loop", counter, reserved);
                 let mut body = std::mem::take(&mut *r.block.lock());
                 convert_break_continue(&mut body.0, &exit, &cont);
                 let not_cond = RValue::Unary(Unary {
@@ -1147,18 +1929,17 @@ fn unstructure_one_loop(block: &mut Block, needy: &FxHashSet<String>, counter: &
     false
 }
 
-fn raise_labels(block: &mut Block) {
-    let mut counter = 0usize;
+fn raise_labels(block: &mut Block, counter: &mut usize, reserved: &mut FxHashSet<String>) {
     for _ in 0..8192 {
         let mut needy = FxHashSet::default();
         compute_needy(block, &FxHashSet::default(), &mut needy);
         if needy.is_empty() {
             break;
         }
-        if raise_once(block, &needy, &mut counter) {
+        if raise_once(block, &needy, counter, reserved) {
             continue;
         }
-        if unstructure_one_loop(block, &needy, &mut counter) {
+        if unstructure_one_loop(block, &needy, counter, reserved) {
             continue;
         }
         break; // remaining needy labels are trapped in `for` loops
@@ -1189,40 +1970,64 @@ pub fn simplify_gotos(block: &mut Block) {
     }
 
     let implicit_return: [Statement; 1] = [Return::default().into()];
+    let mut reserved_labels = FxHashSet::default();
+    collect_defined_labels(&block.0, &mut reserved_labels);
+    let mut fresh_counter = 0usize;
     for _ in 0..256 {
         let mut fixer = GotoFixer {
             continuations: FxHashMap::default(),
             continue_owner: FxHashMap::default(),
-            exhaustible: FxHashSet::default(),
-            fresh_counter: 0,
+            exhausted_for_tail: FxHashSet::default(),
+            reserved_labels,
+            fresh_counter,
             loop_counter: 0,
         };
         fixer.collect(block, &implicit_return, false, None);
         if fixer.continuations.is_empty() {
+            fresh_counter = fixer.fresh_counter;
+            reserved_labels = fixer.reserved_labels;
             break;
         }
         fixer.loop_counter = 0;
-        if fixer.rewrite(block, &implicit_return, None) == 0 {
+        let rewritten = fixer.rewrite(block, &implicit_return, None, &FxHashSet::default());
+        fresh_counter = fixer.fresh_counter;
+        reserved_labels = fixer.reserved_labels;
+        if rewritten == 0 {
             break;
         }
     }
+    // Large forward continuations deliberately rejected by tail duplication
+    // are cheaper and clearer as guarded regions.  Run this only after the
+    // duplication fixpoint so the common small-tail output stays unchanged.
+    structure_forward_gotos(block);
+    structure_backward_gotos(block);
     for _ in 0..128 {
         if structure_loop_entry_gotos(block) == 0 {
             break;
         }
     }
-    raise_labels(block);
+    raise_labels(block, &mut fresh_counter, &mut reserved_labels);
+    // Raising exposes the last cross-scope edges at one lexical level.  Prefer
+    // ordinary forward guards and natural loops once more; if an irreducible
+    // multi-entry region remains, localize a Relooper Multiple dispatcher to
+    // exactly that block.
+    for _ in 0..128 {
+        let changed = structure_forward_gotos(block) + structure_backward_gotos(block);
+        if changed == 0 {
+            break;
+        }
+    }
     fold_constant_conditions(block);
     let mut targets = FxHashSet::default();
     collect_goto_targets(block, &mut targets);
     remove_dead_labels(block, &targets);
 }
 
-/// Recursively scan a block (descending into structured control flow, but NOT
-/// into closures — `simplify_gotos` runs per-function and never crosses closure
-/// boundaries) for any `goto` or `::label::`. Cheap (early-exits on the first
-/// hit); used by `simplify_gotos` to skip its goto machinery entirely.
-fn block_has_goto_or_label(block: &Block) -> bool {
+/// Return whether this function body contains a `Goto` or `Label` statement.
+/// Structured child blocks are included; nested closures are separate functions
+/// and are intentionally not crossed. Cheap (early-exits on the first hit); used
+/// by `simplify_gotos` to skip its goto machinery entirely.
+pub fn block_has_goto_or_label(block: &Block) -> bool {
     block.0.iter().any(|s| match s {
         Statement::Goto(_) | Statement::Label(_) => true,
         Statement::If(f) => {
@@ -1235,6 +2040,52 @@ fn block_has_goto_or_label(block: &Block) -> bool {
         Statement::GenericFor(gf) => block_has_goto_or_label(&gf.block.lock()),
         _ => false,
     })
+}
+
+/// Final output invariant over a complete linked function tree.  Unlike
+/// [`block_has_goto_or_label`], this descends through closure values as well as
+/// structured blocks and de-duplicates shared `Function` arcs.
+pub fn function_tree_has_goto_or_label(block: &Block) -> bool {
+    fn value_has_goto(value: &RValue, visited: &mut FxHashSet<usize>) -> bool {
+        if let RValue::Closure(closure) = value {
+            let address = Arc::as_ptr(&closure.function.0) as usize;
+            return visited.insert(address)
+                && tree_block_has_goto(&closure.function.lock().body, visited);
+        }
+        value
+            .rvalues()
+            .into_iter()
+            .any(|child| value_has_goto(child, visited))
+    }
+
+    fn tree_block_has_goto(block: &Block, visited: &mut FxHashSet<usize>) -> bool {
+        for statement in &block.0 {
+            if matches!(statement, Statement::Goto(_) | Statement::Label(_))
+                || crate::deinline::stmt_rvalues(statement)
+                    .into_iter()
+                    .any(|value| value_has_goto(value, visited))
+            {
+                return true;
+            }
+            let nested = match statement {
+                Statement::If(node) => {
+                    tree_block_has_goto(&node.then_block.lock(), visited)
+                        || tree_block_has_goto(&node.else_block.lock(), visited)
+                }
+                Statement::While(node) => tree_block_has_goto(&node.block.lock(), visited),
+                Statement::Repeat(node) => tree_block_has_goto(&node.block.lock(), visited),
+                Statement::NumericFor(node) => tree_block_has_goto(&node.block.lock(), visited),
+                Statement::GenericFor(node) => tree_block_has_goto(&node.block.lock(), visited),
+                _ => false,
+            };
+            if nested {
+                return true;
+            }
+        }
+        false
+    }
+
+    tree_block_has_goto(block, &mut FxHashSet::default())
 }
 
 /// Post-`LocalDeclarer` fixup: in any block that still contains a `goto`, move
@@ -1303,7 +2154,8 @@ pub fn hoist_locals_for_gotos(block: &mut Block) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BinaryOperation, Global, Local};
+    use crate::{BinaryOperation, Closure, Function, Global, Local};
+    use by_address::ByAddress;
 
     fn local(name: &str) -> RcLocal {
         RcLocal::new(Local::new(Some(name.to_string())))
@@ -1378,12 +2230,14 @@ mod tests {
         let nested_for = GenericFor::new(
             vec![key, entry.clone()],
             vec![global("pairs")],
-            Block(vec![If::new(
-                hit_condition,
-                vec![assign(&stage, bool_lit(false)), goto("tail")].into(),
-                Block::default(),
-            )
-            .into()]),
+            Block(vec![
+                If::new(
+                    hit_condition,
+                    vec![assign(&stage, bool_lit(false)), goto("tail")].into(),
+                    Block::default(),
+                )
+                .into(),
+            ]),
         );
 
         let mut block = Block(vec![
@@ -1533,6 +2387,52 @@ mod tests {
             contains_goto_or_label(&block.0),
             "conditional loops must not be rewritten by the infinite-loop-only pass"
         );
+        simplify_gotos(&mut block);
+        assert!(contains_goto_or_label(&block.0));
+
+        // Production ordering: declarations first, then the irreducible
+        // dispatcher.  `stage` must be declared outside its synthetic while so
+        // the fallback assignment survives the state transition to `tail`.
+        let block = Arc::new(Mutex::new(block));
+        crate::local_declarations::LocalDeclarer::default()
+            .declare_locals(block.clone(), &FxHashSet::default());
+        hoist_locals_for_gotos(&mut block.lock());
+        structure_irreducible_dispatchers(&mut block.lock());
+        let block = Arc::try_unwrap(block).unwrap().into_inner();
+        assert!(
+            !contains_goto_or_label(&block.0),
+            "the complete pass must still eliminate the guarded loop edge:\n{}",
+            block
+        );
+        let rendered = block.to_string();
+        assert!(rendered.contains("controlFlowState"), "{}", rendered);
+        assert_eq!(rendered.matches("print(stage)").count(), 1, "{}", rendered);
+        assert_eq!(
+            rendered.matches("stage = \"fallback\"").count(),
+            1,
+            "{}",
+            rendered
+        );
+        let Statement::Assign(declaration) = &block.0[0] else {
+            panic!(
+                "dispatcher locals must be declared before the loop:\n{}",
+                block
+            );
+        };
+        assert!(declaration.prefix && declaration.right.is_empty());
+        assert!(
+            declaration
+                .left
+                .iter()
+                .any(|left| matches!(left, LValue::Local(local) if local == &stage)),
+            "stage must persist across dispatcher iterations:\n{}",
+            block
+        );
+        let mut named = block;
+        crate::name_locals::name_locals(&mut named, true);
+        let named = named.to_string();
+        assert!(named.contains("controlFlowState"), "{}", named);
+        assert!(named.contains("controlFlowJumped"), "{}", named);
     }
 
     #[test]
@@ -1628,5 +2528,286 @@ mod tests {
             contains_goto_or_label(&block.0),
             "fallback regions with labels must not be duplicated into break sites"
         );
+    }
+
+    #[test]
+    fn structures_large_forward_tail_without_duplication() {
+        let mut then_block = Block(vec![goto("tail")]);
+        let mut block = Block(vec![
+            If::new(
+                global("skip"),
+                std::mem::take(&mut then_block),
+                Block::default(),
+            )
+            .into(),
+            print(&local("before_tail")),
+            label("tail"),
+        ]);
+        for _ in 0..=MAX_DUP_SIZE {
+            block.0.push(print(&local("tail_value")));
+        }
+
+        simplify_gotos(&mut block);
+
+        assert!(
+            !contains_goto_or_label(&block.0),
+            "large forward tails must use a guard rather than leak goto:\n{}",
+            block
+        );
+        assert_eq!(
+            block.to_string().matches("print(tail_value)").count(),
+            MAX_DUP_SIZE + 1,
+            "the large tail must not be duplicated:\n{}",
+            block
+        );
+    }
+
+    #[test]
+    fn forward_escape_propagates_out_of_nested_loops() {
+        let nested = While::new(
+            global("running"),
+            Block(vec![
+                If::new(global("skip"), vec![goto("tail")].into(), Block::default()).into(),
+            ]),
+        );
+        let mut block = Block(vec![
+            NumericFor::new(
+                Literal::Number(1.0).into(),
+                Literal::Number(10.0).into(),
+                Literal::Number(1.0).into(),
+                local("i"),
+                Block(vec![nested.into()]),
+            )
+            .into(),
+            print(&local("skipped")),
+            label("tail"),
+            print(&local("kept")),
+        ]);
+
+        structure_forward_gotos(&mut block);
+        let mut targets = FxHashSet::default();
+        collect_goto_targets(&block, &mut targets);
+        remove_dead_labels(&mut block, &targets);
+
+        assert!(
+            !contains_goto_or_label(&block.0),
+            "the escape flag must propagate through every nested loop:\n{}",
+            block
+        );
+        assert_eq!(block.to_string().matches("print(skipped)").count(), 1);
+        assert_eq!(block.to_string().matches("print(kept)").count(), 1);
+    }
+
+    #[test]
+    fn final_invariant_descends_into_closures() {
+        let function = Arc::new(Mutex::new(Function {
+            body: Block(vec![goto("inside"), label("inside")]),
+            ..Function::default()
+        }));
+        let block = Block(vec![
+            Return::new(vec![RValue::Closure(Closure {
+                function: ByAddress(function),
+                upvalues: Vec::new(),
+            })])
+            .into(),
+        ]);
+
+        assert!(!block_has_goto_or_label(&block));
+        assert!(function_tree_has_goto_or_label(&block));
+    }
+
+    #[test]
+    fn structures_single_entry_backward_edge_as_loop() {
+        let mut block = Block(vec![
+            label("head"),
+            print(&local("body")),
+            If::new(global("again"), vec![goto("head")].into(), Block::default()).into(),
+            print(&local("tail")),
+        ]);
+
+        simplify_gotos(&mut block);
+
+        assert!(
+            !contains_goto_or_label(&block.0),
+            "a single-entry back-edge must become a structured loop:\n{}",
+            block
+        );
+        assert!(matches!(block.0.first(), Some(Statement::While(_))));
+        assert_eq!(block.to_string().matches("print(body)").count(), 1);
+        assert_eq!(block.to_string().matches("print(tail)").count(), 1);
+    }
+
+    #[test]
+    fn backward_restart_propagates_out_of_nested_loop() {
+        let nested = GenericFor::new(
+            vec![local("item")],
+            vec![global("items")],
+            Block(vec![
+                If::new(global("again"), vec![goto("head")].into(), Block::default()).into(),
+            ]),
+        );
+        let mut block = Block(vec![
+            label("head"),
+            nested.into(),
+            print(&local("after_loop")),
+        ]);
+
+        simplify_gotos(&mut block);
+
+        assert!(
+            !contains_goto_or_label(&block.0),
+            "restart must propagate through the nested generic-for:\n{}",
+            block
+        );
+        assert_eq!(block.to_string().matches("print(after_loop)").count(), 1);
+    }
+
+    #[test]
+    fn exhausted_for_shared_tail_resumes_at_outside_continuation() {
+        let mut block = Block(vec![
+            GenericFor::new(
+                vec![local("item")],
+                vec![global("items")],
+                Block(vec![
+                    If::new(
+                        global("stop"),
+                        vec![Break {}.into()].into(),
+                        Block::default(),
+                    )
+                    .into(),
+                    label("tail"),
+                    print(&local("item")),
+                ]),
+            )
+            .into(),
+            goto("tail"),
+            Return::default().into(),
+        ]);
+
+        simplify_gotos(&mut block);
+
+        assert!(!contains_goto_or_label(&block.0), "{}", block);
+        let rendered = block.to_string();
+        assert_eq!(rendered.matches("print(item)").count(), 2, "{}", rendered);
+        assert!(matches!(block.0.last(), Some(Statement::Return(_))));
+    }
+
+    #[test]
+    fn for_tail_is_not_copied_from_a_source_before_its_owner_loop() {
+        let mut block = Block(vec![
+            goto("tail"),
+            GenericFor::new(
+                vec![local("item")],
+                vec![global("items")],
+                Block(vec![label("tail"), print(&local("item"))]),
+            )
+            .into(),
+            Return::default().into(),
+        ]);
+
+        simplify_gotos(&mut block);
+
+        assert!(
+            contains_goto_or_label(&block.0),
+            "source-side exhaustion must be proven before removing the synthetic for back-edge:\n{}",
+            block
+        );
+        assert_eq!(block.to_string().matches("print(item)").count(), 1);
+    }
+
+    #[test]
+    fn generated_labels_skip_reserved_names_across_fixpoints() {
+        let mut reserved = FxHashSet::default();
+        reserved.insert("dup1".to_string());
+        let mut fixer = GotoFixer {
+            continuations: FxHashMap::default(),
+            continue_owner: FxHashMap::default(),
+            exhausted_for_tail: FxHashSet::default(),
+            reserved_labels: reserved,
+            fresh_counter: 0,
+            loop_counter: 0,
+        };
+        let mut sequence = vec![label("original")];
+        fixer.relabel_fresh(&mut sequence);
+        assert!(matches!(&sequence[0], Statement::Label(label) if label.0 == "dup2"));
+
+        let mut counter = 0;
+        let mut reserved = FxHashSet::default();
+        reserved.insert("after1".to_string());
+        assert_eq!(
+            fresh_generated_label("after", &mut counter, &mut reserved),
+            "after2"
+        );
+    }
+
+    #[test]
+    fn dispatcher_replays_enclosing_break_and_continue() {
+        let body = Block(vec![
+            label("a"),
+            If::new(global("to_b"), vec![goto("b")].into(), Block::default()).into(),
+            Break {}.into(),
+            label("b"),
+            If::new(global("to_a"), vec![goto("a")].into(), Block::default()).into(),
+            Continue {}.into(),
+        ]);
+        let mut root = Block(vec![While::new(global("running"), body).into()]);
+
+        simplify_gotos(&mut root);
+        let root = Arc::new(Mutex::new(root));
+        crate::local_declarations::LocalDeclarer::default()
+            .declare_locals(root.clone(), &FxHashSet::default());
+        hoist_locals_for_gotos(&mut root.lock());
+        structure_irreducible_dispatchers(&mut root.lock());
+        let root = Arc::try_unwrap(root).unwrap().into_inner();
+
+        assert!(!contains_goto_or_label(&root.0), "{}", root);
+        let Statement::While(outer) = &root.0[0] else {
+            panic!("expected original enclosing loop:\n{}", root);
+        };
+        let outer_body = outer.block.lock();
+        assert!(
+            outer_body.0.iter().any(|statement| matches!(
+                statement,
+                Statement::If(node)
+                    if matches!(node.then_block.lock().0.as_slice(), [Statement::Break(_)])
+            )),
+            "encoded break must be replayed after the dispatcher:\n{}",
+            root
+        );
+        assert!(
+            outer_body.0.iter().any(|statement| matches!(
+                statement,
+                Statement::If(node)
+                    if matches!(node.then_block.lock().0.as_slice(), [Statement::Continue(_)])
+            )),
+            "encoded continue must be replayed after the dispatcher:\n{}",
+            root
+        );
+    }
+
+    #[test]
+    fn dispatcher_never_consumes_label_targeted_from_parent_scope() {
+        let child = Block(vec![
+            label("a"),
+            If::new(global("to_b"), vec![goto("b")].into(), Block::default()).into(),
+            label("b"),
+            If::new(global("to_a"), vec![goto("a")].into(), Block::default()).into(),
+            Break {}.into(),
+        ]);
+        let mut root = Block(vec![While::new(global("running"), child).into(), goto("a")]);
+
+        assert_eq!(structure_irreducible_dispatchers(&mut root), 0);
+        assert!(
+            contains_goto_or_label(&root.0),
+            "an open child region must remain intact for an outer structurer or the final fail-closed gate:\n{}",
+            root
+        );
+        let Statement::While(loop_node) = &root.0[0] else {
+            panic!("expected original loop")
+        };
+        assert!(matches!(
+            loop_node.block.lock().0.first(),
+            Some(Statement::Label(label)) if label.0 == "a"
+        ));
     }
 }
