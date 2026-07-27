@@ -2,14 +2,15 @@ mod deserializer;
 mod instruction;
 mod lifter;
 mod op_code;
+pub mod upvalue_analysis;
 
 use ast::{
+    Traverse,
     flatten_guards::flatten_guards,
     local_declarations::LocalDeclarer,
-    name_locals::{name_locals_with_options, NameLocalOptions},
+    name_locals::{NameLocalOptions, name_locals_with_options},
     replace_locals::replace_locals,
     simplify_gotos::{hoist_locals_for_gotos, simplify_gotos},
-    Traverse,
 };
 
 use by_address::ByAddress;
@@ -31,7 +32,7 @@ use petgraph::algo::dominators::simple_fast;
 use rustc_hash::FxHashMap;
 use triomphe::Arc;
 
-use std::sync::Once;
+use std::{collections::BTreeMap, sync::Once};
 
 use deserializer::bytecode::Bytecode;
 
@@ -177,6 +178,20 @@ pub fn decompile_bytecode(bytecode: &[u8], encode_key: u8) -> String {
     decompile_bytecode_with_script_name(bytecode, encode_key, None)
 }
 
+/// Extract the immutable bytecode-level upvalue graph without running the
+/// lifter, SSA, naming, or formatting passes.
+pub fn analyze_upvalues_raw(
+    bytecode: &[u8],
+    encode_key: u8,
+) -> Result<upvalue_analysis::RawUpvalueAnalysis, String> {
+    match deserializer::deserialize(bytecode, encode_key)
+        .map_err(|error| format!("deserialize: {error}"))?
+    {
+        Bytecode::Error(message) => Err(message),
+        Bytecode::Chunk(chunk) => Ok(upvalue_analysis::RawUpvalueAnalysis::build(&chunk)),
+    }
+}
+
 pub fn decompile_bytecode_with_script_name(
     bytecode: &[u8],
     encode_key: u8,
@@ -222,6 +237,45 @@ pub fn try_decompile_bytecode_with_options(
     script_name: Option<&str>,
     options: DecompileOptions,
 ) -> Result<String, String> {
+    try_decompile_bytecode_internal(bytecode, encode_key, script_name, options, false)
+        .map(|artifact| artifact.source)
+}
+
+#[derive(Clone, Debug)]
+pub struct DecompileArtifact {
+    pub source: String,
+    pub upvalue_analysis: Option<upvalue_analysis::ScriptUpvalueAnalysis>,
+}
+
+pub fn try_decompile_bytecode_artifact(
+    bytecode: &[u8],
+    encode_key: u8,
+    script_name: Option<&str>,
+) -> Result<DecompileArtifact, String> {
+    try_decompile_bytecode_artifact_with_options(
+        bytecode,
+        encode_key,
+        script_name,
+        DecompileOptions::default(),
+    )
+}
+
+pub fn try_decompile_bytecode_artifact_with_options(
+    bytecode: &[u8],
+    encode_key: u8,
+    script_name: Option<&str>,
+    options: DecompileOptions,
+) -> Result<DecompileArtifact, String> {
+    try_decompile_bytecode_internal(bytecode, encode_key, script_name, options, true)
+}
+
+fn try_decompile_bytecode_internal(
+    bytecode: &[u8],
+    encode_key: u8,
+    script_name: Option<&str>,
+    options: DecompileOptions,
+    emit_upvalue_analysis: bool,
+) -> Result<DecompileArtifact, String> {
     // Reset the per-thread local-id sequence so this decompilation's `RcLocal`
     // ids (and thus the FxHash-iteration order that depends on them, and the
     // generated local names) are independent of any earlier work this thread
@@ -232,13 +286,30 @@ pub fn try_decompile_bytecode_with_options(
     let chunk =
         deserializer::deserialize(bytecode, encode_key).map_err(|e| format!("deserialize: {e}"))?;
     match chunk {
-        Bytecode::Error(msg) => Ok(msg),
+        Bytecode::Error(msg) => Ok(DecompileArtifact {
+            source: msg,
+            upvalue_analysis: None,
+        }),
         Bytecode::Chunk(chunk) => {
+            validate_prototype_graph(&chunk.functions, chunk.main)?;
+            let raw_upvalue_analysis =
+                emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
             let mut lifted = Vec::new();
-            let mut stack = vec![(Arc::<Mutex<ast::Function>>::default(), chunk.main)];
-            while let Some((ast_func, func_id)) = stack.pop() {
-                let (function, upvalues, child_functions) =
-                    Lifter::lift(&chunk.functions, &chunk.string_table, func_id);
+            let root_function_id = emit_upvalue_analysis.then(|| format!("root:p{}", chunk.main));
+            let root_function = Arc::<Mutex<ast::Function>>::default();
+            if let Some(root_function_id) = root_function_id.as_ref() {
+                let mut root = root_function.lock();
+                root.bytecode_proto_id = Some(chunk.main);
+                root.bytecode_function_id = Some(root_function_id.clone());
+            }
+            let mut stack = vec![(root_function, chunk.main, root_function_id)];
+            while let Some((ast_func, func_id, static_function_id)) = stack.pop() {
+                let (function, upvalues, child_functions) = Lifter::lift(
+                    &chunk.functions,
+                    &chunk.string_table,
+                    func_id,
+                    static_function_id,
+                );
                 lifted.push((ast_func, function, upvalues));
                 // The whole-program decompile order determines the monotonic
                 // local-id assignment and thus the generated local names, so it
@@ -249,9 +320,9 @@ pub fn try_decompile_bytecode_with_options(
                 // order independent of heap addresses.
                 let mut children = child_functions
                     .into_iter()
-                    .map(|(a, f)| (a.0, f))
+                    .map(|(a, f, function_id)| (a.0, f, function_id))
                     .collect::<Vec<_>>();
-                children.sort_by_key(|&(_, func_index)| func_index);
+                children.sort_by_key(|&(_, func_index, _)| func_index);
                 stack.extend(children);
             }
 
@@ -358,9 +429,13 @@ pub fn try_decompile_bytecode_with_options(
             let main = ByAddress(main);
             upvalues.remove(&main);
             let mut body = Arc::try_unwrap(main.0).unwrap().into_inner().body;
+            let mut linked_upvalue_bindings = BTreeMap::new();
             {
                 ptime!(S_LINK_UPVALUES);
                 link_upvalues(&mut body, &mut upvalues);
+                if emit_upvalue_analysis {
+                    collect_linked_upvalue_bindings(&mut body, &mut linked_upvalue_bindings);
+                }
             }
             // Reverse continuation cloning introduced while structuring inlined
             // early returns.  This is the structured cross-jumping half of P1:
@@ -541,16 +616,143 @@ pub fn try_decompile_bytecode_with_options(
                         .to_string(),
                 );
             }
-            let out = {
+            let (out, source_occurrences) = {
                 ptime!(S_FORMAT);
-                body.to_string()
+                if emit_upvalue_analysis {
+                    ast::formatter::format_with_source_map(&body, Default::default())
+                        .map_err(|_| "formatting failed".to_string())?
+                } else {
+                    (body.to_string(), Vec::new())
+                }
             };
             if prof::on() {
                 prof::dump();
             }
-            Ok(out)
+            let upvalue_analysis = raw_upvalue_analysis.map(|raw| {
+                upvalue_analysis::reconcile_bindings(
+                    raw,
+                    &linked_upvalue_bindings,
+                    &out,
+                    &source_occurrences,
+                )
+            });
+            Ok(DecompileArtifact {
+                source: out,
+                upvalue_analysis,
+            })
         }
     }
+}
+
+fn validate_prototype_graph(
+    functions: &[deserializer::function::Function],
+    main: usize,
+) -> Result<(), String> {
+    if main >= functions.len() {
+        return Err(format!(
+            "malformed prototype graph: main prototype {main} is outside {} prototypes",
+            functions.len()
+        ));
+    }
+
+    // Build the graph from both the serialized child table and the closure
+    // constructors that actually instantiate prototypes. DUPCLOSURE edges live
+    // in Constant::Closure and are not represented by Function::functions.
+    let mut adjacency = vec![Vec::new(); functions.len()];
+    for (parent, function) in functions.iter().enumerate() {
+        for &child in &function.functions {
+            if child >= functions.len() {
+                return Err(format!(
+                    "malformed prototype graph: prototype {parent} references out-of-range child {child}"
+                ));
+            }
+            adjacency[parent].push(child);
+        }
+        for instruction in &function.instructions {
+            let crate::instruction::Instruction::AD { op_code, d, .. } = instruction else {
+                continue;
+            };
+            if !matches!(
+                op_code,
+                crate::op_code::OpCode::LOP_NEWCLOSURE | crate::op_code::OpCode::LOP_DUPCLOSURE
+            ) {
+                continue;
+            }
+            let index = usize::try_from(*d).map_err(|_| {
+                format!(
+                    "malformed prototype graph: prototype {parent} has negative {op_code:?} index {d}"
+                )
+            })?;
+            let child = match op_code {
+                crate::op_code::OpCode::LOP_NEWCLOSURE => {
+                    *function.functions.get(index).ok_or_else(|| {
+                        format!(
+                            "malformed prototype graph: prototype {parent} NEWCLOSURE references out-of-range child-table index {index}"
+                        )
+                    })?
+                }
+                crate::op_code::OpCode::LOP_DUPCLOSURE => {
+                    match function.constants.get(index) {
+                        Some(deserializer::constant::Constant::Closure(child)) => *child,
+                        Some(_) => {
+                            return Err(format!(
+                                "malformed prototype graph: prototype {parent} DUPCLOSURE constant {index} is not a closure"
+                            ));
+                        }
+                        None => {
+                            return Err(format!(
+                                "malformed prototype graph: prototype {parent} DUPCLOSURE references out-of-range constant {index}"
+                            ));
+                        }
+                    }
+                }
+                _ => continue,
+            };
+            if child >= functions.len() {
+                return Err(format!(
+                    "malformed prototype graph: prototype {parent} closure constructor references out-of-range child {child}"
+                ));
+            }
+            adjacency[parent].push(child);
+        }
+        adjacency[parent].sort_unstable();
+        adjacency[parent].dedup();
+    }
+
+    // Validate every prototype, including unreachable ones, so malformed chunks
+    // cannot become dangerous if a later pass changes traversal roots.
+    let mut state = vec![0u8; functions.len()];
+    for start in 0..functions.len() {
+        if state[start] != 0 {
+            continue;
+        }
+        state[start] = 1;
+        let mut stack = vec![(start, 0usize)];
+        while let Some((proto, next_child)) = stack.last_mut() {
+            let children = &adjacency[*proto];
+            if *next_child == children.len() {
+                state[*proto] = 2;
+                stack.pop();
+                continue;
+            }
+            let parent = *proto;
+            let child = children[*next_child];
+            *next_child += 1;
+            match state[child] {
+                0 => {
+                    state[child] = 1;
+                    stack.push((child, 0));
+                }
+                1 => {
+                    return Err(format!(
+                        "malformed prototype graph: cycle from prototype {parent} to ancestor {child}"
+                    ));
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
 }
 
 /// One script to decompile as part of a [`decompile_batch`] call.
@@ -765,7 +967,7 @@ fn decompile_function(
 
 #[cfg(test)]
 mod option_tests {
-    use super::{DecompileOptions, ASSUME_NO_NAN, DONT_REUSE_VAR, NO_SYNTH_HELPERS};
+    use super::{ASSUME_NO_NAN, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS};
 
     #[test]
     fn decompile_option_bits_round_trip() {
@@ -805,6 +1007,7 @@ mod v11_fixtures {
     const CALL: u8 = 21;
     const RETURN: u8 = 22;
     const NEWTABLE: u8 = 53; // aux
+    const DUPCLOSURE: u8 = crate::op_code::OpCode::LOP_DUPCLOSURE as u8;
     const GETUDATAKS: u8 = 83; // aux
     const SETUDATAKS: u8 = 84; // aux
     const NAMECALLUDATA: u8 = 85; // aux
@@ -839,6 +1042,12 @@ mod v11_fixtures {
         let mut v = vec![3u8];
         v.extend(leb128(string_index_1based));
         v
+    }
+
+    fn const_closure(proto_id: u64) -> Vec<u8> {
+        let mut value = vec![6u8];
+        value.extend(leb128(proto_id));
+        value
     }
 
     #[derive(Default)]
@@ -930,6 +1139,77 @@ mod v11_fixtures {
         let blob = build_chunk(11, 1, &[], &[simple_return_proto(vec![])], 0);
         let out = decompile(&blob, 1, None).expect("v11 empty-feedback chunk must deserialize");
         assert!(out.contains("return"), "got: {out:?}");
+    }
+
+    #[test]
+    fn cyclic_prototype_graph_is_rejected_before_lifting() {
+        let mut self_cycle = simple_return_proto(vec![]);
+        self_cycle.child_protos.push(0);
+        let error = decompile(&build_chunk(11, 1, &[], &[self_cycle], 0), 1, None)
+            .expect_err("self-referencing prototype must be rejected");
+        assert!(error.contains("prototype graph: cycle"), "{error}");
+
+        let mut first = simple_return_proto(vec![]);
+        first.child_protos.push(1);
+        let mut second = simple_return_proto(vec![]);
+        second.child_protos.push(0);
+        let error = decompile(&build_chunk(11, 1, &[], &[first, second], 0), 1, None)
+            .expect_err("mutually recursive prototype references must be rejected");
+        assert!(error.contains("prototype graph: cycle"), "{error}");
+    }
+
+    #[test]
+    fn out_of_range_child_prototype_is_rejected_before_lifting() {
+        let mut invalid = simple_return_proto(vec![]);
+        invalid.child_protos.push(7);
+        let error = decompile(&build_chunk(11, 1, &[], &[invalid], 0), 1, None)
+            .expect_err("out-of-range child prototype must be rejected");
+        assert!(error.contains("out-of-range child 7"), "{error}");
+    }
+
+    #[test]
+    fn dupclosure_self_cycle_is_rejected_before_lifting() {
+        let proto = Proto {
+            max_stack: 1,
+            words: vec![ad(DUPCLOSURE, 0, 0), abc(RETURN, 0, 2, 0)],
+            constants: vec![const_closure(0)],
+            ..Default::default()
+        };
+        let error = decompile(&build_chunk(11, 1, &[], &[proto], 0), 1, None)
+            .expect_err("DUPCLOSURE self-cycle must be rejected");
+        assert!(error.contains("prototype graph: cycle"), "{error}");
+    }
+
+    #[test]
+    fn dupclosure_mutual_cycle_is_rejected_before_lifting() {
+        let first = Proto {
+            max_stack: 1,
+            words: vec![ad(DUPCLOSURE, 0, 0), abc(RETURN, 0, 2, 0)],
+            constants: vec![const_closure(1)],
+            ..Default::default()
+        };
+        let second = Proto {
+            max_stack: 1,
+            words: vec![ad(DUPCLOSURE, 0, 0), abc(RETURN, 0, 2, 0)],
+            constants: vec![const_closure(0)],
+            ..Default::default()
+        };
+        let error = decompile(&build_chunk(11, 1, &[], &[first, second], 0), 1, None)
+            .expect_err("mutual DUPCLOSURE cycle must be rejected");
+        assert!(error.contains("prototype graph: cycle"), "{error}");
+    }
+
+    #[test]
+    fn dupclosure_out_of_range_target_is_rejected_before_lifting() {
+        let proto = Proto {
+            max_stack: 1,
+            words: vec![ad(DUPCLOSURE, 0, 0), abc(RETURN, 0, 2, 0)],
+            constants: vec![const_closure(7)],
+            ..Default::default()
+        };
+        let error = decompile(&build_chunk(11, 1, &[], &[proto], 0), 1, None)
+            .expect_err("out-of-range DUPCLOSURE target must be rejected");
+        assert!(error.contains("out-of-range child 7"), "{error}");
     }
 
     #[test]
@@ -1315,7 +1595,7 @@ mod v11_fixtures {
 
 #[cfg(test)]
 mod correctness_regressions {
-    use base64::prelude::{Engine as _, BASE64_STANDARD};
+    use base64::prelude::{BASE64_STANDARD, Engine as _};
 
     /// Compiled with `luau-compile --binary -O2 -g0` from a closure that rebuilds
     /// a captured table, followed by a numeric loop that reads it inside an outer
@@ -1402,6 +1682,52 @@ fn link_upvalues(
             }
             ast::Statement::GenericFor(generic_for) => {
                 link_upvalues(&mut generic_for.block.lock(), upvalues);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_linked_upvalue_bindings(
+    body: &mut ast::Block,
+    linked_bindings: &mut BTreeMap<String, Vec<Vec<ast::RcLocal>>>,
+) {
+    for stat in &mut body.0 {
+        stat.traverse_rvalues(&mut |rvalue| {
+            if let ast::RValue::Closure(closure) = rvalue {
+                let mut function = closure.function.lock();
+                if let Some(function_id) = function.bytecode_function_id.clone() {
+                    linked_bindings.entry(function_id).or_default().push(
+                        closure
+                            .upvalues
+                            .iter()
+                            .map(|upvalue| match upvalue {
+                                ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => {
+                                    local.clone()
+                                }
+                            })
+                            .collect(),
+                    );
+                }
+                collect_linked_upvalue_bindings(&mut function.body, linked_bindings);
+            }
+        });
+        match stat {
+            ast::Statement::If(r#if) => {
+                collect_linked_upvalue_bindings(&mut r#if.then_block.lock(), linked_bindings);
+                collect_linked_upvalue_bindings(&mut r#if.else_block.lock(), linked_bindings);
+            }
+            ast::Statement::While(r#while) => {
+                collect_linked_upvalue_bindings(&mut r#while.block.lock(), linked_bindings);
+            }
+            ast::Statement::Repeat(repeat) => {
+                collect_linked_upvalue_bindings(&mut repeat.block.lock(), linked_bindings);
+            }
+            ast::Statement::NumericFor(numeric_for) => {
+                collect_linked_upvalue_bindings(&mut numeric_for.block.lock(), linked_bindings);
+            }
+            ast::Statement::GenericFor(generic_for) => {
+                collect_linked_upvalue_bindings(&mut generic_for.block.lock(), linked_bindings);
             }
             _ => {}
         }

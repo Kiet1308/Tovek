@@ -5,9 +5,9 @@ use parking_lot::Mutex;
 use triomphe::Arc;
 
 use crate::{
+    Block, Literal, LocalRw, RcLocal, Reduce, SideEffects, Traverse, Type,
     formatter::Formatter,
     type_system::{Infer, TypeSystem},
-    Block, Literal, LocalRw, RcLocal, Reduce, SideEffects, Traverse, Type,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -18,6 +18,20 @@ pub enum Upvalue {
 
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct Function {
+    /// Index of the Luau bytecode prototype this function was lifted from.
+    ///
+    /// The same prototype can be instantiated at several closure sites (most
+    /// notably after `-O2` inlining), so pointer identity is not sufficient to
+    /// recognise equivalent closure constructors. Keeping the prototype id lets
+    /// the de-inliner compare those constructors exactly, together with their
+    /// capture modes and mapped upvalues. Functions synthesized by AST cleanup
+    /// passes deliberately leave this as `None`.
+    pub bytecode_proto_id: Option<usize>,
+    /// Deterministic static occurrence id inside one immutable analysis artifact.
+    ///
+    /// Unlike `bytecode_proto_id`, this distinguishes multiple closure sites that
+    /// instantiate the same prototype. Synthetic functions leave it as `None`.
+    pub bytecode_function_id: Option<String>,
     pub name: Option<String>,
     pub parameters: Vec<RcLocal>,
     pub is_variadic: bool,
@@ -61,6 +75,8 @@ impl fmt::Display for Closure {
             indentation_mode: Default::default(),
             output: f,
             colon_method_calls: Vec::new(),
+            position_query: None,
+            closure_observer: None,
         }
         .format_closure(self)
     }

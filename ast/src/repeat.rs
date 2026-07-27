@@ -1,7 +1,7 @@
 use parking_lot::Mutex;
 use triomphe::Arc;
 
-use crate::{formatter::Formatter, has_side_effects, Block, LocalRw, RValue, RcLocal, Traverse};
+use crate::{Block, LocalRw, RValue, RcLocal, Traverse, formatter::Formatter, has_side_effects};
 use std::fmt;
 
 // TODO: move condition after block
@@ -56,6 +56,8 @@ impl fmt::Display for Repeat {
             indentation_mode: Default::default(),
             output: f,
             colon_method_calls: Vec::new(),
+            position_query: None,
+            closure_observer: None,
         }
         .format_repeat(self)
     }

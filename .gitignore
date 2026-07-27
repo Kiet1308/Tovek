@@ -16,6 +16,7 @@ result.lua
 *_out.txt
 *_out.json
 *.bin
+/_trace_*
 
 # Editors / IDEs
 .idea/

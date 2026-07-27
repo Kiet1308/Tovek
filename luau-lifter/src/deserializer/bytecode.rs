@@ -1,4 +1,4 @@
-use nom::{bytes::complete::take, number::complete::le_u8, IResult};
+use nom::{IResult, bytes::complete::take, number::complete::le_u8};
 
 use super::chunk::Chunk;
 
@@ -26,7 +26,10 @@ impl Bytecode {
                 let (input, chunk) = Chunk::parse(input, encode_key, status_code)?;
                 Ok((input, Bytecode::Chunk(chunk)))
             }
-            _ => panic!("Unsupported bytecode version: {}", status_code),
+            _ => Err(nom::Err::Failure(nom::error::Error::new(
+                input,
+                nom::error::ErrorKind::Verify,
+            ))),
         }
     }
 }

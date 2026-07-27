@@ -27,6 +27,9 @@ triomphe = "0.1.8"
 parking_lot = "0.12.1"
 walkdir = "2.3.2"
 base64 = "0.22.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
 
 # mimalloc (the binary's global allocator) builds C source and has no wasm32
 # target, so it must NOT be pulled into the `luau-worker` wasm cdylib build that
@@ -35,6 +38,7 @@ base64 = "0.22.1"
 # (`luau-lifter`) are never built for wasm.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 mimalloc = "0.1.52"
+fs2 = "0.4.3"
 
 [features]
 dhat-heap = []

@@ -75,6 +75,15 @@ struct FolderArgs {
     /// Faster/cleaner output, but changes behavior when either operand is NaN.
     #[arg(long)]
     assume_no_nan: bool,
+    /// Emit immutable static upvalue metadata under OUT/.tovek-analysis.
+    #[arg(long)]
+    emit_upvalue_analysis: bool,
+    /// Source extension written by the folder decompiler.
+    #[arg(long, default_value = "luau", value_parser = ["lua", "luau"])]
+    output_extension: String,
+    /// Volt exporter manifest used to exclude source fallbacks from bytecode analysis.
+    #[arg(long)]
+    export_manifest: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -136,7 +145,17 @@ fn main() {
                     no_synth_helpers: a.no_synth_helpers,
                     assume_no_nan: a.assume_no_nan,
                 };
-                let code = batch::run(&a.src, &a.out, key, a.threads, a.verbose, options);
+                let code = batch::run(
+                    &a.src,
+                    &a.out,
+                    key,
+                    a.threads,
+                    a.verbose,
+                    options,
+                    a.emit_upvalue_analysis,
+                    &a.output_extension,
+                    a.export_manifest.as_deref(),
+                );
                 std::process::exit(code);
             }
             _ => unreachable!("argv[1] dispatch guarantees the DecompileFolder variant"),

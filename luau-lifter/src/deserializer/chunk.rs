@@ -1,12 +1,13 @@
 use super::{function::Function, list::parse_list, parse_string};
+use nom::IResult;
 use nom::character::complete::char;
 use nom::multi::many_till;
 use nom::number::complete::le_u8;
-use nom::IResult;
 use nom_leb128::leb128_usize;
 
 #[derive(Debug)]
 pub struct Chunk {
+    pub version: u8,
     pub string_table: Vec<Vec<u8>>,
     pub functions: Vec<Function>,
     pub main: usize,
@@ -20,7 +21,10 @@ impl Chunk {
             (input, 0)
         };
         if types_version > 3 {
-            panic!("unsupported types version");
+            return Err(nom::Err::Failure(nom::error::Error::new(
+                input,
+                nom::error::ErrorKind::Verify,
+            )));
         }
         let (input, string_table) = parse_list(input, parse_string)?;
         let input = if types_version == 3 {
@@ -34,6 +38,7 @@ impl Chunk {
         Ok((
             input,
             Self {
+                version,
                 string_table,
                 functions,
                 main,

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{formatter::Formatter, LocalRw, RValue, RcLocal, Reduce, SideEffects, Traverse};
+use crate::{LocalRw, RValue, RcLocal, Reduce, SideEffects, Traverse, formatter::Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct IfExpression {
@@ -88,6 +88,8 @@ impl fmt::Display for IfExpression {
             indentation_mode: Default::default(),
             output: f,
             colon_method_calls: Vec::new(),
+            position_query: None,
+            closure_observer: None,
         }
         .format_if_expression(self)
     }

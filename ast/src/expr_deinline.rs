@@ -70,8 +70,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::deinline::{
-    anchors_in_rvalue, body_unsafe, canon, each_closure_decl, insert_def_markers,
-    is_scalar_return_value, stmt_rvalues, stmt_rvalues_mut, unify_rvalue, Bindings, MatchCtx,
+    Bindings, MatchCtx, anchors_in_rvalue, body_unsafe, canon, each_closure_decl,
+    insert_def_markers, is_scalar_return_value, stmt_rvalues, stmt_rvalues_mut, unify_rvalue,
 };
 use crate::{Block, Call, Function, LValue, LocalRw, RValue, RcLocal, Statement, Traverse};
 
@@ -634,6 +634,8 @@ mod tests {
         body: Vec<Statement>,
     ) -> Statement {
         let func = Arc::new(Mutex::new(Function {
+            bytecode_proto_id: None,
+            bytecode_function_id: None,
             name: Some(name.to_string()),
             parameters: params,
             is_variadic: false,

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{formatter::Formatter, RcLocal, SideEffects, Traverse};
+use crate::{RcLocal, SideEffects, Traverse, formatter::Formatter};
 
 use super::{LValue, LocalRw, RValue};
 
@@ -80,6 +80,8 @@ impl fmt::Display for Assign {
             indentation_mode: Default::default(),
             output: f,
             colon_method_calls: Vec::new(),
+            position_query: None,
+            closure_observer: None,
         }
         .format_assign(self)
     }

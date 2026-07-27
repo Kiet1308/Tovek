@@ -1,4 +1,4 @@
-use crate::{formatter::Formatter, has_side_effects, LocalRw, RcLocal, Traverse};
+use crate::{LocalRw, RcLocal, Traverse, formatter::Formatter, has_side_effects};
 
 use super::RValue;
 use std::fmt;
@@ -56,6 +56,8 @@ impl fmt::Display for Index {
             indentation_mode: Default::default(),
             output: f,
             colon_method_calls: Vec::new(),
+            position_query: None,
+            closure_observer: None,
         }
         .format_index(self)
     }

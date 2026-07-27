@@ -162,6 +162,34 @@ renaming `.lua` → `.luau`):
 luau-lifter decompile-folder ./dump ./out          # -e/--key 203 is the default for this mode
 ```
 
+Volt/static-analysis mode writes clean `.lua` source directly and keeps all
+upvalue metadata in hidden sidecars. The Volt export manifest is authoritative,
+so source fallbacks are copied cleanly and never interpreted as bytecode:
+
+```sh
+luau-lifter decompile-folder ./dump ./out \
+  --output-extension lua \
+  --emit-upvalue-analysis \
+  --export-manifest ./dump/.volt-export-manifest.json
+```
+
+Analysis output lives under `./out/.tovek-analysis/`. It includes deterministic
+static function/site IDs, ordered zero-based VM upvalue slots, one-based ordinals,
+`VAL`/`REF`/`UPVAL` capture chains, final emitted names, and decompiled spans. No
+IDs, comments, or metadata are inserted into the decompiled source.
+Sidecars are content-addressed and hash-bound by the folder manifest, which is
+published last. Before that final publication, Tovek atomically publishes
+`.tovek-analysis/source-write-provenance.json`, a hidden generation-bound
+recovery snapshot. Its schema-v2 `sources` records bind every normalized output
+path to the authoritative SHA-256 and byte length committed by that generation;
+`generated_source_paths` remains as compatibility metadata. This makes a user
+edit after an interrupted generation distinguishable from Tovek-owned bytes,
+including writes completed before a later sidecar or manifest failure. It
+carries the same `generation_id` as a successful analysis manifest and, for
+Volt exports, the authoritative export-manifest SHA-256. A cross-process
+output-generation lock prevents overlapping folder runs from mixing source
+files and analysis generations.
+
 Decompile **and** validate every output with Luau's own parser:
 
 ```sh

@@ -4,8 +4,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::{
-    replace_locals::replace_locals, simplify_gotos::dc_block, Assign, Block, Function, LocalRw,
-    RValue, RcLocal, Statement, Traverse, Upvalue,
+    Assign, Block, Function, LocalRw, RValue, RcLocal, Statement, Traverse, Upvalue,
+    replace_locals::replace_locals, simplify_gotos::dc_block,
 };
 
 /// Materialize a by-value (`Upvalue::Copy`) capture of a LOOP-MUTATED local as an
@@ -170,6 +170,8 @@ fn snapshot_value_captures(
                 let cloned = {
                     let f = closure.function.0.lock();
                     Function {
+                        bytecode_proto_id: f.bytecode_proto_id,
+                        bytecode_function_id: f.bytecode_function_id.clone(),
                         name: f.name.clone(),
                         parameters: f.parameters.clone(),
                         is_variadic: f.is_variadic,

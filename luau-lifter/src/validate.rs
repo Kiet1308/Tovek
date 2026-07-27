@@ -16,7 +16,10 @@
 //! so `luau-ast` — which only ever processes its first argument and cannot be
 //! batched — is not used here.
 
-use crate::decompile_core::{build_work, precreate_dirs, process_one_capture, size_pool, Outcome};
+use crate::decompile_core::{
+    Outcome, acquire_output_generation_lock, build_work, invalidate_analysis_manifest,
+    precreate_dirs, process_one_capture, size_pool,
+};
 use luau_lifter::DecompileOptions;
 use rayon::prelude::*;
 use rustc_hash::FxHashMap;
@@ -85,7 +88,7 @@ pub fn run(
     }
 
     // ---- Phase A: discover + decompile in parallel --------------------------
-    let (_src_root, _out_root, mut work) = match build_work(src, out) {
+    let (_src_root, out_root, mut work) = match build_work(src, out) {
         Ok(t) => t,
         Err(code) => return code,
     };
@@ -99,6 +102,19 @@ pub fn run(
         eprintln!("no .lua files found under {}", src.display());
     }
 
+    let generation_lock = match acquire_output_generation_lock(&out_root) {
+        Ok(lock) => lock,
+        Err(error) => {
+            eprintln!("error: acquire output generation lock: {error}");
+            return 2;
+        }
+    };
+    if !work.is_empty() {
+        if let Err(error) = invalidate_analysis_manifest(generation_lock.output_root()) {
+            eprintln!("error: invalidate previous analysis manifest: {error}");
+            return 2;
+        }
+    }
     if let Err(code) = precreate_dirs(&work) {
         return code;
     }

@@ -183,7 +183,7 @@ impl Instruction {
                 c: 0,
                 aux: 0,
             }),
-            _ => unreachable!("{}", op_code),
+            _ => Err(nom::error::ErrorKind::Tag),
         }
     }
 

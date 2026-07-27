@@ -353,11 +353,13 @@ mod tests {
                 string("c"),
             ))
         };
-        let block = Block(vec![Assign::new(
-            vec![abc().into_lvalue().unwrap()],
-            vec![binary(abc(), number(1.0), BinaryOperation::Add)],
-        )
-        .into()]);
+        let block = Block(vec![
+            Assign::new(
+                vec![abc().into_lvalue().unwrap()],
+                vec![binary(abc(), number(1.0), BinaryOperation::Add)],
+            )
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "a.b.c += 1");
     }
@@ -368,15 +370,17 @@ mod tests {
         let t = local("t");
         let key = || RValue::Call(Call::new(global("f"), vec![]));
         let lhs = || Index::new(local_value(&t), key());
-        let block = Block(vec![Assign::new(
-            vec![LValue::Index(lhs())],
-            vec![binary(
-                RValue::Index(lhs()),
-                number(1.0),
-                BinaryOperation::Add,
-            )],
-        )
-        .into()]);
+        let block = Block(vec![
+            Assign::new(
+                vec![LValue::Index(lhs())],
+                vec![binary(
+                    RValue::Index(lhs()),
+                    number(1.0),
+                    BinaryOperation::Add,
+                )],
+            )
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "t[f()] = t[f()] + 1");
     }
@@ -386,15 +390,17 @@ mod tests {
         // `getT().k = getT().k + 1` stays — the base call would be evaluated twice.
         let base = || RValue::Call(Call::new(global("getT"), vec![]));
         let lhs = || Index::new(base(), string("k"));
-        let block = Block(vec![Assign::new(
-            vec![LValue::Index(lhs())],
-            vec![binary(
-                RValue::Index(lhs()),
-                number(1.0),
-                BinaryOperation::Add,
-            )],
-        )
-        .into()]);
+        let block = Block(vec![
+            Assign::new(
+                vec![LValue::Index(lhs())],
+                vec![binary(
+                    RValue::Index(lhs()),
+                    number(1.0),
+                    BinaryOperation::Add,
+                )],
+            )
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "(getT()).k = (getT()).k + 1");
     }
@@ -413,15 +419,17 @@ mod tests {
                 string("k"),
             )
         };
-        let block = Block(vec![Assign::new(
-            vec![LValue::Index(lhs())],
-            vec![binary(
-                RValue::Index(lhs()),
-                number(1.0),
-                BinaryOperation::Add,
-            )],
-        )
-        .into()]);
+        let block = Block(vec![
+            Assign::new(
+                vec![LValue::Index(lhs())],
+                vec![binary(
+                    RValue::Index(lhs()),
+                    number(1.0),
+                    BinaryOperation::Add,
+                )],
+            )
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "t[g()].k = t[g()].k + 1");
     }
@@ -432,15 +440,17 @@ mod tests {
         // the LHS and the binary's left operand are not the same location.
         let t = local("t");
         let t2 = local("t2");
-        let block = Block(vec![Assign::new(
-            vec![LValue::Index(Index::new(local_value(&t), string("k")))],
-            vec![binary(
-                RValue::Index(Index::new(local_value(&t2), string("k"))),
-                number(1.0),
-                BinaryOperation::Add,
-            )],
-        )
-        .into()]);
+        let block = Block(vec![
+            Assign::new(
+                vec![LValue::Index(Index::new(local_value(&t), string("k")))],
+                vec![binary(
+                    RValue::Index(Index::new(local_value(&t2), string("k"))),
+                    number(1.0),
+                    BinaryOperation::Add,
+                )],
+            )
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "t.k = t2.k + 1");
     }
@@ -450,15 +460,17 @@ mod tests {
         // `t.k = t.j + 1` stays — same base local, different key, so the LHS and
         // the binary's left operand denote different locations.
         let t = local("t");
-        let block = Block(vec![Assign::new(
-            vec![LValue::Index(Index::new(local_value(&t), string("k")))],
-            vec![binary(
-                RValue::Index(Index::new(local_value(&t), string("j"))),
-                number(1.0),
-                BinaryOperation::Add,
-            )],
-        )
-        .into()]);
+        let block = Block(vec![
+            Assign::new(
+                vec![LValue::Index(Index::new(local_value(&t), string("k")))],
+                vec![binary(
+                    RValue::Index(Index::new(local_value(&t), string("j"))),
+                    number(1.0),
+                    BinaryOperation::Add,
+                )],
+            )
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "t.k = t.j + 1");
     }
@@ -499,10 +511,9 @@ mod tests {
     fn escape_string_keeps_apostrophe_bare_inside_double_quotes() {
         // The delimiter is always `"`, so a `'` is the same byte whether written
         // `'` or `\'`. The formatter must emit a bare `'` (idiomatic, value-exact).
-        let block = Block(vec![Return::new(vec![string(
-            "No part tagged 'BossPortal' found",
-        )])
-        .into()]);
+        let block = Block(vec![
+            Return::new(vec![string("No part tagged 'BossPortal' found")]).into(),
+        ]);
         assert_eq!(
             block.to_string(),
             "return \"No part tagged 'BossPortal' found\""
@@ -524,14 +535,14 @@ mod tests {
         let a = local("a");
         let b = local("b");
         let c = local("c");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(
-            MethodCall::new(
+        let block = Block(vec![
+            Return::new(vec![RValue::MethodCall(MethodCall::new(
                 string("[%*] %* [%*kg]"),
                 "format".to_string(),
                 vec![local_value(&a), local_value(&b), local_value(&c)],
-            ),
-        )])
-        .into()]);
+            ))])
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "return `[{a}] {b} [{c}kg]`");
     }
@@ -540,14 +551,14 @@ mod tests {
     fn format_interpolation_double_percent_becomes_literal_percent() {
         // `("100%% %*"):format(x)` -> `` `100% {x}` ``
         let x = local("x");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(
-            MethodCall::new(
+        let block = Block(vec![
+            Return::new(vec![RValue::MethodCall(MethodCall::new(
                 string("100%% %*"),
                 "format".to_string(),
                 vec![local_value(&x)],
-            ),
-        )])
-        .into()]);
+            ))])
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "return `100% {x}`");
     }
@@ -556,14 +567,14 @@ mod tests {
     fn format_interpolation_aborts_on_other_specifier() {
         // A `%d` is not `%*`; keep the normal `:format` call unchanged.
         let x = local("x");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(
-            MethodCall::new(
+        let block = Block(vec![
+            Return::new(vec![RValue::MethodCall(MethodCall::new(
                 string("count: %d"),
                 "format".to_string(),
                 vec![local_value(&x)],
-            ),
-        )])
-        .into()]);
+            ))])
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "return (\"count: %d\"):format(x)");
     }
@@ -572,14 +583,14 @@ mod tests {
     fn format_interpolation_aborts_on_arity_mismatch() {
         // Two `%*` but only one argument — abort to `:format`.
         let x = local("x");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(
-            MethodCall::new(
+        let block = Block(vec![
+            Return::new(vec![RValue::MethodCall(MethodCall::new(
                 string("%* and %*"),
                 "format".to_string(),
                 vec![local_value(&x)],
-            ),
-        )])
-        .into()]);
+            ))])
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "return (\"%* and %*\"):format(x)");
     }
@@ -589,14 +600,14 @@ mod tests {
         // Static `` ` ``, `{` must be escaped inside the backtick string; `"`, `'`,
         // and `}` stay bare.
         let x = local("x");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(
-            MethodCall::new(
+        let block = Block(vec![
+            Return::new(vec![RValue::MethodCall(MethodCall::new(
                 string("a`b{c} \"d\" 'e' %*"),
                 "format".to_string(),
                 vec![local_value(&x)],
-            ),
-        )])
-        .into()]);
+            ))])
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "return `a\\`b\\{c} \"d\" 'e' {x}`");
     }
@@ -607,40 +618,44 @@ mod tests {
         // shape: the call argument is rendered via the normal rvalue path.
         let fruit = local("fruit");
         let weight = local("weight");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(
-            MethodCall::new(
+        let block = Block(vec![
+            Return::new(vec![RValue::MethodCall(MethodCall::new(
                 string("%* [%*kg]"),
                 "format".to_string(),
                 vec![
                     local_value(&fruit),
                     RValue::Call(Call::new(global("tostring"), vec![local_value(&weight)])),
                 ],
-            ),
-        )])
-        .into()]);
+            ))])
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "return `{fruit} [{tostring(weight)}kg]`");
     }
 
     #[test]
     fn formats_infinity_literals_as_math_huge() {
-        let block = Block(vec![Return::new(vec![
-            RValue::Literal(Literal::Number(f64::INFINITY)),
-            RValue::Literal(Literal::Number(f64::NEG_INFINITY)),
-        ])
-        .into()]);
+        let block = Block(vec![
+            Return::new(vec![
+                RValue::Literal(Literal::Number(f64::INFINITY)),
+                RValue::Literal(Literal::Number(f64::NEG_INFINITY)),
+            ])
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "return math.huge, -math.huge");
     }
 
     #[test]
     fn formats_vector_infinity_components_as_math_huge() {
-        let block = Block(vec![Return::new(vec![RValue::Literal(Literal::Vector(
-            f32::INFINITY,
-            f32::NEG_INFINITY,
-            1.0,
-        ))])
-        .into()]);
+        let block = Block(vec![
+            Return::new(vec![RValue::Literal(Literal::Vector(
+                f32::INFINITY,
+                f32::NEG_INFINITY,
+                1.0,
+            ))])
+            .into(),
+        ]);
 
         assert_eq!(
             block.to_string(),
@@ -650,12 +665,14 @@ mod tests {
 
     #[test]
     fn wraps_negative_infinity_when_precedence_requires_it() {
-        let block = Block(vec![Return::new(vec![RValue::Binary(Binary::new(
-            RValue::Literal(Literal::Number(2.0)),
-            RValue::Literal(Literal::Number(f64::NEG_INFINITY)),
-            BinaryOperation::Pow,
-        ))])
-        .into()]);
+        let block = Block(vec![
+            Return::new(vec![RValue::Binary(Binary::new(
+                RValue::Literal(Literal::Number(2.0)),
+                RValue::Literal(Literal::Number(f64::NEG_INFINITY)),
+                BinaryOperation::Pow,
+            ))])
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "return 2 ^ (-math.huge)");
     }
@@ -714,11 +731,9 @@ mod tests {
                 &module,
                 "DisableCollision",
                 vec![ignored.clone(), folder.clone()],
-                Block(vec![Assign::new(
-                    vec![LValue::Local(ignored)],
-                    vec![local_value(&folder)],
-                )
-                .into()]),
+                Block(vec![
+                    Assign::new(vec![LValue::Local(ignored)], vec![local_value(&folder)]).into(),
+                ]),
             ),
             method_call(&module, "DisableCollision", vec![local_value(&target)]),
         ]);
@@ -741,11 +756,9 @@ mod tests {
                 &module,
                 "DisableCollision",
                 vec![ignored.clone(), folder.clone()],
-                Block(vec![closure_call(Block(vec![Assign::new(
-                    vec![LValue::Local(ignored)],
-                    vec![local_value(&folder)],
-                )
-                .into()]))]),
+                Block(vec![closure_call(Block(vec![
+                    Assign::new(vec![LValue::Local(ignored)], vec![local_value(&folder)]).into(),
+                ]))]),
             ),
             method_call(&module, "DisableCollision", vec![local_value(&target)]),
         ]);
@@ -773,12 +786,14 @@ mod tests {
                 &module,
                 "DisableCollision",
                 vec![ignored.clone(), folder],
-                Block(vec![If::new(
-                    boolean(true),
-                    Block(vec![Return::new(vec![local_value(&ignored)]).into()]),
-                    Block::default(),
-                )
-                .into()]),
+                Block(vec![
+                    If::new(
+                        boolean(true),
+                        Block(vec![Return::new(vec![local_value(&ignored)]).into()]),
+                        Block::default(),
+                    )
+                    .into(),
+                ]),
             ),
             method_call(&module, "DisableCollision", vec![local_value(&target)]),
         ]);
@@ -868,11 +883,13 @@ mod tests {
             &module,
             "GetValue",
             vec![self_param.clone()],
-            Block(vec![Return::new(vec![RValue::Index(Index::new(
-                local_value(&self_param),
-                string("Value"),
-            ))])
-            .into()]),
+            Block(vec![
+                Return::new(vec![RValue::Index(Index::new(
+                    local_value(&self_param),
+                    string("Value"),
+                ))])
+                .into(),
+            ]),
         )]);
 
         assert_eq!(
@@ -890,11 +907,13 @@ mod tests {
             &module,
             "GetValue",
             vec![object.clone()],
-            Block(vec![Return::new(vec![RValue::Index(Index::new(
-                local_value(&object),
-                string("Value"),
-            ))])
-            .into()]),
+            Block(vec![
+                Return::new(vec![RValue::Index(Index::new(
+                    local_value(&object),
+                    string("Value"),
+                ))])
+                .into(),
+            ]),
         )]);
 
         assert_eq!(
@@ -905,17 +924,19 @@ mod tests {
 
     #[test]
     fn still_formats_regular_global_function_assignments() {
-        let block = Block(vec![Assign::new(
-            vec![LValue::Global(Global::from("make"))],
-            vec![RValue::Closure(Closure {
-                function: ByAddress(Arc::new(Mutex::new(Function {
-                    body: Block(vec![Return::new(vec![global("value")]).into()]),
-                    ..Default::default()
-                }))),
-                upvalues: Vec::new(),
-            })],
-        )
-        .into()]);
+        let block = Block(vec![
+            Assign::new(
+                vec![LValue::Global(Global::from("make"))],
+                vec![RValue::Closure(Closure {
+                    function: ByAddress(Arc::new(Mutex::new(Function {
+                        body: Block(vec![Return::new(vec![global("value")]).into()]),
+                        ..Default::default()
+                    }))),
+                    upvalues: Vec::new(),
+                })],
+            )
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "function make()\n\treturn value\nend");
     }
@@ -936,13 +957,12 @@ mod tests {
     #[test]
     fn formats_if_expression_in_return() {
         let flag = local("flag");
-        let block = Block(vec![Return::new(vec![IfExpression::new(
-            local_value(&flag),
-            string("A"),
-            string("B"),
-        )
-        .into()])
-        .into()]);
+        let block = Block(vec![
+            Return::new(vec![
+                IfExpression::new(local_value(&flag), string("A"), string("B")).into(),
+            ])
+            .into(),
+        ]);
 
         assert_eq!(block.to_string(), "return if flag then \"A\" else \"B\"");
     }
@@ -950,21 +970,26 @@ mod tests {
     #[test]
     fn formats_if_expression_in_table_field_and_call_arg() {
         let flag = local("flag");
-        let block = Block(vec![Return::new(vec![RValue::Table(Table(vec![
-            (
-                Some(string("Value")),
-                IfExpression::new(local_value(&flag), string("A"), string("B")).into(),
-            ),
-            (
-                Some(string("Printed")),
-                Call::new(
-                    global("print"),
-                    vec![IfExpression::new(local_value(&flag), string("yes"), string("no")).into()],
-                )
-                .into(),
-            ),
-        ]))])
-        .into()]);
+        let block = Block(vec![
+            Return::new(vec![RValue::Table(Table(vec![
+                (
+                    Some(string("Value")),
+                    IfExpression::new(local_value(&flag), string("A"), string("B")).into(),
+                ),
+                (
+                    Some(string("Printed")),
+                    Call::new(
+                        global("print"),
+                        vec![
+                            IfExpression::new(local_value(&flag), string("yes"), string("no"))
+                                .into(),
+                        ],
+                    )
+                    .into(),
+                ),
+            ]))])
+            .into(),
+        ]);
 
         assert_eq!(
             block.to_string(),
@@ -977,16 +1002,18 @@ mod tests {
         let flag = local("flag");
         let active = local("active");
         let inactive = local("inactive");
-        let block = Block(vec![Return::new(vec![RValue::Index(Index::new(
-            IfExpression::new(
-                local_value(&flag),
-                local_value(&active),
-                local_value(&inactive),
-            )
+        let block = Block(vec![
+            Return::new(vec![RValue::Index(Index::new(
+                IfExpression::new(
+                    local_value(&flag),
+                    local_value(&active),
+                    local_value(&inactive),
+                )
+                .into(),
+                string("Offset"),
+            ))])
             .into(),
-            string("Offset"),
-        ))])
-        .into()]);
+        ]);
 
         assert_eq!(
             block.to_string(),
@@ -1054,6 +1081,49 @@ mod tests {
 
         assert_eq!(block.to_string(), "a() -- mark\nb()");
     }
+
+    #[test]
+    fn source_map_records_assigned_callback_identity_and_final_binding() {
+        let remote = local("remote");
+        let captured = local("state");
+        let function = Function {
+            bytecode_proto_id: Some(1),
+            bytecode_function_id: Some("root:p0/p0@pc1:p1".to_string()),
+            ..Default::default()
+        };
+        let block = Block(vec![
+            Assign::new(
+                vec![LValue::Index(Index::new(
+                    local_value(&remote),
+                    string("OnClientInvoke"),
+                ))],
+                vec![RValue::Closure(Closure {
+                    function: ByAddress(Arc::new(Mutex::new(function))),
+                    upvalues: vec![crate::Upvalue::Ref(captured.clone())],
+                })],
+            )
+            .into(),
+        ]);
+
+        let (mapped, occurrences) = format_with_source_map(&block, IndentationMode::Tab).unwrap();
+        assert_eq!(mapped, block.to_string());
+        assert_eq!(occurrences.len(), 1);
+        let occurrence = &occurrences[0];
+        assert_eq!(occurrence.syntax_kind, ClosureSyntaxKind::AssignedClosure);
+        assert_eq!(
+            occurrence.display_name.as_deref(),
+            Some("remote.OnClientInvoke")
+        );
+        assert_eq!(occurrence.upvalue_bindings.len(), 1);
+        assert_eq!(
+            occurrence.upvalue_bindings[0].stable_id(),
+            captured.stable_id()
+        );
+        assert_eq!(
+            &mapped[occurrence.span.start.byte_offset..occurrence.span.end.byte_offset],
+            "function() end"
+        );
+    }
 }
 
 impl fmt::Display for IndentationMode {
@@ -1089,6 +1159,112 @@ pub struct Formatter<'a, W: fmt::Write> {
     pub(crate) indentation_mode: IndentationMode,
     pub(crate) output: &'a mut W,
     pub(crate) colon_method_calls: Vec<(RValue, String)>,
+    pub(crate) position_query: Option<fn(&W) -> SourcePosition>,
+    pub(crate) closure_observer: Option<&'a mut dyn ClosureObserver>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SourcePosition {
+    pub byte_offset: usize,
+    pub line_one_based: usize,
+    pub column_one_based: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SourceSpan {
+    pub start: SourcePosition,
+    pub end: SourcePosition,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClosureSourceOccurrence {
+    pub function_id: String,
+    pub syntax_kind: ClosureSyntaxKind,
+    pub display_name: Option<String>,
+    pub upvalue_bindings: Vec<RcLocal>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ClosureSyntaxKind {
+    Anonymous,
+    AssignedClosure,
+    LocalFunction,
+    NamedFunction,
+    MethodFunction,
+}
+
+pub trait ClosureObserver {
+    fn closure_emitted(&mut self, occurrence: ClosureSourceOccurrence);
+}
+
+struct PositionTrackingWriter<'a, W: fmt::Write> {
+    inner: &'a mut W,
+    position: SourcePosition,
+}
+
+impl<'a, W: fmt::Write> PositionTrackingWriter<'a, W> {
+    fn new(inner: &'a mut W) -> Self {
+        Self {
+            inner,
+            position: SourcePosition {
+                byte_offset: 0,
+                line_one_based: 1,
+                column_one_based: 1,
+            },
+        }
+    }
+}
+
+impl<W: fmt::Write> fmt::Write for PositionTrackingWriter<'_, W> {
+    fn write_str(&mut self, text: &str) -> fmt::Result {
+        self.inner.write_str(text)?;
+        self.position.byte_offset += text.len();
+        for character in text.chars() {
+            if character == '\n' {
+                self.position.line_one_based += 1;
+                self.position.column_one_based = 1;
+            } else {
+                self.position.column_one_based += 1;
+            }
+        }
+        Ok(())
+    }
+}
+
+fn tracked_position<W: fmt::Write>(writer: &PositionTrackingWriter<'_, W>) -> SourcePosition {
+    writer.position
+}
+
+struct VecClosureObserver<'a>(&'a mut Vec<ClosureSourceOccurrence>);
+
+impl ClosureObserver for VecClosureObserver<'_> {
+    fn closure_emitted(&mut self, occurrence: ClosureSourceOccurrence) {
+        self.0.push(occurrence);
+    }
+}
+
+pub fn format_with_source_map(
+    main: &Block,
+    indentation_mode: IndentationMode,
+) -> Result<(String, Vec<ClosureSourceOccurrence>), fmt::Error> {
+    let mut output = String::new();
+    let mut tracked = PositionTrackingWriter::new(&mut output);
+    let mut occurrences = Vec::new();
+    {
+        let mut observer = VecClosureObserver(&mut occurrences);
+        let mut formatter = Formatter {
+            indentation_level: 0,
+            indentation_mode,
+            output: &mut tracked,
+            colon_method_calls: collect_colon_method_calls(main),
+            position_query: Some(tracked_position::<String>),
+            closure_observer: Some(&mut observer),
+        };
+        formatter.format_block_no_indent(main)?;
+    }
+    occurrences.sort_by_key(|occurrence| occurrence.span.start.byte_offset);
+    Ok((output, occurrences))
 }
 
 fn collect_colon_method_calls(block: &Block) -> Vec<(RValue, String)> {
@@ -1167,6 +1343,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             indentation_mode,
             output,
             colon_method_calls: collect_colon_method_calls(main),
+            position_query: None,
+            closure_observer: None,
         };
         formatter.format_block_no_indent(main)
     }
@@ -1538,31 +1716,116 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_closure(&mut self, closure: &Closure) -> fmt::Result {
+        self.format_closure_with_identity(closure, ClosureSyntaxKind::Anonymous, None)
+    }
+
+    fn format_assigned_closure(&mut self, closure: &Closure, target: &LValue) -> fmt::Result {
+        let display_name = self.closure_observer.is_some().then(|| target.to_string());
+        self.format_closure_with_identity(closure, ClosureSyntaxKind::AssignedClosure, display_name)
+    }
+
+    fn format_closure_with_identity(
+        &mut self,
+        closure: &Closure,
+        syntax_kind: ClosureSyntaxKind,
+        display_name: Option<String>,
+    ) -> fmt::Result {
+        let start = self.current_position();
         write!(self.output, "function(")?;
         self.format_closure_parameters(closure)?;
         write!(self.output, ")")?;
         self.format_closure_body(closure)?;
-        write!(self.output, "end")
+        write!(self.output, "end")?;
+        self.record_closure(closure, start, syntax_kind, display_name);
+        Ok(())
     }
 
-    fn format_named_function(&mut self, name: &LValue, closure: &Closure) -> fmt::Result {
+    fn format_named_function(
+        &mut self,
+        name: &LValue,
+        closure: &Closure,
+        local_declaration: bool,
+    ) -> fmt::Result {
+        let start = self.current_position();
+        let (syntax_kind, display_name) =
+            self.format_named_function_inner(name, closure, local_declaration)?;
+        self.record_closure(closure, start, syntax_kind, display_name);
+        Ok(())
+    }
+
+    fn format_named_function_inner(
+        &mut self,
+        name: &LValue,
+        closure: &Closure,
+        local_declaration: bool,
+    ) -> Result<(ClosureSyntaxKind, Option<String>), fmt::Error> {
         if let Some((receiver, method)) = Self::colon_method_target(name) {
             if self.can_format_colon_method(receiver, method, closure) {
+                let display_name = self
+                    .closure_observer
+                    .is_some()
+                    .then(|| format!("{receiver}:{method}"));
                 write!(self.output, "function ")?;
                 self.format_rvalue(receiver)?;
                 write!(self.output, ":{}(", method)?;
                 self.format_closure_parameters_from(closure, 1)?;
                 write!(self.output, ")")?;
                 self.format_closure_body(closure)?;
-                return write!(self.output, "end");
+                write!(self.output, "end")?;
+                return Ok((ClosureSyntaxKind::MethodFunction, display_name));
             }
         }
 
+        let display_name = self.closure_observer.is_some().then(|| name.to_string());
         write!(self.output, "function {}(", name)?;
         self.format_closure_parameters(closure)?;
         write!(self.output, ")")?;
         self.format_closure_body(closure)?;
-        write!(self.output, "end")
+        write!(self.output, "end")?;
+        Ok((
+            if local_declaration {
+                ClosureSyntaxKind::LocalFunction
+            } else {
+                ClosureSyntaxKind::NamedFunction
+            },
+            display_name,
+        ))
+    }
+
+    fn current_position(&self) -> Option<SourcePosition> {
+        self.position_query.map(|query| query(self.output))
+    }
+
+    fn record_closure(
+        &mut self,
+        closure: &Closure,
+        start: Option<SourcePosition>,
+        syntax_kind: ClosureSyntaxKind,
+        display_name: Option<String>,
+    ) {
+        let (Some(start), Some(end), Some(observer)) = (
+            start,
+            self.current_position(),
+            self.closure_observer.as_deref_mut(),
+        ) else {
+            return;
+        };
+        let Some(function_id) = closure.function.lock().bytecode_function_id.clone() else {
+            return;
+        };
+        observer.closure_emitted(ClosureSourceOccurrence {
+            function_id,
+            syntax_kind,
+            display_name,
+            upvalue_bindings: closure
+                .upvalues
+                .iter()
+                .map(|upvalue| match upvalue {
+                    crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local) => local.clone(),
+                })
+                .collect(),
+            span: SourceSpan { start, end },
+        });
     }
 
     fn colon_method_target(name: &LValue) -> Option<(&RValue, &str)> {
@@ -1600,12 +1863,12 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             .parameters
             .iter()
             .skip(1)
-            .any(|param| param.0 .0.lock().0.as_deref() == Some("self"))
+            .any(|param| param.0.0.lock().0.as_deref() == Some("self"))
         {
             return false;
         }
 
-        let first_parameter_name = first_parameter.0 .0.lock().0.clone();
+        let first_parameter_name = first_parameter.0.0.lock().0.clone();
         if first_parameter_name.as_deref() == Some("self") {
             return true;
         }
@@ -1754,7 +2017,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn local_is_named_self(local: &RcLocal) -> bool {
-        local.0 .0.lock().0.as_deref() == Some("self")
+        local.0.0.lock().0.as_deref() == Some("self")
     }
 
     fn format_rvalue(&mut self, rvalue: &RValue) -> fmt::Result {
@@ -1995,6 +2258,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             },
             output: &mut buffer,
             colon_method_calls: self.colon_method_calls.clone(),
+            position_query: None,
+            closure_observer: None,
         };
         sub.format_rvalue(rvalue).ok()?;
         Some(buffer)
@@ -2127,7 +2392,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                     false
                 }
             } {
-                return self.format_named_function(left, closure);
+                return self.format_named_function(left, closure, assign.prefix);
             }
         }
 
@@ -2186,7 +2451,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             if i != 0 {
                 write!(self.output, ", ")?;
             }
-            self.format_rvalue(rvalue)?;
+            if let (RValue::Closure(closure), Some(target)) = (rvalue, assign.left.get(i)) {
+                self.format_assigned_closure(closure, target)?;
+            } else {
+                self.format_rvalue(rvalue)?;
+            }
         }
 
         if assign.parallel {

@@ -16,10 +16,10 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::{
-    deinline::{collect_declared_locals, collect_reads, collect_written, dbg_stmt_node_count},
-    factor_common_tails::block_alpha_bindings_with_locals,
     Assign, Block, Call, Closure, Comment, Function, LValue, Literal, Local, LocalRw, RValue,
     RcLocal, Return, Select, Statement, Traverse, Upvalue,
+    deinline::{collect_declared_locals, collect_reads, collect_written, dbg_stmt_node_count},
+    factor_common_tails::block_alpha_bindings_with_locals,
 };
 
 const MIN_NODES: usize = 12;
@@ -119,7 +119,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
             break;
         }
 
-        let function_name = helper.0 .0.lock().0.clone();
+        let function_name = helper.0.0.lock().0.clone();
         // Candidate statements contain Arc-backed blocks. A deep copy prevents
         // later helper rewrites from mutating any surviving source owner.
         let mut helper_body = crate::simplify_gotos::dc_block(&Block(template)).0;
@@ -132,7 +132,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
             let mut remap = FxHashMap::default();
             let mut locals = Vec::with_capacity(originals.len());
             for original in originals {
-                let name = original.0 .0.lock().0.clone();
+                let name = original.0.0.lock().0.clone();
                 let fresh = RcLocal::new(Local::new(name));
                 remap.insert(original, fresh.clone());
                 locals.push(fresh);
@@ -152,6 +152,8 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
         }
         let closure = Closure {
             function: ByAddress(Arc::new(Mutex::new(Function {
+                bytecode_proto_id: None,
+                bytecode_function_id: None,
                 name: function_name,
                 parameters: Vec::new(),
                 is_variadic: false,
@@ -891,7 +893,7 @@ fn unique_name(stmts: &[Statement], base: &str) -> String {
     collect_declared_locals(stmts, &mut used);
     let names: FxHashSet<String> = used
         .into_iter()
-        .filter_map(|local| local.0 .0.lock().0.clone())
+        .filter_map(|local| local.0.0.lock().0.clone())
         .collect();
     if !names.contains(base) {
         return base.to_string();

@@ -25,9 +25,9 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::{
-    Assign, Binary, BinaryOperation, Block, Call, Comment, Function, GenericFor, If, LValue,
-    Literal, LocalRw, MethodCall, NumericFor, RValue, RcLocal, Reduce, Repeat, Return, Select,
-    SideEffects, Statement, Table, Traverse, Unary, UnaryOperation, While,
+    Assign, Binary, BinaryOperation, Block, Call, Closure, Comment, Function, GenericFor, If,
+    LValue, Literal, LocalRw, MethodCall, NumericFor, RValue, RcLocal, Reduce, Repeat, Return,
+    Select, SideEffects, Statement, Table, Traverse, Unary, UnaryOperation, Upvalue, While,
 };
 
 const DEF_MARKER: &str = " [-O2 INLINED, UNHOOKABLE] reconstructed definition;";
@@ -1527,10 +1527,54 @@ pub(crate) fn unify_rvalue(
         (RValue::Call(a), RValue::Call(d)) => unify_call(ctx, a, d, b),
         (RValue::MethodCall(a), RValue::MethodCall(d)) => unify_method(ctx, a, d, b),
         (RValue::Table(a), RValue::Table(d)) => unify_table(ctx, a, d, b),
+        (RValue::Closure(a), RValue::Closure(d)) => unify_closure(ctx, a, d, b),
         (RValue::VarArg(_), RValue::VarArg(_)) => Ok(()),
         (RValue::Select(a), RValue::Select(d)) => unify_select(ctx, a, d, b),
         _ => Err(()),
     }
+}
+
+/// Match one nested closure constructor by bytecode provenance and captures.
+///
+/// Luau can instantiate the same child prototype at both the original helper
+/// definition and an `-O2`-inlined call site. Those instances have different
+/// AST pointers but execute the same bytecode. Matching the prototype id alone
+/// would still be insufficient: a different capture mode or captured value can
+/// change mutation/snapshot semantics. Requiring the ordered `Copy`/`Ref` list
+/// to unify under the enclosing helper's parameter/local mapping supplies the
+/// missing proof without recursively comparing large callback bodies.
+fn unify_closure(
+    ctx: &MatchCtx,
+    pattern: &Closure,
+    candidate: &Closure,
+    bindings: &mut Bindings,
+) -> Result<(), ()> {
+    let same_function = Arc::ptr_eq(&pattern.function.0, &candidate.function.0);
+    if !same_function {
+        let pattern_proto = pattern.function.0.lock().bytecode_proto_id;
+        let candidate_proto = candidate.function.0.lock().bytecode_proto_id;
+        if pattern_proto.is_none() || pattern_proto != candidate_proto {
+            return Err(());
+        }
+    }
+
+    if pattern.upvalues.len() != candidate.upvalues.len() {
+        return Err(());
+    }
+    for (pattern_upvalue, candidate_upvalue) in pattern.upvalues.iter().zip(&candidate.upvalues) {
+        let (pattern_local, candidate_local) = match (pattern_upvalue, candidate_upvalue) {
+            (Upvalue::Copy(pattern), Upvalue::Copy(candidate))
+            | (Upvalue::Ref(pattern), Upvalue::Ref(candidate)) => (pattern, candidate),
+            _ => return Err(()),
+        };
+        unify_rvalue(
+            ctx,
+            &RValue::Local(pattern_local.clone()),
+            &RValue::Local(candidate_local.clone()),
+            bindings,
+        )?;
+    }
+    Ok(())
 }
 
 fn unify_call(ctx: &MatchCtx, a: &Call, d: &Call, b: &mut Bindings) -> Result<(), ()> {
@@ -1604,11 +1648,7 @@ pub(crate) fn unify_local(
         return Ok(());
     }
     // param-as-binder or external: identity
-    if pl == cl {
-        Ok(())
-    } else {
-        Err(())
-    }
+    if pl == cl { Ok(()) } else { Err(()) }
 }
 
 pub(crate) fn lit_eq(a: &Literal, b: &Literal) -> bool {
@@ -2471,11 +2511,11 @@ fn match_value_prefixed(
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
     let p = t.prefix_len; // effective callee-prefix statement count (>= 1)
-                          // P1: the interposed init-less `local RESULT` decl is the p-th EFFECTIVE
-                          // statement at/after i — `i + p` (the old fixed offset) would land on a
-                          // CALL_MARKER/`Empty` an inner de-inline spliced between the prefix and the
-                          // decl, making `result_decl` bail and silently killing chained AtPrefix
-                          // reconstruction. Count only non-trivia statements instead.
+    // P1: the interposed init-less `local RESULT` decl is the p-th EFFECTIVE
+    // statement at/after i — `i + p` (the old fixed offset) would land on a
+    // CALL_MARKER/`Empty` an inner de-inline spliced between the prefix and the
+    // decl, making `result_decl` bail and silently killing chained AtPrefix
+    // reconstruction. Count only non-trivia statements instead.
     let d = nth_effective_index(stmts, i, p)?;
     let r = result_decl(&stmts[d])?;
     let kc = t.pat.len();
@@ -3719,15 +3759,19 @@ fn each_closure_in_rvalue(rv: &RValue, f: &mut impl FnMut(&RcLocal, &Arc<Mutex<F
 }
 
 /// A body we refuse to treat as a de-inline pattern: contains gotos/labels,
-/// comments, upvalue-close, lifter-internal for-nodes, or a nested closure.
+/// comments, upvalue-close, lifter-internal for-nodes, or a nested closure whose
+/// bytecode provenance is unavailable.
 /// Return shape is handled separately by `classify_returns`.
 pub(crate) fn body_unsafe(stmts: &[Statement]) -> bool {
     stmts.iter().any(|s| {
-        // A nested closure ANYWHERE in this statement's expressions (call/method
-        // arguments, returns, conditions, table values, ...) is unsafe — not just
-        // a direct assign RHS. Identity-matching closures is unsound, so such a
-        // body must never become a de-inline target.
-        if stmt_rvalues(s).iter().any(|rv| rvalue_has_closure(rv)) {
+        // A nested closure is matchable only when the lifter retained its exact
+        // bytecode prototype id. `unify_closure` additionally proves the ordered
+        // capture modes and mapped upvalues. Synthetic/unknown closures remain
+        // refused; structural identity guessing would be unsound.
+        if stmt_rvalues(s)
+            .iter()
+            .any(|rv| rvalue_has_unproven_closure(rv))
+        {
             return true;
         }
         match s {
@@ -3758,32 +3802,39 @@ pub(crate) fn body_unsafe(stmts: &[Statement]) -> bool {
     })
 }
 
-fn rvalue_has_closure(rv: &RValue) -> bool {
+fn rvalue_has_unproven_closure(rv: &RValue) -> bool {
     match rv {
-        RValue::Closure(_) => true,
-        RValue::Index(i) => rvalue_has_closure(&i.left) || rvalue_has_closure(&i.right),
-        RValue::Unary(u) => rvalue_has_closure(&u.value),
-        RValue::Binary(b) => rvalue_has_closure(&b.left) || rvalue_has_closure(&b.right),
+        RValue::Closure(closure) => closure.function.0.lock().bytecode_proto_id.is_none(),
+        RValue::Index(i) => {
+            rvalue_has_unproven_closure(&i.left) || rvalue_has_unproven_closure(&i.right)
+        }
+        RValue::Unary(u) => rvalue_has_unproven_closure(&u.value),
+        RValue::Binary(b) => {
+            rvalue_has_unproven_closure(&b.left) || rvalue_has_unproven_closure(&b.right)
+        }
         RValue::Call(c) => {
-            rvalue_has_closure(&c.value) || c.arguments.iter().any(rvalue_has_closure)
+            rvalue_has_unproven_closure(&c.value)
+                || c.arguments.iter().any(rvalue_has_unproven_closure)
         }
         RValue::MethodCall(m) => {
-            rvalue_has_closure(&m.value) || m.arguments.iter().any(rvalue_has_closure)
+            rvalue_has_unproven_closure(&m.value)
+                || m.arguments.iter().any(rvalue_has_unproven_closure)
         }
-        RValue::Table(t) => {
-            t.0.iter()
-                .any(|(k, v)| k.as_ref().is_some_and(rvalue_has_closure) || rvalue_has_closure(v))
-        }
+        RValue::Table(t) => t.0.iter().any(|(k, v)| {
+            k.as_ref().is_some_and(rvalue_has_unproven_closure) || rvalue_has_unproven_closure(v)
+        }),
         RValue::Select(Select::Call(c)) => {
-            rvalue_has_closure(&c.value) || c.arguments.iter().any(rvalue_has_closure)
+            rvalue_has_unproven_closure(&c.value)
+                || c.arguments.iter().any(rvalue_has_unproven_closure)
         }
         RValue::Select(Select::MethodCall(m)) => {
-            rvalue_has_closure(&m.value) || m.arguments.iter().any(rvalue_has_closure)
+            rvalue_has_unproven_closure(&m.value)
+                || m.arguments.iter().any(rvalue_has_unproven_closure)
         }
         RValue::IfExpression(e) => {
-            rvalue_has_closure(&e.condition)
-                || rvalue_has_closure(&e.then_value)
-                || rvalue_has_closure(&e.else_value)
+            rvalue_has_unproven_closure(&e.condition)
+                || rvalue_has_unproven_closure(&e.then_value)
+                || rvalue_has_unproven_closure(&e.else_value)
         }
         _ => false,
     }
@@ -5715,13 +5766,15 @@ mod tests {
         };
 
         let mut b = Bindings::default();
-        assert!(unify_rvalue(
-            &ctx,
-            &local_value(&p),
-            &RValue::Table(Table::default()),
-            &mut b
-        )
-        .is_ok());
+        assert!(
+            unify_rvalue(
+                &ctx,
+                &local_value(&p),
+                &RValue::Table(Table::default()),
+                &mut b
+            )
+            .is_ok()
+        );
         assert!(
             unify_rvalue(
                 &ctx,
@@ -5739,10 +5792,8 @@ mod tests {
         assert!(unify_rvalue(&ctx, &local_value(&p), &local_value(&x), &mut b2).is_ok());
     }
 
-    /// F3: `rvalue_has_closure` descends into `IfExpression` arms, so `body_unsafe`
-    /// rejects a body whose returned value hides a closure in a branch
-    /// (identity-matching a closure is unsound). The same body without the closure
-    /// is safe.
+    /// F3 boundary: a synthetic closure has no bytecode provenance, including
+    /// when hidden in an if-expression, and therefore remains unsafe.
     #[test]
     fn body_unsafe_sees_closure_inside_if_expression() {
         let closure = RValue::Closure(Closure {
@@ -5758,6 +5809,59 @@ mod tests {
             crate::IfExpression::new(local_value(&local("c")), number(1.0), boolean(false)),
         )]))];
         assert!(!body_unsafe(&safe_body));
+    }
+
+    #[test]
+    fn bytecode_closure_unifies_by_proto_capture_mode_and_mapping() {
+        let parameter = local("parameter");
+        let argument = local("argument");
+        let make = |proto, upvalue| Closure {
+            function: ByAddress(Arc::new(Mutex::new(Function {
+                bytecode_proto_id: Some(proto),
+                ..Function::default()
+            }))),
+            upvalues: vec![upvalue],
+        };
+        let pattern = RValue::Closure(make(41, Upvalue::Copy(parameter.clone())));
+        let candidate = RValue::Closure(make(41, Upvalue::Copy(argument.clone())));
+        let mut params = FxHashSet::default();
+        params.insert(parameter.clone());
+        let locals = FxHashSet::default();
+        let ctx = MatchCtx {
+            params: &params,
+            locals: &locals,
+        };
+        let mut bindings = Bindings::default();
+
+        unify_rvalue(&ctx, &pattern, &candidate, &mut bindings)
+            .expect("same bytecode proto and Copy capture must unify");
+        assert!(rvalue_exact_eq(
+            bindings.params.get(&parameter).unwrap(),
+            &local_value(&argument)
+        ));
+
+        let wrong_mode = RValue::Closure(make(41, Upvalue::Ref(argument.clone())));
+        assert!(unify_rvalue(&ctx, &pattern, &wrong_mode, &mut Bindings::default()).is_err());
+
+        let wrong_proto = RValue::Closure(make(42, Upvalue::Copy(argument)));
+        assert!(unify_rvalue(&ctx, &pattern, &wrong_proto, &mut Bindings::default()).is_err());
+    }
+
+    #[test]
+    fn body_unsafe_allows_only_bytecode_proven_nested_closures() {
+        let callback = |proto| {
+            RValue::Closure(Closure {
+                function: ByAddress(Arc::new(Mutex::new(Function {
+                    bytecode_proto_id: proto,
+                    ..Function::default()
+                }))),
+                upvalues: Vec::new(),
+            })
+        };
+        let body = |value| vec![Statement::Call(Call::new(global("spawn"), vec![value]))];
+
+        assert!(!body_unsafe(&body(callback(Some(7)))));
+        assert!(body_unsafe(&body(callback(None))));
     }
 
     /// F2: an indexed-LHS value collapse is refused (it would reorder the target

@@ -1,7 +1,7 @@
 use super::list::{parse_list, parse_list_len};
 use nom::{
-    number::complete::{le_f32, le_f64, le_i32, le_u32, le_u8},
     IResult,
+    number::complete::{le_f32, le_f64, le_i32, le_u8, le_u32},
 };
 use nom_leb128::leb128_usize;
 
@@ -95,11 +95,16 @@ impl Constant {
                 let (input, _class_name_id) = leb128_usize(input)?;
                 let (input, num_properties) = leb128_usize(input)?;
                 let (input, num_methods) = leb128_usize(input)?;
-                let (input, _members) =
-                    parse_list_len(input, leb128_usize, num_properties + num_methods)?;
+                let member_count = num_properties.checked_add(num_methods).ok_or_else(|| {
+                    nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Verify))
+                })?;
+                let (input, _members) = parse_list_len(input, leb128_usize, member_count)?;
                 Ok((input, Constant::ClassShape))
             }
-            _ => panic!("{}", tag),
+            _ => Err(nom::Err::Failure(nom::error::Error::new(
+                input,
+                nom::error::ErrorKind::Verify,
+            ))),
         }
     }
 }

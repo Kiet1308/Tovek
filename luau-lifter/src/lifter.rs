@@ -32,7 +32,8 @@ pub struct Lifter<'a> {
     // — one proto can be instantiated by several closure sites), and a stable sort
     // over PC order then breaks ties deterministically. A hash map keyed by the
     // ASLR-randomized `ByAddress` would leave tied entries in a run-dependent order.
-    child_functions: Vec<(ByAddress<Arc<Mutex<ast::Function>>>, usize)>,
+    child_functions: Vec<(ByAddress<Arc<Mutex<ast::Function>>>, usize, Option<String>)>,
+    static_function_id: Option<String>,
     register_map: FxHashMap<usize, ast::RcLocal>,
     constant_map: FxHashMap<usize, ast::Literal>,
     current_node: Option<NodeIndex>,
@@ -44,10 +45,11 @@ impl<'a> Lifter<'a> {
         f_list: &'a Vec<BytecodeFunction>,
         str_list: &'a Vec<Vec<u8>>,
         function_id: usize,
+        static_function_id: Option<String>,
     ) -> (
         Function,
         Vec<ast::RcLocal>,
-        Vec<(ByAddress<Arc<Mutex<ast::Function>>>, usize)>,
+        Vec<(ByAddress<Arc<Mutex<ast::Function>>>, usize, Option<String>)>,
     ) {
         let mut context = Self {
             function_list: f_list,
@@ -55,6 +57,7 @@ impl<'a> Lifter<'a> {
             blocks: FxHashMap::default(),
             function: Function::new(function_id),
             child_functions: Vec::new(),
+            static_function_id,
             register_map: FxHashMap::default(),
             constant_map: FxHashMap::default(),
             current_node: None,
@@ -1343,6 +1346,7 @@ impl<'a> Lifter<'a> {
                         );
                     }
                     OpCode::LOP_DUPCLOSURE | OpCode::LOP_NEWCLOSURE => {
+                        let constructor_pc = block_start + index;
                         let dest_local = self.register(a as _);
                         let func_index = match op_code {
                             OpCode::LOP_NEWCLOSURE => {
@@ -1391,18 +1395,32 @@ impl<'a> Lifter<'a> {
                             upvalues_passed.push(local);
                         }
 
-                        let function = Arc::<Mutex<_>>::default();
-                        self.child_functions
-                            .push((ByAddress(function.clone()), func_index));
-                        function.lock().name = func_name;
+                        let function = Arc::<Mutex<ast::Function>>::default();
+                        let closure_site_id = format!("p{}@pc{constructor_pc}", self.function.id);
+                        let child_function_id = self.static_function_id.as_ref().map(|parent_id| {
+                            format!("{parent_id}/{closure_site_id}:p{func_index}")
+                        });
+                        self.child_functions.push((
+                            ByAddress(function.clone()),
+                            func_index,
+                            child_function_id.clone(),
+                        ));
+                        {
+                            let mut lifted_function = function.lock();
+                            lifted_function.bytecode_proto_id = Some(func_index);
+                            lifted_function.bytecode_function_id = child_function_id;
+                            lifted_function.name = func_name;
+                        }
                         statements.push(
                             ast::Assign::new(
                                 vec![dest_local.into()],
-                                vec![ast::Closure {
-                                    function: ByAddress(function),
-                                    upvalues: upvalues_passed,
-                                }
-                                .into()],
+                                vec![
+                                    ast::Closure {
+                                        function: ByAddress(function),
+                                        upvalues: upvalues_passed,
+                                    }
+                                    .into(),
+                                ],
                             )
                             .into(),
                         );

@@ -1,4 +1,4 @@
-use crate::{type_system::Infer, SideEffects, Traverse, Type, TypeSystem};
+use crate::{SideEffects, Traverse, Type, TypeSystem, type_system::Infer};
 use by_address::ByAddress;
 use derive_more::From;
 use enum_dispatch::enum_dispatch;
@@ -150,7 +150,7 @@ impl Infer for RcLocal {
 
 impl Display for RcLocal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.0 .0.lock().0 {
+        match &self.0.0.lock().0 {
             Some(name) => write!(f, "{}", name),
             None => {
                 let mut hasher = NoHashHasher::<u8>::default();
@@ -168,6 +168,11 @@ impl Traverse for RcLocal {}
 impl RcLocal {
     pub fn new(local: Local) -> Self {
         Self(ByAddress(Arc::new(Mutex::new(local))), next_local_id())
+    }
+
+    /// Deterministic identity within one decompilation artifact.
+    pub fn stable_id(&self) -> u64 {
+        self.1
     }
 }
 

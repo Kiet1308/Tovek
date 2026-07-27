@@ -1,5 +1,5 @@
 use crate::{
-    formatter::Formatter, Literal, LocalRw, RValue, RcLocal, Reduce, SideEffects, Traverse,
+    Literal, LocalRw, RValue, RcLocal, Reduce, SideEffects, Traverse, formatter::Formatter,
 };
 
 use std::{fmt, iter};
@@ -122,6 +122,8 @@ impl fmt::Display for Table {
             indentation_mode: Default::default(),
             output: f,
             colon_method_calls: Vec::new(),
+            position_query: None,
+            closure_observer: None,
         }
         .format_table(self)
     }

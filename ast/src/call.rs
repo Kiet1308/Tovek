@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{formatter::Formatter, has_side_effects, LocalRw, RcLocal, Traverse};
+use crate::{LocalRw, RcLocal, Traverse, formatter::Formatter, has_side_effects};
 
 use super::RValue;
 
@@ -68,6 +68,8 @@ impl fmt::Display for Call {
             indentation_mode: Default::default(),
             output: f,
             colon_method_calls: Vec::new(),
+            position_query: None,
+            closure_observer: None,
         }
         .format_call(self)
     }
@@ -133,6 +135,8 @@ impl fmt::Display for MethodCall {
             indentation_mode: Default::default(),
             output: f,
             colon_method_calls: Vec::new(),
+            position_query: None,
+            closure_observer: None,
         }
         .format_method_call(self)
     }
