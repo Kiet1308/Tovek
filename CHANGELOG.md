@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.9.0-beta - Deterministic Static Upvalue Analysis
+
+This beta adds an opt-in analysis mode for tools that need stable, machine-readable
+upvalue metadata without polluting the decompiled Luau source.
+
+### Static analysis sidecars
+
+- Added `--emit-upvalue-analysis` to folder decompilation.
+- Emits deterministic function and capture-site IDs, ordered VM slots, capture kinds,
+  resolved names, and decompiled source spans under `.tovek-analysis/`.
+- Keeps generated `.lua`/`.luau` source clean; all integration metadata stays in hidden
+  JSON sidecars.
+- Supports Volt export manifests so source fallbacks are copied as source instead of
+  being misinterpreted as bytecode.
+
+### Safe, reproducible publication
+
+- Content-addresses analysis records and binds them to source hashes and byte lengths.
+- Publishes generation provenance and the final manifest atomically.
+- Uses a cross-process output lock to prevent concurrent folder runs from mixing
+  different source and analysis generations.
+- Preserves deterministic output across runs and thread counts.
+
+### CLI integration
+
+- Added `--output-extension lua|luau` for folder output.
+- Added `--export-manifest` for authoritative Volt source/bytecode classification.
+- Extended batch decompilation and formatter integration so emitted metadata tracks the
+  final readable identifiers and source locations.
+
 ## v0.8 — Control-Flow and Output Quality Update
 
 This update significantly improves control-flow reconstruction, prevents large amounts of duplicated code, and guarantees that successfully decompiled Luau output never contains `goto` or labels.
