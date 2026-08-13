@@ -32,7 +32,18 @@ impl Chunk {
         } else {
             input
         };
-        let (input, functions) = parse_list(input, |i| Function::parse(i, encode_key, version))?;
+        let (input, functions) = parse_list(input, |i| {
+            // Bytecode v12+ (cost model / vector doubles) prefixes every proto
+            // with a varint size so the reader can skip a proto wholesale; the
+            // deserializer verifies the body via its own grammar, so the size is
+            // consumed and discarded (mirrors lvmload.cpp: version >= 12).
+            let (i, _proto_size) = if version >= 12 {
+                leb128_usize(i)?
+            } else {
+                (i, 0)
+            };
+            Function::parse(i, encode_key, version)
+        })?;
         let (input, main) = leb128_usize(input)?;
 
         Ok((

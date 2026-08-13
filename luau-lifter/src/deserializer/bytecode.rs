@@ -19,10 +19,12 @@ impl Bytecode {
                     Bytecode::Error(String::from_utf8_lossy(error_msg).to_string()),
                 ))
             }
-            // 4..=11: bytecode versions 4 through 11 (LBC_VERSION_MAX). v10 adds
+            // 4..=13: bytecode versions 4 through 13. v10 adds
             // LBC_CONSTANT_CLASS_SHAPE + NEWCLASSMEMBER; v11 adds CALLFB/CMPPROTO
-            // and a per-proto feedback-vector section (read in function.rs).
-            4..=11 => {
+            // and a per-proto feedback-vector section (read in function.rs); v12
+            // (cost model) prefixes every proto with a varint size; v13 (vector
+            // doubles) adds the LBC_CONSTANT_VECTORD constant type.
+            4..=13 => {
                 let (input, chunk) = Chunk::parse(input, encode_key, status_code)?;
                 Ok((input, Bytecode::Chunk(chunk)))
             }

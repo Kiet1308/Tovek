@@ -17,6 +17,8 @@ const CONSTANT_VECTOR: u8 = 7;
 const CONSTANT_TABLE_WITH_CONSTANTS: u8 = 8;
 const CONSTANT_INTEGER: u8 = 9;
 const CONSTANT_CLASS_SHAPE: u8 = 10;
+// Added in Luau bytecode version 13+ (LuauCompileEmitVectorDouble): 4 doubles.
+const CONSTANT_VECTORD: u8 = 11;
 
 #[derive(Debug)]
 pub enum Constant {
@@ -32,6 +34,7 @@ pub enum Constant {
     TableWithConstants(Vec<(usize, i32)>),
     Integer(i64),
     ClassShape,
+    VectorD(f64, f64, f64, f64),
 }
 
 impl Constant {
@@ -69,6 +72,14 @@ impl Constant {
                 let (input, z) = le_f32(input)?;
                 let (input, w) = le_f32(input)?;
                 Ok((input, Constant::Vector(x, y, z, w)))
+            }
+            // 4 doubles; only emitted by bytecode v13+ (LuauCompileEmitVectorDouble).
+            CONSTANT_VECTORD => {
+                let (input, x) = le_f64(input)?;
+                let (input, y) = le_f64(input)?;
+                let (input, z) = le_f64(input)?;
+                let (input, w) = le_f64(input)?;
+                Ok((input, Constant::VectorD(x, y, z, w)))
             }
             // count, then per key: varint key index + int32 constant index
             CONSTANT_TABLE_WITH_CONSTANTS => {

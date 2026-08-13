@@ -998,6 +998,60 @@ mod tests {
     }
 
     #[test]
+    fn fractional_and_zero_keys_are_rendered_explicitly() {
+        let block = Block(vec![Return::new(vec![RValue::Table(Table(vec![
+            (Some(number(1.5)), string("A")),
+            (Some(number(2.5)), string("B")),
+            (Some(number(0.0)), string("C")),
+        ]))])
+        .into()]);
+
+        assert_eq!(
+            block.to_string(),
+            "return {\n\t[1.5] = \"A\",\n\t[2.5] = \"B\",\n\t[0] = \"C\"\n}"
+        );
+    }
+
+    #[test]
+    fn dropped_key_last_multret_entry_stays_truncated() {
+        let block = Block(vec![Return::new(vec![RValue::Table(Table(vec![
+            (Some(number(1.0)), string("A")),
+            (Some(number(2.0)), Call::new(global("f"), vec![]).into()),
+        ]))])
+        .into()]);
+
+        // The sequential key `[2]` is dropped, which renders the entry
+        // positionally — without the parens the trailing call would SPREAD its
+        // results, but the keyed original truncated them to one (C2b).
+        assert_eq!(block.to_string(), "return { \"A\", (f()) }");
+    }
+
+    #[test]
+    fn empty_string_keys_render_bracket_forms() {
+        let table = local("t");
+        let block = Block(vec![
+            Return::new(vec![RValue::Table(Table(vec![
+                (Some(string("")), string("empty")),
+                (Some(string("alpha")), string("A")),
+            ]))])
+            .into(),
+            Return::new(vec![RValue::Index(Index::new(
+                local_value(&table),
+                string(""),
+            ))])
+            .into(),
+        ]);
+
+        // `""` is not a valid identifier: the empty-string key keeps its
+        // bracket form in both table constructors and index expressions
+        // (C24: previously rendered ` = "empty"` / `t.`, invalid syntax).
+        assert_eq!(
+            block.to_string(),
+            "return {\n\t[\"\"] = \"empty\",\n\talpha = \"A\"\n}\nreturn t[\"\"]"
+        );
+    }
+
+    #[test]
     fn parenthesizes_if_expression_index_receiver() {
         let flag = local("flag");
         let active = local("active");
@@ -2054,7 +2108,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
         Ok(())
     }
+
     pub(crate) fn is_valid_name(name: &[u8]) -> bool {
+        if name.is_empty() {
+            return false;
+        }
         if !(name
             .iter()
             .enumerate()

@@ -1531,6 +1531,7 @@ impl<'a> Lifter<'a> {
                 }
             }
             BytecodeConstant::Vector(x, y, z, _) => ast::Literal::Vector(*x, *y, *z),
+            BytecodeConstant::VectorD(x, y, z, _) => ast::Literal::Vector(*x as f32, *y as f32, *z as f32),
             BytecodeConstant::Integer(v) => ast::Literal::Number(*v as f64),
             _ => unimplemented!(),
         };
@@ -1559,6 +1560,9 @@ impl<'a> Lifter<'a> {
             }),
             Some(BytecodeConstant::Vector(x, y, z, _)) => {
                 Shape::Literal(ast::Literal::Vector(*x, *y, *z))
+            }
+            Some(BytecodeConstant::VectorD(x, y, z, _)) => {
+                Shape::Literal(ast::Literal::Vector(*x as f32, *y as f32, *z as f32))
             }
             Some(BytecodeConstant::TableWithConstants(pairs)) => Shape::Table(pairs.clone()),
             // Nil, plain Table (keys only, values set later), Import, Closure

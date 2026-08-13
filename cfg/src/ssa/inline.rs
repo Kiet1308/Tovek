@@ -8,19 +8,30 @@ use rustc_hash::{FxHashMap, FxHashSet};
 /// Whether moving a side-effecting inline candidate *past* this already-visited
 /// rvalue (in evaluation order) could reorder two observable effects.
 ///
-/// Only function/method calls are treated as hard, un-reorderable effects: a call
-/// may read or write arbitrary state, so a call must never hop over another call.
-/// Global reads, table indexing and arithmetic are treated as reorderable — in
-/// real (non-adversarial) code they read library tables/fields that the candidate
-/// will not mutate. This is what lets `local v = lib.fn(expr)` collapse back into
-/// one expression instead of leaving a `local vN = expr` trail in front of it.
+/// Calls (and method calls / selects over them) are hard, un-reorderable effects:
+/// a call may read or write arbitrary state, so a call must never hop over
+/// another call. FIX(OPT-005): indexing, arbitrary binary operations and the
+/// `#`/`-` unary operators are conservatively treated the SAME way — they can
+/// invoke metamethods (`__index`, `__add`, `__len`, `__unm`) or raise on a type
+/// mismatch, so hoisting a call across them could reorder observable effects or
+/// move the error relative to the call. `not` is excluded (it is total on any
+/// operand, like the `is_total_pure` rule), and bare global reads, vararg reads
+/// and `Select(VarArg)` are left reorderable — that is what lets
+/// `local v = lib.fn(expr)` / `local v = f(); warn(v)` collapse back into one
+/// expression instead of leaving a `local vN = expr` trail in front of it.
 fn rvalue_blocks_reorder(rvalue: &ast::RValue) -> bool {
-    matches!(
-        rvalue,
+    use ast::UnaryOperation;
+    match rvalue {
         ast::RValue::Call(_)
-            | ast::RValue::MethodCall(_)
-            | ast::RValue::Select(ast::Select::Call(_) | ast::Select::MethodCall(_))
-    )
+        | ast::RValue::MethodCall(_)
+        | ast::RValue::Select(ast::Select::Call(_) | ast::Select::MethodCall(_)) => true,
+        ast::RValue::Index(_) | ast::RValue::Binary(_) => true,
+        ast::RValue::Unary(unary) => matches!(
+            unary.operation,
+            UnaryOperation::Length | UnaryOperation::Negate
+        ),
+        _ => false,
+    }
 }
 
 /// A `game:GetService("X")` service handle or a `require(...)` module handle.
@@ -793,7 +804,7 @@ pub fn inline(
 
 #[cfg(test)]
 mod tests {
-    use super::{fold_table_constructor_field_assignments, inline};
+    use super::{fold_table_constructor_field_assignments, inline, rvalue_blocks_reorder};
     use crate::function::Function;
     use ast::{
         Assign, Block, Global, Index, LValue, Literal, Local, RValue, RcLocal, Return, Statement,
@@ -995,5 +1006,35 @@ mod tests {
         ]));
 
         assert_eq!(block.to_string(), "return {\n\tEnabled = true\n}");
+    }
+
+    #[test]
+    fn blocks_reordering_around_metamethod_capable_rvalues() {
+        let table = local("t");
+        // FIX(OPT-005): indexing, arbitrary binary operators and `#`/`-` can run
+        // metamethods (`__index`, `__add`, `__len`, `__unm`) or raise, so an
+        // inline candidate call must not hop over them.
+        assert!(rvalue_blocks_reorder(&Index::new(
+            local_value(&table),
+            string("key"),
+        ).into()));
+        assert!(rvalue_blocks_reorder(&ast::RValue::Binary(ast::Binary::new(
+            local_value(&table),
+            number(1.0),
+            ast::BinaryOperation::Add,
+        ))));
+                assert!(rvalue_blocks_reorder(&ast::RValue::Unary(ast::Unary::new(
+            local_value(&table),
+            ast::UnaryOperation::Length,
+        ))));
+        assert!(rvalue_blocks_reorder(&ast::RValue::Unary(ast::Unary::new(
+            local_value(&table),
+            ast::UnaryOperation::Negate,
+        ))));
+        // `not` is total on any operand: stays reorderable.
+        assert!(!rvalue_blocks_reorder(&ast::RValue::Unary(ast::Unary::new(
+            local_value(&table),
+            ast::UnaryOperation::Not,
+        ))));
     }
 }

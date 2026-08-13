@@ -49,26 +49,36 @@ fn materialize_in_block(block: &mut Block, loop_mutated: &FxHashSet<RcLocal>) {
             materialize_in_block(&mut function.lock().body, &FxHashSet::default());
         }
         // Nested control flow: an `if` inherits the enclosing loop; a loop starts a
-        // new mutated set (its loop variable(s) + everything written in its body).
+        // new mutated set (its loop variable(s) + everything written in its body)
+        // UNIONED with the enclosing loop's set (FIX(LOOP-002)): a value capture
+        // inside a NESTED loop can reference a variable that only the ENCLOSING
+        // loop mutates (e.g. `for i = 1,3 do for j = 1,3 do t[j] = function()
+        // return i end end end`), and snapshotting it is just as required there —
+        // a fresh per-iteration set would drop `i` and leave every closure reading
+        // the final iteration's value.
         match statement {
             Statement::If(r#if) => {
                 materialize_in_block(&mut r#if.then_block.lock(), loop_mutated);
                 materialize_in_block(&mut r#if.else_block.lock(), loop_mutated);
             }
             Statement::While(r#while) => {
-                let m = loop_mutated_set(&r#while.block.lock(), &[]);
+                let mut m = loop_mutated_set(&r#while.block.lock(), &[]);
+                m.extend(loop_mutated.iter().cloned());
                 materialize_in_block(&mut r#while.block.lock(), &m);
             }
             Statement::Repeat(repeat) => {
-                let m = loop_mutated_set(&repeat.block.lock(), &[]);
+                let mut m = loop_mutated_set(&repeat.block.lock(), &[]);
+                m.extend(loop_mutated.iter().cloned());
                 materialize_in_block(&mut repeat.block.lock(), &m);
             }
             Statement::NumericFor(numeric_for) => {
-                let m = loop_mutated_set(&numeric_for.block.lock(), &[numeric_for.counter.clone()]);
+                let mut m = loop_mutated_set(&numeric_for.block.lock(), &[numeric_for.counter.clone()]);
+                m.extend(loop_mutated.iter().cloned());
                 materialize_in_block(&mut numeric_for.block.lock(), &m);
             }
             Statement::GenericFor(generic_for) => {
-                let m = loop_mutated_set(&generic_for.block.lock(), &generic_for.res_locals);
+                let mut m = loop_mutated_set(&generic_for.block.lock(), &generic_for.res_locals);
+                m.extend(loop_mutated.iter().cloned());
                 materialize_in_block(&mut generic_for.block.lock(), &m);
             }
             _ => {}
@@ -194,4 +204,98 @@ fn snapshot_value_captures(
         None
     });
     snapshots
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Closure, Function, Literal, LValue, NumericFor, Return, Upvalue};
+
+    fn local(name: &str) -> RcLocal {
+        crate::RcLocal::new(crate::Local::new(Some(name.to_string())))
+    }
+
+    fn local_value(local: &RcLocal) -> RValue {
+        RValue::Local(local.clone())
+    }
+
+    fn number(value: f64) -> RValue {
+        RValue::Literal(Literal::Number(value))
+    }
+
+    fn numeric_for(counter: &RcLocal, block: Block) -> NumericFor {
+        NumericFor::new(number(1.0), number(3.0), number(1.0), counter.clone(), block)
+    }
+
+    /// FIX(LOOP-002): a closure inside a NESTED loop that value-captures a
+    /// variable mutated only by the ENCLOSING loop must still be redirected to a
+    /// per-iteration snapshot. Before the fix the nested loop replaced the
+    /// enclosing loop's mutated set with its own, so `i` escaped and every
+    /// closure read the final iteration's value
+    /// (`for i = 1,3 do for j = 1,3 do t[j] = function() return i end end end`).
+    #[test]
+    fn nested_loop_snapshots_enclosing_loop_mutated_capture() {
+        let i = local("i");
+        let j = local("j");
+        let slot = local("slot");
+        let closure_arc = Arc::new(Mutex::new(Function {
+            body: Block(vec![Return::new(vec![local_value(&i)]).into()]),
+            ..Function::default()
+        }));
+        let closure_value = RValue::Closure(Closure {
+            function: ByAddress(closure_arc),
+            upvalues: vec![Upvalue::Copy(i.clone())],
+        });
+
+        let mut block = Block(vec![Statement::NumericFor(numeric_for(
+            &i,
+            Block(vec![Statement::NumericFor(numeric_for(
+                &j,
+                Block(vec![Assign::new(
+                    vec![LValue::Local(slot)],
+                    vec![closure_value],
+                )
+                .into()]),
+            ))]),
+        ))]);
+
+        materialize_value_captures(&mut block);
+
+        let outer = block.0[0].as_numeric_for().unwrap();
+        let outer_block = outer.block.lock();
+        let inner = outer_block[0].as_numeric_for().unwrap();
+        let inner_block = inner.block.lock();
+
+        let Statement::Assign(decl) = &inner_block.0[0] else {
+            panic!("expected a snapshot declaration before the closure");
+        };
+        let LValue::Local(snap) = &decl.left[0] else {
+            panic!("expected the snapshot declaration to define a local");
+        };
+        assert!(decl.prefix, "snapshot must be a `local` declaration");
+        assert!(
+            matches!(&decl.right[..], [RValue::Local(l)] if l == &i),
+            "snapshot must copy the enclosing loop variable `i`"
+        );
+
+        let Statement::Assign(use_stmt) = &inner_block.0[1] else {
+            panic!("expected the closure assignment after the snapshot");
+        };
+        let RValue::Closure(closure) = &use_stmt.right[0] else {
+            panic!("expected the closure statement to survive");
+        };
+        assert_eq!(
+            closure.upvalues,
+            vec![Upvalue::Copy(snap.clone())],
+            "closure must capture the snapshot, not the live loop variable"
+        );
+        let body = closure.function.lock();
+        let Statement::Return(ret) = &body.body.0[0] else {
+            panic!("expected the closure to still return its captured value");
+        };
+        assert!(
+            matches!(&ret.values[..], [RValue::Local(l)] if l == snap),
+            "closure body must read the snapshot"
+        );
+    }
 }

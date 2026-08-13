@@ -22,6 +22,10 @@ pub struct DebugLocal {
     pub register: u8,
 }
 
+// Deserializer-visible proto flag bits (Bytecode.h: LPF_*), used to decide
+// whether the writer appends a cost varint (v12+).
+const LPF_INLINABLE: u8 = 1 << 3;
+
 #[derive(Debug)]
 pub struct Function {
     pub max_stack_size: u8,
@@ -133,6 +137,7 @@ impl Function {
         let (input, is_vararg) = le_u8(input)?;
 
         let (input, _flags) = le_u8(input)?;
+        let flags = _flags;
         let (input, _) = parse_list(input, le_u8)?;
 
         let (input, u32_instructions) = parse_list(input, le_u32)?;
@@ -252,6 +257,16 @@ impl Function {
                 let (rest, _call_target_pc) = leb128_usize(rest)?;
                 input = rest;
             }
+            input
+        } else {
+            input
+        };
+        // Bytecode v12+ (cost model / vector doubles) appends a per-proto cost
+        // varint when the proto is flagged LPF_INLINABLE; it has no source-level
+        // meaning, but must be consumed or every following proto desyncs
+        // (mirrors BytecodeBuilder.cpp: writeFunction).
+        let input = if version >= 12 && flags & LPF_INLINABLE != 0 {
+            let (input, _cost) = leb128_usize(input)?;
             input
         } else {
             input

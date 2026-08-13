@@ -1003,6 +1003,7 @@ mod v11_fixtures {
 
     // --- opcode ordinals used below ---
     const LOADN: u8 = 4;
+    const LOADK: u8 = 5; // AD-form
     const GETGLOBAL: u8 = 7; // aux
     const CALL: u8 = 21;
     const RETURN: u8 = 22;
@@ -1056,6 +1057,8 @@ mod v11_fixtures {
         num_params: u8,
         num_upvalues: u8,
         is_vararg: u8,
+        /// LPF_* bits written as the proto flags byte (LPF_INLINABLE == 8).
+        flags: u8,
         /// Raw 32-bit instruction words, INCLUDING aux words (as the on-wire stream).
         words: Vec<u32>,
         constants: Vec<Vec<u8>>,
@@ -1071,7 +1074,7 @@ mod v11_fixtures {
         out.push(p.num_params);
         out.push(p.num_upvalues);
         out.push(p.is_vararg);
-        out.push(0); // flags
+        out.push(p.flags);
         out.extend(leb128(0)); // typeinfo blob length = 0
         out.extend(leb128(p.words.len() as u64));
         for w in &p.words {
@@ -1096,6 +1099,9 @@ mod v11_fixtures {
                 out.extend(leb128(pc));
             }
         }
+        if version >= 12 && p.flags & 8 != 0 {
+            out.extend(leb128(0)); // inlinable cost
+        }
         out
     }
 
@@ -1118,7 +1124,11 @@ mod v11_fixtures {
         }
         out.extend(leb128(protos.len() as u64));
         for p in protos {
-            out.extend(build_proto(p, version));
+            let proto = build_proto(p, version);
+            if version >= 12 {
+                out.extend(leb128(proto.len() as u64));
+            }
+            out.extend(proto);
         }
         out.extend(leb128(main as u64));
         out
@@ -1139,6 +1149,39 @@ mod v11_fixtures {
         let blob = build_chunk(11, 1, &[], &[simple_return_proto(vec![])], 0);
         let out = decompile(&blob, 1, None).expect("v11 empty-feedback chunk must deserialize");
         assert!(out.contains("return"), "got: {out:?}");
+    }
+
+    #[test]
+    fn v12_proto_size_prefix_deserializes() {
+        // v12+ (cost model) prefixes every proto with a varint size and appends
+        // an inlinable-cost varint to LPF_INLINABLE protos; both must be consumed
+        // or the following proto's parse desyncs.
+        let mut inlinable = simple_return_proto(vec![]);
+        inlinable.flags = 8;
+        let blob = build_chunk(12, 1, &[], &[inlinable, simple_return_proto(vec![])], 0);
+        let out =
+            decompile(&blob, 1, None).expect("v12 size-prefixed chunk must deserialize");
+        assert!(out.contains("return"), "got: {out:?}");
+    }
+
+    #[test]
+    fn v13_vectord_constant_deserializes() {
+        // LuauCompileEmitVectorDouble writes LBC_CONSTANT_VECTORD (tag 11) as
+        // four doubles; the lifter must not hit the unimplemented!() path.
+        let mut vectord = vec![11u8];
+        vectord.extend(1.5f64.to_le_bytes());
+        vectord.extend(2.5f64.to_le_bytes());
+        vectord.extend(3.5f64.to_le_bytes());
+        vectord.extend(4.5f64.to_le_bytes());
+        let proto = Proto {
+            max_stack: 4,
+            words: vec![ad(LOADK, 0, 0), abc(RETURN, 0, 2, 0)],
+            constants: vec![vectord],
+            ..Default::default()
+        };
+        let out =
+            decompile(&build_chunk(13, 1, &[], &[proto], 0), 1, None).expect("v13 chunk must deserialize");
+        assert!(out.contains("1.5") && out.contains("3.5"), "got: {out:?}");
     }
 
     #[test]

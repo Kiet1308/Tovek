@@ -8,9 +8,9 @@
 # Usage: ./check.sh [bug ...]   (default: all C*.luau in _bugs/)
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
-LC=/d/Medal/luau-tools/luau-compile.exe
-LUAU=/d/Medal/luau-tools/luau.exe
-LIFT="${LIFTER_EXE:-/d/Medal/medal-wt-review/target/release/luau-lifter.exe}"
+LC=/c/Lua/luau-0.733/luau-compile.exe
+LUAU=/c/Lua/luau-0.733/luau.exe
+LIFT="${LIFTER_EXE:-/c/Users/afsdd/Desktop/Tovek/target/release/luau-lifter.exe}"
 WORK="$HERE/_check_work"; mkdir -p "$WORK"
 
 norm() { sed -E 's#[^ ]*\.luau:[0-9]+(:[0-9]+)?#FILE:N#g; s#[^ ]*\.luau#FILE#g'; }

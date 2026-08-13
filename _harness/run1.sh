@@ -2,9 +2,9 @@
 # run1.sh FILE [OPT] -> shows orig vs decompiled output and diff
 set -u
 f="$1"; OPT="${2:-2}"
-LC=/d/Medal/luau-tools/luau-compile.exe
-LUAU=/d/Medal/luau-tools/luau.exe
-LIFT=/d/Medal/medal-decompiler/target/release/luau-lifter.exe
+LC=/c/Lua/luau-0.733/luau-compile.exe
+LUAU=/c/Lua/luau-0.733/luau.exe
+LIFT=/c/Users/afsdd/Desktop/Tovek/target/release/luau-lifter.exe
 name="$(basename "$f" .luau)"
 bc="/tmp/$name.bc"; dec="/tmp/$name.dec.luau"
 "$LC" --binary "-O$OPT" "$f" > "$bc" 2>/tmp/cerr || { echo "COMPILE_ERR"; cat /tmp/cerr; exit 2; }

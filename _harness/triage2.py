@@ -3,10 +3,10 @@
 # error-message file paths + line numbers, and print only the TRUE divergences.
 import subprocess, re, os, sys, glob
 
-GEN = "gen2"
-LC = r"D:/Medal/luau-tools/luau-compile.exe"
-LUAU = r"D:/Medal/luau-tools/luau.exe"
-LIFT = r"D:/Medal/medal-decompiler/target/release/luau-lifter.exe"
+GEN = sys.argv[1] if len(sys.argv) > 1 else "gen2"
+LC = r"C:/Lua/luau-0.733/luau-compile.exe"
+LUAU = r"C:/Lua/luau-0.733/luau.exe"
+LIFT = r"C:/Users/afsdd/Desktop/Tovek/target/release/luau-lifter.exe"
 
 def norm(s):
     # collapse "<path>.luau:line:col" and bare "<path>.luau" so runtime error

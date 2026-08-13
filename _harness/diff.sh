@@ -9,9 +9,9 @@
 set -u
 DIR="${1:?need dir}"
 OPT="${2:-2}"
-LC=/d/Medal/luau-tools/luau-compile.exe
-LUAU=/d/Medal/luau-tools/luau.exe
-LIFT=/d/Medal/medal-decompiler/target/release/luau-lifter.exe
+LC=/c/Lua/luau-0.733/luau-compile.exe
+LUAU=/c/Lua/luau-0.733/luau.exe
+LIFT=/c/Users/afsdd/Desktop/Tovek/target/release/luau-lifter.exe
 WORK="$DIR/_work_O$OPT"
 mkdir -p "$WORK"
 

@@ -42,32 +42,39 @@ pub fn is_total_pure(value: &crate::RValue) -> bool {
         RValue::Local(_) | RValue::Literal(_) | RValue::VarArg(_) => true,
         // Constructing a closure never raises and has no effect.
         RValue::Closure(_) => true,
-        // `not x` cannot raise; total iff its operand is.
+        // `not x` cannot raise and has no metamethod (it is total on any
+        // operand); total iff its operand is. The audit's stricter rule for `not`
+        // is unnecessary exactly because `not` itself can never error.
         RValue::Unary(unary) if unary.operation == UnaryOperation::Not => {
             is_total_pure(&unary.value)
         }
-        // `==`/`~=` never raise on a type mismatch (equality is total) and
-        // `and`/`or` only short-circuit; total iff both operands are total. Every
-        // other binary operator can raise, so it is NOT total.
+        // `and`/`or` only short-circuit; total iff both operands are total.
+        //
+        // `==`/`~=` are EXCLUDED (FIX(OPT-001)): equality on tables can invoke an
+        // `__eq` metamethod, which can raise or observe state, so a comparison is
+        // not provably total — and a comparison dropped as "pure" would swallow
+        // that error (also covers FIX(OPT-002): NaN comparisons stay undroppable).
+        // Every other binary operator can raise, so it is NOT total either.
         RValue::Binary(binary)
-            if matches!(
-                binary.operation,
-                BinaryOperation::Equal
-                    | BinaryOperation::NotEqual
-                    | BinaryOperation::And
-                    | BinaryOperation::Or
-            ) =>
+            if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) =>
         {
             is_total_pure(&binary.left) && is_total_pure(&binary.right)
         }
-        // A table constructor is total iff every key and value is total. (A bare
-        // `{}` / `{1, 2}` / `{x = 1}` never raises; a `{ f() }` is non-total via
-        // its element.) NB: an exotic `{[nil]=1}` would raise, but the compiler
-        // never emits a nil/NaN constant key, so it cannot occur here.
-        RValue::Table(table) => table
-            .0
-            .iter()
-            .all(|(k, v)| k.as_ref().map_or(true, is_total_pure) && is_total_pure(v)),
+        // A table constructor is total iff every value is total and every key is
+        // a provably non-nil, non-NaN literal (FIX(OPT-003)): a constructor whose
+        // `[expr]` key could be nil/NaN at runtime raises "table index is
+        // nil/NaN", so a variable-key constructor must not be dropped.
+        RValue::Table(table) => table.0.iter().all(|(k, v)| match k {
+            // A positional entry has no key (nil VALUE is legal), so it is total
+            // iff its value is.
+            None => is_total_pure(v),
+            Some(RValue::Literal(literal)) => {
+                !matches!(literal, crate::Literal::Nil)
+                    && !matches!(literal, crate::Literal::Number(n) if n.is_nan())
+                    && is_total_pure(v)
+            }
+            Some(_) => false,
+        }),
         // An if-expression raises only if one of its (evaluated) parts does.
         RValue::IfExpression(if_expression) => {
             is_total_pure(&if_expression.condition)
@@ -75,5 +82,63 @@ pub fn is_total_pure(value: &crate::RValue) -> bool {
                 && is_total_pure(&if_expression.else_value)
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_total_pure;
+    use crate::{Binary, BinaryOperation, Literal, Local, RValue, RcLocal, Table};
+
+    #[test]
+    fn equality_comparisons_are_not_total() {
+        let one = RValue::Literal(Literal::Number(1.0));
+        let two = RValue::Literal(Literal::Number(2.0));
+        // FIX(OPT-001): `==`/`~=` can run an `__eq` metamethod that raises or
+        // observes state, so even a literal comparison is not droppable.
+        assert!(!is_total_pure(&RValue::Binary(Binary::new(
+            one.clone(),
+            two.clone(),
+            BinaryOperation::Equal
+        ))));
+        assert!(!is_total_pure(&RValue::Binary(Binary::new(
+            one.clone(),
+            two.clone(),
+            BinaryOperation::NotEqual
+        ))));
+        // `and`/`or` on total operands short-circuit and stay droppable.
+        assert!(is_total_pure(&RValue::Binary(Binary::new(
+            one,
+            RValue::Literal(Literal::Boolean(true)),
+            BinaryOperation::And
+        ))));
+        assert!(is_total_pure(&RValue::Binary(Binary::new(
+            two,
+            RValue::Literal(Literal::Boolean(false)),
+            BinaryOperation::Or
+        ))));
+    }
+
+    #[test]
+    fn constructor_with_variable_key_is_not_total() {
+        let key = RcLocal::new(Local::new(Some("k".to_string())));
+        // FIX(OPT-003): a `[expr]` key that could be nil at runtime makes the
+        // constructor raise, so it is not droppable even with total values.
+        let variable_key = RValue::Table(Table(vec![(
+            Some(RValue::Local(key)),
+            RValue::Literal(Literal::Number(1.0)),
+        )]));
+        assert!(!is_total_pure(&variable_key));
+        // A positional or literal-keyed constructor with total values is.
+        let literal_keyed = RValue::Table(Table(vec![(
+            Some(RValue::Literal(Literal::Number(1.0))),
+            RValue::Literal(Literal::Number(1.0)),
+        )]));
+        assert!(is_total_pure(&literal_keyed));
+        let positional = RValue::Table(Table(vec![(
+            None,
+            RValue::Literal(Literal::Number(1.0)),
+        )]));
+        assert!(is_total_pure(&positional));
     }
 }
