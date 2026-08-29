@@ -2,6 +2,7 @@
 # Keep: _bugs/ (minimal repros), *.sh, *.py (scripts).
 _baseline_corpus/
 _check_work/
+_run1_work/
 _work_O*/
 corpus_fresh/
 corpus_out/

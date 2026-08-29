@@ -173,11 +173,12 @@ impl Reduce for Unary {
         // yields a number — always truthy. But it can run a `__len` metamethod,
         // raise on a non-lengthable X (`#5`, `#nil`), and X itself may have side
         // effects. Reduce X in value context (so a string/table stays itself) and
-        // only fold to `true` for a string or side-effect-free table literal, where
-        // none of that applies; otherwise keep `#X` as the condition.
+        // only fold to `true` for a string or total table literal, where none of
+        // that applies; otherwise keep `#X` as the condition. A computed nil/NaN
+        // table key can raise even though `has_side_effects()` is false.
         if self.operation == UnaryOperation::Length {
             let value = self.value.reduce();
-            return if !value.has_side_effects()
+            return if crate::is_total_pure(&value)
                 && matches!(
                     value,
                     RValue::Literal(Literal::String(_)) | RValue::Table(_)
@@ -374,5 +375,15 @@ mod tests {
             len_condition(RValue::Table(Table::default())),
             RValue::Literal(Literal::Boolean(true))
         );
+    }
+
+    #[test]
+    fn length_of_table_with_dynamic_key_keeps_possible_error() {
+        let key = RValue::Local(RcLocal::default());
+        let table = RValue::Table(Table(vec![(
+            Some(key),
+            RValue::Literal(Literal::Number(1.0)),
+        )]));
+        assert!(is_length(&len_condition(table)));
     }
 }

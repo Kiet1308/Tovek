@@ -135,9 +135,7 @@ fn sink_total_table_declarations(
         let table = block.0[index].as_assign().unwrap().right[0]
             .as_table()
             .unwrap();
-        if !table.0.iter().all(|(key, value)| {
-            key.iter().all(total_stable_component) && total_stable_component(value)
-        }) {
+        if !crate::side_effects::is_total_table(table) {
             index += 1;
             continue;
         }
@@ -182,10 +180,6 @@ fn sink_total_table_declarations(
         index = field_index;
     }
     changed
-}
-
-fn total_stable_component(value: &RValue) -> bool {
-    matches!(value, RValue::Local(_) | RValue::Literal(_))
 }
 
 fn is_intervening_local_declaration(statement: &Statement) -> bool {
@@ -303,12 +297,7 @@ fn drained_field_pattern(
 }
 
 fn stable_drained_key(key: &RValue) -> bool {
-    matches!(
-        key,
-        RValue::Literal(
-            crate::Literal::String(_) | crate::Literal::Number(_) | crate::Literal::Boolean(_)
-        )
-    )
+    crate::side_effects::is_total_table_key(key)
 }
 
 fn table_constructor_local(statement: &Statement) -> Option<RcLocal> {
@@ -405,12 +394,9 @@ fn insert_table_entry(table: &mut Table, initial_len: usize, key: RValue, value:
 
 fn inert_nil_placeholder_suffix(table: &Table, position: usize, initial_len: usize) -> bool {
     table.0[position..initial_len].iter().all(|(key, value)| {
-        matches!(
-            key,
-            Some(RValue::Literal(
-                crate::Literal::String(_) | crate::Literal::Number(_) | crate::Literal::Boolean(_)
-            ))
-        ) && matches!(value, RValue::Literal(crate::Literal::Nil))
+        key.as_ref()
+            .is_some_and(crate::side_effects::is_total_table_key)
+            && matches!(value, RValue::Literal(crate::Literal::Nil))
     })
 }
 

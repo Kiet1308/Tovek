@@ -5,22 +5,65 @@ use itertools::{Either, Itertools};
 use petgraph::visit::EdgeRef;
 use rustc_hash::{FxHashMap, FxHashSet};
 
-/// Whether moving a side-effecting inline candidate *past* this already-visited
-/// rvalue (in evaluation order) could reorder two observable effects.
-///
-/// Only function/method calls are treated as hard, un-reorderable effects: a call
-/// may read or write arbitrary state, so a call must never hop over another call.
-/// Global reads, table indexing and arithmetic are treated as reorderable — in
-/// real (non-adversarial) code they read library tables/fields that the candidate
-/// will not mutate. This is what lets `local v = lib.fn(expr)` collapse back into
-/// one expression instead of leaving a `local vN = expr` trail in front of it.
+/// Whether moving an inline candidate *past* this already-visited rvalue could
+/// reorder an observable event. This includes runtime errors (for example a
+/// dynamic table key evaluating to nil), not only explicit side effects.
 fn rvalue_blocks_reorder(rvalue: &ast::RValue) -> bool {
-    matches!(
-        rvalue,
+    match rvalue {
+        // These constructs either execute conditionally or can invoke a
+        // metamethod/raise, so moving an effect across them can change order.
         ast::RValue::Call(_)
-            | ast::RValue::MethodCall(_)
-            | ast::RValue::Select(ast::Select::Call(_) | ast::Select::MethodCall(_))
-    )
+        | ast::RValue::MethodCall(_)
+        | ast::RValue::Select(ast::Select::Call(_) | ast::Select::MethodCall(_))
+        | ast::RValue::Index(_)
+        | ast::RValue::Binary(_)
+        | ast::RValue::IfExpression(_) => true,
+        ast::RValue::Unary(unary) => {
+            matches!(
+                unary.operation,
+                ast::UnaryOperation::Length | ast::UnaryOperation::Negate
+            ) || ast::is_observable(rvalue)
+        }
+        // A table with a computed key is a barrier even though its constructor
+        // itself normally has no SideEffects implementation; `is_observable`
+        // catches the possible nil/NaN key error. Literal-keyed tables remain
+        // reorderable, preserving the useful inlining optimization.
+        ast::RValue::Table(_) => ast::is_observable(rvalue),
+        // Global reads are intentionally treated as reorderable by this pass;
+        // their broad SideEffects classification is a separate conservative
+        // policy used by dead-code cleanup.
+        ast::RValue::Global(_) => false,
+        _ => ast::is_observable(rvalue),
+    }
+}
+
+/// Returns whether `read` occurs in a subexpression that may not be evaluated
+/// on every execution of `rvalue`. A side-effecting definition cannot be moved
+/// into such a position: `local x = effect(); return flag and x` must not become
+/// `return flag and effect()`, which skips the call when `flag` is false.
+fn local_is_conditionally_evaluated(
+    rvalue: &ast::RValue,
+    read: &ast::RcLocal,
+    conditional: bool,
+) -> bool {
+    match rvalue {
+        ast::RValue::Local(local) => conditional && local == read,
+        ast::RValue::Binary(binary)
+            if matches!(binary.operation, ast::BinaryOperation::And | ast::BinaryOperation::Or) =>
+        {
+            local_is_conditionally_evaluated(&binary.left, read, conditional)
+                || local_is_conditionally_evaluated(&binary.right, read, true)
+        }
+        ast::RValue::IfExpression(if_expression) => {
+            local_is_conditionally_evaluated(&if_expression.condition, read, conditional)
+                || local_is_conditionally_evaluated(&if_expression.then_value, read, true)
+                || local_is_conditionally_evaluated(&if_expression.else_value, read, true)
+        }
+        _ => rvalue
+            .rvalues()
+            .into_iter()
+            .any(|child| local_is_conditionally_evaluated(child, read, conditional)),
+    }
 }
 
 /// A `game:GetService("X")` service handle or a `require(...)` module handle.
@@ -90,6 +133,14 @@ impl<'a> Inliner<'a> {
         new_rvalue: &mut Option<ast::RValue>,
         new_rvalue_has_side_effects: bool,
     ) -> bool {
+        if new_rvalue_has_side_effects
+            && traversible
+                .rvalues()
+                .into_iter()
+                .any(|rvalue| local_is_conditionally_evaluated(rvalue, read, false))
+        {
+            return false;
+        }
         traversible
             .traverse_values(&mut |p, v| {
                 match p {
@@ -232,14 +283,14 @@ impl<'a> Inliner<'a> {
                         // (C9: `c1=A(); m=B(a); … return c1+m` inlined A() past B()).
                         // Close the side-effect window here, exactly as the
                         // fall-through path at the bottom of the loop does.
-                        allow_side_effects &= !block[stat_index].has_side_effects();
+                        allow_side_effects &= !ast::statement_is_observable(&block[stat_index]);
                         continue;
                     }
 
                     if let ast::Statement::Assign(assign) = &block[stat_index]
                         && let Ok(new_rvalue) = assign.right.iter().exactly_one()
                     {
-                        let new_rvalue_has_side_effects = new_rvalue.has_side_effects()
+                        let new_rvalue_has_side_effects = ast::is_observable(new_rvalue)
                             || new_rvalue
                                 .values_read()
                                 .iter()
@@ -316,7 +367,7 @@ impl<'a> Inliner<'a> {
                                 let has_leading_side_effects = || {
                                     let mut leading_side_effects = false;
                                     for expr in generic_for_init.0.right.iter().take(start_index) {
-                                        if expr.has_side_effects() {
+                                        if ast::is_observable(expr) {
                                             leading_side_effects = true;
                                             break;
                                         }
@@ -370,7 +421,7 @@ impl<'a> Inliner<'a> {
                             .filter_map(|l| self.local_to_group.get(l))
                             .cloned(),
                     );
-                    allow_side_effects &= !block[stat_index].has_side_effects();
+                    allow_side_effects &= !ast::statement_is_observable(&block[stat_index]);
                 }
                 index += 1;
             }
@@ -442,7 +493,7 @@ impl<'a> Inliner<'a> {
                         if let ast::Statement::Assign(assign) = &block[stat_index]
                             && let Ok(new_rvalue) = assign.right.iter().exactly_one()
                         {
-                            let new_rvalue_has_side_effects = new_rvalue.has_side_effects()
+                            let new_rvalue_has_side_effects = ast::is_observable(new_rvalue)
                                 || new_rvalue
                                     .values_read()
                                     .iter()
@@ -793,11 +844,14 @@ pub fn inline(
 
 #[cfg(test)]
 mod tests {
-    use super::{fold_table_constructor_field_assignments, inline};
+    use super::{
+        fold_table_constructor_field_assignments, inline, local_is_conditionally_evaluated,
+        rvalue_blocks_reorder,
+    };
     use crate::function::Function;
     use ast::{
-        Assign, Block, Global, Index, LValue, Literal, Local, RValue, RcLocal, Return, Statement,
-        Table,
+        Assign, Binary, Block, Global, Index, LValue, Literal, Local, RValue, RcLocal, Return,
+        Statement, Table,
     };
     use indexmap::IndexMap;
     use rustc_hash::FxHashMap;
@@ -995,5 +1049,36 @@ mod tests {
         ]));
 
         assert_eq!(block.to_string(), "return {\n\tEnabled = true\n}");
+    }
+
+    #[test]
+    fn dynamic_table_constructor_blocks_effect_reordering() {
+        let key = local("key");
+        let table = RValue::Table(Table(vec![(
+            Some(local_value(&key)),
+            number(1.0),
+        )]));
+        assert!(
+            rvalue_blocks_reorder(&table),
+            "a nil/NaN-capable table key must stay before side effects"
+        );
+        assert!(rvalue_blocks_reorder(&RValue::Binary(Binary::new(
+            local_value(&key),
+            number(1.0),
+            ast::BinaryOperation::Add,
+        ))));
+    }
+
+    #[test]
+    fn side_effecting_value_is_not_moved_into_short_circuit_rhs() {
+        let flag = local("flag");
+        let value = local("value");
+        let expression = RValue::Binary(Binary::new(
+            local_value(&flag),
+            local_value(&value),
+            ast::BinaryOperation::And,
+        ));
+        assert!(local_is_conditionally_evaluated(&expression, &value, false));
+        assert!(!local_is_conditionally_evaluated(&expression, &flag, false));
     }
 }

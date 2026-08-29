@@ -173,7 +173,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 _ => unreachable!(),
             },
             (left, right, BinaryOperation::And)
-                if !left.has_side_effects() && !right.has_side_effects() && left == right =>
+                if crate::is_total_pure(&left) && crate::is_total_pure(&right) && left == right =>
             {
                 left
             }
@@ -191,7 +191,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 BinaryOperation::Or,
             ) => value,
             (left, right, BinaryOperation::Or)
-                if !left.has_side_effects() && !right.has_side_effects() && left == right =>
+                if crate::is_total_pure(&left) && crate::is_total_pure(&right) && left == right =>
             {
                 left
             }
@@ -278,9 +278,11 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 BinaryOperation::Or if !right => left.reduce(),
                 // `X and false` -> false, `X or true` -> true: the literal decides
                 // the result, but X (the LEFT operand) is ALWAYS evaluated in Lua,
-                // so it may only be dropped when it is side-effect-free; otherwise
-                // keep `X <op> <literal>` so X still runs.
-                _ if !left.has_side_effects() => RValue::Literal(Literal::Boolean(right)),
+                // so it may only be dropped when it is both side-effect-free and
+                // unable to raise; otherwise keep `X <op> <literal>` so X still
+                // runs. `has_side_effects()` alone misses indexing, arithmetic,
+                // and dynamic table-key errors.
+                _ if crate::is_total_pure(&left) => RValue::Literal(Literal::Boolean(right)),
                 operation => {
                     Binary::new(left, RValue::Literal(Literal::Boolean(right)), operation).into()
                 }
@@ -390,7 +392,7 @@ impl fmt::Display for Binary {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Binary, BinaryOperation, Global, Literal, RValue, RcLocal, Reduce};
+    use crate::{Binary, BinaryOperation, Global, Index, Literal, RValue, RcLocal, Reduce};
 
     fn local() -> RValue {
         RValue::Local(RcLocal::default())
@@ -441,6 +443,14 @@ mod tests {
         let or_kept =
             Binary::new(global("foo"), boolean(true), BinaryOperation::Or).reduce_condition();
         assert!(is_binary(&or_kept, BinaryOperation::Or));
+
+        let raising_index = RValue::Index(Index::new(
+            RValue::Literal(Literal::Nil),
+            RValue::Literal(Literal::String(b"field".to_vec())),
+        ));
+        let raising_kept =
+            Binary::new(raising_index, boolean(false), BinaryOperation::And).reduce_condition();
+        assert!(is_binary(&raising_kept, BinaryOperation::And));
     }
 
     // The identity sub-cases are unchanged: `X and true` -> X, `X or false` -> X.

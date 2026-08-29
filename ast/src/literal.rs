@@ -14,6 +14,11 @@ pub enum Literal {
     Number(f64),
     String(Vec<u8>),
     Vector(f32, f32, f32),
+    /// A Luau vector constant whose components were encoded as doubles.
+    ///
+    /// Keep this distinct from [`Vector`] so legacy f32 constants retain their
+    /// compact formatting while v13+ constants are never narrowed.
+    VectorD(f64, f64, f64),
 }
 
 impl Reduce for Literal {
@@ -27,7 +32,8 @@ impl Reduce for Literal {
             Literal::Boolean(true)
             | Literal::Number(_)
             | Literal::String(_)
-            | Literal::Vector(..) => true,
+            | Literal::Vector(..)
+            | Literal::VectorD(..) => true,
         })
         .into()
     }
@@ -40,7 +46,7 @@ impl Infer for Literal {
             Literal::Boolean(_) => Type::Boolean,
             Literal::Number(_) => Type::Number,
             Literal::String(_) => Type::String,
-            Literal::Vector(..) => Type::Vector,
+            Literal::Vector(..) | Literal::VectorD(..) => Type::Vector,
         }
     }
 }
@@ -108,6 +114,10 @@ impl Literal {
             Self::format_finite_f32(value)
         }
     }
+
+    fn format_vector_component_d(value: f64) -> String {
+        Self::format_number(value)
+    }
 }
 
 impl fmt::Display for Literal {
@@ -129,6 +139,13 @@ impl fmt::Display for Literal {
                 Self::format_vector_component(*x),
                 Self::format_vector_component(*y),
                 Self::format_vector_component(*z)
+            ),
+            Literal::VectorD(x, y, z) => write!(
+                f,
+                "Vector3.new({}, {}, {})",
+                Self::format_vector_component_d(*x),
+                Self::format_vector_component_d(*y),
+                Self::format_vector_component_d(*z)
             ),
         }
     }
@@ -176,5 +193,19 @@ mod tests {
         // to_bits comparison must not be fooled by `-0.0` or NaN.
         assert_ne!(Literal::format_number(-0.0), "math.pi");
         assert_ne!(Literal::format_number(-0.0), "-math.pi");
+    }
+
+    #[test]
+    fn vectord_format_preserves_double_components() {
+        let value = Literal::VectorD(1.0000000000000002, 1e-300, 16777217.0);
+        assert_eq!(
+            value.to_string(),
+            "Vector3.new(1.0000000000000002, 1e-300, 16777217)"
+        );
+        let huge = Literal::VectorD(1e300, f64::INFINITY, f64::NAN);
+        assert_eq!(
+            huge.to_string(),
+            "Vector3.new(1e300, math.huge, (0 / 0))"
+        );
     }
 }

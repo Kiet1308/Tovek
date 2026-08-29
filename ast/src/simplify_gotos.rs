@@ -15,19 +15,16 @@ use crate::{
 // `RcLocal`s ARE shared on purpose: the copy must reference the same
 // variables. Regions containing closure literals are never cloned
 // (see `seq_duplicable`), so the closure arm keeps the shared handle.
-// (NB: a NESTED closure is deliberately NOT deep-cloned — later passes,
-// e.g. `expr_deinline`, key maps on its `Function` `Arc` identity via
-// `Arc::as_ptr`, so minting a fresh Arc panics with "no entry found for
-// key". `materialize_value_captures` accepts that residual; see there.)
+// (NB: a NESTED closure is deliberately NOT deep-cloned here — callers that
+// need to mutate a closure tree after identity maps have been consumed use a
+// dedicated clone. Keeping this generic goto clone shallow preserves the
+// identity-sharing contract expected by the earlier linking/de-inline passes.)
 // ===================================================================
 
-/// `pub(crate)` so `materialize_value_captures` can un-share a de-inline-duplicated
-/// closure body before snapshotting it. Rebuilds nested `Arc<Mutex<Block>>` sub-blocks
-/// (`dc_arc`); nested CLOSURE Arcs stay shared (`dc_rvalue` catch-all). A capture read
-/// strictly inside such a nested closure would therefore still leak a rename to the
-/// sibling — a pre-existing residual that has zero corpus occurrence and is strictly
-/// better than the pre-fix behaviour. It is NOT closed by deep-cloning nested closures:
-/// that mints fresh `Function` Arcs and panics a later `Arc::as_ptr`-keyed lookup.
+/// `pub(crate)` so AST passes can duplicate structured blocks without sharing
+/// mutable block containers. Rebuilds nested `Arc<Mutex<Block>>` sub-blocks
+/// (`dc_arc`); nested CLOSURE Arcs stay shared (`dc_rvalue` catch-all) so the
+/// caller's function-identity maps remain valid.
 pub(crate) fn dc_block(block: &Block) -> Block {
     Block(block.0.iter().map(dc_stmt).collect())
 }

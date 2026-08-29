@@ -9,7 +9,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     deinline::rvalue_exact_eq, flatten_guards::block_size, BinaryOperation, Block, Global, If,
-    Index, LValue, Literal, Local, NumericFor, RValue, RcLocal, Repeat, SideEffects, Statement,
+    Index, LValue, Literal, Local, NumericFor, RValue, RcLocal, Repeat, Statement,
     Traverse, Unary, UnaryOperation,
 };
 
@@ -435,7 +435,7 @@ fn return_arm_discriminator(statement: &Statement) -> Option<(RValue, RValue)> {
         }
         _ => return None,
     };
-    if scrutinee.has_side_effects() {
+    if !crate::is_total_pure(scrutinee) {
         return None;
     }
     Some((scrutinee.clone(), constant.clone()))

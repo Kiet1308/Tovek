@@ -302,7 +302,11 @@ fn is_guaranteed_truthy(value: &RValue) -> bool {
     matches!(
         value,
         RValue::Literal(
-            Literal::Boolean(true) | Literal::Number(_) | Literal::String(_) | Literal::Vector(..),
+            Literal::Boolean(true)
+            | Literal::Number(_)
+            | Literal::String(_)
+            | Literal::Vector(..)
+            | Literal::VectorD(..),
         ) | RValue::Table(_)
             | RValue::Closure(_)
     )

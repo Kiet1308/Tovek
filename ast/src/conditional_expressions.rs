@@ -2,7 +2,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     Binary, BinaryOperation, Block, If, IfExpression, Index, LValue, Literal, LocalRw, RValue,
-    RcLocal, Select, SideEffects, Statement, Traverse, Unary, UnaryOperation,
+    RcLocal, Select, Statement, Traverse, Unary, UnaryOperation,
 };
 
 #[derive(Default)]
@@ -637,13 +637,13 @@ fn can_replace_after_prior_eval(
     usage: &FxHashMap<RcLocal, Usage>,
 ) -> bool {
     !before_unsafe
-        || !(replacement.has_side_effects()
+        || !(crate::is_observable(replacement)
             || contains_global(replacement)
             || reads_captured_local(replacement, usage))
 }
 
 fn rvalue_prior_unsafe(value: &RValue, usage: &FxHashMap<RcLocal, Usage>) -> bool {
-    value.has_side_effects() || contains_global(value) || reads_captured_local(value, usage)
+    crate::is_observable(value) || contains_global(value) || reads_captured_local(value, usage)
 }
 
 fn lvalue_prior_unsafe(lvalue: &LValue, usage: &FxHashMap<RcLocal, Usage>) -> bool {

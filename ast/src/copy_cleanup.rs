@@ -5,7 +5,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use crate::{
     inline_temps::{collect_usage, is_generated_temp, statement_writes_any_local, Usage},
     replace_locals::replace_locals,
-    Block, LValue, LocalRw, RValue, RcLocal, SideEffects, Statement, Traverse,
+    Block, LValue, LocalRw, RValue, RcLocal, Statement, Traverse,
 };
 
 /// Remove redundant local copies: `local dst = src` where `dst` is a generated
@@ -239,14 +239,15 @@ fn captured_src_mutated_before_use(block: &Block, decl_index: usize, dst: &RcLoc
         return false;
     };
     // A side effect strictly before that statement is unsafe.
-    if (decl_index + 1..bound).any(|i| block.0[i].has_side_effects()) {
+    if (decl_index + 1..bound).any(|i| crate::statement_is_observable(&block.0[i])) {
         return true;
     }
     // If the read is NESTED inside a compound statement (not a direct top-level
     // read), a side effect earlier in that same statement could precede the read,
     // which the window above cannot see. Conservatively block when that statement
     // itself has a side effect.
-    !block.0[bound].values_read().iter().any(|r| *r == dst) && block.0[bound].has_side_effects()
+    !block.0[bound].values_read().iter().any(|r| *r == dst)
+        && crate::statement_is_observable(&block.0[bound])
 }
 
 /// Gate 6 — anti-swap / anti-stale-copy: `src` must NOT be reassigned anywhere

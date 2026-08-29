@@ -22,6 +22,8 @@ pub struct DebugLocal {
     pub register: u8,
 }
 
+const LPF_INLINABLE: u8 = 1 << 3;
+
 #[derive(Debug)]
 pub struct Function {
     pub max_stack_size: u8,
@@ -132,7 +134,7 @@ impl Function {
         let (input, num_upvalues) = le_u8(input)?;
         let (input, is_vararg) = le_u8(input)?;
 
-        let (input, _flags) = le_u8(input)?;
+        let (input, flags) = le_u8(input)?;
         let (input, _) = parse_list(input, le_u8)?;
 
         let (input, u32_instructions) = parse_list(input, le_u32)?;
@@ -147,7 +149,7 @@ impl Function {
             Self::parse_instructions(&u32_instructions, encode_key).map_err(|_| {
                 nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Verify))
             })?;
-        let (input, constants) = parse_list(input, Constant::parse)?;
+        let (input, constants) = parse_list(input, |i| Constant::parse(i, version))?;
         let (input, functions) = parse_list(input, leb128_usize)?;
         let (input, line_defined) = leb128_usize(input)?;
         let (input, function_name) = leb128_usize(input)?;
@@ -252,6 +254,14 @@ impl Function {
                 let (rest, _call_target_pc) = leb128_usize(rest)?;
                 input = rest;
             }
+            input
+        } else {
+            input
+        };
+        // v12+ stores a cost-model varint for inlinable prototypes. It has no
+        // source-level meaning, but must be consumed before the next prototype.
+        let input = if version >= 12 && flags & LPF_INLINABLE != 0 {
+            let (input, _) = leb128_usize(input)?;
             input
         } else {
             input

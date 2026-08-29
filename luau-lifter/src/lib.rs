@@ -1003,6 +1003,7 @@ mod v11_fixtures {
 
     // --- opcode ordinals used below ---
     const LOADN: u8 = 4;
+    const LOADK: u8 = 5;
     const GETGLOBAL: u8 = 7; // aux
     const CALL: u8 = 21;
     const RETURN: u8 = 22;
@@ -1056,6 +1057,7 @@ mod v11_fixtures {
         num_params: u8,
         num_upvalues: u8,
         is_vararg: u8,
+        flags: u8,
         /// Raw 32-bit instruction words, INCLUDING aux words (as the on-wire stream).
         words: Vec<u32>,
         constants: Vec<Vec<u8>>,
@@ -1071,7 +1073,7 @@ mod v11_fixtures {
         out.push(p.num_params);
         out.push(p.num_upvalues);
         out.push(p.is_vararg);
-        out.push(0); // flags
+        out.push(p.flags);
         out.extend(leb128(0)); // typeinfo blob length = 0
         out.extend(leb128(p.words.len() as u64));
         for w in &p.words {
@@ -1096,6 +1098,9 @@ mod v11_fixtures {
                 out.extend(leb128(pc));
             }
         }
+        if version >= 12 && p.flags & 8 != 0 {
+            out.extend(leb128(0)); // inlinable cost
+        }
         out
     }
 
@@ -1118,7 +1123,11 @@ mod v11_fixtures {
         }
         out.extend(leb128(protos.len() as u64));
         for p in protos {
-            out.extend(build_proto(p, version));
+            let proto = build_proto(p, version);
+            if version >= 12 {
+                out.extend(leb128(proto.len() as u64));
+            }
+            out.extend(proto);
         }
         out.extend(leb128(main as u64));
         out
@@ -1139,6 +1148,68 @@ mod v11_fixtures {
         let blob = build_chunk(11, 1, &[], &[simple_return_proto(vec![])], 0);
         let out = decompile(&blob, 1, None).expect("v11 empty-feedback chunk must deserialize");
         assert!(out.contains("return"), "got: {out:?}");
+    }
+
+    #[test]
+    fn v12_proto_size_boundary_skips_extensions_and_cost() {
+        // Append an unknown byte to the first declared proto and increase only
+        // its size prefix. The second proto and main id must remain aligned.
+        // Locate the first proto size after the version/types/string/proto-count
+        // prefix (all zero-length in this fixture) and rebuild with an explicit
+        // extension through the helper below for clarity.
+        let mut expected = Vec::new();
+        expected.push(12);
+        expected.push(1);
+        expected.extend(leb128(0)); // strings
+        expected.extend(leb128(2)); // protos
+        let mut first = build_proto(&{
+            let mut p = simple_return_proto(vec![]);
+            p.flags = 8;
+            p
+        }, 12);
+        first.push(0xa5); // unknown trailing per-proto field
+        expected.extend(leb128(first.len() as u64));
+        expected.extend(first);
+        let second = build_proto(&simple_return_proto(vec![]), 12);
+        expected.extend(leb128(second.len() as u64));
+        expected.extend(second);
+        expected.extend(leb128(0));
+        let blob = expected;
+        let out = decompile(&blob, 1, None).expect("v12 extension must be skipped");
+        assert!(out.contains("return"), "got: {out:?}");
+    }
+
+    #[test]
+    fn v12_malformed_proto_sizes_are_rejected() {
+        let valid = build_chunk(12, 1, &[], &[simple_return_proto(vec![])], 0);
+        // The first proto-size varint is immediately after the zero string and
+        // one-proto list prefixes. A zero size cannot contain the known proto.
+        let mut zero = valid.clone();
+        zero.splice(4..5, leb128(0));
+        assert!(decompile(&zero, 1, None).is_err());
+
+        let mut oversized = valid;
+        oversized.splice(4..5, leb128(usize::MAX as u64));
+        assert!(decompile(&oversized, 1, None).is_err());
+    }
+
+    #[test]
+    fn v13_vectord_preserves_double_precision() {
+        let mut vectord = vec![11u8];
+        for value in [1e300f64, 1e-300, 16777217.0, 4.0] {
+            vectord.extend(value.to_le_bytes());
+        }
+        let proto = Proto {
+            max_stack: 1,
+            words: vec![ad(LOADK, 0, 0), abc(RETURN, 0, 2, 0)],
+            constants: vec![vectord],
+            ..Default::default()
+        };
+        let out = decompile(&build_chunk(13, 1, &[], &[proto], 0), 1, None)
+            .expect("v13 VectorD chunk must deserialize");
+        assert!(out.contains("1e300"), "got: {out:?}");
+        assert!(out.contains("1e-300"), "got: {out:?}");
+        assert!(out.contains("16777217"), "got: {out:?}");
     }
 
     #[test]

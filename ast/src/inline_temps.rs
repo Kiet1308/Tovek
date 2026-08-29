@@ -688,7 +688,11 @@ fn can_move_between(replacement: &RValue, statements: &[Statement], facts: &Moti
         .collect::<FxHashSet<_>>();
     let reads_global = contains_global(replacement);
     let reads_captured_local = reads_captured_local(replacement, &facts.captured);
-    let has_effects = replacement.has_side_effects();
+    // A replacement can be observable without being marked as side-effecting:
+    // for example, `{[nil] = 1}` raises while evaluating the constructor. Such
+    // expressions must not cross another evaluation barrier or their error is
+    // reordered (and may be swallowed by a later control-flow path).
+    let has_effects = crate::is_observable(replacement);
     for statement in statements {
         if statement_writes_any_local(statement, &read_locals) {
             return false;
@@ -712,7 +716,7 @@ fn can_replace_after_prior_effects(
     facts: &MotionFacts,
 ) -> bool {
     !before_side_effects
-        || !(replacement.has_side_effects()
+        || !(crate::is_observable(replacement)
             || contains_global(replacement)
             || reads_captured_local(replacement, &facts.captured))
 }
@@ -732,7 +736,7 @@ fn contains_global(rvalue: &RValue) -> bool {
 }
 
 fn rvalue_evaluation_order_barrier(rvalue: &RValue, facts: &MotionFacts) -> bool {
-    rvalue.has_side_effects()
+    crate::is_observable(rvalue)
         || contains_global(rvalue)
         || rvalue
             .values_read()
@@ -1154,6 +1158,26 @@ mod tests {
 
         inline_single_use_temps(&mut block);
 
+        assert_eq!(block.0.len(), 3);
+    }
+
+    #[test]
+    fn raising_table_key_does_not_cross_intervening_effect() {
+        let key = local("key");
+        let temp = local("v4");
+        let mut block = Block(vec![
+            declare(
+                &temp,
+                RValue::Table(Table(vec![(Some(local_value(&key)), number(1.0))])),
+            ),
+            Call::new(global("between"), vec![]).into(),
+            print(local_value(&temp)),
+        ]);
+
+        inline_single_use_temps(&mut block);
+
+        // The constructor raises for a nil/NaN key before `between` runs; moving
+        // it below the call would change both the observable output and error.
         assert_eq!(block.0.len(), 3);
     }
 

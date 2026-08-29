@@ -386,7 +386,11 @@ fn is_truthy(rvalue: ast::RValue) -> Option<bool> {
             ..
         }) => Some(true),
         ast::RValue::Literal(
-            ast::Literal::Boolean(true) | ast::Literal::Number(_) | ast::Literal::String(_),
+            ast::Literal::Boolean(true)
+                | ast::Literal::Number(_)
+                | ast::Literal::String(_)
+                | ast::Literal::Vector(..)
+                | ast::Literal::VectorD(..),
         )
         | ast::RValue::Table(_)
         | ast::RValue::Closure(_) => Some(true),
@@ -438,7 +442,7 @@ fn make_bool_conditional(
         // `has_side_effects` walk so the common non-matching call short-circuits
         // without walking. The guard ensures the condition (== then_value) is
         // effect-free, so evaluating it once here matches the original.
-        if r#if.condition == then_value && !then_value.has_side_effects() {
+        if r#if.condition == then_value && ast::is_total_pure(&then_value) {
             let condition = std::mem::replace(&mut r#if.condition, ast::Literal::Nil.into());
             return Some(
                 ast::Binary::new(condition, else_value, ast::BinaryOperation::Or).reduce(),
@@ -450,7 +454,7 @@ fn make_bool_conditional(
         // operand verbatim when c is truthy. Same value-position / effect-free
         // reasoning as above (the original evaluates c twice on the falsy path, this
         // once), and the cheap `==` gates the recursive side-effect walk.
-        if r#if.condition == else_value && !else_value.has_side_effects() {
+        if r#if.condition == else_value && ast::is_total_pure(&else_value) {
             let condition = std::mem::replace(&mut r#if.condition, ast::Literal::Nil.into());
             return Some(
                 ast::Binary::new(condition, then_value, ast::BinaryOperation::And).reduce(),
@@ -462,7 +466,7 @@ fn make_bool_conditional(
         // worse than the original if/else.
         let then_truthy = match is_truthy(then_value.clone()) {
             Some(truthy) => truthy,
-            None if !then_value.has_side_effects() => {
+            None if ast::is_total_pure(&then_value) => {
                 let value = match &r#if.condition {
                     ast::RValue::Binary(binary)
                         if binary.operation == ast::BinaryOperation::And =>
@@ -471,7 +475,7 @@ fn make_bool_conditional(
                     }
                     value => value,
                 };
-                !value.has_side_effects() && *value == then_value
+                ast::is_total_pure(value) && *value == then_value
             }
             None => false,
         };
@@ -1169,8 +1173,10 @@ mod tests {
         assert_eq!(run(chain, lv(&e), lv(&d)), None);
     }
 
-    // The collapse is not restricted to and-chains: single-local and comparison
-    // conditions collapse cleanly too.
+    // A local condition is safe to reuse. Equality is deliberately kept when it
+    // would be evaluated twice: `__eq` may be a metamethod with side effects or
+    // a changing result, so `if a == b then a == b else e end` cannot become
+    // `(a == b) or e` without changing observable behaviour.
     #[test]
     fn single_local_and_comparison_conditions_collapse() {
         let (v, d) = (rclocal("v"), rclocal("d"));
@@ -1178,7 +1184,7 @@ mod tests {
 
         let (a, b, e) = (rclocal("a"), rclocal("b"), rclocal("e"));
         let eq = || Binary::new(lv(&a), lv(&b), BinaryOperation::Equal).into();
-        assert_eq!(run(eq(), eq(), lv(&e)), Some("a == b or e".to_string()));
+        assert_eq!(run(eq(), eq(), lv(&e)), None);
     }
 
     // then == condition == else collapses to just the condition (via `X or X`).

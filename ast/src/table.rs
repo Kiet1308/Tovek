@@ -13,11 +13,12 @@ impl Reduce for Table {
     }
 
     fn reduce_condition(self) -> RValue {
-        if self.has_side_effects() {
-            // TODO: remove all members w/o side effects
-            self.into()
-        } else {
+        let table: RValue = self.into();
+        if crate::is_total_pure(&table) {
             Literal::Boolean(true).into()
+        } else {
+            // TODO: remove all members w/o side effects
+            table
         }
     }
 }

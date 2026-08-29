@@ -998,6 +998,28 @@ mod tests {
     }
 
     #[test]
+    fn empty_string_keys_use_bracket_syntax() {
+        let table = local("t");
+        let block = Block(vec![
+            Return::new(vec![RValue::Table(Table(vec![
+                (Some(string("")), string("empty")),
+                (Some(string("field")), string("value")),
+            ]))])
+            .into(),
+            Return::new(vec![RValue::Index(Index::new(
+                local_value(&table),
+                string(""),
+            ))])
+            .into(),
+        ]);
+
+        assert_eq!(
+            block.to_string(),
+            "return {\n\t[\"\"] = \"empty\",\n\tfield = \"value\"\n}\nreturn t[\"\"]"
+        );
+    }
+
+    #[test]
     fn parenthesizes_if_expression_index_receiver() {
         let flag = local("flag");
         let active = local("active");
@@ -2055,6 +2077,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         Ok(())
     }
     pub(crate) fn is_valid_name(name: &[u8]) -> bool {
+        if name.is_empty() {
+            return false;
+        }
         if !(name
             .iter()
             .enumerate()
