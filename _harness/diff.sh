@@ -21,6 +21,7 @@ report() { echo "$1" | tee -a "$DIR/_results_O$OPT.txt"; }
 
 for f in "$DIR"/*.luau; do
   [ -e "$f" ] || continue
+  case "$f" in *.dec.luau) continue;; esac
   seen=$((seen+1))
   name="$(basename "$f" .luau)"
   expected="$(expected_failure_for "$f")"
