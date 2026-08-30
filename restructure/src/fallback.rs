@@ -242,27 +242,13 @@ fn statement_has_embedded_block(statement: &Statement) -> bool {
 
 fn fresh_synthetic_local_name(function: &Function, base: &str) -> String {
     let mut used_names = FxHashSet::default();
+    let mut seen_closures = FxHashSet::default();
 
     for local in &function.parameters {
         remember_local_name(local, &mut used_names);
     }
     for (node, block) in function.blocks() {
-        for statement in block.iter() {
-            for local in statement.values() {
-                remember_local_name(local, &mut used_names);
-            }
-            let mut statement_copy = statement.clone();
-            let _: Option<()> = statement_copy.traverse_values(&mut |_, value| -> Option<()> {
-                match value {
-                    Either::Left(LValue::Global(global))
-                    | Either::Right(RValue::Global(global)) => {
-                        remember_global_name(global, &mut used_names)
-                    }
-                    _ => {}
-                }
-                None
-            });
-        }
+        remember_names_in_block(block, &mut used_names, &mut seen_closures);
         for edge in function.edges(node) {
             for (destination, value) in &edge.weight().arguments {
                 remember_local_name(destination, &mut used_names);
@@ -278,6 +264,51 @@ fn fresh_synthetic_local_name(function: &Function, base: &str) -> String {
         candidate = format!("{base}_{suffix}");
     }
     candidate
+}
+
+fn remember_names_in_block(
+    block: &Block,
+    used_names: &mut FxHashSet<String>,
+    seen_closures: &mut FxHashSet<usize>,
+) {
+    for statement in block.iter() {
+        for local in statement.values() {
+            remember_local_name(local, used_names);
+        }
+        let mut statement_copy = statement.clone();
+        let _: Option<()> = statement_copy.traverse_values(&mut |_, value| -> Option<()> {
+            match value {
+                Either::Left(LValue::Global(global))
+                | Either::Right(RValue::Global(global)) => {
+                    remember_global_name(global, used_names)
+                }
+                Either::Right(RValue::Closure(closure)) => {
+                    remember_closure_names(closure, used_names, seen_closures)
+                }
+                _ => {}
+            }
+            None
+        });
+    }
+}
+
+fn remember_closure_names(
+    closure: &ast::Closure,
+    used_names: &mut FxHashSet<String>,
+    seen_closures: &mut FxHashSet<usize>,
+) {
+    let identity = closure.function.0.as_ptr() as usize;
+    if !seen_closures.insert(identity) {
+        return;
+    }
+    let (parameters, body) = {
+        let function = closure.function.lock();
+        (function.parameters.clone(), function.body.clone())
+    };
+    for parameter in &parameters {
+        remember_local_name(parameter, used_names);
+    }
+    remember_names_in_block(&body, used_names, seen_closures);
 }
 
 fn remember_local_name(local: &RcLocal, used_names: &mut FxHashSet<String>) {
@@ -740,6 +771,33 @@ mod tests {
         assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
         assert!(fallback.block.to_string().contains("controlFlowState_1"));
         assert!(fallback.block.to_string().contains("return controlFlowState"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_a_closure_global() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let closure_function = Arc::new(Mutex::new(AstFunction {
+            body: Block(vec![
+                ast::Return::new(vec![Global::from("controlFlowState").into()]).into(),
+            ]),
+            ..AstFunction::default()
+        }));
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(closure_function),
+            upvalues: Vec::new(),
+        };
+        function.block_mut(entry).unwrap().push(
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(closure)]).into(),
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
     }
 
     #[test]
