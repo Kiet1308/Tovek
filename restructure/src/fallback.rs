@@ -135,9 +135,7 @@ pub fn lift_certified_with_ignored_locals(
         .enumerate()
         .map(|(state, &node)| (node, state))
         .collect();
-    let state_local = RcLocal::new(Local::new(Some(
-        fresh_synthetic_local_name(&function, "controlFlowState"),
-    )));
+    let state_local = fresh_synthetic_local(&function, "controlFlowState");
 
     let mut plans = Vec::with_capacity(nodes.len());
     let mut state_facts = Vec::with_capacity(nodes.len());
@@ -240,21 +238,41 @@ fn statement_has_embedded_block(statement: &Statement) -> bool {
     }
 }
 
-fn fresh_synthetic_local_name(function: &Function, base: &str) -> String {
+fn fresh_synthetic_local(function: &Function, base: &str) -> RcLocal {
     let mut used_names = FxHashSet::default();
     let mut seen_closures = FxHashSet::default();
+    let mut incomplete_closure = false;
 
     for local in &function.parameters {
         remember_local_name(local, &mut used_names);
     }
     for (node, block) in function.blocks() {
-        remember_names_in_block(block, &mut used_names, &mut seen_closures);
+        remember_names_in_block(
+            block,
+            &mut used_names,
+            &mut seen_closures,
+            &mut incomplete_closure,
+        );
         for edge in function.edges(node) {
             for (destination, value) in &edge.weight().arguments {
                 remember_local_name(destination, &mut used_names);
-                remember_globals_in_rvalue(value, &mut used_names, &mut seen_closures);
+                remember_globals_in_rvalue(
+                    value,
+                    &mut used_names,
+                    &mut seen_closures,
+                    &mut incomplete_closure,
+                );
             }
         }
+    }
+
+    if incomplete_closure {
+        // A child function may still be decompiled on another worker.  Its
+        // eventual body can introduce a global whose name is unavailable now;
+        // leave the synthetic binding unnamed so the pre-naming AST remains
+        // independent of that scheduling race.  The normal naming pass will
+        // assign a readable collision-free name once all child bodies exist.
+        return RcLocal::default();
     }
 
     let mut candidate = base.to_string();
@@ -263,13 +281,14 @@ fn fresh_synthetic_local_name(function: &Function, base: &str) -> String {
         suffix += 1;
         candidate = format!("{base}_{suffix}");
     }
-    candidate
+    RcLocal::new(Local::new(Some(candidate)))
 }
 
 fn remember_names_in_block(
     block: &Block,
     used_names: &mut FxHashSet<String>,
     seen_closures: &mut FxHashSet<usize>,
+    incomplete_closure: &mut bool,
 ) {
     for statement in block.iter() {
         for local in statement.values() {
@@ -283,7 +302,12 @@ fn remember_names_in_block(
                     remember_global_name(global, used_names)
                 }
                 Either::Right(RValue::Closure(closure)) => {
-                    remember_closure_names(closure, used_names, seen_closures)
+                    remember_closure_names(
+                        closure,
+                        used_names,
+                        seen_closures,
+                        incomplete_closure,
+                    )
                 }
                 _ => {}
             }
@@ -291,24 +315,54 @@ fn remember_names_in_block(
         });
         match statement {
             Statement::If(node) => {
-                remember_names_in_block(&node.then_block.lock(), used_names, seen_closures);
-                remember_names_in_block(&node.else_block.lock(), used_names, seen_closures);
+                remember_names_in_block(
+                    &node.then_block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                );
+                remember_names_in_block(
+                    &node.else_block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                );
             }
             Statement::While(node) => {
-                remember_names_in_block(&node.block.lock(), used_names, seen_closures)
+                remember_names_in_block(
+                    &node.block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                )
             }
             Statement::Repeat(node) => {
-                remember_names_in_block(&node.block.lock(), used_names, seen_closures)
+                remember_names_in_block(
+                    &node.block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                )
             }
             Statement::NumericFor(node) => {
                 remember_local_name(&node.counter, used_names);
-                remember_names_in_block(&node.block.lock(), used_names, seen_closures);
+                remember_names_in_block(
+                    &node.block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                );
             }
             Statement::GenericFor(node) => {
                 for local in &node.res_locals {
                     remember_local_name(local, used_names);
                 }
-                remember_names_in_block(&node.block.lock(), used_names, seen_closures);
+                remember_names_in_block(
+                    &node.block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                );
             }
             _ => {}
         }
@@ -319,6 +373,7 @@ fn remember_closure_names(
     closure: &ast::Closure,
     used_names: &mut FxHashSet<String>,
     seen_closures: &mut FxHashSet<usize>,
+    incomplete_closure: &mut bool,
 ) {
     let identity = closure.function.0.as_ptr() as usize;
     if !seen_closures.insert(identity) {
@@ -331,7 +386,11 @@ fn remember_closure_names(
     for parameter in &parameters {
         remember_local_name(parameter, used_names);
     }
-    remember_names_in_block(&body, used_names, seen_closures);
+    if body.is_empty() {
+        *incomplete_closure = true;
+    } else {
+        remember_names_in_block(&body, used_names, seen_closures, incomplete_closure);
+    }
 }
 
 fn remember_local_name(local: &RcLocal, used_names: &mut FxHashSet<String>) {
@@ -350,19 +409,20 @@ fn remember_globals_in_rvalue(
     value: &RValue,
     used_names: &mut FxHashSet<String>,
     seen_closures: &mut FxHashSet<usize>,
+    incomplete_closure: &mut bool,
 ) {
     if let RValue::Global(global) = value {
         remember_global_name(global, used_names);
     }
     if let RValue::Closure(closure) = value {
-        remember_closure_names(closure, used_names, seen_closures);
+        remember_closure_names(closure, used_names, seen_closures, incomplete_closure);
     }
     let mut value_copy = value.clone();
     value_copy.traverse_rvalues(&mut |nested| {
         match nested {
             RValue::Global(global) => remember_global_name(global, used_names),
             RValue::Closure(closure) => {
-                remember_closure_names(closure, used_names, seen_closures)
+                remember_closure_names(closure, used_names, seen_closures, incomplete_closure)
             }
             _ => {}
         }
@@ -903,6 +963,40 @@ mod tests {
             lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
         assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
         assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn leaves_control_name_unnamed_when_a_closure_body_is_not_ready() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let child = Arc::new(Mutex::new(AstFunction::default()));
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(child.clone()),
+            upvalues: Vec::new(),
+        };
+        function.block_mut(entry).unwrap().push(
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(closure)]).into(),
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        let synthetic_name = fallback.synthetic_locals[0].local.to_string();
+        assert!(
+            synthetic_name.starts_with("UNNAMED_"),
+            "an incomplete child must not influence the synthetic name: {synthetic_name}"
+        );
+
+        // Simulate the child worker filling its AST after the parent fallback
+        // has already been built.  The pre-naming fallback remains collision
+        // free because its control local has no user-visible spelling.
+        child.lock().body.push(
+            ast::Return::new(vec![Global::from("controlFlowState").into()]).into(),
+        );
+        assert_ne!(synthetic_name, "controlFlowState");
+        assert!(fallback.block.to_string().contains("controlFlowState"));
     }
 
     #[test]
