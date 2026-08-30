@@ -32,6 +32,7 @@ pub enum UnsafeStructureReason {
     ForOriginMismatch,
     ForOriginDuplicate,
     ForProtocolEdgeTransfer,
+    ForInitEdgeTransferOrder,
 }
 
 impl fmt::Display for UnsafeStructureReason {
@@ -45,6 +46,9 @@ impl fmt::Display for UnsafeStructureReason {
             Self::ForOriginDuplicate => "duplicate generic-for provenance identity",
             Self::ForProtocolEdgeTransfer => {
                 "generic-for edge transfer touches hidden iterator protocol"
+            }
+            Self::ForInitEdgeTransferOrder => {
+                "generic-for init edge transfer cannot preserve iterator evaluation order"
             }
         };
         f.write_str(name)
@@ -1102,21 +1106,26 @@ impl<'a> Builder<'a> {
                         .any(|read| protocol_locals.iter().any(|protocol| protocol == read))
             })
         };
-        if edge_touches_protocol(init_edges[0].weight())
-            || info.nodes.iter().any(|node| {
-                self.function
-                    .edges(*node)
-                    .any(|edge| edge_touches_protocol(edge.weight()))
-            })
-            || self
+        // The init marker evaluates the iterator RHS in its block.  An
+        // init -> header phi copy executes only after that evaluation, but a
+        // source-shaped `for` has no pre-loop transfer slot: emitting it in
+        // the surrounding path would run it before the RHS, while emitting it
+        // in the body would run it once per iteration.  Reject every such
+        // transfer until tuple staging gives it an exact placement.
+        if !init_edges[0].weight().arguments.is_empty() {
+            return self.reject_unsafe(UnsafeStructureReason::ForInitEdgeTransferOrder);
+        }
+        if info.nodes.iter().any(|node| {
+            self.function
+                .edges(*node)
+                .any(|edge| edge_touches_protocol(edge.weight()))
+        }) || self
                 .function
                 .edges(info.normal_exit)
                 .any(|edge| edge_touches_protocol(edge.weight()))
         {
             return self.reject_unsafe(UnsafeStructureReason::ForProtocolEdgeTransfer);
         }
-        let init_edge_transfer = self.edge_transfer(init_edges[0].weight(), &self.rewrite)?;
-        output.extend(init_edge_transfer.0);
         if init_suffix.iter().any(|statement| {
             statement
                 .values_read()
@@ -2301,6 +2310,54 @@ mod tests {
         assert!(matches!(
             lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
             StructureAttempt::Unsafe(UnsafeStructureReason::ForProtocolEdgeTransfer)
+        ));
+    }
+
+    #[test]
+    fn rejects_init_edge_arguments_that_cross_iterator_evaluation() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let incoming = RcLocal::new(Local::new(Some("incoming".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![value], generator.into(), state, control).into(),
+        );
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+
+        function.set_edges(init, vec![
+            (
+                header,
+                BlockEdge {
+                    branch_type: BranchType::Unconditional,
+                    arguments: vec![(incoming, Literal::Number(1.0).into())],
+                },
+            ),
+        ]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::ForInitEdgeTransferOrder)
         ));
     }
 
