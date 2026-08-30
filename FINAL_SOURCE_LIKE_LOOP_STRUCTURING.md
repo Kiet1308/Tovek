@@ -111,18 +111,16 @@ plausible but potentially wrong source.
 
 `luau-lifter/src/lib.rs` now runs the read-only source-shaped pass on an
 isolated CFG clone while retaining a deep-cloned CFG for the mutating fallback.
-If the proof pass declines the graph, the existing fallback is used. Graphs with
-SSA edge arguments go directly to the fallback that materializes parallel
-copies; they are not sent through the legacy matcher that could drop those
-values. Rejected graphs that still contain a generic-for protocol marker also
-go directly to that certified fallback: this prevents the permissive legacy
-matcher from hiding an externally observable generator/state/control register.
-Generic-free legacy shapes (notably numeric loops) retain the established
-readable matcher. If even the conservative fallback cannot prove a lowering,
-the pipeline leaves an explicit internal marker so the final invariant reports
-a decompilation error; it never returns a comment-only body that silently
-erases the original program. Final AST checks still reject residual gotos,
-labels, and internal loop markers.
+If the proof pass declines the graph, graphs with SSA edge arguments go directly
+to the fallback that materializes parallel copies; they are not sent through the
+legacy matcher that could drop those values. Marker-only graphs retain the
+established legacy matcher so ordinary generic-for loops stay source-shaped;
+when that matcher leaves residual gotos or VM markers, the pristine CFG is
+retried with the certified state-machine fallback. If even that fallback cannot
+prove a lowering, the pipeline leaves an explicit internal marker so the final
+invariant reports a decompilation error; it never returns a comment-only body
+that silently erases the original program. Final AST checks still reject
+residual gotos, labels, and internal loop markers.
 
 `cfg/src/function.rs` and `ast/src/simplify_gotos.rs` provide deep cloning of
 mutable nested AST block containers for the mutating fallback. The

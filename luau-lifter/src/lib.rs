@@ -977,19 +977,6 @@ fn decompile_function(
         .graph()
         .edge_weights()
         .any(|edge| !edge.arguments.is_empty());
-    // A rejected generic-for candidate must not be handed to the permissive
-    // legacy matcher.  Rejection can mean that the hidden generator/state/
-    // control protocol is externally observable; collapsing that marker pair
-    // to source `for` syntax would then be readable but wrong.  The explicit
-    // state-machine lowering preserves the protocol on every branch.
-    let has_generic_for_protocol = fallback_source.as_ref().unwrap().blocks().any(|(_, block)| {
-        block.iter().any(|statement| {
-            matches!(
-                statement,
-                ast::Statement::GenericForInit(_) | ast::Statement::GenericForNext(_)
-            )
-        })
-    });
     // Source-like structuring may mint temporary export locals while proving
     // nested-loop live-outs.  If that speculative attempt is rejected, rewind
     // the per-function allocator before building the fallback so failed
@@ -1017,7 +1004,7 @@ fn decompile_function(
                 // only on the uncommon source-like rejection path.
                 let function = fallback_source.take().unwrap();
                 fallback_function = Some(function.deep_clone());
-                if has_edge_arguments || has_generic_for_protocol {
+                if has_edge_arguments {
                     let locals_to_ignore = upvalues_in
                         .iter()
                         .chain(params.iter())
