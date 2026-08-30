@@ -12,12 +12,15 @@
 //! This module is a fail-closed fallback: it translates the *original,
 //! post-SSA* CFG into a local state machine.  Every CFG edge becomes an explicit
 //! state transition, so no edge is discarded and no source-level goto/label is
-//! needed.  Generic-for VM markers are lowered using the exact Luau iterator
-//! protocol (`iterator(state, control)` and a nil test), including the hidden
-//! control register that ordinary syntax hides.
+//! needed.  Generic-for VM markers are deliberately rejected here until the
+//! CFG preserves VM prep-kind and edge-sensitive write metadata.  Treating
+//! `FORGPREP` as an identity assignment is not equivalent for tables, `__iter`,
+//! `__call`, or unsupported values, and treating `FORGLOOP` as a plain call can
+//! get hidden-control exhaustion semantics wrong.  Returning `None` keeps this
+//! fallback fail-closed instead of emitting plausible but incorrect Luau.
 
 use ast::{
-    Assign, Binary, BinaryOperation, Block, Call, Continue, If, LValue, Literal, Local, LocalRw,
+    Assign, Binary, BinaryOperation, Block, Continue, If, LValue, Literal, Local, LocalRw,
     RValue, RcLocal, Statement, Traverse, Upvalue, While,
 };
 use cfg::{block::BlockEdge, function::Function};
@@ -57,6 +60,26 @@ pub fn lift_with_ignored_locals(
     let entry = *function.entry().as_ref()?;
     let nodes = reachable_nodes(&function, entry);
     if nodes.is_empty() {
+        return None;
+    }
+
+    // A GenericForInit/GenericForNext pair is still a low-level VM protocol,
+    // not a source-level iterator expression.  The current Function IR does
+    // not retain the FORGPREP variant/AUX metadata needed to distinguish the
+    // table fast path, `__iter`, `__call`, and callable-generator paths, nor
+    // the path-specific result writes on exhaustion.  Refuse every reachable
+    // marker until that provenance is available; callers then produce the
+    // explicit unsupported-structuring sentinel rather than wrong source.
+    if nodes.iter().any(|&node| {
+        function.block(node).is_some_and(|block| {
+            block.iter().any(|statement| {
+                matches!(
+                    statement,
+                    Statement::GenericForInit(_) | Statement::GenericForNext(_)
+                )
+            })
+        })
+    }) {
         return None;
     }
 
@@ -339,52 +362,6 @@ fn lower_block(
     states: &FxHashMap<NodeIndex, usize>,
     state_local: &RcLocal,
 ) -> Option<Block> {
-    // A residual GenericForNext is a terminator in the post-SSA CFG.  Lower it
-    // before the ordinary conditional terminator path so the hidden control
-    // register is updated only on the non-nil iterator result edge.
-    if matches!(statements.last(), Some(Statement::GenericForNext(_))) {
-        if edges.len() != 2 {
-            return None;
-        }
-        let next = statements.pop()?.into_generic_for_next().ok()?;
-        let result = next.res_locals.first()?.as_local()?.clone();
-        let then_edge = edge_of_type(edges, cfg::block::BranchType::Then)?;
-        let else_edge = edge_of_type(edges, cfg::block::BranchType::Else)?;
-        let then_target = transition(then_edge, states, state_local)?;
-        let else_target = transition(else_edge, states, state_local)?;
-
-        let call = Call::new(
-            next.generator,
-            vec![next.state, next.control.clone().into()],
-        );
-        let mut assign = Assign::new(next.res_locals, vec![call.into()]);
-        // This is a VM multi-result assignment.  Keeping it parallel is
-        // important when the iterator returns values that alias its inputs.
-        assign.parallel = true;
-        statements.push(assign.into());
-        statements.push(
-            If::new(
-                Binary::new(
-                    result.clone().into(),
-                    Literal::Nil.into(),
-                    BinaryOperation::NotEqual,
-                )
-                .into(),
-                {
-                    let mut body = Block::default();
-                    body.push(
-                        Assign::new(vec![LValue::Local(next.control)], vec![result.into()]).into(),
-                    );
-                    body.extend(then_target.0);
-                    body
-                },
-                else_target,
-            )
-            .into(),
-        );
-        return Some(statements.into());
-    }
-
     // The CFG lifter represents a conditional jump as an empty If terminator;
     // its real branches live on the two outgoing BlockEdges.  Refuse to
     // reinterpret a non-empty If here because doing so could execute a nested
@@ -413,26 +390,15 @@ fn lower_block(
         return Some(statements.into());
     }
 
-    // GenericForInit is an AST-only marker.  Its wrapped assignment already
-    // contains the exact iterator setup expressions; making it an ordinary
-    // multi-assignment preserves evaluation order and initializes the hidden
-    // control value just as Luau's FORGPREP does.
     let mut lowered = Vec::with_capacity(statements.len() + 2);
     for statement in statements {
         match statement {
-            Statement::GenericForInit(init) => {
-                let mut assign = init.0;
-                assign.prefix = false;
-                // FORGPREP initializes the generator/state/control tuple as
-                // one parallel VM operation.  Keep the assignment marked as
-                // parallel so later cleanup passes cannot split, reorder, or
-                // collapse its self-referential copies.
-                assign.parallel = true;
-                lowered.push(assign.into());
-            }
-            // These markers are only valid at the terminator position handled
-            // above.  Never print their debug representation into source.
-            Statement::GenericForNext(_)
+            // Never print low-level protocol markers into source.  The early
+            // reachable-node guard normally handles these; retaining the
+            // match here makes the helper fail closed even if it is reused
+            // independently in the future.
+            Statement::GenericForInit(_)
+            | Statement::GenericForNext(_)
             | Statement::NumForInit(_)
             | Statement::NumForNext(_)
             | Statement::Goto(_)
@@ -522,7 +488,7 @@ mod tests {
     }
 
     #[test]
-    fn lowers_generic_for_with_explicit_iterator_control() {
+    fn rejects_generic_for_without_vm_protocol_metadata() {
         let mut function = Function::new(0);
         let entry = function.new_block();
         let next = function.new_block();
@@ -567,12 +533,11 @@ mod tests {
             cfg::block::BranchType::Unconditional,
         );
 
-        let output = lift(function).unwrap().to_string();
-        assert!(output.contains("generator(state, control)"), "{output}");
-        assert!(output.contains("control = result"), "{output}");
-        assert!(!output.contains("GenericFor"), "{output}");
-        assert!(!output.contains("internal control"), "{output}");
-        assert!(!output.contains("goto "), "{output}");
+        // The fallback must not pretend that a tuple assignment implements
+        // Luau's FORGPREP/FORGLOOP protocol.  Without prep-kind/AUX metadata,
+        // emitting a callable iterator would be wrong for plain tables,
+        // __iter/__call values, and path-specific exhaustion writes.
+        assert!(lift(function).is_none());
     }
 
     #[test]
