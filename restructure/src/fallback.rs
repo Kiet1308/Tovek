@@ -20,10 +20,11 @@
 //! fallback fail-closed instead of emitting plausible but incorrect Luau.
 
 use ast::{
-    Assign, Binary, BinaryOperation, Block, Continue, If, LValue, Literal, Local, LocalRw, RValue,
-    RcLocal, Statement, Traverse, Upvalue, While,
+    Assign, Binary, BinaryOperation, Block, Continue, Global, If, LValue, Literal, Local, LocalRw,
+    RValue, RcLocal, Statement, Traverse, Upvalue, While,
 };
 use cfg::{block::BlockEdge, function::Function};
+use itertools::Either;
 use petgraph::{stable_graph::NodeIndex, visit::EdgeRef};
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -241,27 +242,31 @@ fn statement_has_embedded_block(statement: &Statement) -> bool {
 
 fn fresh_synthetic_local_name(function: &Function, base: &str) -> String {
     let mut used_names = FxHashSet::default();
-    let mut remember = |local: &RcLocal| {
-        if let Some(name) = local.0.0.lock().0.clone() {
-            used_names.insert(name);
-        }
-    };
 
     for local in &function.parameters {
-        remember(local);
+        remember_local_name(local, &mut used_names);
     }
     for (node, block) in function.blocks() {
         for statement in block.iter() {
             for local in statement.values() {
-                remember(local);
+                remember_local_name(local, &mut used_names);
             }
+            let mut statement_copy = statement.clone();
+            let _: Option<()> = statement_copy.traverse_values(&mut |_, value| -> Option<()> {
+                match value {
+                    Either::Left(LValue::Global(global))
+                    | Either::Right(RValue::Global(global)) => {
+                        remember_global_name(global, &mut used_names)
+                    }
+                    _ => {}
+                }
+                None
+            });
         }
         for edge in function.edges(node) {
             for (destination, value) in &edge.weight().arguments {
-                remember(destination);
-                for local in value.values_read() {
-                    remember(local);
-                }
+                remember_local_name(destination, &mut used_names);
+                remember_globals_in_rvalue(value, &mut used_names);
             }
         }
     }
@@ -273,6 +278,30 @@ fn fresh_synthetic_local_name(function: &Function, base: &str) -> String {
         candidate = format!("{base}_{suffix}");
     }
     candidate
+}
+
+fn remember_local_name(local: &RcLocal, used_names: &mut FxHashSet<String>) {
+    if let Some(name) = local.0.0.lock().0.clone() {
+        used_names.insert(name);
+    }
+}
+
+fn remember_global_name(global: &Global, used_names: &mut FxHashSet<String>) {
+    if let Ok(name) = std::str::from_utf8(&global.0) {
+        used_names.insert(name.to_string());
+    }
+}
+
+fn remember_globals_in_rvalue(value: &RValue, used_names: &mut FxHashSet<String>) {
+    if let RValue::Global(global) = value {
+        remember_global_name(global, used_names);
+    }
+    let mut value_copy = value.clone();
+    value_copy.traverse_rvalues(&mut |nested| {
+        if let RValue::Global(global) = nested {
+            remember_global_name(global, used_names);
+        }
+    });
 }
 
 fn contains_ref_capture(
@@ -694,6 +723,23 @@ mod tests {
         assert_eq!(synthetic.to_string(), "controlFlowState_1");
         assert_ne!(synthetic.to_string(), "controlFlowState");
         assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_a_global() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(vec![Global::from("controlFlowState").into()]).into());
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
+        assert!(fallback.block.to_string().contains("return controlFlowState"));
     }
 
     #[test]
