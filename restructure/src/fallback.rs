@@ -134,7 +134,9 @@ pub fn lift_certified_with_ignored_locals(
         .enumerate()
         .map(|(state, &node)| (node, state))
         .collect();
-    let state_local = RcLocal::new(Local::new(Some("controlFlowState".to_string())));
+    let state_local = RcLocal::new(Local::new(Some(
+        fresh_synthetic_local_name(&function, "controlFlowState"),
+    )));
 
     let mut plans = Vec::with_capacity(nodes.len());
     let mut state_facts = Vec::with_capacity(nodes.len());
@@ -235,6 +237,42 @@ fn statement_has_embedded_block(statement: &Statement) -> bool {
         | Statement::GenericFor(_) => true,
         _ => false,
     }
+}
+
+fn fresh_synthetic_local_name(function: &Function, base: &str) -> String {
+    let mut used_names = FxHashSet::default();
+    let mut remember = |local: &RcLocal| {
+        if let Some(name) = local.0.0.lock().0.clone() {
+            used_names.insert(name);
+        }
+    };
+
+    for local in &function.parameters {
+        remember(local);
+    }
+    for (node, block) in function.blocks() {
+        for statement in block.iter() {
+            for local in statement.values() {
+                remember(local);
+            }
+        }
+        for edge in function.edges(node) {
+            for (destination, value) in &edge.weight().arguments {
+                remember(destination);
+                for local in value.values_read() {
+                    remember(local);
+                }
+            }
+        }
+    }
+
+    let mut candidate = base.to_string();
+    let mut suffix = 0usize;
+    while used_names.contains(&candidate) {
+        suffix += 1;
+        candidate = format!("{base}_{suffix}");
+    }
+    candidate
 }
 
 fn contains_ref_capture(
@@ -629,6 +667,33 @@ mod tests {
         );
         let rendered = fallback.block.to_string();
         assert!(rendered.contains("while true do"), "{rendered}");
+    }
+
+    #[test]
+    fn gives_synthetic_control_a_fresh_source_name() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let user_local = local("controlFlowState");
+        function.block_mut(entry).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(user_local.clone())],
+                vec![Literal::Number(7.0).into()],
+            )
+            .into(),
+        );
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(vec![user_local.into()]).into());
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        let synthetic = &fallback.synthetic_locals[0].local;
+        assert_eq!(synthetic.to_string(), "controlFlowState_1");
+        assert_ne!(synthetic.to_string(), "controlFlowState");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
     }
 
     #[test]
