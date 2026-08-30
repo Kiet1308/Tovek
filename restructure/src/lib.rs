@@ -15,11 +15,17 @@ mod conditional;
 mod fallback;
 mod jump;
 mod r#loop;
+mod region;
 
 /// Build a semantics-preserving state-machine AST for a CFG that the readable
 /// pattern structurer cannot reduce without leaving source-level gotos.
 pub use fallback::lift as lift_fallback;
 pub use fallback::lift_with_ignored_locals as lift_fallback_with_ignored_locals;
+/// Attempt a conservative, source-shaped structuring pass.  `None` means the
+/// graph contains a construct that this proof-driven pass cannot represent;
+/// callers should then use the existing semantics-preserving fallback.
+pub use region::lift as lift_source_like;
+pub use region::lift_with_ignored_locals as lift_source_like_with_ignored_locals;
 
 // TODO: REFACTOR: move
 pub fn post_dominators<N: Default, E: Default>(

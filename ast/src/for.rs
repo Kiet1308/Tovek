@@ -405,6 +405,13 @@ impl LocalRw for GenericForNext {
     }
 
     fn values_written(&self) -> Vec<&RcLocal> {
+        // `control` is updated only on the Then/non-nil edge.  LocalRw has no
+        // edge-sensitive write representation, and its callers treat this
+        // list as definite block writes, so including `control` here would be
+        // unsound on the exhaustion edge.  The CFG fallback materializes the
+        // conditional `control = first_result` explicitly; the source-shaped
+        // structurer separately validates that the hidden protocol local is
+        // not observable outside the marker pair.
         self.res_locals
             .iter()
             .flat_map(|l| l.values_written())

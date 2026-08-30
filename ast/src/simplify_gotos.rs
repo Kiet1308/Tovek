@@ -29,6 +29,19 @@ pub(crate) fn dc_block(block: &Block) -> Block {
     Block(block.0.iter().map(dc_stmt).collect())
 }
 
+/// Clone a block together with every mutable nested block container.
+///
+/// The regular [`Clone`] implementation intentionally keeps the `Arc` handles
+/// used by structured statements shallow.  That is useful for the normal AST
+/// pipeline, where closure/function identity and deliberate tail sharing must
+/// be preserved, but it is unsafe when two speculative structuring attempts
+/// will subsequently mutate their copies independently.  This helper provides
+/// that isolation while retaining the same `RcLocal`s and closure-function
+/// identities as the original.
+pub fn deep_clone_block(block: &Block) -> Block {
+    dc_block(block)
+}
+
 fn dc_arc(block: &Arc<Mutex<Block>>) -> Arc<Mutex<Block>> {
     Arc::new(Mutex::new(dc_block(&block.lock())))
 }

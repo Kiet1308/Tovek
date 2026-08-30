@@ -29,7 +29,7 @@ use lifter::Lifter;
 use parking_lot::Mutex;
 use petgraph::algo::dominators::simple_fast;
 
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use std::{collections::BTreeMap, sync::Once};
@@ -346,7 +346,9 @@ fn try_decompile_bytecode_internal(
             // (its only cross-function coupling was the shared monotonic id
             // counter, now made per-function and scheduling-independent via the
             // stride-spaced base above). `catch_unwind` + the process-global quiet
-            // panic hook isolate a panicking function as a comment without racing.
+            // panic hook isolate a panicking function without racing; the catch
+            // appends an unlowered marker so the final chunk invariant reports a
+            // failure instead of accepting a comment-only body.
             // Collect into an index-ordered Vec first so the result is
             // deterministic regardless of completion order, then build the map.
             use rayon::prelude::*;
@@ -402,12 +404,22 @@ fn try_decompile_bytecode_internal(
                             //     write!(message, "stack backtrace:\n{}", backtrace).unwrap();
                             // }
 
-                            ast_function.lock().body.extend(
+                            let mut body = ast_function.lock();
+                            body.body.extend(
                                 message
                                     .trim_end()
                                     .split('\n')
                                     .map(|s| ast::Comment::new(s.to_string()).into()),
                             );
+                            // Keep the per-function isolation guarantee, but do
+                            // not turn a panic into a successful comment-only
+                            // function.  The explicit unlowered marker is
+                            // rejected by the chunk-level invariant after all
+                            // functions are joined, so this item is reported as
+                            // a real decompile failure instead of silently
+                            // dropping its code.
+                            body.body.extend(unsupported_structuring_sentinel().0);
+                            drop(body);
                             (ByAddress(ast_function), Vec::new())
                         }
                     }
@@ -833,6 +845,28 @@ fn panic_payload_message(payload: &(dyn std::any::Any + Send)) -> String {
     }
 }
 
+/// Produce an unmistakably unlowered marker for a CFG that neither the
+/// readable structurer nor the certified state-machine fallback can prove
+/// safe.  The marker is deliberately an invalid internal AST construct; the
+/// final invariant in [`decompile_function`] detects it before output is
+/// returned, so callers cannot mistake a failed function for an empty body.
+fn unsupported_structuring_sentinel() -> ast::Block {
+    let sentinel = ast::RcLocal::default();
+    ast::Block::from(vec![
+        ast::Comment::new(
+            "control-flow structuring failed: unsupported certified fallback".to_string(),
+        )
+        .into(),
+        ast::GenericForNext::new(
+            vec![sentinel.clone()],
+            sentinel.clone().into(),
+            sentinel.clone(),
+            sentinel,
+        )
+        .into(),
+    ])
+}
+
 fn decompile_function(
     ast_function: Arc<Mutex<ast::Function>>,
     mut function: Function,
@@ -925,16 +959,108 @@ fn decompile_function(
         )
         .destruct();
     }
-    // Keep a pristine post-SSA CFG.  If the readability-oriented structurer
-    // has to materialize an irreducible region as labels, this copy lets the
-    // semantics-preserving fallback rebuild the region from real CFG edges
-    // instead of attempting to repair already-lowered gotos.
-    let fallback_function = function.clone();
-    let params = std::mem::take(&mut function.parameters);
-    let is_variadic = function.is_variadic;
-    let mut lifted = {
+    // The proof-driven pass is read-only: it never mutates CFG nodes or nested
+    // AST containers, so its speculative copy can stay shallow.  Keep the
+    // original in an Option so the expensive recursive clone is created only
+    // when source-like structuring actually rejects this function (or when a
+    // later residual-control check needs a retry).
+    let mut fallback_source = Some(function);
+    let source_like_function = fallback_source.as_ref().unwrap().clone();
+    // The legacy matcher does not lower edge arguments (SSA phi copies).  It
+    // must never receive such a graph: if source-like structuring rejects it,
+    // routing through the matcher would silently drop a value transfer and can
+    // produce plausible but incorrect Luau.  The state-machine fallback is the
+    // only path that materializes those parallel copies explicitly.
+    let has_edge_arguments = fallback_source
+        .as_ref()
+        .unwrap()
+        .graph()
+        .edge_weights()
+        .any(|edge| !edge.arguments.is_empty());
+    // A rejected generic-for candidate must not be handed to the permissive
+    // legacy matcher.  Rejection can mean that the hidden generator/state/
+    // control protocol is externally observable; collapsing that marker pair
+    // to source `for` syntax would then be readable but wrong.  The explicit
+    // state-machine lowering preserves the protocol on every branch.
+    let has_generic_for_protocol = fallback_source.as_ref().unwrap().blocks().any(|(_, block)| {
+        block.iter().any(|statement| {
+            matches!(
+                statement,
+                ast::Statement::GenericForInit(_) | ast::Statement::GenericForNext(_)
+            )
+        })
+    });
+    // Source-like structuring may mint temporary export locals while proving
+    // nested-loop live-outs.  If that speculative attempt is rejected, rewind
+    // the per-function allocator before building the fallback so failed
+    // speculation cannot perturb fallback names or local identity ordering.
+    let source_like_id_base = ast::current_local_id();
+    let source_like_protected_locals = upvalues_in
+        .iter()
+        .chain(fallback_source.as_ref().unwrap().parameters.iter())
+        .cloned()
+        .collect::<FxHashSet<_>>();
+    let params = std::mem::take(&mut fallback_source.as_mut().unwrap().parameters);
+    let is_variadic = fallback_source.as_ref().unwrap().is_variadic;
+    let mut fallback_function = None;
+    let (mut lifted, used_source_like) = {
         ptime!(F_RESTRUCTURE);
-        restructure::lift(function)
+        match restructure::lift_source_like_with_ignored_locals(
+            source_like_function,
+            &source_like_protected_locals,
+        ) {
+            Some(block) => (block, true),
+            None => {
+                ast::set_local_id_base(source_like_id_base);
+                // Preserve an untouched CFG before any mutating fallback or
+                // legacy matcher consumes the original.  This clone is paid
+                // only on the uncommon source-like rejection path.
+                let function = fallback_source.take().unwrap();
+                fallback_function = Some(function.deep_clone());
+                if has_edge_arguments || has_generic_for_protocol {
+                    let locals_to_ignore = upvalues_in
+                        .iter()
+                        .chain(params.iter())
+                        .cloned()
+                        .collect();
+                    let block = restructure::lift_fallback_with_ignored_locals(
+                        function,
+                        &locals_to_ignore,
+                    )
+                    .unwrap_or_else(unsupported_structuring_sentinel);
+                    (block, false)
+                } else {
+                    // The legacy pattern matcher predates the fail-closed
+                    // source-like pass and contains a few internal assertions
+                    // for malformed/irreducible CFGs.  A panic here must not be
+                    // converted by the outer per-function guard into a
+                    // comment-only body: that would report success while
+                    // silently erasing the function.  Keep the pristine copy
+                    // for the certified fallback and turn any legacy panic into
+                    // the same explicit failure marker used by other rejected
+                    // shapes.
+                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        restructure::lift(function)
+                    })) {
+                        Ok(block) => (block, false),
+                        Err(_) => {
+                            ast::set_local_id_base(source_like_id_base);
+                            let locals_to_ignore = upvalues_in
+                                .iter()
+                                .chain(params.iter())
+                                .cloned()
+                                .collect();
+                            let block = restructure::lift_fallback_with_ignored_locals(
+                                fallback_function.as_ref().unwrap().deep_clone(),
+                                &locals_to_ignore,
+                            )
+                            .unwrap_or_else(unsupported_structuring_sentinel);
+                            (block, false)
+                        }
+                    }
+                }
+            }
+        }
     };
     {
         ptime!(F_SIMPLIFY_GOTOS);
@@ -944,10 +1070,30 @@ fn decompile_function(
         || ast::simplify_gotos::block_has_unlowered_control(&lifted)
     {
         let locals_to_ignore = upvalues_in.iter().chain(params.iter()).cloned().collect();
-        if let Some(fallback) =
-            restructure::lift_fallback_with_ignored_locals(fallback_function, &locals_to_ignore)
+        let source_like_end_id = ast::current_local_id();
+        if used_source_like {
+            ast::set_local_id_base(source_like_id_base);
+        }
+        let fallback_function = fallback_function.or_else(|| {
+            fallback_source
+                .take()
+                .map(|function| function.deep_clone())
+        });
+        if let Some(fallback) = fallback_function.and_then(|function| {
+            restructure::lift_fallback_with_ignored_locals(function, &locals_to_ignore)
+        })
         {
             lifted = fallback;
+        } else {
+            // Never retain a partially structured block when the certified
+            // fallback declines the graph.  In particular, a legacy matcher can
+            // leave a comment-only artifact after an internal panic; replacing
+            // it with an unlowered marker makes the final invariant fail closed
+            // instead of silently changing the program.
+            lifted = unsupported_structuring_sentinel();
+            // Keep the allocator above every id minted by either speculative
+            // attempt so later cleanup passes cannot alias one of its locals.
+            ast::set_local_id_base(source_like_end_id.max(ast::current_local_id()));
         }
     }
     {

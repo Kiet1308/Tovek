@@ -2,9 +2,9 @@ use ast::{LocalRw, RcLocal};
 use contracts::requires;
 
 use petgraph::{
+    Direction,
     stable_graph::{EdgeReference, Neighbors, NodeIndex, StableDiGraph},
     visit::{EdgeRef, IntoEdgesDirected},
-    Direction,
 };
 
 use crate::block::{BlockEdge, BranchType};
@@ -29,6 +29,23 @@ impl Function {
             graph: StableDiGraph::new(),
             entry: None,
         }
+    }
+
+    /// Clone this CFG while detaching every mutable structured block nested in
+    /// its AST node weights.
+    ///
+    /// `Function::clone` is intentionally shallow for AST `Arc<Mutex<Block>>`
+    /// fields.  That is normally cheap and correct, but speculative source-like
+    /// and fallback structurers must never share those containers: either pass
+    /// may consume or rewrite a nested branch after the other pass has already
+    /// built an output tree.  Locals and closure-function identities remain
+    /// shared, exactly as they do for ordinary AST cloning.
+    pub fn deep_clone(&self) -> Self {
+        let mut cloned = self.clone();
+        for block in cloned.graph.node_weights_mut() {
+            *block = ast::simplify_gotos::deep_clone_block(block);
+        }
+        cloned
     }
 
     pub fn name_mut(&mut self) -> &mut Option<String> {
@@ -131,16 +148,13 @@ impl Function {
             .graph
             .edges_directed(node, Direction::Outgoing)
             .collect::<Vec<_>>();
-        if let [e0, e1] = edges[..] {
-            let mut res = (e0, e1);
-            if res.1.weight().branch_type == BranchType::Then {
-                std::mem::swap(&mut res.0, &mut res.1);
-            }
-            assert!(res.0.weight().branch_type == BranchType::Then);
-            assert!(res.1.weight().branch_type == BranchType::Else);
-            Some(res)
-        } else {
-            None
+        let [e0, e1] = edges[..] else {
+            return None;
+        };
+        match (&e0.weight().branch_type, &e1.weight().branch_type) {
+            (BranchType::Then, BranchType::Else) => Some((e0, e1)),
+            (BranchType::Else, BranchType::Then) => Some((e1, e0)),
+            _ => None,
         }
     }
 
@@ -149,11 +163,7 @@ impl Function {
             .graph
             .edges_directed(node, Direction::Outgoing)
             .collect::<Vec<_>>();
-        if let [e] = edges[..] {
-            Some(e)
-        } else {
-            None
-        }
+        if let [e] = edges[..] { Some(e) } else { None }
     }
 
     // TODO: disable_contracts for production builds
@@ -178,5 +188,41 @@ impl Function {
 
     pub fn remove_block(&mut self, block: NodeIndex) -> Option<ast::Block> {
         self.graph.remove_node(block)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Function;
+    use ast::{Block, Comment, If, Literal, Statement};
+
+    #[test]
+    fn deep_clone_detaches_nested_structured_blocks() {
+        let mut original = Function::new(0);
+        let node = original.new_block();
+        original.block_mut(node).unwrap().push(
+            If::new(
+                Literal::Boolean(true).into(),
+                Block::default(),
+                Block::default(),
+            )
+            .into(),
+        );
+
+        let mut cloned = original.deep_clone();
+        let statement = cloned.block_mut(node).unwrap().first_mut().unwrap();
+        let Statement::If(if_statement) = statement else {
+            panic!("test block must contain an If");
+        };
+        if_statement
+            .then_block
+            .lock()
+            .push(Comment::new("clone-only".to_string()).into());
+
+        let original_statement = original.block(node).unwrap().first().unwrap();
+        let Statement::If(original_if) = original_statement else {
+            panic!("test block must contain an If");
+        };
+        assert!(original_if.then_block.lock().is_empty());
     }
 }
