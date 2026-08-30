@@ -310,6 +310,13 @@ fn remember_names_in_block(
         for local in statement.values() {
             remember_local_name(local, used_names);
         }
+        if let Statement::Close(close) = statement {
+            // `Close` intentionally has an empty LocalRw summary because it
+            // only closes cells, but its locals still occupy source names.
+            for local in &close.locals {
+                remember_local_name(local, used_names);
+            }
+        }
         let mut statement_copy = statement.clone();
         let _: Option<()> = statement_copy.traverse_values(&mut |_, value| -> Option<()> {
             match value {
@@ -1006,6 +1013,26 @@ mod tests {
             lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
         assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
         assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_close_local() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        let close_local = local("controlFlowState");
+        function.block_mut(entry).unwrap().extend([
+            Statement::Close(ast::Close {
+                locals: vec![close_local],
+            })
+            .into(),
+            ast::Return::default().into(),
+        ]);
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("__close_uv(controlFlowState)"));
     }
 
     #[test]
