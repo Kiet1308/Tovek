@@ -807,13 +807,15 @@ impl<'a> Builder<'a> {
             }
             current = edges[0].target();
         }
-        // A direct exhaustion edge has no separate adapter block in which the
-        // VM's result state can be represented.  It is still safe when the
-        // normal-exit/join block itself explicitly writes the result to nil;
-        // account for that block here because the traversal above stops at the
-        // join boundary.  Otherwise a live result would be exported from the
-        // source-level loop's nil-initialized outer binding even though
-        // FORGLOOP may retain its last value.
+        // Every live result must receive the VM's exhaustion value before the
+        // post-loop join.  A direct exhaustion edge has no separate adapter
+        // block, so account for an explicit nil write in the normal-exit/join
+        // block because the traversal above stops at the join boundary.
+        // Otherwise a live result would be exported from the source-level
+        // loop's nil-initialized outer binding even though FORGLOOP may retain
+        // its last value.  Adapter paths are held to the same requirement;
+        // the VM does not guarantee that even the first result slot is cleared
+        // when iteration exhausts.
         let direct_exit_nil_writes = nodes.is_empty().then(|| {
             self.function
                 .block(info.normal_exit)
@@ -827,16 +829,16 @@ impl<'a> Builder<'a> {
                 })
                 .collect::<FxHashSet<_>>()
         });
-        if (nodes.is_empty()
-            && exports.iter().any(|(local, _)| {
-                !direct_exit_nil_writes
+        if exports.iter().any(|(local, _)| {
+            let proven = if nodes.is_empty() {
+                direct_exit_nil_writes
                     .as_ref()
                     .is_some_and(|writes| writes.contains(local))
-            }))
-            || exports.iter().any(|(local, _)| {
-                Some(local) != info.res_locals.first() && !nil_writes.contains(local)
-            })
-        {
+            } else {
+                nil_writes.contains(local)
+            };
+            !proven
+        }) {
             return None;
         }
         Some(nodes)
