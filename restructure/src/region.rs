@@ -766,7 +766,6 @@ impl<'a> Builder<'a> {
         info: &LoopInfo,
         exports: &[(RcLocal, RcLocal)],
     ) -> Option<Vec<NodeIndex>> {
-        let first_result = info.res_locals.first();
         let mut nil_writes = FxHashSet::default();
         let mut nodes = Vec::new();
         let mut current = info.normal_exit;
@@ -808,10 +807,37 @@ impl<'a> Builder<'a> {
             }
             current = edges[0].target();
         }
-        for (local, _) in exports {
-            if Some(local) != first_result && !nil_writes.contains(local) {
-                return None;
-            }
+        // A direct exhaustion edge has no separate adapter block in which the
+        // VM's result state can be represented.  It is still safe when the
+        // normal-exit/join block itself explicitly writes the result to nil;
+        // account for that block here because the traversal above stops at the
+        // join boundary.  Otherwise a live result would be exported from the
+        // source-level loop's nil-initialized outer binding even though
+        // FORGLOOP may retain its last value.
+        let direct_exit_nil_writes = nodes.is_empty().then(|| {
+            self.function
+                .block(info.normal_exit)
+                .into_iter()
+                .flat_map(|block| block.iter())
+                .flat_map(|statement| {
+                    info.res_locals
+                        .iter()
+                        .filter(move |local| Self::is_nil_assignment(statement, local))
+                        .cloned()
+                })
+                .collect::<FxHashSet<_>>()
+        });
+        if (nodes.is_empty()
+            && exports.iter().any(|(local, _)| {
+                !direct_exit_nil_writes
+                    .as_ref()
+                    .is_some_and(|writes| writes.contains(local))
+            }))
+            || exports.iter().any(|(local, _)| {
+                Some(local) != info.res_locals.first() && !nil_writes.contains(local)
+            })
+        {
+            return None;
         }
         Some(nodes)
     }
@@ -823,6 +849,7 @@ impl<'a> Builder<'a> {
         adapters: &[NodeIndex],
     ) -> bool {
         let adapters = adapters.iter().copied().collect::<FxHashSet<_>>();
+        let direct_normal_exit = adapters.is_empty() && info.normal_exit == info.join;
         exports.iter().any(|(local, _)| {
             self.analysis.nodes.iter().any(|node| {
                 self.function.block(*node).is_some_and(|block| {
@@ -840,7 +867,8 @@ impl<'a> Builder<'a> {
                         // every other write would change the value observed
                         // by the post-loop export and is therefore rejected.
                         (*node != info.header || !matches!(statement, Statement::GenericForNext(_)))
-                            && !(adapters.contains(node)
+                            && !((adapters.contains(node)
+                                || (direct_normal_exit && *node == info.normal_exit))
                                 && Self::is_nil_assignment(statement, local))
                     })
                 })
@@ -1257,7 +1285,17 @@ impl<'a> Builder<'a> {
             // enclosing loop's back edge and revisit the normal-exhaustion
             // adapter.  Those nodes are validated separately above; their
             // intentional nil writes are not pre-entry aliases.
-            if adapters.contains(node) {
+            if adapters.contains(node)
+                || (*node == info.normal_exit
+                    && info.normal_exit == info.join
+                    && self.function.block(*node).is_some_and(|block| {
+                        block.iter().any(|statement| {
+                            info.res_locals
+                                .iter()
+                                .any(|local| Self::is_nil_assignment(statement, local))
+                        })
+                    }))
+            {
                 return false;
             }
             self.function.block(*node).is_some_and(|block| {
@@ -3050,6 +3088,47 @@ mod tests {
     }
 
     #[test]
+    fn refuses_live_result_export_without_exhaustion_value() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![result.clone()], generator.into(), state, control).into(),
+        );
+        function
+            .block_mut(join)
+            .unwrap()
+            .push(ast::Return::new(vec![RValue::Local(result)]).into());
+
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (join, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        // FORGLOOP does not necessarily clear its first result on exhaustion;
+        // exporting that live register as an outer source variable would
+        // incorrectly force it to the pre-loop nil initialization.
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
     fn refuses_post_loop_write_to_exported_result() {
         let mut function = Function::new(0);
         let init = function.new_block();
@@ -3267,10 +3346,13 @@ mod tests {
             .block_mut(inner_body)
             .unwrap()
             .push(Statement::Comment(ast::Comment::new("inner body".into())).into());
-        function
-            .block_mut(inner_exit)
-            .unwrap()
-            .push(Statement::Comment(ast::Comment::new("inner exit".into())).into());
+        function.block_mut(inner_exit).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(inner_value.clone())],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+        );
         function.block_mut(after_inner).unwrap().push(
             Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(
                 inner_value.clone(),
