@@ -911,10 +911,17 @@ fn decompile_function(
     // from source-like iterator/result-local allocation; protecting only the
     // original `upvalues_in` IDs misses versions introduced on a nested
     // closure's incoming edge and can let a loop register shadow that cell.
+    // Passed groups are canonicalized to fresh dummy locals below, so allocate
+    // those roots once and include the exact same IDs in the protected set.
+    let passed_group_roots = upvalue_passed_groups
+        .iter()
+        .map(|_| ast::RcLocal::default())
+        .collect::<Vec<_>>();
     let protected_upvalue_locals = upvalue_in_groups
         .iter()
         .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
         .chain(upvalue_passed_groups.iter().flat_map(|group| group.iter()))
+        .chain(passed_group_roots.iter())
         .cloned()
         .collect::<FxHashSet<_>>();
     let upvalue_to_group = upvalue_in_groups
@@ -922,7 +929,8 @@ fn decompile_function(
         .chain(
             upvalue_passed_groups
                 .into_iter()
-                .map(|m| (ast::RcLocal::default(), m)),
+                .zip(passed_group_roots)
+                .map(|(group, root)| (root, group)),
         )
         .flat_map(|(i, g)| g.into_iter().map(move |u| (u, i.clone())))
         .collect::<IndexMap<_, _>>();

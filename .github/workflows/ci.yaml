@@ -16,7 +16,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install nightly Rust
-        uses: dtolnay/rust-toolchain@nightly
+        # This repository still uses `box_patterns`, which was removed from
+        # the moving nightly channel after this known-good toolchain.  Pin the
+        # compiler so CI remains reproducible instead of failing before tests
+        # run whenever nightly advances.
+        uses: dtolnay/rust-toolchain@nightly-2026-06-15
         with:
           components: rustfmt
 
@@ -29,17 +33,17 @@ jobs:
       # migrated in a dedicated, repository-wide change.
       - name: Report formatting status
         run: |
-          if cargo +nightly fmt --all -- --check; then
+          if cargo +nightly-2026-06-15 fmt --all -- --check; then
             echo "rustfmt: clean"
           else
             echo "::warning::rustfmt reports pre-existing repository-wide drift"
           fi
 
       - name: Run workspace tests
-        run: cargo +nightly test --workspace --all-targets
+        run: cargo +nightly-2026-06-15 test --workspace --all-targets
 
       - name: Check lifter
-        run: cargo +nightly check -p luau-lifter
+        run: cargo +nightly-2026-06-15 check -p luau-lifter
 
       - name: Build release lifter
-        run: cargo +nightly build --release -p luau-lifter
+        run: cargo +nightly-2026-06-15 build --release -p luau-lifter
