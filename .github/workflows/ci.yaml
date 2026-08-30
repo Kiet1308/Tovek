@@ -20,8 +20,9 @@ jobs:
         # the moving nightly channel after this known-good toolchain.  Pin the
         # compiler so CI remains reproducible instead of failing before tests
         # run whenever nightly advances.
-        uses: dtolnay/rust-toolchain@nightly-2024-12-15
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: nightly-2024-12-15
           components: rustfmt
 
       - name: Cache Cargo
