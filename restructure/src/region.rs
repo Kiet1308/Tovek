@@ -160,6 +160,22 @@ fn block_has_rewritten_closure(
         })
 }
 
+fn statement_captures_any(statement: &Statement, locals: &[RcLocal]) -> bool {
+    let mut captures = FxHashSet::default();
+    collect_statement_captures(statement, &mut captures);
+    captures
+        .iter()
+        .any(|captured| locals.iter().any(|local| local == captured))
+}
+
+fn rvalue_captures_any(value: &RValue, locals: &[RcLocal]) -> bool {
+    let mut captures = FxHashSet::default();
+    collect_rvalue_captures(value, &mut captures);
+    captures
+        .iter()
+        .any(|captured| locals.iter().any(|local| local == captured))
+}
+
 impl Analysis {
     fn new(function: &Function) -> Option<Self> {
         let entry = function.entry().as_ref().copied()?;
@@ -1005,6 +1021,23 @@ impl<'a> Builder<'a> {
         })
     }
 
+    fn has_unsafe_captured_result_escape(&self, info: &LoopInfo) -> bool {
+        self.analysis.nodes.iter().any(|node| {
+            if info.nodes.contains(node) {
+                return false;
+            }
+            self.function.block(*node).is_some_and(|block| {
+                block
+                    .iter()
+                    .any(|statement| statement_captures_any(statement, &info.res_locals))
+            }) || self.function.edges(*node).any(|edge| {
+                edge.weight().arguments.iter().any(|(_, value)| {
+                    rvalue_captures_any(value, &info.res_locals)
+                })
+            })
+        })
+    }
+
     fn append_export(&self, block: &mut Block, exports: &[(RcLocal, RcLocal)]) {
         if exports.is_empty() {
             return;
@@ -1217,6 +1250,7 @@ impl<'a> Builder<'a> {
                 .iter()
                 .any(|(local, _)| self.rewrite.contains_key(local))
             || self.has_unsafe_captured_result_write(info)
+            || self.has_unsafe_captured_result_escape(info)
         {
             return None;
         }
@@ -1278,6 +1312,7 @@ impl<'a> Builder<'a> {
                         .values_read()
                         .into_iter()
                         .any(|read| protocol_locals.iter().any(|protocol| protocol == read))
+                    || rvalue_captures_any(value, &protocol_locals)
             })
         };
         // The init marker evaluates the iterator RHS in its block.  An
@@ -1305,6 +1340,7 @@ impl<'a> Builder<'a> {
                     protocol_locals.iter().any(|protocol| protocol == local)
                         || info.res_locals.iter().any(|result| result == local)
                 })
+                || statement_captures_any(statement, &protocol_locals)
         }) {
             return None;
         }
@@ -1363,6 +1399,7 @@ impl<'a> Builder<'a> {
                 .into_iter()
                 .chain(statement.values_written())
                 .any(|local| protocol_locals.iter().any(|protocol| protocol == local))
+                || statement_captures_any(statement, &protocol_locals)
         };
         if self.analysis.nodes.iter().any(|node| {
             *node != info.header
@@ -1375,6 +1412,9 @@ impl<'a> Builder<'a> {
             return None;
         }
         if init_block.iter().take(init_index).any(touches_protocol)
+            || init_block.iter().any(|statement| {
+                statement_captures_any(statement, &protocol_locals)
+            })
             || init_block
                 .iter()
                 .find_map(|statement| statement.as_generic_for_init())
@@ -2999,6 +3039,149 @@ mod tests {
 
         // The outer closure hides the inner closure's capture from a shallow
         // scan; recursively inspect child bodies before applying the rewrite.
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_nested_closure_capture_without_result_export() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        let tail = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let outer = RcLocal::new(Local::new(Some("outer".into())));
+        let inner = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    ast::Return::new(vec![RValue::Local(result.clone())]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Copy(result.clone())],
+        });
+        let outer_value = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![ast::Return::new(vec![inner]).into()]),
+                ..Default::default()
+            }))),
+            upvalues: Vec::new(),
+        });
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result.clone()],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function.block_mut(join).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(result.clone())],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+        );
+        let call_outer = RValue::Call(Call::new(RValue::Local(outer.clone()), Vec::new()));
+        function.block_mut(tail).unwrap().extend([
+            Assign::new(vec![LValue::Local(outer)], vec![outer_value]).into(),
+            ast::Return::new(vec![RValue::Call(Call::new(call_outer, Vec::new()))]).into(),
+        ]);
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(join, vec![
+            (tail, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        // No post-loop read forces an export rewrite, but the nested closure
+        // still captures the VM result cell outside the source loop scope.
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_nested_closure_capture_of_loop_protocol_local() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        let tail = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let outer = RcLocal::new(Local::new(Some("outer".into())));
+        let inner = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    ast::Return::new(vec![RValue::Local(control.clone())]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Copy(control.clone())],
+        });
+        let outer_value = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![ast::Return::new(vec![inner]).into()]),
+                ..Default::default()
+            }))),
+            upvalues: Vec::new(),
+        });
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function.block_mut(body).unwrap().push(
+            Assign::new(vec![LValue::Local(outer.clone())], vec![outer_value]).into(),
+        );
+        let call_outer = RValue::Call(Call::new(RValue::Local(outer), Vec::new()));
+        function.block_mut(tail).unwrap().push(
+            ast::Return::new(vec![RValue::Call(Call::new(call_outer, Vec::new()))]).into(),
+        );
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(join, vec![
+            (tail, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        // The inner closure captures the hidden control register through an
+        // outer closure, so a source-level loop would expose a stale cell.
         assert!(lift(function).is_none());
     }
 
