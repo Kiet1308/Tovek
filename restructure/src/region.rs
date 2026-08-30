@@ -28,6 +28,9 @@ pub enum UnsafeStructureReason {
     CapturedCellReorder,
     LiveBranchRewrite,
     ForInitSuffixOrder,
+    ForOriginMissing,
+    ForOriginMismatch,
+    ForOriginDuplicate,
 }
 
 impl fmt::Display for UnsafeStructureReason {
@@ -36,6 +39,9 @@ impl fmt::Display for UnsafeStructureReason {
             Self::CapturedCellReorder => "captured-cell reorder across iterator preparation",
             Self::LiveBranchRewrite => "live branch rewrite across a conditional join",
             Self::ForInitSuffixOrder => "observable FORGPREP suffix reorder",
+            Self::ForOriginMissing => "generic-for provenance is missing",
+            Self::ForOriginMismatch => "generic-for prep/step provenance mismatch",
+            Self::ForOriginDuplicate => "duplicate generic-for provenance identity",
         };
         f.write_str(name)
     }
@@ -61,6 +67,7 @@ struct LoopInfo {
     nodes: FxHashSet<NodeIndex>,
     res_locals: Vec<RcLocal>,
     right: Vec<RValue>,
+    origin: Option<ast::ForOrigin>,
 }
 
 struct Analysis {
@@ -92,15 +99,40 @@ impl Analysis {
             return None;
         }
 
-        // Edge arguments are SSA phi copies.  The dispatcher already has a
-        // parallel-copy scheduler; refusing them here avoids ever guessing at
-        // an edge-local value in a pretty source-level branch.
-        if nodes.iter().any(|node| {
-            function
-                .edges(*node)
-                .any(|edge| !edge.weight().arguments.is_empty())
-        }) {
-            return None;
+        // Edge arguments are SSA phi copies.  They are sourceable when the
+        // destination is a local and the source block actually branches; a
+        // parallel assignment is emitted on the edge below.  Reject malformed
+        // transfers (duplicate destinations or a transfer after a terminal
+        // statement) instead of silently dropping a value.
+        for node in &nodes {
+            let has_terminal = function.block(*node).is_some_and(|block| {
+                block.last().is_some_and(|statement| {
+                    matches!(
+                        statement,
+                        Statement::Return(_)
+                            | Statement::Break(_)
+                            | Statement::Continue(_)
+                            | Statement::Goto(_)
+                    )
+                })
+            });
+            for edge in function.edges(*node) {
+                if edge.weight().arguments.is_empty() {
+                    continue;
+                }
+                if has_terminal {
+                    return None;
+                }
+                let mut destinations = FxHashSet::default();
+                if edge
+                    .weight()
+                    .arguments
+                    .iter()
+                    .any(|(destination, _)| !destinations.insert(destination.clone()))
+                {
+                    return None;
+                }
+            }
         }
 
         let dominators = simple_fast(function.graph(), entry);
@@ -375,6 +407,7 @@ impl Analysis {
         }
 
         let mut infos = Vec::new();
+        let mut seen_origins = FxHashSet::default();
         for (header, nodes_in_loop) in natural {
             let Some(next) = function
                 .block(header)
@@ -451,6 +484,25 @@ impl Analysis {
             if res_locals.is_empty() || init_statement.0.right.is_empty() {
                 return None;
             }
+            // Production lifter output carries an exact prep/step pair.  AST
+            // unit fixtures may omit metadata, but a partially annotated pair
+            // or a shape whose provenance disagrees with the marker arity is
+            // ambiguous and must not be source-shaped.
+            let origin = match (init_statement.origin(), next.origin()) {
+                (None, None) => None,
+                (Some(init_origin), Some(next_origin))
+                    if init_origin == next_origin
+                        && init_origin.result_count as usize == res_locals.len()
+                        && init_origin.body_pc != init_origin.follow_pc
+                        && init_origin.step_pc != init_origin.prep_pc =>
+                {
+                    if !seen_origins.insert(init_origin) {
+                        return None;
+                    }
+                    Some(init_origin)
+                }
+                _ => return None,
+            };
             let external_targets = nodes_in_loop
                 .iter()
                 .flat_map(|node| function.successor_blocks(*node))
@@ -470,6 +522,7 @@ impl Analysis {
                 nodes: nodes_in_loop,
                 res_locals,
                 right: init_statement.0.right.clone(),
+                origin,
             });
         }
         for (index, left) in infos.iter().enumerate() {
@@ -556,7 +609,10 @@ impl<'a> Builder<'a> {
                 .iter()
                 .skip(marker + 1)
                 .filter(|statement| !is_ignorable(statement));
-            if suffix.clone().any(|statement| !is_reorderable_for_init_suffix(statement)) {
+            if suffix
+                .clone()
+                .any(|statement| !is_reorderable_for_init_suffix(statement))
+            {
                 return Some(UnsafeStructureReason::ForInitSuffixOrder);
             }
             if suffix.clone().any(|statement| {
@@ -765,8 +821,7 @@ impl<'a> Builder<'a> {
                         // write nil, and a body break can share that adapter;
                         // every other write would change the value observed
                         // by the post-loop export and is therefore rejected.
-                        (*node != info.header
-                            || !matches!(statement, Statement::GenericForNext(_)))
+                        (*node != info.header || !matches!(statement, Statement::GenericForNext(_)))
                             && !(adapters.contains(node)
                                 && Self::is_nil_assignment(statement, local))
                     })
@@ -800,6 +855,53 @@ impl<'a> Builder<'a> {
         block.push(assignment.into());
     }
 
+    /// Materialize an SSA phi transfer on the selected CFG edge.  Luau
+    /// evaluates every right-hand side before assigning any destination, so a
+    /// single `parallel` assignment preserves swaps and cycles without
+    /// inventing an ordering between the copies.
+    fn edge_transfer(
+        &self,
+        edge: &cfg::block::BlockEdge,
+        rewrite: &FxHashMap<RcLocal, RcLocal>,
+    ) -> Option<Block> {
+        if edge.arguments.is_empty() {
+            return Some(Block::default());
+        }
+        let left = edge
+            .arguments
+            .iter()
+            .map(|(destination, _)| {
+                LValue::Local(
+                    rewrite
+                        .get(destination)
+                        .cloned()
+                        .unwrap_or_else(|| destination.clone()),
+                )
+            })
+            .collect_vec();
+        let right = edge
+            .arguments
+            .iter()
+            .map(|(_, value)| self.rewrite_rvalue_with(value.clone(), rewrite))
+            .collect_vec();
+        let mut assignment = Assign::new(left, right);
+        assignment.parallel = true;
+        Some(Block::from(vec![assignment.into()]))
+    }
+
+    fn rewrite_rvalue_with(
+        &self,
+        mut value: RValue,
+        rewrite: &FxHashMap<RcLocal, RcLocal>,
+    ) -> RValue {
+        for local in value.values_read_mut() {
+            if let Some(replacement) = rewrite.get(local) {
+                *local = replacement.clone();
+            }
+        }
+        value
+    }
+
     fn build_loop(&mut self, info: &LoopInfo) -> Option<PathResult> {
         if !self.visited.insert(info.init) {
             return None;
@@ -818,6 +920,7 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
+        let init_edge_transfer = self.edge_transfer(init_edges[0].weight(), &self.rewrite)?;
         // Optimized Luau may leave a small, pure setup suffix in the same
         // FORGPREP block after the marker (for example `local seen = {}`).
         // The source `for` evaluates its iterator expression before this
@@ -831,6 +934,15 @@ impl<'a> Builder<'a> {
             .filter(|statement| !is_ignorable(statement))
             .cloned()
             .collect_vec();
+        if !init_suffix.is_empty() {
+            // The bytecode marker has already evaluated the iterator setup,
+            // while a source `for` evaluates its RHS as part of entering the
+            // loop.  Without an explicit tuple-staging proof, moving any
+            // suffix across that boundary changes event order; fail closed
+            // even for total expressions until the VM effect model can certify
+            // the commute.
+            return self.reject_unsafe(UnsafeStructureReason::ForInitSuffixOrder);
+        }
         if init_suffix
             .iter()
             .any(|statement| !is_reorderable_for_init_suffix(statement))
@@ -869,12 +981,9 @@ impl<'a> Builder<'a> {
             return None;
         }
         if init_suffix.iter().any(|statement| {
-            statement
-                .values_written()
-                .into_iter()
-                .any(|written| {
-                    right_reads.contains(written) || self.protected_locals.contains(written)
-                })
+            statement.values_written().into_iter().any(|written| {
+                right_reads.contains(written) || self.protected_locals.contains(written)
+            })
         }) {
             return None;
         }
@@ -898,6 +1007,7 @@ impl<'a> Builder<'a> {
                 .cloned()
                 .map(|statement| self.rewrite_statement(statement)),
         );
+        output.extend(init_edge_transfer.0);
         let exports = self.exports_for(info);
         let adapters = self.normal_adapter_nodes(info, &exports)?;
         if self.has_unsafe_export_write(info, &exports, &adapters)
@@ -910,10 +1020,9 @@ impl<'a> Builder<'a> {
         }
         for (_, export) in &exports {
             output.push(
-                Assign::new(
-                    vec![LValue::Local(export.clone())],
-                    vec![RValue::Literal(Literal::Nil)],
-                )
+                Assign::new(vec![LValue::Local(export.clone())], vec![RValue::Literal(
+                    Literal::Nil,
+                )])
                 .into(),
             );
         }
@@ -1126,7 +1235,9 @@ impl<'a> Builder<'a> {
         if body_result.next != Some(info.header) && body_result.next != Some(info.join) {
             return None;
         }
-        output.push(GenericFor::new(info.res_locals.clone(), right, body_result.block).into());
+        let mut generic_for = GenericFor::new(info.res_locals.clone(), right, body_result.block);
+        generic_for.origin = info.origin;
+        output.push(generic_for.into());
         for node in adapters {
             // A body-side break may legally share the normal-exhaustion
             // adapter (for example, a compiler-generated `result = nil`
@@ -1255,6 +1366,7 @@ impl<'a> Builder<'a> {
                             .cloned()
                             .map(|statement| self.rewrite_statement(statement)),
                     );
+                    output.extend(self.edge_transfer(edges[0].weight(), &self.rewrite)?.0);
                     if let Some(ctx) = context {
                         // A legitimate inner `break` may first land in a
                         // linear adapter block that belongs to an enclosing
@@ -1319,8 +1431,13 @@ impl<'a> Builder<'a> {
                         .map(|statement| self.rewrite_statement(statement))
                         .collect_vec();
                     output.extend(prefix);
-                    let conditional =
-                        self.build_conditional(if_statement, then_target, else_target, context)?;
+                    let conditional = self.build_conditional(
+                        current,
+                        if_statement,
+                        then_target,
+                        else_target,
+                        context,
+                    )?;
                     output.extend(conditional.block.0);
                     // A conditional consumes both arms up to their common
                     // post-dominator.  Continue at that join so a normal
@@ -1382,6 +1499,7 @@ impl<'a> Builder<'a> {
             {
                 return None;
             }
+            output.extend(self.edge_transfer(edges[0].weight(), &self.rewrite)?.0);
             current = successors[0];
         }
         Some(PathResult {
@@ -1392,6 +1510,7 @@ impl<'a> Builder<'a> {
 
     fn build_conditional(
         &mut self,
+        source: NodeIndex,
         statement: If,
         then_target: NodeIndex,
         else_target: NodeIndex,
@@ -1406,9 +1525,23 @@ impl<'a> Builder<'a> {
                 // not let a loop that is only present in one arm leak its
                 // export mapping into the other arm (or into the join).
                 let base_rewrite = self.rewrite.clone();
+                let then_transfer = self.edge_transfer(
+                    self.function
+                        .edges(source)
+                        .find(|edge| edge.target() == then_target)?
+                        .weight(),
+                    &base_rewrite,
+                )?;
                 let then_result = self.build_path(then_target, Some(join), Some(ctx))?;
                 let then_rewrite = self.rewrite.clone();
                 self.rewrite = base_rewrite.clone();
+                let else_transfer = self.edge_transfer(
+                    self.function
+                        .edges(source)
+                        .find(|edge| edge.target() == else_target)?
+                        .weight(),
+                    &base_rewrite,
+                )?;
                 let else_result = self.build_path(else_target, Some(join), Some(ctx))?;
                 let else_rewrite = self.rewrite.clone();
                 self.rewrite = self.reconcile_rewrite(
@@ -1425,8 +1558,10 @@ impl<'a> Builder<'a> {
                     .into_if()
                     .ok()?
                     .condition;
-                let mut then_block = then_result.block;
-                let mut else_block = else_result.block;
+                let mut then_block = then_transfer;
+                then_block.extend(then_result.block.0);
+                let mut else_block = else_transfer;
+                else_block.extend(else_result.block.0);
                 simplify_conditional(&mut condition, &mut then_block, &mut else_block);
                 return Some(PathResult {
                     block: Block::from(vec![If::new(condition, then_block, else_block).into()]),
@@ -1434,28 +1569,40 @@ impl<'a> Builder<'a> {
                 });
             }
             let base_rewrite = self.rewrite.clone();
+            let then_edge = self
+                .function
+                .edges(source)
+                .find(|edge| edge.target() == then_target)?
+                .weight()
+                .clone();
+            let then_transfer = self.edge_transfer(&then_edge, &base_rewrite)?;
             let then_result = self.build_transfer_arm(then_target, ctx)?;
             let then_rewrite = self.rewrite.clone();
             self.rewrite = base_rewrite.clone();
+            let else_edge = self
+                .function
+                .edges(source)
+                .find(|edge| edge.target() == else_target)?
+                .weight()
+                .clone();
+            let else_transfer = self.edge_transfer(&else_edge, &base_rewrite)?;
             let else_result = self.build_transfer_arm(else_target, ctx)?;
             let else_rewrite = self.rewrite.clone();
             let continuation = (then_result.next == Some(ctx.info.header)
                 && else_result.next == Some(ctx.info.header))
-                .then_some(ctx.info.header);
-            self.rewrite = self.reconcile_rewrite(
-                &base_rewrite,
-                &then_rewrite,
-                &else_rewrite,
-                continuation,
-            )?;
+            .then_some(ctx.info.header);
+            self.rewrite =
+                self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite, continuation)?;
             let mut condition = statement.condition;
             for local in condition.values_read_mut() {
                 if let Some(replacement) = self.rewrite.get(local) {
                     *local = replacement.clone();
                 }
             }
-            let mut then_block = then_result.block;
-            let mut else_block = else_result.block;
+            let mut then_block = then_transfer;
+            then_block.extend(then_result.block.0);
+            let mut else_block = else_transfer;
+            else_block.extend(else_result.block.0);
             strip_terminal_continue(&mut then_block);
             strip_terminal_continue(&mut else_block);
             simplify_conditional(&mut condition, &mut then_block, &mut else_block);
@@ -1467,17 +1614,27 @@ impl<'a> Builder<'a> {
             let join =
                 common_postdominator(&[then_target, else_target], &self.analysis.post_dominators);
             let base_rewrite = self.rewrite.clone();
+            let then_transfer = self.edge_transfer(
+                self.function
+                    .edges(source)
+                    .find(|edge| edge.target() == then_target)?
+                    .weight(),
+                &base_rewrite,
+            )?;
             let then_result = self.build_path(then_target, join, None)?;
             let then_rewrite = self.rewrite.clone();
             self.rewrite = base_rewrite.clone();
+            let else_transfer = self.edge_transfer(
+                self.function
+                    .edges(source)
+                    .find(|edge| edge.target() == else_target)?
+                    .weight(),
+                &base_rewrite,
+            )?;
             let else_result = self.build_path(else_target, join, None)?;
             let else_rewrite = self.rewrite.clone();
-            self.rewrite = self.reconcile_rewrite(
-                &base_rewrite,
-                &then_rewrite,
-                &else_rewrite,
-                join,
-            )?;
+            self.rewrite =
+                self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite, join)?;
             if then_result.next != join || else_result.next != join {
                 return None;
             }
@@ -1487,8 +1644,10 @@ impl<'a> Builder<'a> {
                     *local = replacement.clone();
                 }
             }
-            let mut then_block = then_result.block;
-            let mut else_block = else_result.block;
+            let mut then_block = then_transfer;
+            then_block.extend(then_result.block.0);
+            let mut else_block = else_transfer;
+            else_block.extend(else_result.block.0);
             simplify_conditional(&mut condition, &mut then_block, &mut else_block);
             Some(PathResult {
                 block: Block::from(vec![If::new(condition, then_block, else_block).into()]),
@@ -1579,6 +1738,88 @@ fn simplify_conditional(condition: &mut RValue, then_block: &mut Block, else_blo
     }
 }
 
+/// Validate the identity-bearing half of the generic-for protocol before any
+/// region discovery mutates or consumes the CFG.  Hand-built fixtures that
+/// omit provenance entirely remain supported; once one reachable marker is
+/// annotated, however, every marker must carry a unique, matching prep/step
+/// identity and an arity consistent with its result tuple.
+fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason> {
+    let Some(entry) = function.entry().as_ref().copied() else {
+        return Ok(());
+    };
+    let mut reachable = FxHashSet::default();
+    let mut work = vec![entry];
+    while let Some(node) = work.pop() {
+        if !reachable.insert(node) {
+            continue;
+        }
+        work.extend(function.successor_blocks(node));
+    }
+
+    let mut init_origins = FxHashMap::default();
+    let mut next_origins = FxHashMap::default();
+    let mut saw_marker = false;
+    let mut saw_missing = false;
+    for node in reachable {
+        let Some(block) = function.block(node) else {
+            continue;
+        };
+        for statement in block.iter() {
+            match statement {
+                Statement::GenericForInit(init) => {
+                    saw_marker = true;
+                    let Some(origin) = init.origin() else {
+                        saw_missing = true;
+                        continue;
+                    };
+                    if init_origins.insert(origin.id(), origin).is_some() {
+                        return Err(UnsafeStructureReason::ForOriginDuplicate);
+                    }
+                }
+                Statement::GenericForNext(next) => {
+                    saw_marker = true;
+                    let Some(origin) = next.origin() else {
+                        saw_missing = true;
+                        continue;
+                    };
+                    let result_count = next
+                        .res_locals
+                        .iter()
+                        .filter(|lvalue| lvalue.as_local().is_some())
+                        .count();
+                    if result_count != origin.result_count as usize {
+                        return Err(UnsafeStructureReason::ForOriginMismatch);
+                    }
+                    if next_origins.insert(origin.id(), origin).is_some() {
+                        return Err(UnsafeStructureReason::ForOriginDuplicate);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    if !saw_marker || (init_origins.is_empty() && next_origins.is_empty()) {
+        return Ok(());
+    }
+    if saw_missing {
+        return Err(UnsafeStructureReason::ForOriginMissing);
+    }
+    if init_origins.len() != next_origins.len()
+        || init_origins.keys().any(|id| !next_origins.contains_key(id))
+    {
+        return Err(UnsafeStructureReason::ForOriginMismatch);
+    }
+    for (id, init_origin) in init_origins {
+        let Some(next_origin) = next_origins.get(&id) else {
+            return Err(UnsafeStructureReason::ForOriginMismatch);
+        };
+        if init_origin != *next_origin {
+            return Err(UnsafeStructureReason::ForOriginMismatch);
+        }
+    }
+    Ok(())
+}
+
 /// Return a complete source-shaped AST only when all reachable nodes can be
 /// consumed exactly once.  The caller owns the fallback policy.
 pub fn lift(function: Function) -> Option<Block> {
@@ -1615,6 +1856,9 @@ pub fn lift_attempt_with_ignored_locals(
         base: ast::current_local_id(),
         committed: false,
     };
+    if let Err(reason) = validate_for_origins(&function) {
+        return StructureAttempt::Unsafe(reason);
+    }
     let Some(analysis) = Analysis::new(&function) else {
         return StructureAttempt::Unsupported;
     };
@@ -1659,8 +1903,9 @@ mod tests {
         lift_attempt_with_ignored_locals,
     };
     use ast::{
-        Assign, Block, Call, Close, Closure, GenericForInit, GenericForNext, Global, If, LValue,
-        Literal, Local, RValue, RcLocal, Statement, Table, Upvalue,
+        Assign, Block, Call, Close, Closure, ForOrigin, ForPrepKind, GenericForInit,
+        GenericForNext, Global, If, LValue, Literal, Local, RValue, RcLocal, Statement, Table,
+        Upvalue, VmProfileId,
     };
     use by_address::ByAddress;
     use cfg::{
@@ -1672,28 +1917,70 @@ mod tests {
     use triomphe::Arc;
 
     #[test]
-    fn refuses_edge_arguments_instead_of_guessing() {
+    fn refuses_edge_arguments_after_terminal_statement() {
         let mut function = Function::new(0);
         let entry = function.new_block();
         let exit = function.new_block();
         function.set_entry(entry);
         *function.block_mut(entry).unwrap() =
             Block::from(vec![Statement::Return(Default::default()).into()]);
-        function.set_edges(
-            entry,
-            vec![(
-                exit,
-                BlockEdge {
-                    branch_type: BranchType::Unconditional,
-                    arguments: vec![(
-                        RcLocal::new(Local::new(Some("x".into()))),
-                        RValue::Literal(Literal::Nil),
-                    )],
-                },
+        function.set_edges(entry, vec![(exit, BlockEdge {
+            branch_type: BranchType::Unconditional,
+            arguments: vec![(
+                RcLocal::new(Local::new(Some("x".into()))),
+                RValue::Literal(Literal::Nil),
             )],
-        );
+        })]);
         *function.block_mut(exit).unwrap() = Block::default();
         assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn materializes_parallel_edge_arguments_in_branch_arms() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let then_node = function.new_block();
+        let else_node = function.new_block();
+        let join = function.new_block();
+        function.set_entry(entry);
+
+        let incoming = RcLocal::new(Local::new(Some("incoming".into())));
+        function.block_mut(entry).unwrap().push(
+            If::new(
+                RValue::Global(Global::from("condition")),
+                Block::default(),
+                Block::default(),
+            )
+            .into(),
+        );
+        function
+            .block_mut(join)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(entry, vec![
+            (then_node, BlockEdge {
+                branch_type: BranchType::Then,
+                arguments: vec![(incoming.clone(), Literal::Number(1.0).into())],
+            }),
+            (else_node, BlockEdge {
+                branch_type: BranchType::Else,
+                arguments: vec![(incoming.clone(), Literal::Number(2.0).into())],
+            }),
+        ]);
+        function.set_edges(then_node, vec![(
+            join,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(else_node, vec![(
+            join,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+
+        let output = lift(function)
+            .expect("branch-local phi transfers should be sourceable")
+            .to_string();
+        assert!(output.contains("incoming = 1"), "{output}");
+        assert!(output.contains("incoming = 2"), "{output}");
     }
 
     #[test]
@@ -1719,13 +2006,10 @@ mod tests {
             .block_mut(right)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
-        function.set_edges(
-            entry,
-            vec![
-                (left, BlockEdge::new(BranchType::Unconditional)),
-                (right, BlockEdge::new(BranchType::Unconditional)),
-            ],
-        );
+        function.set_edges(entry, vec![
+            (left, BlockEdge::new(BranchType::Unconditional)),
+            (right, BlockEdge::new(BranchType::Unconditional)),
+        ]);
         assert!(lift(function).is_none());
     }
 
@@ -1740,10 +2024,9 @@ mod tests {
             If::new(
                 RValue::Global(Global::from("condition")),
                 Block::from(vec![
-                    Assign::new(
-                        vec![LValue::Local(value.clone())],
-                        vec![Literal::Number(1.0).into()],
-                    )
+                    Assign::new(vec![LValue::Local(value.clone())], vec![
+                        Literal::Number(1.0).into(),
+                    ])
                     .into(),
                 ]),
                 Block::default(),
@@ -1754,10 +2037,10 @@ mod tests {
             .block_mut(exit)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
-        function.set_edges(
-            entry,
-            vec![(exit, BlockEdge::new(BranchType::Unconditional))],
-        );
+        function.set_edges(entry, vec![(
+            exit,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         // The one-edge CFG does not describe the nested If body.  Treating it
         // as a flat statement would lose the branch and make rewrites of its
@@ -1785,49 +2068,43 @@ mod tests {
             .into(),
         );
         function.block_mut(then_node).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(result.clone())],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(result.clone())], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         function.block_mut(else_node).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(result.clone())],
-                vec![Literal::Number(2.0).into()],
-            )
+            Assign::new(vec![LValue::Local(result.clone())], vec![
+                Literal::Number(2.0).into(),
+            ])
             .into(),
         );
         function.block_mut(join).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(result.clone())],
-                vec![RValue::Local(result.clone())],
-            )
+            Assign::new(vec![LValue::Local(result.clone())], vec![RValue::Local(
+                result.clone(),
+            )])
             .into(),
         );
         function
             .block_mut(exit)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
-        function.set_edges(
-            entry,
-            vec![
-                (else_node, BlockEdge::new(BranchType::Else)),
-                (then_node, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            then_node,
-            vec![(join, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            else_node,
-            vec![(join, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(entry, vec![
+            (else_node, BlockEdge::new(BranchType::Else)),
+            (then_node, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(then_node, vec![(
             join,
-            vec![(exit, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(else_node, vec![(
+            join,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(join, vec![(
+            exit,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         let output = lift(function)
             .expect("a plain diamond followed by a tail should be source-shaped")
@@ -1849,44 +2126,58 @@ mod tests {
         let state = RcLocal::new(Local::new(Some("state".into())));
         let control = RcLocal::new(Local::new(Some("control".into())));
         let value = RcLocal::new(Local::new(Some("value".into())));
+        let origin = ForOrigin {
+            prep_pc: 10,
+            step_pc: 20,
+            body_pc: 21,
+            follow_pc: 22,
+            prep_kind: ForPrepKind::Generic,
+            base_register: 0,
+            result_count: 1,
+            aux: 1,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+        };
         let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
         // The lifter normally replaces these internal iterator registers with
         // the original iterator expression during SSA cleanup.
         for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        for_init.1 = Some(origin);
         function.block_mut(init).unwrap().push(for_init.into());
-        function.block_mut(header).unwrap().push(
-            GenericForNext::new(
-                vec![value.clone()],
-                generator.clone().into(),
-                state.clone(),
-                control.clone(),
-            )
-            .into(),
+        let mut for_next = GenericForNext::new(
+            vec![value.clone()],
+            generator.clone().into(),
+            state.clone(),
+            control.clone(),
         );
+        for_next.origin = Some(origin);
+        function.block_mut(header).unwrap().push(for_next.into());
         function
             .block_mut(exit)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
 
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
         // Deliberately insert Else first: graph insertion order is not branch
         // semantics, so the structurer must honor the edge tags.
-        function.set_edges(
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         let output = lift(function).expect("simple generic-for should be source-shaped");
+        let generic_for = output
+            .iter()
+            .find_map(|statement| statement.as_generic_for())
+            .expect("source-shaped output should retain loop provenance");
+        assert_eq!(generic_for.origin, Some(origin));
         let output = output.to_string();
         assert!(output.contains("for value in items do"), "{output}");
         assert!(!output.contains("continue"), "{output}");
@@ -1895,7 +2186,62 @@ mod tests {
     }
 
     #[test]
-    fn moves_total_for_init_suffix_before_emitted_loop() {
+    fn rejects_partially_annotated_generic_for_with_typed_reason() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let origin = ForOrigin {
+            prep_pc: 1,
+            step_pc: 2,
+            body_pc: 3,
+            follow_pc: 4,
+            prep_kind: ForPrepKind::Generic,
+            base_register: 0,
+            result_count: 1,
+            aux: 1,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+        };
+        let mut init_marker =
+            GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        init_marker.1 = Some(origin);
+        init_marker.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(init_marker.into());
+        function
+            .block_mut(header)
+            .unwrap()
+            .push(GenericForNext::new(vec![result], generator.into(), state, control).into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::ForOriginMissing)
+        ));
+    }
+
+    #[test]
+    fn rejects_for_init_suffix_without_tuple_staging_proof() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -1912,17 +2258,18 @@ mod tests {
         for_init.0.right = vec![RValue::Global(Global::from("items"))];
         function.block_mut(init).unwrap().push(for_init.into());
         // Optimized bytecode can put a side-effect-free local setup after the
-        // FORGPREP marker.  It is safe to commute before the source `for`.
+        // FORGPREP marker.  Until tuple staging is implemented, the source
+        // pass must not silently move that setup across iterator evaluation.
         function.block_mut(init).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(setup)],
-                vec![RValue::Table(Table::default())],
-            )
+            Assign::new(vec![LValue::Local(setup)], vec![RValue::Table(
+                Table::default(),
+            )])
             .into(),
         );
-        function.block_mut(header).unwrap().push(
-            GenericForNext::new(vec![value], generator.into(), state, control).into(),
-        );
+        function
+            .block_mut(header)
+            .unwrap()
+            .push(GenericForNext::new(vec![value], generator.into(), state, control).into());
         function
             .block_mut(body)
             .unwrap()
@@ -1931,29 +2278,23 @@ mod tests {
             .block_mut(exit)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        let output = lift(function)
-            .expect("a total FORGPREP suffix should remain source-shaped")
-            .to_string();
-        let setup_pos = output.find("setup =").expect(&output);
-        let loop_pos = output.find("for value in items do").expect(&output);
-        assert!(setup_pos < loop_pos, "{output}");
-        assert!(!output.contains("GenericFor"), "{output}");
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::ForInitSuffixOrder)
+        ));
     }
 
     #[test]
@@ -1984,30 +2325,27 @@ mod tests {
         ))];
         function.block_mut(init).unwrap().push(for_init.into());
         function.block_mut(init).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(captured)],
-                vec![RValue::Table(Table::default())],
-            )
+            Assign::new(vec![LValue::Local(captured)], vec![RValue::Table(
+                Table::default(),
+            )])
             .into(),
         );
-        function.block_mut(header).unwrap().push(
-            GenericForNext::new(vec![value], generator.into(), state, control).into(),
-        );
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function
+            .block_mut(header)
+            .unwrap()
+            .push(GenericForNext::new(vec![value], generator.into(), state, control).into());
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
         function
             .block_mut(exit)
             .unwrap()
@@ -2041,32 +2379,32 @@ mod tests {
         // `Close` has an intentionally empty LocalRw summary, so a generic
         // `is_linear_statement` gate would incorrectly commute it before the
         // iterator preparation.  The suffix allow-list must reject it.
-        function
-            .block_mut(init)
-            .unwrap()
-            .push(Close { locals: vec![captured] }.into());
-        function.block_mut(header).unwrap().push(
-            GenericForNext::new(vec![value], generator.into(), state, control).into(),
+        function.block_mut(init).unwrap().push(
+            Close {
+                locals: vec![captured],
+            }
+            .into(),
         );
+        function
+            .block_mut(header)
+            .unwrap()
+            .push(GenericForNext::new(vec![value], generator.into(), state, control).into());
         function
             .block_mut(exit)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         assert!(matches!(
             lift_attempt_with_ignored_locals(function.clone(), &FxHashSet::default()),
@@ -2083,21 +2421,18 @@ mod tests {
         function.set_entry(join);
         let last = RcLocal::new(Local::new(Some("last".into())));
         let sink = RcLocal::new(Local::new(Some("sink".into())));
-        function.block_mut(read).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(sink)],
-                vec![RValue::Local(last.clone())],
-            )
-            .into(),
-        );
-        function.set_edges(
-            join,
-            vec![(read, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function
+            .block_mut(read)
+            .unwrap()
+            .push(Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(last.clone())]).into());
+        function.set_edges(join, vec![(
             read,
-            vec![(join, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(read, vec![(
+            join,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         let analysis = Analysis::new(&function).expect("cyclic CFG is analyzable");
         assert!(analysis.live_in[&join].contains(&last));
@@ -2107,9 +2442,11 @@ mod tests {
         let exported = RcLocal::new(Local::new(Some("exported".into())));
         let then_map = [(last.clone(), exported)].into_iter().collect();
         let else_map = FxHashMap::default();
-        assert!(builder
-            .reconcile_rewrite(&FxHashMap::default(), &then_map, &else_map, Some(join))
-            .is_none());
+        assert!(
+            builder
+                .reconcile_rewrite(&FxHashMap::default(), &then_map, &else_map, Some(join))
+                .is_none()
+        );
     }
 
     #[test]
@@ -2127,16 +2464,10 @@ mod tests {
             )
             .into(),
         );
-        function.set_edges(
-            entry,
-            vec![(
-                exit,
-                BlockEdge {
-                    branch_type: BranchType::Unconditional,
-                    arguments: vec![(destination, RValue::Local(source.clone()))],
-                },
-            ) ],
-        );
+        function.set_edges(entry, vec![(exit, BlockEdge {
+            branch_type: BranchType::Unconditional,
+            arguments: vec![(destination, RValue::Local(source.clone()))],
+        })]);
         let nodes = vec![entry, exit];
         let reachable = nodes.iter().copied().collect::<FxHashSet<_>>();
         let (live_in, live_out) = Analysis::liveness(&function, &nodes, &reachable);
@@ -2158,19 +2489,13 @@ mod tests {
             Assign::new(vec![LValue::Local(sink_a)], vec![RValue::Local(a.clone())]).into(),
             Assign::new(vec![LValue::Local(sink_b)], vec![RValue::Local(b.clone())]).into(),
         ]);
-        function.set_edges(
-            entry,
-            vec![(
-                exit,
-                BlockEdge {
-                    branch_type: BranchType::Unconditional,
-                    arguments: vec![
-                        (a.clone(), RValue::Local(b.clone())),
-                        (b.clone(), RValue::Local(a.clone())),
-                    ],
-                },
-            )],
-        );
+        function.set_edges(entry, vec![(exit, BlockEdge {
+            branch_type: BranchType::Unconditional,
+            arguments: vec![
+                (a.clone(), RValue::Local(b.clone())),
+                (b.clone(), RValue::Local(a.clone())),
+            ],
+        })]);
         let nodes = vec![entry, exit];
         let reachable = nodes.iter().copied().collect::<FxHashSet<_>>();
         let (_, live_out) = Analysis::liveness(&function, &nodes, &reachable);
@@ -2200,34 +2525,26 @@ mod tests {
         let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
         for_init.0.right = vec![RValue::Global(Global::from("items"))];
         function.block_mut(init).unwrap().push(for_init.into());
-        function.block_mut(header).unwrap().push(
-            GenericForNext::new(
-                vec![value],
-                generator.into(),
-                state,
-                control,
-            )
-            .into(),
-        );
+        function
+            .block_mut(header)
+            .unwrap()
+            .push(GenericForNext::new(vec![value], generator.into(), state, control).into());
         function
             .block_mut(exit)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         // Reusing a function parameter as a source `for` result would create
         // a fresh loop-local binding and lose the parameter cell's identity.
@@ -2266,7 +2583,10 @@ mod tests {
             first_control.clone(),
         );
         first_for_init.0.right = vec![RValue::Global(Global::from("first_items"))];
-        function.block_mut(first_init).unwrap().push(first_for_init.into());
+        function
+            .block_mut(first_init)
+            .unwrap()
+            .push(first_for_init.into());
         function.block_mut(first_header).unwrap().push(
             GenericForNext::new(
                 vec![reused_result.clone()],
@@ -2282,7 +2602,10 @@ mod tests {
             second_control.clone(),
         );
         second_for_init.0.right = vec![RValue::Global(Global::from("second_items"))];
-        function.block_mut(second_init).unwrap().push(second_for_init.into());
+        function
+            .block_mut(second_init)
+            .unwrap()
+            .push(second_for_init.into());
         function.block_mut(second_header).unwrap().push(
             GenericForNext::new(
                 vec![reused_result.clone()],
@@ -2293,10 +2616,9 @@ mod tests {
             .into(),
         );
         function.block_mut(second_body).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(sink)],
-                vec![RValue::Local(reused_result)],
-            )
+            Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(
+                reused_result,
+            )])
             .into(),
         );
         function
@@ -2304,40 +2626,34 @@ mod tests {
             .unwrap()
             .push(Statement::Return(Default::default()).into());
 
-        function.set_edges(
-            first_init,
-            vec![(first_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(first_init, vec![(
             first_header,
-            vec![
-                (between, BlockEdge::new(BranchType::Else)),
-                (first_body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            first_body,
-            vec![(first_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            between,
-            vec![(second_init, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(first_header, vec![
+            (between, BlockEdge::new(BranchType::Else)),
+            (first_body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(first_body, vec![(
+            first_header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(between, vec![(
             second_init,
-            vec![(second_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(second_init, vec![(
             second_header,
-            vec![
-                (exit, BlockEdge::new(BranchType::Else)),
-                (second_body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            second_body,
-            vec![(second_header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(second_header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (second_body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(second_body, vec![(
+            second_header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         assert!(lift(function).is_none());
     }
@@ -2358,31 +2674,22 @@ mod tests {
         for_init.0.right = vec![RValue::Global(Global::from("items"))];
         function.block_mut(init).unwrap().push(for_init.into());
         function.block_mut(header).unwrap().push(
-            GenericForNext::new(
-                vec![value.clone()],
-                generator.into(),
-                state,
-                control,
-            )
-            .into(),
+            GenericForNext::new(vec![value.clone()], generator.into(), state, control).into(),
         );
         function
             .block_mut(exit)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
         // An empty loop body is a legal compiler shape: FORGLOOP's Then edge
         // points back to its own header and Else leaves the loop.
-        function.set_edges(
-            header,
-            vec![
-                (exit, BlockEdge::new(BranchType::Else)),
-                (header, BlockEdge::new(BranchType::Then)),
-            ],
-        );
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (header, BlockEdge::new(BranchType::Then)),
+        ]);
 
         let output = lift(function)
             .expect("an empty generic-for self-loop should be source-shaped")
@@ -2432,17 +2739,14 @@ mod tests {
             .block_mut(terminal)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
-        function.set_edges(
-            entry,
-            vec![
-                (terminal, BlockEdge::new(BranchType::Then)),
-                (infinite, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
+        function.set_edges(entry, vec![
+            (terminal, BlockEdge::new(BranchType::Then)),
+            (infinite, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(infinite, vec![(
             infinite,
-            vec![(infinite, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         let analysis = Analysis::new(&function).expect("analysis itself should be total");
         assert!(analysis.post_dominators[&infinite].is_empty());
@@ -2475,31 +2779,27 @@ mod tests {
             .unwrap()
             .push(Statement::Comment(ast::Comment::new("body".into())).into());
         function.block_mut(normal_exit).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(result)],
-                vec![RValue::Literal(Literal::Nil)],
-            )
+            Assign::new(vec![LValue::Local(result)], vec![RValue::Literal(
+                Literal::Nil,
+            )])
             .into(),
         );
         function
             .block_mut(join)
             .unwrap()
             .push(Statement::Return(Default::default()).into());
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (normal_exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (normal_exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
         // The adapter has one outgoing edge, but it is malformed metadata.
         function.set_edges(normal_exit, vec![(join, BlockEdge::new(BranchType::Then))]);
 
@@ -2532,10 +2832,9 @@ mod tests {
             .unwrap()
             .push(Statement::Comment(ast::Comment::new("body".into())).into());
         function.block_mut(normal_exit).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(result.clone())],
-                vec![RValue::Literal(Literal::Nil)],
-            )
+            Assign::new(vec![LValue::Local(result.clone())], vec![RValue::Literal(
+                Literal::Nil,
+            )])
             .into(),
         );
         // This write is outside the loop/normal adapter but the result is
@@ -2543,35 +2842,31 @@ mod tests {
         // aliases of the original result register observing the wrong cell.
         function.block_mut(join).unwrap().extend(
             vec![
-                Assign::new(
-                    vec![LValue::Local(result.clone())],
-                    vec![RValue::Literal(Literal::Nil)],
-                )
+                Assign::new(vec![LValue::Local(result.clone())], vec![RValue::Literal(
+                    Literal::Nil,
+                )])
                 .into(),
                 Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(result)]).into(),
                 Statement::Return(Default::default()).into(),
             ]
             .into_iter(),
         );
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (normal_exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            normal_exit,
-            vec![(join, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (normal_exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(normal_exit, vec![(
+            join,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         assert!(lift(function).is_none());
     }
@@ -2625,10 +2920,9 @@ mod tests {
         // loop.  A source `for` cannot expose the updated VM value, so this
         // must use the semantics-preserving fallback.
         function.block_mut(body).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(sink.clone())],
-                vec![RValue::Local(control.clone())],
-            )
+            Assign::new(vec![LValue::Local(sink.clone())], vec![RValue::Local(
+                control.clone(),
+            )])
             .into(),
         );
         function
@@ -2639,25 +2933,22 @@ mod tests {
             .block_mut(after)
             .unwrap()
             .push(Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(control)]).into());
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            exit,
-            vec![(after, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(exit, vec![(
+            after,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         assert!(lift(function).is_none());
     }
@@ -2738,10 +3029,9 @@ mod tests {
             .unwrap()
             .push(Statement::Comment(ast::Comment::new("inner exit".into())).into());
         function.block_mut(after_inner).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(sink)],
-                vec![RValue::Local(inner_value.clone())],
-            )
+            Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(
+                inner_value.clone(),
+            )])
             .into(),
         );
         function
@@ -2749,44 +3039,38 @@ mod tests {
             .unwrap()
             .push(Statement::Return(Default::default()).into());
 
-        function.set_edges(
-            outer_init,
-            vec![(outer_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(outer_init, vec![(
             outer_header,
-            vec![
-                (outer_exit, BlockEdge::new(BranchType::Else)),
-                (outer_body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            outer_body,
-            vec![(inner_init, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(outer_header, vec![
+            (outer_exit, BlockEdge::new(BranchType::Else)),
+            (outer_body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(outer_body, vec![(
             inner_init,
-            vec![(inner_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(inner_init, vec![(
             inner_header,
-            vec![
-                (inner_exit, BlockEdge::new(BranchType::Else)),
-                (inner_body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            inner_body,
-            vec![(inner_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            inner_exit,
-            vec![(after_inner, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(inner_header, vec![
+            (inner_exit, BlockEdge::new(BranchType::Else)),
+            (inner_body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(inner_body, vec![(
+            inner_header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(inner_exit, vec![(
             after_inner,
-            vec![(outer_header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(after_inner, vec![(
+            outer_header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
         // The assignment is after the nested loop and must be rewritten to its
         // explicit live-out export rather than referencing a loop-local value.
         let output = lift(function).expect("nested generic-for should be source-shaped");
@@ -2875,10 +3159,10 @@ mod tests {
             .into(),
         );
         function.block_mut(inner_exhaustion).unwrap().push({
-            let mut exhaustion_nil = Assign::new(
-                vec![LValue::Local(pet.clone())],
-                vec![RValue::Literal(Literal::Nil)],
-            );
+            let mut exhaustion_nil =
+                Assign::new(vec![LValue::Local(pet.clone())], vec![RValue::Literal(
+                    Literal::Nil,
+                )]);
             // SSA destruction may leave a one-value parallel copy here.  It
             // is semantically the same nil write and must not prevent the
             // source-shaped loop from recognizing the exhaustion adapter.
@@ -2890,10 +3174,9 @@ mod tests {
             .unwrap()
             .push(If::new(RValue::Local(pet), Block::default(), Block::default()).into());
         function.block_mut(remove).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(sink)],
-                vec![RValue::Literal(Literal::Nil)],
-            )
+            Assign::new(vec![LValue::Local(sink)], vec![RValue::Literal(
+                Literal::Nil,
+            )])
             .into(),
         );
         function
@@ -2901,62 +3184,50 @@ mod tests {
             .unwrap()
             .push(Statement::Return(Default::default()).into());
 
-        function.set_edges(
-            outer_init,
-            vec![(outer_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(outer_init, vec![(
             outer_header,
-            vec![
-                (outer_exit, BlockEdge::new(BranchType::Else)),
-                (inner_init, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            inner_init,
-            vec![(inner_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(outer_header, vec![
+            (outer_exit, BlockEdge::new(BranchType::Else)),
+            (inner_init, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(inner_init, vec![(
             inner_header,
-            vec![
-                (inner_exhaustion, BlockEdge::new(BranchType::Else)),
-                (inner_if, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            inner_if,
-            vec![
-                (inner_continue, BlockEdge::new(BranchType::Else)),
-                (inner_break_adapter, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            inner_continue,
-            vec![(inner_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            inner_break_adapter,
-            vec![(after_inner, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            inner_exhaustion,
-            vec![(after_inner, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(inner_header, vec![
+            (inner_exhaustion, BlockEdge::new(BranchType::Else)),
+            (inner_if, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(inner_if, vec![
+            (inner_continue, BlockEdge::new(BranchType::Else)),
+            (inner_break_adapter, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(inner_continue, vec![(
+            inner_header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(inner_break_adapter, vec![(
             after_inner,
-            vec![
-                (keep, BlockEdge::new(BranchType::Then)),
-                (remove, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            keep,
-            vec![(outer_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            remove,
-            vec![(outer_header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(inner_exhaustion, vec![(
+            after_inner,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(after_inner, vec![
+            (keep, BlockEdge::new(BranchType::Then)),
+            (remove, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(keep, vec![(
+            outer_header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(remove, vec![(
+            outer_header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         let output = lift(function)
             .expect("a Pet-shaped nested generic-for with an inner break should be source-shaped")
@@ -2990,10 +3261,16 @@ mod tests {
         let inner_control = RcLocal::new(Local::new(Some("inner_control".into())));
         let inner_value = RcLocal::new(Local::new(Some("inner_value".into())));
 
-        let mut outer_for_init =
-            GenericForInit::new(outer_generator.clone(), outer_state.clone(), outer_control.clone());
+        let mut outer_for_init = GenericForInit::new(
+            outer_generator.clone(),
+            outer_state.clone(),
+            outer_control.clone(),
+        );
         outer_for_init.0.right = vec![RValue::Global(Global::from("outer_items"))];
-        function.block_mut(outer_init).unwrap().push(outer_for_init.into());
+        function
+            .block_mut(outer_init)
+            .unwrap()
+            .push(outer_for_init.into());
         function.block_mut(outer_header).unwrap().push(
             GenericForNext::new(
                 vec![outer_value],
@@ -3004,10 +3281,16 @@ mod tests {
             .into(),
         );
 
-        let mut inner_for_init =
-            GenericForInit::new(inner_generator.clone(), inner_state.clone(), inner_control.clone());
+        let mut inner_for_init = GenericForInit::new(
+            inner_generator.clone(),
+            inner_state.clone(),
+            inner_control.clone(),
+        );
         inner_for_init.0.right = vec![RValue::Global(Global::from("inner_items"))];
-        function.block_mut(inner_init).unwrap().push(inner_for_init.into());
+        function
+            .block_mut(inner_init)
+            .unwrap()
+            .push(inner_for_init.into());
         function.block_mut(inner_header).unwrap().push(
             GenericForNext::new(
                 vec![inner_value],
@@ -3030,46 +3313,37 @@ mod tests {
             .unwrap()
             .push(Statement::Return(Default::default()).into());
 
-        function.set_edges(
-            outer_init,
-            vec![(outer_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(outer_init, vec![(
             outer_header,
-            vec![
-                (outer_exit, BlockEdge::new(BranchType::Else)),
-                (inner_init, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            inner_init,
-            vec![(inner_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(outer_header, vec![
+            (outer_exit, BlockEdge::new(BranchType::Else)),
+            (inner_init, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(inner_init, vec![(
             inner_header,
-            vec![
-                (after_inner, BlockEdge::new(BranchType::Else)),
-                (inner_if, BlockEdge::new(BranchType::Then)),
-            ],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(inner_header, vec![
+            (after_inner, BlockEdge::new(BranchType::Else)),
+            (inner_if, BlockEdge::new(BranchType::Then)),
+        ]);
         // This branch skips the enclosing loop's body tail and exits the
         // parent directly.  A nested source `break` cannot represent that
         // transfer, so source-like structuring must decline the graph.
-        function.set_edges(
-            inner_if,
-            vec![
-                (outer_exit, BlockEdge::new(BranchType::Then)),
-                (inner_continue, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            inner_continue,
-            vec![(inner_header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            after_inner,
-            vec![(outer_header, BlockEdge::new(BranchType::Unconditional))],
-        );
+        function.set_edges(inner_if, vec![
+            (outer_exit, BlockEdge::new(BranchType::Then)),
+            (inner_continue, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(inner_continue, vec![(
+            inner_header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(after_inner, vec![(
+            outer_header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         assert!(lift(function).is_none());
     }
@@ -3099,13 +3373,7 @@ mod tests {
         for_init.0.right = vec![RValue::Global(Global::from("items"))];
         function.block_mut(init).unwrap().push(for_init.into());
         function.block_mut(header).unwrap().push(
-            GenericForNext::new(
-                vec![result.clone()],
-                generator.into(),
-                state,
-                control,
-            )
-            .into(),
+            GenericForNext::new(vec![result.clone()], generator.into(), state, control).into(),
         );
         function
             .block_mut(body)
@@ -3132,10 +3400,9 @@ mod tests {
             .unwrap()
             .push(Statement::Comment(ast::Comment::new("continue".into())).into());
         function.block_mut(normal_exit).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(result.clone())],
-                vec![RValue::Literal(Literal::Nil)],
-            )
+            Assign::new(vec![LValue::Local(result.clone())], vec![RValue::Literal(
+                Literal::Nil,
+            )])
             .into(),
         );
         function
@@ -3143,10 +3410,9 @@ mod tests {
             .unwrap()
             .push(Statement::Comment(ast::Comment::new("other exit".into())).into());
         function.block_mut(join).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(sink)],
-                vec![RValue::Local(result.clone())],
-            )
+            Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(
+                result.clone(),
+            )])
             .into(),
         );
         function
@@ -3154,53 +3420,44 @@ mod tests {
             .unwrap()
             .push(Statement::Return(Default::default()).into());
 
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (normal_exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(first_if, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (normal_exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            first_if,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
         // The first Then arm breaks through the same adapter used by normal
         // exhaustion.  Skipping this adapter would leak the previous result.
-        function.set_edges(
-            first_if,
-            vec![
-                (normal_exit, BlockEdge::new(BranchType::Then)),
-                (second_if, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            second_if,
-            vec![
-                (other_exit, BlockEdge::new(BranchType::Then)),
-                (continue_node, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            continue_node,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            normal_exit,
-            vec![(join, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            other_exit,
-            vec![(join, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(first_if, vec![
+            (normal_exit, BlockEdge::new(BranchType::Then)),
+            (second_if, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(second_if, vec![
+            (other_exit, BlockEdge::new(BranchType::Then)),
+            (continue_node, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(continue_node, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(normal_exit, vec![(
             join,
-            vec![(function_exit, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(other_exit, vec![(
+            join,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(join, vec![(
+            function_exit,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         let output = lift(function)
             .expect("a body break through normal exit must remain source-shaped")

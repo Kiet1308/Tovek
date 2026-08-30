@@ -75,6 +75,9 @@ struct FolderArgs {
     /// Faster/cleaner output, but changes behavior when either operand is NaN.
     #[arg(long)]
     assume_no_nan: bool,
+    /// Fail closed when source-like structuring cannot avoid synthetic control.
+    #[arg(long)]
+    strict_no_synthetic_control: bool,
     /// Emit immutable static upvalue metadata under OUT/.tovek-analysis.
     #[arg(long)]
     emit_upvalue_analysis: bool,
@@ -116,6 +119,9 @@ struct ValidateArgs {
     /// Default is off to preserve exact NaN semantics.
     #[arg(long)]
     assume_no_nan: bool,
+    /// Fail closed when source-like structuring cannot avoid synthetic control.
+    #[arg(long)]
+    strict_no_synthetic_control: bool,
     /// Path to `luau-analyze.exe` (overrides LUAU_ANALYZE / --tool-dir / ROOT).
     #[arg(long)]
     analyze: Option<PathBuf>,
@@ -144,6 +150,12 @@ fn main() {
                     dont_reuse_var: a.dont_reuse_var,
                     no_synth_helpers: a.no_synth_helpers,
                     assume_no_nan: a.assume_no_nan,
+                    control_flow_policy: if a.strict_no_synthetic_control {
+                        luau_lifter::ControlFlowOutputPolicy::StrictNoSyntheticControl
+                    } else {
+                        luau_lifter::ControlFlowOutputPolicy::AllowCertifiedDispatcher
+                    },
+                    ..luau_lifter::DecompileOptions::default()
                 };
                 let code = batch::run(
                     &a.src,
@@ -181,6 +193,12 @@ fn main() {
                         dont_reuse_var: a.dont_reuse_var,
                         no_synth_helpers: a.no_synth_helpers,
                         assume_no_nan: a.assume_no_nan,
+                        control_flow_policy: if a.strict_no_synthetic_control {
+                            luau_lifter::ControlFlowOutputPolicy::StrictNoSyntheticControl
+                        } else {
+                            luau_lifter::ControlFlowOutputPolicy::AllowCertifiedDispatcher
+                        },
+                        ..luau_lifter::DecompileOptions::default()
                     },
                     a.analyze.as_deref(),
                     a.tool_dir.as_deref(),
@@ -212,6 +230,10 @@ fn run_single_file() {
             "--dont-reuse-var" => options.dont_reuse_var = true,
             "--no-synth-helpers" => options.no_synth_helpers = true,
             "--assume-no-nan" => options.assume_no_nan = true,
+            "--strict-no-synthetic-control" => {
+                options.control_flow_policy =
+                    luau_lifter::ControlFlowOutputPolicy::StrictNoSyntheticControl
+            }
             "--script-name" => {
                 script_name = Some(args.next().expect("--script-name requires a value"));
             }

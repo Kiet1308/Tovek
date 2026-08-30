@@ -20,12 +20,35 @@
 //! fallback fail-closed instead of emitting plausible but incorrect Luau.
 
 use ast::{
-    Assign, Binary, BinaryOperation, Block, Continue, If, LValue, Literal, Local, LocalRw,
-    RValue, RcLocal, Statement, Traverse, Upvalue, While,
+    Assign, Binary, BinaryOperation, Block, Continue, If, LValue, Literal, Local, LocalRw, RValue,
+    RcLocal, Statement, Traverse, Upvalue, While,
 };
 use cfg::{block::BlockEdge, function::Function};
 use petgraph::{stable_graph::NodeIndex, visit::EdgeRef};
 use rustc_hash::{FxHashMap, FxHashSet};
+
+/// Purpose of a local synthesized by the certified CFG fallback.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SyntheticRole {
+    ProgramCounter,
+    DispatchSignal,
+    DispatchExit,
+}
+
+#[derive(Clone, Debug)]
+pub struct SyntheticLocal {
+    pub local: RcLocal,
+    pub role: SyntheticRole,
+}
+
+/// A fallback block together with identity-based metadata for every synthetic
+/// control local it introduced.  Policies can inspect this without relying on
+/// generated names such as `controlFlowState`.
+#[derive(Debug)]
+pub struct CertifiedFallback {
+    pub block: Block,
+    pub synthetic_locals: Vec<SyntheticLocal>,
+}
 
 /// Lower a post-SSA CFG to a valid Luau state machine.
 ///
@@ -57,6 +80,13 @@ pub fn lift_with_ignored_locals(
     function: Function,
     locals_to_ignore: &FxHashSet<RcLocal>,
 ) -> Option<Block> {
+    lift_certified_with_ignored_locals(function, locals_to_ignore).map(|result| result.block)
+}
+
+pub fn lift_certified_with_ignored_locals(
+    function: Function,
+    locals_to_ignore: &FxHashSet<RcLocal>,
+) -> Option<CertifiedFallback> {
     let entry = *function.entry().as_ref()?;
     let nodes = reachable_nodes(&function, entry);
     if nodes.is_empty() {
@@ -155,14 +185,19 @@ pub fn lift_with_ignored_locals(
         root.push(declaration.into());
     }
     root.push(
-        Assign::new(
-            vec![LValue::Local(state_local.clone())],
-            vec![Literal::Number(entry_state as f64).into()],
-        )
+        Assign::new(vec![LValue::Local(state_local.clone())], vec![
+            Literal::Number(entry_state as f64).into(),
+        ])
         .into(),
     );
     root.push(While::new(Literal::Boolean(true).into(), dispatch).into());
-    Some(root)
+    Some(CertifiedFallback {
+        block: root,
+        synthetic_locals: vec![SyntheticLocal {
+            local: state_local,
+            role: SyntheticRole::ProgramCounter,
+        }],
+    })
 }
 
 fn contains_ref_capture(
@@ -452,10 +487,9 @@ fn transition(
         body.push(assign.into());
     }
     body.push(
-        Assign::new(
-            vec![LValue::Local(state_local.clone())],
-            vec![Literal::Number(state as f64).into()],
-        )
+        Assign::new(vec![LValue::Local(state_local.clone())], vec![
+            Literal::Number(state as f64).into(),
+        ])
         .into(),
     );
     body.push(Continue {}.into());
@@ -541,6 +575,26 @@ mod tests {
     }
 
     #[test]
+    fn reports_synthetic_control_by_local_identity() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+
+        let fallback = lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals.len(), 1);
+        assert_eq!(
+            fallback.synthetic_locals[0].role,
+            SyntheticRole::ProgramCounter
+        );
+        let rendered = fallback.block.to_string();
+        assert!(rendered.contains("while true do"), "{rendered}");
+    }
+
+    #[test]
     fn predeclares_values_crossing_dispatcher_iterations() {
         let mut function = Function::new(0);
         let entry = function.new_block();
@@ -550,10 +604,9 @@ mod tests {
         let value = local("value");
         let sink = local("sink");
         function.block_mut(entry).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(value.clone())],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(value.clone())], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         function
@@ -582,17 +635,14 @@ mod tests {
 
         let value = local("value");
         function.block_mut(loop_node).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(value.clone())],
-                vec![
-                    Binary::new(
-                        value.clone().into(),
-                        Literal::Number(1.0).into(),
-                        BinaryOperation::Add,
-                    )
-                    .into(),
-                ],
-            )
+            Assign::new(vec![LValue::Local(value.clone())], vec![
+                Binary::new(
+                    value.clone().into(),
+                    Literal::Number(1.0).into(),
+                    BinaryOperation::Add,
+                )
+                .into(),
+            ])
             .into(),
         );
         edge(
@@ -619,10 +669,9 @@ mod tests {
         let value = local("value");
         let sink = local("sink");
         function.block_mut(producer).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(value.clone())],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(value.clone())], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         function
@@ -659,10 +708,9 @@ mod tests {
         let parameter = local("parameter");
         function.parameters.push(parameter.clone());
         function.block_mut(entry).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(local("unused"))],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(local("unused"))], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         function
@@ -723,17 +771,15 @@ mod tests {
             upvalues: vec![Upvalue::Ref(captured.clone())],
         };
         function.block_mut(capture).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(callback)],
-                vec![RValue::Closure(closure)],
-            )
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(
+                closure,
+            )])
             .into(),
         );
         function.block_mut(write).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(captured.clone())],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(captured.clone())], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         edge(
@@ -770,10 +816,9 @@ mod tests {
             upvalues: vec![Upvalue::Ref(parameter.clone())],
         };
         function.block_mut(capture).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(callback)],
-                vec![RValue::Closure(closure)],
-            )
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(
+                closure,
+            )])
             .into(),
         );
         function
@@ -816,25 +861,22 @@ mod tests {
         let captured = local("captured");
         let callback = local("callback");
         function.block_mut(capture).unwrap().extend([
-            Assign::new(
-                vec![LValue::Local(captured.clone())],
-                vec![Literal::Number(0.0).into()],
-            )
+            Assign::new(vec![LValue::Local(captured.clone())], vec![
+                Literal::Number(0.0).into(),
+            ])
             .into(),
-            Assign::new(
-                vec![LValue::Local(callback)],
-                vec![RValue::Closure(Closure {
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(
+                Closure {
                     function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
                     upvalues: vec![Upvalue::Ref(captured.clone())],
-                })],
-            )
+                },
+            )])
             .into(),
         ]);
         function.block_mut(write).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(captured)],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(captured)], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         edge(

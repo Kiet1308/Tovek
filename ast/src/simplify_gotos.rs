@@ -144,6 +144,7 @@ fn dc_stmt(statement: &Statement) -> Statement {
             res_locals: generic_for.res_locals.clone(),
             right: generic_for.right.iter().map(dc_rvalue).collect(),
             block: dc_arc(&generic_for.block),
+            origin: generic_for.origin,
         }),
         Statement::SetList(set_list) => Statement::SetList(SetList {
             object_local: set_list.object_local.clone(),
@@ -730,10 +731,9 @@ fn remove_dead_labels(block: &mut Block, targets: &FxHashSet<String>) {
 // It is both smaller and more readable than duplicating a large `B` tail.
 
 fn set_local_number(local: &RcLocal, value: usize) -> Statement {
-    Assign::new(
-        vec![LValue::Local(local.clone())],
-        vec![Literal::Number(value as f64).into()],
-    )
+    Assign::new(vec![LValue::Local(local.clone())], vec![
+        Literal::Number(value as f64).into(),
+    ])
     .into()
 }
 
@@ -1446,10 +1446,9 @@ fn direct_label_index(stmts: &[Statement], label: &str) -> Option<usize> {
 }
 
 fn set_local_bool(local: &RcLocal, value: bool) -> Statement {
-    Assign::new(
-        vec![LValue::Local(local.clone())],
-        vec![Literal::Boolean(value).into()],
-    )
+    Assign::new(vec![LValue::Local(local.clone())], vec![
+        Literal::Boolean(value).into(),
+    ])
     .into()
 }
 
@@ -2404,10 +2403,9 @@ mod tests {
             panic!("hit flag reset should assign a local:\n{}", block);
         };
         assert!(
-            matches!(
-                reset_hit.right.as_slice(),
-                [RValue::Literal(Literal::Boolean(false))]
-            ),
+            matches!(reset_hit.right.as_slice(), [RValue::Literal(
+                Literal::Boolean(false)
+            )]),
             "hit flag must reset before each replacement execution:\n{}",
             block
         );
@@ -2442,10 +2440,10 @@ mod tests {
         };
         let guarded_suffix = fallback_if.then_block.lock();
         assert!(
-            matches!(
-                guarded_suffix.0.as_slice(),
-                [Statement::Call(_), Statement::Assign(_)]
-            ),
+            matches!(guarded_suffix.0.as_slice(), [
+                Statement::Call(_),
+                Statement::Assign(_)
+            ]),
             "hit flag must guard every statement skipped by the original goto:\n{}",
             block
         );

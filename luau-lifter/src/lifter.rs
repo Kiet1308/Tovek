@@ -25,6 +25,7 @@ use cfg::{
 pub struct Lifter<'a> {
     function_list: &'a Vec<BytecodeFunction>,
     string_table: &'a Vec<Vec<u8>>,
+    bytecode_version: u8,
     blocks: FxHashMap<usize, NodeIndex>,
     function: Function,
     // Insertion-ordered (bytecode/PC order, deterministic) rather than a hash map:
@@ -44,6 +45,7 @@ impl<'a> Lifter<'a> {
     pub fn lift(
         f_list: &'a Vec<BytecodeFunction>,
         str_list: &'a Vec<Vec<u8>>,
+        bytecode_version: u8,
         function_id: usize,
         static_function_id: Option<String>,
     ) -> (
@@ -54,6 +56,7 @@ impl<'a> Lifter<'a> {
         let mut context = Self {
             function_list: f_list,
             string_table: str_list,
+            bytecode_version,
             blocks: FxHashMap::default(),
             function: Function::new(function_id),
             child_functions: Vec::new(),
@@ -120,13 +123,10 @@ impl<'a> Lifter<'a> {
         }
 
         let entry_node = self.function.new_block();
-        self.function.set_edges(
-            entry_node,
-            vec![(
-                self.block_to_node(0),
-                BlockEdge::new(BranchType::Unconditional),
-            )],
-        );
+        self.function.set_edges(entry_node, vec![(
+            self.block_to_node(0),
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
         self.function.set_entry(entry_node);
     }
 
@@ -854,10 +854,9 @@ impl<'a> Lifter<'a> {
                     }
                     OpCode::LOP_LOADN => {
                         let target = self.register(a as _);
-                        let statement = ast::Assign::new(
-                            vec![target.into()],
-                            vec![ast::Literal::Number(d as _).into()],
-                        );
+                        let statement = ast::Assign::new(vec![target.into()], vec![
+                            ast::Literal::Number(d as _).into(),
+                        ]);
                         statements.push(statement.into());
                     }
                     OpCode::LOP_GETIMPORT => {
@@ -1279,18 +1278,61 @@ impl<'a> Lifter<'a> {
                     OpCode::LOP_FORGPREP
                     | OpCode::LOP_FORGPREP_INEXT
                     | OpCode::LOP_FORGPREP_NEXT => {
+                        let prep_pc = block_start + index;
+                        let prep_kind = match op_code {
+                            OpCode::LOP_FORGPREP => ast::ForPrepKind::Generic,
+                            OpCode::LOP_FORGPREP_NEXT => ast::ForPrepKind::Next,
+                            OpCode::LOP_FORGPREP_INEXT => ast::ForPrepKind::Inext,
+                            _ => unreachable!(),
+                        };
                         let generator = self.register(a as _);
                         let state = self.register((a + 1) as _);
                         let counter = self.register((a + 2) as _);
-                        statements.push(ast::GenericForInit::new(generator, state, counter).into());
-                        let loop_index = ((block_start + index + 1) as isize + d as isize) as usize;
-                        assert!(matches!(
-                            self.function_list[self.function.id].instructions[loop_index],
-                            Instruction::AD {
+                        let loop_index = ((prep_pc + 1) as isize + d as isize) as usize;
+                        let (step_a, step_d, step_aux) = match self.function_list[self.function.id]
+                            .instructions
+                            .get(loop_index)
+                        {
+                            Some(Instruction::AD {
                                 op_code: OpCode::LOP_FORGLOOP,
-                                ..
-                            }
-                        ));
+                                a: step_a,
+                                d: step_d,
+                                aux: step_aux,
+                            }) => (*step_a, *step_d, *step_aux),
+                            // Keep malformed bytecode fail-closed.  The outer
+                            // decompile boundary already converts panics into
+                            // an explicit error; do not manufacture a marker
+                            // whose protocol partner is unknown.
+                            _ => panic!(
+                                "FORGPREP at PC {prep_pc} has no FORGLOOP partner at PC {loop_index}"
+                            ),
+                        };
+                        let result_count = match prep_kind {
+                            ast::ForPrepKind::Generic => (step_aux & 0xff) as u8,
+                            ast::ForPrepKind::Next | ast::ForPrepKind::Inext => 2,
+                        };
+                        assert!(result_count > 0, "FORGLOOP has zero result locals");
+                        let origin = ast::ForOrigin {
+                            prep_pc,
+                            step_pc: loop_index,
+                            body_pc: ((loop_index + 1) as isize + step_d as isize) as usize,
+                            follow_pc: loop_index + 1,
+                            prep_kind,
+                            base_register: a,
+                            result_count,
+                            aux: step_aux,
+                            bytecode_version: self.bytecode_version,
+                            vm_profile: ast::VmProfileId::Luau,
+                        };
+                        // Preserve the bytecode partner's base register in the
+                        // provenance.  A mismatch is intentionally left for
+                        // the proof-driven structurer to reject rather than
+                        // silently normalizing malformed protocol pairs.
+                        let _ = step_a;
+                        statements.push(
+                            ast::GenericForInit::new_with_origin(generator, state, counter, origin)
+                                .into(),
+                        );
                         edges.push((
                             self.block_to_node(loop_index),
                             BlockEdge::new(BranchType::Unconditional),
@@ -1301,20 +1343,58 @@ impl<'a> Lifter<'a> {
                     // this could be done with some custom bytecode
                     // same applies to fastcall
                     OpCode::LOP_FORGLOOP => {
+                        let step_pc = block_start + index;
                         let generator = self.register(a as _);
                         let state = self.register((a + 1) as _);
                         let _counter = self.register((a + 2) as _);
-                        statements.push(
-                            ast::GenericForNext::new(
-                                (a as usize + 3..a as usize + 3 + (aux & 0xff) as usize)
-                                    .map(|r| self.register(r))
-                                    .collect::<Vec<_>>(),
-                                generator.into(),
-                                state,
-                                self.register((a + 2) as _),
-                            )
-                            .into(),
+                        let result_count = (aux & 0xff) as usize;
+                        assert!(result_count > 0, "FORGLOOP has zero result locals");
+                        let origin = self.function_list[self.function.id]
+                            .instructions
+                            .iter()
+                            .enumerate()
+                            .find_map(|(prep_pc, instruction)| match instruction {
+                                Instruction::AD {
+                                    op_code:
+                                        prep_op_code @ (OpCode::LOP_FORGPREP
+                                        | OpCode::LOP_FORGPREP_NEXT
+                                        | OpCode::LOP_FORGPREP_INEXT),
+                                    a: prep_a,
+                                    d: prep_d,
+                                    ..
+                                } => {
+                                    let target =
+                                        ((prep_pc + 1) as isize + *prep_d as isize) as usize;
+                                    (target == step_pc && *prep_a == a).then(|| ast::ForOrigin {
+                                        prep_pc,
+                                        step_pc,
+                                        body_pc: ((step_pc + 1) as isize + d as isize) as usize,
+                                        follow_pc: step_pc + 1,
+                                        prep_kind: match prep_op_code {
+                                            OpCode::LOP_FORGPREP => ast::ForPrepKind::Generic,
+                                            OpCode::LOP_FORGPREP_NEXT => ast::ForPrepKind::Next,
+                                            OpCode::LOP_FORGPREP_INEXT => ast::ForPrepKind::Inext,
+                                            _ => unreachable!(),
+                                        },
+                                        base_register: a,
+                                        result_count: (aux & 0xff) as u8,
+                                        aux,
+                                        bytecode_version: self.bytecode_version,
+                                        vm_profile: ast::VmProfileId::Luau,
+                                    })
+                                }
+                                _ => None,
+                            });
+                        let mut next = ast::GenericForNext::new(
+                            (a as usize + 3..a as usize + 3 + result_count)
+                                .map(|r| self.register(r))
+                                .collect::<Vec<_>>(),
+                            generator.into(),
+                            state,
+                            self.register((a + 2) as _),
                         );
+                        next.origin = origin;
+                        statements.push(next.into());
                         edges.push((
                             self.block_to_node(
                                 ((block_start + index + 1) as isize + d as isize) as usize,
@@ -1413,16 +1493,13 @@ impl<'a> Lifter<'a> {
                             lifted_function.name = func_name;
                         }
                         statements.push(
-                            ast::Assign::new(
-                                vec![dest_local.into()],
-                                vec![
-                                    ast::Closure {
-                                        function: ByAddress(function),
-                                        upvalues: upvalues_passed,
-                                    }
-                                    .into(),
-                                ],
-                            )
+                            ast::Assign::new(vec![dest_local.into()], vec![
+                                ast::Closure {
+                                    function: ByAddress(function),
+                                    upvalues: upvalues_passed,
+                                }
+                                .into(),
+                            ])
                             .into(),
                         );
                     }

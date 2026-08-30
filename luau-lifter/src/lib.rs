@@ -124,6 +124,18 @@ pub struct DecompileOptions {
     pub dont_reuse_var: bool,
     pub no_synth_helpers: bool,
     pub assume_no_nan: bool,
+    pub control_flow_policy: ControlFlowOutputPolicy,
+}
+
+/// Controls whether the certified CFG dispatcher is an acceptable output
+/// representation when source-shaped structuring cannot prove a graph safe.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ControlFlowOutputPolicy {
+    /// Permit the semantics-preserving state-machine fallback.
+    #[default]
+    AllowCertifiedDispatcher,
+    /// Fail closed instead of returning synthetic control-flow scaffolding.
+    StrictNoSyntheticControl,
 }
 
 impl DecompileOptions {
@@ -135,6 +147,7 @@ impl DecompileOptions {
             dont_reuse_var: bits & DONT_REUSE_VAR != 0,
             no_synth_helpers: bits & NO_SYNTH_HELPERS != 0,
             assume_no_nan: bits & ASSUME_NO_NAN != 0,
+            control_flow_policy: ControlFlowOutputPolicy::default(),
         })
     }
 
@@ -149,6 +162,14 @@ impl DecompileOptions {
             dont_reuse_var: self.dont_reuse_var || other.dont_reuse_var,
             no_synth_helpers: self.no_synth_helpers || other.no_synth_helpers,
             assume_no_nan: self.assume_no_nan || other.assume_no_nan,
+            control_flow_policy: if self.control_flow_policy
+                == ControlFlowOutputPolicy::StrictNoSyntheticControl
+                || other.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
+            {
+                ControlFlowOutputPolicy::StrictNoSyntheticControl
+            } else {
+                ControlFlowOutputPolicy::AllowCertifiedDispatcher
+            },
         }
     }
 }
@@ -307,6 +328,7 @@ fn try_decompile_bytecode_internal(
                 let (function, upvalues, child_functions) = Lifter::lift(
                     &chunk.functions,
                     &chunk.string_table,
+                    chunk.version,
                     func_id,
                     static_function_id,
                 );
@@ -383,7 +405,12 @@ fn try_decompile_bytecode_internal(
                     // isolates the per-function panic.
                     let result = panic::catch_unwind(move || {
                         let (ast_function, function, upvalues_in) = args.take().unwrap();
-                        decompile_function(ast_function, function, upvalues_in)
+                        decompile_function(
+                            ast_function,
+                            function,
+                            upvalues_in,
+                            options.control_flow_policy,
+                        )
                     });
 
                     match result {
@@ -489,14 +516,9 @@ fn try_decompile_bytecode_internal(
             }
             {
                 ptime!(S_NAME_LOCALS);
-                name_locals_with_options(
-                    &mut body,
-                    true,
-                    script_name,
-                    NameLocalOptions {
-                        dont_reuse_var: options.dont_reuse_var,
-                    },
-                );
+                name_locals_with_options(&mut body, true, script_name, NameLocalOptions {
+                    dont_reuse_var: options.dont_reuse_var,
+                });
             }
             // §2.8: recover OOP colon-method definitions. Runs after name_locals
             // (so first params are named `p`/`pN`) and before inline_temps (whose
@@ -867,6 +889,17 @@ fn unsupported_structuring_sentinel() -> ast::Block {
     ])
 }
 
+fn fallback_has_synthetic_control(fallback: &restructure::CertifiedFallback) -> bool {
+    fallback.synthetic_locals.iter().any(|synthetic| {
+        matches!(
+            synthetic.role,
+            restructure::SyntheticRole::ProgramCounter
+                | restructure::SyntheticRole::DispatchSignal
+                | restructure::SyntheticRole::DispatchExit
+        )
+    })
+}
+
 fn function_has_generic_for_protocol(function: &Function) -> bool {
     function.blocks().any(|(_, block)| {
         block.iter().any(|statement| {
@@ -901,6 +934,7 @@ fn decompile_function(
     ast_function: Arc<Mutex<ast::Function>>,
     mut function: Function,
     upvalues_in: Vec<ast::RcLocal>,
+    control_flow_policy: ControlFlowOutputPolicy,
 ) -> (ByAddress<Arc<Mutex<ast::Function>>>, Vec<ast::RcLocal>) {
     let (local_count, local_groups, upvalue_in_groups, upvalue_passed_groups) = {
         ptime!(F_SSA_CONSTRUCT);
@@ -1021,7 +1055,8 @@ fn decompile_function(
     // produce plausible but incorrect Luau.  The state-machine fallback is the
     // only path that materializes those parallel copies explicitly.
     let has_edge_arguments = function_has_edge_arguments(fallback_source.as_ref().unwrap());
-    let has_generic_for_protocol = function_has_generic_for_protocol(fallback_source.as_ref().unwrap());
+    let has_generic_for_protocol =
+        function_has_generic_for_protocol(fallback_source.as_ref().unwrap());
     // Source-like structuring may mint temporary export locals while proving
     // nested-loop live-outs.  If that speculative attempt is rejected, rewind
     // the per-function allocator before building the fallback so failed
@@ -1036,6 +1071,7 @@ fn decompile_function(
     let params = std::mem::take(&mut fallback_source.as_mut().unwrap().parameters);
     let is_variadic = fallback_source.as_ref().unwrap().is_variadic;
     let mut fallback_function = None;
+    let mut used_certified_dispatcher = false;
     let (mut lifted, used_source_like) = {
         ptime!(F_RESTRUCTURE);
         let source_like_attempt = restructure::lift_source_like_attempt_with_ignored_locals(
@@ -1060,19 +1096,19 @@ fn decompile_function(
                 // only on the uncommon source-like rejection path.
                 let function = fallback_source.take().unwrap();
                 fallback_function = Some(function.deep_clone());
-                if has_edge_arguments
-                    || has_generic_for_protocol
-                    || !allow_legacy
-                {
-                    let locals_to_ignore = upvalues_in
-                        .iter()
-                        .chain(params.iter())
-                        .cloned()
-                        .collect();
-                    let block = restructure::lift_fallback_with_ignored_locals(
+                if has_edge_arguments || has_generic_for_protocol || !allow_legacy {
+                    used_certified_dispatcher = true;
+                    let locals_to_ignore =
+                        upvalues_in.iter().chain(params.iter()).cloned().collect();
+                    let block = restructure::lift_certified_fallback_with_ignored_locals(
                         function,
                         &locals_to_ignore,
                     )
+                    .filter(|fallback| {
+                        control_flow_policy != ControlFlowOutputPolicy::StrictNoSyntheticControl
+                            || !fallback_has_synthetic_control(fallback)
+                    })
+                    .map(|fallback| fallback.block)
                     .unwrap_or_else(unsupported_structuring_sentinel);
                     (block, false)
                 } else {
@@ -1091,11 +1127,8 @@ fn decompile_function(
                         Ok(block) => (block, false),
                         Err(_) => {
                             ast::set_local_id_base(source_like_id_base);
-                            let locals_to_ignore = upvalues_in
-                                .iter()
-                                .chain(params.iter())
-                                .cloned()
-                                .collect();
+                            let locals_to_ignore =
+                                upvalues_in.iter().chain(params.iter()).cloned().collect();
                             let block = restructure::lift_fallback_with_ignored_locals(
                                 fallback_function.as_ref().unwrap().deep_clone(),
                                 &locals_to_ignore,
@@ -1120,15 +1153,15 @@ fn decompile_function(
         if used_source_like {
             ast::set_local_id_base(source_like_id_base);
         }
-        let fallback_function = fallback_function.or_else(|| {
-            fallback_source
-                .take()
-                .map(|function| function.deep_clone())
-        });
-        if let Some(fallback) = fallback_function.and_then(|function| {
-            restructure::lift_fallback_with_ignored_locals(function, &locals_to_ignore)
-        })
-        {
+        let fallback_function = fallback_function
+            .or_else(|| fallback_source.take().map(|function| function.deep_clone()));
+        if control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl {
+            lifted = unsupported_structuring_sentinel();
+        } else if let Some(fallback) = fallback_function.and_then(|function| {
+            used_certified_dispatcher = true;
+            restructure::lift_certified_fallback_with_ignored_locals(function, &locals_to_ignore)
+                .map(|fallback| fallback.block)
+        }) {
             lifted = fallback;
         } else {
             // Never retain a partially structured block when the certified
@@ -1141,6 +1174,15 @@ fn decompile_function(
             // attempt so later cleanup passes cannot alias one of its locals.
             ast::set_local_id_base(source_like_end_id.max(ast::current_local_id()));
         }
+    }
+    if used_certified_dispatcher
+        && control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
+    {
+        // The strict policy is intentionally fail-closed even if a later AST
+        // pass happens to simplify the dispatcher into ordinary loops.  The
+        // caller asked for proof that no synthetic control was needed, and
+        // this function did not have that proof at the structuring boundary.
+        lifted = unsupported_structuring_sentinel();
     }
     {
         ptime!(F_FLATTEN_GUARDS);
@@ -1180,7 +1222,7 @@ mod option_tests {
         ASSUME_NO_NAN, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS,
         may_use_legacy_structurer,
     };
-    use ast::{GenericForNext, Local, RcLocal, RValue};
+    use ast::{GenericForNext, Local, RValue, RcLocal};
     use cfg::function::Function;
     use restructure::{StructureAttempt, UnsafeStructureReason};
 
@@ -1190,6 +1232,7 @@ mod option_tests {
             dont_reuse_var: true,
             no_synth_helpers: true,
             assume_no_nan: true,
+            ..DecompileOptions::default()
         };
         assert_eq!(
             DecompileOptions::from_flag_bits(options.bits()),
@@ -1404,11 +1447,14 @@ mod v11_fixtures {
         expected.push(1);
         expected.extend(leb128(0)); // strings
         expected.extend(leb128(2)); // protos
-        let mut first = build_proto(&{
-            let mut p = simple_return_proto(vec![]);
-            p.flags = 8;
-            p
-        }, 12);
+        let mut first = build_proto(
+            &{
+                let mut p = simple_return_proto(vec![]);
+                p.flags = 8;
+                p
+            },
+            12,
+        );
         first.push(0xa5); // unknown trailing per-proto field
         expected.extend(leb128(first.len() as u64));
         expected.extend(first);
