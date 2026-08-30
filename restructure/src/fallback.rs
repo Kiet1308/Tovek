@@ -110,6 +110,22 @@ pub fn lift_certified_with_ignored_locals(
         return None;
     }
 
+    // Break/continue statements are source-level control transfers whose
+    // target is an enclosing loop.  The synthetic dispatcher introduces a
+    // different loop, so copying one of these statements into a state would
+    // break or continue the dispatcher itself instead of the original loop.
+    // Post-SSA CFG input normally represents these transfers as edges; reject
+    // any pre-existing marker rather than guessing its ownership.
+    if nodes.iter().any(|&node| {
+        function.block(node).is_some_and(|block| {
+            block.iter().any(|statement| {
+                matches!(statement, Statement::Break(_) | Statement::Continue(_))
+            })
+        })
+    }) {
+        return None;
+    }
+
     // A GenericForInit/GenericForNext pair is still a low-level VM protocol,
     // not a source-level iterator expression.  The current Function IR does
     // not retain the FORGPREP variant/AUX metadata needed to distinguish the
@@ -1401,6 +1417,22 @@ mod tests {
         assert!(
             lift(function).is_none(),
             "fallback must inspect reference captures in edge arguments"
+        );
+    }
+
+    #[test]
+    fn refuses_preexisting_loop_control_markers() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(Statement::Continue(ast::Continue {}).into());
+
+        assert!(
+            lift(function).is_none(),
+            "fallback cannot infer the owner of a pre-existing Continue"
         );
     }
 }
