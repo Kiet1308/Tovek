@@ -906,6 +906,17 @@ fn decompile_function(
         ptime!(F_SSA_CONSTRUCT);
         cfg::ssa::construct(&mut function, &upvalues_in)
     };
+    // Every SSA version belonging to an incoming or passed-upvalue group
+    // aliases a function-scope cell.  Keep all of those identities protected
+    // from source-like iterator/result-local allocation; protecting only the
+    // original `upvalues_in` IDs misses versions introduced on a nested
+    // closure's incoming edge and can let a loop register shadow that cell.
+    let protected_upvalue_locals = upvalue_in_groups
+        .iter()
+        .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
+        .chain(upvalue_passed_groups.iter().flat_map(|group| group.iter()))
+        .cloned()
+        .collect::<FxHashSet<_>>();
     let upvalue_to_group = upvalue_in_groups
         .into_iter()
         .chain(
@@ -1011,6 +1022,7 @@ fn decompile_function(
     let source_like_protected_locals = upvalues_in
         .iter()
         .chain(fallback_source.as_ref().unwrap().parameters.iter())
+        .chain(protected_upvalue_locals.iter())
         .cloned()
         .collect::<FxHashSet<_>>();
     let params = std::mem::take(&mut fallback_source.as_mut().unwrap().parameters);
