@@ -90,6 +90,37 @@ struct Analysis {
     loops_by_header: FxHashMap<NodeIndex, LoopInfo>,
 }
 
+fn collect_closure_captures(
+    closure: &ast::Closure,
+    captured: &mut FxHashSet<RcLocal>,
+) {
+    captured.extend(closure.upvalues.iter().map(|upvalue| match upvalue {
+        ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => local.clone(),
+    }));
+}
+
+fn collect_rvalue_captures(value: &RValue, captured: &mut FxHashSet<RcLocal>) {
+    // The traversal visits nested expressions but not the root value.
+    if let RValue::Closure(closure) = value {
+        collect_closure_captures(closure, captured);
+    }
+    let mut value_copy = value.clone();
+    value_copy.traverse_rvalues(&mut |nested| {
+        if let RValue::Closure(closure) = nested {
+            collect_closure_captures(closure, captured);
+        }
+    });
+}
+
+fn collect_statement_captures(statement: &Statement, captured: &mut FxHashSet<RcLocal>) {
+    let mut statement_copy = statement.clone();
+    statement_copy.traverse_rvalues(&mut |value| {
+        if let RValue::Closure(closure) = value {
+            collect_closure_captures(closure, captured);
+        }
+    });
+}
+
 impl Analysis {
     fn new(function: &Function) -> Option<Self> {
         let entry = function.entry().as_ref().copied()?;
@@ -251,14 +282,12 @@ impl Analysis {
                 continue;
             };
             for statement in block.iter() {
-                let mut statement = statement.clone();
-                statement.traverse_rvalues(&mut |value| {
-                    if let RValue::Closure(closure) = value {
-                        captured.extend(closure.upvalues.iter().map(|upvalue| match upvalue {
-                            ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => local.clone(),
-                        }));
-                    }
-                });
+                collect_statement_captures(statement, &mut captured);
+            }
+            for edge in function.edges(*node) {
+                for (_, value) in &edge.weight().arguments {
+                    collect_rvalue_captures(value, &mut captured);
+                }
             }
         }
         captured
@@ -734,15 +763,23 @@ impl<'a> Builder<'a> {
             .iter()
             .filter(|local| {
                 self.analysis.nodes.iter().any(|node| {
-                    !info.nodes.contains(node)
-                        && self.function.block(*node).is_some_and(|block| {
-                            block.iter().any(|statement| {
-                                statement
-                                    .values_read()
-                                    .into_iter()
-                                    .any(|read| read == *local)
-                            })
+                    if info.nodes.contains(node) {
+                        return false;
+                    }
+                    let read_in_block = self.function.block(*node).is_some_and(|block| {
+                        block.iter().any(|statement| {
+                            statement
+                                .values_read()
+                                .into_iter()
+                                .any(|read| read == *local)
                         })
+                    });
+                    let read_on_edge = self.function.edges(*node).any(|edge| {
+                        edge.weight().arguments.iter().any(|(_, value)| {
+                            value.values_read().into_iter().any(|read| read == *local)
+                        })
+                    });
+                    read_in_block || read_on_edge
                 })
             })
             .cloned()
@@ -1155,15 +1192,11 @@ impl<'a> Builder<'a> {
         if !init_edges[0].weight().arguments.is_empty() {
             return self.reject_unsafe(UnsafeStructureReason::ForInitEdgeTransferOrder);
         }
-        if info.nodes.iter().any(|node| {
+        if self.analysis.nodes.iter().any(|node| {
             self.function
                 .edges(*node)
                 .any(|edge| edge_touches_protocol(edge.weight()))
-        }) || self
-                .function
-                .edges(info.normal_exit)
-                .any(|edge| edge_touches_protocol(edge.weight()))
-        {
+        }) {
             return self.reject_unsafe(UnsafeStructureReason::ForProtocolEdgeTransfer);
         }
         if init_suffix.iter().any(|statement| {
@@ -1316,21 +1349,24 @@ impl<'a> Builder<'a> {
                         .values_written()
                         .into_iter()
                         .any(|local| info.res_locals.iter().any(|result| result == local));
-                    let mut captures_result = false;
-                    let mut statement_copy = statement.clone();
-                    statement_copy.traverse_rvalues(&mut |value| {
-                        if let RValue::Closure(closure) = value {
-                            captures_result = closure.upvalues.iter().any(|upvalue| {
-                                let captured = match upvalue {
-                                    ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => local,
-                                };
-                                info.res_locals.iter().any(|result| result == captured)
-                            });
-                        }
-                    });
+                    let mut captures = FxHashSet::default();
+                    collect_statement_captures(statement, &mut captures);
+                    let captures_result = captures
+                        .iter()
+                        .any(|captured| info.res_locals.iter().any(|result| result == captured));
                     writes_result || captures_result
                 })
             })
+            || (node != &info.init
+                && self.function.edges(*node).any(|edge| {
+                    edge.weight().arguments.iter().any(|(_, value)| {
+                        let mut captures = FxHashSet::default();
+                        collect_rvalue_captures(value, &mut captures);
+                        captures
+                            .iter()
+                            .any(|captured| info.res_locals.iter().any(|result| result == captured))
+                    })
+                }))
         }) {
             return None;
         }
@@ -2300,6 +2336,193 @@ mod tests {
         assert!(!output.contains("continue"), "{output}");
         assert!(!output.contains("GenericFor"), "{output}");
         assert!(!output.contains("goto "), "{output}");
+    }
+
+    #[test]
+    fn refuses_pre_init_edge_closure_capture_of_result() {
+        let mut function = Function::new(0);
+        let pre = function.new_block();
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        function.set_entry(pre);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let callback = RcLocal::new(Local::new(Some("callback".into())));
+        let closure = Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function::default()))),
+            upvalues: vec![Upvalue::Ref(result.clone())],
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function.block_mut(join).unwrap().push(
+            ast::Return::new(vec![RValue::Call(Call::new(
+                RValue::Local(callback.clone()),
+                Vec::new(),
+            ))])
+            .into(),
+        );
+        function.set_edges(pre, vec![(
+            init,
+            BlockEdge {
+                branch_type: BranchType::Unconditional,
+                arguments: vec![(callback, RValue::Closure(closure))],
+            },
+        )]);
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+
+        assert!(
+            lift(function).is_none(),
+            "an edge-created closure must not retain the shadowed pre-loop result cell"
+        );
+    }
+
+    #[test]
+    fn refuses_protocol_capture_on_pre_init_edge() {
+        let mut function = Function::new(0);
+        let pre = function.new_block();
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        function.set_entry(pre);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let callback = RcLocal::new(Local::new(Some("callback".into())));
+        let closure = Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function::default()))),
+            upvalues: vec![Upvalue::Ref(generator.clone())],
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function.block_mut(join).unwrap().push(
+            ast::Return::new(vec![RValue::Call(Call::new(
+                RValue::Local(callback.clone()),
+                Vec::new(),
+            ))])
+            .into(),
+        );
+        function.set_edges(pre, vec![(
+            init,
+            BlockEdge {
+                branch_type: BranchType::Unconditional,
+                arguments: vec![(
+                    callback,
+                    RValue::Closure(closure),
+                )],
+            },
+        )]);
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+
+        assert!(
+            lift(function).is_none(),
+            "edge closures must not capture a hidden iterator protocol local"
+        );
+    }
+
+    #[test]
+    fn refuses_post_loop_result_read_on_edge_without_exhaustion_proof() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        let tail = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let sink = RcLocal::new(Local::new(Some("sink".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result.clone()],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function
+            .block_mut(tail)
+            .unwrap()
+            .push(ast::Return::new(vec![RValue::Local(sink.clone())]).into());
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(join, vec![(
+            tail,
+            BlockEdge {
+                branch_type: BranchType::Unconditional,
+                arguments: vec![(sink, RValue::Local(result))],
+            },
+        )]);
+
+        // The edge is a post-loop read just like a statement read.  Without
+        // an exhaustion-value proof the result cannot be exported safely.
+        assert!(lift(function).is_none());
     }
 
     #[test]
