@@ -921,6 +921,18 @@ impl<'a> Builder<'a> {
             return None;
         }
         let init_edge_transfer = self.edge_transfer(init_edges[0].weight(), &self.rewrite)?;
+        // The two FORGLOOP exits are consumed by the source-level `for`
+        // node itself.  Their edge-local phi copies would have to be placed
+        // before either the body entry or the exhaustion adapter; emitting
+        // them in the surrounding path would be too late.  Reject this shape
+        // until those two protocol ports have explicit transfer slots.
+        if self
+            .function
+            .edges(info.header)
+            .any(|edge| !edge.weight().arguments.is_empty())
+        {
+            return None;
+        }
         // Optimized Luau may leave a small, pure setup suffix in the same
         // FORGPREP block after the marker (for example `local seen = {}`).
         // The source `for` evaluates its iterator expression before this
