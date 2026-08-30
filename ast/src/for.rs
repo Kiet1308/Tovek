@@ -552,6 +552,17 @@ impl GenericFor {
             origin: None,
         }
     }
+
+    pub fn new_with_origin(
+        res_locals: Vec<RcLocal>,
+        right: Vec<RValue>,
+        block: Block,
+        origin: ForOrigin,
+    ) -> Self {
+        let mut generic_for = Self::new(res_locals, right, block);
+        generic_for.origin = Some(origin);
+        generic_for
+    }
 }
 
 has_side_effects!(GenericFor);

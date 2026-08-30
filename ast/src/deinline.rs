@@ -1080,11 +1080,12 @@ fn canon_children_owned(s: Statement, tail: bool) -> Statement {
             step: nf.step,
             counter: nf.counter,
         }),
-        Statement::GenericFor(gf) => Statement::GenericFor(GenericFor::new(
-            gf.res_locals,
-            gf.right,
-            Block(canon_tail(&gf.block.lock().0, false)),
-        )),
+        Statement::GenericFor(gf) => Statement::GenericFor(GenericFor {
+            res_locals: gf.res_locals,
+            right: gf.right,
+            block: Arc::new(Mutex::new(Block(canon_tail(&gf.block.lock().0, false)))),
+            origin: gf.origin,
+        }),
         other => other,
     }
 }
@@ -2208,11 +2209,15 @@ fn rewrite_return_to_void(stmts: &[Statement], ret: &RValue) -> Vec<Statement> {
                     ret,
                 )))),
             }),
-            Statement::GenericFor(gf) => Statement::GenericFor(GenericFor::new(
-                gf.res_locals.clone(),
-                gf.right.clone(),
-                Block(rewrite_return_to_void(&gf.block.lock().0, ret)),
-            )),
+            Statement::GenericFor(gf) => Statement::GenericFor(GenericFor {
+                res_locals: gf.res_locals.clone(),
+                right: gf.right.clone(),
+                block: Arc::new(Mutex::new(Block(rewrite_return_to_void(
+                    &gf.block.lock().0,
+                    ret,
+                )))),
+                origin: gf.origin,
+            }),
             other => other.clone(),
         })
         .collect()
@@ -4306,7 +4311,10 @@ fn markers_in_closures(rv: &mut RValue, converted: &FxHashSet<RcLocal>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Break, Closure, Empty, Function, Global, Index, Local};
+    use crate::{
+        Break, Closure, Empty, ForOrigin, ForPrepKind, Function, Global, Index, Local,
+        VmProfileId,
+    };
     use by_address::ByAddress;
     use parking_lot::Mutex;
     use rustc_hash::FxHashSet;
@@ -5967,6 +5975,38 @@ mod tests {
             canon_top(&marked, true).len(),
             1,
             "marker dropped by canon_top"
+        );
+    }
+
+    #[test]
+    fn canon_preserves_generic_for_provenance() {
+        let origin = ForOrigin {
+            prep_pc: 10,
+            step_pc: 20,
+            body_pc: 21,
+            follow_pc: 22,
+            prep_kind: ForPrepKind::Generic,
+            base_register: 0,
+            result_count: 1,
+            aux: 1,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+        };
+        let statement = GenericFor {
+            res_locals: vec![local("value")],
+            right: vec![global("items")],
+            block: Arc::new(Mutex::new(Block::default())),
+            origin: Some(origin),
+        }
+        .into();
+
+        let canonical = canon(&[statement]);
+        assert_eq!(
+            canonical[0]
+                .as_generic_for()
+                .expect("canonicalization retains the loop")
+                .origin,
+            Some(origin)
         );
     }
 

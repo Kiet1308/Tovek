@@ -10,7 +10,7 @@ use ast::{
     Assign, Block, GenericFor, If, LValue, Literal, LocalRw, RValue, RcLocal, Reduce, Statement,
     Traverse, Unary, UnaryOperation,
 };
-use cfg::block::BranchType;
+use cfg::block::{BlockEdge, BranchType};
 use cfg::function::Function;
 use itertools::Itertools;
 use petgraph::{
@@ -31,6 +31,7 @@ pub enum UnsafeStructureReason {
     ForOriginMissing,
     ForOriginMismatch,
     ForOriginDuplicate,
+    ForProtocolEdgeTransfer,
 }
 
 impl fmt::Display for UnsafeStructureReason {
@@ -42,6 +43,9 @@ impl fmt::Display for UnsafeStructureReason {
             Self::ForOriginMissing => "generic-for provenance is missing",
             Self::ForOriginMismatch => "generic-for prep/step provenance mismatch",
             Self::ForOriginDuplicate => "duplicate generic-for provenance identity",
+            Self::ForProtocolEdgeTransfer => {
+                "generic-for edge transfer touches hidden iterator protocol"
+            }
         };
         f.write_str(name)
     }
@@ -788,6 +792,16 @@ impl<'a> Builder<'a> {
             if edges.len() != 1 || edges[0].weight().branch_type != BranchType::Unconditional {
                 return None;
             }
+            // This path represents the implicit exhaustion edge of the
+            // source-level `for`.  Its outgoing edge is currently consumed
+            // by the loop as a boundary, so there is no emitted statement
+            // slot for an SSA transfer before the post-loop join.  Dropping
+            // such a transfer would lose observable writes (for example
+            // `sink = 42` on exhaustion); reject until the exhaustion port
+            // models edge effects explicitly.
+            if !edges[0].weight().arguments.is_empty() {
+                return None;
+            }
             current = edges[0].target();
         }
         for (local, _) in exports {
@@ -920,7 +934,6 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
-        let init_edge_transfer = self.edge_transfer(init_edges[0].weight(), &self.rewrite)?;
         // The two FORGLOOP exits are consumed by the source-level `for`
         // node itself.  Their edge-local phi copies would have to be placed
         // before either the body entry or the exhaustion adapter; emitting
@@ -1019,7 +1032,6 @@ impl<'a> Builder<'a> {
                 .cloned()
                 .map(|statement| self.rewrite_statement(statement)),
         );
-        output.extend(init_edge_transfer.0);
         let exports = self.exports_for(info);
         let adapters = self.normal_adapter_nodes(info, &exports)?;
         if self.has_unsafe_export_write(info, &exports, &adapters)
@@ -1071,6 +1083,40 @@ impl<'a> Builder<'a> {
             init_locals[1].clone(),
             init_locals[2].clone(),
         ];
+        // Edge-local SSA transfers are ordinary source assignments only when
+        // their values are visible to the source-level construct.  A
+        // FORGLOOP updates the hidden control register as part of the VM
+        // iterator protocol; materialising an edge argument that reads or
+        // writes any protocol local would turn that hidden update into a
+        // visible assignment (or feed a stale visible value back into the
+        // next iterator call).  In particular, a body -> header backedge can
+        // carry a phi copy into `control`; there is no source `for` transfer
+        // slot at that point, so reject the candidate until the protocol edge
+        // effects are modelled explicitly.
+        let edge_touches_protocol = |edge: &BlockEdge| {
+            edge.arguments.iter().any(|(destination, value)| {
+                protocol_locals.iter().any(|protocol| protocol == destination)
+                    || value
+                        .values_read()
+                        .into_iter()
+                        .any(|read| protocol_locals.iter().any(|protocol| protocol == read))
+            })
+        };
+        if edge_touches_protocol(init_edges[0].weight())
+            || info.nodes.iter().any(|node| {
+                self.function
+                    .edges(*node)
+                    .any(|edge| edge_touches_protocol(edge.weight()))
+            })
+            || self
+                .function
+                .edges(info.normal_exit)
+                .any(|edge| edge_touches_protocol(edge.weight()))
+        {
+            return self.reject_unsafe(UnsafeStructureReason::ForProtocolEdgeTransfer);
+        }
+        let init_edge_transfer = self.edge_transfer(init_edges[0].weight(), &self.rewrite)?;
+        output.extend(init_edge_transfer.0);
         if init_suffix.iter().any(|statement| {
             statement
                 .values_read()
@@ -2198,6 +2244,67 @@ mod tests {
     }
 
     #[test]
+    fn rejects_protocol_edge_arguments_on_loop_backedge() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let mut for_init = GenericForInit::new(
+            generator.clone(),
+            state.clone(),
+            control.clone(),
+        );
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![value],
+                generator.clone().into(),
+                state,
+                control.clone(),
+            )
+            .into(),
+        );
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        // This is a phi copy on the backedge into the hidden FORGLOOP control
+        // register.  Emitting it as a visible assignment in a source `for`
+        // body would not affect the VM's hidden iterator state.
+        function.set_edges(body, vec![
+            (
+                header,
+                BlockEdge {
+                    branch_type: BranchType::Unconditional,
+                    arguments: vec![(control, Literal::Number(42.0).into())],
+                },
+            ),
+        ]);
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::ForProtocolEdgeTransfer)
+        ));
+    }
+
+    #[test]
     fn rejects_partially_annotated_generic_for_with_typed_reason() {
         let mut function = Function::new(0);
         let init = function.new_block();
@@ -2816,6 +2923,73 @@ mod tests {
         function.set_edges(normal_exit, vec![(join, BlockEdge::new(BranchType::Then))]);
 
         assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_unmodeled_normal_exhaustion_edge_transfer() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let normal_exit = function.new_block();
+        let break_adapter = function.new_block();
+        let join = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let sink = RcLocal::new(Local::new(Some("sink".into())));
+        let keep = RcLocal::new(Local::new(Some("keep".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![result], generator.into(), state, control).into(),
+        );
+        function.block_mut(body).unwrap().push(
+            If::new(RValue::Local(keep), Block::default(), Block::default()).into(),
+        );
+        function.block_mut(normal_exit).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(sink.clone())],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+        );
+        function
+            .block_mut(join)
+            .unwrap()
+            .push(ast::Return::new(vec![RValue::Local(sink.clone())]).into());
+
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (normal_exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![
+            (break_adapter, BlockEdge::new(BranchType::Else)),
+            (header, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(break_adapter, vec![
+            (join, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(normal_exit, vec![
+            (
+                join,
+                BlockEdge {
+                    branch_type: BranchType::Unconditional,
+                    arguments: vec![(sink, Literal::Number(42.0).into())],
+                },
+            ),
+        ]);
+
+        let output = lift(function).map(|block| block.to_string());
+        assert!(output.is_none(), "unexpected source-shaped output: {:?}", output);
     }
 
     #[test]
