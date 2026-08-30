@@ -19,7 +19,37 @@ use petgraph::{
     visit::EdgeRef,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::collections::VecDeque;
+use std::{collections::VecDeque, fmt};
+
+/// A proof obligation whose failure makes it unsafe to try a weaker
+/// source-shaping matcher on the same CFG.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UnsafeStructureReason {
+    CapturedCellReorder,
+    LiveBranchRewrite,
+    ForInitSuffixOrder,
+}
+
+impl fmt::Display for UnsafeStructureReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            Self::CapturedCellReorder => "captured-cell reorder across iterator preparation",
+            Self::LiveBranchRewrite => "live branch rewrite across a conditional join",
+            Self::ForInitSuffixOrder => "observable FORGPREP suffix reorder",
+        };
+        f.write_str(name)
+    }
+}
+
+/// Result of the proof-driven source-like structurer.  `Unsupported` means
+/// this pass has no representation for the graph; `Unsafe` means it found a
+/// concrete semantic obstruction that weaker matchers must not bypass.
+#[derive(Debug)]
+pub enum StructureAttempt {
+    Structured(Block),
+    Unsupported,
+    Unsafe(UnsafeStructureReason),
+}
 
 #[derive(Clone)]
 struct LoopInfo {
@@ -38,6 +68,9 @@ struct Analysis {
     nodes: Vec<NodeIndex>,
     dominators: Dominators<NodeIndex>,
     post_dominators: FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
+    live_in: FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
+    live_out: FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
+    captured_locals: FxHashSet<RcLocal>,
     loops_by_init: FxHashMap<NodeIndex, LoopInfo>,
     loops_by_header: FxHashMap<NodeIndex, LoopInfo>,
 }
@@ -72,6 +105,8 @@ impl Analysis {
 
         let dominators = simple_fast(function.graph(), entry);
         let post_dominators = Self::post_dominators(function, &nodes, &reachable);
+        let (live_in, live_out) = Self::liveness(function, &nodes, &reachable);
+        let captured_locals = Self::captured_locals(function, &nodes);
         let (loops_by_init, loops_by_header) =
             Self::find_generic_loops(function, &nodes, &reachable, &dominators, &post_dominators)?;
         Some(Self {
@@ -79,9 +114,114 @@ impl Analysis {
             nodes,
             dominators,
             post_dominators,
+            live_in,
+            live_out,
+            captured_locals,
             loops_by_init,
             loops_by_header,
         })
+    }
+
+    /// Standard backwards liveness over the complete reachable CFG.  Unlike
+    /// the old `visited` heuristic, this fixed point follows loop backedges.
+    /// Edge arguments are parallel transfers: their destinations are defined
+    /// on the edge and their right-hand sides are read after branch selection.
+    fn liveness(
+        function: &Function,
+        nodes: &[NodeIndex],
+        reachable: &FxHashSet<NodeIndex>,
+    ) -> (
+        FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
+        FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
+    ) {
+        let mut uses = FxHashMap::default();
+        let mut defs = FxHashMap::default();
+        for node in nodes {
+            let mut node_uses = FxHashSet::default();
+            let mut node_defs = FxHashSet::default();
+            if let Some(block) = function.block(*node) {
+                for statement in block.iter() {
+                    for read in statement.values_read() {
+                        if !node_defs.contains(read) {
+                            node_uses.insert(read.clone());
+                        }
+                    }
+                    node_defs.extend(statement.values_written().into_iter().cloned());
+                }
+            }
+            uses.insert(*node, node_uses);
+            defs.insert(*node, node_defs);
+        }
+
+        let mut live_in = nodes
+            .iter()
+            .copied()
+            .map(|node| (node, FxHashSet::default()))
+            .collect::<FxHashMap<_, _>>();
+        let mut live_out = live_in.clone();
+        let mut work = VecDeque::from(nodes.iter().rev().copied().collect_vec());
+        let mut queued = nodes.iter().copied().collect::<FxHashSet<_>>();
+        while let Some(node) = work.pop_front() {
+            queued.remove(&node);
+            let mut next_out = FxHashSet::default();
+            for edge in function
+                .edges(node)
+                .filter(|edge| reachable.contains(&edge.target()))
+            {
+                let mut edge_live = live_in[&edge.target()].clone();
+                // Edge arguments are simultaneous parallel copies.  Remove
+                // every destination before adding any source, otherwise a
+                // swap (`a <- b, b <- a`) would erase `b` while processing
+                // the second pair and under-approximate edge liveness.
+                for (destination, _) in &edge.weight().arguments {
+                    edge_live.remove(destination);
+                }
+                for (_, value) in &edge.weight().arguments {
+                    edge_live.extend(value.values_read().into_iter().cloned());
+                }
+                next_out.extend(edge_live);
+            }
+            let mut next_in = uses[&node].clone();
+            next_in.extend(
+                next_out
+                    .iter()
+                    .filter(|local| !defs[&node].contains(*local))
+                    .cloned(),
+            );
+            if next_out != live_out[&node] || next_in != live_in[&node] {
+                live_out.insert(node, next_out);
+                live_in.insert(node, next_in);
+                for predecessor in function
+                    .predecessor_blocks(node)
+                    .filter(|predecessor| reachable.contains(predecessor))
+                {
+                    if queued.insert(predecessor) {
+                        work.push_back(predecessor);
+                    }
+                }
+            }
+        }
+        (live_in, live_out)
+    }
+
+    fn captured_locals(function: &Function, nodes: &[NodeIndex]) -> FxHashSet<RcLocal> {
+        let mut captured = FxHashSet::default();
+        for node in nodes {
+            let Some(block) = function.block(*node) else {
+                continue;
+            };
+            for statement in block.iter() {
+                let mut statement = statement.clone();
+                statement.traverse_rvalues(&mut |value| {
+                    if let RValue::Closure(closure) = value {
+                        captured.extend(closure.upvalues.iter().map(|upvalue| match upvalue {
+                            ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => local.clone(),
+                        }));
+                    }
+                });
+            }
+        }
+        captured
     }
 
     fn post_dominators(
@@ -398,6 +538,7 @@ struct Builder<'a> {
     visited: FxHashSet<NodeIndex>,
     rewrite: FxHashMap<RcLocal, RcLocal>,
     protected_locals: FxHashSet<RcLocal>,
+    unsafe_reason: Option<UnsafeStructureReason>,
 }
 
 impl<'a> Builder<'a> {
@@ -406,13 +547,41 @@ impl<'a> Builder<'a> {
         analysis: Analysis,
         protected_locals: FxHashSet<RcLocal>,
     ) -> Self {
+        let unsafe_reason = analysis.loops_by_init.values().find_map(|info| {
+            let block = function.block(info.init)?;
+            let marker = block
+                .iter()
+                .position(|statement| statement.as_generic_for_init().is_some())?;
+            let suffix = block
+                .iter()
+                .skip(marker + 1)
+                .filter(|statement| !is_ignorable(statement));
+            if suffix.clone().any(|statement| !is_reorderable_for_init_suffix(statement)) {
+                return Some(UnsafeStructureReason::ForInitSuffixOrder);
+            }
+            if suffix.clone().any(|statement| {
+                statement
+                    .values_written()
+                    .into_iter()
+                    .any(|written| analysis.captured_locals.contains(written))
+            }) {
+                return Some(UnsafeStructureReason::CapturedCellReorder);
+            }
+            None
+        });
         Self {
             function,
             analysis,
             visited: FxHashSet::default(),
             rewrite: FxHashMap::default(),
             protected_locals,
+            unsafe_reason,
         }
+    }
+
+    fn reject_unsafe<T>(&mut self, reason: UnsafeStructureReason) -> Option<T> {
+        self.unsafe_reason.get_or_insert(reason);
+        None
     }
 
     fn rewrite_statement(&self, mut statement: Statement) -> Statement {
@@ -438,26 +607,6 @@ impl<'a> Builder<'a> {
         value
     }
 
-    fn captured_locals(&self) -> FxHashSet<RcLocal> {
-        let mut captured = FxHashSet::default();
-        for node in &self.analysis.nodes {
-            let Some(block) = self.function.block(*node) else {
-                continue;
-            };
-            for statement in block.iter() {
-                let mut statement = statement.clone();
-                statement.traverse_rvalues(&mut |value| {
-                    if let RValue::Closure(closure) = value {
-                        captured.extend(closure.upvalues.iter().map(|upvalue| match upvalue {
-                            ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => local.clone(),
-                        }));
-                    }
-                });
-            }
-        }
-        captured
-    }
-
     /// Reconcile rewrite maps after two conditional arms.  A nested loop may
     /// introduce an export only on one arm; that mapping is branch-local unless
     /// the continuation actually reads the exported SSA local.  The previous
@@ -465,12 +614,15 @@ impl<'a> Builder<'a> {
     /// structured optimizer diamonds (including Pet's refresh path) to the
     /// synthetic dispatcher.  Keep common mappings, retain the incoming map
     /// for branch-local differences, and fail closed when a differing mapping
-    /// is live at an unvisited continuation node.
+    /// is live at the actual continuation.  `Analysis::live_in` is a complete
+    /// CFG fixed point, so enclosing-loop backedges are included even when the
+    /// corresponding block was already emitted by this recursive traversal.
     fn reconcile_rewrite(
-        &self,
+        &mut self,
         base: &FxHashMap<RcLocal, RcLocal>,
         then_map: &FxHashMap<RcLocal, RcLocal>,
         else_map: &FxHashMap<RcLocal, RcLocal>,
+        continuation: Option<NodeIndex>,
     ) -> Option<FxHashMap<RcLocal, RcLocal>> {
         let mut keys = base.keys().cloned().collect::<FxHashSet<_>>();
         keys.extend(then_map.keys().cloned());
@@ -490,21 +642,14 @@ impl<'a> Builder<'a> {
                 }
                 continue;
             }
-            let used_after = self.analysis.nodes.iter().any(|node| {
-                !self.visited.contains(node)
-                    && self.function.block(*node).is_some_and(|block| {
-                        block
-                            .iter()
-                            .any(|statement| {
-                                statement
-                                    .values_read()
-                                    .into_iter()
-                                    .any(|read| read == &key)
-                            })
-                    })
+            let used_after = continuation.is_some_and(|node| {
+                self.analysis
+                    .live_in
+                    .get(&node)
+                    .is_some_and(|live| live.contains(&key))
             });
             if used_after {
-                return None;
+                return self.reject_unsafe(UnsafeStructureReason::LiveBranchRewrite);
             }
             // No continuation observes this branch-local export.  Restore the
             // incoming mapping (if any), never leaking a child-only rewrite.
@@ -686,10 +831,11 @@ impl<'a> Builder<'a> {
             .filter(|statement| !is_ignorable(statement))
             .cloned()
             .collect_vec();
-        if init_suffix.iter().any(|statement| {
-            !is_linear_statement(statement) || ast::statement_is_observable(statement)
-        }) {
-            return None;
+        if init_suffix
+            .iter()
+            .any(|statement| !is_reorderable_for_init_suffix(statement))
+        {
+            return self.reject_unsafe(UnsafeStructureReason::ForInitSuffixOrder);
         }
         if init_block
             .iter()
@@ -732,12 +878,11 @@ impl<'a> Builder<'a> {
         }) {
             return None;
         }
-        let captured_locals = self.captured_locals();
         if init_suffix.iter().any(|statement| {
             statement
                 .values_written()
                 .into_iter()
-                .any(|written| captured_locals.contains(written))
+                .any(|written| self.analysis.captured_locals.contains(written))
         }) {
             // A closure reachable from this function may be invoked while the
             // iterator RHS is evaluated, even when the RHS only reads a local
@@ -745,7 +890,7 @@ impl<'a> Builder<'a> {
             // change the captured cell observed by the closure.  Without a
             // value-flow summary for callable locals, reject all writes to
             // captured cells rather than guessing which closure is invoked.
-            return None;
+            return self.reject_unsafe(UnsafeStructureReason::CapturedCellReorder);
         }
         output.extend(
             init_suffix
@@ -1266,7 +1411,12 @@ impl<'a> Builder<'a> {
                 self.rewrite = base_rewrite.clone();
                 let else_result = self.build_path(else_target, Some(join), Some(ctx))?;
                 let else_rewrite = self.rewrite.clone();
-                self.rewrite = self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite)?;
+                self.rewrite = self.reconcile_rewrite(
+                    &base_rewrite,
+                    &then_rewrite,
+                    &else_rewrite,
+                    Some(join),
+                )?;
                 if then_result.next != Some(join) || else_result.next != Some(join) {
                     return None;
                 }
@@ -1289,7 +1439,15 @@ impl<'a> Builder<'a> {
             self.rewrite = base_rewrite.clone();
             let else_result = self.build_transfer_arm(else_target, ctx)?;
             let else_rewrite = self.rewrite.clone();
-            self.rewrite = self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite)?;
+            let continuation = (then_result.next == Some(ctx.info.header)
+                && else_result.next == Some(ctx.info.header))
+                .then_some(ctx.info.header);
+            self.rewrite = self.reconcile_rewrite(
+                &base_rewrite,
+                &then_rewrite,
+                &else_rewrite,
+                continuation,
+            )?;
             let mut condition = statement.condition;
             for local in condition.values_read_mut() {
                 if let Some(replacement) = self.rewrite.get(local) {
@@ -1314,7 +1472,12 @@ impl<'a> Builder<'a> {
             self.rewrite = base_rewrite.clone();
             let else_result = self.build_path(else_target, join, None)?;
             let else_rewrite = self.rewrite.clone();
-            self.rewrite = self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite)?;
+            self.rewrite = self.reconcile_rewrite(
+                &base_rewrite,
+                &then_rewrite,
+                &else_rewrite,
+                join,
+            )?;
             if then_result.next != join || else_result.next != join {
                 return None;
             }
@@ -1385,6 +1548,24 @@ fn is_linear_statement(statement: &Statement) -> bool {
     )
 }
 
+/// Positive allow-list for statements that may be commuted across a generic
+/// iterator preparation marker.  In particular, `Close` is intentionally not
+/// included: it changes upvalue lifetime even though its `LocalRw` summary is
+/// empty.  Calls, metamethod-sensitive writes, and indexed/global stores are
+/// likewise rejected until iterator provenance/effects are available.
+fn is_reorderable_for_init_suffix(statement: &Statement) -> bool {
+    let Statement::Assign(assign) = statement else {
+        return false;
+    };
+    !assign.left.is_empty()
+        && assign
+            .left
+            .iter()
+            .all(|left| matches!(left, LValue::Local(_)))
+        && !assign.right.is_empty()
+        && assign.right.iter().all(ast::is_total_pure)
+}
+
 fn strip_terminal_continue(block: &mut Block) {
     if matches!(block.last(), Some(Statement::Continue(_))) {
         block.pop();
@@ -1405,14 +1586,14 @@ pub fn lift(function: Function) -> Option<Block> {
     lift_with_ignored_locals(function, &protected_locals)
 }
 
-/// Source-shaped structuring with an explicit set of function/closure-scope
-/// locals that must not be reused as hidden iterator or loop-result registers.
-/// The set is copied into the immutable builder so callers can reuse their
-/// liveness set without coupling its lifetime to the CFG traversal.
-pub fn lift_with_ignored_locals(
+/// Run the source-like pass while retaining whether a rejection is a concrete
+/// semantic safety finding.  Production selection must route `Unsafe` directly
+/// to the certified fallback rather than handing the same CFG to the legacy
+/// matcher.
+pub fn lift_attempt_with_ignored_locals(
     function: Function,
     protected_locals: &FxHashSet<RcLocal>,
-) -> Option<Block> {
+) -> StructureAttempt {
     struct LocalIdTransaction {
         base: u64,
         committed: bool,
@@ -1434,23 +1615,52 @@ pub fn lift_with_ignored_locals(
         base: ast::current_local_id(),
         committed: false,
     };
-    let analysis = Analysis::new(&function)?;
-    let entry = function.entry().as_ref().copied()?;
+    let Some(analysis) = Analysis::new(&function) else {
+        return StructureAttempt::Unsupported;
+    };
+    let Some(entry) = function.entry().as_ref().copied() else {
+        return StructureAttempt::Unsupported;
+    };
     let mut builder = Builder::new(&function, analysis, protected_locals.clone());
-    let result = builder.build_path(entry, None, None)?;
+    let Some(result) = builder.build_path(entry, None, None) else {
+        return builder
+            .unsafe_reason
+            .map(StructureAttempt::Unsafe)
+            .unwrap_or(StructureAttempt::Unsupported);
+    };
     if result.next.is_some() || builder.visited != builder.analysis.reachable {
-        return None;
+        return builder
+            .unsafe_reason
+            .map(StructureAttempt::Unsafe)
+            .unwrap_or(StructureAttempt::Unsupported);
     }
     local_ids.committed = true;
-    Some(result.block)
+    StructureAttempt::Structured(result.block)
+}
+
+/// Source-shaped structuring with an explicit set of function/closure-scope
+/// locals that must not be reused as hidden iterator or loop-result registers.
+/// The set is copied into the immutable builder so callers can reuse their
+/// liveness set without coupling its lifetime to the CFG traversal.
+pub fn lift_with_ignored_locals(
+    function: Function,
+    protected_locals: &FxHashSet<RcLocal>,
+) -> Option<Block> {
+    match lift_attempt_with_ignored_locals(function, protected_locals) {
+        StructureAttempt::Structured(block) => Some(block),
+        StructureAttempt::Unsupported | StructureAttempt::Unsafe(_) => None,
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Analysis, lift};
+    use super::{
+        Analysis, Builder, StructureAttempt, UnsafeStructureReason, lift,
+        lift_attempt_with_ignored_locals,
+    };
     use ast::{
-        Assign, Block, Call, Closure, GenericForInit, GenericForNext, Global, If, LValue, Literal,
-        Local, RValue, RcLocal, Statement, Table, Upvalue,
+        Assign, Block, Call, Close, Closure, GenericForInit, GenericForNext, Global, If, LValue,
+        Literal, Local, RValue, RcLocal, Statement, Table, Upvalue,
     };
     use by_address::ByAddress;
     use cfg::{
@@ -1458,6 +1668,7 @@ mod tests {
         function::Function,
     };
     use parking_lot::Mutex;
+    use rustc_hash::{FxHashMap, FxHashSet};
     use triomphe::Arc;
 
     #[test]
@@ -1802,9 +2013,174 @@ mod tests {
             .unwrap()
             .push(Statement::Return(Default::default()).into());
 
+        let attempt = lift_attempt_with_ignored_locals(function.clone(), &FxHashSet::default());
+        assert!(matches!(
+            attempt,
+            StructureAttempt::Unsafe(UnsafeStructureReason::CapturedCellReorder)
+        ));
         assert!(lift(function).is_none());
     }
 
+    #[test]
+    fn classifies_close_in_for_init_suffix_as_unsafe() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let captured = RcLocal::new(Local::new(Some("captured".into())));
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        // `Close` has an intentionally empty LocalRw summary, so a generic
+        // `is_linear_statement` gate would incorrectly commute it before the
+        // iterator preparation.  The suffix allow-list must reject it.
+        function
+            .block_mut(init)
+            .unwrap()
+            .push(Close { locals: vec![captured] }.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![value], generator.into(), state, control).into(),
+        );
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(
+            init,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+        function.set_edges(
+            header,
+            vec![
+                (exit, BlockEdge::new(BranchType::Else)),
+                (body, BlockEdge::new(BranchType::Then)),
+            ],
+        );
+        function.set_edges(
+            body,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function.clone(), &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::ForInitSuffixOrder)
+        ));
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn branch_rewrite_liveness_includes_loop_backedges() {
+        let mut function = Function::new(0);
+        let join = function.new_block();
+        let read = function.new_block();
+        function.set_entry(join);
+        let last = RcLocal::new(Local::new(Some("last".into())));
+        let sink = RcLocal::new(Local::new(Some("sink".into())));
+        function.block_mut(read).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(sink)],
+                vec![RValue::Local(last.clone())],
+            )
+            .into(),
+        );
+        function.set_edges(
+            join,
+            vec![(read, BlockEdge::new(BranchType::Unconditional))],
+        );
+        function.set_edges(
+            read,
+            vec![(join, BlockEdge::new(BranchType::Unconditional))],
+        );
+
+        let analysis = Analysis::new(&function).expect("cyclic CFG is analyzable");
+        assert!(analysis.live_in[&join].contains(&last));
+        assert!(analysis.live_out[&read].contains(&last));
+        let mut builder = Builder::new(&function, analysis, FxHashSet::default());
+        builder.visited.insert(read);
+        let exported = RcLocal::new(Local::new(Some("exported".into())));
+        let then_map = [(last.clone(), exported)].into_iter().collect();
+        let else_map = FxHashMap::default();
+        assert!(builder
+            .reconcile_rewrite(&FxHashMap::default(), &then_map, &else_map, Some(join))
+            .is_none());
+    }
+
+    #[test]
+    fn liveness_accounts_for_edge_argument_sources_and_destinations() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(entry);
+        let source = RcLocal::new(Local::new(Some("source".into())));
+        let destination = RcLocal::new(Local::new(Some("destination".into())));
+        function.block_mut(exit).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(RcLocal::new(Local::new(Some("sink".into()))))],
+                vec![RValue::Local(destination.clone())],
+            )
+            .into(),
+        );
+        function.set_edges(
+            entry,
+            vec![(
+                exit,
+                BlockEdge {
+                    branch_type: BranchType::Unconditional,
+                    arguments: vec![(destination, RValue::Local(source.clone()))],
+                },
+            ) ],
+        );
+        let nodes = vec![entry, exit];
+        let reachable = nodes.iter().copied().collect::<FxHashSet<_>>();
+        let (live_in, live_out) = Analysis::liveness(&function, &nodes, &reachable);
+        assert!(live_in[&entry].contains(&source));
+        assert!(live_out[&entry].contains(&source));
+    }
+
+    #[test]
+    fn repro_parallel_edge_swap_liveness() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(entry);
+        let a = RcLocal::new(Local::new(Some("a".into())));
+        let b = RcLocal::new(Local::new(Some("b".into())));
+        let sink_a = RcLocal::new(Local::new(Some("sink_a".into())));
+        let sink_b = RcLocal::new(Local::new(Some("sink_b".into())));
+        function.block_mut(exit).unwrap().extend([
+            Assign::new(vec![LValue::Local(sink_a)], vec![RValue::Local(a.clone())]).into(),
+            Assign::new(vec![LValue::Local(sink_b)], vec![RValue::Local(b.clone())]).into(),
+        ]);
+        function.set_edges(
+            entry,
+            vec![(
+                exit,
+                BlockEdge {
+                    branch_type: BranchType::Unconditional,
+                    arguments: vec![
+                        (a.clone(), RValue::Local(b.clone())),
+                        (b.clone(), RValue::Local(a.clone())),
+                    ],
+                },
+            )],
+        );
+        let nodes = vec![entry, exit];
+        let reachable = nodes.iter().copied().collect::<FxHashSet<_>>();
+        let (_, live_out) = Analysis::liveness(&function, &nodes, &reachable);
+        assert!(live_out[&entry].contains(&a));
+        assert!(
+            live_out[&entry].contains(&b),
+            "parallel swap loses b: {:?}",
+            live_out[&entry]
+        );
+    }
 
     #[test]
     fn refuses_generic_for_result_aliasing_parameter() {

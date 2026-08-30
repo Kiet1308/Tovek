@@ -26,6 +26,10 @@ pub use fallback::lift_with_ignored_locals as lift_fallback_with_ignored_locals;
 /// callers should then use the existing semantics-preserving fallback.
 pub use region::lift as lift_source_like;
 pub use region::lift_with_ignored_locals as lift_source_like_with_ignored_locals;
+pub use region::{
+    lift_attempt_with_ignored_locals as lift_source_like_attempt_with_ignored_locals,
+    StructureAttempt, UnsafeStructureReason,
+};
 
 // TODO: REFACTOR: move
 pub fn post_dominators<N: Default, E: Default>(

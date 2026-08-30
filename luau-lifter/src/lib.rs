@@ -867,6 +867,36 @@ fn unsupported_structuring_sentinel() -> ast::Block {
     ])
 }
 
+fn function_has_generic_for_protocol(function: &Function) -> bool {
+    function.blocks().any(|(_, block)| {
+        block.iter().any(|statement| {
+            matches!(
+                statement,
+                ast::Statement::GenericForInit(_) | ast::Statement::GenericForNext(_)
+            )
+        })
+    })
+}
+
+fn function_has_edge_arguments(function: &Function) -> bool {
+    function
+        .graph()
+        .edge_weights()
+        .any(|edge| !edge.arguments.is_empty())
+}
+
+/// The legacy matcher predates semantic rejection reasons and cannot safely
+/// lower either generic-for protocol markers or SSA edge transfers.  Keeping
+/// this routing decision in one predicate makes it auditable and testable.
+fn may_use_legacy_structurer(
+    function: &Function,
+    source_like: &restructure::StructureAttempt,
+) -> bool {
+    matches!(source_like, restructure::StructureAttempt::Unsupported)
+        && !function_has_edge_arguments(function)
+        && !function_has_generic_for_protocol(function)
+}
+
 fn decompile_function(
     ast_function: Arc<Mutex<ast::Function>>,
     mut function: Function,
@@ -971,12 +1001,8 @@ fn decompile_function(
     // routing through the matcher would silently drop a value transfer and can
     // produce plausible but incorrect Luau.  The state-machine fallback is the
     // only path that materializes those parallel copies explicitly.
-    let has_edge_arguments = fallback_source
-        .as_ref()
-        .unwrap()
-        .graph()
-        .edge_weights()
-        .any(|edge| !edge.arguments.is_empty());
+    let has_edge_arguments = function_has_edge_arguments(fallback_source.as_ref().unwrap());
+    let has_generic_for_protocol = function_has_generic_for_protocol(fallback_source.as_ref().unwrap());
     // Source-like structuring may mint temporary export locals while proving
     // nested-loop live-outs.  If that speculative attempt is rejected, rewind
     // the per-function allocator before building the fallback so failed
@@ -992,19 +1018,32 @@ fn decompile_function(
     let mut fallback_function = None;
     let (mut lifted, used_source_like) = {
         ptime!(F_RESTRUCTURE);
-        match restructure::lift_source_like_with_ignored_locals(
+        let source_like_attempt = restructure::lift_source_like_attempt_with_ignored_locals(
             source_like_function,
             &source_like_protected_locals,
-        ) {
-            Some(block) => (block, true),
-            None => {
+        );
+        match source_like_attempt {
+            restructure::StructureAttempt::Structured(block) => (block, true),
+            rejection => {
+                let allow_legacy =
+                    may_use_legacy_structurer(fallback_source.as_ref().unwrap(), &rejection);
+                if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                    let function = fallback_source.as_ref().unwrap();
+                    eprintln!(
+                        "source-like structuring rejected function id={} name={:?}: {:?}",
+                        function.id, function.name, rejection
+                    );
+                }
                 ast::set_local_id_base(source_like_id_base);
                 // Preserve an untouched CFG before any mutating fallback or
                 // legacy matcher consumes the original.  This clone is paid
                 // only on the uncommon source-like rejection path.
                 let function = fallback_source.take().unwrap();
                 fallback_function = Some(function.deep_clone());
-                if has_edge_arguments {
+                if has_edge_arguments
+                    || has_generic_for_protocol
+                    || !allow_legacy
+                {
                     let locals_to_ignore = upvalues_in
                         .iter()
                         .chain(params.iter())
@@ -1117,7 +1156,13 @@ fn decompile_function(
 
 #[cfg(test)]
 mod option_tests {
-    use super::{ASSUME_NO_NAN, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS};
+    use super::{
+        ASSUME_NO_NAN, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS,
+        may_use_legacy_structurer,
+    };
+    use ast::{GenericForNext, Local, RcLocal, RValue};
+    use cfg::function::Function;
+    use restructure::{StructureAttempt, UnsafeStructureReason};
 
     #[test]
     fn decompile_option_bits_round_trip() {
@@ -1135,6 +1180,33 @@ mod option_tests {
             DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN
         );
         assert!(DecompileOptions::from_flag_bits(1 << 31).is_none());
+    }
+
+    #[test]
+    fn semantic_source_like_rejection_never_reaches_legacy_matcher() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        let local = RcLocal::new(Local::new(Some("value".to_owned())));
+        function.block_mut(entry).unwrap().push(
+            GenericForNext::new(
+                vec![local.clone()],
+                RValue::Local(local.clone()),
+                local.clone(),
+                local,
+            )
+            .into(),
+        );
+        assert!(!may_use_legacy_structurer(
+            &function,
+            &StructureAttempt::Unsupported,
+        ));
+
+        let empty = Function::new(0);
+        assert!(!may_use_legacy_structurer(
+            &empty,
+            &StructureAttempt::Unsafe(UnsafeStructureReason::CapturedCellReorder),
+        ));
     }
 }
 
