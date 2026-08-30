@@ -93,6 +93,22 @@ pub fn lift_certified_with_ignored_locals(
         return None;
     }
 
+    // The dispatcher only has a proven lowering for the flat, post-SSA CFG
+    // statements above.  A prestructured statement with an embedded block is
+    // opaque to the CFG edge/liveness analysis below: `If::values_read` and
+    // `Traverse` intentionally expose only the condition, while the nested
+    // body can contain writes or reference captures.  Lowering such a block
+    // as an ordinary state statement can therefore reset a captured local on
+    // the next dispatcher iteration.  Reject it until nested-block effects
+    // have a dedicated scope-aware analysis.
+    if nodes.iter().any(|&node| {
+        function.block(node).is_some_and(|block| {
+            block.iter().any(statement_has_embedded_block)
+        })
+    }) {
+        return None;
+    }
+
     // A GenericForInit/GenericForNext pair is still a low-level VM protocol,
     // not a source-level iterator expression.  The current Function IR does
     // not retain the FORGPREP variant/AUX metadata needed to distinguish the
@@ -198,6 +214,27 @@ pub fn lift_certified_with_ignored_locals(
             role: SyntheticRole::ProgramCounter,
         }],
     })
+}
+
+fn statement_has_embedded_block(statement: &Statement) -> bool {
+    match statement {
+        // An empty If is the CFG conditional terminator and is safe: its real
+        // branches are represented by BlockEdges.  A non-empty branch is an
+        // already-structured subgraph whose effects are not visible to the
+        // fallback's flat-state analysis.
+        Statement::If(if_statement) => {
+            !if_statement.then_block.lock().is_empty()
+                || !if_statement.else_block.lock().is_empty()
+        }
+        // These statements always own an embedded body.  They are not emitted
+        // by the post-SSA CFG fallback input and must not be treated as opaque
+        // state statements until their nested effects are analyzed.
+        Statement::While(_)
+        | Statement::Repeat(_)
+        | Statement::NumericFor(_)
+        | Statement::GenericFor(_) => true,
+        _ => false,
+    }
 }
 
 fn contains_ref_capture(
@@ -754,6 +791,34 @@ mod tests {
             )
             .into(),
         );
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_prestructured_nested_blocks_until_scope_analysis() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let captured = local("captured");
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
+            upvalues: vec![Upvalue::Ref(captured)],
+        };
+        let nested = If::new(
+            Literal::Boolean(true).into(),
+            Block(vec![
+                Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(closure)])
+                    .into(),
+            ]),
+            Block::default(),
+        );
+        function.block_mut(entry).unwrap().push(nested.into());
+
+        // `If` bodies are not visible to the flat CFG liveness/capture pass.
+        // Keep the fallback certified by refusing this prestructured shape
+        // until nested-block scope effects have a dedicated analysis.
         assert!(lift(function).is_none());
     }
 
