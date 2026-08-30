@@ -1311,6 +1311,7 @@ impl<'a> Lifter<'a> {
                                     .collect::<Vec<_>>(),
                                 generator.into(),
                                 state,
+                                self.register((a + 2) as _),
                             )
                             .into(),
                         );

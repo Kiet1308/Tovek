@@ -2039,6 +2039,28 @@ pub fn block_has_goto_or_label(block: &Block) -> bool {
     })
 }
 
+/// Return whether a structured block still contains one of the VM-only loop
+/// marker statements.  These nodes are an implementation detail of the CFG
+/// lifter; their formatter is deliberately diagnostic-oriented and therefore
+/// must never be allowed to reach source emission.
+pub fn block_has_unlowered_control(block: &Block) -> bool {
+    block.0.iter().any(|statement| match statement {
+        Statement::NumForInit(_)
+        | Statement::NumForNext(_)
+        | Statement::GenericForInit(_)
+        | Statement::GenericForNext(_) => true,
+        Statement::If(node) => {
+            block_has_unlowered_control(&node.then_block.lock())
+                || block_has_unlowered_control(&node.else_block.lock())
+        }
+        Statement::While(node) => block_has_unlowered_control(&node.block.lock()),
+        Statement::Repeat(node) => block_has_unlowered_control(&node.block.lock()),
+        Statement::NumericFor(node) => block_has_unlowered_control(&node.block.lock()),
+        Statement::GenericFor(node) => block_has_unlowered_control(&node.block.lock()),
+        _ => false,
+    })
+}
+
 /// Final output invariant over a complete linked function tree.  Unlike
 /// [`block_has_goto_or_label`], this descends through closure values as well as
 /// structured blocks and de-duplicates shared `Function` arcs.
@@ -2083,6 +2105,74 @@ pub fn function_tree_has_goto_or_label(block: &Block) -> bool {
     }
 
     tree_block_has_goto(block, &mut FxHashSet::default())
+}
+
+/// Complete-function-tree variant of [`block_has_unlowered_control`].
+/// Closure bodies are visited and de-duplicated because a closure can be
+/// referenced from several places in the surrounding AST.
+pub fn function_tree_has_unlowered_control(block: &Block) -> bool {
+    fn value_has_unlowered(value: &RValue, visited: &mut FxHashSet<usize>) -> bool {
+        if let RValue::Closure(closure) = value {
+            let address = Arc::as_ptr(&closure.function.0) as usize;
+            return visited.insert(address)
+                && tree_block_has_unlowered(&closure.function.lock().body, visited);
+        }
+        value
+            .rvalues()
+            .into_iter()
+            .any(|child| value_has_unlowered(child, visited))
+    }
+
+    fn tree_block_has_unlowered(block: &Block, visited: &mut FxHashSet<usize>) -> bool {
+        for statement in &block.0 {
+            if matches!(
+                statement,
+                Statement::NumForInit(_)
+                    | Statement::NumForNext(_)
+                    | Statement::GenericForInit(_)
+                    | Statement::GenericForNext(_)
+            ) {
+                return true;
+            }
+
+            // `deinline::stmt_rvalues` also includes expressions embedded in
+            // index l-values, which `Traverse::rvalues` intentionally exposes
+            // only as direct expression roots.  Inspect both sets so a marker
+            // hidden in a closure cannot evade the final invariant.
+            if crate::deinline::stmt_rvalues(statement)
+                .into_iter()
+                .any(|value| value_has_unlowered(value, visited))
+                || statement
+                    .rvalues()
+                    .into_iter()
+                    .any(|value| value_has_unlowered(value, visited))
+            {
+                return true;
+            }
+
+            let nested = match statement {
+                Statement::If(node) => {
+                    tree_block_has_unlowered(&node.then_block.lock(), visited)
+                        || tree_block_has_unlowered(&node.else_block.lock(), visited)
+                }
+                Statement::While(node) => tree_block_has_unlowered(&node.block.lock(), visited),
+                Statement::Repeat(node) => tree_block_has_unlowered(&node.block.lock(), visited),
+                Statement::NumericFor(node) => {
+                    tree_block_has_unlowered(&node.block.lock(), visited)
+                }
+                Statement::GenericFor(node) => {
+                    tree_block_has_unlowered(&node.block.lock(), visited)
+                }
+                _ => false,
+            };
+            if nested {
+                return true;
+            }
+        }
+        false
+    }
+
+    tree_block_has_unlowered(block, &mut FxHashSet::default())
 }
 
 /// Post-`LocalDeclarer` fixup: in any block that still contains a `goto`, move
@@ -2151,7 +2241,7 @@ pub fn hoist_locals_for_gotos(block: &mut Block) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BinaryOperation, Closure, Function, Global, Local};
+    use crate::{BinaryOperation, Closure, Function, GenericForInit, Global, Local};
     use by_address::ByAddress;
 
     fn local(name: &str) -> RcLocal {
@@ -2188,6 +2278,17 @@ mod tests {
 
     fn print(local: &RcLocal) -> Statement {
         Call::new(global("print"), vec![local_value(local)]).into()
+    }
+
+    #[test]
+    fn final_invariant_rejects_unlowered_loop_markers() {
+        let generator = local("generator");
+        let state = local("state");
+        let control = local("control");
+        let block = Block(vec![GenericForInit::new(generator, state, control).into()]);
+
+        assert!(block_has_unlowered_control(&block));
+        assert!(function_tree_has_unlowered_control(&block));
     }
 
     fn contains_goto_or_label(stmts: &[Statement]) -> bool {

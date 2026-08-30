@@ -16,3 +16,6 @@ tuple = "0.5.1"
 cfg = { path = "../cfg" }
 triomphe = "0.1.8"
 parking_lot = "0.12.1"
+
+[dev-dependencies]
+by_address = "1.1.0"

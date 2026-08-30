@@ -339,15 +339,26 @@ pub struct GenericForNext {
     pub res_locals: Vec<LValue>,
     pub generator: RValue,
     pub state: RValue,
+    /// The hidden iterator control value (the third register in Luau's
+    /// generic-for protocol).  It used to be implicit in this AST node, which
+    /// made it impossible for a CFG fallback to lower a residual FORGLOOP
+    /// without guessing which local carries the control value.
+    pub control: RcLocal,
 }
 
 impl GenericForNext {
-    pub fn new(res_locals: Vec<RcLocal>, generator: RValue, state: RcLocal) -> Self {
+    pub fn new(
+        res_locals: Vec<RcLocal>,
+        generator: RValue,
+        state: RcLocal,
+        control: RcLocal,
+    ) -> Self {
         assert!(!res_locals.is_empty());
         Self {
             res_locals: res_locals.into_iter().map(LValue::Local).collect(),
             generator,
             state: RValue::Local(state),
+            control,
         }
     }
 }
@@ -361,6 +372,9 @@ impl Traverse for GenericForNext {
     }
 
     fn rvalues_mut(&mut self) -> Vec<&mut RValue> {
+        // `control` is a hidden register represented as an RcLocal rather than
+        // an expression.  It is still exposed through `LocalRw::values_read`
+        // below so SSA/local-renaming passes cannot miss it.
         vec![&mut self.generator, &mut self.state]
     }
 
@@ -374,16 +388,20 @@ impl LocalRw for GenericForNext {
         self.generator
             .values_read()
             .into_iter()
-            .chain(self.state.values_read().into_iter())
+            .chain(self.state.values_read())
+            .chain(std::iter::once(&self.control))
             .collect()
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.generator
+        let mut reads = self
+            .generator
             .values_read_mut()
             .into_iter()
-            .chain(self.state.values_read_mut().into_iter())
-            .collect()
+            .chain(self.state.values_read_mut())
+            .collect::<Vec<_>>();
+        reads.push(&mut self.control);
+        reads
     }
 
     fn values_written(&self) -> Vec<&RcLocal> {
@@ -405,11 +423,13 @@ impl fmt::Display for GenericForNext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "-- GenericForNext\n{} = {}({}, [internal control])\nif {} ~= nil\n[internal control] = {}\n-- end GenericForNext",
+            "-- GenericForNext\n{} = {}({}, {})\nif {} ~= nil\n{} = {}\n-- end GenericForNext",
             self.res_locals.iter().join(", "),
             self.generator,
             self.state,
+            self.control,
             self.res_locals[0],
+            self.control,
             self.res_locals[0],
         )
     }

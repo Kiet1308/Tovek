@@ -610,7 +610,9 @@ fn try_decompile_bytecode_internal(
             // as a hard chunk-level invariant (including every nested closure): a
             // future unsupported CFG shape must be reported as a decompile error,
             // never silently returned as invalid Luau.
-            if ast::simplify_gotos::function_tree_has_goto_or_label(&body) {
+            if ast::simplify_gotos::function_tree_has_goto_or_label(&body)
+                || ast::simplify_gotos::function_tree_has_unlowered_control(&body)
+            {
                 return Err(
                     "control-flow structuring failed: residual goto/label would be invalid Luau"
                         .to_string(),
@@ -923,6 +925,11 @@ fn decompile_function(
         )
         .destruct();
     }
+    // Keep a pristine post-SSA CFG.  If the readability-oriented structurer
+    // has to materialize an irreducible region as labels, this copy lets the
+    // semantics-preserving fallback rebuild the region from real CFG edges
+    // instead of attempting to repair already-lowered gotos.
+    let fallback_function = function.clone();
     let params = std::mem::take(&mut function.parameters);
     let is_variadic = function.is_variadic;
     let mut lifted = {
@@ -932,6 +939,16 @@ fn decompile_function(
     {
         ptime!(F_SIMPLIFY_GOTOS);
         simplify_gotos(&mut lifted);
+    }
+    if ast::simplify_gotos::block_has_goto_or_label(&lifted)
+        || ast::simplify_gotos::block_has_unlowered_control(&lifted)
+    {
+        let locals_to_ignore = upvalues_in.iter().chain(params.iter()).cloned().collect();
+        if let Some(fallback) =
+            restructure::lift_fallback_with_ignored_locals(fallback_function, &locals_to_ignore)
+        {
+            lifted = fallback;
+        }
     }
     {
         ptime!(F_FLATTEN_GUARDS);

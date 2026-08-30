@@ -12,8 +12,14 @@ use petgraph::{
 use tuple::Map;
 
 mod conditional;
+mod fallback;
 mod jump;
 mod r#loop;
+
+/// Build a semantics-preserving state-machine AST for a CFG that the readable
+/// pattern structurer cannot reduce without leaving source-level gotos.
+pub use fallback::lift as lift_fallback;
+pub use fallback::lift_with_ignored_locals as lift_fallback_with_ignored_locals;
 
 // TODO: REFACTOR: move
 pub fn post_dominators<N: Default, E: Default>(
