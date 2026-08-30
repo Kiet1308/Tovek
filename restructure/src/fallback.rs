@@ -434,6 +434,9 @@ fn remember_globals_in_rvalue(
     seen_closures: &mut FxHashSet<usize>,
     incomplete_closure: &mut bool,
 ) {
+    if let RValue::Local(local) = value {
+        remember_local_name(local, used_names);
+    }
     if let RValue::Global(global) = value {
         remember_global_name(global, used_names);
     }
@@ -443,6 +446,7 @@ fn remember_globals_in_rvalue(
     let mut value_copy = value.clone();
     value_copy.traverse_rvalues(&mut |nested| {
         match nested {
+            RValue::Local(local) => remember_local_name(local, used_names),
             RValue::Global(global) => remember_global_name(global, used_names),
             RValue::Closure(closure) => {
                 remember_closure_names(closure, used_names, seen_closures, incomplete_closure)
@@ -1013,6 +1017,34 @@ mod tests {
             lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
         assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
         assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_an_edge_local() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let target = function.new_block();
+        function.set_entry(entry);
+
+        let source = local("controlFlowState");
+        let sink = local("sink");
+        function
+            .block_mut(target)
+            .unwrap()
+            .push(ast::Return::new(vec![sink.clone().into()]).into());
+        function.graph_mut().add_edge(
+            entry,
+            target,
+            BlockEdge {
+                branch_type: cfg::block::BranchType::Unconditional,
+                arguments: vec![(sink, RValue::Local(source))],
+            },
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("sink = controlFlowState"));
     }
 
     #[test]
