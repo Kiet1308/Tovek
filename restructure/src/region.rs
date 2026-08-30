@@ -925,13 +925,7 @@ impl<'a> Builder<'a> {
         })
     }
 
-    fn has_unsafe_captured_result_write(
-        &self,
-        info: &LoopInfo,
-        adapters: &[NodeIndex],
-    ) -> bool {
-        let adapters = adapters.iter().copied().collect::<FxHashSet<_>>();
-        let direct_normal_exit = adapters.is_empty() && info.normal_exit == info.join;
+    fn has_unsafe_captured_result_write(&self, info: &LoopInfo) -> bool {
         info.res_locals.iter().any(|result| {
             let captured_in_loop = info.nodes.iter().any(|node| {
                 self.function.block(*node).is_some_and(|block| {
@@ -955,12 +949,10 @@ impl<'a> Builder<'a> {
                     }
                     let block_write = self.function.block(*node).is_some_and(|block| {
                         block.iter().any(|statement| {
-                            statement.values_written().into_iter().any(|written| {
-                                written == result
-                                    && !((adapters.contains(node)
-                                        || (direct_normal_exit && *node == info.normal_exit))
-                                        && Self::is_nil_assignment(statement, result))
-                            })
+                            statement
+                                .values_written()
+                                .into_iter()
+                                .any(|written| written == result)
                         })
                     });
                     let edge_write = self.function.edges(*node).any(|edge| {
@@ -1169,7 +1161,7 @@ impl<'a> Builder<'a> {
             || exports
                 .iter()
                 .any(|(local, _)| self.rewrite.contains_key(local))
-            || self.has_unsafe_captured_result_write(info, &adapters)
+            || self.has_unsafe_captured_result_write(info)
         {
             return None;
         }
@@ -2647,6 +2639,76 @@ mod tests {
         // The closure retains the loop result cell.  A post-loop edge write
         // to that SSA identity cannot be represented by a source-level loop
         // binding without changing which cell the closure observes.
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_captured_result_written_by_direct_exhaustion() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let callback = RcLocal::new(Local::new(Some("callback".into())));
+        let closure = Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    ast::Return::new(vec![RValue::Local(result.clone())]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Ref(result.clone())],
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result.clone()],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function.block_mut(body).unwrap().push(
+            Assign::new(vec![LValue::Local(callback.clone())], vec![RValue::Closure(closure)])
+                .into(),
+        );
+        function.block_mut(join).unwrap().extend([
+            Assign::new(
+                vec![LValue::Local(result)],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+            ast::Return::new(vec![RValue::Call(Call::new(
+                RValue::Local(callback),
+                Vec::new(),
+            ))])
+            .into(),
+        ]);
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+
+        // Even an explicit nil write on direct exhaustion targets the shared
+        // VM result cell. A source-level `for` binding would instead leave the
+        // closure observing its last loop-local value.
         assert!(lift(function).is_none());
     }
 
