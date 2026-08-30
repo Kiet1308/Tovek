@@ -925,6 +925,55 @@ impl<'a> Builder<'a> {
         })
     }
 
+    fn has_unsafe_captured_result_write(
+        &self,
+        info: &LoopInfo,
+        adapters: &[NodeIndex],
+    ) -> bool {
+        let adapters = adapters.iter().copied().collect::<FxHashSet<_>>();
+        let direct_normal_exit = adapters.is_empty() && info.normal_exit == info.join;
+        info.res_locals.iter().any(|result| {
+            let captured_in_loop = info.nodes.iter().any(|node| {
+                self.function.block(*node).is_some_and(|block| {
+                    block.iter().any(|statement| {
+                        let mut captures = FxHashSet::default();
+                        collect_statement_captures(statement, &mut captures);
+                        captures.contains(result)
+                    })
+                }) || self.function.edges(*node).any(|edge| {
+                    edge.weight().arguments.iter().any(|(_, value)| {
+                        let mut captures = FxHashSet::default();
+                        collect_rvalue_captures(value, &mut captures);
+                        captures.contains(result)
+                    })
+                })
+            });
+            captured_in_loop
+                && self.analysis.nodes.iter().any(|node| {
+                    if info.nodes.contains(node) {
+                        return false;
+                    }
+                    let block_write = self.function.block(*node).is_some_and(|block| {
+                        block.iter().any(|statement| {
+                            statement.values_written().into_iter().any(|written| {
+                                written == result
+                                    && !((adapters.contains(node)
+                                        || (direct_normal_exit && *node == info.normal_exit))
+                                        && Self::is_nil_assignment(statement, result))
+                            })
+                        })
+                    });
+                    let edge_write = self.function.edges(*node).any(|edge| {
+                        edge.weight()
+                            .arguments
+                            .iter()
+                            .any(|(destination, _)| destination == result)
+                    });
+                    block_write || edge_write
+                })
+        })
+    }
+
     fn append_export(&self, block: &mut Block, exports: &[(RcLocal, RcLocal)]) {
         if exports.is_empty() {
             return;
@@ -1120,6 +1169,7 @@ impl<'a> Builder<'a> {
             || exports
                 .iter()
                 .any(|(local, _)| self.rewrite.contains_key(local))
+            || self.has_unsafe_captured_result_write(info, &adapters)
         {
             return None;
         }
@@ -2522,6 +2572,81 @@ mod tests {
 
         // The edge is a post-loop read just like a statement read.  Without
         // an exhaustion-value proof the result cannot be exported safely.
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_captured_result_written_by_post_loop_edge() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        let tail = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let callback = RcLocal::new(Local::new(Some("callback".into())));
+        let closure = Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    ast::Return::new(vec![RValue::Local(result.clone())]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Ref(result.clone())],
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result.clone()],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function.block_mut(body).unwrap().push(
+            Assign::new(vec![LValue::Local(callback.clone())], vec![RValue::Closure(closure)])
+                .into(),
+        );
+        function.block_mut(tail).unwrap().push(
+            ast::Return::new(vec![RValue::Call(Call::new(
+                RValue::Local(callback),
+                Vec::new(),
+            ))])
+            .into(),
+        );
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(join, vec![
+            (
+                tail,
+                BlockEdge {
+                    branch_type: BranchType::Unconditional,
+                    arguments: vec![(result, Literal::Number(42.0).into())],
+                },
+            ),
+        ]);
+
+        // The closure retains the loop result cell.  A post-loop edge write
+        // to that SSA identity cannot be represented by a source-level loop
+        // binding without changing which cell the closure observes.
         assert!(lift(function).is_none());
     }
 
