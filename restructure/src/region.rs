@@ -817,17 +817,27 @@ impl<'a> Builder<'a> {
         // the VM does not guarantee that even the first result slot is cleared
         // when iteration exhausts.
         let direct_exit_nil_writes = nodes.is_empty().then(|| {
-            self.function
-                .block(info.normal_exit)
-                .into_iter()
-                .flat_map(|block| block.iter())
-                .flat_map(|statement| {
-                    info.res_locals
+            let mut writes = FxHashSet::default();
+            if let Some(block) = self.function.block(info.normal_exit) {
+                for statement in block.iter() {
+                    if is_ignorable(statement) {
+                        continue;
+                    }
+                    let Some(local) = info
+                        .res_locals
                         .iter()
-                        .filter(move |local| Self::is_nil_assignment(statement, local))
-                        .cloned()
-                })
-                .collect::<FxHashSet<_>>()
+                        .find(|local| Self::is_nil_assignment(statement, local))
+                    else {
+                        // A later nil store cannot prove what an earlier read,
+                        // call, or other observable statement saw.  Require a
+                        // contiguous exhaustion-write prefix before exposing
+                        // the rewritten export to the rest of the join.
+                        break;
+                    };
+                    writes.insert(local.clone());
+                }
+            }
+            writes
         });
         if exports.iter().any(|(local, _)| {
             let proven = if nodes.is_empty() {
@@ -3127,6 +3137,51 @@ mod tests {
         // FORGLOOP does not necessarily clear its first result on exhaustion;
         // exporting that live register as an outer source variable would
         // incorrectly force it to the pre-loop nil initialization.
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_direct_exhaustion_nil_written_after_result_read() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let sink = RcLocal::new(Local::new(Some("sink".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![result.clone()], generator.into(), state, control).into(),
+        );
+        // The result is observed before the later nil write.  On exhaustion,
+        // FORGLOOP may retain its last value, so that later write cannot prove
+        // that the earlier read saw nil.
+        function.block_mut(join).unwrap().extend([
+            Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(result.clone())]).into(),
+            Assign::new(vec![LValue::Local(result)], vec![RValue::Literal(Literal::Nil)]).into(),
+            Statement::Return(Default::default()).into(),
+        ]);
+
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (join, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+
         assert!(lift(function).is_none());
     }
 
