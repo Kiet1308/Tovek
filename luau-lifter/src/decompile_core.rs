@@ -3404,7 +3404,13 @@ mod tests {
         let out_root = std::fs::canonicalize(&out).unwrap();
         assert!(prepare_analysis_root(&out_root).is_err());
 
+        // Unix exposes directory symlinks as symlink files, so `remove_dir`
+        // returns ENOTDIR even though the link itself is valid.  Windows
+        // requires the directory-specific removal API for the same fixture.
+        #[cfg(windows)]
         std::fs::remove_dir(&link).unwrap();
+        #[cfg(unix)]
+        std::fs::remove_file(&link).unwrap();
         std::fs::create_dir_all(&link).unwrap();
         let scripts_link = link.join("scripts");
         #[cfg(windows)]
