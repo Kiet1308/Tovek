@@ -289,6 +289,29 @@ fn remember_names_in_block(
             }
             None
         });
+        match statement {
+            Statement::If(node) => {
+                remember_names_in_block(&node.then_block.lock(), used_names, seen_closures);
+                remember_names_in_block(&node.else_block.lock(), used_names, seen_closures);
+            }
+            Statement::While(node) => {
+                remember_names_in_block(&node.block.lock(), used_names, seen_closures)
+            }
+            Statement::Repeat(node) => {
+                remember_names_in_block(&node.block.lock(), used_names, seen_closures)
+            }
+            Statement::NumericFor(node) => {
+                remember_local_name(&node.counter, used_names);
+                remember_names_in_block(&node.block.lock(), used_names, seen_closures);
+            }
+            Statement::GenericFor(node) => {
+                for local in &node.res_locals {
+                    remember_local_name(local, used_names);
+                }
+                remember_names_in_block(&node.block.lock(), used_names, seen_closures);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -782,6 +805,40 @@ mod tests {
         let closure_function = Arc::new(Mutex::new(AstFunction {
             body: Block(vec![
                 ast::Return::new(vec![Global::from("controlFlowState").into()]).into(),
+            ]),
+            ..AstFunction::default()
+        }));
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(closure_function),
+            upvalues: Vec::new(),
+        };
+        function.block_mut(entry).unwrap().push(
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(closure)]).into(),
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_a_nested_closure_global() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let closure_function = Arc::new(Mutex::new(AstFunction {
+            body: Block(vec![
+                If::new(
+                    Global::from("ready").into(),
+                    Block(vec![
+                        ast::Return::new(vec![Global::from("controlFlowState").into()]).into(),
+                    ]),
+                    Block::default(),
+                )
+                .into(),
             ]),
             ..AstFunction::default()
         }));
