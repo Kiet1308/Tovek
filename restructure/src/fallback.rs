@@ -252,7 +252,7 @@ fn fresh_synthetic_local_name(function: &Function, base: &str) -> String {
         for edge in function.edges(node) {
             for (destination, value) in &edge.weight().arguments {
                 remember_local_name(destination, &mut used_names);
-                remember_globals_in_rvalue(value, &mut used_names);
+                remember_globals_in_rvalue(value, &mut used_names, &mut seen_closures);
             }
         }
     }
@@ -346,14 +346,25 @@ fn remember_global_name(global: &Global, used_names: &mut FxHashSet<String>) {
     }
 }
 
-fn remember_globals_in_rvalue(value: &RValue, used_names: &mut FxHashSet<String>) {
+fn remember_globals_in_rvalue(
+    value: &RValue,
+    used_names: &mut FxHashSet<String>,
+    seen_closures: &mut FxHashSet<usize>,
+) {
     if let RValue::Global(global) = value {
         remember_global_name(global, used_names);
     }
+    if let RValue::Closure(closure) = value {
+        remember_closure_names(closure, used_names, seen_closures);
+    }
     let mut value_copy = value.clone();
     value_copy.traverse_rvalues(&mut |nested| {
-        if let RValue::Global(global) = nested {
-            remember_global_name(global, used_names);
+        match nested {
+            RValue::Global(global) => remember_global_name(global, used_names),
+            RValue::Closure(closure) => {
+                remember_closure_names(closure, used_names, seen_closures)
+            }
+            _ => {}
         }
     });
 }
@@ -849,6 +860,43 @@ mod tests {
         };
         function.block_mut(entry).unwrap().push(
             Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(closure)]).into(),
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_an_edge_closure_global() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let target = function.new_block();
+        function.set_entry(entry);
+
+        let closure_function = Arc::new(Mutex::new(AstFunction {
+            body: Block(vec![
+                ast::Return::new(vec![Global::from("controlFlowState").into()]).into(),
+            ]),
+            ..AstFunction::default()
+        }));
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(closure_function),
+            upvalues: Vec::new(),
+        };
+        function
+            .block_mut(target)
+            .unwrap()
+            .push(ast::Return::default().into());
+        function.graph_mut().add_edge(
+            entry,
+            target,
+            BlockEdge {
+                branch_type: cfg::block::BranchType::Unconditional,
+                arguments: vec![(callback, RValue::Closure(closure))],
+            },
         );
 
         let fallback =
