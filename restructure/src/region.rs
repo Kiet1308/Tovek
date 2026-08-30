@@ -438,6 +438,88 @@ impl<'a> Builder<'a> {
         value
     }
 
+    fn captured_locals(&self) -> FxHashSet<RcLocal> {
+        let mut captured = FxHashSet::default();
+        for node in &self.analysis.nodes {
+            let Some(block) = self.function.block(*node) else {
+                continue;
+            };
+            for statement in block.iter() {
+                let mut statement = statement.clone();
+                statement.traverse_rvalues(&mut |value| {
+                    if let RValue::Closure(closure) = value {
+                        captured.extend(closure.upvalues.iter().map(|upvalue| match upvalue {
+                            ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => local.clone(),
+                        }));
+                    }
+                });
+            }
+        }
+        captured
+    }
+
+    /// Reconcile rewrite maps after two conditional arms.  A nested loop may
+    /// introduce an export only on one arm; that mapping is branch-local unless
+    /// the continuation actually reads the exported SSA local.  The previous
+    /// implementation rejected every such difference, which sent otherwise
+    /// structured optimizer diamonds (including Pet's refresh path) to the
+    /// synthetic dispatcher.  Keep common mappings, retain the incoming map
+    /// for branch-local differences, and fail closed when a differing mapping
+    /// is live at an unvisited continuation node.
+    fn reconcile_rewrite(
+        &self,
+        base: &FxHashMap<RcLocal, RcLocal>,
+        then_map: &FxHashMap<RcLocal, RcLocal>,
+        else_map: &FxHashMap<RcLocal, RcLocal>,
+    ) -> Option<FxHashMap<RcLocal, RcLocal>> {
+        let mut keys = base.keys().cloned().collect::<FxHashSet<_>>();
+        keys.extend(then_map.keys().cloned());
+        keys.extend(else_map.keys().cloned());
+        let mut merged = base.clone();
+        for key in keys {
+            let then_value = then_map.get(&key);
+            let else_value = else_map.get(&key);
+            if then_value == else_value {
+                match then_value {
+                    Some(value) => {
+                        merged.insert(key, value.clone());
+                    }
+                    None => {
+                        merged.remove(&key);
+                    }
+                }
+                continue;
+            }
+            let used_after = self.analysis.nodes.iter().any(|node| {
+                !self.visited.contains(node)
+                    && self.function.block(*node).is_some_and(|block| {
+                        block
+                            .iter()
+                            .any(|statement| {
+                                statement
+                                    .values_read()
+                                    .into_iter()
+                                    .any(|read| read == &key)
+                            })
+                    })
+            });
+            if used_after {
+                return None;
+            }
+            // No continuation observes this branch-local export.  Restore the
+            // incoming mapping (if any), never leaking a child-only rewrite.
+            match base.get(&key) {
+                Some(value) => {
+                    merged.insert(key, value.clone());
+                }
+                None => {
+                    merged.remove(&key);
+                }
+            }
+        }
+        Some(merged)
+    }
+
     fn exports_for(&self, info: &LoopInfo) -> Vec<(RcLocal, RcLocal)> {
         info.res_locals
             .iter()
@@ -591,11 +673,22 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
-        if init_block
+        // Optimized Luau may leave a small, pure setup suffix in the same
+        // FORGPREP block after the marker (for example `local seen = {}`).
+        // The source `for` evaluates its iterator expression before this
+        // suffix in the bytecode, so moving the suffix before the emitted
+        // `for` is only legal when it is total/pure and independent of the
+        // iterator RHS. Calls, metamethod-sensitive expressions, dynamic
+        // table keys, and data dependencies remain fail-closed.
+        let init_suffix = init_block
             .iter()
             .skip(init_index + 1)
-            .any(|statement| !is_ignorable(statement))
-        {
+            .filter(|statement| !is_ignorable(statement))
+            .cloned()
+            .collect_vec();
+        if init_suffix.iter().any(|statement| {
+            !is_linear_statement(statement) || ast::statement_is_observable(statement)
+        }) {
             return None;
         }
         if init_block
@@ -612,6 +705,54 @@ impl<'a> Builder<'a> {
             .map(|statement| self.rewrite_statement(statement))
             .collect_vec()
             .into();
+        let right_reads = info
+            .right
+            .iter()
+            .flat_map(|value| value.values_read())
+            .cloned()
+            .collect::<FxHashSet<_>>();
+        // A total/pure suffix expression can still read a local whose value is
+        // changed indirectly by an observable iterator RHS (for example, a
+        // call through a closure).  The IR has no effect summary precise
+        // enough to prove that such a read is stable, so keep the commute
+        // fail-closed unless the suffix is read-free.
+        if init_suffix
+            .iter()
+            .any(|statement| !statement.values_read().is_empty())
+        {
+            return None;
+        }
+        if init_suffix.iter().any(|statement| {
+            statement
+                .values_written()
+                .into_iter()
+                .any(|written| {
+                    right_reads.contains(written) || self.protected_locals.contains(written)
+                })
+        }) {
+            return None;
+        }
+        let captured_locals = self.captured_locals();
+        if init_suffix.iter().any(|statement| {
+            statement
+                .values_written()
+                .into_iter()
+                .any(|written| captured_locals.contains(written))
+        }) {
+            // A closure reachable from this function may be invoked while the
+            // iterator RHS is evaluated, even when the RHS only reads a local
+            // function value.  Moving a suffix write before that call would
+            // change the captured cell observed by the closure.  Without a
+            // value-flow summary for callable locals, reject all writes to
+            // captured cells rather than guessing which closure is invoked.
+            return None;
+        }
+        output.extend(
+            init_suffix
+                .iter()
+                .cloned()
+                .map(|statement| self.rewrite_statement(statement)),
+        );
         let exports = self.exports_for(info);
         let adapters = self.normal_adapter_nodes(info, &exports)?;
         if self.has_unsafe_export_write(info, &exports, &adapters)
@@ -664,6 +805,18 @@ impl<'a> Builder<'a> {
             init_locals[1].clone(),
             init_locals[2].clone(),
         ];
+        if init_suffix.iter().any(|statement| {
+            statement
+                .values_read()
+                .into_iter()
+                .chain(statement.values_written())
+                .any(|local| {
+                    protocol_locals.iter().any(|protocol| protocol == local)
+                        || info.res_locals.iter().any(|result| result == local)
+                })
+        }) {
+            return None;
+        }
         // Export rewrites are intentionally persistent after a loop so later
         // straight-line code observes the live-out binding.  A subsequent
         // loop must nevertheless never reuse one of those SSA identities:
@@ -1113,10 +1266,7 @@ impl<'a> Builder<'a> {
                 self.rewrite = base_rewrite.clone();
                 let else_result = self.build_path(else_target, Some(join), Some(ctx))?;
                 let else_rewrite = self.rewrite.clone();
-                if then_rewrite != else_rewrite {
-                    return None;
-                }
-                self.rewrite = then_rewrite;
+                self.rewrite = self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite)?;
                 if then_result.next != Some(join) || else_result.next != Some(join) {
                     return None;
                 }
@@ -1139,10 +1289,7 @@ impl<'a> Builder<'a> {
             self.rewrite = base_rewrite.clone();
             let else_result = self.build_transfer_arm(else_target, ctx)?;
             let else_rewrite = self.rewrite.clone();
-            if then_rewrite != else_rewrite {
-                return None;
-            }
-            self.rewrite = then_rewrite;
+            self.rewrite = self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite)?;
             let mut condition = statement.condition;
             for local in condition.values_read_mut() {
                 if let Some(replacement) = self.rewrite.get(local) {
@@ -1167,10 +1314,7 @@ impl<'a> Builder<'a> {
             self.rewrite = base_rewrite.clone();
             let else_result = self.build_path(else_target, join, None)?;
             let else_rewrite = self.rewrite.clone();
-            if then_rewrite != else_rewrite {
-                return None;
-            }
-            self.rewrite = then_rewrite;
+            self.rewrite = self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite)?;
             if then_result.next != join || else_result.next != join {
                 return None;
             }
@@ -1305,13 +1449,16 @@ pub fn lift_with_ignored_locals(
 mod tests {
     use super::{Analysis, lift};
     use ast::{
-        Assign, Block, GenericForInit, GenericForNext, Global, If, LValue, Literal, Local, RValue,
-        RcLocal, Statement,
+        Assign, Block, Call, Closure, GenericForInit, GenericForNext, Global, If, LValue, Literal,
+        Local, RValue, RcLocal, Statement, Table, Upvalue,
     };
+    use by_address::ByAddress;
     use cfg::{
         block::{BlockEdge, BranchType},
         function::Function,
     };
+    use parking_lot::Mutex;
+    use triomphe::Arc;
 
     #[test]
     fn refuses_edge_arguments_instead_of_guessing() {
@@ -1535,6 +1682,129 @@ mod tests {
         assert!(!output.contains("GenericFor"), "{output}");
         assert!(!output.contains("goto "), "{output}");
     }
+
+    #[test]
+    fn moves_total_for_init_suffix_before_emitted_loop() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let setup = RcLocal::new(Local::new(Some("setup".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        // Optimized bytecode can put a side-effect-free local setup after the
+        // FORGPREP marker.  It is safe to commute before the source `for`.
+        function.block_mut(init).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(setup)],
+                vec![RValue::Table(Table::default())],
+            )
+            .into(),
+        );
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![value], generator.into(), state, control).into(),
+        );
+        function
+            .block_mut(body)
+            .unwrap()
+            .push(Statement::Comment(ast::Comment::new("body".into())).into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(
+            init,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+        function.set_edges(
+            header,
+            vec![
+                (exit, BlockEdge::new(BranchType::Else)),
+                (body, BlockEdge::new(BranchType::Then)),
+            ],
+        );
+        function.set_edges(
+            body,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+
+        let output = lift(function)
+            .expect("a total FORGPREP suffix should remain source-shaped")
+            .to_string();
+        let setup_pos = output.find("setup =").expect(&output);
+        let loop_pos = output.find("for value in items do").expect(&output);
+        assert!(setup_pos < loop_pos, "{output}");
+        assert!(!output.contains("GenericFor"), "{output}");
+    }
+
+    #[test]
+    fn refuses_for_init_suffix_write_to_captured_local() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let captured = RcLocal::new(Local::new(Some("captured".into())));
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let closure = Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function::default()))),
+            upvalues: vec![Upvalue::Ref(captured.clone())],
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        // The iterator call can observe `captured` through the closure.  The
+        // suffix write must therefore stay after this call, not move before
+        // the emitted source-level `for`.
+        for_init.0.right = vec![RValue::Call(Call::new(
+            RValue::Closure(closure),
+            Vec::new(),
+        ))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(init).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(captured)],
+                vec![RValue::Table(Table::default())],
+            )
+            .into(),
+        );
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![value], generator.into(), state, control).into(),
+        );
+        function.set_edges(
+            init,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+        function.set_edges(
+            header,
+            vec![
+                (exit, BlockEdge::new(BranchType::Else)),
+                (body, BlockEdge::new(BranchType::Then)),
+            ],
+        );
+        function.set_edges(
+            body,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+
+        assert!(lift(function).is_none());
+    }
+
 
     #[test]
     fn refuses_generic_for_result_aliasing_parameter() {
