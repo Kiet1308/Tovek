@@ -429,6 +429,29 @@ fn remember_globals_in_rvalue(
     });
 }
 
+fn remember_ref_captures_in_rvalue(value: &RValue, captured_ref: &mut FxHashSet<RcLocal>) {
+    // `traverse_rvalues` visits nested expressions but deliberately does not
+    // call the visitor for the root value, so inspect the root explicitly.
+    if let RValue::Closure(closure) = value {
+        for upvalue in &closure.upvalues {
+            if let Upvalue::Ref(local) = upvalue {
+                captured_ref.insert(local.clone());
+            }
+        }
+    }
+    let mut remember = |value: &mut RValue| {
+        if let RValue::Closure(closure) = value {
+            for upvalue in &closure.upvalues {
+                if let Upvalue::Ref(local) = upvalue {
+                    captured_ref.insert(local.clone());
+                }
+            }
+        }
+    };
+    let mut value_copy = value.clone();
+    value_copy.traverse_rvalues(&mut remember);
+}
+
 fn contains_ref_capture(
     function: &Function,
     nodes: &[NodeIndex],
@@ -559,6 +582,10 @@ fn analyze_state(statements: &[Statement], edges: &[(NodeIndex, BlockEdge)]) -> 
     // entry, and over-hoisting is safer than allowing a reset local to leak.
     for (_, edge) in edges {
         for (_, value) in &edge.arguments {
+            // Closures can be materialized as edge arguments, not only in a
+            // source statement.  Their reference captures still need the
+            // same dispatcher-cell lifetime proof as statement closures.
+            remember_ref_captures_in_rvalue(value, &mut facts.captured_ref);
             for local in value.values_read() {
                 if !facts.defs.contains(local) {
                     facts.use_before_def.insert(local.clone());
@@ -1328,6 +1355,52 @@ mod tests {
         assert!(
             lift(function).is_none(),
             "cross-state writes after a Ref capture are ambiguous without Close metadata"
+        );
+    }
+
+    #[test]
+    fn refuses_ref_capture_carried_by_edge_argument() {
+        // A closure may be created by an SSA edge transfer rather than by a
+        // statement in the source block. The transferred closure still
+        // captures the local cell, and the next dispatcher state writes that
+        // local. Missing the edge expression in capture analysis would emit
+        // a fallback that recreates the cell on each iteration.
+        let mut function = Function::new(0);
+        let capture = function.new_block();
+        let write = function.new_block();
+        function.set_entry(capture);
+
+        let captured = local("captured");
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
+            upvalues: vec![Upvalue::Ref(captured.clone())],
+        };
+        function.block_mut(write).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(captured.clone())],
+                vec![Literal::Number(1.0).into()],
+            )
+            .into(),
+        );
+        function.graph_mut().add_edge(
+            capture,
+            write,
+            BlockEdge {
+                branch_type: cfg::block::BranchType::Unconditional,
+                arguments: vec![(callback, RValue::Closure(closure))],
+            },
+        );
+        edge(
+            &mut function,
+            write,
+            capture,
+            cfg::block::BranchType::Unconditional,
+        );
+
+        assert!(
+            lift(function).is_none(),
+            "fallback must inspect reference captures in edge arguments"
         );
     }
 }
