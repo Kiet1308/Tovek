@@ -208,6 +208,68 @@ fn rvalue_captures_any(value: &RValue, locals: &[RcLocal]) -> bool {
         .any(|captured| locals.iter().any(|local| local == captured))
 }
 
+fn closure_contains_close(closure: &ast::Closure, seen_closures: &mut FxHashSet<usize>) -> bool {
+    let identity = closure.function.0.as_ptr() as usize;
+    if !seen_closures.insert(identity) {
+        return false;
+    }
+    let body = closure.function.lock().body.clone();
+    block_contains_close_with_seen(&body, seen_closures)
+}
+
+fn block_contains_close(block: &Block) -> bool {
+    block_contains_close_with_seen(block, &mut FxHashSet::default())
+}
+
+fn block_contains_close_with_seen(
+    block: &Block,
+    seen_closures: &mut FxHashSet<usize>,
+) -> bool {
+    block
+        .iter()
+        .any(|statement| statement_contains_close_with_seen(statement, seen_closures))
+}
+
+fn statement_contains_close_with_seen(
+    statement: &Statement,
+    seen_closures: &mut FxHashSet<usize>,
+) -> bool {
+    if matches!(statement, Statement::Close(_)) {
+        return true;
+    }
+    let mut statement_copy = statement.clone();
+    let mut nested_close = false;
+    statement_copy.traverse_rvalues(&mut |value| {
+        if !nested_close {
+            if let RValue::Closure(closure) = value {
+                nested_close = closure_contains_close(closure, seen_closures);
+            }
+        }
+    });
+    if nested_close {
+        return true;
+    }
+    match statement {
+        Statement::If(node) => {
+            block_contains_close_with_seen(&node.then_block.lock(), seen_closures)
+                || block_contains_close_with_seen(&node.else_block.lock(), seen_closures)
+        }
+        Statement::While(node) => {
+            block_contains_close_with_seen(&node.block.lock(), seen_closures)
+        }
+        Statement::Repeat(node) => {
+            block_contains_close_with_seen(&node.block.lock(), seen_closures)
+        }
+        Statement::NumericFor(node) => {
+            block_contains_close_with_seen(&node.block.lock(), seen_closures)
+        }
+        Statement::GenericFor(node) => {
+            block_contains_close_with_seen(&node.block.lock(), seen_closures)
+        }
+        _ => false,
+    }
+}
+
 impl Analysis {
     fn new(function: &Function) -> Option<Self> {
         let entry = function.entry().as_ref().copied()?;
@@ -751,11 +813,7 @@ impl<'a> Builder<'a> {
         });
         let unsafe_reason = suffix_unsafe_reason.or_else(|| {
             analysis.nodes.iter().any(|node| {
-                function.block(*node).is_some_and(|block| {
-                    block
-                        .iter()
-                        .any(|statement| matches!(statement, Statement::Close(_)))
-                })
+                function.block(*node).is_some_and(block_contains_close)
             })
             .then_some(UnsafeStructureReason::UnmodeledClose)
         });
@@ -3675,6 +3733,73 @@ mod tests {
             .block_mut(body)
             .unwrap()
             .push(Close { locals: vec![value] }.into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exit, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::UnmodeledClose)
+        ));
+    }
+
+    #[test]
+    fn classifies_close_in_closure_body_as_unmodeled() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let callback = RcLocal::new(Local::new(Some("callback".into())));
+        let closure = Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    Close {
+                        locals: vec![result.clone()],
+                    }
+                    .into(),
+                    ast::Return::new(vec![RValue::Local(result.clone())]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Ref(result.clone())],
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result.clone()],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function.block_mut(body).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(callback)],
+                vec![RValue::Closure(closure)],
+            )
+            .into(),
+        );
         function
             .block_mut(exit)
             .unwrap()
