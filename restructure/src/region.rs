@@ -33,6 +33,7 @@ pub enum UnsafeStructureReason {
     ForOriginDuplicate,
     ForProtocolEdgeTransfer,
     ForInitEdgeTransferOrder,
+    UnmodeledClose,
 }
 
 impl fmt::Display for UnsafeStructureReason {
@@ -50,6 +51,7 @@ impl fmt::Display for UnsafeStructureReason {
             Self::ForInitEdgeTransferOrder => {
                 "generic-for init edge transfer cannot preserve iterator evaluation order"
             }
+            Self::UnmodeledClose => "explicit close event has no source-level representation",
         };
         f.write_str(name)
     }
@@ -722,7 +724,7 @@ impl<'a> Builder<'a> {
         analysis: Analysis,
         protected_locals: FxHashSet<RcLocal>,
     ) -> Self {
-        let unsafe_reason = analysis.loops_by_init.values().find_map(|info| {
+        let suffix_unsafe_reason = analysis.loops_by_init.values().find_map(|info| {
             let block = function.block(info.init)?;
             let marker = block
                 .iter()
@@ -746,6 +748,16 @@ impl<'a> Builder<'a> {
                 return Some(UnsafeStructureReason::CapturedCellReorder);
             }
             None
+        });
+        let unsafe_reason = suffix_unsafe_reason.or_else(|| {
+            analysis.nodes.iter().any(|node| {
+                function.block(*node).is_some_and(|block| {
+                    block
+                        .iter()
+                        .any(|statement| matches!(statement, Statement::Close(_)))
+                })
+            })
+            .then_some(UnsafeStructureReason::UnmodeledClose)
         });
         Self {
             function,
@@ -2198,6 +2210,9 @@ pub fn lift_attempt_with_ignored_locals(
             .map(StructureAttempt::Unsafe)
             .unwrap_or(StructureAttempt::Unsupported);
     };
+    if let Some(reason) = builder.unsafe_reason {
+        return StructureAttempt::Unsafe(reason);
+    }
     if result.next.is_some() || builder.visited != builder.analysis.reachable {
         return builder
             .unsafe_reason
@@ -3634,6 +3649,51 @@ mod tests {
             StructureAttempt::Unsafe(UnsafeStructureReason::ForInitSuffixOrder)
         ));
         assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn classifies_close_in_for_body_as_unmodeled() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function
+            .block_mut(header)
+            .unwrap()
+            .push(GenericForNext::new(vec![value.clone()], generator.into(), state, control).into());
+        function
+            .block_mut(body)
+            .unwrap()
+            .push(Close { locals: vec![value] }.into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exit, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::UnmodeledClose)
+        ));
     }
 
     #[test]
