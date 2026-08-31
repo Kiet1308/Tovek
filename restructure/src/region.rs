@@ -221,6 +221,32 @@ fn block_contains_close(block: &Block) -> bool {
     block_contains_close_with_seen(block, &mut FxHashSet::default())
 }
 
+fn rvalue_contains_close(value: &RValue) -> bool {
+    let mut seen_closures = FxHashSet::default();
+    rvalue_contains_close_with_seen(value, &mut seen_closures)
+}
+
+fn rvalue_contains_close_with_seen(
+    value: &RValue,
+    seen_closures: &mut FxHashSet<usize>,
+) -> bool {
+    if let RValue::Closure(closure) = value {
+        if closure_contains_close(closure, seen_closures) {
+            return true;
+        }
+    }
+    let mut value_copy = value.clone();
+    let mut nested_close = false;
+    value_copy.traverse_rvalues(&mut |nested| {
+        if !nested_close {
+            if let RValue::Closure(closure) = nested {
+                nested_close = closure_contains_close(closure, seen_closures);
+            }
+        }
+    });
+    nested_close
+}
+
 fn block_contains_close_with_seen(
     block: &Block,
     seen_closures: &mut FxHashSet<usize>,
@@ -814,6 +840,11 @@ impl<'a> Builder<'a> {
         let unsafe_reason = suffix_unsafe_reason.or_else(|| {
             analysis.nodes.iter().any(|node| {
                 function.block(*node).is_some_and(block_contains_close)
+                    || function.edges(*node).any(|edge| {
+                        edge.weight().arguments.iter().any(|(_, value)| {
+                            rvalue_contains_close(value)
+                        })
+                    })
             })
             .then_some(UnsafeStructureReason::UnmodeledClose)
         });
@@ -3813,6 +3844,81 @@ mod tests {
         ]);
         function.set_edges(body, vec![
             (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::UnmodeledClose)
+        ));
+    }
+
+    #[test]
+    fn classifies_close_in_edge_closure_as_unmodeled() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exhausted = function.new_block();
+        let tail = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let callback = RcLocal::new(Local::new(Some("callback".into())));
+        let child_local = RcLocal::new(Local::new(Some("child_local".into())));
+        let closure = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    Close {
+                        locals: vec![child_local],
+                    }
+                    .into(),
+                    ast::Return::new(Vec::new()).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: Vec::new(),
+        });
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function
+            .block_mut(exhausted)
+            .unwrap()
+            .push(Assign::new(vec![LValue::Local(callback.clone())], vec![RValue::Literal(Literal::Nil)]).into());
+        function
+            .block_mut(tail)
+            .unwrap()
+            .push(ast::Return::new(vec![RValue::Local(callback.clone())]).into());
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exhausted, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(exhausted, vec![
+            (
+                tail,
+                BlockEdge {
+                    branch_type: BranchType::Unconditional,
+                    arguments: vec![(callback, closure)],
+                },
+            ),
         ]);
 
         assert!(matches!(
