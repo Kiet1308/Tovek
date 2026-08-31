@@ -2366,7 +2366,7 @@ fn source_proves_for_prep_kind(
             !ipairs_aux
                 && match init.0.right.as_slice() {
                     [value] => call_is_named(value, "pairs"),
-                    [RValue::Global(global), _state, ..] => global_is_named(global, "next"),
+                    [RValue::Global(global), _state] => global_is_named(global, "next"),
                     _ => false,
                 }
         }
@@ -2861,8 +2861,9 @@ mod tests {
         };
         let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
         for_init.0.right = vec![
-            RValue::Global(Global::from("type")),
+            RValue::Global(Global::from("next")),
             RValue::Global(Global::from("items")),
+            RValue::Global(Global::from("extra")),
         ];
         for_init.1 = Some(origin);
         function.block_mut(init).unwrap().push(for_init.into());
