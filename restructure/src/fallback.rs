@@ -205,6 +205,8 @@ pub fn lift_certified_with_ignored_locals(
         &function,
         &nodes,
         &state_facts,
+        &state_successors,
+        &states,
         &persistent_locals,
         locals_to_ignore,
     ) {
@@ -484,6 +486,8 @@ fn contains_ref_capture(
     function: &Function,
     nodes: &[NodeIndex],
     facts: &[StateFacts],
+    successors: &[Vec<NodeIndex>],
+    states: &FxHashMap<NodeIndex, usize>,
     persistent_locals: &[RcLocal],
     locals_to_ignore: &FxHashSet<RcLocal>,
 ) -> bool {
@@ -521,6 +525,7 @@ fn contains_ref_capture(
             // Such a shape is still ambiguous after CLOSEUPVALS was discarded,
             // so fail closed regardless of whether liveness selected it.
             if persistent.contains(local)
+                || state_is_cyclic(capture_state, successors, states)
                 || edge_values
                     .get(capture_state)
                     .is_some_and(|values| values.contains(local))
@@ -537,6 +542,41 @@ fn contains_ref_capture(
                 return true;
             }
         }
+    }
+    false
+}
+
+/// Return whether re-entering a dispatcher state is possible through one of
+/// its outgoing CFG paths.  A reference capture in such a state would create
+/// a fresh Lua cell on every dispatcher iteration; without preserved
+/// `CLOSEUPVALS` scope metadata the fallback cannot prove that this is the
+/// intended lifetime, so the caller must reject it.
+fn state_is_cyclic(
+    state: usize,
+    successors: &[Vec<NodeIndex>],
+    states: &FxHashMap<NodeIndex, usize>,
+) -> bool {
+    let mut pending = successors
+        .get(state)
+        .into_iter()
+        .flatten()
+        .filter_map(|node| states.get(node).copied())
+        .collect::<Vec<_>>();
+    let mut seen = FxHashSet::default();
+    while let Some(candidate) = pending.pop() {
+        if candidate == state {
+            return true;
+        }
+        if !seen.insert(candidate) {
+            continue;
+        }
+        pending.extend(
+            successors
+                .get(candidate)
+                .into_iter()
+                .flatten()
+                .filter_map(|node| states.get(node).copied()),
+        );
     }
     false
 }
@@ -784,7 +824,8 @@ fn transition(
 mod tests {
     use super::*;
     use ast::{
-        Closure, Function as AstFunction, GenericForInit, GenericForNext, NumForNext, Upvalue,
+        Call, Closure, Function as AstFunction, GenericForInit, GenericForNext, If,
+        NumForNext, Upvalue,
     };
     use cfg::block::BlockEdge;
     use parking_lot::Mutex;
@@ -1475,6 +1516,72 @@ mod tests {
         assert!(
             lift(function).is_none(),
             "cross-state writes after a Ref capture are ambiguous without Close metadata"
+        );
+    }
+
+    #[test]
+    fn refuses_ref_capture_in_reentered_state() {
+        // The local is assigned and captured in the same state, so ordinary
+        // use-before-def liveness sees no value crossing a state boundary.
+        // A self-loop nevertheless re-enters that state on every dispatcher
+        // iteration, recreating the captured cell and changing closure
+        // behaviour.  Without preserved CLOSEUPVALS scope metadata this shape
+        // must fail closed.
+        let mut function = Function::new(0);
+        let state = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(state);
+
+        let captured = local("captured");
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction {
+                body: Block::from(vec![
+                    ast::Return::new(vec![captured.clone().into()]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Ref(captured.clone())],
+        };
+        function.block_mut(state).unwrap().extend([
+            Assign::new(
+                vec![LValue::Local(captured.clone())],
+                vec![RValue::Call(Call::new(Global::from("nextValue").into(), vec![]))],
+            )
+            .into(),
+            Assign::new(
+                vec![LValue::Local(callback.clone())],
+                vec![RValue::Closure(closure)],
+            )
+            .into(),
+            Statement::Call(Call::new(Global::from("save").into(), vec![callback.into()])).into(),
+            If::new(
+                RValue::Call(Call::new(Global::from("again").into(), vec![])),
+                Block::default(),
+                Block::default(),
+            )
+            .into(),
+        ]);
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+        edge(
+            &mut function,
+            state,
+            state,
+            cfg::block::BranchType::Then,
+        );
+        edge(
+            &mut function,
+            state,
+            exit,
+            cfg::block::BranchType::Else,
+        );
+
+        assert!(
+            lift(function).is_none(),
+            "fallback must reject Ref captures in states that can be re-entered"
         );
     }
 
