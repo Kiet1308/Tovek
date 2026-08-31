@@ -2144,7 +2144,7 @@ impl<'a> Builder<'a> {
             let else_result = self.build_transfer_arm(else_target, ctx)?;
             let else_rewrite = self.rewrite.clone();
             let continuation = (then_result.next == Some(ctx.info.header)
-                && else_result.next == Some(ctx.info.header))
+                || else_result.next == Some(ctx.info.header))
             .then_some(ctx.info.header);
             self.rewrite =
                 self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite, continuation)?;
