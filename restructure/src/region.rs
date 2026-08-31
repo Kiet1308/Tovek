@@ -26,6 +26,7 @@ use std::{collections::VecDeque, fmt};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UnsafeStructureReason {
     CapturedCellReorder,
+    CapturedLoopResultRef,
     LiveBranchRewrite,
     ForInitSuffixOrder,
     ForOriginMissing,
@@ -42,6 +43,9 @@ impl fmt::Display for UnsafeStructureReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
             Self::CapturedCellReorder => "captured-cell reorder across iterator preparation",
+            Self::CapturedLoopResultRef => {
+                "loop result is captured by reference without a proven iteration cell"
+            }
             Self::LiveBranchRewrite => "live branch rewrite across a conditional join",
             Self::ForInitSuffixOrder => "observable FORGPREP suffix reorder",
             Self::ForOriginMissing => "generic-for provenance is missing",
@@ -210,6 +214,94 @@ fn rvalue_captures_any(value: &RValue, locals: &[RcLocal]) -> bool {
     let mut captures = FxHashSet::default();
     collect_rvalue_captures(value, &mut captures);
     captures
+        .iter()
+        .any(|captured| locals.iter().any(|local| local == captured))
+}
+
+fn collect_closure_ref_captures(
+    closure: &ast::Closure,
+    captured: &mut FxHashSet<RcLocal>,
+    seen_closures: &mut FxHashSet<usize>,
+) {
+    let identity = closure.function.0.as_ptr() as usize;
+    if !seen_closures.insert(identity) {
+        return;
+    }
+    captured.extend(closure.upvalues.iter().filter_map(|upvalue| match upvalue {
+        ast::Upvalue::Ref(local) => Some(local.clone()),
+        ast::Upvalue::Copy(_) => None,
+    }));
+    let body = closure.function.lock().body.clone();
+    collect_block_ref_captures_with_seen(&body, captured, seen_closures);
+}
+
+fn collect_block_ref_captures_with_seen(
+    block: &Block,
+    captured: &mut FxHashSet<RcLocal>,
+    seen_closures: &mut FxHashSet<usize>,
+) {
+    for statement in block.iter() {
+        collect_statement_ref_captures_with_seen(statement, captured, seen_closures);
+    }
+}
+
+fn collect_statement_ref_captures_with_seen(
+    statement: &Statement,
+    captured: &mut FxHashSet<RcLocal>,
+    seen_closures: &mut FxHashSet<usize>,
+) {
+    let mut statement_copy = statement.clone();
+    statement_copy.traverse_rvalues(&mut |value| {
+        if let RValue::Closure(closure) = value {
+            collect_closure_ref_captures(closure, captured, seen_closures);
+        }
+    });
+    match statement {
+        Statement::If(node) => {
+            collect_block_ref_captures_with_seen(&node.then_block.lock(), captured, seen_closures);
+            collect_block_ref_captures_with_seen(&node.else_block.lock(), captured, seen_closures);
+        }
+        Statement::While(node) => {
+            collect_block_ref_captures_with_seen(&node.block.lock(), captured, seen_closures);
+        }
+        Statement::Repeat(node) => {
+            collect_block_ref_captures_with_seen(&node.block.lock(), captured, seen_closures);
+        }
+        Statement::NumericFor(node) => {
+            collect_block_ref_captures_with_seen(&node.block.lock(), captured, seen_closures);
+        }
+        Statement::GenericFor(node) => {
+            collect_block_ref_captures_with_seen(&node.block.lock(), captured, seen_closures);
+        }
+        _ => {}
+    }
+}
+
+fn collect_rvalue_ref_captures(value: &RValue, captured: &mut FxHashSet<RcLocal>) {
+    let mut seen_closures = FxHashSet::default();
+    if let RValue::Closure(closure) = value {
+        collect_closure_ref_captures(closure, captured, &mut seen_closures);
+    }
+    let mut value_copy = value.clone();
+    value_copy.traverse_rvalues(&mut |nested| {
+        if let RValue::Closure(closure) = nested {
+            collect_closure_ref_captures(closure, captured, &mut seen_closures);
+        }
+    });
+}
+
+fn statement_has_ref_capture_of(statement: &Statement, locals: &[RcLocal]) -> bool {
+    let mut captured = FxHashSet::default();
+    collect_statement_ref_captures_with_seen(statement, &mut captured, &mut FxHashSet::default());
+    captured
+        .iter()
+        .any(|captured| locals.iter().any(|local| local == captured))
+}
+
+fn rvalue_has_ref_capture_of(value: &RValue, locals: &[RcLocal]) -> bool {
+    let mut captured = FxHashSet::default();
+    collect_rvalue_ref_captures(value, &mut captured);
+    captured
         .iter()
         .any(|captured| locals.iter().any(|local| local == captured))
 }
@@ -1304,6 +1396,20 @@ impl<'a> Builder<'a> {
         })
     }
 
+    fn has_unsafe_ref_captured_result(&self, info: &LoopInfo) -> bool {
+        info.nodes.iter().any(|node| {
+            self.function.block(*node).is_some_and(|block| {
+                block
+                    .iter()
+                    .any(|statement| statement_has_ref_capture_of(statement, &info.res_locals))
+            }) || self.function.edges(*node).any(|edge| {
+                edge.weight().arguments.iter().any(|(_, value)| {
+                    rvalue_has_ref_capture_of(value, &info.res_locals)
+                })
+            })
+        })
+    }
+
     fn has_unsafe_captured_result_escape(&self, info: &LoopInfo) -> bool {
         self.analysis.nodes.iter().any(|node| {
             if info.nodes.contains(node) {
@@ -1527,6 +1633,9 @@ impl<'a> Builder<'a> {
         );
         let exports = self.exports_for(info);
         let adapters = self.normal_adapter_nodes(info, &exports)?;
+        if self.has_unsafe_ref_captured_result(info) {
+            return self.reject_unsafe(UnsafeStructureReason::CapturedLoopResultRef);
+        }
         if self.has_unsafe_export_write(info, &exports, &adapters)
             || (!exports.is_empty() && !self.analysis.dominates(info.init, info.join))
             || exports
@@ -3372,6 +3481,63 @@ mod tests {
         // VM result cell. A source-level `for` binding would instead leave the
         // closure observing its last loop-local value.
         assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_ref_capture_of_loop_result_without_cell_proof() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let closure = Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    ast::Return::new(vec![RValue::Local(result.clone())]).into(),
+                ]),
+                ..Default::default()
+            })) ),
+            upvalues: vec![Upvalue::Ref(result.clone())],
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![result], generator.into(), state, control).into(),
+        );
+        function
+            .block_mut(body)
+            .unwrap()
+            .push(Statement::Call(Call::new(
+                RValue::Global(Global::from("collect")),
+                vec![RValue::Closure(closure)],
+            )));
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exit, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        let attempt = lift_attempt_with_ignored_locals(function, &FxHashSet::default());
+        assert!(matches!(
+            attempt,
+            StructureAttempt::Unsafe(UnsafeStructureReason::CapturedLoopResultRef)
+        ));
     }
 
     #[test]
