@@ -349,15 +349,25 @@ fn statement_contains_unlowered_control_with_seen(
     statement: &Statement,
     seen_closures: &mut FxHashSet<usize>,
 ) -> bool {
-    if matches!(
+    statement_contains_unlowered_control_with_seen_mode(statement, seen_closures, true)
+}
+
+fn statement_contains_unlowered_control_with_seen_mode(
+    statement: &Statement,
+    seen_closures: &mut FxHashSet<usize>,
+    include_root_marker: bool,
+) -> bool {
+    let is_root_marker = matches!(
         statement,
         Statement::NumForInit(_)
             | Statement::NumForNext(_)
             | Statement::GenericForInit(_)
             | Statement::GenericForNext(_)
-    ) {
-        return true;
-    }
+    );
+    // Even when the marker itself is consumed by the outer CFG pass, its RHS
+    // may contain a closure.  Scan nested values before applying the
+    // root-marker exception so hidden protocol markers cannot bypass the
+    // preflight.
     let mut statement_copy = statement.clone();
     let mut nested_control = false;
     statement_copy.traverse_rvalues(&mut |value| {
@@ -367,7 +377,7 @@ fn statement_contains_unlowered_control_with_seen(
             }
         }
     });
-    if nested_control {
+    if nested_control || (include_root_marker && is_root_marker) {
         return true;
     }
     match statement {
@@ -397,16 +407,18 @@ fn block_contains_hidden_unlowered_control(block: &Block) -> bool {
         // The top-level CFG markers are consumed by this pass; only markers
         // hidden in an already-structured child block or closure body make the
         // resulting source-like AST incomplete.
-        if matches!(
+        let is_root_marker = matches!(
             statement,
             Statement::NumForInit(_)
                 | Statement::NumForNext(_)
                 | Statement::GenericForInit(_)
                 | Statement::GenericForNext(_)
-        ) {
-            return false;
-        }
-        statement_contains_unlowered_control_with_seen(statement, &mut seen_closures)
+        );
+        statement_contains_unlowered_control_with_seen_mode(
+            statement,
+            &mut seen_closures,
+            !is_root_marker,
+        )
     })
 }
 
@@ -4101,6 +4113,74 @@ mod tests {
 
         // The outer CFG has no protocol marker of its own, but formatting the
         // returned closure would still expose its hidden child markers.
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::UnmodeledControl)
+        ));
+    }
+
+    #[test]
+    fn classifies_markers_hidden_in_root_protocol_rhs_closure_as_unmodeled() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let child_generator = RcLocal::new(Local::new(Some("child_generator".into())));
+        let child_state = RcLocal::new(Local::new(Some("child_state".into())));
+        let child_control = RcLocal::new(Local::new(Some("child_control".into())));
+        let child_value = RcLocal::new(Local::new(Some("child_value".into())));
+
+        let mut child_init =
+            GenericForInit::new(child_generator.clone(), child_state.clone(), child_control.clone());
+        child_init.0.right = vec![RValue::Global(Global::from("child_items"))];
+        let child_body = Block::from(vec![
+            child_init.into(),
+            GenericForNext::new(
+                vec![child_value],
+                child_generator.into(),
+                child_state,
+                child_control,
+            )
+            .into(),
+        ]);
+        let hidden_protocol = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: child_body,
+                ..Default::default()
+            }))),
+            upvalues: Vec::new(),
+        });
+
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        // The outer protocol marker is consumed by this pass, but its RHS
+        // closure must still be scanned for hidden child markers.
+        for_init.0.right = vec![hidden_protocol];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![value], generator.into(), state, control).into(),
+        );
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exit, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
         assert!(matches!(
             lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
             StructureAttempt::Unsafe(UnsafeStructureReason::UnmodeledControl)
