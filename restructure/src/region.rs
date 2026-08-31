@@ -31,6 +31,7 @@ pub enum UnsafeStructureReason {
     ForOriginMissing,
     ForOriginMismatch,
     ForOriginDuplicate,
+    ForOriginPrepKindUnsupported,
     ForProtocolEdgeTransfer,
     ForInitEdgeTransferOrder,
     UnmodeledClose,
@@ -46,6 +47,9 @@ impl fmt::Display for UnsafeStructureReason {
             Self::ForOriginMissing => "generic-for provenance is missing",
             Self::ForOriginMismatch => "generic-for prep/step provenance mismatch",
             Self::ForOriginDuplicate => "duplicate generic-for provenance identity",
+            Self::ForOriginPrepKindUnsupported => {
+                "generic-for fast-path prep kind is not source-proven"
+            }
             Self::ForProtocolEdgeTransfer => {
                 "generic-for edge transfer touches hidden iterator protocol"
             }
@@ -2355,6 +2359,13 @@ fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason
                         saw_missing = true;
                         continue;
                     };
+                    // FORGPREP_NEXT/INEXT carry VM fast-path state that an
+                    // ordinary source `for` cannot reproduce for arbitrary
+                    // RHS values.  Keep those origins for the certified
+                    // fallback until a prep-kind-specific source proof exists.
+                    if !matches!(origin.prep_kind, ast::ForPrepKind::Generic) {
+                        return Err(UnsafeStructureReason::ForOriginPrepKindUnsupported);
+                    }
                     if init_origins.insert(origin.id(), origin).is_some() {
                         return Err(UnsafeStructureReason::ForOriginDuplicate);
                     }
@@ -2365,6 +2376,9 @@ fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason
                         saw_missing = true;
                         continue;
                     };
+                    if !matches!(origin.prep_kind, ast::ForPrepKind::Generic) {
+                        return Err(UnsafeStructureReason::ForOriginPrepKindUnsupported);
+                    }
                     let result_count = next
                         .res_locals
                         .iter()
@@ -2769,6 +2783,68 @@ mod tests {
         assert!(!output.contains("continue"), "{output}");
         assert!(!output.contains("GenericFor"), "{output}");
         assert!(!output.contains("goto "), "{output}");
+    }
+
+    #[test]
+    fn rejects_non_generic_for_prep_kind_without_source_proof() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let value2 = RcLocal::new(Local::new(Some("value2".into())));
+        let origin = ForOrigin {
+            prep_pc: 10,
+            step_pc: 20,
+            body_pc: 21,
+            follow_pc: 22,
+            prep_kind: ForPrepKind::Next,
+            base_register: 0,
+            result_count: 2,
+            aux: 2,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![
+            RValue::Global(Global::from("type")),
+            RValue::Global(Global::from("items")),
+        ];
+        for_init.1 = Some(origin);
+        function.block_mut(init).unwrap().push(for_init.into());
+        let mut for_next = GenericForNext::new(
+            vec![value, value2],
+            generator.into(),
+            state,
+            control,
+        );
+        for_next.origin = Some(origin);
+        function.block_mut(header).unwrap().push(for_next.into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exit, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::ForOriginPrepKindUnsupported)
+        ));
     }
 
     #[test]
