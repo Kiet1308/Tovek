@@ -1146,6 +1146,24 @@ mod tests {
             "function() end"
         );
     }
+
+    #[test]
+    fn generic_for_preserves_explicit_trailing_nil_iterator_argument() {
+        // The final nil is an explicit second iterator expression, not an
+        // implicit protocol placeholder.  Dropping it changes how a
+        // multret-producing first expression is adjusted by the VM.
+        let value = local("value");
+        let block = Block(vec![
+            GenericFor::new(
+                vec![value],
+                vec![Call::new(global("make"), vec![]).into(), Literal::Nil.into()],
+                Block::default(),
+            )
+            .into(),
+        ]);
+
+        assert_eq!(block.to_string(), "for value in make(), nil do\n\nend");
+    }
 }
 
 impl fmt::Display for IndentationMode {
@@ -2555,18 +2573,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             "for {} in ",
             generic_for.res_locals.iter().join(", ")
         )?;
-        for (i, rvalue) in generic_for
-            .right
-            .iter()
-            .enumerate()
-            .rev()
-            .skip_while(|(i, v)| *i != 0 && matches!(v, RValue::Literal(Literal::Nil)))
-            .map(|(_, x)| x)
-            .collect_vec()
-            .iter()
-            .rev()
-            .enumerate()
-        {
+        for (i, rvalue) in generic_for.right.iter().enumerate() {
             if i != 0 {
                 write!(self.output, ", ")?;
             }
