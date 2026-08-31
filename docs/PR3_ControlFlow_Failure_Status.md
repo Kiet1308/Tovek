@@ -10,19 +10,21 @@ failures reported as:
 control-flow structuring failed: residual goto/label would be invalid Luau
 ```
 
-This document is a status/evidence brief for a stronger model to produce an
-implementation plan. No implementation is requested from this document.
+This document is a status/evidence brief and implementation checkpoint for a
+stronger model. It records both the pre-change baseline and the current
+proof-backed progress; it does not claim that the entire corpus is solved.
 
 ## Repository state
 
 - Repository: `D:\Medal\medal-decompiler`
 - Branch: `fix/pet-source-like-loop-structuring`
 - PR: https://github.com/Kiet1308/Tovek/pull/3
-- Current HEAD: `910a2d6` (`Preserve compiler generic-for break bodies`)
-- The current working tree has source changes committed; untracked scratch
-  diagnostics may exist and should not be included in future commits.
+- Baseline code snapshot: `910a2d6` (`Preserve compiler generic-for break bodies`)
+- The current PR patch adds path-sensitive terminal transfer handling, typed
+  per-function diagnostics, and an auditable corpus manifest. Generated corpus
+  outputs and scratch logs under `target/` are local evidence only.
 
-## Latest corpus result
+## Baseline corpus result
 
 Latest release audit at HEAD `910a2d6`, using
 `D:\Medal\examplebytecode\RobloxProject` (3,978 `.lua` bytecode entries):
@@ -35,7 +37,7 @@ Latest release audit at HEAD `910a2d6`, using
 | Emitted `.luau` files | 3,668 |
 | Emitted files failing official Luau syntax parsing | 0 |
 
-All 310 explicit failures currently report the same public reason:
+All 310 explicit failures in that baseline reported the same public reason:
 `control-flow structuring failed: residual goto/label would be invalid Luau`.
 There are no observed decode/base64 failures in this run. The 42 skipped files
 are genuinely empty payloads, not control-flow failures.
@@ -73,6 +75,34 @@ batch currently records a distinct typed cause for each path.
 
 The exact machine-readable evidence is the failure log listed above; it has
 310 `FAIL` entries and no alternate decode error for these examples.
+
+## Post-change probe
+
+The current patch was rebuilt and run against the same corpus with:
+
+```powershell
+target/debug/luau-lifter.exe decompile-folder `
+  D:\Medal\examplebytecode\RobloxProject `
+  target\corpus_analysis_20260831_2145 `
+  --key 203 --threads 8 --emit-upvalue-analysis --verbose
+```
+
+The result is 3,923 successful outputs, 42 empty-payload skips, and 13
+failures. Every remaining failure is fail-closed and carries a typed
+per-function diagnostic in `.tovek-analysis/manifest.json`:
+
+| Diagnostic class | Files | Meaning |
+|---|---:|---|
+| `source_like_unsupported` | 8 | No proven source-level region representation yet. |
+| `source_like_unsafe_ForOriginPrepKindUnsupported` | 3 | Generic-for prep kind is not source-proven; one file contains two rejected functions. |
+| `source_like_unsafe_CapturedLoopResultRef` | 1 | A captured loop-result cell lacks a proven per-iteration lifetime. |
+| `source_like_unsafe_CapturedCellReorder` | 1 | Iterator preparation could reorder a captured-cell observation. |
+
+The 13 paths are listed verbatim in `target/corpus_analysis_20260831_2145.err`.
+The same counts were reproduced at one and eight workers, and default and
+strict policy produced byte-identical source outputs. These 13 cases remain
+open implementation work; they are no longer misreported as an unclassified
+residual-goto symptom.
 
 Actual reproducible payloads for seven representative paths are committed in
 [`docs/failure_fixtures/residual_control_flow/`](failure_fixtures/residual_control_flow/),
@@ -124,9 +154,13 @@ Relevant components:
   - Attempts to remove internal gotos/labels; it cannot always structure an
     arbitrary or irreducible CFG into legal Luau.
 
-The current batch API collapses different internal causes into the same final
-message. Therefore the existing 310-file run proves the final symptom exactly,
-but does not provide a typed per-file root-cause breakdown.
+The baseline batch API collapsed different internal causes into the same final
+message. The current batch API preserves the legacy message for compatibility,
+but adds typed per-function evidence and a reproducible audit manifest (corpus
+hash, command, key, thread count, policy, tool hash, result hash, and explicit
+`parser_status`). The batch binary records `parser_status: "not_run"` because
+the official Luau compiler is an external audit tool; `parser_failures: []` is
+not presented as a parser pass.
 
 ## Concrete problem statement for the planning model
 

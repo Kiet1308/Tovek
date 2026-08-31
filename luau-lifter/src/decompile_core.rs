@@ -1287,7 +1287,7 @@ fn decode_and_decompile(
     // passes. The common deserialize-failure path already comes back as Err.
     let (source, upvalue_analysis) = if analysis_root.is_some() {
         let result = catch_unwind(AssertUnwindSafe(|| {
-            luau_lifter::try_decompile_bytecode_artifact_with_options(
+            luau_lifter::try_decompile_bytecode_artifact_with_diagnostics(
                 &bytecode,
                 key,
                 Some(&w.rel),
@@ -1296,7 +1296,7 @@ fn decode_and_decompile(
         }));
         let artifact = match result {
             Ok(Ok(artifact)) => artifact,
-            Ok(Err(reason)) => return (Outcome::Fail(reason), None, None, None),
+            Ok(Err(reason)) => return (Outcome::Fail(reason.to_string()), None, None, None),
             Err(payload) => {
                 return (Outcome::Fail(panic_message(payload)), None, None, None);
             }

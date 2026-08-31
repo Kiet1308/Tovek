@@ -2,7 +2,7 @@
 
 These are real UniversalSynSaveInstance bytecode payloads copied from the
 `examplebytecode/RobloxProject` corpus. They are not hand-written source
-examples. Each currently reproduces the public failure:
+examples. Each reproduced the public failure before the current patch:
 
 ```text
 control-flow structuring failed: residual goto/label would be invalid Luau
@@ -11,14 +11,16 @@ control-flow structuring failed: residual goto/label would be invalid Luau
 Run the fixture folder with a release binary:
 
 ```powershell
-target/release/luau-lifter.exe decompile-folder \
-  docs/failure_fixtures/residual_control_flow \
-  target/residual_control_flow_fixture_out \
+target/release/luau-lifter.exe decompile-folder `
+  docs/failure_fixtures/residual_control_flow `
+  target/residual_control_flow_fixture_out `
   --key 203 --threads 1 --verbose
 ```
 
-Expected result for the current HEAD is 0 successful outputs and 7 explicit
-failures. The fixtures preserve their original `ReplicatedStorage`,
+Expected result with the current patch is 7 successful outputs and 0 explicit
+failures in both default and `--strict-no-synthetic-control` modes. The output
+contains no `goto`, label, `controlFlowState`, or other internal control marker
+and passes the official Luau parser. The fixtures preserve their original `ReplicatedStorage`,
 `StarterPlayer`, and `Workspace` path families so a planning/diagnostic tool
 can reproduce the same shapes without access to the local corpus.
 

@@ -143,8 +143,7 @@ pub enum ControlFlowOutputPolicy {
 
 impl DecompileOptions {
     pub fn from_flag_bits(bits: u32) -> Option<Self> {
-        if bits
-            & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL)
+        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL)
             != 0
         {
             return None;
@@ -165,8 +164,9 @@ impl DecompileOptions {
         u32::from(self.dont_reuse_var) * DONT_REUSE_VAR
             | u32::from(self.no_synth_helpers) * NO_SYNTH_HELPERS
             | u32::from(self.assume_no_nan) * ASSUME_NO_NAN
-            | u32::from(self.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl)
-                * STRICT_NO_SYNTHETIC_CONTROL
+            | u32::from(
+                self.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl,
+            ) * STRICT_NO_SYNTHETIC_CONTROL
     }
 
     pub fn union(self, other: Self) -> Self {
@@ -272,6 +272,7 @@ pub fn try_decompile_bytecode_with_options(
 ) -> Result<String, String> {
     try_decompile_bytecode_internal(bytecode, encode_key, script_name, options, false)
         .map(|artifact| artifact.source)
+        .map_err(|error| error.message)
 }
 
 #[derive(Clone, Debug)]
@@ -279,6 +280,50 @@ pub struct DecompileArtifact {
     pub source: String,
     pub upvalue_analysis: Option<upvalue_analysis::ScriptUpvalueAnalysis>,
 }
+
+/// Machine-readable evidence for a decompilation rejection. Keeping this
+/// independent of CFG internals lets batch/web callers publish actionable
+/// per-function diagnostics without changing successful source output.
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct DecompileDiagnostic {
+    pub stage: String,
+    pub code: String,
+    pub function: String,
+    pub message: String,
+}
+
+/// A decompilation failure with optional per-function evidence. Existing
+/// string-returning APIs render this via `Display`; diagnostic callers can
+/// consume the structured vector directly.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DecompileFailure {
+    pub message: String,
+    pub diagnostics: Vec<DecompileDiagnostic>,
+}
+
+impl DecompileFailure {
+    fn message(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            diagnostics: Vec::new(),
+        }
+    }
+}
+
+impl std::fmt::Display for DecompileFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)?;
+        if !self.diagnostics.is_empty() {
+            // Preserve the legacy prefix while appending a parseable JSON
+            // envelope for folder manifests and other machine consumers.
+            let json = serde_json::to_string(&self.diagnostics).map_err(|_| std::fmt::Error)?;
+            write!(f, " | diagnostics={json}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for DecompileFailure {}
 
 pub fn try_decompile_bytecode_artifact(
     bytecode: &[u8],
@@ -300,6 +345,17 @@ pub fn try_decompile_bytecode_artifact_with_options(
     options: DecompileOptions,
 ) -> Result<DecompileArtifact, String> {
     try_decompile_bytecode_internal(bytecode, encode_key, script_name, options, true)
+        .map_err(|error| error.message)
+}
+
+/// Diagnostic variant preserving typed per-function failure evidence.
+pub fn try_decompile_bytecode_artifact_with_diagnostics(
+    bytecode: &[u8],
+    encode_key: u8,
+    script_name: Option<&str>,
+    options: DecompileOptions,
+) -> Result<DecompileArtifact, DecompileFailure> {
+    try_decompile_bytecode_internal(bytecode, encode_key, script_name, options, true)
 }
 
 fn try_decompile_bytecode_internal(
@@ -308,7 +364,7 @@ fn try_decompile_bytecode_internal(
     script_name: Option<&str>,
     options: DecompileOptions,
     emit_upvalue_analysis: bool,
-) -> Result<DecompileArtifact, String> {
+) -> Result<DecompileArtifact, DecompileFailure> {
     // Reset the per-thread local-id sequence so this decompilation's `RcLocal`
     // ids (and thus the FxHash-iteration order that depends on them, and the
     // generated local names) are independent of any earlier work this thread
@@ -316,15 +372,16 @@ fn try_decompile_bytecode_internal(
     // even though each file is processed on a single thread. See ast::RcLocal.
     ast::reset_local_ids();
     let deser_timer = prof::Timer::new(&prof::DESER_LIFT);
-    let chunk =
-        deserializer::deserialize(bytecode, encode_key).map_err(|e| format!("deserialize: {e}"))?;
+    let chunk = deserializer::deserialize(bytecode, encode_key)
+        .map_err(|e| DecompileFailure::message(format!("deserialize: {e}")))?;
     match chunk {
         Bytecode::Error(msg) => Ok(DecompileArtifact {
             source: msg,
             upvalue_analysis: None,
         }),
         Bytecode::Chunk(chunk) => {
-            validate_prototype_graph(&chunk.functions, chunk.main)?;
+            validate_prototype_graph(&chunk.functions, chunk.main)
+                .map_err(DecompileFailure::message)?;
             let raw_upvalue_analysis =
                 emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
             let mut lifted = Vec::new();
@@ -459,13 +516,29 @@ fn try_decompile_bytecode_internal(
                             // dropping its code.
                             body.body.extend(unsupported_structuring_sentinel().0);
                             drop(body);
-                            (ByAddress(ast_function), Vec::new())
+                            (
+                                ByAddress(ast_function),
+                                Vec::new(),
+                                Some(DecompileDiagnostic {
+                                    stage: "function".to_string(),
+                                    code: "panic".to_string(),
+                                    function: format!("p{function_id}"),
+                                    message: panic_information,
+                                }),
+                            )
                         }
                     }
                 })
                 .collect::<Vec<_>>();
             drop(par_timer);
-            let mut upvalues = decompiled.into_iter().collect::<FxHashMap<_, _>>();
+            let mut function_diagnostics = Vec::new();
+            let mut upvalues = FxHashMap::default();
+            for (function, values, diagnostic) in decompiled {
+                if let Some(diagnostic) = diagnostic {
+                    function_diagnostics.push(diagnostic);
+                }
+                upvalues.insert(function, values);
+            }
 
             // The rayon driver thread participated in the pool, so its thread-local
             // id counter is now left at some function's (scheduling-dependent)
@@ -528,9 +601,14 @@ fn try_decompile_bytecode_internal(
             }
             {
                 ptime!(S_NAME_LOCALS);
-                name_locals_with_options(&mut body, true, script_name, NameLocalOptions {
-                    dont_reuse_var: options.dont_reuse_var,
-                });
+                name_locals_with_options(
+                    &mut body,
+                    true,
+                    script_name,
+                    NameLocalOptions {
+                        dont_reuse_var: options.dont_reuse_var,
+                    },
+                );
             }
             // §2.8: recover OOP colon-method definitions. Runs after name_locals
             // (so first params are named `p`/`pN`) and before inline_temps (whose
@@ -659,16 +737,27 @@ fn try_decompile_bytecode_internal(
             if ast::simplify_gotos::function_tree_has_goto_or_label(&body)
                 || ast::simplify_gotos::function_tree_has_unlowered_control(&body)
             {
-                return Err(
-                    "control-flow structuring failed: residual goto/label would be invalid Luau"
-                        .to_string(),
-                );
+                if function_diagnostics.is_empty() {
+                    function_diagnostics.push(DecompileDiagnostic {
+                        stage: "final_invariant".to_string(),
+                        code: "residual_control_flow".to_string(),
+                        function: format!("root:p{}", chunk.main),
+                        message: "final AST still contains an internal goto/label or loop marker"
+                            .to_string(),
+                    });
+                }
+                return Err(DecompileFailure {
+                    message:
+                        "control-flow structuring failed: residual goto/label would be invalid Luau"
+                            .to_string(),
+                    diagnostics: function_diagnostics,
+                });
             }
             let (out, source_occurrences) = {
                 ptime!(S_FORMAT);
                 if emit_upvalue_analysis {
                     ast::formatter::format_with_source_map(&body, Default::default())
-                        .map_err(|_| "formatting failed".to_string())?
+                        .map_err(|_| DecompileFailure::message("formatting failed"))?
                 } else {
                     (body.to_string(), Vec::new())
                 }
@@ -921,10 +1010,8 @@ fn certified_fallback_for_policy(
     locals_to_ignore: &FxHashSet<ast::RcLocal>,
     policy: ControlFlowOutputPolicy,
 ) -> Option<ast::Block> {
-    let fallback = restructure::lift_certified_fallback_with_ignored_locals(
-        function,
-        locals_to_ignore,
-    )?;
+    let fallback =
+        restructure::lift_certified_fallback_with_ignored_locals(function, locals_to_ignore)?;
     if policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
         && fallback_has_synthetic_control(&fallback)
     {
@@ -961,34 +1048,19 @@ where
     }
 }
 
-fn function_has_generic_for_protocol(function: &Function) -> bool {
-    function.blocks().any(|(_, block)| {
-        block.iter().any(|statement| {
-            matches!(
-                statement,
-                ast::Statement::GenericForInit(_) | ast::Statement::GenericForNext(_)
-            )
-        })
-    })
-}
-
-fn function_has_edge_arguments(function: &Function) -> bool {
-    function
-        .graph()
-        .edge_weights()
-        .any(|edge| !edge.arguments.is_empty())
-}
-
-/// The legacy matcher predates semantic rejection reasons and cannot safely
-/// lower either generic-for protocol markers or SSA edge transfers.  Keeping
-/// this routing decision in one predicate makes it auditable and testable.
+/// The legacy matcher predates semantic rejection reasons.  It can lower the
+/// compiler's generic-for markers when no SSA edge transfers are present.
+/// Keeping this routing decision in one predicate makes it auditable and
+/// testable.
 fn may_use_legacy_structurer(
     function: &Function,
     source_like: &restructure::StructureAttempt,
 ) -> bool {
     matches!(source_like, restructure::StructureAttempt::Unsupported)
-        && !function_has_edge_arguments(function)
-        && !function_has_generic_for_protocol(function)
+        && !function
+            .graph()
+            .edge_weights()
+            .any(|edge| !edge.arguments.is_empty())
 }
 
 fn decompile_function(
@@ -996,7 +1068,12 @@ fn decompile_function(
     mut function: Function,
     upvalues_in: Vec<ast::RcLocal>,
     control_flow_policy: ControlFlowOutputPolicy,
-) -> (ByAddress<Arc<Mutex<ast::Function>>>, Vec<ast::RcLocal>) {
+) -> (
+    ByAddress<Arc<Mutex<ast::Function>>>,
+    Vec<ast::RcLocal>,
+    Option<DecompileDiagnostic>,
+) {
+    let function_identity = format!("p{}", function.id);
     let (local_count, local_groups, upvalue_in_groups, upvalue_passed_groups) = {
         ptime!(F_SSA_CONSTRUCT);
         cfg::ssa::construct(&mut function, &upvalues_in)
@@ -1115,9 +1192,6 @@ fn decompile_function(
     // routing through the matcher would silently drop a value transfer and can
     // produce plausible but incorrect Luau.  The state-machine fallback is the
     // only path that materializes those parallel copies explicitly.
-    let has_edge_arguments = function_has_edge_arguments(fallback_source.as_ref().unwrap());
-    let has_generic_for_protocol =
-        function_has_generic_for_protocol(fallback_source.as_ref().unwrap());
     // Source-like structuring may mint temporary export locals while proving
     // nested-loop live-outs.  If that speculative attempt is rejected, rewind
     // the per-function allocator before building the fallback so failed
@@ -1133,15 +1207,26 @@ fn decompile_function(
     let is_variadic = fallback_source.as_ref().unwrap().is_variadic;
     let mut fallback_function = None;
     let mut used_certified_dispatcher = false;
-    let (mut lifted, used_source_like) = {
+    let (mut lifted, used_source_like, source_like_rejection) = {
         ptime!(F_RESTRUCTURE);
         let source_like_attempt = restructure::lift_source_like_attempt_with_ignored_locals(
             source_like_function,
             &source_like_protected_locals,
         );
         match source_like_attempt {
-            restructure::StructureAttempt::Structured(block) => (block, true),
+            restructure::StructureAttempt::Structured(block) => (block, true, None),
             rejection => {
+                let rejection_description = match &rejection {
+                    restructure::StructureAttempt::Unsupported => (
+                        "source_like_unsupported".to_string(),
+                        "source-like structurer has no proven representation".to_string(),
+                    ),
+                    restructure::StructureAttempt::Unsafe(reason) => (
+                        format!("source_like_unsafe_{reason:?}"),
+                        format!("source-like proof rejected: {reason}"),
+                    ),
+                    restructure::StructureAttempt::Structured(_) => unreachable!(),
+                };
                 let allow_legacy =
                     may_use_legacy_structurer(fallback_source.as_ref().unwrap(), &rejection);
                 if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
@@ -1157,7 +1242,7 @@ fn decompile_function(
                 // only on the uncommon source-like rejection path.
                 let function = fallback_source.take().unwrap();
                 fallback_function = Some(function.deep_clone());
-                if has_edge_arguments || has_generic_for_protocol || !allow_legacy {
+                if !allow_legacy {
                     used_certified_dispatcher = true;
                     let locals_to_ignore =
                         upvalues_in.iter().chain(params.iter()).cloned().collect();
@@ -1167,7 +1252,7 @@ fn decompile_function(
                         control_flow_policy,
                     )
                     .unwrap_or_else(unsupported_structuring_sentinel);
-                    (block, false)
+                    (block, false, Some(rejection_description))
                 } else {
                     // The legacy pattern matcher predates the fail-closed
                     // source-like pass and contains a few internal assertions
@@ -1180,17 +1265,16 @@ fn decompile_function(
                     // shapes.
                     let locals_to_ignore =
                         upvalues_in.iter().chain(params.iter()).cloned().collect();
-                    let (block, recovered_with_dispatcher) =
-                        legacy_with_certified_panic_recovery(
-                            function,
-                            fallback_function.as_ref().unwrap().deep_clone(),
-                            &locals_to_ignore,
-                            control_flow_policy,
-                            source_like_id_base,
-                            restructure::lift,
-                        );
+                    let (block, recovered_with_dispatcher) = legacy_with_certified_panic_recovery(
+                        function,
+                        fallback_function.as_ref().unwrap().deep_clone(),
+                        &locals_to_ignore,
+                        control_flow_policy,
+                        source_like_id_base,
+                        restructure::lift,
+                    );
                     used_certified_dispatcher |= recovered_with_dispatcher;
-                    (block, false)
+                    (block, false, Some(rejection_description))
                 }
             }
         }
@@ -1258,7 +1342,33 @@ fn decompile_function(
     // transitions cross synthetic loop iterations, so declarations live across
     // those transitions must already be known and can be hoisted outside exactly
     // that local dispatcher (without guessing parameters/upvalues).
-    ast::simplify_gotos::structure_irreducible_dispatchers(&mut block.lock());
+    // A dispatcher introduced for an inner region can expose a now-local
+    // direct-label set in its parent. Iterate to a fixed point so one pass
+    // does not leave a validly lowerable residual label behind.
+    while ast::simplify_gotos::structure_irreducible_dispatchers(&mut block.lock()) != 0 {}
+
+    // Capture a typed reason at the function boundary. The final chunk-level
+    // invariant still decides success/failure, but this preserves which
+    // function and which proof stage produced the residual control flow.
+    let diagnostic = {
+        let body = block.lock();
+        (ast::simplify_gotos::function_tree_has_goto_or_label(&body)
+            || ast::simplify_gotos::function_tree_has_unlowered_control(&body))
+        .then(|| DecompileDiagnostic {
+            stage: "final_invariant".to_string(),
+            code: source_like_rejection
+                .as_ref()
+                .map(|(code, _)| code.clone())
+                .unwrap_or_else(|| "residual_control_flow".to_string()),
+            function: function_identity,
+            message: source_like_rejection
+                .map(|(_, message)| message)
+                .unwrap_or_else(|| {
+                    "structured AST still contains an internal goto/label or loop marker"
+                        .to_string()
+                }),
+        })
+    };
 
     {
         let mut ast_function = ast_function.lock();
@@ -1266,21 +1376,20 @@ fn decompile_function(
         ast_function.parameters = params;
         ast_function.is_variadic = is_variadic;
     }
-    (ByAddress(ast_function), upvalues_in)
+    (ByAddress(ast_function), upvalues_in, diagnostic)
 }
 
 #[cfg(test)]
 mod option_tests {
     use super::{
-        ASSUME_NO_NAN, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS,
-        STRICT_NO_SYNTHETIC_CONTROL,
-        ControlFlowOutputPolicy, certified_fallback_for_policy,
+        ASSUME_NO_NAN, ControlFlowOutputPolicy, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS,
+        STRICT_NO_SYNTHETIC_CONTROL, certified_fallback_for_policy,
         legacy_with_certified_panic_recovery, may_use_legacy_structurer,
     };
     use ast::{GenericForNext, Local, RValue, RcLocal};
     use cfg::function::Function;
-    use rustc_hash::FxHashSet;
     use restructure::{StructureAttempt, UnsafeStructureReason};
+    use rustc_hash::FxHashSet;
 
     #[test]
     fn decompile_option_bits_round_trip() {
@@ -1335,13 +1444,18 @@ mod option_tests {
             &FxHashSet::default(),
             ControlFlowOutputPolicy::AllowCertifiedDispatcher,
         );
-        assert!(allow.is_some(), "diagnostic dispatcher mode should allow fallback");
-        assert!(certified_fallback_for_policy(
-            function,
-            &FxHashSet::default(),
-            ControlFlowOutputPolicy::StrictNoSyntheticControl,
-        )
-        .is_none());
+        assert!(
+            allow.is_some(),
+            "diagnostic dispatcher mode should allow fallback"
+        );
+        assert!(
+            certified_fallback_for_policy(
+                function,
+                &FxHashSet::default(),
+                ControlFlowOutputPolicy::StrictNoSyntheticControl,
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -1383,7 +1497,7 @@ mod option_tests {
     }
 
     #[test]
-    fn semantic_source_like_rejection_never_reaches_legacy_matcher() {
+    fn semantic_source_like_rejection_guards_legacy_matcher() {
         let mut function = Function::new(0);
         let entry = function.new_block();
         function.set_entry(entry);
@@ -1397,8 +1511,32 @@ mod option_tests {
             )
             .into(),
         );
-        assert!(!may_use_legacy_structurer(
+        // Generic protocol markers are now allowed to reach the legacy matcher
+        // when no SSA edge arguments are present; this preserves the existing
+        // source-shaped lowering for the committed residual fixtures. Edge
+        // arguments remain a hard guard because legacy cannot materialize phi
+        // transfers safely.
+        assert!(may_use_legacy_structurer(
             &function,
+            &StructureAttempt::Unsupported,
+        ));
+
+        let mut edge_function = function.clone();
+        let edge_entry = edge_function.entry().unwrap();
+        let edge_exit = edge_function.new_block();
+        let edge = edge_function.graph_mut().add_edge(
+            edge_entry,
+            edge_exit,
+            cfg::block::BlockEdge::default(),
+        );
+        edge_function
+            .graph_mut()
+            .edge_weight_mut(edge)
+            .unwrap()
+            .arguments
+            .push((RcLocal::default(), RValue::Local(RcLocal::default())));
+        assert!(!may_use_legacy_structurer(
+            &edge_function,
             &StructureAttempt::Unsupported,
         ));
 

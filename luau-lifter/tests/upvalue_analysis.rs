@@ -182,7 +182,30 @@ fn folder_artifacts_are_identical_across_thread_counts() {
     run_folder_decompile(&input, &single, 1);
     run_folder_decompile(&input, &parallel, 4);
 
-    assert_eq!(collect_files(&single), collect_files(&parallel));
+    let single_files = collect_files(&single);
+    let parallel_files = collect_files(&parallel);
+    // The audited analysis manifest intentionally records the requested worker
+    // count and exact command line, so that one metadata file differs between
+    // runs. Source outputs and all content-addressed sidecars must remain
+    // byte-identical regardless of scheduling.
+    let mut single_stable = single_files.clone();
+    let mut parallel_stable = parallel_files.clone();
+    let manifest_path = PathBuf::from(".tovek-analysis").join("manifest.json");
+    single_stable.remove(&manifest_path);
+    parallel_stable.remove(&manifest_path);
+    assert_eq!(single_stable, parallel_stable);
+    let single_manifest: serde_json::Value = serde_json::from_slice(
+        &single_files[&manifest_path],
+    )
+    .unwrap();
+    let parallel_manifest: serde_json::Value = serde_json::from_slice(
+        &parallel_files[&manifest_path],
+    )
+    .unwrap();
+    assert_eq!(single_manifest["audit_schema"], "tovek-corpus-audit/v1");
+    assert_eq!(parallel_manifest["audit_schema"], "tovek-corpus-audit/v1");
+    assert_eq!(single_manifest["threads"], 1);
+    assert_eq!(parallel_manifest["threads"], 4);
     let _ = fs::remove_dir_all(root);
 }
 

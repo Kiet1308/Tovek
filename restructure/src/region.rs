@@ -1414,6 +1414,7 @@ impl<'a> Builder<'a> {
         then_map: &mut FxHashMap<RcLocal, RcLocal>,
         else_map: &mut FxHashMap<RcLocal, RcLocal>,
         continuation: Option<NodeIndex>,
+        both_arms_reach_continuation: bool,
         then_block: &mut Block,
         else_block: &mut Block,
     ) -> Option<()> {
@@ -1428,6 +1429,16 @@ impl<'a> Builder<'a> {
             let else_value = else_map.get(&key).cloned();
             if then_value == else_value {
                 continue;
+            }
+            // A single `PathResult` successor cannot represent a conditional
+            // whose arms leave through different ports (for example,
+            // `continue` versus `break`).  Never synthesize a copy into the
+            // non-reaching arm: doing so would publish a rewrite for a path
+            // that cannot execute the assignment, and could append it after a
+            // terminal statement.  The caller rejects this mixed-port rewrite
+            // before constructing the conditional.
+            if !both_arms_reach_continuation {
+                return None;
             }
             let used_after = self
                 .analysis
@@ -1445,7 +1456,8 @@ impl<'a> Builder<'a> {
                     {
                         return None;
                     }
-                    else_block.push(
+                    insert_before_terminal(
+                        else_block,
                         Assign::new(
                             vec![LValue::Local(export.clone())],
                             vec![RValue::Local(key.clone())],
@@ -1461,7 +1473,8 @@ impl<'a> Builder<'a> {
                     {
                         return None;
                     }
-                    then_block.push(
+                    insert_before_terminal(
+                        then_block,
                         Assign::new(
                             vec![LValue::Local(export.clone())],
                             vec![RValue::Local(key.clone())],
@@ -2588,6 +2601,14 @@ impl<'a> Builder<'a> {
                     &base_rewrite,
                 )?;
                 let else_result = self.build_path(else_target, Some(join), Some(ctx))?;
+                // A terminal arm has no path to the inside join.  Do not let
+                // optional-export materialization mutate that arm before we
+                // reject the mixed-port conditional: doing so would either
+                // append a copy after `break`/`return` or make an unreachable
+                // arm look as if it contributed to the join environment.
+                if then_result.next != Some(join) || else_result.next != Some(join) {
+                    return None;
+                }
                 let mut else_rewrite = self.rewrite.clone();
                 let mut then_block = then_transfer;
                 then_block.extend(then_result.block.0);
@@ -2598,6 +2619,7 @@ impl<'a> Builder<'a> {
                     &mut then_rewrite,
                     &mut else_rewrite,
                     Some(join),
+                    true,
                     &mut then_block,
                     &mut else_block,
                 )?;
@@ -2607,9 +2629,6 @@ impl<'a> Builder<'a> {
                     &else_rewrite,
                     Some(join),
                 )?;
-                if then_result.next != Some(join) || else_result.next != Some(join) {
-                    return None;
-                }
                 let mut condition = statement.condition.clone();
                 for local in condition.values_read_mut() {
                     if let Some(replacement) = base_rewrite.get(local) {
@@ -2649,6 +2668,20 @@ impl<'a> Builder<'a> {
             let continuation = (then_result.next == Some(ctx.info.header)
                 || else_result.next == Some(ctx.info.header))
                 .then_some(ctx.info.header);
+            let both_reach_continuation = continuation.is_some_and(|join| {
+                then_result.next == Some(join) && else_result.next == Some(join)
+            });
+            // `PathResult` carries one successor, while a loop conditional can
+            // in reality have multiple terminal ports (for example,
+            // `continue` on one arm and `break` on the other).  A rewrite
+            // created by only one such arm cannot be published globally: the
+            // non-reaching arm has no continuation environment to receive the
+            // export, and the post-loop path is distinct from the header.
+            // Reject the mixed-port rewrite before optional-gap materialization
+            // so no assignment can be appended after a terminal statement.
+            if !both_reach_continuation && then_rewrite != else_rewrite {
+                return self.reject_unsafe(UnsafeStructureReason::LiveBranchRewrite);
+            }
             let mut then_block = then_transfer;
             then_block.extend(then_result.block.0);
             let mut else_block = else_transfer;
@@ -2658,6 +2691,7 @@ impl<'a> Builder<'a> {
                 &mut then_rewrite,
                 &mut else_rewrite,
                 continuation,
+                both_reach_continuation,
                 &mut then_block,
                 &mut else_block,
             )?;
@@ -2714,6 +2748,9 @@ impl<'a> Builder<'a> {
                 &mut then_rewrite,
                 &mut else_rewrite,
                 join,
+                join.is_some_and(|join| {
+                    then_result.next == Some(join) && else_result.next == Some(join)
+                }),
                 &mut then_block,
                 &mut else_block,
             )?;
@@ -2806,9 +2843,35 @@ fn is_reorderable_for_init_suffix(statement: &Statement) -> bool {
 }
 
 fn strip_terminal_continue(block: &mut Block) {
-    if matches!(block.last(), Some(Statement::Continue(_))) {
-        block.pop();
+    let Some(index) = block
+        .0
+        .iter()
+        .rposition(|statement| !is_ignorable(statement))
+    else {
+        return;
+    };
+    if matches!(block.0[index], Statement::Continue(_)) {
+        block.0.remove(index);
     }
+}
+
+/// Place an edge-value copy before an explicit transfer.  `break`, `continue`
+/// and `return` terminate a Luau block, so appending a copy after one would
+/// either produce invalid source or rely on cleanup to delete a write that the
+/// value-flow analysis already considered observable.
+fn insert_before_terminal(block: &mut Block, statement: Statement) {
+    let index = block
+        .0
+        .iter()
+        .rposition(|candidate| !is_ignorable(candidate))
+        .filter(|&index| {
+            matches!(
+                block.0[index],
+                Statement::Break(_) | Statement::Continue(_) | Statement::Return(_)
+            )
+        })
+        .unwrap_or(block.len());
+    block.insert(index, statement);
 }
 
 fn simplify_conditional(condition: &mut RValue, then_block: &mut Block, else_block: &mut Block) {
@@ -3058,6 +3121,33 @@ mod tests {
     use parking_lot::Mutex;
     use rustc_hash::{FxHashMap, FxHashSet};
     use triomphe::Arc;
+
+    #[test]
+    fn optional_export_copy_precedes_terminal_through_trailing_trivia() {
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let export = RcLocal::new(Local::new(Some("export".into())));
+        let mut block = Block::from(vec![
+            Statement::Break(ast::Break {}).into(),
+            Statement::Comment(ast::Comment::new("trivia".into())).into(),
+        ]);
+        let copy = Assign::new(vec![LValue::Local(export)], vec![RValue::Local(value)]).into();
+
+        super::insert_before_terminal(&mut block, copy);
+
+        assert!(matches!(block.0[0], Statement::Assign(_)));
+        assert!(matches!(block.0[1], Statement::Break(_)));
+        assert!(matches!(block.0[2], Statement::Comment(_)));
+
+        let mut continue_block = Block::from(vec![
+            Statement::Continue(ast::Continue {}).into(),
+            Statement::Comment(ast::Comment::new("trivia".into())).into(),
+        ]);
+        super::strip_terminal_continue(&mut continue_block);
+        assert!(continue_block
+            .0
+            .iter()
+            .all(|statement| !matches!(statement, Statement::Continue(_))));
+    }
 
     // Hand-built CFG fixtures predate provenance-bearing marker constructors.
     // Attach deterministic, source-proven test origins at the test boundary so
@@ -5226,6 +5316,123 @@ mod tests {
                 .reconcile_rewrite(&FxHashMap::default(), &then_map, &else_map, Some(join))
                 .is_none()
         );
+    }
+
+    #[test]
+    fn optional_export_copy_is_inserted_before_terminal_transfer() {
+        let mut function = Function::new(0);
+        let join = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(join);
+
+        let raw = RcLocal::new(Local::new(Some("raw_result".into())));
+        let export = RcLocal::new(Local::new(Some("exported_result".into())));
+        let sink = RcLocal::new(Local::new(Some("sink".into())));
+        function.block_mut(join).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(sink)],
+                vec![RValue::Local(raw.clone())],
+            )
+            .into(),
+        );
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(join, vec![(
+            exit,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+
+        let analysis = Analysis::new(&function).expect("linear CFG is analyzable");
+        assert!(analysis.live_in[&join].contains(&raw));
+        let builder = Builder::new(&function, analysis, FxHashSet::default());
+        let base = FxHashMap::default();
+        let mut then_map = [(raw.clone(), export.clone())].into_iter().collect();
+        let mut else_map = FxHashMap::default();
+        let mut then_block = Block::from(vec![
+            Assign::new(
+                vec![LValue::Local(export.clone())],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+        ]);
+        let mut else_block = Block::from(vec![Statement::Continue(ast::Continue {}).into()]);
+
+        builder
+            .materialize_optional_export_gaps(
+                &base,
+                &mut then_map,
+                &mut else_map,
+                Some(join),
+                true,
+                &mut then_block,
+                &mut else_block,
+            )
+            .expect("both arms reach the continuation");
+
+        assert!(matches!(else_block.last(), Some(Statement::Continue(_))));
+        assert!(matches!(
+            else_block.get(else_block.len() - 2),
+            Some(Statement::Assign(_))
+        ));
+        assert_eq!(else_map.get(&raw), Some(&export));
+    }
+
+    #[test]
+    fn mixed_exit_optional_export_fails_closed_without_mutating_terminal_arm() {
+        let mut function = Function::new(0);
+        let join = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(join);
+
+        let raw = RcLocal::new(Local::new(Some("raw_result".into())));
+        let export = RcLocal::new(Local::new(Some("exported_result".into())));
+        let sink = RcLocal::new(Local::new(Some("sink".into())));
+        function.block_mut(join).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(sink)],
+                vec![RValue::Local(raw.clone())],
+            )
+            .into(),
+        );
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(join, vec![(
+            exit,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+
+        let analysis = Analysis::new(&function).expect("linear CFG is analyzable");
+        let builder = Builder::new(&function, analysis, FxHashSet::default());
+        let base = FxHashMap::default();
+        let mut then_map = [(raw.clone(), export.clone())].into_iter().collect();
+        let mut else_map = FxHashMap::default();
+        let mut then_block = Block::from(vec![
+            Assign::new(
+                vec![LValue::Local(export)],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+        ]);
+        let mut else_block = Block::from(vec![Statement::Break(ast::Break {}).into()]);
+
+        assert!(builder
+            .materialize_optional_export_gaps(
+                &base,
+                &mut then_map,
+                &mut else_map,
+                Some(join),
+                false,
+                &mut then_block,
+                &mut else_block,
+            )
+            .is_none());
+        assert_eq!(else_block.len(), 1);
+        assert!(matches!(else_block.last(), Some(Statement::Break(_))));
+        assert!(else_map.is_empty());
     }
 
     #[test]
