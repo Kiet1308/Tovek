@@ -74,6 +74,13 @@ batch currently records a distinct typed cause for each path.
 The exact machine-readable evidence is the failure log listed above; it has
 310 `FAIL` entries and no alternate decode error for these examples.
 
+Actual reproducible payloads for seven representative paths are committed in
+[`docs/failure_fixtures/residual_control_flow/`](failure_fixtures/residual_control_flow/),
+with a runnable command and expected result in its README. These fixtures are
+copied bytecode inputs, not reconstructed source, and cover Cmdr, Fusion,
+shared data/time utilities, particle utilities, animation, and PlayerModule
+controller families.
+
 ## What is already fixed
 
 The following targeted cases pass in both default and
