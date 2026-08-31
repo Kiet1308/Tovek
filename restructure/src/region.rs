@@ -2333,6 +2333,51 @@ fn simplify_conditional(condition: &mut RValue, then_block: &mut Block, else_blo
     }
 }
 
+fn global_is_named(global: &ast::Global, name: &str) -> bool {
+    global.0 == name.as_bytes()
+}
+
+fn call_is_named(value: &RValue, name: &str) -> bool {
+    let call = match value {
+        RValue::Call(call) => call,
+        RValue::Select(ast::Select::Call(call)) => call,
+        _ => return false,
+    };
+    matches!(call.value.as_ref(), RValue::Global(global) if global_is_named(global, name))
+}
+
+/// Prove that a specialized prep opcode has the source expression whose VM
+/// fast path it assumes.  `FORGPREP_NEXT` is emitted for `pairs(...)` (or the
+/// explicit `next, table` tuple), while `FORGPREP_INEXT` assumes `ipairs(...)`.
+/// Arbitrary RHS values with those opcodes are malformed/custom bytecode and
+/// must remain on the certified fallback path.
+fn source_proves_for_prep_kind(
+    init: &ast::GenericForInit,
+    origin: ast::ForOrigin,
+) -> bool {
+    let ipairs_aux = origin.aux & 0x8000_0000 != 0;
+    match origin.prep_kind {
+        // The high AUX bit selects the ipairs-style FORGLOOP write/exit
+        // behavior.  A generic prep with that bit set is not equivalent to an
+        // ordinary source iterator, so keep malformed/custom metadata out of
+        // the source-shaped path.
+        ast::ForPrepKind::Generic => !ipairs_aux,
+        ast::ForPrepKind::Next => {
+            !ipairs_aux
+                && match init.0.right.as_slice() {
+                    [value] => call_is_named(value, "pairs"),
+                    [RValue::Global(global), _state, ..] => global_is_named(global, "next"),
+                    _ => false,
+                }
+        }
+        ast::ForPrepKind::Inext => {
+            ipairs_aux
+                && init.0.right.len() == 1
+                && call_is_named(&init.0.right[0], "ipairs")
+        }
+    }
+}
+
 /// Validate the identity-bearing half of the generic-for protocol before any
 /// region discovery mutates or consumes the CFG.  Hand-built fixtures that
 /// omit provenance entirely remain supported; once one reachable marker is
@@ -2352,6 +2397,7 @@ fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason
     }
 
     let mut init_origins = FxHashMap::default();
+    let mut init_source_proven = FxHashMap::default();
     let mut next_origins = FxHashMap::default();
     let mut saw_marker = false;
     let mut saw_missing = false;
@@ -2367,16 +2413,10 @@ fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason
                         saw_missing = true;
                         continue;
                     };
-                    // FORGPREP_NEXT/INEXT carry VM fast-path state that an
-                    // ordinary source `for` cannot reproduce for arbitrary
-                    // RHS values.  Keep those origins for the certified
-                    // fallback until a prep-kind-specific source proof exists.
-                    if !matches!(origin.prep_kind, ast::ForPrepKind::Generic) {
-                        return Err(UnsafeStructureReason::ForOriginPrepKindUnsupported);
-                    }
                     if init_origins.insert(origin.id(), origin).is_some() {
                         return Err(UnsafeStructureReason::ForOriginDuplicate);
                     }
+                    init_source_proven.insert(origin.id(), source_proves_for_prep_kind(init, origin));
                 }
                 Statement::GenericForNext(next) => {
                     saw_marker = true;
@@ -2384,9 +2424,6 @@ fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason
                         saw_missing = true;
                         continue;
                     };
-                    if !matches!(origin.prep_kind, ast::ForPrepKind::Generic) {
-                        return Err(UnsafeStructureReason::ForOriginPrepKindUnsupported);
-                    }
                     let result_count = next
                         .res_locals
                         .iter()
@@ -2420,6 +2457,9 @@ fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason
         };
         if init_origin != *next_origin {
             return Err(UnsafeStructureReason::ForOriginMismatch);
+        }
+        if !init_source_proven.get(&id).copied().unwrap_or(false) {
+            return Err(UnsafeStructureReason::ForOriginPrepKindUnsupported);
         }
     }
     Ok(())
@@ -2824,6 +2864,65 @@ mod tests {
             RValue::Global(Global::from("type")),
             RValue::Global(Global::from("items")),
         ];
+        for_init.1 = Some(origin);
+        function.block_mut(init).unwrap().push(for_init.into());
+        let mut for_next = GenericForNext::new(
+            vec![value, value2],
+            generator.into(),
+            state,
+            control,
+        );
+        for_next.origin = Some(origin);
+        function.block_mut(header).unwrap().push(for_next.into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exit, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::ForOriginPrepKindUnsupported)
+        ));
+    }
+
+    #[test]
+    fn rejects_generic_for_with_ipairs_aux_flag() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let value2 = RcLocal::new(Local::new(Some("value2".into())));
+        let origin = ForOrigin {
+            prep_pc: 10,
+            step_pc: 20,
+            body_pc: 21,
+            follow_pc: 22,
+            prep_kind: ForPrepKind::Generic,
+            base_register: 0,
+            result_count: 2,
+            aux: 0x8000_0002,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
         for_init.1 = Some(origin);
         function.block_mut(init).unwrap().push(for_init.into());
         let mut for_next = GenericForNext::new(
