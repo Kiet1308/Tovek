@@ -1307,10 +1307,12 @@ impl<'a> Lifter<'a> {
                                 "FORGPREP at PC {prep_pc} has no FORGLOOP partner at PC {loop_index}"
                             ),
                         };
-                        let result_count = match prep_kind {
-                            ast::ForPrepKind::Generic => (step_aux & 0xff) as u8,
-                            ast::ForPrepKind::Next | ast::ForPrepKind::Inext => 2,
-                        };
+                        // Fast-path prep instructions reserve two iterator
+                        // registers, but the FORGLOOP AUX low byte still
+                        // records the number of user-visible loop variables
+                        // (which may be one).  Preserve that semantic arity
+                        // so Init and Next carry identical provenance.
+                        let result_count = (step_aux & 0xff) as u8;
                         assert!(result_count > 0, "FORGLOOP has zero result locals");
                         let origin = ast::ForOrigin {
                             prep_pc,

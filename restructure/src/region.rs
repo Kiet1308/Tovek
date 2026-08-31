@@ -2356,7 +2356,9 @@ fn source_proves_for_prep_kind(
     origin: ast::ForOrigin,
 ) -> bool {
     let ipairs_aux = origin.aux & 0x8000_0000 != 0;
-    if (origin.aux & 0xff) != origin.result_count as u32 {
+    let canonical_aux = (if ipairs_aux { 0x8000_0000 } else { 0 })
+        | origin.result_count as u32;
+    if origin.result_count == 0 || origin.aux != canonical_aux {
         return false;
     }
     match origin.prep_kind {
@@ -2898,6 +2900,86 @@ mod tests {
         assert!(matches!(
             lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
             StructureAttempt::Unsafe(UnsafeStructureReason::ForOriginPrepKindUnsupported)
+        ));
+    }
+
+    #[test]
+    fn accepts_specialized_prep_kinds_with_one_result() {
+        let attempt_for = |prep_kind, right, aux| {
+            let mut function = Function::new(0);
+            let init = function.new_block();
+            let header = function.new_block();
+            let body = function.new_block();
+            let exit = function.new_block();
+            function.set_entry(init);
+
+            let generator = RcLocal::new(Local::new(Some("generator".into())));
+            let state = RcLocal::new(Local::new(Some("state".into())));
+            let control = RcLocal::new(Local::new(Some("control".into())));
+            let value = RcLocal::new(Local::new(Some("value".into())));
+            let origin = ForOrigin {
+                prep_pc: 10,
+                step_pc: 20,
+                body_pc: 21,
+                follow_pc: 22,
+                prep_kind,
+                base_register: 0,
+                result_count: 1,
+                aux,
+                bytecode_version: 6,
+                vm_profile: VmProfileId::Luau,
+            };
+            let mut for_init =
+                GenericForInit::new(generator.clone(), state.clone(), control.clone());
+            for_init.0.right = vec![right];
+            for_init.1 = Some(origin);
+            function.block_mut(init).unwrap().push(for_init.into());
+            let mut for_next = GenericForNext::new(
+                vec![value],
+                generator.into(),
+                state,
+                control,
+            );
+            for_next.origin = Some(origin);
+            function.block_mut(header).unwrap().push(for_next.into());
+            function
+                .block_mut(exit)
+                .unwrap()
+                .push(Statement::Return(Default::default()).into());
+            function.set_edges(init, vec![
+                (header, BlockEdge::new(BranchType::Unconditional)),
+            ]);
+            function.set_edges(header, vec![
+                (body, BlockEdge::new(BranchType::Then)),
+                (exit, BlockEdge::new(BranchType::Else)),
+            ]);
+            function.set_edges(body, vec![
+                (header, BlockEdge::new(BranchType::Unconditional)),
+            ]);
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default())
+        };
+
+        assert!(matches!(
+            attempt_for(
+                ForPrepKind::Next,
+                RValue::Call(Call::new(
+                    RValue::Global(Global::from("pairs")),
+                    vec![RValue::Global(Global::from("items"))],
+                )),
+                1,
+            ),
+            StructureAttempt::Structured(_)
+        ));
+        assert!(matches!(
+            attempt_for(
+                ForPrepKind::Inext,
+                RValue::Call(Call::new(
+                    RValue::Global(Global::from("ipairs")),
+                    vec![RValue::Global(Global::from("items"))],
+                )),
+                0x8000_0001,
+            ),
+            StructureAttempt::Structured(_)
         ));
     }
 
