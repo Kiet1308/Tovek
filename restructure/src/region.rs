@@ -34,6 +34,7 @@ pub enum UnsafeStructureReason {
     ForProtocolEdgeTransfer,
     ForInitEdgeTransferOrder,
     UnmodeledClose,
+    UnmodeledControl,
 }
 
 impl fmt::Display for UnsafeStructureReason {
@@ -52,6 +53,7 @@ impl fmt::Display for UnsafeStructureReason {
                 "generic-for init edge transfer cannot preserve iterator evaluation order"
             }
             Self::UnmodeledClose => "explicit close event has no source-level representation",
+            Self::UnmodeledControl => "VM loop marker has no source-level representation",
         };
         f.write_str(name)
     }
@@ -294,6 +296,118 @@ fn statement_contains_close_with_seen(
         }
         _ => false,
     }
+}
+
+fn closure_contains_unlowered_control(
+    closure: &ast::Closure,
+    seen_closures: &mut FxHashSet<usize>,
+) -> bool {
+    let identity = closure.function.0.as_ptr() as usize;
+    if !seen_closures.insert(identity) {
+        return false;
+    }
+    let body = closure.function.lock().body.clone();
+    block_contains_unlowered_control_with_seen(&body, seen_closures)
+}
+
+fn rvalue_contains_unlowered_control(value: &RValue) -> bool {
+    let mut seen_closures = FxHashSet::default();
+    rvalue_contains_unlowered_control_with_seen(value, &mut seen_closures)
+}
+
+fn rvalue_contains_unlowered_control_with_seen(
+    value: &RValue,
+    seen_closures: &mut FxHashSet<usize>,
+) -> bool {
+    if let RValue::Closure(closure) = value {
+        if closure_contains_unlowered_control(closure, seen_closures) {
+            return true;
+        }
+    }
+    let mut value_copy = value.clone();
+    let mut nested_control = false;
+    value_copy.traverse_rvalues(&mut |nested| {
+        if !nested_control {
+            if let RValue::Closure(closure) = nested {
+                nested_control = closure_contains_unlowered_control(closure, seen_closures);
+            }
+        }
+    });
+    nested_control
+}
+
+fn block_contains_unlowered_control_with_seen(
+    block: &Block,
+    seen_closures: &mut FxHashSet<usize>,
+) -> bool {
+    block
+        .iter()
+        .any(|statement| statement_contains_unlowered_control_with_seen(statement, seen_closures))
+}
+
+fn statement_contains_unlowered_control_with_seen(
+    statement: &Statement,
+    seen_closures: &mut FxHashSet<usize>,
+) -> bool {
+    if matches!(
+        statement,
+        Statement::NumForInit(_)
+            | Statement::NumForNext(_)
+            | Statement::GenericForInit(_)
+            | Statement::GenericForNext(_)
+    ) {
+        return true;
+    }
+    let mut statement_copy = statement.clone();
+    let mut nested_control = false;
+    statement_copy.traverse_rvalues(&mut |value| {
+        if !nested_control {
+            if let RValue::Closure(closure) = value {
+                nested_control = closure_contains_unlowered_control(closure, seen_closures);
+            }
+        }
+    });
+    if nested_control {
+        return true;
+    }
+    match statement {
+        Statement::If(node) => {
+            block_contains_unlowered_control_with_seen(&node.then_block.lock(), seen_closures)
+                || block_contains_unlowered_control_with_seen(&node.else_block.lock(), seen_closures)
+        }
+        Statement::While(node) => {
+            block_contains_unlowered_control_with_seen(&node.block.lock(), seen_closures)
+        }
+        Statement::Repeat(node) => {
+            block_contains_unlowered_control_with_seen(&node.block.lock(), seen_closures)
+        }
+        Statement::NumericFor(node) => {
+            block_contains_unlowered_control_with_seen(&node.block.lock(), seen_closures)
+        }
+        Statement::GenericFor(node) => {
+            block_contains_unlowered_control_with_seen(&node.block.lock(), seen_closures)
+        }
+        _ => false,
+    }
+}
+
+fn block_contains_hidden_unlowered_control(block: &Block) -> bool {
+    let mut seen_closures = FxHashSet::default();
+    block.iter().any(|statement| {
+        // The top-level CFG markers are consumed by this pass; only markers
+        // hidden in an already-structured child block or closure body make the
+        // resulting source-like AST incomplete.
+        if matches!(
+            statement,
+            Statement::NumForInit(_)
+                | Statement::NumForNext(_)
+                | Statement::GenericForInit(_)
+                | Statement::GenericForNext(_)
+        ) {
+            return false;
+        }
+        statement_contains_unlowered_control_with_seen(statement, &mut seen_closures)
+    })
 }
 
 impl Analysis {
@@ -837,14 +951,28 @@ impl<'a> Builder<'a> {
             }
             None
         });
-        let unsafe_reason = suffix_unsafe_reason.or_else(|| {
+        let unsafe_reason = suffix_unsafe_reason
+            .or_else(|| {
+                analysis.nodes.iter().any(|node| {
+                    function
+                        .block(*node)
+                        .is_some_and(block_contains_hidden_unlowered_control)
+                        || function.edges(*node).any(|edge| {
+                            edge.weight().arguments.iter().any(|(_, value)| {
+                                rvalue_contains_unlowered_control(value)
+                            })
+                        })
+                })
+                .then_some(UnsafeStructureReason::UnmodeledControl)
+            })
+            .or_else(|| {
             analysis.nodes.iter().any(|node| {
                 function.block(*node).is_some_and(block_contains_close)
                     || function.edges(*node).any(|edge| {
                         edge.weight().arguments.iter().any(|(_, value)| {
                             rvalue_contains_close(value)
                         })
-                    })
+                })
             })
             .then_some(UnsafeStructureReason::UnmodeledClose)
         });
@@ -3924,6 +4052,42 @@ mod tests {
         assert!(matches!(
             lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
             StructureAttempt::Unsafe(UnsafeStructureReason::UnmodeledClose)
+        ));
+    }
+
+    #[test]
+    fn classifies_markers_in_closure_body_as_unmodeled() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let callback = RcLocal::new(Local::new(Some("callback".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        let closure = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    for_init.into(),
+                    GenericForNext::new(vec![value], generator.into(), state, control).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: Vec::new(),
+        });
+        function.block_mut(entry).unwrap().extend([
+            Assign::new(vec![LValue::Local(callback.clone())], vec![closure]).into(),
+            ast::Return::new(vec![RValue::Local(callback)]).into(),
+        ]);
+
+        // The outer CFG has no protocol marker of its own, but formatting the
+        // returned closure would still expose its hidden child markers.
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::UnmodeledControl)
         ));
     }
 
