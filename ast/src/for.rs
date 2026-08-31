@@ -32,7 +32,9 @@ pub struct ForId {
 /// The pair `(prep_pc, step_pc)` is a stable loop identity.  The remaining
 /// fields preserve the exact control-flow and result shape that produced the
 /// internal marker, allowing structuring passes to reject ambiguous pairs.
-/// Metadata is optional for compatibility with hand-built AST fixtures.
+/// Metadata is optional only for compatibility with hand-built AST fixtures;
+/// production bytecode lifting always attaches it, and the typed source-like
+/// structurer rejects a reachable marker when the identity is absent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ForOrigin {
     pub prep_pc: usize,

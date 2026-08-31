@@ -37,6 +37,10 @@ pub struct Lifter<'a> {
     static_function_id: Option<String>,
     register_map: FxHashMap<usize, ast::RcLocal>,
     constant_map: FxHashMap<usize, ast::Literal>,
+    // Provenance indexed by FORGLOOP PC.  Prep discovery already resolves the
+    // target step PC, so keeping the pair here avoids rescanning the complete
+    // instruction vector for every FORGLOOP marker.
+    for_origins_by_step: FxHashMap<usize, ast::ForOrigin>,
     current_node: Option<NodeIndex>,
     upvalues: Vec<ast::RcLocal>,
 }
@@ -63,6 +67,7 @@ impl<'a> Lifter<'a> {
             static_function_id,
             register_map: FxHashMap::default(),
             constant_map: FxHashMap::default(),
+            for_origins_by_step: FxHashMap::default(),
             current_node: None,
             upvalues: Vec::new(),
         };
@@ -73,6 +78,7 @@ impl<'a> Lifter<'a> {
 
     fn lift_function(&mut self) {
         self.discover_blocks().unwrap();
+        self.build_for_origin_map();
 
         let mut blocks = self.blocks.keys().cloned().collect::<Vec<_>>();
 
@@ -116,6 +122,8 @@ impl<'a> Lifter<'a> {
 
         for (start_pc, end_pc) in block_ranges {
             self.current_node = Some(self.block_to_node(start_pc));
+            self.function
+                .set_block_pc_range(self.current_node.unwrap(), start_pc, end_pc);
             let (statements, edges) = self.lift_block(start_pc, end_pc);
             let block = self.function.block_mut(self.current_node.unwrap()).unwrap();
             block.0.extend(statements);
@@ -128,6 +136,69 @@ impl<'a> Lifter<'a> {
             BlockEdge::new(BranchType::Unconditional),
         )]);
         self.function.set_entry(entry_node);
+    }
+
+    /// Pair every generic prep with its FORGLOOP once, before marker lifting.
+    /// The previous FORGLOOP path searched all instructions for each loop,
+    /// making a function with many loops quadratic in instruction count.
+    fn build_for_origin_map(&mut self) {
+        let instructions = &self.function_list[self.function.id].instructions;
+        for (prep_pc, instruction) in instructions.iter().enumerate() {
+            let Instruction::AD {
+                op_code:
+                    prep_op_code @ (OpCode::LOP_FORGPREP
+                    | OpCode::LOP_FORGPREP_NEXT
+                    | OpCode::LOP_FORGPREP_INEXT),
+                a,
+                d,
+                ..
+            } = instruction
+            else {
+                continue;
+            };
+            let step_pc = ((prep_pc + 1) as isize + *d as isize) as usize;
+            let (step_a, step_d, step_aux) = match instructions.get(step_pc) {
+                Some(Instruction::AD {
+                    op_code: OpCode::LOP_FORGLOOP,
+                    a: step_a,
+                    d: step_d,
+                    aux: step_aux,
+                }) => (*step_a, *step_d, *step_aux),
+                _ => panic!(
+                    "FORGPREP at PC {prep_pc} has no FORGLOOP partner at PC {step_pc}"
+                ),
+            };
+            let result_count = (step_aux & 0xff) as u8;
+            assert!(result_count > 0, "FORGLOOP has zero result locals");
+            let origin = ast::ForOrigin {
+                prep_pc,
+                step_pc,
+                body_pc: ((step_pc + 1) as isize + step_d as isize) as usize,
+                follow_pc: step_pc + 1,
+                prep_kind: match prep_op_code {
+                    OpCode::LOP_FORGPREP => ast::ForPrepKind::Generic,
+                    OpCode::LOP_FORGPREP_NEXT => ast::ForPrepKind::Next,
+                    OpCode::LOP_FORGPREP_INEXT => ast::ForPrepKind::Inext,
+                    _ => unreachable!(),
+                },
+                base_register: *a,
+                result_count,
+                aux: step_aux,
+                bytecode_version: self.bytecode_version,
+                vm_profile: ast::VmProfileId::Luau,
+            };
+            // Duplicate step targets are malformed bytecode.  Keep the
+            // failure explicit instead of allowing one marker to inherit the
+            // provenance of an unrelated prep.
+            assert!(
+                self.for_origins_by_step.insert(step_pc, origin).is_none(),
+                "duplicate FORGPREP target at FORGLOOP PC {step_pc}"
+            );
+            // `step_a` is checked when constructing the paired Next marker;
+            // retain the read here to make the malformed-base case explicit
+            // without normalizing it into a seemingly valid origin.
+            let _ = step_a;
+        }
     }
 
     fn discover_blocks(&mut self) -> Result<()> {
@@ -1279,58 +1350,14 @@ impl<'a> Lifter<'a> {
                     | OpCode::LOP_FORGPREP_INEXT
                     | OpCode::LOP_FORGPREP_NEXT => {
                         let prep_pc = block_start + index;
-                        let prep_kind = match op_code {
-                            OpCode::LOP_FORGPREP => ast::ForPrepKind::Generic,
-                            OpCode::LOP_FORGPREP_NEXT => ast::ForPrepKind::Next,
-                            OpCode::LOP_FORGPREP_INEXT => ast::ForPrepKind::Inext,
-                            _ => unreachable!(),
-                        };
                         let generator = self.register(a as _);
                         let state = self.register((a + 1) as _);
                         let counter = self.register((a + 2) as _);
                         let loop_index = ((prep_pc + 1) as isize + d as isize) as usize;
-                        let (step_a, step_d, step_aux) = match self.function_list[self.function.id]
-                            .instructions
-                            .get(loop_index)
-                        {
-                            Some(Instruction::AD {
-                                op_code: OpCode::LOP_FORGLOOP,
-                                a: step_a,
-                                d: step_d,
-                                aux: step_aux,
-                            }) => (*step_a, *step_d, *step_aux),
-                            // Keep malformed bytecode fail-closed.  The outer
-                            // decompile boundary already converts panics into
-                            // an explicit error; do not manufacture a marker
-                            // whose protocol partner is unknown.
-                            _ => panic!(
-                                "FORGPREP at PC {prep_pc} has no FORGLOOP partner at PC {loop_index}"
-                            ),
-                        };
-                        // Fast-path prep instructions reserve two iterator
-                        // registers, but the FORGLOOP AUX low byte still
-                        // records the number of user-visible loop variables
-                        // (which may be one).  Preserve that semantic arity
-                        // so Init and Next carry identical provenance.
-                        let result_count = (step_aux & 0xff) as u8;
-                        assert!(result_count > 0, "FORGLOOP has zero result locals");
-                        let origin = ast::ForOrigin {
-                            prep_pc,
-                            step_pc: loop_index,
-                            body_pc: ((loop_index + 1) as isize + step_d as isize) as usize,
-                            follow_pc: loop_index + 1,
-                            prep_kind,
-                            base_register: a,
-                            result_count,
-                            aux: step_aux,
-                            bytecode_version: self.bytecode_version,
-                            vm_profile: ast::VmProfileId::Luau,
-                        };
-                        // Preserve the bytecode partner's base register in the
-                        // provenance.  A mismatch is intentionally left for
-                        // the proof-driven structurer to reject rather than
-                        // silently normalizing malformed protocol pairs.
-                        let _ = step_a;
+                        let origin = *self
+                            .for_origins_by_step
+                            .get(&loop_index)
+                            .expect("generic prep provenance map missing FORGLOOP partner");
                         statements.push(
                             ast::GenericForInit::new_with_origin(generator, state, counter, origin)
                                 .into(),
@@ -1348,44 +1375,15 @@ impl<'a> Lifter<'a> {
                         let step_pc = block_start + index;
                         let generator = self.register(a as _);
                         let state = self.register((a + 1) as _);
-                        let _counter = self.register((a + 2) as _);
                         let result_count = (aux & 0xff) as usize;
                         assert!(result_count > 0, "FORGLOOP has zero result locals");
-                        let origin = self.function_list[self.function.id]
-                            .instructions
-                            .iter()
-                            .enumerate()
-                            .find_map(|(prep_pc, instruction)| match instruction {
-                                Instruction::AD {
-                                    op_code:
-                                        prep_op_code @ (OpCode::LOP_FORGPREP
-                                        | OpCode::LOP_FORGPREP_NEXT
-                                        | OpCode::LOP_FORGPREP_INEXT),
-                                    a: prep_a,
-                                    d: prep_d,
-                                    ..
-                                } => {
-                                    let target =
-                                        ((prep_pc + 1) as isize + *prep_d as isize) as usize;
-                                    (target == step_pc && *prep_a == a).then(|| ast::ForOrigin {
-                                        prep_pc,
-                                        step_pc,
-                                        body_pc: ((step_pc + 1) as isize + d as isize) as usize,
-                                        follow_pc: step_pc + 1,
-                                        prep_kind: match prep_op_code {
-                                            OpCode::LOP_FORGPREP => ast::ForPrepKind::Generic,
-                                            OpCode::LOP_FORGPREP_NEXT => ast::ForPrepKind::Next,
-                                            OpCode::LOP_FORGPREP_INEXT => ast::ForPrepKind::Inext,
-                                            _ => unreachable!(),
-                                        },
-                                        base_register: a,
-                                        result_count: (aux & 0xff) as u8,
-                                        aux,
-                                        bytecode_version: self.bytecode_version,
-                                        vm_profile: ast::VmProfileId::Luau,
-                                    })
-                                }
-                                _ => None,
+                        let origin = self
+                            .for_origins_by_step
+                            .get(&step_pc)
+                            .copied()
+                            .filter(|origin| {
+                                origin.base_register == a
+                                    && origin.result_count as usize == result_count
                             });
                         let mut next = ast::GenericForNext::new(
                             (a as usize + 3..a as usize + 3 + result_count)

@@ -39,6 +39,9 @@ use deserializer::bytecode::Bytecode;
 pub const DONT_REUSE_VAR: u32 = 1 << 0;
 pub const NO_SYNTH_HELPERS: u32 = 1 << 1;
 pub const ASSUME_NO_NAN: u32 = 1 << 2;
+/// Preserve the strict no-synthetic-dispatcher policy across public option
+/// transports (batch headers, web/worker flags, and cached artifacts).
+pub const STRICT_NO_SYNTHETIC_CONTROL: u32 = 1 << 3;
 
 // ---- TEMPORARY PROFILING (env-gated, remove before ship) ----
 #[doc(hidden)]
@@ -140,14 +143,21 @@ pub enum ControlFlowOutputPolicy {
 
 impl DecompileOptions {
     pub fn from_flag_bits(bits: u32) -> Option<Self> {
-        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN) != 0 {
+        if bits
+            & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL)
+            != 0
+        {
             return None;
         }
         Some(Self {
             dont_reuse_var: bits & DONT_REUSE_VAR != 0,
             no_synth_helpers: bits & NO_SYNTH_HELPERS != 0,
             assume_no_nan: bits & ASSUME_NO_NAN != 0,
-            control_flow_policy: ControlFlowOutputPolicy::default(),
+            control_flow_policy: if bits & STRICT_NO_SYNTHETIC_CONTROL != 0 {
+                ControlFlowOutputPolicy::StrictNoSyntheticControl
+            } else {
+                ControlFlowOutputPolicy::AllowCertifiedDispatcher
+            },
         })
     }
 
@@ -155,6 +165,8 @@ impl DecompileOptions {
         u32::from(self.dont_reuse_var) * DONT_REUSE_VAR
             | u32::from(self.no_synth_helpers) * NO_SYNTH_HELPERS
             | u32::from(self.assume_no_nan) * ASSUME_NO_NAN
+            | u32::from(self.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl)
+                * STRICT_NO_SYNTHETIC_CONTROL
     }
 
     pub fn union(self, other: Self) -> Self {
@@ -900,6 +912,55 @@ fn fallback_has_synthetic_control(fallback: &restructure::CertifiedFallback) -> 
     })
 }
 
+/// Select the only state-machine fallback through one policy-aware boundary.
+/// Keeping this helper shared by the ordinary rejection path and legacy panic
+/// recovery prevents a caught matcher panic from accidentally bypassing strict
+/// no-synthetic-control mode.
+fn certified_fallback_for_policy(
+    function: Function,
+    locals_to_ignore: &FxHashSet<ast::RcLocal>,
+    policy: ControlFlowOutputPolicy,
+) -> Option<ast::Block> {
+    let fallback = restructure::lift_certified_fallback_with_ignored_locals(
+        function,
+        locals_to_ignore,
+    )?;
+    if policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
+        && fallback_has_synthetic_control(&fallback)
+    {
+        return None;
+    }
+    Some(fallback.block)
+}
+
+/// Run the compatibility structurer, but route a panic through the exact same
+/// certified, policy-aware fallback used by ordinary source-like rejection.
+/// The injected closure keeps the panic route directly testable without a CFG
+/// that depends on an implementation-specific assertion in the legacy pass.
+fn legacy_with_certified_panic_recovery<F>(
+    function: Function,
+    fallback_function: Function,
+    locals_to_ignore: &FxHashSet<ast::RcLocal>,
+    policy: ControlFlowOutputPolicy,
+    reset_local_id: u64,
+    legacy: F,
+) -> (ast::Block, bool)
+where
+    F: FnOnce(Function) -> ast::Block,
+{
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| legacy(function))) {
+        Ok(block) => (block, false),
+        Err(_) => {
+            ast::set_local_id_base(reset_local_id);
+            (
+                certified_fallback_for_policy(fallback_function, locals_to_ignore, policy)
+                    .unwrap_or_else(unsupported_structuring_sentinel),
+                true,
+            )
+        }
+    }
+}
+
 fn function_has_generic_for_protocol(function: &Function) -> bool {
     function.blocks().any(|(_, block)| {
         block.iter().any(|statement| {
@@ -1100,15 +1161,11 @@ fn decompile_function(
                     used_certified_dispatcher = true;
                     let locals_to_ignore =
                         upvalues_in.iter().chain(params.iter()).cloned().collect();
-                    let block = restructure::lift_certified_fallback_with_ignored_locals(
+                    let block = certified_fallback_for_policy(
                         function,
                         &locals_to_ignore,
+                        control_flow_policy,
                     )
-                    .filter(|fallback| {
-                        control_flow_policy != ControlFlowOutputPolicy::StrictNoSyntheticControl
-                            || !fallback_has_synthetic_control(fallback)
-                    })
-                    .map(|fallback| fallback.block)
                     .unwrap_or_else(unsupported_structuring_sentinel);
                     (block, false)
                 } else {
@@ -1121,22 +1178,19 @@ fn decompile_function(
                     // for the certified fallback and turn any legacy panic into
                     // the same explicit failure marker used by other rejected
                     // shapes.
-                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        restructure::lift(function)
-                    })) {
-                        Ok(block) => (block, false),
-                        Err(_) => {
-                            ast::set_local_id_base(source_like_id_base);
-                            let locals_to_ignore =
-                                upvalues_in.iter().chain(params.iter()).cloned().collect();
-                            let block = restructure::lift_fallback_with_ignored_locals(
-                                fallback_function.as_ref().unwrap().deep_clone(),
-                                &locals_to_ignore,
-                            )
-                            .unwrap_or_else(unsupported_structuring_sentinel);
-                            (block, false)
-                        }
-                    }
+                    let locals_to_ignore =
+                        upvalues_in.iter().chain(params.iter()).cloned().collect();
+                    let (block, recovered_with_dispatcher) =
+                        legacy_with_certified_panic_recovery(
+                            function,
+                            fallback_function.as_ref().unwrap().deep_clone(),
+                            &locals_to_ignore,
+                            control_flow_policy,
+                            source_like_id_base,
+                            restructure::lift,
+                        );
+                    used_certified_dispatcher |= recovered_with_dispatcher;
+                    (block, false)
                 }
             }
         }
@@ -1159,8 +1213,7 @@ fn decompile_function(
             lifted = unsupported_structuring_sentinel();
         } else if let Some(fallback) = fallback_function.and_then(|function| {
             used_certified_dispatcher = true;
-            restructure::lift_certified_fallback_with_ignored_locals(function, &locals_to_ignore)
-                .map(|fallback| fallback.block)
+            certified_fallback_for_policy(function, &locals_to_ignore, control_flow_policy)
         }) {
             lifted = fallback;
         } else {
@@ -1220,10 +1273,13 @@ fn decompile_function(
 mod option_tests {
     use super::{
         ASSUME_NO_NAN, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS,
-        may_use_legacy_structurer,
+        STRICT_NO_SYNTHETIC_CONTROL,
+        ControlFlowOutputPolicy, certified_fallback_for_policy,
+        legacy_with_certified_panic_recovery, may_use_legacy_structurer,
     };
     use ast::{GenericForNext, Local, RValue, RcLocal};
     use cfg::function::Function;
+    use rustc_hash::FxHashSet;
     use restructure::{StructureAttempt, UnsafeStructureReason};
 
     #[test]
@@ -1243,6 +1299,87 @@ mod option_tests {
             DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN
         );
         assert!(DecompileOptions::from_flag_bits(1 << 31).is_none());
+    }
+
+    #[test]
+    fn strict_control_policy_round_trips_through_flag_bits() {
+        let options = DecompileOptions {
+            control_flow_policy: ControlFlowOutputPolicy::StrictNoSyntheticControl,
+            ..DecompileOptions::default()
+        };
+        assert_eq!(
+            DecompileOptions::from_flag_bits(options.bits()),
+            Some(options)
+        );
+        assert_ne!(options.bits() & STRICT_NO_SYNTHETIC_CONTROL, 0);
+        assert_eq!(
+            DecompileOptions::from_flag_bits(STRICT_NO_SYNTHETIC_CONTROL)
+                .expect("strict flag is supported")
+                .control_flow_policy,
+            ControlFlowOutputPolicy::StrictNoSyntheticControl
+        );
+    }
+
+    #[test]
+    fn strict_policy_rejects_certified_dispatcher_after_fallback_selection() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+
+        let allow = certified_fallback_for_policy(
+            function.clone(),
+            &FxHashSet::default(),
+            ControlFlowOutputPolicy::AllowCertifiedDispatcher,
+        );
+        assert!(allow.is_some(), "diagnostic dispatcher mode should allow fallback");
+        assert!(certified_fallback_for_policy(
+            function,
+            &FxHashSet::default(),
+            ControlFlowOutputPolicy::StrictNoSyntheticControl,
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn forced_legacy_panic_cannot_bypass_strict_control_policy() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+
+        let ignored = FxHashSet::default();
+        let reset_local_id = ast::current_local_id();
+        let (allowed, used_certified_dispatcher) = legacy_with_certified_panic_recovery(
+            function.clone(),
+            function.clone(),
+            &ignored,
+            ControlFlowOutputPolicy::AllowCertifiedDispatcher,
+            reset_local_id,
+            |_| panic!("forced legacy failure"),
+        );
+        assert!(used_certified_dispatcher);
+        assert!(!ast::simplify_gotos::block_has_unlowered_control(&allowed));
+
+        let (strict, used_certified_dispatcher) = legacy_with_certified_panic_recovery(
+            function.clone(),
+            function,
+            &ignored,
+            ControlFlowOutputPolicy::StrictNoSyntheticControl,
+            reset_local_id,
+            |_| panic!("forced legacy failure"),
+        );
+        assert!(used_certified_dispatcher);
+        assert!(
+            ast::simplify_gotos::block_has_unlowered_control(&strict),
+            "strict recovery must return the fail-closed sentinel, never a dispatcher"
+        );
     }
 
     #[test]

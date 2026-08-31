@@ -24,6 +24,7 @@ use axum::{
 use base64::prelude::*;
 use luau_lifter::{
     decompile_batch_with_options as lib_decompile_batch_with_options, BatchInput, DecompileOptions,
+    STRICT_NO_SYNTHETIC_CONTROL,
 };
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
@@ -59,7 +60,9 @@ const MAX_CONCURRENT_BATCHES: usize = 4;
 const MDB1_MAGIC: &[u8; 4] = b"MDB1";
 const MDB1_VERSION: u8 = 1;
 const MDB1_FLAG_DONT_REUSE_VAR: u8 = luau_lifter::DONT_REUSE_VAR as u8;
-const MDB1_SUPPORTED_FLAGS: u8 = MDB1_FLAG_DONT_REUSE_VAR;
+const MDB1_FLAG_STRICT_NO_SYNTHETIC_CONTROL: u8 = STRICT_NO_SYNTHETIC_CONTROL as u8;
+const MDB1_SUPPORTED_FLAGS: u8 =
+    MDB1_FLAG_DONT_REUSE_VAR | MDB1_FLAG_STRICT_NO_SYNTHETIC_CONTROL;
 const MAX_ENTRIES: usize = 50_000;
 const MAX_NAME_LEN: usize = 4 * 1024; // 4 KiB — a GetFullName() path.
 const MAX_CODE_LEN: usize = 16 * 1024 * 1024; // 16 MiB — one script's bytecode.
@@ -250,7 +253,8 @@ struct JsonBatchRequest {
     /// Decode key applied to every script (default [`DEFAULT_KEY`]).
     #[serde(default)]
     key: Option<u8>,
-    /// Optional decompiler flags. Currently supports `DONT_REUSE_VAR`.
+    /// Optional decompiler flags. Supports `DONT_REUSE_VAR` and
+    /// `STRICT_NO_SYNTHETIC_CONTROL`.
     #[serde(default)]
     flags: Option<String>,
     #[serde(default, alias = "dontReuseVar")]
@@ -648,6 +652,10 @@ fn parse_flags_text(raw: &str) -> Result<DecompileOptions, Error> {
         match normalized.as_str() {
             "NONE" => {}
             "DONT_REUSE_VAR" => options.dont_reuse_var = true,
+            "STRICT_NO_SYNTHETIC_CONTROL" => {
+                options.control_flow_policy =
+                    luau_lifter::ControlFlowOutputPolicy::StrictNoSyntheticControl;
+            }
             _ => {
                 return Err(Error::BadRequest(format!(
                     "unsupported decompile flag: {token}"
@@ -677,5 +685,22 @@ fn parse_key_header(headers: &HeaderMap) -> Result<u8, Error> {
             .ok()
             .and_then(|s| s.trim().parse::<u8>().ok())
             .ok_or_else(|| Error::BadRequest("x-encode-key must be an integer 0..=255".into())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_flags_text;
+    use luau_lifter::{ControlFlowOutputPolicy, STRICT_NO_SYNTHETIC_CONTROL};
+
+    #[test]
+    fn web_flags_accept_strict_control_policy_by_name_and_bits() {
+        let named = parse_flags_text("strict-no-synthetic-control").unwrap();
+        assert_eq!(
+            named.control_flow_policy,
+            ControlFlowOutputPolicy::StrictNoSyntheticControl
+        );
+        let numeric = parse_flags_text(&STRICT_NO_SYNTHETIC_CONTROL.to_string()).unwrap();
+        assert_eq!(numeric, named);
     }
 }

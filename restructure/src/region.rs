@@ -93,11 +93,9 @@ struct LoopInfo {
 struct Analysis {
     reachable: FxHashSet<NodeIndex>,
     nodes: Vec<NodeIndex>,
-    dominators: Dominators<NodeIndex>,
     post_dominators: FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
     live_in: FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
     live_out: FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
-    captured_locals: FxHashSet<RcLocal>,
     loops_by_init: FxHashMap<NodeIndex, LoopInfo>,
     loops_by_header: FxHashMap<NodeIndex, LoopInfo>,
 }
@@ -586,17 +584,14 @@ impl Analysis {
         let dominators = simple_fast(function.graph(), entry);
         let post_dominators = Self::post_dominators(function, &nodes, &reachable);
         let (live_in, live_out) = Self::liveness(function, &nodes, &reachable);
-        let captured_locals = Self::captured_locals(function, &nodes);
         let (loops_by_init, loops_by_header) =
             Self::find_generic_loops(function, &nodes, &reachable, &dominators, &post_dominators)?;
         Some(Self {
             reachable,
             nodes,
-            dominators,
             post_dominators,
             live_in,
             live_out,
-            captured_locals,
             loops_by_init,
             loops_by_header,
         })
@@ -684,18 +679,52 @@ impl Analysis {
         (live_in, live_out)
     }
 
-    fn captured_locals(function: &Function, nodes: &[NodeIndex]) -> FxHashSet<RcLocal> {
+    /// Collect closure captures that can be established before a particular
+    /// generic-for preparation executes.  A whole-function capture set is too
+    /// broad: a closure created only in the loop body or after the loop cannot
+    /// observe the iterator preparation.  Reverse reachability from the init
+    /// block keeps the guard precise while still covering an indirect local
+    /// callable initialized on any predecessor path.
+    fn captured_locals_before_init(
+        &self,
+        function: &Function,
+        init: NodeIndex,
+    ) -> FxHashSet<RcLocal> {
+        let mut pre_nodes = FxHashSet::default();
+        let mut work = vec![init];
+        while let Some(node) = work.pop() {
+            if !self.reachable.contains(&node) || !pre_nodes.insert(node) {
+                continue;
+            }
+            work.extend(
+                function
+                    .predecessor_blocks(node)
+                    .filter(|predecessor| self.reachable.contains(predecessor)),
+            );
+        }
+
         let mut captured = FxHashSet::default();
-        for node in nodes {
+        for node in &pre_nodes {
             let Some(block) = function.block(*node) else {
                 continue;
             };
-            for statement in block.iter() {
+            let statements = if *node == init {
+                let marker = block
+                    .iter()
+                    .position(|statement| statement.as_generic_for_init().is_some())
+                    .unwrap_or(block.len());
+                block.iter().take(marker).collect_vec()
+            } else {
+                block.iter().collect_vec()
+            };
+            for statement in statements {
                 collect_statement_captures(statement, &mut captured);
             }
             for edge in function.edges(*node) {
-                for (_, value) in &edge.weight().arguments {
-                    collect_rvalue_captures(value, &mut captured);
+                if pre_nodes.contains(&edge.target()) {
+                    for (_, value) in &edge.weight().arguments {
+                        collect_rvalue_captures(value, &mut captured);
+                    }
                 }
             }
         }
@@ -800,12 +829,6 @@ impl Analysis {
         result
     }
 
-    fn dominates(&self, dominator: NodeIndex, node: NodeIndex) -> bool {
-        self.dominators
-            .dominators(node)
-            .is_some_and(|mut dominators| dominators.any(|candidate| candidate == dominator))
-    }
-
     fn find_generic_loops(
         function: &Function,
         nodes: &[NodeIndex],
@@ -852,9 +875,120 @@ impl Analysis {
             }
         }
 
+        // A compiler-emitted generic-for is a semantic loop even when every
+        // body path exits before reaching FORGLOOP again (for example an
+        // always-break or always-return body).  Such a loop has no dominance
+        // backedge and therefore does not occur in `natural`.  Seed those
+        // candidates from the identity-bearing provenance as well.  The
+        // ownership walk is deliberately conservative: every body node must
+        // be dominated by the body entry, and traversal stops at the
+        // exhaustion/follow edge or at an outer target.  This prevents a
+        // straight-line tail after the loop from being swallowed by the body.
+        let mut candidates = natural;
+        let semantic_headers = nodes
+            .iter()
+            .copied()
+            .filter_map(|header| {
+                let next = function
+                    .block(header)
+                    .and_then(|block| block.last())
+                    .and_then(|statement| statement.as_generic_for_next())?;
+                let origin = next.origin()?;
+                let (then_edge, else_edge) = function.conditional_edges(header)?;
+                let body_entry = then_edge.target();
+                let normal_exit = else_edge.target();
+                if body_entry == normal_exit || !reachable.contains(&body_entry) {
+                    return None;
+                }
+                // Production lifter output carries exact PC ranges.  Require
+                // the CFG branch targets to agree with the provenance envelope
+                // whenever ranges are available; this is what distinguishes a
+                // direct outer exit from the source loop's own follow block.
+                if function
+                    .block_at_pc(origin.step_pc)
+                    .is_some_and(|node| node != header)
+                    || function
+                        .block_at_pc(origin.body_pc)
+                        .is_some_and(|node| {
+                            node != body_entry
+                                && !(origin.body_pc == origin.step_pc
+                                    && function
+                                        .block(body_entry)
+                                        .is_some_and(|block| block.is_empty()))
+                        })
+                    || function
+                        .block_at_pc(origin.follow_pc)
+                        .is_some_and(|node| node != normal_exit)
+                {
+                    return None;
+                }
+                let mut owned = FxHashSet::default();
+                owned.insert(header);
+                let mut work = vec![body_entry];
+                while let Some(node) = work.pop() {
+                    if node == header || node == normal_exit {
+                        continue;
+                    }
+                    if !reachable.contains(&node) || !owned.insert(node) {
+                        continue;
+                    }
+                    // A body node with an incoming path that bypasses the
+                    // FORGLOOP header is a shared/multi-entry region, not a
+                    // single source-level loop body.
+                    if !dominators
+                        .dominators(node)
+                        .is_some_and(|mut ds| ds.any(|candidate| candidate == body_entry))
+                    {
+                        return None;
+                    }
+                    if let Some(range) = function.block_pc_range(node)
+                        && (range.start < origin.body_pc || range.start >= origin.follow_pc)
+                    {
+                        // A block outside the compiler-emitted body envelope
+                        // belongs to an ancestor/tail region even when the
+                        // whole-function dominator tree says it is reachable
+                        // only through this body path.
+                        return None;
+                    }
+                    for edge in function.edges(node) {
+                        let target = edge.target();
+                        if !reachable.contains(&target)
+                            || target == header
+                            || target == normal_exit
+                        {
+                            continue;
+                        }
+                        if dominators
+                            .dominators(target)
+                            .is_some_and(|mut ds| ds.any(|candidate| candidate == body_entry))
+                        {
+                            work.push(target);
+                        }
+                        // Otherwise this is an outer/terminal target.  It is
+                        // intentionally left outside the owned set so the
+                        // normal path builder can classify it as break/return.
+                    }
+                }
+                owned.contains(&body_entry).then_some((header, owned, origin))
+            })
+            .collect_vec();
+        for (header, owned, _origin) in semantic_headers {
+            // Natural-loop discovery sees only paths that return to the
+            // FORGLOOP header.  A body arm that terminates with `return` (or
+            // another terminal transfer) is still owned by the source-level
+            // loop, but is absent from that reverse backedge walk.  Merge the
+            // provenance-seeded ownership into an existing natural candidate
+            // so those terminal arms are represented instead of becoming
+            // spurious external exits with no common post-dominator.
+            candidates
+                .entry(header)
+                .and_modify(|existing| existing.extend(owned.iter().copied()))
+                .or_insert(owned);
+        }
+
         let mut infos = Vec::new();
         let mut seen_origins = FxHashSet::default();
-        for (header, nodes_in_loop) in natural {
+        for (header, nodes_in_loop) in candidates {
             let Some(next) = function
                 .block(header)
                 .and_then(|block| block.last())
@@ -930,12 +1064,12 @@ impl Analysis {
             if res_locals.is_empty() || init_statement.0.right.is_empty() {
                 return None;
             }
-            // Production lifter output carries an exact prep/step pair.  AST
-            // unit fixtures may omit metadata, but a partially annotated pair
-            // or a shape whose provenance disagrees with the marker arity is
-            // ambiguous and must not be source-shaped.
-            let origin = match (init_statement.origin(), next.origin()) {
-                (None, None) => None,
+            // Every production generic-for marker must carry an exact
+            // prep/step pair.  A missing pair is indistinguishable from an
+            // older/custom protocol encoding and is therefore fail-closed;
+            // tests that construct markers by hand attach an explicit test
+            // origin before entering this proof.
+            let Some(origin) = (match (init_statement.origin(), next.origin()) {
                 (Some(init_origin), Some(next_origin))
                     if init_origin == next_origin
                         && init_origin.result_count as usize == res_locals.len()
@@ -947,8 +1081,40 @@ impl Analysis {
                     }
                     Some(init_origin)
                 }
-                _ => return None,
+                _ => None,
+            }) else {
+                return None;
             };
+            // When the lifter supplied PC envelopes, every non-header node
+            // owned by this candidate must lie between the compiler's body
+            // target and the instruction after FORGLOOP.  Apply this check to
+            // natural candidates too: otherwise a malformed/transformed CFG
+            // whose semantic ownership proof failed could still be accepted
+            // by the older backedge-only set and swallow an outer tail.
+            if function
+                .block_at_pc(origin.step_pc)
+                .is_some_and(|node| node != header)
+                || function
+                    .block_at_pc(origin.body_pc)
+                    .is_some_and(|node| {
+                        node != body_entry
+                            && !(origin.body_pc == origin.step_pc
+                                && function
+                                    .block(body_entry)
+                                    .is_some_and(|block| block.is_empty()))
+                    })
+                || function
+                    .block_at_pc(origin.follow_pc)
+                    .is_some_and(|node| node != normal_exit)
+                || nodes_in_loop.iter().any(|node| {
+                    *node != header
+                        && function.block_pc_range(*node).is_some_and(|range| {
+                            range.start < origin.body_pc || range.start >= origin.follow_pc
+                        })
+                })
+            {
+                return None;
+            }
             let external_targets = nodes_in_loop
                 .iter()
                 .flat_map(|node| function.successor_blocks(*node))
@@ -968,7 +1134,7 @@ impl Analysis {
                 nodes: nodes_in_loop,
                 res_locals,
                 right: init_statement.0.right.clone(),
-                origin,
+                origin: Some(origin),
             });
         }
         for (index, left) in infos.iter().enumerate() {
@@ -1061,11 +1227,33 @@ impl<'a> Builder<'a> {
             {
                 return Some(UnsafeStructureReason::ForInitSuffixOrder);
             }
+            // A callable local on the iterator RHS may invoke any closure
+            // reachable from this function.  Without a value-flow summary,
+            // writes to a captured cell established before this preparation
+            // must remain fail-closed even when the RHS contains no inline
+            // closure node.  Captures created only after the loop are outside
+            // the iterator's observation window.
+            let pre_init_captures = analysis.captured_locals_before_init(function, info.init);
             if suffix.clone().any(|statement| {
                 statement
                     .values_written()
                     .into_iter()
-                    .any(|written| analysis.captured_locals.contains(written))
+                    .any(|written| pre_init_captures.contains(written))
+            }) {
+                return Some(UnsafeStructureReason::CapturedCellReorder);
+            }
+            let right_captures = info.right.iter().fold(
+                FxHashSet::default(),
+                |mut captures, value| {
+                    collect_rvalue_captures(value, &mut captures);
+                    captures
+                },
+            );
+            if suffix.clone().any(|statement| {
+                statement
+                    .values_written()
+                    .into_iter()
+                    .any(|written| right_captures.contains(written))
             }) {
                 return Some(UnsafeStructureReason::CapturedCellReorder);
             }
@@ -1190,6 +1378,82 @@ impl<'a> Builder<'a> {
             }
         }
         Some(merged)
+    }
+
+    /// A loop that is conditionally entered can introduce an export mapping
+    /// on only one arm.  The loop arm initializes its fresh export to nil;
+    /// materialize the bypass arm's incoming SSA value before the common
+    /// continuation.  This preserves both the loop-result exhaustion value
+    /// and the pre-existing value when the loop is skipped, without requiring
+    /// the loop init block to dominate the join.  Existing mappings are
+    /// intentionally left fail-closed: copying an outer mapping into the
+    /// bypass arm would conflate two lexical loop-result cells.
+    fn materialize_optional_export_gaps(
+        &self,
+        base: &FxHashMap<RcLocal, RcLocal>,
+        then_map: &mut FxHashMap<RcLocal, RcLocal>,
+        else_map: &mut FxHashMap<RcLocal, RcLocal>,
+        continuation: Option<NodeIndex>,
+        then_block: &mut Block,
+        else_block: &mut Block,
+    ) -> Option<()> {
+        let Some(join) = continuation else {
+            return Some(());
+        };
+        let mut keys = base.keys().cloned().collect::<FxHashSet<_>>();
+        keys.extend(then_map.keys().cloned());
+        keys.extend(else_map.keys().cloned());
+        for key in keys {
+            let then_value = then_map.get(&key).cloned();
+            let else_value = else_map.get(&key).cloned();
+            if then_value == else_value {
+                continue;
+            }
+            let used_after = self
+                .analysis
+                .live_in
+                .get(&join)
+                .is_some_and(|live| live.contains(&key));
+            if !used_after {
+                continue;
+            }
+            match (then_value, else_value) {
+                (Some(export), None) if !base.contains_key(&key) => {
+                    if !then_block
+                        .iter()
+                        .any(|statement| Self::is_nil_assignment(statement, &export))
+                    {
+                        return None;
+                    }
+                    else_block.push(
+                        Assign::new(
+                            vec![LValue::Local(export.clone())],
+                            vec![RValue::Local(key.clone())],
+                        )
+                        .into(),
+                    );
+                    else_map.insert(key, export);
+                }
+                (None, Some(export)) if !base.contains_key(&key) => {
+                    if !else_block
+                        .iter()
+                        .any(|statement| Self::is_nil_assignment(statement, &export))
+                    {
+                        return None;
+                    }
+                    then_block.push(
+                        Assign::new(
+                            vec![LValue::Local(export.clone())],
+                            vec![RValue::Local(key.clone())],
+                        )
+                        .into(),
+                    );
+                    then_map.insert(key, export);
+                }
+                _ => return None,
+            }
+        }
+        Some(())
     }
 
     fn exports_for(&self, info: &LoopInfo) -> Vec<(RcLocal, RcLocal)> {
@@ -1333,8 +1597,31 @@ impl<'a> Builder<'a> {
     ) -> bool {
         let adapters = adapters.iter().copied().collect::<FxHashSet<_>>();
         let direct_normal_exit = adapters.is_empty() && info.normal_exit == info.join;
+        let mut pre_init_nodes = FxHashSet::default();
+        let mut work = vec![info.init];
+        while let Some(node) = work.pop() {
+            if !self.analysis.reachable.contains(&node)
+                || info.nodes.contains(&node)
+                || !pre_init_nodes.insert(node)
+            {
+                continue;
+            }
+            work.extend(
+                self.function
+                    .predecessor_blocks(node)
+                    .filter(|predecessor| self.analysis.reachable.contains(predecessor)),
+            );
+        }
         exports.iter().any(|(local, _)| {
             self.analysis.nodes.iter().any(|node| {
+                // A value written before the preparation is the incoming
+                // value that a bypass arm must preserve.  Writes after the
+                // loop (other than the proven nil exhaustion adapter) remain
+                // unsafe because they would alter the exported iteration
+                // result before the common continuation.
+                if pre_init_nodes.contains(node) {
+                    return false;
+                }
                 self.function.block(*node).is_some_and(|block| {
                     block.iter().any(|statement| {
                         if !statement
@@ -1562,15 +1849,11 @@ impl<'a> Builder<'a> {
             .filter(|statement| !is_ignorable(statement))
             .cloned()
             .collect_vec();
-        if !init_suffix.is_empty() {
-            // The bytecode marker has already evaluated the iterator setup,
-            // while a source `for` evaluates its RHS as part of entering the
-            // loop.  Without an explicit tuple-staging proof, moving any
-            // suffix across that boundary changes event order; fail closed
-            // even for total expressions until the VM effect model can certify
-            // the commute.
-            return self.reject_unsafe(UnsafeStructureReason::ForInitSuffixOrder);
-        }
+        // A suffix is emitted before the source-level `for`, so accept it only
+        // after the explicit purity/dependency/cell checks below prove that
+        // this tuple-staging commute cannot change an observable event.  The
+        // checks reject calls, reads, protocol/result aliases, protected or
+        // captured writes, and every non-local assignment.
         if init_suffix
             .iter()
             .any(|statement| !is_reorderable_for_init_suffix(statement))
@@ -1597,6 +1880,13 @@ impl<'a> Builder<'a> {
             .flat_map(|value| value.values_read())
             .cloned()
             .collect::<FxHashSet<_>>();
+        let right_captures = info.right.iter().fold(
+            FxHashSet::default(),
+            |mut captures, value| {
+                collect_rvalue_captures(value, &mut captures);
+                captures
+            },
+        );
         // A total/pure suffix expression can still read a local whose value is
         // changed indirectly by an observable iterator RHS (for example, a
         // call through a closure).  The IR has no effect summary precise
@@ -1619,14 +1909,30 @@ impl<'a> Builder<'a> {
             statement
                 .values_written()
                 .into_iter()
-                .any(|written| self.analysis.captured_locals.contains(written))
+                .any(|written| right_captures.contains(written))
         }) {
-            // A closure reachable from this function may be invoked while the
-            // iterator RHS is evaluated, even when the RHS only reads a local
-            // function value.  Moving a suffix write before that call would
-            // change the captured cell observed by the closure.  Without a
-            // value-flow summary for callable locals, reject all writes to
-            // captured cells rather than guessing which closure is invoked.
+            // A closure in the iterator RHS may observe this cell while the
+            // iterator is prepared.  Moving the suffix write before that call
+            // would change the captured value.  Captures that occur only in
+            // the loop body are safe: the suffix already executes before the
+            // first FORGLOOP iteration, so moving it before the source-level
+            // `for` preserves the value seen when those closures are created.
+            return self.reject_unsafe(UnsafeStructureReason::CapturedCellReorder);
+        }
+        // The RHS can call through an existing local closure.  Since this
+        // structurer cannot summarize indirect callable effects precisely,
+        // keep any write to a closure-captured cell established before this
+        // preparation fail-closed.  Closures created only in the loop body or
+        // after it cannot observe the iterator call and are safe to ignore.
+        let pre_init_captures = self
+            .analysis
+            .captured_locals_before_init(self.function, info.init);
+        if init_suffix.iter().any(|statement| {
+            statement
+                .values_written()
+                .into_iter()
+                .any(|written| pre_init_captures.contains(written))
+        }) {
             return self.reject_unsafe(UnsafeStructureReason::CapturedCellReorder);
         }
         output.extend(
@@ -1641,7 +1947,6 @@ impl<'a> Builder<'a> {
             return self.reject_unsafe(UnsafeStructureReason::CapturedLoopResultRef);
         }
         if self.has_unsafe_export_write(info, &exports, &adapters)
-            || (!exports.is_empty() && !self.analysis.dominates(info.init, info.join))
             || exports
                 .iter()
                 .any(|(local, _)| self.rewrite.contains_key(local))
@@ -1834,12 +2139,12 @@ impl<'a> Builder<'a> {
         }) {
             return None;
         }
-        // A result register must not be written, or captured by a closure,
-        // before loop entry.  Otherwise that code can retain the old cell
-        // while the source-shaped `for` treats the register as its loop-local
-        // binding; post-loop rewrites would then change what the capture
-        // observes.  Ordinary pre-init reads remain valid (the iterator RHS
-        // is evaluated before the loop and is deliberately snapshotted).
+        // A result register must not be captured by a closure before loop
+        // entry: a post-loop rewrite would then change which cell that closure
+        // observes.  Ordinary writes before init are allowed when the loop is
+        // conditionally bypassed; the bypass arm copies that incoming value to
+        // the fresh export.  Writes in the init suffix remain rejected by the
+        // suffix protocol checks below.
         // Walk backwards from the init rather than relying only on dominance:
         // a closure created on one branch of a preheader need not dominate the
         // init, but it is still able to retain the old register.
@@ -1878,10 +2183,15 @@ impl<'a> Builder<'a> {
             }
             self.function.block(*node).is_some_and(|block| {
                 block.iter().any(|statement| {
-                    let writes_result = statement
-                        .values_written()
-                        .into_iter()
-                        .any(|local| info.res_locals.iter().any(|result| result == local));
+                    let writes_result = *node == info.init
+                        && block
+                            .iter()
+                            .skip(init_index + 1)
+                            .any(|statement| {
+                                statement.values_written().into_iter().any(|local| {
+                                    info.res_locals.iter().any(|result| result == local)
+                                })
+                            });
                     let mut captures = FxHashSet::default();
                     collect_statement_captures(statement, &mut captures);
                     let captures_result = captures
@@ -1918,7 +2228,13 @@ impl<'a> Builder<'a> {
             .map(|value| self.rewrite_rvalue(value))
             .collect();
         let body_result = self.build_path(info.body_entry, Some(info.header), Some(&context))?;
-        if body_result.next != Some(info.header) && body_result.next != Some(info.join) {
+        // A terminal body path (e.g. `return value`) has no successor.  It is
+        // still a valid source-level loop body; the outer path resumes at the
+        // exhaustion join for any remaining CFG path.
+        if body_result.next != Some(info.header)
+            && body_result.next != Some(info.join)
+            && body_result.next.is_some()
+        {
             return None;
         }
         let mut generic_for = GenericFor::new(info.res_locals.clone(), right, body_result.block);
@@ -2228,7 +2544,7 @@ impl<'a> Builder<'a> {
                     &base_rewrite,
                 )?;
                 let then_result = self.build_path(then_target, Some(join), Some(ctx))?;
-                let then_rewrite = self.rewrite.clone();
+                let mut then_rewrite = self.rewrite.clone();
                 self.rewrite = base_rewrite.clone();
                 let else_transfer = self.edge_transfer(
                     self.function
@@ -2241,7 +2557,19 @@ impl<'a> Builder<'a> {
                     &base_rewrite,
                 )?;
                 let else_result = self.build_path(else_target, Some(join), Some(ctx))?;
-                let else_rewrite = self.rewrite.clone();
+                let mut else_rewrite = self.rewrite.clone();
+                let mut then_block = then_transfer;
+                then_block.extend(then_result.block.0);
+                let mut else_block = else_transfer;
+                else_block.extend(else_result.block.0);
+                self.materialize_optional_export_gaps(
+                    &base_rewrite,
+                    &mut then_rewrite,
+                    &mut else_rewrite,
+                    Some(join),
+                    &mut then_block,
+                    &mut else_block,
+                )?;
                 self.rewrite = self.reconcile_rewrite(
                     &base_rewrite,
                     &then_rewrite,
@@ -2251,15 +2579,12 @@ impl<'a> Builder<'a> {
                 if then_result.next != Some(join) || else_result.next != Some(join) {
                     return None;
                 }
-                let mut condition = self
-                    .rewrite_statement(Statement::If(statement.clone()))
-                    .into_if()
-                    .ok()?
-                    .condition;
-                let mut then_block = then_transfer;
-                then_block.extend(then_result.block.0);
-                let mut else_block = else_transfer;
-                else_block.extend(else_result.block.0);
+                let mut condition = statement.condition.clone();
+                for local in condition.values_read_mut() {
+                    if let Some(replacement) = base_rewrite.get(local) {
+                        *local = replacement.clone();
+                    }
+                }
                 simplify_conditional(&mut condition, &mut then_block, &mut else_block);
                 return Some(PathResult {
                     block: Block::from(vec![If::new(condition, then_block, else_block).into()]),
@@ -2277,7 +2602,7 @@ impl<'a> Builder<'a> {
                 .clone();
             let then_transfer = self.edge_transfer(&then_edge, &base_rewrite)?;
             let then_result = self.build_transfer_arm(then_target, ctx)?;
-            let then_rewrite = self.rewrite.clone();
+            let mut then_rewrite = self.rewrite.clone();
             self.rewrite = base_rewrite.clone();
             let else_edge = self
                 .function
@@ -2289,22 +2614,30 @@ impl<'a> Builder<'a> {
                 .clone();
             let else_transfer = self.edge_transfer(&else_edge, &base_rewrite)?;
             let else_result = self.build_transfer_arm(else_target, ctx)?;
-            let else_rewrite = self.rewrite.clone();
+            let mut else_rewrite = self.rewrite.clone();
             let continuation = (then_result.next == Some(ctx.info.header)
                 || else_result.next == Some(ctx.info.header))
-            .then_some(ctx.info.header);
-            self.rewrite =
-                self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite, continuation)?;
-            let mut condition = statement.condition;
-            for local in condition.values_read_mut() {
-                if let Some(replacement) = self.rewrite.get(local) {
-                    *local = replacement.clone();
-                }
-            }
+                .then_some(ctx.info.header);
             let mut then_block = then_transfer;
             then_block.extend(then_result.block.0);
             let mut else_block = else_transfer;
             else_block.extend(else_result.block.0);
+            self.materialize_optional_export_gaps(
+                &base_rewrite,
+                &mut then_rewrite,
+                &mut else_rewrite,
+                continuation,
+                &mut then_block,
+                &mut else_block,
+            )?;
+            self.rewrite =
+                self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite, continuation)?;
+            let mut condition = statement.condition.clone();
+            for local in condition.values_read_mut() {
+                if let Some(replacement) = base_rewrite.get(local) {
+                    *local = replacement.clone();
+                }
+            }
             strip_terminal_continue(&mut then_block);
             strip_terminal_continue(&mut else_block);
             simplify_conditional(&mut condition, &mut then_block, &mut else_block);
@@ -2327,7 +2660,7 @@ impl<'a> Builder<'a> {
                 &base_rewrite,
             )?;
             let then_result = self.build_path(then_target, join, None)?;
-            let then_rewrite = self.rewrite.clone();
+            let mut then_rewrite = self.rewrite.clone();
             self.rewrite = base_rewrite.clone();
             let else_transfer = self.edge_transfer(
                 self.function
@@ -2340,22 +2673,30 @@ impl<'a> Builder<'a> {
                 &base_rewrite,
             )?;
             let else_result = self.build_path(else_target, join, None)?;
-            let else_rewrite = self.rewrite.clone();
+            let mut else_rewrite = self.rewrite.clone();
+            let mut then_block = then_transfer;
+            then_block.extend(then_result.block.0);
+            let mut else_block = else_transfer;
+            else_block.extend(else_result.block.0);
+            self.materialize_optional_export_gaps(
+                &base_rewrite,
+                &mut then_rewrite,
+                &mut else_rewrite,
+                join,
+                &mut then_block,
+                &mut else_block,
+            )?;
             self.rewrite =
                 self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite, join)?;
             if then_result.next != join || else_result.next != join {
                 return None;
             }
-            let mut condition = statement.condition;
+            let mut condition = statement.condition.clone();
             for local in condition.values_read_mut() {
-                if let Some(replacement) = self.rewrite.get(local) {
+                if let Some(replacement) = base_rewrite.get(local) {
                     *local = replacement.clone();
                 }
             }
-            let mut then_block = then_transfer;
-            then_block.extend(then_result.block.0);
-            let mut else_block = else_transfer;
-            else_block.extend(else_result.block.0);
             simplify_conditional(&mut condition, &mut then_block, &mut else_block);
             Some(PathResult {
                 block: Block::from(vec![If::new(condition, then_block, else_block).into()]),
@@ -2486,6 +2827,9 @@ fn source_proves_for_prep_kind(
                 && match init.0.right.as_slice() {
                     [value] => call_is_named(value, "pairs"),
                     [RValue::Global(global), _state] => global_is_named(global, "next"),
+                    [RValue::Global(global), _state, RValue::Literal(Literal::Nil)] => {
+                        global_is_named(global, "next")
+                    }
                     _ => false,
                 }
         }
@@ -2499,10 +2843,9 @@ fn source_proves_for_prep_kind(
 }
 
 /// Validate the identity-bearing half of the generic-for protocol before any
-/// region discovery mutates or consumes the CFG.  Hand-built fixtures that
-/// omit provenance entirely remain supported; once one reachable marker is
-/// annotated, however, every marker must carry a unique, matching prep/step
-/// identity and an arity consistent with its result tuple.
+/// region discovery mutates or consumes the CFG.  Production output always
+/// carries provenance; a reachable marker without it is an explicit unsafe
+/// metadata-loss condition rather than a request to guess the VM protocol.
 fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason> {
     let Some(entry) = function.entry().as_ref().copied() else {
         return Ok(());
@@ -2560,7 +2903,7 @@ fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason
             }
         }
     }
-    if !saw_marker || (init_origins.is_empty() && next_origins.is_empty()) {
+    if !saw_marker {
         return Ok(());
     }
     if saw_missing {
@@ -2667,8 +3010,9 @@ pub fn lift_with_ignored_locals(
 #[cfg(test)]
 mod tests {
     use super::{
-        Analysis, Builder, StructureAttempt, UnsafeStructureReason, lift,
-        lift_attempt_with_ignored_locals,
+        Analysis, Builder, StructureAttempt, UnsafeStructureReason,
+        lift as production_lift,
+        lift_attempt_with_ignored_locals as production_lift_attempt,
     };
     use ast::{
         Assign, Block, Call, Close, Closure, ForOrigin, ForPrepKind, GenericForInit,
@@ -2683,6 +3027,120 @@ mod tests {
     use parking_lot::Mutex;
     use rustc_hash::{FxHashMap, FxHashSet};
     use triomphe::Arc;
+
+    // Hand-built CFG fixtures predate provenance-bearing marker constructors.
+    // Attach deterministic, source-proven test origins at the test boundary so
+    // those fixtures exercise the same proof path as real lifter output. Tests
+    // that specifically validate metadata loss call the production entry point
+    // through `super::` and therefore bypass this compatibility helper.
+    fn attach_test_origins(function: &mut Function) {
+        let nodes = function
+            .blocks()
+            .map(|(node, _)| node)
+            .collect::<Vec<_>>();
+        let init_nodes = nodes
+            .iter()
+            .copied()
+            .filter(|node| {
+                function
+                    .block(*node)
+                    .is_some_and(|block| block.iter().any(|s| s.as_generic_for_init().is_some()))
+            })
+            .collect::<Vec<_>>();
+        let next_nodes = nodes
+            .iter()
+            .copied()
+            .filter(|node| {
+                function
+                    .block(*node)
+                    .is_some_and(|block| block.iter().any(|s| s.as_generic_for_next().is_some()))
+            })
+            .collect::<Vec<_>>();
+        for (index, (init_node, next_node)) in init_nodes
+            .into_iter()
+            .zip(next_nodes.into_iter())
+            .enumerate()
+        {
+            let Some(init) = function
+                .block(init_node)
+                .and_then(|block| block.iter().find_map(|s| s.as_generic_for_init()))
+                .cloned()
+            else {
+                continue;
+            };
+            let Some(next) = function
+                .block(next_node)
+                .and_then(|block| block.iter().find_map(|s| s.as_generic_for_next()))
+                .cloned()
+            else {
+                continue;
+            };
+            if init.origin().is_some() || next.origin().is_some() {
+                continue;
+            }
+            let result_count = next.res_locals.len() as u8;
+            let prep_kind = match init.0.right.as_slice() {
+                [RValue::Call(call)]
+                    if matches!(call.value.as_ref(), RValue::Global(global) if global.0 == b"pairs") =>
+                {
+                    ForPrepKind::Next
+                }
+                [RValue::Call(call)]
+                    if matches!(call.value.as_ref(), RValue::Global(global) if global.0 == b"ipairs") =>
+                {
+                    ForPrepKind::Inext
+                }
+                [RValue::Global(global), ..] if global.0 == b"next" => ForPrepKind::Next,
+                _ => ForPrepKind::Generic,
+            };
+            let aux = if prep_kind == ForPrepKind::Inext {
+                0x8000_0000 | result_count as u32
+            } else {
+                result_count as u32
+            };
+            let origin = ForOrigin {
+                prep_pc: index * 3 + 1,
+                step_pc: index * 3 + 2,
+                body_pc: index * 3 + 3,
+                follow_pc: index * 3 + 4,
+                prep_kind,
+                base_register: 0,
+                result_count,
+                aux,
+                bytecode_version: 6,
+                vm_profile: VmProfileId::Luau,
+            };
+            if let Some(block) = function.block_mut(init_node) {
+                if let Some(marker) = block
+                    .iter_mut()
+                    .find_map(|s| s.as_generic_for_init_mut())
+                {
+                    marker.1 = Some(origin);
+                }
+            }
+            if let Some(block) = function.block_mut(next_node) {
+                if let Some(marker) = block
+                    .iter_mut()
+                    .find_map(|s| s.as_generic_for_next_mut())
+                {
+                    marker.origin = Some(origin);
+                }
+            }
+        }
+    }
+
+    fn lift(mut function: Function) -> Option<Block> {
+        attach_test_origins(&mut function);
+        production_lift(function)
+    }
+
+    fn lift_attempt_with_ignored_locals(
+        mut function: Function,
+        protected_locals: &FxHashSet<RcLocal>,
+    ) -> StructureAttempt {
+        attach_test_origins(&mut function);
+        production_lift_attempt(function, protected_locals)
+    }
 
     #[test]
     fn refuses_edge_arguments_after_terminal_statement() {
@@ -4165,7 +4623,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_for_init_suffix_without_tuple_staging_proof() {
+    fn rejects_effectful_for_init_suffix_without_tuple_staging_proof() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -4177,19 +4635,16 @@ mod tests {
         let state = RcLocal::new(Local::new(Some("state".into())));
         let control = RcLocal::new(Local::new(Some("control".into())));
         let value = RcLocal::new(Local::new(Some("value".into())));
-        let setup = RcLocal::new(Local::new(Some("setup".into())));
         let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
         for_init.0.right = vec![RValue::Global(Global::from("items"))];
         function.block_mut(init).unwrap().push(for_init.into());
-        // Optimized bytecode can put a side-effect-free local setup after the
-        // FORGPREP marker.  Until tuple staging is implemented, the source
-        // pass must not silently move that setup across iterator evaluation.
-        function.block_mut(init).unwrap().push(
-            Assign::new(vec![LValue::Local(setup)], vec![RValue::Table(
-                Table::default(),
-            )])
-            .into(),
-        );
+        // An effectful suffix cannot be moved across iterator evaluation.  A
+        // pure, read-free local assignment is accepted only after the explicit
+        // tuple-staging proof in `build_loop`; this call remains fail-closed.
+        function
+            .block_mut(init)
+            .unwrap()
+            .push(Call::new(RValue::Global(Global::from("prepare")), Vec::new()).into());
         function
             .block_mut(header)
             .unwrap()
@@ -4281,6 +4736,84 @@ mod tests {
             StructureAttempt::Unsafe(UnsafeStructureReason::CapturedCellReorder)
         ));
         assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_indirect_callable_for_init_suffix_write_to_captured_local() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let captured = RcLocal::new(Local::new(Some("captured".into())));
+        let iterator_factory = RcLocal::new(Local::new(Some("iterator_factory".into())));
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let closure = Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    ast::Return::new(vec![RValue::Local(captured.clone())]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Ref(captured.clone())],
+        };
+        // The RHS invokes a pre-existing local closure.  Its capture is not
+        // represented inline in the call expression, so direct RHS capture
+        // collection alone would miss this reorder hazard.
+        function.block_mut(init).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(iterator_factory.clone())],
+                vec![RValue::Closure(closure)],
+            )
+            .into(),
+        );
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Call(Call::new(
+            RValue::Local(iterator_factory),
+            Vec::new(),
+        ))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(init).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(captured)],
+                vec![RValue::Table(Table::default())],
+            )
+            .into(),
+        );
+        function
+            .block_mut(header)
+            .unwrap()
+            .push(GenericForNext::new(vec![value], generator.into(), state, control).into());
+        function
+            .block_mut(body)
+            .unwrap()
+            .push(Statement::Comment(ast::Comment::new("body".into())).into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::CapturedCellReorder)
+        ));
     }
 
     #[test]
@@ -4912,6 +5445,272 @@ mod tests {
         assert!(output.contains("for value in items do"), "{output}");
         assert!(!output.contains("GenericFor"), "{output}");
         assert!(!output.contains("goto "), "{output}");
+    }
+
+    #[test]
+    fn structures_compiler_empty_generic_for_with_pc_alias_body() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let empty_body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let origin = ForOrigin {
+            prep_pc: 10,
+            step_pc: 11,
+            // Luau emits an empty body target that aliases the FORGLOOP PC;
+            // the CFG still keeps a distinct empty block for the body edge.
+            body_pc: 11,
+            follow_pc: 12,
+            prep_kind: ForPrepKind::Generic,
+            base_register: 0,
+            result_count: 1,
+            aux: 1,
+            bytecode_version: 13,
+            vm_profile: VmProfileId::Luau,
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        for_init.1 = Some(origin);
+        function.block_mut(init).unwrap().push(for_init.into());
+        let mut for_next = GenericForNext::new(vec![value], generator.into(), state, control);
+        for_next.origin = Some(origin);
+        function.block_mut(header).unwrap().push(for_next.into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![(header, BlockEdge::new(BranchType::Unconditional))]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (empty_body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(empty_body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_block_pc_range(header, 11, 11);
+        function.set_block_pc_range(exit, 12, 13);
+
+        let output = lift(function)
+            .expect("the compiler's empty-body PC alias should remain source-shaped")
+            .to_string();
+        assert!(output.contains("for value in items do"), "{output}");
+        assert!(!output.contains("goto "), "{output}");
+    }
+
+    #[test]
+    fn structures_generic_for_whose_body_always_breaks_without_backedge() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![value], generator.into(), state, control).into(),
+        );
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+
+        function.set_edges(init, vec![(header, BlockEdge::new(BranchType::Unconditional))]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        // Source `break` is patched directly to the follow block; there is no
+        // body-to-header dominance backedge to seed a natural loop.
+        function.set_edges(body, vec![(exit, BlockEdge::new(BranchType::Unconditional))]);
+
+        let output = lift(function)
+            .expect("an always-break generic-for should be source-shaped")
+            .to_string();
+        assert!(output.contains("for value in items do"), "{output}");
+        assert!(output.contains("break"), "{output}");
+        assert!(!output.contains("goto "), "{output}");
+    }
+
+    #[test]
+    fn structures_generic_for_whose_body_always_returns_without_backedge() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![value.clone()], generator.into(), state, control).into(),
+        );
+        function
+            .block_mut(body)
+            .unwrap()
+            .push(Statement::Return(ast::Return { values: vec![value.into()] }).into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+
+        function.set_edges(init, vec![(header, BlockEdge::new(BranchType::Unconditional))]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        // A return terminates the body and likewise leaves no natural latch.
+        function.set_edges(body, Vec::new());
+
+        let output = lift(function)
+            .expect("an always-return generic-for should be source-shaped")
+            .to_string();
+        assert!(output.contains("for value in items do"), "{output}");
+        assert!(output.contains("return value"), "{output}");
+    }
+
+    #[test]
+    fn structures_generic_for_with_conditional_terminal_return() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body_if = function.new_block();
+        let return_block = function.new_block();
+        let continue_block = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![value.clone()], generator.into(), state, control).into(),
+        );
+        function.block_mut(body_if).unwrap().push(
+            If::new(
+                RValue::Global(Global::from("should_return")),
+                Block::default(),
+                Block::default(),
+            )
+            .into(),
+        );
+        function
+            .block_mut(return_block)
+            .unwrap()
+            .push(Statement::Return(ast::Return { values: vec![value.into()] }).into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+
+        function.set_edges(init, vec![(header, BlockEdge::new(BranchType::Unconditional))]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body_if, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body_if, vec![
+            (return_block, BlockEdge::new(BranchType::Then)),
+            (continue_block, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(continue_block, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(return_block, Vec::new());
+
+        let output = lift(function)
+            .expect("a conditional terminal return inside a generic-for should be source-shaped")
+            .to_string();
+        assert!(output.contains("for value in items do"), "{output}");
+        assert!(output.contains("if should_return then"), "{output}");
+        assert!(output.contains("return value"), "{output}");
+        assert!(!output.contains("goto "), "{output}");
+    }
+
+    #[test]
+    fn complete_generic_for_origin_loss_is_unsafe() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![value], generator.into(), state, control).into(),
+        );
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(init, vec![(header, BlockEdge::new(BranchType::Unconditional))]);
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(header, BlockEdge::new(BranchType::Unconditional))]);
+
+        assert!(matches!(
+            production_lift_attempt(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::ForOriginMissing)
+        ));
+    }
+
+    #[test]
+    fn accepts_explicit_next_tuple_with_compiler_nil_control() {
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let mut init = GenericForInit::new(generator, state, control);
+        init.0.right = vec![
+            RValue::Global(Global::from("next")),
+            RValue::Global(Global::from("items")),
+            RValue::Literal(Literal::Nil),
+        ];
+        let origin = ForOrigin {
+            prep_pc: 1,
+            step_pc: 2,
+            body_pc: 3,
+            follow_pc: 4,
+            prep_kind: ForPrepKind::Next,
+            base_register: 0,
+            result_count: 2,
+            aux: 2,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+        };
+        assert!(super::source_proves_for_prep_kind(&init, origin));
+        init.0.right[2] = RValue::Global(Global::from("extra"));
+        assert!(!super::source_proves_for_prep_kind(&init, origin));
     }
 
     #[test]
