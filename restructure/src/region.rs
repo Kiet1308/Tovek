@@ -897,7 +897,16 @@ impl Analysis {
                 let (then_edge, else_edge) = function.conditional_edges(header)?;
                 let body_entry = then_edge.target();
                 let normal_exit = else_edge.target();
-                if body_entry == normal_exit || !reachable.contains(&body_entry) {
+                let direct_break = body_entry == normal_exit;
+                if !reachable.contains(&body_entry) {
+                    return None;
+                }
+                // Luau can compile an unconditional `break` without a
+                // separate body block: both FORGLOOP arms target the follow
+                // block, so the provenance body target aliases follow.  This
+                // is still a source-level loop whose body is exactly
+                // `break`; only accept the alias when the PC envelope agrees.
+                if direct_break && origin.body_pc != origin.follow_pc {
                     return None;
                 }
                 // Production lifter output carries exact PC ranges.  Require
@@ -924,6 +933,9 @@ impl Analysis {
                 }
                 let mut owned = FxHashSet::default();
                 owned.insert(header);
+                if direct_break {
+                    return Some((header, owned, origin));
+                }
                 let mut work = vec![body_entry];
                 while let Some(node) = work.pop() {
                     if node == header || node == normal_exit {
@@ -1001,7 +1013,15 @@ impl Analysis {
             let (then_edge, else_edge) = function.conditional_edges(header)?;
             let body_entry = then_edge.target();
             let normal_exit = else_edge.target();
-            if !nodes_in_loop.contains(&body_entry) || nodes_in_loop.contains(&normal_exit) {
+            let direct_break = body_entry == normal_exit;
+            if direct_break {
+                // The direct-break form has no body node: the follow block is
+                // shared by both FORGLOOP arms and must remain outside the
+                // loop so the surrounding path can consume it once.
+                if nodes_in_loop.len() != 1 {
+                    return None;
+                }
+            } else if !nodes_in_loop.contains(&body_entry) || nodes_in_loop.contains(&normal_exit) {
                 return None;
             }
             // A natural loop with an entry other than its header cannot be
@@ -1073,7 +1093,7 @@ impl Analysis {
                 (Some(init_origin), Some(next_origin))
                     if init_origin == next_origin
                         && init_origin.result_count as usize == res_locals.len()
-                        && init_origin.body_pc != init_origin.follow_pc
+                        && (direct_break == (init_origin.body_pc == init_origin.follow_pc))
                         && init_origin.step_pc != init_origin.prep_pc =>
                 {
                     if !seen_origins.insert(init_origin) {
@@ -2227,7 +2247,18 @@ impl<'a> Builder<'a> {
             .cloned()
             .map(|value| self.rewrite_rvalue(value))
             .collect();
-        let body_result = self.build_path(info.body_entry, Some(info.header), Some(&context))?;
+        let body_result = if info.body_entry == info.normal_exit {
+            // The compiler's unconditional-break shape aliases the body and
+            // follow targets.  Do not walk the follow block into the loop;
+            // materialise the source-level break and let the outer path visit
+            // that block after the loop.
+            PathResult {
+                block: Block::from(vec![Statement::Break(ast::Break {}).into()]),
+                next: Some(info.join),
+            }
+        } else {
+            self.build_path(info.body_entry, Some(info.header), Some(&context))?
+        };
         // A terminal body path (e.g. `return value`) has no successor.  It is
         // still a valid source-level loop body; the outer path resumes at the
         // exhaustion join for any remaining CFG path.
@@ -5539,6 +5570,60 @@ mod tests {
 
         let output = lift(function)
             .expect("an always-break generic-for should be source-shaped")
+            .to_string();
+        assert!(output.contains("for value in items do"), "{output}");
+        assert!(output.contains("break"), "{output}");
+        assert!(!output.contains("goto "), "{output}");
+    }
+
+    #[test]
+    fn structures_compiler_direct_break_with_body_follow_alias() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let follow = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let value = RcLocal::new(Local::new(Some("value".into())));
+        let origin = ForOrigin {
+            prep_pc: 1,
+            step_pc: 2,
+            // An unconditional compiler `break` can make FORGLOOP's body
+            // target equal the follow target (no separate body block).
+            body_pc: 3,
+            follow_pc: 3,
+            prep_kind: ForPrepKind::Generic,
+            base_register: 0,
+            result_count: 1,
+            aux: 1,
+            bytecode_version: 13,
+            vm_profile: VmProfileId::Luau,
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        for_init.1 = Some(origin);
+        function.block_mut(init).unwrap().push(for_init.into());
+        let mut for_next = GenericForNext::new(vec![value], generator.into(), state, control);
+        for_next.origin = Some(origin);
+        function.block_mut(header).unwrap().push(for_next.into());
+        function
+            .block_mut(follow)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+
+        function.set_edges(init, vec![(header, BlockEdge::new(BranchType::Unconditional))]);
+        // Both FORGLOOP arms target the follow block.  The Then arm is the
+        // source-level unconditional break; the Else arm is exhaustion.
+        function.set_edges(header, vec![
+            (follow, BlockEdge::new(BranchType::Else)),
+            (follow, BlockEdge::new(BranchType::Then)),
+        ]);
+
+        let output = production_lift(function)
+            .expect("a compiler direct-break alias should be source-shaped")
             .to_string();
         assert!(output.contains("for value in items do"), "{output}");
         assert!(output.contains("break"), "{output}");
