@@ -1,69 +1,126 @@
-# PR #3 re-review — residual control-flow status
+# PR #3 re-review — current residual-control status
 
-This note is committed so a reviewer using only the GitHub checkout can see the
-current failure state.  The input bytecode corpus is local to the development
-machine; paths below are repository-relative paths from that corpus.
+This note is the GitHub-visible status for PR #3. The bytecode corpus is
+intentionally local (it is not checked into GitHub); the stable Roblox project
+paths below are the selectors a reviewer can use when they have the same
+corpus.
 
 ## Snapshot
 
 - Repository: `Kiet1308/Tovek`
 - PR: [#3](https://github.com/Kiet1308/Tovek/pull/3)
-- Working branch: `fix/pet-source-like-loop-structuring`
-- Reviewed code baseline: `910a2d6`; follow-up diagnostics/docs commits are on the
-  same PR.
-- Corpus: `D:\Medal\examplebytecode\RobloxProject`, 3,978 entries.
+- Branch: `fix/pet-source-like-loop-structuring`
+- Local checkout: `D:\Medal\medal-decompiler`
+- Full corpus: `D:\Medal\examplebytecode\RobloxProject` (3,978 entries)
+- Focused residual-loop corpus: `D:\Medal\selectedCorpus_pr3_20260831` (13 entries)
 
-## Reproduced result
+## Current result
 
-The current release/debug batch run is:
+The latest release run uses the folder driver's default strict policy, so a
+successful file cannot fall back to a synthetic program-counter dispatcher.
+All successful outputs are ordinary source-like Luau (`for`, `while`, `if`,
+`break`, `continue`, and `return`); the output gate rejects residual gotos,
+labels, and VM loop markers.
 
-| result | count |
+| corpus / gate | result |
 | --- | ---: |
-| decompiled | 3,923 |
-| empty payload skipped | 42 |
-| explicit failures | 13 |
+| focused PR3 files decompiled | 13 / 13 |
+| focused PR3 files skipped (empty payload) | 0 |
+| focused PR3 files failed | 0 |
+| focused PR3 official Luau compile failures | 0 |
+| full corpus decompiled | 3,936 / 3,978 |
+| full corpus skipped (empty payload) | 42 |
+| full corpus failed | 0 |
+| full corpus official Luau compile failures | 0 |
 
-The 13 failures are fail-closed.  They do not emit a final Luau file containing
-`goto`, a label, or an internal loop marker.  In analysis mode each failure has a
-typed diagnostic in `.tovek-analysis/manifest.json`; the old public error text is
-kept for API compatibility.
+The full-corpus compile check was run in batches with the pinned
+`luau-compile.exe --binary -O0`; the six files under the non-ASCII `Piña
+colada` directory were also compiled from their containing directory because
+the Windows command-line encoding cannot open their absolute path reliably.
+The official parser-only check (`--only-parse`) passed for all 3,936 emitted
+files, including those six paths.
 
-Representative command (PowerShell):
+## Reproduction commands
+
+Build the release binary:
 
 ```powershell
-target/release/luau-lifter.exe decompile-folder `
-  D:\Medal\examplebytecode\RobloxProject `
-  target\pr3-recheck `
+cargo +nightly-2024-12-15 build -p luau-lifter --bin luau-lifter --release `
+  --target-dir target/build_release_quality
+```
+
+Focused corpus (the command is deterministic at one worker):
+
+```powershell
+target/build_release_quality/release/luau-lifter.exe decompile-folder `
+  D:\Medal\selectedCorpus_pr3_20260831 target\pr3-recheck `
+  --key 203 --threads 1 --verbose
+```
+
+Full corpus:
+
+```powershell
+target/build_release_quality/release/luau-lifter.exe decompile-folder `
+  D:\Medal\examplebytecode\RobloxProject target\corpus-recheck `
   --key 203 --threads 8 --emit-upvalue-analysis --verbose
 ```
 
-For the committed bytecode fixtures, use the command in
+Compile/parse each emitted `.luau` with the official tool:
+
+```powershell
+$compiler = 'D:\Medal\luau-tools-src\build\luau-compile.exe'
+& $compiler --binary -O0 path\to\file.luau
+& $compiler --only-parse path\to\file.luau
+```
+
+For the self-contained committed fixtures, see
 [`failure_fixtures/residual_control_flow/README.md`](failure_fixtures/residual_control_flow/README.md).
-Those seven fixtures now decompile successfully in both default and strict
-policy modes and pass the official Luau parser check.
 
-## What is fixed in this PR
+## Examples now handled
 
-- terminal export copies are inserted before `break`/`continue`/`return`;
-- mixed exit ports are rejected instead of merging incompatible environments;
-- compiler generic-for break/return shapes have provenance-aware handling;
-- source-like rejection reasons are typed and preserved in the batch manifest;
-- legacy APIs retain their exact historical error strings;
-- output is checked for residual control-flow before formatting.
+These were representative residual-control paths in the original 310-file
+baseline and are now emitted as readable source-like code rather than a
+dispatcher or invalid goto/label AST:
 
-## What remains
+- `ReplicatedStorage/Shared/CutsceneUtil.lua` — nested generic-for re-entry
+  is represented as a `while true` loop with a guarded exhaustion path.
+- `ReplicatedStorage/Shared/ForgeVFX/mod/lerp.lua` and
+  `ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/lerp.lua` — interpolation
+  loop exits and result resets are structured without residual labels.
+- `ReplicatedStorage/Shared/Information/GameModifiers.lua` — post-loop
+  result handling is guarded by proven normal-exhaustion flow.
+- `ReplicatedStorage/FusionPackage/Fusion/State/For/Disassembly.lua` — the
+  generic-for exit and terminal path are source-like and compile cleanly.
+- `ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/Lerps.lua` and
+  `ReplicatedStorage/Part_Icles/Engine.lua` — iterator protocol metadata keeps
+  `pairs`/`ipairs`-style loops readable.
+- `ReplicatedStorage/Shared/Network/BufferEncoder/Write.lua` — the large
+  nested branch/loop graph no longer leaves control-flow markers.
 
-The remaining failures are not a safe reason to weaken the proof checks.  Most
-`source_like_unsupported` cases contain gotos whose targets are in a sibling or
-child lexical region (the lowest common ancestor is outside the current `if` or
-loop).  The current label simplifier intentionally refuses those transfers.
-The generic-for protocol failures additionally lack enough value/provenance data
-to prove prep kind, iterator alias identity, or per-iteration captured-cell
-lifetime.  A correct general fix therefore needs typed region exits, a flat
-semantic CFG snapshot before AST embedding, and VM-aware generic-for protocol
-proofs; routing these cases through the old matcher would be an unproven semantic
-guess.
+The six `Workspace/Lobby/Summerprops/Piña colada/water/rotating__volt-script-000011`
+through `000016.server.luau` outputs also compile; they are useful parser
+regressions because the formatter now disambiguates a call whose receiver
+starts with a parenthesized expression.
 
-The complete path/function matrix and concrete failure examples are in
-[`Tovek_PR3_Residual_Control_ReReview_718d17f.md`](Tovek_PR3_Residual_Control_ReReview_718d17f.md).
+## Safety and quality gates
 
+- Source-like structuring is attempted first and is fail-closed when its CFG
+  proof is unavailable.
+- The legacy generic-for matcher is restricted to hidden VM protocol registers
+  and is never used for source-like output.
+- Generic-for exhaustion adapters are guarded only on legacy output with a
+  compiler provenance marker; ordinary source-level AST copies are left alone.
+- Explicit single-result calls followed by `nil, nil` retain those operands;
+  the detector handles Luau's `CALLFB` feedback `NOP` and short prefixes
+  without integer underflow.
+- Generated temporary locals are coalesced only when interval and branch
+  disjointness proofs hold, preserving captured/upvalue locals.
+- The formatter prefixes ambiguous parenthesized method calls with `;`, so
+  every emitted file is accepted by the official Luau parser.
+
+No residual `goto`, label, `GenericForInit`, `GenericForNext`, `NumForInit`, or
+`NumForNext` marker was found in the focused outputs. The full-corpus search
+was additionally checked for the synthetic names (`__pc`, `__state`, and
+`controlFlowState`) and found none. Future unsupported bytecode must continue
+to fail closed with a typed diagnostic rather than emit invalid or guessed
+Luau.

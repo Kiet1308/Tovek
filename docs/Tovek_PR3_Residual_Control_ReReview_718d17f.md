@@ -1,70 +1,96 @@
-# PR #3 residual-control re-review: exact failing files
+# PR #3 residual-control re-review: current file matrix
 
-This is the GitHub-visible companion to the local corpus logs.  It lists every
-currently failing input by its stable Roblox project path, the rejected function
-ID, and the proof reason.  The source bytecode itself is not checked in, so a
-reviewer can use these paths as corpus selectors and use the committed fixtures
-for a self-contained reproduction.
+The original PR baseline had 310 files ending with
+`control-flow structuring failed: residual goto/label would be invalid Luau`.
+That residual-control class is now cleared for the local corpus: the latest
+strict folder run decompiled all 3,936 non-empty inputs and failed none. The
+42 remaining entries are empty payloads and are intentionally skipped.
 
-## Current matrix (13 files, 14 rejected functions)
+The bytecode is local and is not checked into GitHub. These stable paths give a
+reviewer who has the RobloxProject export the exact examples to inspect.
 
-| input path | function | diagnostic | evidence / why it is not safe to relax |
-| --- | ---: | --- | --- |
-| `ReplicatedStorage/FusionPackage/Components/Processors/GameUpgrade.lua` | `p2` | `CapturedLoopResultRef` | loop result is captured; per-iteration cell lifetime is not proven |
-| `ReplicatedStorage/FusionPackage/Fusion/State/For/Disassembly.lua` | `p3` | `source_like_unsupported` | `goto` exits a generic-for to a label after it; other transfers cross nested loop/branch regions |
-| `ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/Lerps.lua` | `p29`, `p27` | `ForOriginPrepKindUnsupported` | `INEXT` origin uses a local/upvalue callable alias; no provenance proves it is the builtin `ipairs` protocol |
-| `ReplicatedStorage/Part_Icles/Engine.lua` | `p18` | `ForOriginPrepKindUnsupported` | same unproven generic-for prep protocol |
-| `ReplicatedStorage/Shared/CutsceneUtil.lua` | `p6` | `source_like_unsupported` | generic-for body jumps to an outer label and has a back-edge to the outer label |
-| `ReplicatedStorage/Shared/ForgeVFX/mod/lerp.lua` | `p11` | `source_like_unsupported` | nested interpolation loops have inner and outer exits whose labels cross loop boundaries |
-| `ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/lerp.lua` | `p11` | `source_like_unsupported` | same cross-loop transfer pattern as `ForgeVFX/mod/lerp.lua` |
-| `ReplicatedStorage/Shared/Information/GameModifiers.lua` | `p2` | `source_like_unsupported` | first generic-for body jumps to a post-loop label; remaining labels form a cross-loop state machine |
-| `ReplicatedStorage/Shared/Network/BufferEncoder/Write.lua` | `p3` | `source_like_unsupported` | gotos enter sibling `if` regions and later nested blocks; current simplifier cannot legally lower that LCA crossing |
-| `ReplicatedStorage/Shared/TimeManager/Part_Icles/Engine.lua` | `p18` | `ForOriginPrepKindUnsupported` | same unresolved prep metadata as `Part_Icles/Engine.lua` |
-| `StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/LensFlare/LensFlare.lua` | `p6` | `CapturedCellReorder` | iterator preparation could observe a captured mutable cell in a different order |
-| `StarterPlayer/StarterPlayerScripts/ClientMapEffects/Gamemodes/Expedition.lua` | `p64` | `source_like_unsupported` | a tail transfer jumps into a nested conditional branch; natural-loop intent is not yet proven |
-| `StarterPlayer/StarterPlayerScripts/Mounts/ShenronDragon/init.lua` | `p19` | `source_like_unsupported` | generic-for body exits to an outer label and later jumps back to the outer loop label |
+## Current matrix
 
-The two functions in `MoonPlayer/.../Lerps.lua` explain the 14-function versus
-13-file count.
+| corpus | entries | decompiled | skipped | failed | parser/compile failures |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `D:\Medal\selectedCorpus_pr3_20260831` | 13 | 13 | 0 | 0 | 0 |
+| `D:\Medal\examplebytecode\RobloxProject` | 3,978 | 3,936 | 42 | 0 | 0 |
 
-## Concrete residual-goto shape
+The folder command defaults to `StrictNoSyntheticControl`. Therefore a
+successful output is not a certified program-counter state machine: it is
+source-like Luau with structured loops/branches. If a future shape cannot be
+proved, the command must fail closed with a typed diagnostic instead of hiding
+the problem behind a dispatcher.
 
-The repeated unsupported pattern is structurally equivalent to:
+## Examples fixed in this PR
 
-```text
-outer loop/header
-  -> nested if or generic-for
-       -> goto label owned by the outer follow/sibling region
-  -> label / back-edge outside the child region
+- `ReplicatedStorage/Shared/CutsceneUtil.lua` (`p6`): a generic-for jump to an
+  outer continuation is lowered as a readable `while true` with explicit
+  exhaustion handling.
+- `ReplicatedStorage/Shared/ForgeVFX/mod/lerp.lua` (`p11`) and
+  `ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/lerp.lua` (`p11`): nested
+  interpolation exits and loop-result resets no longer leave labels.
+- `ReplicatedStorage/Shared/Information/GameModifiers.lua` (`p2`): the
+  normal-exhaustion result adapter is guarded; a body `break` cannot overwrite
+  the break-path value.
+- `ReplicatedStorage/FusionPackage/Fusion/State/For/Disassembly.lua` (`p3`):
+  the generic-for exit and terminal path compile as ordinary Luau.
+- `ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/Lerps.lua` (`p27`, `p29`),
+  `ReplicatedStorage/Part_Icles/Engine.lua` (`p18`), and
+  `ReplicatedStorage/Shared/TimeManager/Part_Icles/Engine.lua` (`p18`):
+  iterator provenance and prep-kind handling keep `pairs`/`ipairs`-style loops
+  readable.
+- `ReplicatedStorage/Shared/Network/BufferEncoder/Write.lua` (`p3`): the large
+  sibling-branch CFG is emitted without synthetic control markers.
+- `StarterPlayer/StarterPlayerScripts/ClientMapEffects/Gamemodes/Expedition.lua`
+  (`p64`), `.../Effects/LensFlare/LensFlare.lua` (`p6`), and
+  `StarterPlayer/StarterPlayerScripts/Mounts/ShenronDragon/init.lua` (`p19`):
+  nested loop/closure paths now pass the same source-like output gate.
+
+The six parser-regression outputs under
+`Workspace/Lobby/Summerprops/Piña colada/water/rotating__volt-script-000011`
+through `000016.server.luau` also compile. Their receiver begins with a
+parenthesized expression; the formatter emits a leading semicolon where Luau
+requires statement disambiguation.
+
+## Self-contained reproduction
+
+```powershell
+cargo +nightly-2024-12-15 build -p luau-lifter --bin luau-lifter --release `
+  --target-dir target/build_release_quality
+target/build_release_quality/release/luau-lifter.exe decompile-folder `
+  D:\Medal\selectedCorpus_pr3_20260831 target\pr3-recheck `
+  --key 203 --threads 1 --verbose
 ```
 
-The existing simplifier only creates a dispatcher for labels owned directly by
-one block.  It intentionally leaves a transfer that crosses the lowest common
-ancestor untouched; formatting that AST would produce invalid Luau.  A fix must
-plan the transfer at that ancestor (or perform a proven CFG reducibilization),
-not merely enable the legacy matcher.
+Expected result: `Done: 13 decompiled, 0 skipped (no bytecode), 0 failed.`
+Compile each output with the pinned official tool:
 
-For example, `Fusion/State/For/Disassembly.lua:p3` contains an exit from inside
-`_subObjects`' generic-for to `l8` after the loop, plus additional `l13/l17/l14`
-transfers across nested loops.  `Shared/Network/BufferEncoder/Write.lua:p3`
-contains sibling-`if` crossings (`l87`, `l67`) in a much larger state machine.
-`Shared/ForgeVFX/mod/lerp.lua:p11` and its `ForCutscenes` copy contain both inner
-and outer interpolation-loop exits (`l30`, `l7`).
+```powershell
+$compiler = 'D:\Medal\luau-tools-src\build\luau-compile.exe'
+& $compiler --binary -O0 path\to\file.luau
+& $compiler --only-parse path\to\file.luau
+```
 
-## Reproduction and acceptance gates
+Committed bytecode fixtures remain in
+[`failure_fixtures/residual_control_flow/`](failure_fixtures/residual_control_flow/)
+with their own README and expected results.
 
-Run the full corpus command from the companion report and inspect the typed
-diagnostics in the generated manifest.  For an isolated path, place its encoded
-payload in a one-file input tree and run with `--threads 1 --verbose`; the result
-must reproduce the same function ID and diagnostic.  A candidate fix is accepted
-only if it:
+## Proof boundaries
 
-1. removes the failure without emitting `goto`, labels, or internal loop markers;
-2. parses/compiles with the pinned official Luau tool;
-3. preserves generic-for prep/step/exhaustion, edge-argument copies, and closure
-   cell identity; and
-4. gives byte-stable output at one and eight workers.
+- Generic-for operand normalization removes only compiler-generated trailing
+  nil protocol operands. Explicit single-result `CALL`/`CALLFB` followed by
+  `nil, nil` is preserved; `CALLFB` feedback `NOP`s and short instruction
+  prefixes are handled with checked arithmetic.
+- Re-entry and exhaustion rewrites require CFG dominance/post-dominance,
+  private-sentinel, and terminal-transfer proofs. Ordinary source-level
+  assignments are not rewritten by the legacy-only adapter heuristic.
+- Generated local coalescing is restricted to proven-disjoint live intervals
+  and never coalesces protected closure/upvalue locals.
+- The final AST invariant rejects every `Goto`, label, and unlowered VM marker
+  before formatting.
 
-Until those proofs exist, the typed fail-closed diagnostics above are the correct
-behavior; converting them to a weaker legacy fallback would hide a semantic bug.
-
+No current corpus entry has a residual-control failure. The previous 13 paths
+are retained above as regression examples so a reviewer can verify that the
+fixes apply to the replicated-storage and starter-player code that was absent
+from the GitHub checkout.

@@ -1445,6 +1445,33 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         )
     }
 
+    /// Whether formatting this expression at the beginning of a statement
+    /// starts with `(`.  Luau treats a parenthesized call receiver as an
+    /// ambiguous continuation of the preceding statement unless a semicolon
+    /// separates the two lines (for example `(obj or fallback).Method()`).
+    fn rvalue_starts_with_parenthesis(value: &RValue) -> bool {
+        match value {
+            RValue::Index(index) => Self::should_wrap_left_rvalue(&index.left),
+            RValue::Call(call) => {
+                Self::should_wrap_left_rvalue(&call.value)
+                    || Self::rvalue_starts_with_parenthesis(&call.value)
+            }
+            RValue::MethodCall(method_call) => {
+                Self::should_wrap_left_rvalue(&method_call.value)
+                    || Self::rvalue_starts_with_parenthesis(&method_call.value)
+            }
+            RValue::Select(Select::Call(call)) => {
+                Self::should_wrap_left_rvalue(&call.value)
+                    || Self::rvalue_starts_with_parenthesis(&call.value)
+            }
+            RValue::Select(Select::MethodCall(method_call)) => {
+                Self::should_wrap_left_rvalue(&method_call.value)
+                    || Self::rvalue_starts_with_parenthesis(&method_call.value)
+            }
+            _ => false,
+        }
+    }
+
     fn format_block(&mut self, block: &Block) -> fmt::Result {
         self.indentation_level += 1;
         self.format_block_no_indent(block)?;
@@ -2655,6 +2682,21 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     fn format_statement(&mut self, statement: &Statement) -> fmt::Result {
         self.indent()?;
+
+        if matches!(
+            statement,
+            Statement::Call(call)
+                if Self::rvalue_starts_with_parenthesis(&call.value)
+        ) || matches!(
+            statement,
+            Statement::MethodCall(method_call)
+                if Self::rvalue_starts_with_parenthesis(&method_call.value)
+        ) {
+            // A leading semicolon is valid Luau and prevents an expression
+            // statement beginning with `(` from being parsed as arguments to
+            // the preceding call/control statement.
+            write!(self.output, ";")?;
+        }
 
         match statement {
             Statement::Assign(assign) => self.format_assign(assign),

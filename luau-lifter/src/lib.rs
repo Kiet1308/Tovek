@@ -5,7 +5,7 @@ mod op_code;
 pub mod upvalue_analysis;
 
 use ast::{
-    Traverse,
+    LocalRw, Traverse,
     flatten_guards::flatten_guards,
     local_declarations::LocalDeclarer,
     name_locals::{NameLocalOptions, name_locals_with_options},
@@ -1061,6 +1061,69 @@ fn may_use_legacy_structurer(
             .graph()
             .edge_weights()
             .any(|edge| !edge.arguments.is_empty())
+        && legacy_generic_protocol_is_hidden(function)
+}
+
+/// The legacy matcher predates the typed generic-for protocol and can silently
+/// discard reads/writes of FORGPREP/FORGLOOP's hidden generator/state/control
+/// registers.  Permit it only when those registers occur exclusively in the
+/// marker pair itself; a visible use must remain on the certified fallback
+/// path, even when the graph has no edge arguments.
+fn legacy_generic_protocol_is_hidden(function: &Function) -> bool {
+    let mut protocol = FxHashSet::default();
+    let mut saw_marker = false;
+    for (_, block) in function.blocks() {
+        for statement in block.iter() {
+            match statement {
+                ast::Statement::GenericForInit(init) => {
+                    saw_marker = true;
+                    protocol.extend(
+                        init.0
+                            .left
+                            .iter()
+                            .filter_map(|left| left.as_local().cloned()),
+                    );
+                }
+                ast::Statement::GenericForNext(next) => {
+                    saw_marker = true;
+                    protocol.extend(next.generator.values_read().into_iter().cloned());
+                    protocol.extend(next.state.values_read().into_iter().cloned());
+                    protocol.insert(next.control.clone());
+                }
+                _ => {}
+            }
+        }
+    }
+    if !saw_marker || protocol.is_empty() {
+        return true;
+    }
+    for (_, block) in function.blocks() {
+        for statement in block.iter() {
+            if matches!(
+                statement,
+                ast::Statement::GenericForInit(_) | ast::Statement::GenericForNext(_)
+            ) {
+                continue;
+            }
+            if statement
+                .values_read()
+                .into_iter()
+                .chain(statement.values_written())
+                .any(|local| protocol.contains(local))
+            {
+                return false;
+            }
+        }
+    }
+    !function.graph().edge_weights().any(|edge| {
+        edge.arguments.iter().any(|(destination, value)| {
+            protocol.contains(destination)
+                || value
+                    .values_read()
+                    .into_iter()
+                    .any(|local| protocol.contains(local))
+        })
+    })
 }
 
 fn decompile_function(
@@ -1283,6 +1346,18 @@ fn decompile_function(
         ptime!(F_SIMPLIFY_GOTOS);
         simplify_gotos(&mut lifted);
     }
+    // Keep large source-like functions below Luau's 255-register ceiling by
+    // coalescing only proven-disjoint generated temporaries.  This pass is
+    // deliberately after structuring/fallback selection and before
+    // `name_locals`, so it cannot affect CFG proofs or declaration naming.
+    // The AST-only adapter shape is ambiguous with ordinary source code.  It
+    // is safe to use only on legacy-structurer output; source-like output has
+    // already applied CFG-backed adapter proofs inside `restructure`.
+    ast::guard_exhaustion_adapters::guard_generic_for_adapters(
+        &mut lifted,
+        !used_source_like,
+    );
+    ast::coalesce_locals::coalesce_generated_locals(&mut lifted, &source_like_protected_locals);
     if ast::simplify_gotos::block_has_goto_or_label(&lifted)
         || ast::simplify_gotos::block_has_unlowered_control(&lifted)
     {
@@ -1386,7 +1461,7 @@ mod option_tests {
         STRICT_NO_SYNTHETIC_CONTROL, certified_fallback_for_policy,
         legacy_with_certified_panic_recovery, may_use_legacy_structurer,
     };
-    use ast::{GenericForNext, Local, RValue, RcLocal};
+    use ast::{Assign, GenericForNext, LValue, Literal, Local, RValue, RcLocal};
     use cfg::function::Function;
     use restructure::{StructureAttempt, UnsafeStructureReason};
     use rustc_hash::FxHashSet;
@@ -1502,6 +1577,7 @@ mod option_tests {
         let entry = function.new_block();
         function.set_entry(entry);
         let local = RcLocal::new(Local::new(Some("value".to_owned())));
+        let protocol_local = local.clone();
         function.block_mut(entry).unwrap().push(
             GenericForNext::new(
                 vec![local.clone()],
@@ -1539,6 +1615,19 @@ mod option_tests {
             &edge_function,
             &StructureAttempt::Unsupported,
         ));
+
+        let mut visible_protocol_use = function.clone();
+        visible_protocol_use.block_mut(edge_entry).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(protocol_local)],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+        );
+        assert!(
+            !may_use_legacy_structurer(&visible_protocol_use, &StructureAttempt::Unsupported,),
+            "legacy must not hide a visible generic-for protocol register"
+        );
 
         let empty = Function::new(0);
         assert!(!may_use_legacy_structurer(

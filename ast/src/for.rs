@@ -47,6 +47,10 @@ pub struct ForOrigin {
     pub aux: u32,
     pub bytecode_version: u8,
     pub vm_profile: VmProfileId,
+    /// True when the source supplied an explicit single-result call followed
+    /// by nil iterator arguments.  The VM tuple is otherwise padded with
+    /// implicit nils for ordinary one-expression generic loops.
+    pub explicit_nil_args: bool,
 }
 
 impl ForOrigin {

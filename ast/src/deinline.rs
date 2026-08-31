@@ -5991,6 +5991,7 @@ mod tests {
             aux: 1,
             bytecode_version: 6,
             vm_profile: VmProfileId::Luau,
+            explicit_nil_args: false,
         };
         let statement = GenericFor {
             res_locals: vec![local("value")],

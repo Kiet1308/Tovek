@@ -170,6 +170,7 @@ impl<'a> Lifter<'a> {
             };
             let result_count = (step_aux & 0xff) as u8;
             assert!(result_count > 0, "FORGLOOP has zero result locals");
+            let explicit_nil_args = Self::has_explicit_nil_args(instructions, prep_pc, *a);
             let origin = ast::ForOrigin {
                 prep_pc,
                 step_pc,
@@ -186,6 +187,7 @@ impl<'a> Lifter<'a> {
                 aux: step_aux,
                 bytecode_version: self.bytecode_version,
                 vm_profile: ast::VmProfileId::Luau,
+                explicit_nil_args,
             };
             // Duplicate step targets are malformed bytecode.  Keep the
             // failure explicit instead of allowing one marker to inherit the
@@ -198,6 +200,88 @@ impl<'a> Lifter<'a> {
             // retain the read here to make the malformed-base case explicit
             // without normalizing it into a seemingly valid origin.
             let _ = step_a;
+        }
+    }
+
+    /// Detect the bytecode shape produced by an explicit single-result call
+    /// followed by `, nil, nil` in a generic-for expression.  An implicit
+    /// multi-result call is written directly into the protocol base register
+    /// with `C=3`; explicit padding uses `C=1` and either writes the base
+    /// directly or moves the temporary result into it before the two nil loads.
+    fn has_explicit_nil_args(instructions: &[Instruction], prep_pc: usize, base: u8) -> bool {
+        let load_nil = |pc: usize, register: u8| {
+            matches!(
+                instructions.get(pc),
+                Some(Instruction::BC {
+                    op_code: OpCode::LOP_LOADNIL,
+                    a,
+                    ..
+                }) if *a == register
+            )
+        };
+        let Some(load_two_pc) = prep_pc.checked_sub(1) else {
+            return false;
+        };
+        let Some(load_one_pc) = prep_pc.checked_sub(2) else {
+            return false;
+        };
+        if !load_nil(load_two_pc, base.saturating_add(2))
+            || !load_nil(load_one_pc, base.saturating_add(1))
+        {
+            return false;
+        }
+        let is_single_call = |instruction: &Instruction, register: u8| {
+            matches!(
+                instruction,
+                Instruction::BC {
+                    op_code: OpCode::LOP_CALL | OpCode::LOP_CALLFB,
+                    a,
+                    // C stores result count + 1; textual `C=1` (one result)
+                    // is represented internally as c == 2.
+                    c: 2,
+                    ..
+                } if *a == register
+            )
+        };
+        // CALLFB is followed by an injected NOP carrying its feedback AUX;
+        // that NOP appears between the call and the MOVE/LOADNIL sequence.
+        // Walk backwards over only those no-ops, then require the exact
+        // single-result call (or a MOVE from its result) to avoid matching an
+        // unrelated call in the setup block.
+        let is_nop = |pc: usize| {
+            matches!(
+                instructions.get(pc),
+                Some(Instruction::BC {
+                    op_code: OpCode::LOP_NOP,
+                    ..
+                })
+            )
+        };
+        let Some(mut cursor) = prep_pc.checked_sub(3) else {
+            return false;
+        };
+        while cursor > 0 && is_nop(cursor) {
+            cursor -= 1;
+        }
+        match instructions.get(cursor) {
+            Some(instruction) if is_single_call(instruction, base) => true,
+            Some(Instruction::BC {
+                op_code: OpCode::LOP_MOVE,
+                a,
+                b,
+                ..
+            }) if *a == base => {
+                let Some(mut call_pc) = cursor.checked_sub(1) else {
+                    return false;
+                };
+                while call_pc > 0 && is_nop(call_pc) {
+                    call_pc -= 1;
+                }
+                instructions
+                    .get(call_pc)
+                    .is_some_and(|instruction| is_single_call(instruction, *b))
+            }
+            _ => false,
         }
     }
 
@@ -1698,5 +1782,64 @@ impl<'a> Lifter<'a> {
             ),
             Instruction::E { op_code, .. } => matches!(op_code, OpCode::LOP_JUMPX),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Instruction, Lifter, OpCode};
+
+    #[test]
+    fn detects_explicit_nil_padding_through_callfb_nop() {
+        // CALLFB's textual C=1 (one result) is encoded as c=2 and is followed
+        // by an injected NOP before the MOVE into the FORGPREP base register.
+        let instructions = vec![
+            Instruction::BC {
+                op_code: OpCode::LOP_CALLFB,
+                a: 4,
+                b: 1,
+                c: 2,
+                aux: 0,
+            },
+            Instruction::BC {
+                op_code: OpCode::LOP_NOP,
+                a: 0,
+                b: 0,
+                c: 0,
+                aux: 0,
+            },
+            Instruction::BC {
+                op_code: OpCode::LOP_MOVE,
+                a: 1,
+                b: 4,
+                c: 0,
+                aux: 0,
+            },
+            Instruction::BC {
+                op_code: OpCode::LOP_LOADNIL,
+                a: 2,
+                b: 0,
+                c: 0,
+                aux: 0,
+            },
+            Instruction::BC {
+                op_code: OpCode::LOP_LOADNIL,
+                a: 3,
+                b: 0,
+                c: 0,
+                aux: 0,
+            },
+            Instruction::AD {
+                op_code: OpCode::LOP_FORGPREP,
+                a: 1,
+                d: 0,
+                aux: 0,
+            },
+        ];
+
+        assert!(Lifter::has_explicit_nil_args(&instructions, 5, 1));
+        // Short prefixes must fail closed without underflowing while looking
+        // behind the prep instruction.
+        assert!(!Lifter::has_explicit_nil_args(&instructions, 2, 1));
     }
 }

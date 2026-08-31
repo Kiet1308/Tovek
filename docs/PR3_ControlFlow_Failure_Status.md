@@ -12,7 +12,7 @@ control-flow structuring failed: residual goto/label would be invalid Luau
 
 This document is a status/evidence brief and implementation checkpoint for a
 stronger model. It records both the pre-change baseline and the current
-proof-backed progress; it does not claim that the entire corpus is solved.
+proof-backed result; the local corpus now has no residual-control failure.
 
 ## Repository state
 
@@ -81,15 +81,23 @@ The exact machine-readable evidence is the failure log listed above; it has
 The current patch was rebuilt and run against the same corpus with:
 
 ```powershell
-target/debug/luau-lifter.exe decompile-folder `
+target/build_release_quality/release/luau-lifter.exe decompile-folder `
   D:\Medal\examplebytecode\RobloxProject `
-  target\corpus_analysis_20260831_2145 `
+  target\corpus_final_quality3 `
   --key 203 --threads 8 --emit-upvalue-analysis --verbose
 ```
 
-The result is 3,923 successful outputs, 42 empty-payload skips, and 13
-failures. Every remaining failure is fail-closed and carries a typed
-per-function diagnostic in `.tovek-analysis/manifest.json`:
+The latest strict release result is 3,936 successful outputs, 42 empty-payload
+skips, and 0 failures. Every successful output is source-like Luau; the folder
+driver does not permit the synthetic dispatcher unless explicitly opted in.
+The external official compiler checks report zero parser/compile failures.
+
+The prior 13 rejected functions are retained in the matrix below as regression
+examples; they are no longer failures and no longer carry a residual-control
+diagnostic in the current run. The class counts below are historical (before
+the latest fixes):
+
+### Historical rejected-function classes
 
 | Diagnostic class | Files | Meaning |
 |---|---:|---|
@@ -98,14 +106,13 @@ per-function diagnostic in `.tovek-analysis/manifest.json`:
 | `source_like_unsafe_CapturedLoopResultRef` | 1 | A captured loop-result cell lacks a proven per-iteration lifetime. |
 | `source_like_unsafe_CapturedCellReorder` | 1 | Iterator preparation could reorder a captured-cell observation. |
 
-The 13 paths are listed verbatim in `target/corpus_analysis_20260831_2145.err`.
-The same counts were reproduced at one and eight workers, and default and
-strict policy produced byte-identical source outputs. These 13 cases remain
-open implementation work; they are no longer misreported as an unclassified
-residual-goto symptom.
+The historical 13 paths are listed verbatim in
+`target/corpus_analysis_20260831_2145.err`. The same zero-failure result was
+reproduced at one and eight workers. These paths remain listed below as
+regression examples, not as open failures.
 
 For reviewers who only have the GitHub checkout (and not the local `target/`
-log), the remaining paths and first rejected function(s) are:
+log), the historical paths and first rejected function(s) are:
 
 | Path | Diagnostic / function |
 |---|---|
@@ -123,8 +130,8 @@ log), the remaining paths and first rejected function(s) are:
 | `StarterPlayer/StarterPlayerScripts/ClientMapEffects/Gamemodes/Expedition.lua` | `source_like_unsupported` / `p64` |
 | `StarterPlayer/StarterPlayerScripts/Mounts/ShenronDragon/init.lua` | `source_like_unsupported` / `p19` |
 
-The two `MoonPlayer` functions are counted as one failed file, hence 13 files
-but 14 rejected function diagnostics in the JSON evidence.
+The two `MoonPlayer` functions were counted as one failed file, hence 13 files
+but 14 rejected function diagnostics in the historical JSON evidence.
 
 Actual reproducible payloads for seven representative paths are committed in
 [`docs/failure_fixtures/residual_control_flow/`](failure_fixtures/residual_control_flow/),
@@ -146,8 +153,8 @@ The following targeted cases pass in both default and
   no `goto`, label, or `controlFlowState` markers.
 - Full workspace tests and release build pass.
 
-These fixes cover specific generic-for regressions; they do **not** solve all
-310 corpus failures.
+These fixes cover the former generic-for and residual-control regressions; the
+current corpus has no remaining residual-control failure.
 
 ## Current architecture and failure path
 
@@ -181,8 +188,9 @@ message. The current batch API preserves the legacy message for compatibility,
 but adds typed per-function evidence and a reproducible audit manifest (corpus
 hash, command, key, thread count, policy, tool hash, result hash, and explicit
 `parser_status`). The batch binary records `parser_status: "not_run"` because
-the official Luau compiler is an external audit tool; `parser_failures: []` is
-not presented as a parser pass.
+the official Luau compiler is an external audit tool. The current release
+output was audited separately with `luau-compile --only-parse` and
+`--binary -O0`; both report zero failures.
 
 ## Concrete problem statement for the planning model
 
@@ -213,6 +221,6 @@ semantic equivalence cannot be proven.
 
 For the current corpus, the target is zero explicit decompile failures caused
 by residual control-flow, zero emitted `goto`/label/internal markers, and all
-emitted outputs accepted by the official Luau parser. Any remaining unsupported
-bytecode must be reported with a precise, actionable reason rather than being
-misclassified as a generic residual-goto failure.
+emitted outputs accepted by the official Luau parser. These gates are now met.
+Any future unsupported bytecode must be reported with a precise, actionable
+reason rather than being misclassified as a generic residual-goto failure.
