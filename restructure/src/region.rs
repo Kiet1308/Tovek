@@ -107,13 +107,17 @@ fn collect_closure_captures(
     captured: &mut FxHashSet<RcLocal>,
     seen_closures: &mut FxHashSet<usize>,
 ) {
+    // The same function body may be shared by multiple closure sites while
+    // each site carries a distinct upvalue vector.  Account for this
+    // occurrence's captures before using the body identity as a recursion
+    // guard.
+    captured.extend(closure.upvalues.iter().map(|upvalue| match upvalue {
+        ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => local.clone(),
+    }));
     let identity = closure.function.0.as_ptr() as usize;
     if !seen_closures.insert(identity) {
         return;
     }
-    captured.extend(closure.upvalues.iter().map(|upvalue| match upvalue {
-        ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => local.clone(),
-    }));
     let body = closure.function.lock().body.clone();
     collect_block_captures_with_seen(&body, captured, seen_closures);
 }
@@ -223,14 +227,14 @@ fn collect_closure_ref_captures(
     captured: &mut FxHashSet<RcLocal>,
     seen_closures: &mut FxHashSet<usize>,
 ) {
-    let identity = closure.function.0.as_ptr() as usize;
-    if !seen_closures.insert(identity) {
-        return;
-    }
     captured.extend(closure.upvalues.iter().filter_map(|upvalue| match upvalue {
         ast::Upvalue::Ref(local) => Some(local.clone()),
         ast::Upvalue::Copy(_) => None,
     }));
+    let identity = closure.function.0.as_ptr() as usize;
+    if !seen_closures.insert(identity) {
+        return;
+    }
     let body = closure.function.lock().body.clone();
     collect_block_ref_captures_with_seen(&body, captured, seen_closures);
 }
