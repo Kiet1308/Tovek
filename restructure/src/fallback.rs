@@ -134,14 +134,15 @@ pub fn lift_certified_with_ignored_locals(
     // marker until that provenance is available; callers then produce the
     // explicit unsupported-structuring sentinel rather than wrong source.
     if nodes.iter().any(|&node| {
-        function.block(node).is_some_and(|block| {
-            block.iter().any(|statement| {
-                matches!(
-                    statement,
-                    Statement::GenericForInit(_) | Statement::GenericForNext(_)
-                )
+        function
+            .block(node)
+            .is_some_and(crate::region::block_contains_unlowered_control)
+            || function.edges(node).any(|edge| {
+                edge.weight()
+                    .arguments
+                    .iter()
+                    .any(|(_, value)| crate::region::rvalue_contains_unlowered_control(value))
             })
-        })
     }) {
         return None;
     }
@@ -1262,6 +1263,50 @@ mod tests {
             .into(),
         );
         assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_loop_markers_hidden_in_edge_closure() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(entry);
+
+        let callback = local("callback");
+        let generator = local("generator");
+        let state = local("state");
+        let control = local("control");
+        let value = local("value");
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        let child = AstFunction {
+            body: Block::from(vec![
+                for_init.into(),
+                GenericForNext::new(vec![value], generator.into(), state, control).into(),
+            ]),
+            ..Default::default()
+        };
+        let closure = RValue::Closure(Closure {
+            function: by_address::ByAddress(Arc::new(Mutex::new(child))),
+            upvalues: Vec::new(),
+        });
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+        function.graph_mut().add_edge(
+            entry,
+            exit,
+            BlockEdge {
+                branch_type: cfg::block::BranchType::Unconditional,
+                arguments: vec![(callback, closure)],
+            },
+        );
+
+        assert!(
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).is_none(),
+            "fallback must reject markers nested in edge closures"
+        );
     }
 
     #[test]

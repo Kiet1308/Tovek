@@ -314,7 +314,7 @@ fn closure_contains_unlowered_control(
     block_contains_unlowered_control_with_seen(&body, seen_closures)
 }
 
-fn rvalue_contains_unlowered_control(value: &RValue) -> bool {
+pub(crate) fn rvalue_contains_unlowered_control(value: &RValue) -> bool {
     let mut seen_closures = FxHashSet::default();
     rvalue_contains_unlowered_control_with_seen(value, &mut seen_closures)
 }
@@ -347,6 +347,14 @@ fn block_contains_unlowered_control_with_seen(
     block
         .iter()
         .any(|statement| statement_contains_unlowered_control_with_seen(statement, seen_closures))
+}
+
+/// Recursively detect VM loop markers in an arbitrary AST block.  This is
+/// shared with the certified fallback, which must reject markers hidden in
+/// closure bodies and edge expressions just as the source-like preflight does.
+pub(crate) fn block_contains_unlowered_control(block: &Block) -> bool {
+    let mut seen_closures = FxHashSet::default();
+    block_contains_unlowered_control_with_seen(block, &mut seen_closures)
 }
 
 fn statement_contains_unlowered_control_with_seen(
