@@ -2083,7 +2083,10 @@ impl<'a> Builder<'a> {
                 let then_transfer = self.edge_transfer(
                     self.function
                         .edges(source)
-                        .find(|edge| edge.target() == then_target)?
+                        .find(|edge| {
+                            edge.target() == then_target
+                                && edge.weight().branch_type == BranchType::Then
+                        })?
                         .weight(),
                     &base_rewrite,
                 )?;
@@ -2093,7 +2096,10 @@ impl<'a> Builder<'a> {
                 let else_transfer = self.edge_transfer(
                     self.function
                         .edges(source)
-                        .find(|edge| edge.target() == else_target)?
+                        .find(|edge| {
+                            edge.target() == else_target
+                                && edge.weight().branch_type == BranchType::Else
+                        })?
                         .weight(),
                     &base_rewrite,
                 )?;
@@ -2127,7 +2133,9 @@ impl<'a> Builder<'a> {
             let then_edge = self
                 .function
                 .edges(source)
-                .find(|edge| edge.target() == then_target)?
+                .find(|edge| {
+                    edge.target() == then_target && edge.weight().branch_type == BranchType::Then
+                })?
                 .weight()
                 .clone();
             let then_transfer = self.edge_transfer(&then_edge, &base_rewrite)?;
@@ -2137,7 +2145,9 @@ impl<'a> Builder<'a> {
             let else_edge = self
                 .function
                 .edges(source)
-                .find(|edge| edge.target() == else_target)?
+                .find(|edge| {
+                    edge.target() == else_target && edge.weight().branch_type == BranchType::Else
+                })?
                 .weight()
                 .clone();
             let else_transfer = self.edge_transfer(&else_edge, &base_rewrite)?;
@@ -2172,7 +2182,10 @@ impl<'a> Builder<'a> {
             let then_transfer = self.edge_transfer(
                 self.function
                     .edges(source)
-                    .find(|edge| edge.target() == then_target)?
+                    .find(|edge| {
+                        edge.target() == then_target
+                            && edge.weight().branch_type == BranchType::Then
+                    })?
                     .weight(),
                 &base_rewrite,
             )?;
@@ -2182,7 +2195,10 @@ impl<'a> Builder<'a> {
             let else_transfer = self.edge_transfer(
                 self.function
                     .edges(source)
-                    .find(|edge| edge.target() == else_target)?
+                    .find(|edge| {
+                        edge.target() == else_target
+                            && edge.weight().branch_type == BranchType::Else
+                    })?
                     .weight(),
                 &base_rewrite,
             )?;
