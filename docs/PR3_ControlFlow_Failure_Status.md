@@ -104,6 +104,28 @@ strict policy produced byte-identical source outputs. These 13 cases remain
 open implementation work; they are no longer misreported as an unclassified
 residual-goto symptom.
 
+For reviewers who only have the GitHub checkout (and not the local `target/`
+log), the remaining paths and first rejected function(s) are:
+
+| Path | Diagnostic / function |
+|---|---|
+| `ReplicatedStorage/FusionPackage/Components/Processors/GameUpgrade.lua` | `source_like_unsafe_CapturedLoopResultRef` / `p2` |
+| `ReplicatedStorage/FusionPackage/Fusion/State/For/Disassembly.lua` | `source_like_unsupported` / `p3` |
+| `ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/Lerps.lua` | `source_like_unsafe_ForOriginPrepKindUnsupported` / `p29`, `p27` |
+| `ReplicatedStorage/Part_Icles/Engine.lua` | `source_like_unsafe_ForOriginPrepKindUnsupported` / `p18` |
+| `ReplicatedStorage/Shared/CutsceneUtil.lua` | `source_like_unsupported` / `p6` |
+| `ReplicatedStorage/Shared/ForgeVFX/mod/lerp.lua` | `source_like_unsupported` / `p11` |
+| `ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/lerp.lua` | `source_like_unsupported` / `p11` |
+| `ReplicatedStorage/Shared/Information/GameModifiers.lua` | `source_like_unsupported` / `p2` |
+| `ReplicatedStorage/Shared/Network/BufferEncoder/Write.lua` | `source_like_unsupported` / `p3` |
+| `ReplicatedStorage/Shared/TimeManager/Part_Icles/Engine.lua` | `source_like_unsafe_ForOriginPrepKindUnsupported` / `p18` |
+| `StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/LensFlare/LensFlare.lua` | `source_like_unsafe_CapturedCellReorder` / `p6` |
+| `StarterPlayer/StarterPlayerScripts/ClientMapEffects/Gamemodes/Expedition.lua` | `source_like_unsupported` / `p64` |
+| `StarterPlayer/StarterPlayerScripts/Mounts/ShenronDragon/init.lua` | `source_like_unsupported` / `p19` |
+
+The two `MoonPlayer` functions are counted as one failed file, hence 13 files
+but 14 rejected function diagnostics in the JSON evidence.
+
 Actual reproducible payloads for seven representative paths are committed in
 [`docs/failure_fixtures/residual_control_flow/`](failure_fixtures/residual_control_flow/),
 with a runnable command and expected result in its README. These fixtures are
