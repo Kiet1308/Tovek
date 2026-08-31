@@ -1164,6 +1164,27 @@ mod tests {
 
         assert_eq!(block.to_string(), "for value in make(), nil do\n\nend");
     }
+
+    #[test]
+    fn generic_for_parenthesizes_final_select_iterator() {
+        // Select means the call is explicitly adjusted to one result.  It
+        // must remain parenthesized in the final iterator position, where a
+        // bare call would otherwise spread all returned values.
+        let value = local("value");
+        let block = Block(vec![
+            GenericFor::new(
+                vec![value],
+                vec![RValue::Select(Select::Call(Call::new(
+                    global("make"),
+                    vec![],
+                )))],
+                Block::default(),
+            )
+            .into(),
+        ]);
+
+        assert_eq!(block.to_string(), "for value in (make()) do\n\nend");
+    }
 }
 
 impl fmt::Display for IndentationMode {
@@ -2577,7 +2598,18 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             if i != 0 {
                 write!(self.output, ", ")?;
             }
+            // `Select` is the IR's explicit one-result wrapper.  In the final
+            // iterator position a bare call would spread all return values,
+            // so preserve the truncating parentheses just as argument and
+            // return formatting do.
+            let wrap = i + 1 == generic_for.right.len() && matches!(rvalue, RValue::Select(_));
+            if wrap {
+                write!(self.output, "(")?;
+            }
             self.format_rvalue(rvalue)?;
+            if wrap {
+                write!(self.output, ")")?;
+            }
         }
         writeln!(self.output, " do")?;
         self.format_block(&generic_for.block.lock())?;
