@@ -2356,6 +2356,9 @@ fn source_proves_for_prep_kind(
     origin: ast::ForOrigin,
 ) -> bool {
     let ipairs_aux = origin.aux & 0x8000_0000 != 0;
+    if (origin.aux & 0xff) != origin.result_count as u32 {
+        return false;
+    }
     match origin.prep_kind {
         // The high AUX bit selects the ipairs-style FORGLOOP write/exit
         // behavior.  A generic prep with that bit set is not equivalent to an
@@ -2364,6 +2367,7 @@ fn source_proves_for_prep_kind(
         ast::ForPrepKind::Generic => !ipairs_aux,
         ast::ForPrepKind::Next => {
             !ipairs_aux
+                && origin.result_count <= 2
                 && match init.0.right.as_slice() {
                     [value] => call_is_named(value, "pairs"),
                     [RValue::Global(global), _state] => global_is_named(global, "next"),
@@ -2372,6 +2376,7 @@ fn source_proves_for_prep_kind(
         }
         ast::ForPrepKind::Inext => {
             ipairs_aux
+                && origin.result_count <= 2
                 && init.0.right.len() == 1
                 && call_is_named(&init.0.right[0], "ipairs")
         }
