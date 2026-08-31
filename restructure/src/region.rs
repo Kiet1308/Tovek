@@ -103,7 +103,15 @@ fn collect_closure_captures(
         ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local) => local.clone(),
     }));
     let body = closure.function.lock().body.clone();
-    for statement in body.iter() {
+    collect_block_captures_with_seen(&body, captured, seen_closures);
+}
+
+fn collect_block_captures_with_seen(
+    block: &Block,
+    captured: &mut FxHashSet<RcLocal>,
+    seen_closures: &mut FxHashSet<usize>,
+) {
+    for statement in block.iter() {
         collect_statement_captures_with_seen(statement, captured, seen_closures);
     }
 }
@@ -146,6 +154,28 @@ fn collect_statement_captures_with_seen(
             collect_closure_captures(closure, captured, seen_closures);
         }
     });
+    match statement {
+        // `Traverse` intentionally stops at structured statement bodies, so
+        // inspect those blocks explicitly to find closures hidden behind an
+        // `If`, loop, or already-structured generic-for node.
+        Statement::If(node) => {
+            collect_block_captures_with_seen(&node.then_block.lock(), captured, seen_closures);
+            collect_block_captures_with_seen(&node.else_block.lock(), captured, seen_closures);
+        }
+        Statement::While(node) => {
+            collect_block_captures_with_seen(&node.block.lock(), captured, seen_closures);
+        }
+        Statement::Repeat(node) => {
+            collect_block_captures_with_seen(&node.block.lock(), captured, seen_closures);
+        }
+        Statement::NumericFor(node) => {
+            collect_block_captures_with_seen(&node.block.lock(), captured, seen_closures);
+        }
+        Statement::GenericFor(node) => {
+            collect_block_captures_with_seen(&node.block.lock(), captured, seen_closures);
+        }
+        _ => {}
+    }
 }
 
 fn block_has_rewritten_closure(
@@ -3182,6 +3212,90 @@ mod tests {
 
         // The inner closure captures the hidden control register through an
         // outer closure, so a source-level loop would expose a stale cell.
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn refuses_nested_if_closure_capture_after_loop_rewrite() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        let tail = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let sink = RcLocal::new(Local::new(Some("sink".into())));
+        let outer = RcLocal::new(Local::new(Some("outer".into())));
+        let inner = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    ast::Return::new(vec![RValue::Local(result.clone())]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Copy(result.clone())],
+        });
+        let conditional = If::new(
+            Global::from("condition").into(),
+            Block::from(vec![ast::Return::new(vec![inner]).into()]),
+            Block::default(),
+        );
+        let outer_value = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![conditional.into()]),
+                ..Default::default()
+            }))),
+            upvalues: Vec::new(),
+        });
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(
+                vec![result.clone()],
+                generator.into(),
+                state,
+                control,
+            )
+            .into(),
+        );
+        function.block_mut(join).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(result.clone())],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+        );
+        function.block_mut(tail).unwrap().extend([
+            Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(result)]).into(),
+            Assign::new(vec![LValue::Local(outer.clone())], vec![outer_value]).into(),
+            ast::Return::new(vec![RValue::Call(Call::new(
+                RValue::Local(outer),
+                Vec::new(),
+            ))])
+            .into(),
+        ]);
+        function.set_edges(init, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (header, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+        function.set_edges(join, vec![
+            (tail, BlockEdge::new(BranchType::Unconditional)),
+        ]);
+
+        // Structured statement bodies are opaque to `Traverse`; the capture
+        // scan must still find the inner closure under this prestructured If.
         assert!(lift(function).is_none());
     }
 
