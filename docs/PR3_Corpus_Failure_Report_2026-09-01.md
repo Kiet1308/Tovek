@@ -11,7 +11,7 @@
 The current patch is fail-closed: it refuses to emit code when the available
 CFG/bytecode evidence is insufficient. That prevents silent semantic changes,
 but it leaves 161 files without output. To implement the reviewer’s desired
-“100% no failed and đẹp/source-like output” target safely, I need the reviewer
+“100% no-failed, readable, source-like output” target safely, I need the reviewer
 to specify the missing proof rules rather than infer them from private bytecode
 that is not visible on GitHub.
 
