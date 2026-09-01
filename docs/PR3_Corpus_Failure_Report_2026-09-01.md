@@ -28,6 +28,12 @@ target/release/luau-lifter.exe decompile-folder \
   --strict-no-synthetic-control
 ```
 
+### Quyền truy cập của reviewer
+
+Các path bắt đầu bằng `ReplicatedStorage/`, `StarterPlayer/` và `Workspace/` là path **tương đối bên trong corpus private** `D:/Medal/examplebytecode/RobloxProject`; chúng không phải thư mục nằm trong GitHub repository. Reviewer không cần truy cập local corpus để đọc báo cáo này: inventory bên dưới đã embed toàn bộ 161 failed paths, function IDs và evidence code/message. Manifest và log local chỉ được trích dẫn như provenance/reproducibility reference.
+
+Các file failed không có source output để reviewer mở (`failed_output_files=0`), vì strict builder cố ý không ghi output khi proof không đạt. Do đó artifact cần review là chính typed diagnostic, không phải một `.luau` hỏng. Nếu cần xác minh CFG/bytecode nội bộ của một file cụ thể, maintainer phải cung cấp corpus/bytecode tương ứng hoặc một sanitized reproducer; không thể suy ra CFG chỉ từ path name.
+
 ## 3. Tổng quan kết quả
 
 | Trạng thái | Số lượng | Ý nghĩa |
@@ -52,6 +58,22 @@ target/release/luau-lifter.exe decompile-folder \
 | `source_like_unsafe_CapturedLoopResultRef` | 1 | 1 | Generic-for result bị ref-capture; chưa có bằng chứng close/dominance/lifetime đầy đủ | Reject typed với `CapturedLoopResultRef` |
 
 Các code trên đều được ghi trong `evidence[].code` của manifest; function name là tên function decompiler (`p0`, `p1`, …) tại nơi proof thất bại.
+
+Raw evidence message (giống nội dung `evidence[].message` trong manifest):
+
+```text
+source_like_unsafe_ForInitSuffixOrder:
+  stage=final_invariant
+  message=source-like proof rejected: observable FORGPREP suffix reorder
+
+source_like_unsafe_ForOriginPrepKindUnsupported:
+  stage=final_invariant
+  message=source-like proof rejected: generic-for fast-path prep kind is not source-proven
+
+source_like_unsafe_CapturedLoopResultRef:
+  stage=final_invariant
+  message=source-like proof rejected: loop result is captured by reference without a proven iteration cell
+```
 
 ## 4.1. Đối chiếu với các finding của reviewer
 
