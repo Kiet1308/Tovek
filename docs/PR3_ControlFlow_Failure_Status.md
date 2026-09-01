@@ -12,7 +12,9 @@ control-flow structuring failed: residual goto/label would be invalid Luau
 
 This document is a status/evidence brief and implementation checkpoint for a
 stronger model. It records both the pre-change baseline and the current
-proof-backed result; the local corpus now has no residual-control failure.
+proof-backed result. The post-review hardening deliberately rejects a small
+number of unsupported source-like shapes, but the local corpus has no
+remaining residual-goto/control-marker failure.
 
 ## Repository state
 
@@ -76,9 +78,10 @@ batch currently records a distinct typed cause for each path.
 The exact machine-readable evidence is the failure log listed above; it has
 310 `FAIL` entries and no alternate decode error for these examples.
 
-## Post-change probe
+## Post-change probe (pre-re-review build)
 
-The current patch was rebuilt and run against the same corpus with:
+The pre-re-review release probe (recorded at HEAD `fdd5f1e`) was run against
+the same corpus with:
 
 ```powershell
 target/build_release_quality/release/luau-lifter.exe decompile-folder `
@@ -87,15 +90,72 @@ target/build_release_quality/release/luau-lifter.exe decompile-folder `
   --key 203 --threads 8 --emit-upvalue-analysis --verbose
 ```
 
-The latest strict release result is 3,936 successful outputs, 42 empty-payload
-skips, and 0 failures. Every successful output is source-like Luau; the folder
-driver does not permit the synthetic dispatcher unless explicitly opted in.
-The external official compiler checks report zero parser/compile failures.
+That pre-re-review build produced 3,936 successful outputs, 42 empty-payload
+skips, and 0 failures. Every output was source-like Luau; the folder driver did
+not permit the synthetic dispatcher unless explicitly opted in. This number is
+kept as the historical comparison point below; the safety fixes that follow
+intentionally narrow the source-like acceptance boundary.
+
+### Current post-review recheck
+
+The hardened release was rerun against the same 3,978-entry private corpus in
+strict mode (`--strict-no-synthetic-control`, eight workers):
+
+| Result | Count |
+|---|---:|
+| Decompiled successfully | 3,775 |
+| Skipped: empty decoded payload | 42 |
+| Explicit typed rejections | 161 |
+| Emitted `.luau` files | 3,817 |
+| Residual `goto`/label/internal marker outputs | 0 |
+
+The 161 explicit rejections are fail-closed safety outcomes, not residual
+control-flow output. They contain 232 function diagnostics:
+`ForInitSuffixOrder` (229), `ForOriginPrepKindUnsupported` (2), and
+`CapturedLoopResultRef` (1). Their paths remain actionable diagnostics in the
+batch manifest (`target/pr3_corpus_recheck_final_0901/.tovek-analysis/manifest.json`)
+and run log (`target/pr3_corpus_recheck_final_0901.log`). No rejected input
+produced a partial source file.
+
+The 3,817 emitted files were audited with the official `luau-compile` in both
+`--only-parse` and `--binary -O0` modes. On Windows, 3,811 files opened and
+passed directly; the six paths containing the non-ASCII directory name `Piña
+colada` were rejected by the compiler's narrow-argv path handling. Copying
+those six unchanged files to ASCII-only temporary names yielded six additional
+parse/compile passes, so the content audit is 3,817/3,817. The public Linux CI
+job performs the same audit directly and is not subject to that Windows path
+transport limitation.
+
+### Re-review safety follow-up
+
+The post-review hardening keeps these transformations fail-closed until they
+carry the metadata required to prove their ordering and lifetime semantics:
+
+- branch-private local splitting is disabled; the interval coalescer never
+  rewrites a branch identity using a shallow sibling walk;
+- the legacy AST exhaustion-adapter heuristic is disabled, and while-carried
+  alias cleanup no longer removes ordinary post-loop assignments based on
+  historical `nil` seeds;
+- numeric `FORNPREP` candidates with any executable post-marker suffix are
+  rejected rather than moving hidden limit/step observations across the loop;
+- `FORGPREP_INEXT` accepts only a direct `ipairs` call or a same-block alias
+  whose latest definition is that builtin;
+- every reference-captured generic-for result is rejected because explicit
+  `CLOSEUPVALS` dominance is currently unmodelled.
+
+The public CI workflow now runs the seven committed residual-control fixtures
+in both strict modes and parses/compiles every emitted file with an official
+Luau compiler. Five fixtures currently emit source and two intentionally stop
+at typed `ForInitSuffixOrder` diagnostics; the workflow asserts that exact
+fail-closed split and rejects untyped residual output. This complements the
+workspace Rust tests and keeps syntax success separate from the source-like
+semantic proof boundary.
 
 The prior 13 rejected functions are retained in the matrix below as regression
-examples; they are no longer failures and no longer carry a residual-control
-diagnostic in the current run. The class counts below are historical (before
-the latest fixes):
+examples. Some are intentionally rejected again by the stricter post-review
+proof boundary (with typed diagnostics); none is emitted with a residual-
+control marker. The class counts below are historical (before the latest
+fixes), while the current 161-file breakdown is recorded above:
 
 ### Historical rejected-function classes
 
@@ -107,9 +167,10 @@ the latest fixes):
 | `source_like_unsafe_CapturedCellReorder` | 1 | Iterator preparation could reorder a captured-cell observation. |
 
 The historical 13 paths are listed verbatim in
-`target/corpus_analysis_20260831_2145.err`. The same zero-failure result was
+`target/corpus_analysis_20260831_2145.err`. The same historical result was
 reproduced at one and eight workers. These paths remain listed below as
-regression examples, not as open failures.
+regression examples; the current manifest is authoritative for which ones are
+now rejected fail-closed.
 
 For reviewers who only have the GitHub checkout (and not the local `target/`
 log), the historical paths and first rejected function(s) are:
@@ -190,7 +251,8 @@ hash, command, key, thread count, policy, tool hash, result hash, and explicit
 `parser_status`). The batch binary records `parser_status: "not_run"` because
 the official Luau compiler is an external audit tool. The current release
 output was audited separately with `luau-compile --only-parse` and
-`--binary -O0`; both report zero failures.
+`--binary -O0`; all 3,817 emitted files passed by content (the six Windows
+non-ASCII-path cases were verified through ASCII staging as described above).
 
 ## Concrete problem statement for the planning model
 

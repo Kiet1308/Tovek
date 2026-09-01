@@ -17,10 +17,13 @@ target/release/luau-lifter.exe decompile-folder `
   --key 203 --threads 1 --verbose
 ```
 
-Expected result with the current patch is 7 successful outputs and 0 explicit
-failures in both default and `--strict-no-synthetic-control` modes. The output
-contains no `goto`, label, `controlFlowState`, or other internal control marker
-and passes the official Luau parser. The fixtures preserve their original `ReplicatedStorage`,
+Expected result with the hardened post-review patch is 5 source outputs and 2
+typed `source_like_unsafe_ForInitSuffixOrder` rejections in both default and
+`--strict-no-synthetic-control` modes. The two rejected inputs remain
+fail-closed because their generic-for preparation suffix cannot be proven safe
+to move. No output contains `goto`, label, `controlFlowState`, or another
+internal control marker, and every emitted output passes the official Luau
+parser. The fixtures preserve their original `ReplicatedStorage`,
 `StarterPlayer`, and `Workspace` path families so a planning/diagnostic tool
 can reproduce the same shapes without access to the local corpus.
 

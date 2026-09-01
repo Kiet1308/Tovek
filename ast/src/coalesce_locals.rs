@@ -88,33 +88,12 @@ pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLoca
         return;
     }
 
-    // A single SSA identity can be reused by the bytecode on several
-    // mutually-exclusive arms.  In that shape the ordinary interval pass
-    // above cannot help: every arm occurrence belongs to the same local, so
-    // its range spans the whole switch and LocalDeclarer hoists one large
-    // declaration.  Split only branch-private identities first, then recollect
-    // ranges so the newly-created cells can be coalesced with one another.
-    split_branch_private_locals(block, protected);
-
-    infos.clear();
-    position = 0;
-    branch_id = 0;
-    loop_id = 0;
-    has_closure = false;
-    collect_block(
-        block,
-        &mut position,
-        &mut branch_id,
-        &mut loop_id,
-        &mut Vec::new(),
-        &mut Vec::new(),
-        &mut has_closure,
-        &mut infos,
-        protected,
-    );
-    if has_closure {
-        return;
-    }
+    // Do not split branch-private identities here.  That transformation needs
+    // block/region liveness and definite-assignment facts; a local may be live
+    // into or out of a nested loop even when a shallow sibling walk cannot see
+    // the use.  Keeping the conservative interval coalescer is preferable to
+    // manufacturing fresh, uninitialised cells.  Large functions that still
+    // exceed the register limit are left for the certified fallback.
 
     let mut values = infos.into_values().collect::<Vec<_>>();
     values.sort_by_key(|info| (info.first, info.last, info.local.stable_id()));
@@ -148,243 +127,21 @@ fn can_join_group(group: &CoalesceGroup, info: &LocalInfo) -> bool {
             .all(|member| !ranges_interfere(member, info))
 }
 
-#[derive(Default)]
-struct BranchUsage {
-    refs: FxHashSet<RcLocal>,
-    captured: FxHashSet<RcLocal>,
-}
-
-/// Clone a local into an `if` arm only when each arm defines it before any
-/// read and the surrounding block never observes the original identity.  The
-/// proof is deliberately syntactic and fail-closed; a local declared by a
-/// loop/header or a closure capture is never split.
-fn split_branch_private_locals(block: &mut Block, protected: &FxHashSet<RcLocal>) {
-    let inherited_scope = FxHashSet::default();
-    split_branch_block(block, protected, &inherited_scope);
-}
-
-fn split_branch_block(
-    block: &mut Block,
-    protected: &FxHashSet<RcLocal>,
-    inherited_scope: &FxHashSet<RcLocal>,
-) {
-    let mut scope = inherited_scope.clone();
-    scope.extend(scope_declarations(block));
-
-    for index in 0..block.0.len() {
-        let outside_usage = usage_outside(block, index);
-        let Statement::If(if_statement) = &block.0[index] else {
-            continue;
-        };
-        let then_block = if_statement.then_block.clone();
-        let else_block = if_statement.else_block.clone();
-        let condition = usage_of_condition(&if_statement.condition);
-        let then_usage = usage_of_block(&then_block.lock());
-        let else_usage = usage_of_block(&else_block.lock());
-        let candidates = then_usage
-            .refs
-            .intersection(&else_usage.refs)
-            .cloned()
-            .collect::<Vec<_>>();
-        let mut then_map = FxHashMap::default();
-        let mut else_map = FxHashMap::default();
-        for local in candidates {
-            if protected.contains(&local)
-                || scope.contains(&local)
-                || condition.refs.contains(&local)
-                || outside_usage.refs.contains(&local)
-                || then_usage.captured.contains(&local)
-                || else_usage.captured.contains(&local)
-                || !first_is_write(&then_block.lock(), &local)
-                || !first_is_write(&else_block.lock(), &local)
-            {
-                continue;
-            }
-            then_map.insert(local.clone(), RcLocal::default());
-            else_map.insert(local, RcLocal::default());
-        }
-        if !then_map.is_empty() {
-            crate::replace_locals::replace_locals(&mut then_block.lock(), &then_map);
-            crate::replace_locals::replace_locals(&mut else_block.lock(), &else_map);
-        }
-
-        let Statement::If(if_statement) = &mut block.0[index] else {
-            unreachable!();
-        };
-        split_branch_block(&mut if_statement.then_block.lock(), protected, &scope);
-        split_branch_block(&mut if_statement.else_block.lock(), protected, &scope);
-    }
-
-    // Visit loops/closures that are direct children of this block.  `If` arms
-    // were already visited above so they are skipped here.
-    for statement in &mut block.0 {
-        match statement {
-            Statement::If(_) => {}
-            _ => split_branch_nested_statement(statement, protected, &scope),
-        }
-    }
-}
-
-fn split_branch_nested_statement(
-    statement: &mut Statement,
-    protected: &FxHashSet<RcLocal>,
-    scope: &FxHashSet<RcLocal>,
-) {
-    match statement {
-        Statement::While(node) => split_branch_block(&mut node.block.lock(), protected, scope),
-        Statement::Repeat(node) => split_branch_block(&mut node.block.lock(), protected, scope),
-        Statement::NumericFor(node) => {
-            let mut child_scope = scope.clone();
-            child_scope.insert(node.counter.clone());
-            split_branch_block(&mut node.block.lock(), protected, &child_scope);
-        }
-        Statement::GenericFor(node) => {
-            let mut child_scope = scope.clone();
-            child_scope.extend(node.res_locals.iter().cloned());
-            split_branch_block(&mut node.block.lock(), protected, &child_scope);
-        }
-        _ => {}
-    }
-}
-
-fn scope_declarations(block: &Block) -> FxHashSet<RcLocal> {
-    let mut declarations = FxHashSet::default();
-    for statement in &block.0 {
-        match statement {
-            Statement::Assign(assign) if assign.prefix => {
-                declarations.extend(
-                    assign
-                        .left
-                        .iter()
-                        .filter_map(|left| left.as_local().cloned()),
-                );
-            }
-            Statement::NumericFor(node) => {
-                declarations.insert(node.counter.clone());
-            }
-            Statement::GenericFor(node) => declarations.extend(node.res_locals.iter().cloned()),
-            _ => {}
-        }
-    }
-    declarations
-}
-
-fn usage_outside(block: &Block, skip: usize) -> BranchUsage {
-    let mut usage = BranchUsage::default();
-    for (index, statement) in block.0.iter().enumerate() {
-        if index != skip {
-            collect_usage(statement, &mut usage);
-        }
-    }
-    usage
-}
-
-fn usage_of_block(block: &Block) -> BranchUsage {
-    let mut usage = BranchUsage::default();
-    for statement in &block.0 {
-        collect_usage(statement, &mut usage);
-    }
-    usage
-}
-
-fn usage_of_condition(condition: &RValue) -> BranchUsage {
-    let mut usage = BranchUsage::default();
-    usage
-        .refs
-        .extend(condition.values_read().into_iter().cloned());
-    collect_rvalue_captures(condition, &mut usage.captured);
-    usage
-}
-
-fn collect_usage(statement: &Statement, usage: &mut BranchUsage) {
-    usage
-        .refs
-        .extend(statement.values_read().into_iter().cloned());
-    usage
-        .refs
-        .extend(statement.values_written().into_iter().cloned());
-    for value in statement.rvalues() {
-        collect_rvalue_captures(value, &mut usage.captured);
-    }
-    match statement {
-        Statement::If(node) => {
-            for child in node.then_block.lock().iter() {
-                collect_usage(child, usage);
-            }
-            for child in node.else_block.lock().iter() {
-                collect_usage(child, usage);
-            }
-        }
-        Statement::While(node) => {
-            for child in node.block.lock().iter() {
-                collect_usage(child, usage);
-            }
-        }
-        Statement::Repeat(node) => {
-            for child in node.block.lock().iter() {
-                collect_usage(child, usage);
-            }
-        }
-        Statement::NumericFor(node) => {
-            for child in node.block.lock().iter() {
-                collect_usage(child, usage);
-            }
-        }
-        Statement::GenericFor(node) => {
-            for child in node.block.lock().iter() {
-                collect_usage(child, usage);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn collect_rvalue_captures(value: &RValue, captured: &mut FxHashSet<RcLocal>) {
-    if let RValue::Closure(closure) = value {
-        captured.extend(closure.upvalues.iter().map(|upvalue| match upvalue {
-            crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local) => local.clone(),
-        }));
-    }
-    for nested in value.rvalues() {
-        collect_rvalue_captures(nested, captured);
-    }
-}
-
 fn rvalue_contains_closure(value: &RValue) -> bool {
     matches!(value, RValue::Closure(_)) || value.rvalues().into_iter().any(rvalue_contains_closure)
 }
 
-fn first_is_write(block: &Block, local: &RcLocal) -> bool {
-    for statement in &block.0 {
-        if statement
-            .values_read()
-            .into_iter()
-            .any(|read| read == local)
-        {
-            return false;
-        }
-        if statement
-            .values_written()
-            .into_iter()
-            .any(|written| written == local)
-        {
-            return true;
-        }
-        match statement {
-            Statement::If(node) => {
-                // A nested conditional cannot prove a definition on every
-                // path without a full definite-assignment analysis.
-                return first_is_write(&node.then_block.lock(), local)
-                    && first_is_write(&node.else_block.lock(), local);
-            }
-            Statement::While(node) => return first_is_write(&node.block.lock(), local),
-            Statement::Repeat(node) => return first_is_write(&node.block.lock(), local),
-            Statement::NumericFor(node) => return first_is_write(&node.block.lock(), local),
-            Statement::GenericFor(node) => return first_is_write(&node.block.lock(), local),
-            _ => {}
-        }
-    }
-    false
+/// `Statement::rvalues()` intentionally reports only RHS expressions.  An
+/// indexed assignment can put an arbitrary expression (including a closure)
+/// in its LHS index, so closure detection for this pass must traverse both
+/// lvalues and rvalues.
+fn statement_contains_closure(statement: &Statement) -> bool {
+    let mut copy = statement.clone();
+    let mut found = false;
+    copy.traverse_rvalues(&mut |value| {
+        found |= rvalue_contains_closure(value);
+    });
+    found
 }
 
 fn is_unnamed(local: &RcLocal) -> bool {
@@ -470,11 +227,7 @@ fn collect_block(
     for statement in block.iter_mut() {
         let current_position = *position;
         *position += 1;
-        if statement
-            .rvalues()
-            .into_iter()
-            .any(|value| rvalue_contains_closure(value))
-        {
+        if statement_contains_closure(statement) {
             *has_closure = true;
         }
         record_statement(
@@ -603,7 +356,13 @@ fn mark_blocked(local: &RcLocal, infos: &mut FxHashMap<RcLocal, LocalInfo>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Assign, Call, Global, LValue, Literal, RValue};
+    use crate::{
+        Assign, Call, Closure, Function, GenericFor, Global, If, Index, LValue, Literal,
+        NumericFor, RValue, Upvalue, While,
+    };
+    use by_address::ByAddress;
+    use parking_lot::Mutex;
+    use triomphe::Arc;
 
     fn synthetic_info(first: usize, last: usize) -> LocalInfo {
         let local = RcLocal::default();
@@ -725,5 +484,252 @@ mod tests {
             })
             .expect("overlapping value assignment");
         assert_ne!(first_after, overlap_after);
+    }
+
+    #[test]
+    fn closure_in_indexed_lhs_disables_pressure_rewrite() {
+        let captured = RcLocal::default();
+        let value = RcLocal::default();
+        let closure = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(Function::default()))),
+            upvalues: vec![Upvalue::Ref(captured)],
+        });
+        let indexed_store = Assign::new(
+            vec![LValue::Index(Index::new(
+                RValue::Global(Global::from("targets")),
+                closure,
+            ))],
+            vec![RValue::Literal(Literal::Number(1.0))],
+        );
+        let mut statements = vec![
+            Assign::new(
+                vec![LValue::Local(value.clone())],
+                vec![RValue::Literal(Literal::Number(0.0))],
+            )
+            .into(),
+            indexed_store.into(),
+        ];
+        let pressure_local = RcLocal::default();
+        statements.push(
+            Assign::new(
+                vec![LValue::Local(pressure_local.clone())],
+                vec![RValue::Literal(Literal::Number(2.0))],
+            )
+            .into(),
+        );
+        for _ in 0..240 {
+            statements.push(
+                Assign::new(
+                    vec![LValue::Local(RcLocal::default())],
+                    vec![RValue::Literal(Literal::Number(2.0))],
+                )
+                .into(),
+            );
+        }
+        let mut block = Block(statements);
+        coalesce_generated_locals(&mut block, &FxHashSet::default());
+
+        let first = match &block.0[0] {
+            Statement::Assign(assign) => assign.left[0].as_local().cloned(),
+            _ => None,
+        };
+        assert_eq!(first, Some(value));
+        let pressure = match &block.0[2] {
+            Statement::Assign(assign) => assign.left[0].as_local().cloned(),
+            _ => None,
+        };
+        assert_eq!(pressure, Some(pressure_local));
+    }
+
+    #[test]
+    fn keeps_local_live_across_nested_loop_branch() {
+        let value = RcLocal::default();
+        let counter = RcLocal::default();
+        let branch = If::new(
+            RValue::Global(Global::from("flag")),
+            Block::from(vec![
+                Assign::new(
+                    vec![LValue::Local(value.clone())],
+                    vec![RValue::Literal(Literal::Number(1.0))],
+                )
+                .into(),
+            ]),
+            Block::from(vec![
+                Assign::new(
+                    vec![LValue::Local(value.clone())],
+                    vec![RValue::Literal(Literal::Number(2.0))],
+                )
+                .into(),
+            ]),
+        );
+        let loop_statement = NumericFor::new(
+            RValue::Literal(Literal::Number(1.0)),
+            // A zero-trip loop must not be treated as a definite write before
+            // the value is consumed after the enclosing branch.
+            RValue::Literal(Literal::Number(0.0)),
+            RValue::Literal(Literal::Number(1.0)),
+            counter,
+            Block::from(vec![branch.into()]),
+        );
+        let mut statements = vec![
+            Assign::new(
+                vec![LValue::Local(value.clone())],
+                vec![RValue::Literal(Literal::Number(0.0))],
+            )
+            .into(),
+            loop_statement.into(),
+            Call::new(
+                RValue::Global(Global::from("sink")),
+                vec![RValue::Local(value.clone())],
+            )
+            .into(),
+        ];
+        for _ in 0..241 {
+            statements.push(
+                Assign::new(
+                    vec![LValue::Local(RcLocal::default())],
+                    vec![RValue::Literal(Literal::Number(3.0))],
+                )
+                .into(),
+            );
+        }
+        let mut block = Block(statements);
+        coalesce_generated_locals(&mut block, &FxHashSet::default());
+
+        let Statement::NumericFor(numeric) = &block.0[1] else {
+            panic!("expected numeric loop");
+        };
+        let Statement::If(if_statement) = &numeric.block.lock().0[0] else {
+            panic!("expected branch");
+        };
+        for arm in [&if_statement.then_block, &if_statement.else_block] {
+            let Statement::Assign(assign) = &arm.lock().0[0] else {
+                panic!("expected arm assignment");
+            };
+            assert_eq!(assign.left[0].as_local(), Some(&value));
+        }
+    }
+
+    #[test]
+    fn keeps_local_live_across_zero_trip_generic_loop_branch() {
+        let value = RcLocal::default();
+        let make_arm = |number| {
+            Block::from(vec![
+                GenericFor::new(
+                    Vec::new(),
+                    vec![RValue::Global(Global::from("empty_iterator"))],
+                    Block::from(vec![
+                        Assign::new(
+                            vec![LValue::Local(value.clone())],
+                            vec![RValue::Literal(Literal::Number(number))],
+                        )
+                        .into(),
+                    ]),
+                )
+                .into(),
+                Call::new(
+                    RValue::Global(Global::from("sink")),
+                    vec![RValue::Local(value.clone())],
+                )
+                .into(),
+            ])
+        };
+        let mut block = Block::from(vec![
+            If::new(
+                RValue::Global(Global::from("flag")),
+                make_arm(1.0),
+                make_arm(2.0),
+            )
+            .into(),
+        ]);
+        for _ in 0..241 {
+            block.0.push(
+                Assign::new(
+                    vec![LValue::Local(RcLocal::default())],
+                    vec![RValue::Literal(Literal::Number(4.0))],
+                )
+                .into(),
+            );
+        }
+
+        coalesce_generated_locals(&mut block, &FxHashSet::default());
+
+        let Statement::If(if_statement) = &block.0[0] else {
+            panic!("expected branch");
+        };
+        for arm in [&if_statement.then_block, &if_statement.else_block] {
+            let arm = arm.lock();
+            let Statement::GenericFor(loop_node) = &arm.0[0] else {
+                panic!("expected generic loop");
+            };
+            let body = loop_node.block.lock();
+            let Statement::Assign(assign) = &body.0[0] else {
+                panic!("expected loop write");
+            };
+            assert_eq!(assign.left[0].as_local(), Some(&value));
+            let call = arm.0.last().expect("expected arm read");
+            assert!(call.values_read().into_iter().any(|local| local == &value));
+        }
+    }
+
+    #[test]
+    fn keeps_local_live_across_zero_trip_while_branch() {
+        let value = RcLocal::default();
+        let make_arm = |number| {
+            Block::from(vec![
+                While::new(
+                    RValue::Global(Global::from("never")),
+                    Block::from(vec![
+                        Assign::new(
+                            vec![LValue::Local(value.clone())],
+                            vec![RValue::Literal(Literal::Number(number))],
+                        )
+                        .into(),
+                    ]),
+                )
+                .into(),
+                Call::new(
+                    RValue::Global(Global::from("sink")),
+                    vec![RValue::Local(value.clone())],
+                )
+                .into(),
+            ])
+        };
+        let mut block = Block::from(vec![
+            If::new(
+                RValue::Global(Global::from("flag")),
+                make_arm(1.0),
+                make_arm(2.0),
+            )
+            .into(),
+        ]);
+        for _ in 0..241 {
+            block.0.push(
+                Assign::new(
+                    vec![LValue::Local(RcLocal::default())],
+                    vec![RValue::Literal(Literal::Number(5.0))],
+                )
+                .into(),
+            );
+        }
+
+        coalesce_generated_locals(&mut block, &FxHashSet::default());
+
+        let Statement::If(if_statement) = &block.0[0] else {
+            panic!("expected branch");
+        };
+        for arm in [&if_statement.then_block, &if_statement.else_block] {
+            let arm = arm.lock();
+            let Statement::While(loop_node) = &arm.0[0] else {
+                panic!("expected while loop");
+            };
+            let body = loop_node.block.lock();
+            let Statement::Assign(assign) = &body.0[0] else {
+                panic!("expected loop write");
+            };
+            assert_eq!(assign.left[0].as_local(), Some(&value));
+            let call = arm.0.last().expect("expected arm read");
+            assert!(call.values_read().into_iter().any(|local| local == &value));
+        }
     }
 }

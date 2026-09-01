@@ -1060,15 +1060,16 @@ impl Analysis {
                 continue;
             }
             // A natural loop with an entry other than its header cannot be
-            // represented by a single source `for`.
-            for node in &nodes_in_loop {
-                if *node != header
+            // represented by a single source `for`.  Reject the candidate as
+            // a whole; a `continue` inside this inner iterator would merely
+            // advance to the next node and accidentally accept the region.
+            if nodes_in_loop.iter().any(|node| {
+                *node != header
                     && function
                         .predecessor_blocks(*node)
                         .any(|predecessor| !nodes_in_loop.contains(&predecessor))
-                {
-                    continue;
-                }
+            }) {
+                continue;
             }
             let inits = function
                 .predecessor_blocks(header)
@@ -2181,7 +2182,11 @@ impl<'a> Builder<'a> {
         })
     }
 
-    fn has_unsafe_ref_captured_result(&self, info: &LoopInfo) -> bool {
+    /// Reference-capturing a generic-for result requires a per-iteration cell.
+    /// The CFG currently treats `Close` as an unmodelled event, so there is no
+    /// sound way to prove that lifetime.  Reject every such capture rather
+    /// than treating a body mutation as evidence of a close operation.
+    fn has_ref_captured_result(&self, info: &LoopInfo) -> bool {
         info.nodes.iter().any(|node| {
             self.function.block(*node).is_some_and(|block| {
                 block
@@ -2192,61 +2197,6 @@ impl<'a> Builder<'a> {
                     .arguments
                     .iter()
                     .any(|(_, value)| rvalue_has_ref_capture_of(value, &info.res_locals))
-            })
-        })
-    }
-
-    /// Luau gives a generic-for result a fresh closed cell for each iteration
-    /// when that result is mutated in the loop and captured by reference. The
-    /// `CLOSEUPVALS` emitted at the loop tail is the VM-side proof that a
-    /// closure cannot observe a later iteration's cell. Require an explicit
-    /// body write (excluding the FORGLOOP marker itself) before accepting a
-    /// reference capture; an arbitrary hand-crafted `CAPTURE REF` with no
-    /// source-level mutation remains fail-closed.
-    fn proves_ref_captured_result_cell(&self, info: &LoopInfo) -> bool {
-        let mut captured_results = FxHashSet::default();
-        for node in info.nodes.iter().filter(|node| **node != info.header) {
-            if let Some(block) = self.function.block(*node) {
-                for statement in block.iter() {
-                    let mut captures = FxHashSet::default();
-                    collect_statement_ref_captures_with_seen(
-                        statement,
-                        &mut captures,
-                        &mut FxHashSet::default(),
-                    );
-                    captured_results.extend(captures.into_iter().filter(|captured| {
-                        info.res_locals.iter().any(|result| result == captured)
-                    }));
-                }
-            }
-            // A closure can be carried as an SSA edge argument rather than a
-            // statement in the loop body.  `has_unsafe_ref_captured_result`
-            // considers those captures, so the proof must account for them as
-            // well instead of treating an edge-only capture as vacuously safe.
-            for edge in self.function.edges(*node) {
-                for (_, value) in &edge.weight().arguments {
-                    let mut captures = FxHashSet::default();
-                    collect_rvalue_ref_captures(value, &mut captures);
-                    captured_results.extend(captures.into_iter().filter(|captured| {
-                        info.res_locals.iter().any(|result| result == captured)
-                    }));
-                }
-            }
-        }
-        if captured_results.is_empty() {
-            return true;
-        }
-        captured_results.iter().all(|captured| {
-            info.nodes.iter().any(|node| {
-                *node != info.header
-                    && self.function.block(*node).is_some_and(|block| {
-                        block.iter().any(|statement| {
-                            statement
-                                .values_written()
-                                .into_iter()
-                                .any(|written| written == captured)
-                        })
-                    })
             })
         })
     }
@@ -2384,31 +2334,18 @@ impl<'a> Builder<'a> {
             return None;
         }
         // FORNPREP has no source-level slot between preparation and the first
-        // iteration.  Luau can nevertheless place a total local-only setup
-        // after the marker (for example `v = {}`); commute only that narrow
-        // shape, after checking that it is independent of the tuple operands.
+        // iteration.  Even a total local-only statement can observe one of
+        // the hidden limit/step destinations, or a value changed while the
+        // bounds are evaluated.  Until numeric tuple staging carries exact
+        // ordering/provenance, a non-trivia suffix is therefore unsafe.
         let numeric_suffix = init_block
             .iter()
             .skip(init_index + 1)
             .filter(|statement| !is_ignorable(statement))
             .cloned()
             .collect_vec();
-        if numeric_suffix.iter().any(|statement| {
-            !is_reorderable_for_init_suffix(statement)
-                || statement
-                    .values_read()
-                    .into_iter()
-                    .chain(statement.values_written())
-                    .any(|local| {
-                        local == &numeric.counter
-                            || self.protected_locals.contains(local)
-                            || statement_captures_any(
-                                statement,
-                                std::slice::from_ref(&numeric.counter),
-                            )
-                    })
-        }) {
-            return None;
+        if !numeric_suffix.is_empty() {
+            return self.reject_unsafe(UnsafeStructureReason::ForInitSuffixOrder);
         }
         if init_block
             .iter()
@@ -3610,8 +3547,7 @@ impl<'a> Builder<'a> {
             Some(adapters) => adapters,
             None => return None,
         };
-        if self.has_unsafe_ref_captured_result(info) && !self.proves_ref_captured_result_cell(info)
-        {
+        if self.has_ref_captured_result(info) {
             return self.reject_unsafe(UnsafeStructureReason::CapturedLoopResultRef);
         }
         if self.has_unsafe_export_write(info, &exports, &adapters)
@@ -4981,11 +4917,7 @@ fn rewrite_while_carried_alias(
     current_local: &RcLocal,
 ) {
     let mut generic_seen = false;
-    let mut nil_locals = FxHashSet::default();
-    let mut index = 0;
-    while index < block.0.len() {
-        let mut remove_statement = false;
-        let statement = &mut block.0[index];
+    for statement in &mut block.0 {
         match statement {
             Statement::GenericFor(for_loop) => {
                 for value in &mut for_loop.right {
@@ -4994,11 +4926,6 @@ fn rewrite_while_carried_alias(
                             *local = current_local.clone();
                         }
                     }
-                }
-                let mut nested_writes = FxHashSet::default();
-                collect_deep_block_writes(&for_loop.block.lock(), &mut nested_writes);
-                for written in nested_writes {
-                    nil_locals.remove(&written);
                 }
                 generic_seen = true;
             }
@@ -5053,33 +4980,20 @@ fn rewrite_while_carried_alias(
                     && (assign.left[0].as_local() == Some(condition_local)
                         || assign.left[0].as_local() == Some(carry_local)) =>
             {
-                // This is the normal-exhaustion adapter following the
-                // generic loop.  The carry was reset to nil before the
-                // iterator, while a matching break has already emitted
-                // `carry = result`; emitting this adapter unconditionally
-                // after a source-level `break` would erase that result.
-                let clears_to_nil = assign.right.len() == 1
-                    // A literal `carry = nil` may be an intentional
-                    // source-level write.  Only remove a copy from a
-                    // previously nil-seeded local, which is the compiler's
-                    // SSA adapter shape and is independently tracked here.
-                    && matches!(assign.right[0], RValue::Local(_))
-                    && assign.right[0]
-                        .values_read()
-                        .into_iter()
-                        .all(|read| nil_locals.contains(read));
-                if clears_to_nil {
-                    remove_statement = true;
-                } else {
-                    for local in assign.values_read_mut() {
-                        if local == condition_local {
-                            *local = current_local.clone();
-                        }
+                // Keep ordinary post-loop assignments intact.  Their source
+                // AST shape is indistinguishable from a compiler-generated
+                // exhaustion adapter, and a historical `= nil` seed is not
+                // provenance (nor is it killed reliably by the old helper).
+                // Exact exhaustion-only copies are handled by the CFG-backed
+                // builder before this rewrite runs.
+                for local in assign.values_read_mut() {
+                    if local == condition_local {
+                        *local = current_local.clone();
                     }
-                    for local in assign.values_written_mut() {
-                        if local == condition_local {
-                            *local = current_local.clone();
-                        }
+                }
+                for local in assign.values_written_mut() {
+                    if local == condition_local {
+                        *local = current_local.clone();
                     }
                 }
             }
@@ -5095,46 +5009,6 @@ fn rewrite_while_carried_alias(
                     }
                 }
             }
-        }
-        if remove_statement {
-            block.0.remove(index);
-            continue;
-        }
-        if let Statement::Assign(assign) = &block.0[index] {
-            if assign.left.len() == 1
-                && assign.right.len() == 1
-                && matches!(assign.right[0], RValue::Literal(Literal::Nil))
-            {
-                if let Some(local) = assign.left[0].as_local() {
-                    nil_locals.insert(local.clone());
-                }
-            }
-        }
-        index += 1;
-    }
-}
-
-fn collect_deep_block_writes(block: &Block, writes: &mut FxHashSet<RcLocal>) {
-    for statement in block.iter() {
-        writes.extend(statement.values_written().into_iter().cloned());
-        match statement {
-            Statement::If(if_statement) => {
-                collect_deep_block_writes(&if_statement.then_block.lock(), writes);
-                collect_deep_block_writes(&if_statement.else_block.lock(), writes);
-            }
-            Statement::While(while_statement) => {
-                collect_deep_block_writes(&while_statement.block.lock(), writes);
-            }
-            Statement::Repeat(repeat_statement) => {
-                collect_deep_block_writes(&repeat_statement.block.lock(), writes);
-            }
-            Statement::NumericFor(for_loop) => {
-                collect_deep_block_writes(&for_loop.block.lock(), writes);
-            }
-            Statement::GenericFor(for_loop) => {
-                collect_deep_block_writes(&for_loop.block.lock(), writes);
-            }
-            _ => {}
         }
     }
 }
@@ -5215,22 +5089,22 @@ fn call_is_named(value: &RValue, name: &str) -> bool {
 /// Arbitrary RHS values with those opcodes are malformed/custom bytecode and
 /// must remain on the certified fallback path.
 fn source_proves_for_prep_kind(init: &ast::GenericForInit, origin: ast::ForOrigin) -> bool {
-    source_proves_for_prep_kind_with_alias(init, origin, None, None)
+    source_proves_for_prep_kind_with_alias(init, origin, None)
 }
 
-/// Resolve the small value-flow pattern emitted by Luau's optimizer for
-/// specialized iterator loops.  The compiler may first copy the builtin
+/// Resolve the small same-block value-flow pattern emitted by Luau's optimizer
+/// for specialized iterator loops.  The compiler may first copy the builtin
 /// `ipairs`/`pairs` function into a local and then call that local in the
 /// `GenericForInit` marker (`local iter = ipairs; ... in iter(t)`).  The
 /// source-like printer preserves the local call expression, so it is safe to
 /// accept this only when the latest write to that local in the same pre-marker
-/// block is the direct builtin global assignment.  Any branch/closure/indirect
-/// write remains unproven and continues down the certified fallback path.
+/// block is the direct builtin global assignment.  An incoming upvalue or an
+/// otherwise unwritten local proves stability, not builtin identity, and stays
+/// on the certified fallback path.
 fn source_proves_for_prep_kind_with_alias(
     init: &ast::GenericForInit,
     origin: ast::ForOrigin,
     alias_context: Option<(&ast::Block, usize)>,
-    function: Option<&Function>,
 ) -> bool {
     let ipairs_aux = origin.aux & 0x8000_0000 != 0;
     let canonical_aux = (if ipairs_aux { 0x8000_0000 } else { 0 }) | origin.result_count as u32;
@@ -5270,62 +5144,6 @@ fn source_proves_for_prep_kind_with_alias(
             && matches!(&assign.right[0], RValue::Global(global) if global_is_named(global, name))
     };
 
-    // Optimized production bytecode can keep the specialized builtin in an
-    // upvalue/local cell whose defining assignment lives in an enclosing
-    // closure, outside this Function's CFG.  We cannot recover that lexical
-    // assignment here, but a stable, non-parameter callee with no writes in
-    // this function is still a bounded value-flow proof: the FORGPREP_INEXT
-    // opcode and canonical origin identify the fast path, while the absence
-    // of a local rebind rules out a branch-dependent/custom replacement in
-    // the function being lifted.  This intentionally does not apply to
-    // FORGPREP_NEXT or arbitrary call shapes.
-    let stable_specialized_local = |value: &RValue| {
-        let call = match value {
-            RValue::Call(call) | RValue::Select(ast::Select::Call(call)) => call,
-            _ => return false,
-        };
-        if call.arguments.len() != 1 {
-            return false;
-        }
-        let RValue::Local(callee) = call.value.as_ref() else {
-            return false;
-        };
-        let Some(function) = function else {
-            return false;
-        };
-        if function
-            .parameters
-            .iter()
-            .any(|parameter| parameter == callee)
-        {
-            return false;
-        }
-        let mut written = false;
-        for node in function.graph().node_indices() {
-            if let Some(block) = function.block(node) {
-                if block.iter().any(|statement| {
-                    statement
-                        .values_written()
-                        .into_iter()
-                        .any(|local| local == callee)
-                }) {
-                    written = true;
-                    break;
-                }
-            }
-            if function.edges(node).any(|edge| {
-                edge.weight()
-                    .arguments
-                    .iter()
-                    .any(|(destination, _)| destination == callee)
-            }) {
-                written = true;
-                break;
-            }
-        }
-        !written
-    };
-
     match origin.prep_kind {
         // The high AUX bit selects the ipairs-style FORGLOOP write/exit
         // behavior.  A generic prep with that bit set is not equivalent to an
@@ -5350,8 +5168,7 @@ fn source_proves_for_prep_kind_with_alias(
             ipairs_aux
                 && origin.result_count <= 2
                 && init.0.right.len() == 1
-                && (call_is_builtin_or_alias(&init.0.right[0], "ipairs")
-                    || stable_specialized_local(&init.0.right[0]))
+                && call_is_builtin_or_alias(&init.0.right[0], "ipairs")
         }
     }
 }
@@ -5397,7 +5214,6 @@ fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason
                         init,
                         origin,
                         Some((block, statement_index)),
-                        Some(function),
                     );
                     init_source_proven.insert(origin.id(), proven);
                 }
@@ -6290,6 +6106,72 @@ mod tests {
     }
 
     #[test]
+    fn rejects_stable_local_inext_alias_without_builtin_provenance() {
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let callee = RcLocal::new(Local::new(Some("iter".into())));
+        let mut init = GenericForInit::new(generator, state, control);
+        init.0.right = vec![RValue::Call(Call::new(
+            RValue::Local(callee),
+            vec![RValue::Global(Global::from("items"))],
+        ))];
+        let origin = ForOrigin {
+            prep_pc: 1,
+            step_pc: 2,
+            body_pc: 3,
+            follow_pc: 4,
+            prep_kind: ForPrepKind::Inext,
+            base_register: 0,
+            result_count: 1,
+            aux: 0x8000_0001,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+            explicit_nil_args: false,
+        };
+        assert!(!super::source_proves_for_prep_kind(&init, origin));
+    }
+
+    #[test]
+    fn accepts_same_block_ipairs_alias_with_latest_builtin_definition() {
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let callee = RcLocal::new(Local::new(Some("iter".into())));
+        let mut init = GenericForInit::new(generator, state, control);
+        init.0.right = vec![RValue::Call(Call::new(
+            RValue::Local(callee.clone()),
+            vec![RValue::Global(Global::from("items"))],
+        ))];
+        let origin = ForOrigin {
+            prep_pc: 1,
+            step_pc: 2,
+            body_pc: 3,
+            follow_pc: 4,
+            prep_kind: ForPrepKind::Inext,
+            base_register: 0,
+            result_count: 1,
+            aux: 0x8000_0001,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+            explicit_nil_args: false,
+        };
+        let block = Block::from(vec![
+            Assign::new(
+                vec![LValue::Local(callee)],
+                vec![RValue::Global(Global::from("ipairs"))],
+            )
+            .into(),
+            init.clone().into(),
+        ]);
+        assert!(super::source_proves_for_prep_kind_with_alias(
+            &init,
+            origin,
+            Some((&block, 1)),
+        ));
+    }
+
+    #[test]
     fn rejects_generic_for_with_ipairs_aux_flag() {
         let mut function = Function::new(0);
         let init = function.new_block();
@@ -6746,7 +6628,7 @@ mod tests {
     }
 
     #[test]
-    fn accepts_ref_capture_when_loop_result_is_mutated_in_body() {
+    fn rejects_ref_capture_without_explicit_close_provenance() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -6773,8 +6655,9 @@ mod tests {
         function.block_mut(header).unwrap().push(
             GenericForNext::new(vec![result.clone()], generator.into(), state, control).into(),
         );
-        // A body write makes Luau lower the captured loop result as a
-        // per-iteration reference cell, closed before FORGLOOP advances.
+        // A body write is not evidence of the compiler's CLOSEUPVALS event.
+        // The source-like builder has no close-dominance/provenance proof, so
+        // this custom-shaped graph must remain fail-closed.
         function.block_mut(body).unwrap().push(
             Assign::new(
                 vec![LValue::Local(result.clone())],
@@ -6810,7 +6693,7 @@ mod tests {
         );
 
         let attempt = lift_attempt_with_ignored_locals(function, &FxHashSet::default());
-        assert!(!matches!(
+        assert!(matches!(
             attempt,
             StructureAttempt::Unsafe(UnsafeStructureReason::CapturedLoopResultRef)
         ));
@@ -9944,5 +9827,186 @@ mod tests {
         assert!(output.contains("for i = 1, 3 do"), "{output}");
         assert!(!output.contains("NumForInit"), "{output}");
         assert!(!output.contains("goto "), "{output}");
+    }
+
+    #[test]
+    fn rejects_numeric_for_with_post_prep_suffix() {
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(init);
+
+        let counter = RcLocal::new(Local::new(Some("i".into())));
+        let limit = RcLocal::new(Local::new(Some("limit".into())));
+        let step = RcLocal::new(Local::new(Some("step".into())));
+        let observed = RcLocal::new(Local::new(Some("observed".into())));
+        let mut marker = NumForInit::new(counter.clone(), limit.clone(), step.clone());
+        marker.counter.1 = Literal::Number(1.0).into();
+        marker.limit.1 = Literal::Number(3.0).into();
+        marker.step.1 = Literal::Number(1.0).into();
+        function.block_mut(init).unwrap().extend([
+            marker.into(),
+            // This read would observe a different value if moved before
+            // FORNPREP's hidden bound conversion.
+            Assign::new(
+                vec![LValue::Local(observed)],
+                vec![RValue::Local(limit.clone())],
+            )
+            .into(),
+        ]);
+        function.block_mut(header).unwrap().push(
+            NumForNext::new(
+                counter.clone(),
+                RValue::Local(limit.clone()),
+                RValue::Local(step.clone()),
+            )
+            .into(),
+        );
+        function
+            .block_mut(body)
+            .unwrap()
+            .push(Statement::Comment(ast::Comment::new("body".into())).into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+        function.set_edges(
+            init,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+        function.set_edges(
+            header,
+            vec![
+                (body, BlockEdge::new(BranchType::Then)),
+                (exit, BlockEdge::new(BranchType::Else)),
+            ],
+        );
+        function.set_edges(
+            body,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+
+        assert!(matches!(
+            lift_attempt_with_ignored_locals(function, &FxHashSet::default()),
+            StructureAttempt::Unsafe(UnsafeStructureReason::ForInitSuffixOrder)
+        ));
+    }
+
+    #[test]
+    fn rewrite_while_alias_preserves_post_loop_copy_after_stale_nil_seed() {
+        let condition = RcLocal::default();
+        let carry = RcLocal::default();
+        let current = RcLocal::default();
+        let source = RcLocal::default();
+        let mut block = Block::from(vec![
+            Assign::new(
+                vec![LValue::Local(source.clone())],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+            Assign::new(
+                vec![LValue::Local(source.clone())],
+                vec![RValue::Literal(Literal::Number(42.0))],
+            )
+            .into(),
+            GenericFor::new(
+                Vec::new(),
+                vec![RValue::Local(condition.clone())],
+                Block::default(),
+            )
+            .into(),
+            Assign::new(
+                vec![LValue::Local(carry.clone())],
+                vec![RValue::Local(source.clone())],
+            )
+            .into(),
+        ]);
+
+        super::rewrite_while_carried_alias(&mut block, &condition, &carry, &current);
+
+        assert_eq!(block.0.len(), 4, "ordinary post-loop copy must not be removed");
+        assert!(matches!(block.0[3], Statement::Assign(_)));
+        let Statement::Assign(copy) = &block.0[3] else {
+            panic!("expected post-loop assignment");
+        };
+        assert_eq!(copy.left[0].as_local(), Some(&carry));
+        assert_eq!(copy.right[0].as_local(), Some(&source));
+    }
+
+    #[test]
+    fn generic_loop_with_external_body_entry_is_not_discovered() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let init = function.new_block();
+        let side_entry = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(entry);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let origin = ForOrigin {
+            prep_pc: 10,
+            step_pc: 20,
+            body_pc: 21,
+            follow_pc: 30,
+            prep_kind: ForPrepKind::Generic,
+            base_register: 0,
+            result_count: 1,
+            aux: 1,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+            explicit_nil_args: false,
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        for_init.1 = Some(origin);
+        function.block_mut(init).unwrap().push(for_init.into());
+        let mut for_next = GenericForNext::new(vec![result], generator.into(), state, control);
+        for_next.origin = Some(origin);
+        function.block_mut(header).unwrap().push(for_next.into());
+        function
+            .block_mut(body)
+            .unwrap()
+            .push(Statement::Comment(ast::Comment::new("body".into())).into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Statement::Return(Default::default()).into());
+
+        function.set_edges(
+            entry,
+            vec![
+                (init, BlockEdge::new(BranchType::Then)),
+                (side_entry, BlockEdge::new(BranchType::Else)),
+            ],
+        );
+        function.set_edges(
+            init,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+        function.set_edges(
+            side_entry,
+            vec![(body, BlockEdge::new(BranchType::Unconditional))],
+        );
+        function.set_edges(
+            header,
+            vec![
+                (body, BlockEdge::new(BranchType::Then)),
+                (exit, BlockEdge::new(BranchType::Else)),
+            ],
+        );
+        function.set_edges(
+            body,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+
+        let analysis = Analysis::new(&function).expect("multi-entry CFG remains analyzable");
+        assert!(!analysis.loops_by_header.contains_key(&header));
     }
 }

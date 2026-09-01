@@ -1350,13 +1350,13 @@ fn decompile_function(
     // coalescing only proven-disjoint generated temporaries.  This pass is
     // deliberately after structuring/fallback selection and before
     // `name_locals`, so it cannot affect CFG proofs or declaration naming.
-    // The AST-only adapter shape is ambiguous with ordinary source code.  It
-    // is safe to use only on legacy-structurer output; source-like output has
-    // already applied CFG-backed adapter proofs inside `restructure`.
-    ast::guard_exhaustion_adapters::guard_generic_for_adapters(
-        &mut lifted,
-        !used_source_like,
-    );
+    // Do not infer exhaustion-edge ownership from the lowered AST.  A legacy
+    // `GenericFor` with a `ForOrigin` is still indistinguishable from an
+    // ordinary source loop followed by a copy; nil-seed history and loop
+    // provenance are not a path proof.  The source-like builder performs its
+    // adapter rewrite directly from CFG edge ownership.  Legacy output stays
+    // untouched (and is rejected/falls back if it cannot represent the graph)
+    // until the AST pass carries explicit exhaustion-edge provenance.
     ast::coalesce_locals::coalesce_generated_locals(&mut lifted, &source_like_protected_locals);
     if ast::simplify_gotos::block_has_goto_or_label(&lifted)
         || ast::simplify_gotos::block_has_unlowered_control(&lifted)
