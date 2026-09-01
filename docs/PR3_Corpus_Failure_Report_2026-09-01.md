@@ -177,6 +177,12 @@ source_like_unsafe_CapturedLoopResultRef:
 
 **Lý do chung cho toàn bộ danh sách dưới đây:** function có executable instruction nằm trong suffix của `FORGPREP`. Nếu emit `for ... in ... do` bằng cách di chuyển suffix vào loop body, thứ tự thực thi observable có thể thay đổi. Với policy `StrictNoSyntheticControl`, transform bị reject typed.
 
+**English for reviewer:** each function has an executable instruction in the
+`FORGPREP` suffix. Moving that suffix into a structured `for` body can change
+the observable order of iterator setup, limit/step evaluation, or side effects.
+Under `StrictNoSyntheticControl`, the transform therefore returns a typed
+`ForInitSuffixOrder` rejection instead of emitting guessed source.
+
 - `ReplicatedStorage/CmdrClient/Shared/Argument.lua` — function `p9`
 - `ReplicatedStorage/CmdrClient/Shared/Command.lua` — function `p4`
 - `ReplicatedStorage/CmdrClient/Shared/Util.lua` — functions `p44`, `p24`, `p16`, `p5`, `p4`, `p2`, `p0`
