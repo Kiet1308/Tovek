@@ -2,12 +2,12 @@
  "summary": {
   "inputs": 3936,
   "protos": 26339,
-  "exact": 15715,
-  "equiv": 7838,
-  "differ": 2648,
-  "missing": 6,
+  "exact": 15717,
+  "equiv": 7878,
+  "differ": 2609,
+  "missing": 3,
   "extra": 132,
-  "equiv_ratio": 0.89423
+  "equiv_ratio": 0.89582
  },
  "files": [
   {
@@ -91,7 +91,7 @@
   {
    "file": "ReplicatedStorage/Assets/Cutscenes/RaidSpiritCityAct 1/init",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 28
   },
   {
@@ -3643,7 +3643,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Base/Bar/BossHealth/ShieldBar",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 6
   },
   {
@@ -3697,7 +3697,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Base/Bar/EnemyHealth/ShieldIcon",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 8
   },
   {
@@ -4957,7 +4957,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Decals/DivinityOutline",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -4981,7 +4981,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Decals/LogoVector",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -5005,7 +5005,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Decals/PointerOutline",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 4
   },
   {
@@ -5059,7 +5059,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Decals/StageStar",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -5071,7 +5071,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Decals/StarIcon",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -5221,7 +5221,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Effects/Flipbook/SparkleRing",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -5647,7 +5647,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/UpgradeRequirements",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 4
   },
   {
@@ -5773,7 +5773,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingMenu/FishingRankBanner/init",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 0,
    "protos": 10
   },
   {
@@ -5803,7 +5803,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingPrompt",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 23
   },
   {
@@ -5899,7 +5899,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Game/DamageIndicator/DamageIndicator1",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 6
   },
   {
@@ -5917,7 +5917,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Game/EnemyHealth/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 8
   },
   {
@@ -5929,13 +5929,13 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitBillboards",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 8
   },
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitDrag",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 6
   },
   {
@@ -6235,13 +6235,13 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Maps",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 10
   },
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Modifiers",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 8
   },
   {
@@ -6397,7 +6397,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/NodeMapMenu/init",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 4,
    "protos": 33
   },
   {
@@ -6643,7 +6643,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/HUD/NpcOverhead",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 7
   },
   {
@@ -6715,7 +6715,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/HUD/PlayerOverhead/Old/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 4
   },
   {
@@ -6727,7 +6727,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/HUD/PlayerOverhead/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 5
   },
   {
@@ -7381,7 +7381,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventCalendar/init",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 36
   },
   {
@@ -8173,7 +8173,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/LeaderboardDisplay/Leaderboard/PersonalEntry",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -8965,7 +8965,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/Tournament/Leaderboard/PersonalEntry",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -10411,7 +10411,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Prompts/EvolutionCutscene",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 21
   },
   {
@@ -10591,7 +10591,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Prompts/ObtainedRewards",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 16
   },
   {
@@ -10657,7 +10657,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Prompts/StarterUnitSelection/init",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 10
   },
   {
@@ -10771,7 +10771,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Prompts/ViewAsset/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 28
   },
   {
@@ -20581,7 +20581,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/ClientDomain.client",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 10
   },
   {
@@ -20815,7 +20815,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/ClientExpeditionBuildings.client",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 14
   },
   {
@@ -21013,7 +21013,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/LensFlare/LensFlare",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 10
   },
   {
@@ -22111,7 +22111,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/Mounts/AEBike",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 3,
    "protos": 21
   },
   {
@@ -22201,7 +22201,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/BaseCamera",
    "status": "ok",
-   "nonequiv": 6,
+   "nonequiv": 5,
    "protos": 53
   },
   {
@@ -22261,7 +22261,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/OrbitalCamera",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 14
   },
   {
@@ -22363,7 +22363,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CommonUtils/CharacterUtil",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 13
   },
   {
@@ -22531,7 +22531,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/OrbitalCamera",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 14
   },
   {
@@ -22609,7 +22609,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CommonUtils/CharacterUtil",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 13
   },
   {
@@ -22669,7 +22669,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/TouchJump",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 15
   },
   {

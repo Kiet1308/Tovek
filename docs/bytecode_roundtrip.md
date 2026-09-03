@@ -125,7 +125,7 @@ template có hằng (tag 8) và field `nil`; cắt multret ở builtin arity c�
 - Nhân bản shared-tail (`ClickToMoveController` `return if humanoid == nil …` ×2) và
   compiler pin inline `local function` tại nhiều site → phình dòng (mục C/D/E).
 - Ground truth 274 cặp (`BytecodeTest`/`RealSourceTest`) không còn trên đĩa; chế độ
-  `--sources` sẵn sàng khi khôi phục (đã chạy trên 11 fixture `semantic_roundtrip`).
+  `--sources` sẵn sàng khi khôi phục (đã chạy trên 12 fixture `semantic_roundtrip`).
 
 ## Lệnh
 

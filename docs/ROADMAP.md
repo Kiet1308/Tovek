@@ -1,6 +1,6 @@
 # Tovek — Tình trạng hiện tại & việc cần làm
 
-> Cập nhật: 2026-09-03 (đợt C1) · `main` @ `df5be58` + C1 · corpus đo: `D:/Medal/examplebytecode/RobloxProject` (3.978 input, bytecode v9, types v3)
+> Cập nhật: 2026-09-03 (đợt C1+C5) · `main` @ `742ee0a` + C5 · corpus đo: `D:/Medal/examplebytecode/RobloxProject` (3.978 input, bytecode v9, types v3)
 
 Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt chưa.
 
@@ -15,11 +15,11 @@ Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt c
 | Corpus strict (`--strict-no-synthetic-control`): decompiled / failed | **3.936 / 0** |
 | Output chứa `controlFlowState` / `goto` / marker nội bộ | **0** |
 | Output binary-compile bằng `luau-compile` chính thức | **3.978 / 3.978** |
-| Round-trip semantic (`scripts/semantic_roundtrip.py`, 11 fixture × O0/O1/O2, chạy thật + so stdout) | **33 / 33** |
+| Round-trip semantic (`scripts/semantic_roundtrip.py`, 12 fixture × O0/O1/O2, chạy thật + so stdout) | **36 / 36** |
 | Rejection kiểu `Unsafe` trên corpus | 0 |
 | Function còn rơi vào legacy structurer (không có proof) | **317 / 26.391 (1,2%)** |
 | `cargo test --workspace` | xanh (restructure 102, lifter 44, ast 577, cfg 33…) |
-| Oracle bytecode round-trip (`scripts/bytecode_roundtrip.py`, decompile → recompile pin `c2ec0d4` → so proto chuẩn hoá) | **99,13 %** proto tương đương/chấp nhận (26.113 / 26.343); 3.936 / 3.936 input round-trip; lỗi thật (iii) = **0** |
+| Oracle bytecode round-trip (`scripts/bytecode_roundtrip.py`, decompile → recompile pin `c2ec0d4` → so proto chuẩn hoá) | **99,13 %** proto tương đương/chấp nhận (26.113 / 26.343); 3.936 / 3.936 input round-trip; lỗi thật (iii) = **0**; sau C1+C5: không tương đương 2.790 → 2.744, file tương đương hoàn toàn 2.693 → 2.721 |
 
 ### 1.2 Đẹp (còn thiếu)
 
@@ -45,6 +45,7 @@ Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt c
 - [x] Type info từ bytecode: annotation param + name hint (`parameter_types_from_bytecode`)
 - [x] Diagnostics: `MEDAL_DUMP_CFG=1`, `MEDAL_DUMP_TYPES=1`, `MEDAL_NO_SHARED_TAIL=1`, `MEDAL_DEBUG_RESTRUCTURE=1`, `MEDAL_DUMP_PRE_DEINLINE=1`, `MEDAL_TRACE_FCT=1`
 - [x] Đặt tên local/param từ type info + cách dùng (mục B): kênh typed-local → SSA, ~60 rule mới trong `name_locals.rs`, `vN` −37 %, `pN` −48 %
+- [x] C5 (bảng hằng chết, 2026-09-03): xem mục C bên dưới
 - [x] C1 (de-inline hình dạng, 2026-09-03): (1) `factor_common_tails` không hoist marker `-- inlined` (trailing comment) ra `end` của `if`; (2) `deinline_block` coi khối theo sau bởi đúng một `return` rỗng là tail (kể cả trong thân loop) → guard ⇄ nest canon áp dụng được; (3) trần chiều rộng cửa sổ void = `tail_spine_len` (guard-form nở theo nhánh `if` đuôi) thay cho `pat_raw_len + 1`; (4) Gap B dạng arm-return: cửa sổ kết thúc khối mà mọi nhánh `return RET` → `f(args); return RET`; (5) param bị ghi trong callee (`v = v + 1`) match như callee-local qua bản sao `local L = ARG` ở đầu site (`Target::written_params`); (6) result-alias: leaf `RESULT = E; S(RESULT)…` viết lại thành `local T = E; S(T)…; RESULT = T` để khớp `local L = E; …; return L` (`alias_result_leaves`); (7) `factor_common_tails::HoistLeafTails`: `if` ở vị trí tail có else-arm S bị nhân bản ở đuôi các leaf lồng sâu của then-arm → kéo S ra sau `if`, leaf khác thêm `continue`/`return` (no-op tại tail) — chính là dạng `continue`-fallthrough của nguồn mà structurer đã clone. Corpus: site 559 → 588, dòng 511.224 → 508.029, Write.luau 4.773 → 1.820; oracle 2.790 → 2.786 proto không tương đương (lớp xấu không đổi), baseline corpus cập nhật. Diagnostics mới: `MEDAL_DUMP_PRE_DEINLINE=1` (in AST trước de-inline), `MEDAL_TRACE_FCT=1` (in action của factor_common_tails)
 - [x] Oracle bytecode round-trip toàn corpus (mục A) + fix lỗi thật nó tìm ra: `{a, b, f()}` bị hạ thành `t[1], t[2], t[3] = a, b, f()` (mất multret của `f()`) — fold-through `local t = {}` xuống sát `SETLIST` (`cfg/src/ssa/inline.rs::movable_table_declaration`) + fallback giữ ngữ nghĩa `for _k, _v in next, { f() } do t[n + _k] = _v end` (`ast/src/set_list.rs`); 5 test mới, corpus `investigate` 247→38
 
@@ -60,7 +61,7 @@ Mục tiêu: decompile → recompile `luau-compile -O2 --fflags=false` → so s�
 - [x] Định nghĩa "tương đương": `exact` (chuỗi lệnh chuẩn hoá) / `equiv` (multiset lệnh ngữ nghĩa) / `differ` phân lớp accept·reduced·duplicated·inlined·outlined·dropped-const-table·investigate·suspect; bảng biến đổi được phép + rewrite trung tính (`CFrame.new()`≡`identity`, `Vector3.zero`, `SETLIST`≡`SETTABLEN`, `RETURN` thêm do shared-tail, `BCALL(*)`≡`BCALL(n)`…) trong `docs/bytecode_roundtrip.md`
 - [x] Chạy trên 3.936 input có bytecode (42 file rỗng bỏ qua): (i) 26.113/26.343 = **99,13 %**; (ii) `investigate` 38 + `dropped-const-table` 43 + 6 `suspect` đã soi tay đều là artefact inline/outline; (iii) **1 lỗi thật → đã fix** (SETLIST multret, xem 1.3), sau fix = 0
 - [x] CI (`.github/workflows/ci.yaml`, job `fixtures`): chạy trên `residual_control_flow` (bytecode) + `semantic_roundtrip` (`--sources`) gate `--baseline` (không file nào tụt status / tăng proto không tương đương); baseline trong `docs/bytecode_roundtrip/`; corpus riêng tư gate cục bộ bằng `baseline_corpus.json`
-- [x] Chế độ ground truth `--sources DIR` (compile nguồn `-O2` → cùng pipeline + chỉ số **source likeness** token-ratio, 11 fixture = 0,798). ⚠️ 274 cặp `BytecodeTest`/`RealSourceTest` **không còn trên đĩa** — chạy lại khi khôi phục
+- [x] Chế độ ground truth `--sources DIR` (compile nguồn `-O2` → cùng pipeline + chỉ số **source likeness** token-ratio, 12 fixture = 0,803). ⚠️ 274 cặp `BytecodeTest`/`RealSourceTest` **không còn trên đĩa** — chạy lại khi khôi phục
 
 **Đo lường:** % proto tương đương ≥ 99% → **99,13 %** ✅; danh sách (iii) = **0** ✅ (`exact+equiv` thuần = 89,4 %).
 
@@ -85,7 +86,7 @@ Pass de-inline (`ast/src/deinline.rs`) chỉ khớp hai bản inline khi AST gi�
 - [x] Sửa 5 file mất call-site so với `main` (`ClickToMoveDisplay` ×2, `ClientFishingHandler`, `SaveDiscovery`, `pool`) — 4 nguyên nhân: marker bị `factor_common_tails` hoist, tail sau `return`, trần cửa sổ, Gap B arm-return. Kèm written-param + result-alias (probe `grow`/`put` 8/8 site)
 - [x] `Write.luau`: 4.773 → 1.820 dòng. Nguyên nhân thật KHÔNG phải helper inline 22 lần mà là structurer nhân bản khối dispatch (~1.400 dòng) vào 3 vị trí (`continue`-fallthrough trong nguồn); `HoistLeafTails` gộp lại. 147 site helper còn lại dùng local hoisted (`keypoints = offset + N`, do clone chia sẻ RcLocal → `LocalDeclarer` kéo khai báo lên) nên chưa de-inline được → cần pass "sink declarations" chạy lại sau factor/deinline (việc mới, xem C6)
 - [ ] Constructor `{a, b, f()}` có `NEWTABLE` cách xa `SETLIST` vì phần tử cần temporaries có side-effect (Fusion `New "Frame" {...}` lồng): hiện fold-through chỉ khi entry đã có đều thuần; còn 51 file rơi vào fallback `for _k, _v in next, { f() }` và 20 proto `t[1], t[2] = a, b` — cần inline ngược temporaries vào constructor (oracle A: lớp `investigate`)
-- [ ] Không bỏ `local t = {...}` chết khi bảng chứa closure/hằng chuỗi (42 file, oracle A lớp `dropped-const-table`) — giữ dưới dạng `local _ = {...}` hoặc comment
+- [x] Không bỏ `local t = {...}` chết (C5, 2026-09-03): SSA inliner giữ bảng hằng KHÔNG rỗng dù không dùng (`keep_const_table` trong `cfg/src/ssa/inline.rs`), và không forward `{}` vào gốc index-write (`local t = {}; t.k = v` từng thành `({}).k = v` — mất closure `Formatter`). Ra `local _ = {...}`. Oracle `dropped-const-table` 43 → 6 (6 còn lại là khác dạng `SETTABLEN` vs `SETLIST` / field `= nil`, không phải mất mã); proto không tương đương 2.786 → 2.744; +400 dòng (mã khôi phục), 69 file. Fixture mới `semantic_roundtrip/dead_const_tables.luau`
 
 - [ ] C6. Sink lại khai báo local sau `factor_common_tails`/de-inline: khai báo init-less `local a, b, c…` bị kéo lên common dominator vì các bản clone dùng chung RcLocal; sau khi gộp clone, mỗi local chỉ còn dùng ở một khối → hạ khai báo xuống (`local G = keypoints // 0.72…`), mở đường cho ~147 site `expandbuffertosize`/`writebytesign` trong `Write.luau` (ước −800 dòng) và bớt `local v1, v2, …` dài toàn corpus
 

@@ -73,6 +73,25 @@ fn local_is_conditionally_evaluated(
 /// `name_locals` can give a meaningful name (GetService -> PascalCase service,
 /// require -> module base name). Refusing to inline is always semantics-preserving:
 /// the value is still computed once, read once, in the same position.
+/// Never forward a table constructor into the BASE of an index write
+/// (`local t = {}; t.k = v` -> `({}).k = v`): the write would land on a
+/// temporary nobody can read, deleting the field (a dead `Handlers.Formatter =
+/// function … end` table lost its closures this way). The
+/// `t = {} t.a = 1` -> `t = { a = 1 }` fold reconstructs the constructor instead.
+fn forwards_table_into_index_write(
+    new_rvalue: &ast::RValue,
+    use_stat: &ast::Statement,
+    local: &ast::RcLocal,
+) -> bool {
+    matches!(new_rvalue, ast::RValue::Table(_))
+        && use_stat.as_assign().is_some_and(|a| {
+            a.left.iter().any(|l| {
+                matches!(l, ast::LValue::Index(i)
+                    if matches!(i.left.as_ref(), ast::RValue::Local(x) if x == local))
+            })
+        })
+}
+
 fn is_service_or_require_handle(rvalue: &ast::RValue) -> bool {
     match rvalue {
         ast::RValue::MethodCall(method_call)
@@ -299,6 +318,7 @@ impl<'a> Inliner<'a> {
                             && !is_service_or_require_handle(new_rvalue)
                         {
                             if let Ok(ast::LValue::Local(local)) = &assign.left.iter().exactly_one()
+                                && !forwards_table_into_index_write(new_rvalue, &block[index], local)
                                 && let Some(read) = stat_to_values_read[index]
                                     .iter_mut()
                                     .find(|l| l.as_ref() == Some(local))
@@ -816,7 +836,15 @@ pub fn inline(
                             // still reaches here with zero uses is genuinely never evaluated
                             // elsewhere; keeping it does not double-evaluate.
                             let keep_can_raise = !ast::is_total_pure(rvalue);
-                            if !keep_named_closure && !keep_can_raise {
+                            // A dead NON-EMPTY table constructor is kept for fidelity:
+                            // a config/enum table (`local ASSETS = { Image = "rbxassetid://…" }`)
+                            // or a table of closures the source never used still
+                            // carries strings, numbers and function bodies the reader
+                            // wants (ROADMAP C5; oracle class `dropped-const-table`).
+                            // Only the empty `{}` stays disposable.
+                            let keep_const_table =
+                                matches!(rvalue, ast::RValue::Table(t) if !t.0.is_empty());
+                            if !keep_named_closure && !keep_can_raise && !keep_const_table {
                                 block[stat_index] = ast::Empty {}.into();
                                 changed = true;
                             }
