@@ -584,6 +584,14 @@ fn try_decompile_bytecode_internal(
             // early returns.  This is the structured cross-jumping half of P1:
             // exact common tails are shared before the statement de-inliner tries
             // to recover helper calls from the now-compact regions.
+            if std::env::var_os("MEDAL_DUMP_PRE_DEINLINE").is_some() {
+                eprintln!(
+                    "---- PRE-DEINLINE {} ----
+{body}
+---- END PRE-DEINLINE ----",
+                    script_name.unwrap_or("?")
+                );
+            }
             ast::factor_common_tails::factor_common_tails(&mut body);
             loop {
                 ptime!(S_DEINLINE);

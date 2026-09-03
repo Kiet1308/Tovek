@@ -1,6 +1,6 @@
 # Tovek — Tình trạng hiện tại & việc cần làm
 
-> Cập nhật: 2026-09-03 · `main` @ `df5be58` · corpus đo: `D:/Medal/examplebytecode/RobloxProject` (3.978 input, bytecode v9, types v3)
+> Cập nhật: 2026-09-03 (đợt C1) · `main` @ `df5be58` + C1 · corpus đo: `D:/Medal/examplebytecode/RobloxProject` (3.978 input, bytecode v9, types v3)
 
 Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt chưa.
 
@@ -25,13 +25,13 @@ Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt c
 
 | Chỉ số | Giá trị | Ghi chú |
 |---|---:|---|
-| Tổng dòng so với `main` trước PR#3 | +5.352 (+1,0%) | `Write.luau` +2.701 là bytecode tự inline helper 22 lần |
+| Tổng dòng so với `main` trước PR#3 | +2.157 (+0,4%) (trước C1: +5.352) | `Write.luau` 4.773 → **1.820**: structurer nhân bản khối dispatch ~1.400 dòng ×3, nay `factor_common_tails` gộp lại (không phải do helper inline) |
 | Local chưa có tên (`local vN`) | **22.111** (trước B: 34.857) | |
 | Lượt dùng param chưa tên (`pN`) | **35.014** (trước B: 67.667; trước type info: 70.301) | |
 | Annotation type đã khôi phục | 4.451 trong 1.076 file | 21,9% proto có chữ ký |
 | Local có type trong bytecode | 3.045 (vector 512, number 499, string 255, buffer 110…) | đã map sang SSA local (mục B); chỉ tag có tên (vector/buffer/thread/CFrame/Color3/boolean) mới đặt tên |
-| De-inline call-site khôi phục (`-- inlined by Luau -O2`) | 559 (main: 540) | 5 file mất 1 site, 18 file thêm |
-| Dòng thụt ≥ 8 tab | 26.451 | lồng sâu |
+| De-inline call-site khôi phục (`-- inlined by Luau -O2`) | **588** (trước C1: 559; main trước PR#3: 558) | 5 file mất site đã lấy lại; +29 site mới (written-param, result-alias, arm-return, tail sau `return`) |
+| Dòng thụt ≥ 8 tab | 24.550 (trước C1: 26.929, cùng cách đếm) | lồng sâu |
 | Khối `if not c then return end` / `else return end` | 1.596 / 871 | |
 
 ### 1.3 Đã làm trong đợt 2026-09-02/03
@@ -43,8 +43,9 @@ Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt c
 - [x] Bỏ `continue` thừa cuối thân loop; guard pass muộn `flatten_terminal_tail_guards`
 - [x] Bộ fixture round-trip + script + CI pin Luau `c2ec0d4`
 - [x] Type info từ bytecode: annotation param + name hint (`parameter_types_from_bytecode`)
-- [x] Diagnostics: `MEDAL_DUMP_CFG=1`, `MEDAL_DUMP_TYPES=1`, `MEDAL_NO_SHARED_TAIL=1`, `MEDAL_DEBUG_RESTRUCTURE=1`
+- [x] Diagnostics: `MEDAL_DUMP_CFG=1`, `MEDAL_DUMP_TYPES=1`, `MEDAL_NO_SHARED_TAIL=1`, `MEDAL_DEBUG_RESTRUCTURE=1`, `MEDAL_DUMP_PRE_DEINLINE=1`, `MEDAL_TRACE_FCT=1`
 - [x] Đặt tên local/param từ type info + cách dùng (mục B): kênh typed-local → SSA, ~60 rule mới trong `name_locals.rs`, `vN` −37 %, `pN` −48 %
+- [x] C1 (de-inline hình dạng, 2026-09-03): (1) `factor_common_tails` không hoist marker `-- inlined` (trailing comment) ra `end` của `if`; (2) `deinline_block` coi khối theo sau bởi đúng một `return` rỗng là tail (kể cả trong thân loop) → guard ⇄ nest canon áp dụng được; (3) trần chiều rộng cửa sổ void = `tail_spine_len` (guard-form nở theo nhánh `if` đuôi) thay cho `pat_raw_len + 1`; (4) Gap B dạng arm-return: cửa sổ kết thúc khối mà mọi nhánh `return RET` → `f(args); return RET`; (5) param bị ghi trong callee (`v = v + 1`) match như callee-local qua bản sao `local L = ARG` ở đầu site (`Target::written_params`); (6) result-alias: leaf `RESULT = E; S(RESULT)…` viết lại thành `local T = E; S(T)…; RESULT = T` để khớp `local L = E; …; return L` (`alias_result_leaves`); (7) `factor_common_tails::HoistLeafTails`: `if` ở vị trí tail có else-arm S bị nhân bản ở đuôi các leaf lồng sâu của then-arm → kéo S ra sau `if`, leaf khác thêm `continue`/`return` (no-op tại tail) — chính là dạng `continue`-fallthrough của nguồn mà structurer đã clone. Corpus: site 559 → 588, dòng 511.224 → 508.029, Write.luau 4.773 → 1.820; oracle 2.790 → 2.786 proto không tương đương (lớp xấu không đổi), baseline corpus cập nhật. Diagnostics mới: `MEDAL_DUMP_PRE_DEINLINE=1` (in AST trước de-inline), `MEDAL_TRACE_FCT=1` (in action của factor_common_tails)
 - [x] Oracle bytecode round-trip toàn corpus (mục A) + fix lỗi thật nó tìm ra: `{a, b, f()}` bị hạ thành `t[1], t[2], t[3] = a, b, f()` (mất multret của `f()`) — fold-through `local t = {}` xuống sát `SETLIST` (`cfg/src/ssa/inline.rs::movable_table_declaration`) + fallback giữ ngữ nghĩa `for _k, _v in next, { f() } do t[n + _k] = _v end` (`ast/src/set_list.rs`); 5 test mới, corpus `investigate` 247→38
 
 ---
@@ -76,17 +77,19 @@ Phát hiện phụ cho các mục sau: decompiler bỏ hẳn `local t = {...}` k
 
 **Đo lường:** `local vN` 34.857 → **22.111** (< 25.000 ✅); `pN` 67.667 → **35.014** (< 50.000 ✅); dòng 511.308 → 511.224; A không đổi (oracle baseline 2.790 → 2.790, 0 regression) ✅; ast 590 test xanh.
 
-### [ ] C. De-inline chuẩn hoá hình dạng — *cắt dòng nhiều nhất*
+### [ ] C. De-inline chuẩn hoá hình dạng — *cắt dòng nhiều nhất* (C1 xong 2026-09-03; còn C4/C5)
 
 Pass de-inline (`ast/src/deinline.rs`) chỉ khớp hai bản inline khi AST giống hệt.
 
-- [ ] Chuẩn hoá trước khi hash: guard ↔ lồng (`if not c then return end; A` ≡ `if c then A end`), tên local, thứ tự `and`/`or` giao hoán, `x = x + 1` ↔ `x += 1`
-- [ ] Sửa 5 file mất call-site so với `main` (`ClickToMoveDisplay` ×2, `ClientFishingHandler`, `SaveDiscovery`, `pool`)
-- [ ] `Write.luau`: helper "ensure capacity + write" inline 22 lần → gom về 1 hàm (kỳ vọng −2.000 dòng)
+- [x] Chuẩn hoá trước khi hash: guard ↔ lồng đã có (`unguard`), nay áp dụng được cả khi khối theo sau bởi `return` rỗng / trong thân loop; trần cửa sổ theo `tail_spine_len`; tên local đã là binding-hole. *Không làm* `and`/`or` giao hoán và `x = x + 1` ↔ `x += 1`: cùng một bytecode nên hai bản inline không lệch dạng này (đo: 0 site cần)
+- [x] Sửa 5 file mất call-site so với `main` (`ClickToMoveDisplay` ×2, `ClientFishingHandler`, `SaveDiscovery`, `pool`) — 4 nguyên nhân: marker bị `factor_common_tails` hoist, tail sau `return`, trần cửa sổ, Gap B arm-return. Kèm written-param + result-alias (probe `grow`/`put` 8/8 site)
+- [x] `Write.luau`: 4.773 → 1.820 dòng. Nguyên nhân thật KHÔNG phải helper inline 22 lần mà là structurer nhân bản khối dispatch (~1.400 dòng) vào 3 vị trí (`continue`-fallthrough trong nguồn); `HoistLeafTails` gộp lại. 147 site helper còn lại dùng local hoisted (`keypoints = offset + N`, do clone chia sẻ RcLocal → `LocalDeclarer` kéo khai báo lên) nên chưa de-inline được → cần pass "sink declarations" chạy lại sau factor/deinline (việc mới, xem C6)
 - [ ] Constructor `{a, b, f()}` có `NEWTABLE` cách xa `SETLIST` vì phần tử cần temporaries có side-effect (Fusion `New "Frame" {...}` lồng): hiện fold-through chỉ khi entry đã có đều thuần; còn 51 file rơi vào fallback `for _k, _v in next, { f() }` và 20 proto `t[1], t[2] = a, b` — cần inline ngược temporaries vào constructor (oracle A: lớp `investigate`)
 - [ ] Không bỏ `local t = {...}` chết khi bảng chứa closure/hằng chuỗi (42 file, oracle A lớp `dropped-const-table`) — giữ dưới dạng `local _ = {...}` hoặc comment
 
-**Đo lường:** call-site `-- inlined by Luau -O2` ≥ 600; `Write.luau` < 2.500 dòng; A không đổi.
+- [ ] C6. Sink lại khai báo local sau `factor_common_tails`/de-inline: khai báo init-less `local a, b, c…` bị kéo lên common dominator vì các bản clone dùng chung RcLocal; sau khi gộp clone, mỗi local chỉ còn dùng ở một khối → hạ khai báo xuống (`local G = keypoints // 0.72…`), mở đường cho ~147 site `expandbuffertosize`/`writebytesign` trong `Write.luau` (ước −800 dòng) và bớt `local v1, v2, …` dài toàn corpus
+
+**Đo lường:** call-site `-- inlined by Luau -O2` ≥ 600 → **588** (chưa đạt, còn C4–C6); `Write.luau` < 2.500 dòng → **1.820** ✅; A không đổi → 2.790 → 2.786, lớp `investigate`/`suspect`/`dropped-const-table` không đổi ✅ (baseline cập nhật).
 
 ### [ ] D. Bỏ hẳn legacy structurer — *đóng mảnh code không có proof*
 
