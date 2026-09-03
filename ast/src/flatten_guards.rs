@@ -7,7 +7,7 @@
 use std::collections::VecDeque;
 
 use crate::{
-    binary::is_boolean, Binary, BinaryOperation, Block, If, RValue, Statement, Unary,
+    binary::is_boolean, Binary, BinaryOperation, Block, If, RValue, Statement, Traverse, Unary,
     UnaryOperation,
 };
 
@@ -278,6 +278,91 @@ pub fn flatten_guards(block: &mut Block) {
         }
     }
     block.0 = out;
+}
+
+/// Late guard clauses for a shared terminal tail.
+///
+/// The structurer emits a tail that several arms flow into exactly once, after
+/// the `if`.  When that tail is a single `return`/`break`/`continue` and the
+/// `if` has no `else`, the nested form
+///
+/// ```text
+/// if c then <body> end
+/// return nil
+/// ```
+///
+/// reads better as the guard `if not c then return nil end <body> return nil`
+/// (the trailing terminator is kept only when `<body>` can fall through).
+/// Runs after the whole-chunk tail factoring and de-inlining passes so the
+/// duplicated one-line terminator can no longer disturb their matching.
+pub fn flatten_terminal_tail_guards(block: &mut Block) {
+    for s in block.0.iter_mut() {
+        match s {
+            Statement::If(f) => {
+                flatten_terminal_tail_guards(&mut f.then_block.lock());
+                flatten_terminal_tail_guards(&mut f.else_block.lock());
+            }
+            Statement::While(w) => flatten_terminal_tail_guards(&mut w.block.lock()),
+            Statement::Repeat(r) => flatten_terminal_tail_guards(&mut r.block.lock()),
+            Statement::NumericFor(nf) => flatten_terminal_tail_guards(&mut nf.block.lock()),
+            Statement::GenericFor(gf) => flatten_terminal_tail_guards(&mut gf.block.lock()),
+            _ => {}
+        }
+        for value in s.rvalues_mut() {
+            flatten_terminal_tail_guards_in_rvalue(value);
+        }
+    }
+
+    let mut index = 0;
+    while index + 1 < block.0.len() {
+        let eligible = match (&block.0[index], &block.0[index + 1]) {
+            (Statement::If(f), tail) if is_guard_terminator(tail) => {
+                let then = f.then_block.lock();
+                let else_empty = f.else_block.lock().0.is_empty();
+                else_empty
+                    && !then.0.is_empty()
+                    && !contains_goto_or_label(&then.0)
+                    && block_size(&then.0) >= COMPLEX_NEGATION_DENEST_MIN_BODY_SIZE
+                    && (negation_is_readable(&f.condition)
+                        || block_size(&then.0) >= 2 * COMPLEX_NEGATION_DENEST_MIN_BODY_SIZE)
+            }
+            _ => false,
+        };
+        if !eligible {
+            index += 1;
+            continue;
+        }
+        let Statement::If(f) = block.0.remove(index) else {
+            unreachable!()
+        };
+        let tail = block.0[index].clone();
+        let If {
+            condition,
+            then_block,
+            ..
+        } = f;
+        let body = std::mem::take(&mut then_block.lock().0);
+        let falls_through = !ends_in_terminator(&body);
+        let mut replacement = vec![If::new(negate(condition), Block(vec![tail]), Block::default()).into()];
+        replacement.extend(body);
+        if !falls_through {
+            // `<body>` never reaches the shared terminator: drop it.
+            block.0.remove(index);
+        }
+        let count = replacement.len();
+        block.0.splice(index..index, replacement);
+        index += count;
+    }
+}
+
+fn flatten_terminal_tail_guards_in_rvalue(value: &mut RValue) {
+    if let RValue::Closure(closure) = value {
+        flatten_terminal_tail_guards(&mut closure.function.lock().body);
+        return;
+    }
+    for nested in value.rvalues_mut() {
+        flatten_terminal_tail_guards_in_rvalue(nested);
+    }
 }
 
 #[cfg(test)]

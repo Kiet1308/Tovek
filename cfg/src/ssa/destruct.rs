@@ -963,12 +963,85 @@ impl<'a> Destructor<'a> {
                         visited.insert(assign_block);
                     }
 
-                    self.function
-                        .block_mut(assign_block)
-                        .unwrap()
-                        .push(parallel_assign.into());
+                    let block = self.function.block_mut(assign_block).unwrap();
+                    let (before_prep, after_prep) =
+                        Self::split_edge_transfer_around_for_prep(
+                            block,
+                            parallel_assign,
+                            &self.upvalue_to_group,
+                        );
+                    if let Some(before_prep) = before_prep {
+                        let marker_index = block.len() - 1;
+                        block.insert(marker_index, before_prep.into());
+                    }
+                    if let Some(after_prep) = after_prep {
+                        block.push(after_prep.into());
+                    }
                 }
             }
         }
+    }
+
+    /// Decide where an edge transfer (lowered phi copy) belongs inside `block`.
+    ///
+    /// A block whose last statement is a numeric/generic `for` preparation
+    /// marker (`FORNPREP`/`FORGPREP`) is a block whose real terminator is that
+    /// marker: the lifter always ends the block at the prep instruction.  The
+    /// values transferred along the init edge were all produced *before* the
+    /// preparation in the original bytecode (either by a plain register copy
+    /// or by a definition the SSA inliner folded into the edge argument), so
+    /// materializing the copy before the marker restores the bytecode order
+    /// instead of leaving a spurious "post-prep suffix" that no source-level
+    /// `for` can express.
+    ///
+    /// A transfer element stays after the marker only when it reads something
+    /// the marker itself defines (a value that only exists after preparation,
+    /// e.g. the loop-carried counter/control phi) or touches an upvalue cell (a
+    /// generic preparation may invoke `__iter`/`__call` user code that observes
+    /// the cell).  Splitting the parallel copy is sound because every
+    /// destination is a fresh temporary that no element reads.
+    ///
+    /// Returns `(before_marker, after_marker)`; for a block that does not end
+    /// in a prep marker everything is returned in `after_marker`.
+    fn split_edge_transfer_around_for_prep(
+        block: &ast::Block,
+        transfer: ast::Assign,
+        upvalue_to_group: &IndexMap<RcLocal, RcLocal>,
+    ) -> (Option<ast::Assign>, Option<ast::Assign>) {
+        let Some(marker) = block.last() else {
+            return (None, Some(transfer));
+        };
+        if !matches!(
+            marker,
+            ast::Statement::GenericForInit(_) | ast::Statement::NumForInit(_)
+        ) {
+            return (None, Some(transfer));
+        }
+        let marker_outputs = marker.values_written();
+        let marker_inputs = marker.values_read();
+        let mut before = ast::Assign {
+            left: Vec::new(),
+            right: Vec::new(),
+            prefix: false,
+            parallel: true,
+        };
+        let mut after = before.clone();
+        for (left, right) in transfer.left.into_iter().zip(transfer.right) {
+            let reads_marker_output_or_cell = right.values_read().into_iter().any(|read| {
+                marker_outputs.contains(&read) || upvalue_to_group.contains_key(read)
+            });
+            let writes_marker_input_or_cell = left.values_written().into_iter().any(|written| {
+                marker_inputs.contains(&written) || upvalue_to_group.contains_key(written)
+            });
+            let target = if reads_marker_output_or_cell || writes_marker_input_or_cell {
+                &mut after
+            } else {
+                &mut before
+            };
+            target.left.push(left);
+            target.right.push(right);
+        }
+        let non_empty = |assign: ast::Assign| (!assign.left.is_empty()).then_some(assign);
+        (non_empty(before), non_empty(after))
     }
 }

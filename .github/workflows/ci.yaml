@@ -76,11 +76,17 @@ jobs:
       - name: Build lifter
         run: cargo +nightly-2024-12-15 build --release -p luau-lifter
 
-      - name: Build official Luau compiler
+      - name: Build official Luau compiler and runner (pinned)
+        env:
+          # Pinned upstream commit (release 0.736).  Do not float `master` in
+          # the acceptance job: the compiler's bytecode/opcode selection must
+          # be stable for the round-trip proofs below.
+          LUAU_COMMIT: c2ec0d4e5ca50796ba174a7565298f59aa572268
         run: |
-          git clone --depth 1 https://github.com/luau-lang/luau.git "$RUNNER_TEMP/luau"
+          git clone https://github.com/luau-lang/luau.git "$RUNNER_TEMP/luau"
+          git -C "$RUNNER_TEMP/luau" checkout --quiet "$LUAU_COMMIT"
           cmake -S "$RUNNER_TEMP/luau" -B "$RUNNER_TEMP/luau-build" -DCMAKE_BUILD_TYPE=Release
-          cmake --build "$RUNNER_TEMP/luau-build" --target Luau.Compile.CLI --parallel 2
+          cmake --build "$RUNNER_TEMP/luau-build" --target Luau.Compile.CLI Luau.Repl.CLI --parallel 2
 
       - name: Run residual-control fixtures in strict modes
         run: |
@@ -99,14 +105,14 @@ jobs:
               >"$log" 2>&1
             status=$?
             set -e
-            # Two fixtures currently exercise the deliberate generic-for
-            # suffix-order rejection.  They must remain typed fail-closed
-            # outcomes; no fixture may regress to an untyped residual marker.
-            test "$status" -eq 1
-            test "$(grep -c '^FAIL ' "$log")" -eq 2
-            test "$(grep -c 'source_like_unsafe_ForInitSuffixOrder' "$log")" -eq 2
+            # Every fixture must structure into source-shaped Luau in both
+            # modes: the init-edge transfers that used to be reported as a
+            # FORGPREP/FORNPREP "suffix" are now materialized before the
+            # preparation marker by the SSA destructor.
+            test "$status" -eq 0
+            test "$(grep -c '^FAIL ' "$log")" -eq 0
             count=$(find "$out" -type f -name '*.luau' | wc -l)
-            test "$count" -eq 5
+            test "$count" -eq 7
             if rg -n --glob '*.luau' '(^|[^[:alnum:]_])goto[[:space:]]|controlFlowState|GenericFor(Init|Next)' "$out"; then
               echo 'internal control marker found in fixture output' >&2
               exit 1
@@ -125,6 +131,15 @@ jobs:
             done < <(find "$output_root" -type f -name '*.luau' -print0)
           done
 
+      - name: Semantic round-trip of loop-structuring fixtures
+        run: |
+          set -euo pipefail
+          python3 scripts/semantic_roundtrip.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --lifter target/release/luau-lifter \
+            --keep "$RUNNER_TEMP/semantic-roundtrip"
+
       - name: Upload fixture manifests and outputs
         if: always()
         uses: actions/upload-artifact@v4
@@ -134,4 +149,5 @@ jobs:
             ${{ runner.temp }}/residual-control-*/.tovek-analysis/manifest.json
             ${{ runner.temp }}/residual-control-*/**/*.luau
             ${{ runner.temp }}/residual-control-*.log
+            ${{ runner.temp }}/semantic-roundtrip/**/*.luau
           if-no-files-found: warn

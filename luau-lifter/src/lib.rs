@@ -585,6 +585,7 @@ fn try_decompile_bytecode_internal(
             {
                 ptime!(S_CLEANUP_RETURNS);
                 ast::cleanup_returns::cleanup_redundant_returns(&mut body);
+                ast::flatten_guards::flatten_terminal_tail_guards(&mut body);
             }
             // Restore the per-iteration snapshot of a by-value (`Upvalue::Copy`)
             // capture that out-of-SSA coalescing merged onto a mutated (loop)
@@ -727,6 +728,7 @@ fn try_decompile_bytecode_internal(
             {
                 ptime!(S_CLEANUP_RETURNS);
                 ast::cleanup_returns::cleanup_redundant_returns(&mut body);
+                ast::flatten_guards::flatten_terminal_tail_guards(&mut body);
             }
             // Luau has no `goto` or labels.  The structurer uses them only as an
             // internal edge representation, so allowing either AST node to reach
@@ -1052,6 +1054,46 @@ where
 /// compiler's generic-for markers when no SSA edge transfers are present.
 /// Keeping this routing decision in one predicate makes it auditable and
 /// testable.
+/// Diagnostic: dump every block and edge of a lifted CFG to stderr.
+/// Enabled with `MEDAL_DUMP_CFG=1`; never used by production output.
+fn debug_dump_cfg(function: &Function, stage: &str) {
+    use petgraph::visit::EdgeRef;
+    let mut out = String::new();
+    out.push_str(&format!(
+        "==== CFG dump [{stage}] id={} name={:?} entry={:?}
+",
+        function.id,
+        function.name,
+        function.entry()
+    ));
+    let mut nodes = function.graph().node_indices().collect::<Vec<_>>();
+    nodes.sort();
+    for node in nodes {
+        out.push_str(&format!("-- block {}
+", node.index()));
+        if let Some(block) = function.block(node) {
+            for statement in block.iter() {
+                out.push_str(&format!("   {statement}
+"));
+            }
+        }
+        for edge in function.graph().edges(node) {
+            out.push_str(&format!(
+                "   -> {} [{:?}] args={:?}
+",
+                edge.target().index(),
+                edge.weight().branch_type,
+                edge.weight()
+                    .arguments
+                    .iter()
+                    .map(|(p, a)| format!("{p} <- {a}"))
+                    .collect::<Vec<_>>()
+            ));
+        }
+    }
+    eprint!("{out}");
+}
+
 fn may_use_legacy_structurer(
     function: &Function,
     source_like: &restructure::StructureAttempt,
@@ -1182,6 +1224,9 @@ fn decompile_function(
     // must be recalculated.
     // etc.
     // the macro could also maybe generate an optimal ordering?
+    if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+        debug_dump_cfg(&function, "pre-inline");
+    }
     let mut changed = true;
     while changed {
         changed = false;
@@ -1233,6 +1278,9 @@ fn decompile_function(
         }
     }
     // cfg::dot::render_to(&function, &mut std::io::stdout()).unwrap();
+    if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+        debug_dump_cfg(&function, "pre-destruct");
+    }
     {
         ptime!(F_DESTRUCT);
         ssa::Destructor::new(
@@ -1242,6 +1290,9 @@ fn decompile_function(
             local_count,
         )
         .destruct();
+    }
+    if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+        debug_dump_cfg(&function, "post-destruct");
     }
     // The proof-driven pass is read-only: it never mutates CFG nodes or nested
     // AST containers, so its speculative copy can stay shallow.  Keep the

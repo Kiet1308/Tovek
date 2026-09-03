@@ -17,13 +17,20 @@ target/release/luau-lifter.exe decompile-folder `
   --key 203 --threads 1 --verbose
 ```
 
-Expected result with the hardened post-review patch is 5 source outputs and 2
-typed `source_like_unsafe_ForInitSuffixOrder` rejections in both default and
-`--strict-no-synthetic-control` modes. The two rejected inputs remain
-fail-closed because their generic-for preparation suffix cannot be proven safe
-to move. No output contains `goto`, label, `controlFlowState`, or another
-internal control marker, and every emitted output passes the official Luau
-parser. The fixtures preserve their original `ReplicatedStorage`,
+Expected result is 7 source outputs and 0 rejections in both default and
+`--strict-no-synthetic-control` modes. The two inputs that were previously
+reported as `source_like_unsafe_ForInitSuffixOrder` are structured now: the
+"suffix" after the preparation marker was never bytecode that executed after
+`FORGPREP`/`FORNPREP`; it was the lowered SSA init-edge transfer (phi copies
+and inliner-folded constant initializers such as `local seen = {}`), which the
+destructor now materializes *before* the marker, restoring the original
+bytecode order (see `docs/Tovek_PR3_ForInitSuffix_RootCause_and_Fix.md`). No
+output contains `goto`, label, `controlFlowState`, or another internal control
+marker, and every emitted output passes the official Luau parser.
+
+The sibling directory `../semantic_roundtrip/` holds source fixtures for the
+compile -> decompile -> recompile -> execute comparison run by
+`scripts/semantic_roundtrip.py` (also part of CI). The fixtures preserve their original `ReplicatedStorage`,
 `StarterPlayer`, and `Workspace` path families so a planning/diagnostic tool
 can reproduce the same shapes without access to the local corpus.
 

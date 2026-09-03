@@ -1592,6 +1592,11 @@ struct Builder<'a> {
     rewrite: FxHashMap<RcLocal, RcLocal>,
     protected_locals: FxHashSet<RcLocal>,
     unsafe_reason: Option<UnsafeStructureReason>,
+    /// Structure a tail shared by both arms of a conditional once, after the
+    /// `if`, instead of once per arm.  Disabled on the retry pass so the
+    /// readability optimization can never turn a structurable function into
+    /// an unsupported one.
+    allow_shared_tail: bool,
 }
 
 impl<'a> Builder<'a> {
@@ -1692,6 +1697,7 @@ impl<'a> Builder<'a> {
             rewrite: FxHashMap::default(),
             protected_locals,
             unsafe_reason,
+            allow_shared_tail: true,
         }
     }
 
@@ -2201,6 +2207,60 @@ impl<'a> Builder<'a> {
         })
     }
 
+    /// A generic-for result captured by reference is exact as a plain source
+    /// `for` body capture when the result local stays owned by the loop: it
+    /// is declared by the emitted `for`, is not renamed or exported, and no
+    /// statement or transfer outside the loop's own nodes reads, writes, or
+    /// captures it.  Each source iteration then binds a fresh cell exactly as
+    /// the VM does (the compiler closes captured loop-scope locals on every
+    /// fallthrough/`continue`/`break` boundary), so closures created in
+    /// different iterations observe their own iteration's final value.
+    fn captured_result_is_loop_owned(
+        &self,
+        info: &LoopInfo,
+        exports: &[(RcLocal, RcLocal)],
+    ) -> bool {
+        info.res_locals.iter().all(|result| {
+            let captured = info.nodes.iter().any(|node| {
+                self.function.block(*node).is_some_and(|block| {
+                    block.iter().any(|statement| {
+                        statement_has_ref_capture_of(statement, std::slice::from_ref(result))
+                    })
+                })
+            });
+            if !captured {
+                return true;
+            }
+            // A ref-captured result is itself an upvalue cell, so it is always
+            // in the protected set; that is expected here and is not an escape.
+            if self.rewrite.contains_key(result) || exports.iter().any(|(local, _)| local == result)
+            {
+                return false;
+            }
+            !self.analysis.nodes.iter().any(|node| {
+                if info.nodes.contains(node) {
+                    return false;
+                }
+                self.function.block(*node).is_some_and(|block| {
+                    block.iter().any(|statement| {
+                        statement.values_read().into_iter().any(|read| read == result)
+                            || statement
+                                .values_written()
+                                .into_iter()
+                                .any(|written| written == result)
+                            || statement_captures_any(statement, std::slice::from_ref(result))
+                    })
+                }) || self.function.edges(*node).any(|edge| {
+                    edge.weight().arguments.iter().any(|(destination, value)| {
+                        destination == result
+                            || value.values_read().into_iter().any(|read| read == result)
+                            || rvalue_captures_any(value, std::slice::from_ref(result))
+                    })
+                })
+            })
+        })
+    }
+
     fn has_unsafe_captured_result_escape(&self, info: &LoopInfo) -> bool {
         self.analysis.nodes.iter().any(|node| {
             if info.nodes.contains(node) {
@@ -2496,13 +2556,15 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
+        let mut body = body_result.block;
+        strip_trailing_continues(&mut body);
         output.push(
             ast::NumericFor::new(
                 initial,
                 limit,
                 step,
                 numeric.counter.clone(),
-                body_result.block,
+                body,
             )
             .into(),
         );
@@ -2604,6 +2666,7 @@ impl<'a> Builder<'a> {
                 }
             }
         }
+        strip_trailing_continues(&mut body);
         output.push(ast::While::new(loop_condition, body).into());
         Some(PathResult {
             block: output,
@@ -3547,7 +3610,9 @@ impl<'a> Builder<'a> {
             Some(adapters) => adapters,
             None => return None,
         };
-        if self.has_ref_captured_result(info) {
+        if self.has_ref_captured_result(info)
+            && !self.captured_result_is_loop_owned(info, &exports)
+        {
             return self.reject_unsafe(UnsafeStructureReason::CapturedLoopResultRef);
         }
         if self.has_unsafe_export_write(info, &exports, &adapters)
@@ -3927,7 +3992,9 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
-        let mut generic_for = GenericFor::new(info.res_locals.clone(), right, body_result.block);
+        let mut body = body_result.block;
+        strip_trailing_continues(&mut body);
+        let mut generic_for = GenericFor::new(info.res_locals.clone(), right, body);
         generic_for.origin = info.origin;
         output.push(generic_for.into());
         // Exhaustion adapters run after the VM FORGLOOP marker and may copy a
@@ -4245,6 +4312,7 @@ impl<'a> Builder<'a> {
                         then_target,
                         else_target,
                         context,
+                        stop,
                     )?;
                     output.extend(conditional.block.0);
                     // A conditional consumes both arms up to their common
@@ -4402,12 +4470,22 @@ impl<'a> Builder<'a> {
         then_target: NodeIndex,
         else_target: NodeIndex,
         context: Option<&LoopContext<'_>>,
+        stop: Option<NodeIndex>,
     ) -> Option<PathResult> {
-        let result =
-            self.build_conditional_inner(source, statement, then_target, else_target, context);
+        let result = self.build_conditional_inner(
+            source,
+            statement,
+            then_target,
+            else_target,
+            context,
+            stop,
+        );
         result
     }
 
+    /// `stop` is the node at which the enclosing path walk ends.  When one arm
+    /// targets it directly, the conditional is a guard (`if c then ... end`)
+    /// followed by the stop node rather than a diamond.
     fn build_conditional_inner(
         &mut self,
         source: NodeIndex,
@@ -4415,6 +4493,7 @@ impl<'a> Builder<'a> {
         then_target: NodeIndex,
         else_target: NodeIndex,
         context: Option<&LoopContext<'_>>,
+        stop: Option<NodeIndex>,
     ) -> Option<PathResult> {
         if let Some(ctx) = context {
             // A common compiler diamond can expose a shared tail through one
@@ -4449,77 +4528,73 @@ impl<'a> Builder<'a> {
                 common_postdominator(&[then_target, else_target], &self.analysis.post_dominators)
                     .filter(|join| *join != ctx.info.header && ctx.info.nodes.contains(join));
             if let Some(join) = inside_join {
-                // Rewrites created by a nested loop are path-sensitive.  Do
-                // not let a loop that is only present in one arm leak its
-                // export mapping into the other arm (or into the join).
+                return self.build_inside_join_conditional(
+                    source,
+                    &statement,
+                    then_target,
+                    else_target,
+                    join,
+                    false,
+                    ctx,
+                );
+            }
+            // No post-dominator join exists when an arm terminates (`return`,
+            // `break`, `continue`).  If the arms still share a tail inside the
+            // loop, structure it once after the `if` instead of once per arm.
+            // Candidate joins, earliest first: the shared node both arms flow
+            // into, then the enclosing walk's own stop (an arm that does not
+            // reach it must terminate).  Each attempt is rolled back on
+            // failure.
+            let stop_join = stop.filter(|join| {
+                self.allow_shared_tail
+                    && *join != ctx.info.header
+                    && ctx.info.nodes.contains(join)
+                    && !self.block_is_small_terminal(*join)
+            });
+            let candidates = [
+                self.shared_tail_join(then_target, else_target, Some(ctx), stop),
+                stop_join,
+            ];
+            let mut tried = None;
+            for join in candidates.into_iter().flatten() {
+                if tried == Some(join) {
+                    continue;
+                }
+                tried = Some(join);
                 let base_rewrite = self.rewrite.clone();
                 let base_visited = self.visited.clone();
-                let then_transfer = self.edge_transfer(
-                    self.function
-                        .edges(source)
-                        .find(|edge| {
-                            edge.target() == then_target
-                                && edge.weight().branch_type == BranchType::Then
-                        })?
-                        .weight(),
-                    &base_rewrite,
-                )?;
-                let then_result = self.build_path(then_target, Some(join), Some(ctx))?;
-                let mut then_rewrite = self.rewrite.clone();
-                self.rewrite = base_rewrite.clone();
-                let then_visited = self.visited.clone();
-                self.visited = base_visited.clone();
-                let else_transfer = self.edge_transfer(
-                    self.function
-                        .edges(source)
-                        .find(|edge| {
-                            edge.target() == else_target
-                                && edge.weight().branch_type == BranchType::Else
-                        })?
-                        .weight(),
-                    &base_rewrite,
-                )?;
-                let else_result = self.build_path(else_target, Some(join), Some(ctx))?;
-                // A terminal arm has no path to the inside join.  Do not let
-                // optional-export materialization mutate that arm before we
-                // reject the mixed-port conditional: doing so would either
-                // append a copy after `break`/`return` or make an unreachable
-                // arm look as if it contributed to the join environment.
-                if then_result.next != Some(join) || else_result.next != Some(join) {
-                    return None;
-                }
-                let mut else_rewrite = self.rewrite.clone();
-                self.visited.extend(then_visited);
-                let mut then_block = then_transfer;
-                then_block.extend(then_result.block.0);
-                let mut else_block = else_transfer;
-                else_block.extend(else_result.block.0);
-                self.materialize_optional_export_gaps(
-                    &base_rewrite,
-                    &mut then_rewrite,
-                    &mut else_rewrite,
-                    Some(join),
+                if let Some(result) = self.build_inside_join_conditional(
+                    source,
+                    &statement,
+                    then_target,
+                    else_target,
+                    join,
                     true,
-                    &mut then_block,
-                    &mut else_block,
-                )?;
-                self.rewrite = self.reconcile_rewrite(
-                    &base_rewrite,
-                    &then_rewrite,
-                    &else_rewrite,
-                    Some(join),
-                )?;
-                let mut condition = statement.condition.clone();
-                for local in condition.values_read_mut() {
-                    if let Some(replacement) = base_rewrite.get(local) {
-                        *local = replacement.clone();
+                    ctx,
+                )
+                    // The continuation must still be able to start at the
+                    // join: an arm may have consumed it through a nested
+                    // region (for example a loop exit adapter).
+                    && !self.visited.contains(&join)
+                {
+                    if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                        eprintln!(
+                            "shared tail (loop): source={} join={}",
+                            source.index(),
+                            join.index()
+                        );
                     }
+                    return Some(result);
                 }
-                simplify_conditional(&mut condition, &mut then_block, &mut else_block);
-                return Some(PathResult {
-                    block: Block::from(vec![If::new(condition, then_block, else_block).into()]),
-                    next: Some(join),
-                });
+                if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                    eprintln!(
+                        "shared tail (loop) FAILED: source={} join={}",
+                        source.index(),
+                        join.index()
+                    );
+                }
+                self.rewrite = base_rewrite;
+                self.visited = base_visited;
             }
             let base_rewrite = self.rewrite.clone();
             let base_visited = self.visited.clone();
@@ -4597,70 +4672,353 @@ impl<'a> Builder<'a> {
         } else {
             let join =
                 common_postdominator(&[then_target, else_target], &self.analysis.post_dominators);
-            let base_rewrite = self.rewrite.clone();
-            let base_visited = self.visited.clone();
-            let then_transfer = self.edge_transfer(
-                self.function
-                    .edges(source)
-                    .find(|edge| {
-                        edge.target() == then_target
-                            && edge.weight().branch_type == BranchType::Then
-                    })?
-                    .weight(),
-                &base_rewrite,
-            )?;
-            let then_result = self.build_path(then_target, join, None)?;
-            let mut then_rewrite = self.rewrite.clone();
-            self.rewrite = base_rewrite.clone();
-            let then_visited = self.visited.clone();
-            self.visited = base_visited.clone();
-            let else_transfer = self.edge_transfer(
-                self.function
-                    .edges(source)
-                    .find(|edge| {
-                        edge.target() == else_target
-                            && edge.weight().branch_type == BranchType::Else
-                    })?
-                    .weight(),
-                &base_rewrite,
-            )?;
-            let else_result = self.build_path(else_target, join, None)?;
-            let mut else_rewrite = self.rewrite.clone();
-            self.visited.extend(then_visited);
-            let mut then_block = then_transfer;
-            then_block.extend(then_result.block.0);
-            let mut else_block = else_transfer;
-            else_block.extend(else_result.block.0);
-            self.materialize_optional_export_gaps(
-                &base_rewrite,
-                &mut then_rewrite,
-                &mut else_rewrite,
-                join,
-                join.is_some_and(|join| {
-                    then_result.next == Some(join) && else_result.next == Some(join)
-                }),
-                &mut then_block,
-                &mut else_block,
-            )?;
-            self.rewrite =
-                self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite, join)?;
-            if then_result.next != join || else_result.next != join {
-                return None;
-            }
-            let mut condition = statement.condition.clone();
-            for local in condition.values_read_mut() {
-                if let Some(replacement) = base_rewrite.get(local) {
-                    *local = replacement.clone();
+            if join.is_none() {
+                // A returning arm has no common post-dominator with its
+                // sibling.  When both arms still flow into one tail (or one
+                // arm flows into the enclosing walk's stop while the other
+                // terminates), build the arms up to that node and emit the
+                // tail once after the `if`.  Each attempt is rolled back on
+                // failure.
+                // A one-statement terminal stop (`return x`) is not used as a
+                // guard target: duplicating it keeps every inlined copy of a
+                // body in the same shape for the de-inline pass.
+                let stop_join = stop
+                    .filter(|join| self.allow_shared_tail && !self.block_is_small_terminal(*join));
+                let candidates = [
+                    self.shared_tail_join(then_target, else_target, None, stop),
+                    stop_join,
+                ];
+                let mut tried = None;
+                for shared in candidates.into_iter().flatten() {
+                    if tried == Some(shared) {
+                        continue;
+                    }
+                    tried = Some(shared);
+                    let base_rewrite = self.rewrite.clone();
+                    let base_visited = self.visited.clone();
+                    if let Some(result) = self.build_plain_conditional(
+                        source,
+                        &statement,
+                        then_target,
+                        else_target,
+                        Some(shared),
+                        true,
+                    )
+                        && !self.visited.contains(&shared)
+                    {
+                        if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                            eprintln!(
+                                "shared tail: source={} join={}",
+                                source.index(),
+                                shared.index()
+                            );
+                        }
+                        return Some(result);
+                    }
+                    if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                        eprintln!(
+                            "shared tail FAILED: source={} join={}",
+                            source.index(),
+                            shared.index()
+                        );
+                    }
+                    self.rewrite = base_rewrite;
+                    self.visited = base_visited;
                 }
             }
-            simplify_conditional(&mut condition, &mut then_block, &mut else_block);
-            Some(PathResult {
-                block: Block::from(vec![If::new(condition, then_block, else_block).into()]),
-                next: join,
-            })
+            self.build_plain_conditional(source, &statement, then_target, else_target, join, false)
         }
     }
 
+    /// Conditional inside a loop whose arms meet at `join` (a node owned by the
+    /// loop).  With `shared_tail`, `join` was inferred from reachability rather
+    /// than post-dominance, so an arm may terminate instead of reaching it.
+    fn build_inside_join_conditional(
+        &mut self,
+        source: NodeIndex,
+        statement: &If,
+        then_target: NodeIndex,
+        else_target: NodeIndex,
+        join: NodeIndex,
+        shared_tail: bool,
+        ctx: &LoopContext<'_>,
+    ) -> Option<PathResult> {
+        // Rewrites created by a nested loop are path-sensitive.  Do
+        // not let a loop that is only present in one arm leak its
+        // export mapping into the other arm (or into the join).
+        let base_rewrite = self.rewrite.clone();
+        let base_visited = self.visited.clone();
+        let then_transfer = self.edge_transfer(
+            self.function
+                .edges(source)
+                .find(|edge| {
+                    edge.target() == then_target
+                        && edge.weight().branch_type == BranchType::Then
+                })?
+                .weight(),
+            &base_rewrite,
+        )?;
+        let then_result = self.build_path(then_target, Some(join), Some(ctx))?;
+        let mut then_rewrite = self.rewrite.clone();
+        self.rewrite = base_rewrite.clone();
+        let then_visited = self.visited.clone();
+        self.visited = base_visited.clone();
+        let else_transfer = self.edge_transfer(
+            self.function
+                .edges(source)
+                .find(|edge| {
+                    edge.target() == else_target
+                        && edge.weight().branch_type == BranchType::Else
+                })?
+                .weight(),
+            &base_rewrite,
+        )?;
+        let else_result = self.build_path(else_target, Some(join), Some(ctx))?;
+        // A terminal arm has no path to the inside join.  Do not let
+        // optional-export materialization mutate that arm before we
+        // reject the mixed-port conditional: doing so would either
+        // append a copy after `break`/`return` or make an unreachable
+        // arm look as if it contributed to the join environment.
+        let mut then_result = then_result;
+        let mut else_result = else_result;
+        if shared_tail {
+            Self::seal_shared_tail_arm(&mut then_result, join, ctx.info.header);
+            Self::seal_shared_tail_arm(&mut else_result, join, ctx.info.header);
+        }
+        if !Self::conditional_arms_join(Some(join), shared_tail, &then_result, &else_result) {
+            return None;
+        }
+        let both_reach = then_result.next == Some(join) && else_result.next == Some(join);
+        let mut else_rewrite = self.rewrite.clone();
+        if !both_reach && then_rewrite != else_rewrite {
+            // A terminal arm has no join environment to publish a rewrite
+            // into; leave this shape to the ordinary arm builder.
+            return None;
+        }
+        self.visited.extend(then_visited);
+        let mut then_block = then_transfer;
+        then_block.extend(then_result.block.0);
+        let mut else_block = else_transfer;
+        else_block.extend(else_result.block.0);
+        self.materialize_optional_export_gaps(
+            &base_rewrite,
+            &mut then_rewrite,
+            &mut else_rewrite,
+            Some(join),
+            both_reach,
+            &mut then_block,
+            &mut else_block,
+        )?;
+        self.rewrite = self.reconcile_rewrite(
+            &base_rewrite,
+            &then_rewrite,
+            &else_rewrite,
+            Some(join),
+        )?;
+        let mut condition = statement.condition.clone();
+        for local in condition.values_read_mut() {
+            if let Some(replacement) = base_rewrite.get(local) {
+                *local = replacement.clone();
+            }
+        }
+        simplify_conditional(&mut condition, &mut then_block, &mut else_block);
+        return Some(PathResult {
+            block: Block::from(vec![If::new(condition, then_block, else_block).into()]),
+            next: Some(join),
+        });
+    }
+
+    /// Conditional outside any loop.  `join` is the structured join (or `None`
+    /// when every arm terminates); with `shared_tail` an arm may terminate
+    /// while the other reaches `join`.
+    fn build_plain_conditional(
+        &mut self,
+        source: NodeIndex,
+        statement: &If,
+        then_target: NodeIndex,
+        else_target: NodeIndex,
+        join: Option<NodeIndex>,
+        shared_tail: bool,
+    ) -> Option<PathResult> {
+        let base_rewrite = self.rewrite.clone();
+        let base_visited = self.visited.clone();
+        let then_transfer = self.edge_transfer(
+            self.function
+                .edges(source)
+                .find(|edge| {
+                    edge.target() == then_target
+                        && edge.weight().branch_type == BranchType::Then
+                })?
+                .weight(),
+            &base_rewrite,
+        )?;
+        let then_result = self.build_path(then_target, join, None)?;
+        let mut then_rewrite = self.rewrite.clone();
+        self.rewrite = base_rewrite.clone();
+        let then_visited = self.visited.clone();
+        self.visited = base_visited.clone();
+        let else_transfer = self.edge_transfer(
+            self.function
+                .edges(source)
+                .find(|edge| {
+                    edge.target() == else_target
+                        && edge.weight().branch_type == BranchType::Else
+                })?
+                .weight(),
+            &base_rewrite,
+        )?;
+        let else_result = self.build_path(else_target, join, None)?;
+        let mut else_rewrite = self.rewrite.clone();
+        if !Self::conditional_arms_join(join, shared_tail, &then_result, &else_result) {
+            return None;
+        }
+        let both_reach =
+            join.is_some_and(|join| then_result.next == Some(join) && else_result.next == Some(join));
+        if shared_tail && !both_reach && then_rewrite != else_rewrite {
+            return None;
+        }
+        self.visited.extend(then_visited);
+        let mut then_block = then_transfer;
+        then_block.extend(then_result.block.0);
+        let mut else_block = else_transfer;
+        else_block.extend(else_result.block.0);
+        self.materialize_optional_export_gaps(
+            &base_rewrite,
+            &mut then_rewrite,
+            &mut else_rewrite,
+            join,
+            both_reach,
+            &mut then_block,
+            &mut else_block,
+        )?;
+        self.rewrite =
+            self.reconcile_rewrite(&base_rewrite, &then_rewrite, &else_rewrite, join)?;
+        let mut condition = statement.condition.clone();
+        for local in condition.values_read_mut() {
+            if let Some(replacement) = base_rewrite.get(local) {
+                *local = replacement.clone();
+            }
+        }
+        simplify_conditional(&mut condition, &mut then_block, &mut else_block);
+        Some(PathResult {
+            block: Block::from(vec![If::new(condition, then_block, else_block).into()]),
+            next: join,
+        })
+    }
+
+    /// Earliest node reachable from both arms of a conditional such that the
+    /// arms consume disjoint node sets before it.  Nodes already consumed are
+    /// ignored; inside a loop the search stays within the loop's own nodes and
+    /// never crosses the header.  Returns `None` when the arms share nothing
+    /// (or when the shared region has no single entry).
+    fn shared_tail_join(
+        &self,
+        then_target: NodeIndex,
+        else_target: NodeIndex,
+        ctx: Option<&LoopContext<'_>>,
+        stop: Option<NodeIndex>,
+    ) -> Option<NodeIndex> {
+        if !self.allow_shared_tail {
+            return None;
+        }
+        let allowed = |node: NodeIndex| {
+            self.analysis.reachable.contains(&node)
+                && !self.visited.contains(&node)
+                && ctx.is_none_or(|ctx| node != ctx.info.header && ctx.info.nodes.contains(&node))
+        };
+        // Forward reachability that records but never expands `stop` (the
+        // enclosing walk's end) and `candidate` (the join under test).
+        let reach = |start: NodeIndex, candidate: Option<NodeIndex>| {
+            let mut seen = FxHashSet::default();
+            let mut work = vec![start];
+            while let Some(node) = work.pop() {
+                if !allowed(node) || !seen.insert(node) {
+                    continue;
+                }
+                if Some(node) == candidate || Some(node) == stop {
+                    continue;
+                }
+                work.extend(self.function.successor_blocks(node));
+            }
+            seen
+        };
+        let then_all = reach(then_target, None);
+        let else_all = reach(else_target, None);
+        let mut common = then_all.intersection(&else_all).copied().collect_vec();
+        if common.is_empty() || common.len() > 256 {
+            return None;
+        }
+        common.sort_by_key(|node| node.index());
+        let mut best: Option<(usize, NodeIndex)> = None;
+        for candidate in common {
+            // The continuation walk must be able to start at the join: a
+            // loop header (generic/numeric/while) is only enterable through
+            // its own init/region machinery.
+            if self.analysis.loops_by_header.contains_key(&candidate)
+                || self.analysis.numeric_loops_by_header.contains_key(&candidate)
+                || self.analysis.while_loops_by_header.contains_key(&candidate)
+            {
+                continue;
+            }
+            let mut pre_then = reach(then_target, Some(candidate));
+            let mut pre_else = reach(else_target, Some(candidate));
+            pre_then.remove(&candidate);
+            pre_else.remove(&candidate);
+            if !pre_then.is_disjoint(&pre_else) {
+                continue;
+            }
+            let size = pre_then.len() + pre_else.len();
+            if best.is_none_or(|(best_size, _)| size < best_size) {
+                best = Some((size, candidate));
+            }
+        }
+        best.map(|(_, join)| join)
+    }
+
+    /// A block with no successor whose only real statement is a `return` or
+    /// `break`.
+    fn block_is_small_terminal(&self, node: NodeIndex) -> bool {
+        if self.function.successor_blocks(node).next().is_some() {
+            return false;
+        }
+        let Some(block) = self.function.block(node) else {
+            return false;
+        };
+        let mut statements = block.iter().filter(|statement| !is_ignorable(statement));
+        matches!(
+            (statements.next(), statements.next()),
+            (Some(Statement::Return(_) | Statement::Break(_)), None)
+        )
+    }
+
+    /// An arm that flows straight back to the loop header (no `stop` hit) is
+    /// an explicit `continue` once a tail is emitted after the `if`.
+    fn seal_shared_tail_arm(result: &mut PathResult, join: NodeIndex, header: NodeIndex) {
+        if result.next == Some(header) && join != header && !block_ends_terminal(&result.block) {
+            result.block.push(Statement::Continue(ast::Continue {}));
+            result.next = None;
+        }
+    }
+
+    /// Whether two conditional arms meet the structured join.  Without a
+    /// shared tail both arms must reach `join`.  With a shared tail an arm may
+    /// instead terminate (its block ends in `return`/`break`/`continue`) while
+    /// the other reaches the join, so the tail is emitted exactly once.
+    fn conditional_arms_join(
+        join: Option<NodeIndex>,
+        shared_tail: bool,
+        then_result: &PathResult,
+        else_result: &PathResult,
+    ) -> bool {
+        if !shared_tail {
+            return then_result.next == join && else_result.next == join;
+        }
+        let arm_ok =
+            |result: &PathResult| result.next == join || block_ends_terminal(&result.block);
+        arm_ok(then_result)
+            && arm_ok(else_result)
+            && (then_result.next == join || else_result.next == join)
+    }
     fn build_transfer_arm(
         &mut self,
         source: NodeIndex,
@@ -5031,6 +5389,50 @@ fn is_reorderable_for_init_suffix(statement: &Statement) -> bool {
         && assign.right.iter().all(ast::is_total_pure)
 }
 
+/// Whether control cannot fall out of the end of `block`: its last real
+/// statement is `return`/`break`/`continue`, or an `if` whose two arms both
+/// end that way.
+fn block_ends_terminal(block: &Block) -> bool {
+    let Some(last) = block.iter().rev().find(|statement| !is_ignorable(statement)) else {
+        return false;
+    };
+    match last {
+        Statement::Return(_) | Statement::Break(_) | Statement::Continue(_) => true,
+        Statement::If(if_statement) => {
+            let then_block = if_statement.then_block.lock();
+            let else_block = if_statement.else_block.lock();
+            !then_block.is_empty()
+                && !else_block.is_empty()
+                && block_ends_terminal(&then_block)
+                && block_ends_terminal(&else_block)
+        }
+        _ => false,
+    }
+}
+
+/// Remove `continue` statements that end a loop body, including those that
+/// end the arms of a trailing `if`: control would reach the next iteration
+/// anyway, so they carry no information.
+fn strip_trailing_continues(block: &mut Block) {
+    let Some(index) = block
+        .0
+        .iter()
+        .rposition(|statement| !is_ignorable(statement))
+    else {
+        return;
+    };
+    match &mut block.0[index] {
+        Statement::Continue(_) => {
+            block.0.remove(index);
+        }
+        Statement::If(if_statement) => {
+            strip_trailing_continues(&mut if_statement.then_block.lock());
+            strip_trailing_continues(&mut if_statement.else_block.lock());
+        }
+        _ => {}
+    }
+}
+
 fn strip_terminal_continue(block: &mut Block) {
     let Some(index) = block
         .0
@@ -5106,24 +5508,43 @@ fn source_proves_for_prep_kind_with_alias(
     origin: ast::ForOrigin,
     alias_context: Option<(&ast::Block, usize)>,
 ) -> bool {
+    source_proves_for_prep_kind_with_alias_and_upvalues(
+        init,
+        origin,
+        alias_context,
+        &FxHashSet::default(),
+    )
+}
+
+/// Like [`source_proves_for_prep_kind_with_alias`], additionally accepting a
+/// callee that is one of `stable_upvalues`: an incoming upvalue of this
+/// function that no statement or edge transfer in the function ever writes.
+///
+/// Luau's compiler emits `FORGPREP_NEXT`/`FORGPREP_INEXT` only after proving,
+/// on the source side, that the callee is a never-written alias chain ending
+/// in the builtin (`local ipairs = ipairs` at module scope is the canonical
+/// example).  The specialized opcode is therefore itself the compiler's proof
+/// that such an alias is the builtin, and printing the alias call preserves the
+/// exact source form; recompiling the emitted source selects the same prep.
+fn source_proves_for_prep_kind_with_alias_and_upvalues(
+    init: &ast::GenericForInit,
+    origin: ast::ForOrigin,
+    alias_context: Option<(&ast::Block, usize)>,
+    stable_upvalues: &FxHashSet<RcLocal>,
+) -> bool {
     let ipairs_aux = origin.aux & 0x8000_0000 != 0;
     let canonical_aux = (if ipairs_aux { 0x8000_0000 } else { 0 }) | origin.result_count as u32;
     if origin.result_count == 0 || origin.aux != canonical_aux {
         return false;
     }
 
-    let call_is_builtin_or_alias = |value: &RValue, name: &str| {
-        if call_is_named(value, name) {
+    // A local is a proven alias of the builtin `name` when it is a stable
+    // incoming upvalue (see above) or when the latest write to it in the same
+    // pre-marker block is the direct builtin global assignment.
+    let local_is_builtin_alias = |callee: &RcLocal, name: &str| {
+        if stable_upvalues.contains(callee) {
             return true;
         }
-        let call = match value {
-            RValue::Call(call) => call,
-            RValue::Select(ast::Select::Call(call)) => call,
-            _ => return false,
-        };
-        let RValue::Local(callee) = call.value.as_ref() else {
-            return false;
-        };
         let Some((block, marker)) = alias_context else {
             return false;
         };
@@ -5143,6 +5564,25 @@ fn source_proves_for_prep_kind_with_alias(
             && assign.left[0].as_local() == Some(callee)
             && matches!(&assign.right[0], RValue::Global(global) if global_is_named(global, name))
     };
+    let value_is_builtin_or_alias = |value: &RValue, name: &str| match value {
+        RValue::Global(global) => global_is_named(global, name),
+        RValue::Local(local) => local_is_builtin_alias(local, name),
+        _ => false,
+    };
+    let call_is_builtin_or_alias = |value: &RValue, name: &str| {
+        if call_is_named(value, name) {
+            return true;
+        }
+        let call = match value {
+            RValue::Call(call) => call,
+            RValue::Select(ast::Select::Call(call)) => call,
+            _ => return false,
+        };
+        let RValue::Local(callee) = call.value.as_ref() else {
+            return false;
+        };
+        local_is_builtin_alias(callee, name)
+    };
 
     match origin.prep_kind {
         // The high AUX bit selects the ipairs-style FORGLOOP write/exit
@@ -5155,12 +5595,10 @@ fn source_proves_for_prep_kind_with_alias(
                 && origin.result_count <= 2
                 && match init.0.right.as_slice() {
                     [value] => call_is_builtin_or_alias(value, "pairs"),
-                    [RValue::Global(global), _state] => global_is_named(global, "next"),
-                    [
-                        RValue::Global(global),
-                        _state,
-                        RValue::Literal(Literal::Nil),
-                    ] => global_is_named(global, "next"),
+                    [generator, _state] => value_is_builtin_or_alias(generator, "next"),
+                    [generator, _state, RValue::Literal(Literal::Nil)] => {
+                        value_is_builtin_or_alias(generator, "next")
+                    }
                     _ => false,
                 }
         }
@@ -5177,9 +5615,31 @@ fn source_proves_for_prep_kind_with_alias(
 /// region discovery mutates or consumes the CFG.  Production output always
 /// carries provenance; a reachable marker without it is an explicit unsafe
 /// metadata-loss condition rather than a request to guess the VM protocol.
-fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason> {
+fn validate_for_origins(
+    function: &Function,
+    protected_locals: &FxHashSet<RcLocal>,
+) -> Result<(), UnsafeStructureReason> {
     let Some(entry) = function.entry().as_ref().copied() else {
         return Ok(());
+    };
+    // Incoming upvalues that this function never writes (through a statement
+    // or an edge transfer) and that are not parameters.  See
+    // `source_proves_for_prep_kind_with_alias_and_upvalues`.
+    let stable_upvalues = {
+        let mut written = FxHashSet::default();
+        for (_, block) in function.blocks() {
+            for statement in block.iter() {
+                written.extend(statement.values_written().into_iter().cloned());
+            }
+        }
+        for edge in function.graph().edge_weights() {
+            written.extend(edge.arguments.iter().map(|(param, _)| param.clone()));
+        }
+        protected_locals
+            .iter()
+            .filter(|local| !function.parameters.contains(local) && !written.contains(*local))
+            .cloned()
+            .collect::<FxHashSet<_>>()
     };
     let mut reachable = FxHashSet::default();
     let mut work = vec![entry];
@@ -5210,10 +5670,11 @@ fn validate_for_origins(function: &Function) -> Result<(), UnsafeStructureReason
                     if init_origins.insert(origin.id(), origin).is_some() {
                         return Err(UnsafeStructureReason::ForOriginDuplicate);
                     }
-                    let proven = source_proves_for_prep_kind_with_alias(
+                    let proven = source_proves_for_prep_kind_with_alias_and_upvalues(
                         init,
                         origin,
                         Some((block, statement_index)),
+                        &stable_upvalues,
                     );
                     init_source_proven.insert(origin.id(), proven);
                 }
@@ -5300,16 +5761,59 @@ pub fn lift_attempt_with_ignored_locals(
         base: ast::current_local_id(),
         committed: false,
     };
-    if let Err(reason) = validate_for_origins(&function) {
+    if let Err(reason) = validate_for_origins(&function, protected_locals) {
         return StructureAttempt::Unsafe(reason);
     }
-    let Some(analysis) = Analysis::new(&function) else {
+    let allow_shared_tail = std::env::var_os("MEDAL_NO_SHARED_TAIL").is_none();
+    let mut attempt = structure_once(&function, protected_locals, allow_shared_tail);
+    if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+        eprintln!(
+            "source-like first attempt id={} -> {}",
+            function.id,
+            match &attempt {
+                StructureAttempt::Structured(block) => format!("Structured({} stmts)", block.len()),
+                StructureAttempt::Unsupported => "Unsupported".to_string(),
+                StructureAttempt::Unsafe(reason) => format!("Unsafe({reason:?})"),
+            }
+        );
+    }
+    if matches!(attempt, StructureAttempt::Unsupported) {
+        // The shared-tail optimization is speculative: it commits to a join
+        // before the rest of the enclosing region is proven.  Never let it
+        // cost a function its structured output.
+        ast::set_local_id_base(local_ids.base);
+        attempt = structure_once(&function, protected_locals, false);
+        if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+            eprintln!(
+                "source-like retry id={} -> {}",
+                function.id,
+                match &attempt {
+                    StructureAttempt::Structured(block) => format!("Structured({} stmts)", block.len()),
+                    StructureAttempt::Unsupported => "Unsupported".to_string(),
+                    StructureAttempt::Unsafe(reason) => format!("Unsafe({reason:?})"),
+                }
+            );
+        }
+    }
+    if matches!(attempt, StructureAttempt::Structured(_)) {
+        local_ids.committed = true;
+    }
+    attempt
+}
+
+fn structure_once(
+    function: &Function,
+    protected_locals: &FxHashSet<RcLocal>,
+    allow_shared_tail: bool,
+) -> StructureAttempt {
+    let Some(analysis) = Analysis::new(function) else {
         return StructureAttempt::Unsupported;
     };
     let Some(entry) = function.entry().as_ref().copied() else {
         return StructureAttempt::Unsupported;
     };
-    let mut builder = Builder::new(&function, analysis, protected_locals.clone());
+    let mut builder = Builder::new(function, analysis, protected_locals.clone());
+    builder.allow_shared_tail = allow_shared_tail;
     let Some(result) = builder.build_path(entry, None, None) else {
         return builder
             .unsafe_reason
@@ -5325,7 +5829,6 @@ pub fn lift_attempt_with_ignored_locals(
             .map(StructureAttempt::Unsafe)
             .unwrap_or(StructureAttempt::Unsupported);
     }
-    local_ids.committed = true;
     StructureAttempt::Structured(result.block)
 }
 
@@ -6172,6 +6675,206 @@ mod tests {
     }
 
     #[test]
+    fn accepts_stable_upvalue_ipairs_alias_for_inext() {
+        // `local ipairs = ipairs` at module scope, called through an incoming
+        // upvalue that the function never writes (the BoatTween/Lerps shape).
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let callee = RcLocal::new(Local::new(Some("ipairs2".into())));
+        let mut init = GenericForInit::new(generator, state, control);
+        init.0.right = vec![RValue::Call(Call::new(
+            RValue::Local(callee.clone()),
+            vec![RValue::Global(Global::from("items"))],
+        ))];
+        let origin = ForOrigin {
+            prep_pc: 1,
+            step_pc: 2,
+            body_pc: 3,
+            follow_pc: 4,
+            prep_kind: ForPrepKind::Inext,
+            base_register: 0,
+            result_count: 2,
+            aux: 0x8000_0002,
+            bytecode_version: 9,
+            vm_profile: VmProfileId::Luau,
+            explicit_nil_args: false,
+        };
+        let stable = FxHashSet::from_iter([callee.clone()]);
+        assert!(super::source_proves_for_prep_kind_with_alias_and_upvalues(
+            &init,
+            origin,
+            None,
+            &stable,
+        ));
+        // The same callee without the upvalue proof stays rejected.
+        assert!(!super::source_proves_for_prep_kind_with_alias(&init, origin, None));
+        assert!(!super::source_proves_for_prep_kind_with_alias_and_upvalues(
+            &init,
+            origin,
+            None,
+            &FxHashSet::default(),
+        ));
+    }
+
+    #[test]
+    fn accepts_next_alias_tuple_forms_for_next_prep() {
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let next_alias = RcLocal::new(Local::new(Some("next2".into())));
+        let origin = ForOrigin {
+            prep_pc: 1,
+            step_pc: 2,
+            body_pc: 3,
+            follow_pc: 4,
+            prep_kind: ForPrepKind::Next,
+            base_register: 0,
+            result_count: 1,
+            aux: 1,
+            bytecode_version: 9,
+            vm_profile: VmProfileId::Luau,
+            explicit_nil_args: false,
+        };
+        let stable = FxHashSet::from_iter([next_alias.clone()]);
+        for right in [
+            vec![
+                RValue::Local(next_alias.clone()),
+                RValue::Global(Global::from("items")),
+            ],
+            vec![
+                RValue::Local(next_alias.clone()),
+                RValue::Global(Global::from("items")),
+                RValue::Literal(Literal::Nil),
+            ],
+        ] {
+            let mut init =
+                GenericForInit::new(generator.clone(), state.clone(), control.clone());
+            init.0.right = right;
+            assert!(super::source_proves_for_prep_kind_with_alias_and_upvalues(
+                &init,
+                origin,
+                None,
+                &stable,
+            ));
+            assert!(!super::source_proves_for_prep_kind_with_alias(&init, origin, None));
+        }
+        // Same-block latest-write alias of `next` is also accepted in tuple form.
+        let mut init = GenericForInit::new(generator, state, control);
+        init.0.right = vec![
+            RValue::Local(next_alias.clone()),
+            RValue::Global(Global::from("items")),
+        ];
+        let block = Block::from(vec![
+            Assign::new(
+                vec![LValue::Local(next_alias)],
+                vec![RValue::Global(Global::from("next"))],
+            )
+            .into(),
+            init.clone().into(),
+        ]);
+        assert!(super::source_proves_for_prep_kind_with_alias(
+            &init,
+            origin,
+            Some((&block, 1)),
+        ));
+    }
+
+    #[test]
+    fn accepts_loop_owned_ref_captured_result() {
+        // `for _, v in items do v = v * 2; fns[1] = function() return v end end`
+        // The closure keeps the iteration cell; nothing outside the loop
+        // touches the result, so the plain source `for` is exact.
+        let mut function = Function::new(0);
+        let init = function.new_block();
+        let header = function.new_block();
+        let body = function.new_block();
+        let join = function.new_block();
+        function.set_entry(init);
+
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let result = RcLocal::new(Local::new(Some("result".into())));
+        let fns = RcLocal::new(Local::new(Some("fns".into())));
+        let closure = Closure {
+            function: ByAddress(Arc::new(Mutex::new(ast::Function {
+                body: Block::from(vec![
+                    ast::Return::new(vec![RValue::Local(result.clone())]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Ref(result.clone())],
+        };
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        function.block_mut(init).unwrap().push(
+            Assign::new(vec![LValue::Local(fns.clone())], vec![RValue::Table(Table(vec![]))])
+                .into(),
+        );
+        function.block_mut(init).unwrap().push(for_init.into());
+        function.block_mut(header).unwrap().push(
+            GenericForNext::new(vec![result.clone()], generator.into(), state, control).into(),
+        );
+        function.block_mut(body).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(result.clone())],
+                vec![RValue::Binary(ast::Binary::new(
+                    RValue::Local(result.clone()),
+                    Literal::Number(2.0).into(),
+                    ast::BinaryOperation::Mul,
+                ))],
+            )
+            .into(),
+        );
+        function.block_mut(body).unwrap().push(
+            Assign::new(
+                vec![LValue::Index(ast::Index::new(
+                    RValue::Local(fns.clone()),
+                    Literal::Number(1.0).into(),
+                ))],
+                vec![RValue::Closure(closure)],
+            )
+            .into(),
+        );
+        function
+            .block_mut(join)
+            .unwrap()
+            .push(ast::Return::new(vec![RValue::Local(fns)]).into());
+        function.set_edges(
+            init,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+        function.set_edges(
+            header,
+            vec![
+                (body, BlockEdge::new(BranchType::Then)),
+                (join, BlockEdge::new(BranchType::Else)),
+            ],
+        );
+        function.set_edges(
+            body,
+            vec![(header, BlockEdge::new(BranchType::Unconditional))],
+        );
+
+        let attempt = lift_attempt_with_ignored_locals(function, &FxHashSet::default());
+        let StructureAttempt::Structured(block) = attempt else {
+            panic!("loop-owned ref capture must structure, got {attempt:?}");
+        };
+        let generic_for = block
+            .iter()
+            .find_map(|statement| statement.as_generic_for())
+            .expect("source-level generic for");
+        assert_eq!(generic_for.res_locals, vec![result.clone()]);
+        let body = generic_for.block.lock();
+        assert!(body.iter().any(|statement| {
+            let mut captures = FxHashSet::default();
+            super::collect_statement_captures(statement, &mut captures);
+            captures.contains(&result)
+        }));
+    }
+
+    #[test]
     fn rejects_generic_for_with_ipairs_aux_flag() {
         let mut function = Function::new(0);
         let init = function.new_block();
@@ -6565,7 +7268,11 @@ mod tests {
     }
 
     #[test]
-    fn refuses_ref_capture_of_loop_result_without_cell_proof() {
+    /// A loop result captured by reference inside the loop body, with no use
+    /// of that result outside the loop, is exactly a source `for` whose body
+    /// creates the closure: each iteration binds a fresh cell.  This is the
+    /// GameUpgrade.lua:p2 corpus shape.
+    fn structures_loop_owned_ref_capture_of_loop_result() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -6592,7 +7299,9 @@ mod tests {
         function
             .block_mut(header)
             .unwrap()
-            .push(GenericForNext::new(vec![result], generator.into(), state, control).into());
+            .push(
+                GenericForNext::new(vec![result.clone()], generator.into(), state, control).into(),
+            );
         function
             .block_mut(body)
             .unwrap()
@@ -6621,14 +7330,25 @@ mod tests {
         );
 
         let attempt = lift_attempt_with_ignored_locals(function, &FxHashSet::default());
-        assert!(matches!(
-            attempt,
-            StructureAttempt::Unsafe(UnsafeStructureReason::CapturedLoopResultRef)
-        ));
+        let StructureAttempt::Structured(block) = attempt else {
+            panic!("loop-owned ref capture must structure, got {attempt:?}");
+        };
+        let generic_for = block
+            .iter()
+            .find_map(|statement| statement.as_generic_for())
+            .expect("source-level generic for");
+        assert!(generic_for.block.lock().iter().any(|statement| {
+            let mut captures = FxHashSet::default();
+            super::collect_statement_captures(statement, &mut captures);
+            captures.contains(&result)
+        }));
     }
 
     #[test]
-    fn rejects_ref_capture_without_explicit_close_provenance() {
+    /// A body write to the captured result before the closure is created is
+    /// ordinary source (`v = v; collect(function() return v end)`); the
+    /// closure still observes its own iteration's final value.
+    fn structures_loop_owned_ref_capture_with_body_write() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -6655,9 +7375,6 @@ mod tests {
         function.block_mut(header).unwrap().push(
             GenericForNext::new(vec![result.clone()], generator.into(), state, control).into(),
         );
-        // A body write is not evidence of the compiler's CLOSEUPVALS event.
-        // The source-like builder has no close-dominance/provenance proof, so
-        // this custom-shaped graph must remain fail-closed.
         function.block_mut(body).unwrap().push(
             Assign::new(
                 vec![LValue::Local(result.clone())],
@@ -6693,10 +7410,18 @@ mod tests {
         );
 
         let attempt = lift_attempt_with_ignored_locals(function, &FxHashSet::default());
-        assert!(matches!(
-            attempt,
-            StructureAttempt::Unsafe(UnsafeStructureReason::CapturedLoopResultRef)
-        ));
+        let StructureAttempt::Structured(block) = attempt else {
+            panic!("loop-owned ref capture must structure, got {attempt:?}");
+        };
+        let generic_for = block
+            .iter()
+            .find_map(|statement| statement.as_generic_for())
+            .expect("source-level generic for");
+        assert!(generic_for.block.lock().iter().any(|statement| {
+            let mut captures = FxHashSet::default();
+            super::collect_statement_captures(statement, &mut captures);
+            captures.contains(&result)
+        }));
     }
 
     #[test]

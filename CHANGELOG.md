@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased - Source-like loop structuring without typed rejections
+
+- SSA destructor: init-edge transfers (lowered phi copies, including constant
+  initializers the inliner folded into the edge) are now materialized before a
+  trailing `FORGPREP`/`FORNPREP` marker instead of after it, restoring the
+  original bytecode order. The `ForInitSuffixOrder` rejection class
+  (159 corpus files / 229 functions) disappears; the check itself remains as a
+  fail-closed safety net for transfers that read a value defined by the
+  preparation or touch an upvalue cell.
+- Generic-for prep-kind proof accepts `pairs`/`ipairs`/`next` aliases that are
+  never-written incoming upvalues (module-level `local ipairs = ipairs`),
+  including the `next, state` tuple form.
+- A loop result captured by reference inside its own loop body is accepted as
+  the plain source `for` body capture when nothing outside the loop reads,
+  writes, captures, renames or exports it.
+- Source-like conditionals share a common tail: when both arms of an `if`
+  flow into one node (or one arm flows into the enclosing region's stop while
+  the other terminates), the tail is structured once after the `if` instead of
+  once per arm. Each attempt is validated and rolled back; a whole-function
+  retry without tail sharing guarantees the optimization never costs a
+  function its structured output. Redundant trailing `continue`s at the end of
+  loop bodies are dropped, and a late pass turns `if c then <body> end; return x`
+  into the guard form `if not c then return x end <body>`.
+- Strict corpus run: 3,936 decompiled / 0 failed / 0 synthetic control markers;
+  every output binary-compiles with the official Luau compiler. Versus the
+  pre-PR (`main`) output the corpus is +1.0% lines with the `controlFlowState`
+  dispatchers gone, and de-inline recoveries increase (540 -> 559 call sites).
+- Diagnostics: `MEDAL_NO_SHARED_TAIL=1` disables tail sharing in the first
+  structuring attempt.
+- New `docs/failure_fixtures/semantic_roundtrip/` + `scripts/semantic_roundtrip.py`
+  (compile at O0/O1/O2 -> decompile strict -> recompile -> execute and compare),
+  wired into CI with a pinned Luau commit.
+- Diagnostics: `MEDAL_DUMP_CFG=1` dumps every function's CFG (pre-inline,
+  pre-destruct, post-destruct) to stderr.
+
 ## v0.9.0-beta - Deterministic Static Upvalue Analysis
 
 This beta adds an opt-in analysis mode for tools that need stable, machine-readable
