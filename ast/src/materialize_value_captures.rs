@@ -198,13 +198,24 @@ fn clone_function_tree(
     let clone = Arc::new(Mutex::new(Function::default()));
     memo.insert(key, clone.clone());
 
-    let (bytecode_proto_id, bytecode_function_id, name, parameters, is_variadic, mut body) = {
+    let (
+        bytecode_proto_id,
+        bytecode_function_id,
+        name,
+        parameters,
+        parameter_annotations,
+        parameter_name_hints,
+        is_variadic,
+        mut body,
+    ) = {
         let source = function.lock();
         (
             source.bytecode_proto_id,
             source.bytecode_function_id.clone(),
             source.name.clone(),
             source.parameters.clone(),
+            source.parameter_annotations.clone(),
+            source.parameter_name_hints.clone(),
             source.is_variadic,
             dc_block(&source.body),
         )
@@ -215,6 +226,8 @@ fn clone_function_tree(
         bytecode_function_id,
         name,
         parameters,
+        parameter_annotations,
+        parameter_name_hints,
         is_variadic,
         body,
     };

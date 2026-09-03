@@ -1612,6 +1612,7 @@ mod tests {
             has_debug_info: false,
             debug_locals: Vec::<DebugLocal>::new(),
             debug_upvalue_name_indices: Vec::new(),
+            type_info: None,
         }
     }
 
@@ -1669,6 +1670,7 @@ mod tests {
             string_table: Vec::new(),
             functions: vec![root, child],
             main: 0,
+            userdata_type_names: Vec::new(),
         };
 
         let analysis = RawUpvalueAnalysis::build(&chunk);
@@ -1715,6 +1717,7 @@ mod tests {
             string_table: Vec::new(),
             functions: vec![root, child],
             main: 0,
+            userdata_type_names: Vec::new(),
         };
 
         let analysis = RawUpvalueAnalysis::build(&chunk);
@@ -1775,6 +1778,7 @@ mod tests {
             string_table: Vec::new(),
             functions: vec![root, child],
             main: 0,
+            userdata_type_names: Vec::new(),
         };
 
         let raw = RawUpvalueAnalysis::build(&chunk);
@@ -1819,6 +1823,7 @@ mod tests {
             string_table: Vec::new(),
             functions: vec![root, child],
             main: 0,
+            userdata_type_names: Vec::new(),
         };
         let raw = RawUpvalueAnalysis::build(&chunk);
         let function_id = raw.functions[1].function_id.clone();
@@ -1935,6 +1940,7 @@ mod tests {
             string_table: Vec::new(),
             functions: vec![root, child],
             main: 0,
+            userdata_type_names: Vec::new(),
         };
 
         let analysis = RawUpvalueAnalysis::build(&chunk);
@@ -1973,6 +1979,7 @@ mod tests {
             string_table: vec![b"only_name".to_vec()],
             functions: vec![proto],
             main: 0,
+            userdata_type_names: Vec::new(),
         };
 
         let prototype = &RawUpvalueAnalysis::build(&chunk).prototypes[0];
@@ -2013,6 +2020,7 @@ mod tests {
             string_table: vec![b"temporary".to_vec()],
             functions: vec![proto],
             main: 0,
+            userdata_type_names: Vec::new(),
         };
 
         assert_eq!(

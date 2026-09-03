@@ -638,6 +638,8 @@ mod tests {
             bytecode_function_id: None,
             name: Some(name.to_string()),
             parameters: params,
+            parameter_annotations: Vec::new(),
+            parameter_name_hints: Vec::new(),
             is_variadic: false,
             body: Block(body),
         }));

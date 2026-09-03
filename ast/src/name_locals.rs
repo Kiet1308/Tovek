@@ -34,6 +34,9 @@ struct Hint {
     score: u8,
 }
 
+/// Score of a name derived only from the parameter's bytecode type.
+const TYPE_HINT_SCORE: u8 = 20;
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct NameLocalOptions {
     pub dont_reuse_var: bool,
@@ -3421,7 +3424,20 @@ impl Namer {
             for function in functions {
                 let mut function = function.lock();
                 let mut param_scope: Vec<String> = Vec::new();
-                for param in &function.parameters {
+                for (index, param) in function.parameters.iter().enumerate() {
+                    // A bytecode type hint (`cframe`, `callback`, ...) is the
+                    // weakest evidence: it fills in only when no usage-derived
+                    // hint exists for the parameter.
+                    if let Some(hint) = function
+                        .parameter_name_hints
+                        .get(index)
+                        .and_then(|hint| hint.clone())
+                    {
+                        self.hints.entry(local_ptr(param)).or_insert(Hint {
+                            name: hint,
+                            score: TYPE_HINT_SCORE,
+                        });
+                    }
                     self.name_one(param, "p", &mut param_scope, ReusePolicy::FileUnique);
                 }
                 self.apply(&mut function.body);

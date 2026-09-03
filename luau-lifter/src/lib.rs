@@ -382,6 +382,9 @@ fn try_decompile_bytecode_internal(
         Bytecode::Chunk(chunk) => {
             validate_prototype_graph(&chunk.functions, chunk.main)
                 .map_err(DecompileFailure::message)?;
+            if std::env::var_os("MEDAL_DUMP_TYPES").is_some() {
+                debug_dump_types(&chunk);
+            }
             let raw_upvalue_analysis =
                 emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
             let mut lifted = Vec::new();
@@ -394,6 +397,17 @@ fn try_decompile_bytecode_internal(
             }
             let mut stack = vec![(root_function, chunk.main, root_function_id)];
             while let Some((ast_func, func_id, static_function_id)) = stack.pop() {
+                {
+                    let proto = &chunk.functions[func_id];
+                    let (annotations, hints) = parameter_types_from_bytecode(
+                        proto.type_info.as_ref(),
+                        usize::from(proto.num_parameters),
+                        &chunk.userdata_type_names,
+                    );
+                    let mut ast_func = ast_func.lock();
+                    ast_func.parameter_annotations = annotations;
+                    ast_func.parameter_name_hints = hints;
+                }
                 let (function, upvalues, child_functions) = Lifter::lift(
                     &chunk.functions,
                     &chunk.string_table,
@@ -1094,6 +1108,132 @@ fn debug_dump_cfg(function: &Function, stage: &str) {
     eprint!("{out}");
 }
 
+/// Render one bytecode parameter type as a source annotation and a naming
+/// hint.
+///
+/// Only exactly recoverable types are annotated: primitives, `Vector3` (the
+/// Roblox host vector type), `buffer`, `thread` and the tagged host userdata
+/// types whose names the chunk carries (`CFrame`, `Color3`, ...).  `table`,
+/// `function` and untagged `userdata` lose their source spelling (`{T}`,
+/// `(a) -> b`, `Player`) in bytecode, so they are not annotated; `function`
+/// and the tagged types still contribute a naming hint.
+fn parameter_type_from_bytecode(
+    tag: u8,
+    userdata_type_names: &[(u8, Vec<u8>)],
+) -> (Option<String>, Option<String>) {
+    use deserializer::function::*;
+    let optional = tag & LBC_TYPE_OPTIONAL_BIT != 0;
+    let base = tag & !LBC_TYPE_OPTIONAL_BIT;
+    let with_optional = |name: &str| {
+        if optional {
+            format!("{name}?")
+        } else {
+            name.to_string()
+        }
+    };
+    match base {
+        LBC_TYPE_NIL => (Some("nil".to_string()), None),
+        LBC_TYPE_BOOLEAN => (Some(with_optional("boolean")), Some("flag".to_string())),
+        LBC_TYPE_NUMBER => (Some(with_optional("number")), None),
+        LBC_TYPE_STRING => (Some(with_optional("string")), None),
+        LBC_TYPE_VECTOR => (Some(with_optional("Vector3")), Some("vector".to_string())),
+        LBC_TYPE_BUFFER => (Some(with_optional("buffer")), Some("buffer".to_string())),
+        LBC_TYPE_THREAD => (Some(with_optional("thread")), Some("thread".to_string())),
+        LBC_TYPE_FUNCTION => (None, Some("callback".to_string())),
+        LBC_TYPE_TAGGED_USERDATA_BASE..LBC_TYPE_TAGGED_USERDATA_END => {
+            let index = base - LBC_TYPE_TAGGED_USERDATA_BASE;
+            let Some(name) = userdata_type_names
+                .iter()
+                .find(|(candidate, _)| *candidate == index)
+                .map(|(_, name)| String::from_utf8_lossy(name).into_owned())
+            else {
+                return (None, None);
+            };
+            // Hints never end in a digit: the namer disambiguates a second
+            // parameter of the same type with a numeric suffix (`cframe2`),
+            // which would otherwise read as `vector22` / `uDim22`.
+            let hint = match name.as_str() {
+                "CFrame" => "cframe".to_string(),
+                "Color3" => "color".to_string(),
+                "Vector2" => "point".to_string(),
+                "UDim2" | "UDim" => "udim".to_string(),
+                "RaycastResult" => "raycastResult".to_string(),
+                "NumberRange" => "range".to_string(),
+                other => {
+                    let mut chars = other.chars();
+                    match chars.next() {
+                        Some(first) => first.to_lowercase().collect::<String>() + chars.as_str(),
+                        None => return (None, None),
+                    }
+                }
+            };
+            (Some(with_optional(&name)), Some(hint))
+        }
+        _ => (None, None),
+    }
+}
+
+/// Per-parameter annotations and naming hints for one prototype, aligned
+/// with its parameter registers (`self` included).  Both vectors are empty
+/// when the prototype carries no signature or the signature does not match
+/// the parameter count.
+pub(crate) fn parameter_types_from_bytecode(
+    type_info: Option<&deserializer::function::FunctionTypeInfo>,
+    parameter_count: usize,
+    userdata_type_names: &[(u8, Vec<u8>)],
+) -> (Vec<Option<String>>, Vec<Option<String>>) {
+    let Some(info) = type_info else {
+        return (Vec::new(), Vec::new());
+    };
+    if info.parameter_types.len() != parameter_count {
+        return (Vec::new(), Vec::new());
+    }
+    info.parameter_types
+        .iter()
+        .map(|&tag| parameter_type_from_bytecode(tag, userdata_type_names))
+        .unzip()
+}
+
+/// Diagnostic: dump the compiler-recorded type information of every
+/// prototype (`MEDAL_DUMP_TYPES=1`).  One line per prototype:
+/// `TYPES proto=<id> params=<n> sig=[tags] upvals=[tags] locals=<count>`,
+/// followed by one `TYPES-LOCAL` line per typed local, then a
+/// `TYPES-USERDATA` line listing the tagged userdata names of the chunk.
+fn debug_dump_types(chunk: &deserializer::chunk::Chunk) {
+    let mut out = String::new();
+    for (id, function) in chunk.functions.iter().enumerate() {
+        let Some(info) = function.type_info.as_ref() else {
+            out.push_str(&format!(
+                "TYPES proto={id} params={} sig=none\n",
+                function.num_parameters
+            ));
+            continue;
+        };
+        out.push_str(&format!(
+            "TYPES proto={id} params={} sig={:?} upvals={:?} locals={}\n",
+            function.num_parameters,
+            info.parameter_types,
+            info.upvalue_types,
+            info.local_types.len()
+        ));
+        for local in &info.local_types {
+            out.push_str(&format!(
+                "TYPES-LOCAL proto={id} tag={} reg={} pc={}..{}\n",
+                local.type_tag, local.register, local.start_pc, local.end_pc
+            ));
+        }
+    }
+    out.push_str(&format!(
+        "TYPES-USERDATA {:?}\n",
+        chunk
+            .userdata_type_names
+            .iter()
+            .map(|(index, name)| format!("{index}={}", String::from_utf8_lossy(name)))
+            .collect::<Vec<_>>()
+    ));
+    eprint!("{out}");
+}
+
 fn may_use_legacy_structurer(
     function: &Function,
     source_like: &restructure::StructureAttempt,
@@ -1700,6 +1840,65 @@ mod v11_fixtures {
     //! identity, so opcode bytes are literal ordinals.
 
     use super::try_decompile_bytecode_with_script_name as decompile;
+
+    #[test]
+    fn renders_parameter_types_from_bytecode() {
+        use crate::deserializer::function::*;
+        let names = vec![(0u8, b"CFrame".to_vec()), (1u8, b"Color3".to_vec())];
+        let info = FunctionTypeInfo {
+            parameter_types: vec![
+                LBC_TYPE_TABLE,
+                LBC_TYPE_NUMBER,
+                LBC_TYPE_STRING | LBC_TYPE_OPTIONAL_BIT,
+                LBC_TYPE_VECTOR,
+                LBC_TYPE_FUNCTION,
+                LBC_TYPE_TAGGED_USERDATA_BASE,
+                LBC_TYPE_TAGGED_USERDATA_BASE + 1 | LBC_TYPE_OPTIONAL_BIT,
+                LBC_TYPE_USERDATA,
+                LBC_TYPE_ANY,
+            ],
+            upvalue_types: Vec::new(),
+            local_types: Vec::new(),
+        };
+        let (annotations, hints) = super::parameter_types_from_bytecode(Some(&info), 9, &names);
+        assert_eq!(
+            annotations,
+            vec![
+                None,
+                Some("number".to_string()),
+                Some("string?".to_string()),
+                Some("Vector3".to_string()),
+                None,
+                Some("CFrame".to_string()),
+                Some("Color3?".to_string()),
+                None,
+                None,
+            ]
+        );
+        assert_eq!(
+            hints,
+            vec![
+                None,
+                None,
+                None,
+                Some("vector".to_string()),
+                Some("callback".to_string()),
+                Some("cframe".to_string()),
+                Some("color".to_string()),
+                None,
+                None,
+            ]
+        );
+        // A signature that does not match the parameter count is ignored.
+        assert_eq!(
+            super::parameter_types_from_bytecode(Some(&info), 3, &names),
+            (Vec::new(), Vec::new())
+        );
+        assert_eq!(
+            super::parameter_types_from_bytecode(None, 3, &names),
+            (Vec::new(), Vec::new())
+        );
+    }
 
     // --- opcode ordinals used below ---
     const LOADN: u8 = 4;

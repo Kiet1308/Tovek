@@ -34,6 +34,14 @@ pub struct Function {
     pub bytecode_function_id: Option<String>,
     pub name: Option<String>,
     pub parameters: Vec<RcLocal>,
+    /// Source-recoverable Luau type annotation per parameter (aligned with
+    /// `parameters`, `self` included), rendered from the compiler's bytecode
+    /// type information.  `None` when the bytecode records no exact type.
+    pub parameter_annotations: Vec<Option<String>>,
+    /// Naming hint per parameter derived from its bytecode type (for example
+    /// `cframe` for a tagged `CFrame`), consulted only when usage-based naming
+    /// found nothing better.
+    pub parameter_name_hints: Vec<Option<String>>,
     pub is_variadic: bool,
     pub body: Block,
 }

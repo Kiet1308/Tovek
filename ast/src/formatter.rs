@@ -1776,19 +1776,30 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     fn format_closure_parameters_from(&mut self, closure: &Closure, skip: usize) -> fmt::Result {
         let function = closure.function.lock();
+        let mut parameters = function
+            .parameters
+            .iter()
+            .enumerate()
+            .skip(skip)
+            .map(|(index, parameter)| {
+                match function
+                    .parameter_annotations
+                    .get(index)
+                    .and_then(|annotation| annotation.as_deref())
+                {
+                    Some(annotation) => format!("{parameter}: {annotation}"),
+                    None => parameter.to_string(),
+                }
+            });
         write!(
             self.output,
             "{}",
             if function.is_variadic {
-                function
-                    .parameters
-                    .iter()
-                    .skip(skip)
-                    .map(|x| x.to_string())
+                parameters
                     .chain(std::iter::once("...".into()))
                     .join(", ")
             } else {
-                function.parameters.iter().skip(skip).join(", ")
+                parameters.join(", ")
             }
         )
     }

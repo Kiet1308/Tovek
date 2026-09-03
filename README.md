@@ -21,6 +21,7 @@ It also happens to be a lot faster.
 | | medal | **Tovek** |
 |---|---|---|
 | Local & parameter names | `v1`, `v2`, `v3` … | Inferred from usage — `player`, `connection`, `track`, `dt`, `child`, `color` … |
+| Parameter types | dropped | Recovered from the compiler's bytecode type info: `function Api.emitAt(name: string, cframe: CFrame?)` — exact for primitives, `Vector3`, `buffer`, `thread` and tagged host types (`CFrame`, `Color3`, …); the types also name otherwise-anonymous parameters (`cframe`, `vector`, `callback`) |
 | Service / module handles | `game:GetService("X")` inlined at every call site | Preserved once as a named header local (`local Players = game:GetService("Players")`) |
 | OOP methods | `function T.method(self, ...)` | `function T:method(...)` with real `self` recovery |
 | Compiler `-O2` artifacts | left inlined | de-inlined: temps, expressions and UI tables rebuilt; dead branches/discards removed |

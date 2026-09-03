@@ -24,6 +24,101 @@ pub struct DebugLocal {
 
 const LPF_INLINABLE: u8 = 1 << 3;
 
+/// Bytecode type tags (`LuauBytecodeType` in Luau's `Bytecode.h`).
+pub const LBC_TYPE_NIL: u8 = 0;
+pub const LBC_TYPE_BOOLEAN: u8 = 1;
+pub const LBC_TYPE_NUMBER: u8 = 2;
+pub const LBC_TYPE_STRING: u8 = 3;
+pub const LBC_TYPE_TABLE: u8 = 4;
+pub const LBC_TYPE_FUNCTION: u8 = 5;
+pub const LBC_TYPE_THREAD: u8 = 6;
+pub const LBC_TYPE_USERDATA: u8 = 7;
+pub const LBC_TYPE_VECTOR: u8 = 8;
+pub const LBC_TYPE_BUFFER: u8 = 9;
+pub const LBC_TYPE_INTEGER: u8 = 10;
+pub const LBC_TYPE_ANY: u8 = 15;
+pub const LBC_TYPE_TAGGED_USERDATA_BASE: u8 = 64;
+pub const LBC_TYPE_TAGGED_USERDATA_END: u8 = 64 + 32;
+pub const LBC_TYPE_OPTIONAL_BIT: u8 = 1 << 7;
+
+/// A typed local register range recorded by the compiler (types version >= 2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TypedLocal {
+    pub type_tag: u8,
+    pub register: u8,
+    pub start_pc: usize,
+    pub end_pc: usize,
+}
+
+/// Compiler-recorded type information for one prototype.
+///
+/// `parameter_types` is the function signature (`LBC_TYPE_FUNCTION`, count,
+/// then one tag per parameter, `self` included); it is present only when the
+/// source annotated at least one parameter with a non-`any` type, so every
+/// entry here is source-recoverable.  Local and upvalue tags are inferred by
+/// the compiler from annotations and literal/builtin expressions.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FunctionTypeInfo {
+    pub parameter_types: Vec<u8>,
+    pub upvalue_types: Vec<u8>,
+    pub local_types: Vec<TypedLocal>,
+}
+
+impl FunctionTypeInfo {
+    fn parse(raw: &[u8]) -> Option<Self> {
+        fn varint(input: &[u8], pos: &mut usize) -> Option<usize> {
+            let mut result = 0usize;
+            let mut shift = 0;
+            loop {
+                let byte = *input.get(*pos)?;
+                *pos += 1;
+                result |= usize::from(byte & 0x7f) << shift;
+                shift += 7;
+                if byte & 0x80 == 0 {
+                    return Some(result);
+                }
+            }
+        }
+        if raw.is_empty() {
+            return None;
+        }
+        let mut pos = 0;
+        let function_size = varint(raw, &mut pos)?;
+        let upvalue_count = varint(raw, &mut pos)?;
+        let local_count = varint(raw, &mut pos)?;
+        let function = raw.get(pos..pos + function_size)?;
+        pos += function_size;
+        let parameter_types = match function {
+            [] => Vec::new(),
+            [LBC_TYPE_FUNCTION, count, rest @ ..] if rest.len() == usize::from(*count) => {
+                rest.to_vec()
+            }
+            _ => return None,
+        };
+        let upvalue_types = raw.get(pos..pos + upvalue_count)?.to_vec();
+        pos += upvalue_count;
+        let mut local_types = Vec::with_capacity(local_count);
+        for _ in 0..local_count {
+            let type_tag = *raw.get(pos)?;
+            let register = *raw.get(pos + 1)?;
+            pos += 2;
+            let start_pc = varint(raw, &mut pos)?;
+            let length = varint(raw, &mut pos)?;
+            local_types.push(TypedLocal {
+                type_tag,
+                register,
+                start_pc,
+                end_pc: start_pc + length,
+            });
+        }
+        Some(Self {
+            parameter_types,
+            upvalue_types,
+            local_types,
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct Function {
     pub max_stack_size: u8,
@@ -43,6 +138,9 @@ pub struct Function {
     pub debug_locals: Vec<DebugLocal>,
     /// Ordered one-based string-table indices, one entry per upvalue slot.
     pub debug_upvalue_name_indices: Vec<usize>,
+    /// Compiler-recorded type information (bytecode version >= 4, types
+    /// version 2/3), when the prototype carries any.
+    pub type_info: Option<FunctionTypeInfo>,
 }
 
 impl Function {
@@ -135,7 +233,8 @@ impl Function {
         let (input, is_vararg) = le_u8(input)?;
 
         let (input, flags) = le_u8(input)?;
-        let (input, _) = parse_list(input, le_u8)?;
+        let (input, raw_type_info) = parse_list(input, le_u8)?;
+        let type_info = FunctionTypeInfo::parse(&raw_type_info);
 
         let (input, u32_instructions) = parse_list(input, le_u32)?;
         if u32_instructions.is_empty() {
@@ -284,6 +383,7 @@ impl Function {
                 has_debug_info,
                 debug_locals,
                 debug_upvalue_name_indices,
+                type_info,
             },
         ))
     }
@@ -291,7 +391,42 @@ impl Function {
 
 #[cfg(test)]
 mod tests {
-    use super::Function;
+    use super::{Function, FunctionTypeInfo, TypedLocal};
+
+    #[test]
+    fn parses_type_info_block() {
+        // typeinfo: function sig size=5, 1 upvalue, 2 locals
+        // sig: FUNCTION, 3 params: number, string?, tagged#2
+        let raw = [
+            5u8, 1, 2, // sizes
+            super::LBC_TYPE_FUNCTION, 3, super::LBC_TYPE_NUMBER,
+            super::LBC_TYPE_STRING | super::LBC_TYPE_OPTIONAL_BIT,
+            super::LBC_TYPE_TAGGED_USERDATA_BASE + 2,
+            super::LBC_TYPE_TABLE, // upvalue
+            super::LBC_TYPE_VECTOR, 4, 10, 5, // local: vector in r4, pc 10..15
+            super::LBC_TYPE_BUFFER, 7, 0x80, 0x01, 3, // local: buffer in r7, pc 128..131
+        ];
+        let info = FunctionTypeInfo::parse(&raw).expect("typeinfo");
+        assert_eq!(
+            info.parameter_types,
+            vec![
+                super::LBC_TYPE_NUMBER,
+                super::LBC_TYPE_STRING | super::LBC_TYPE_OPTIONAL_BIT,
+                super::LBC_TYPE_TAGGED_USERDATA_BASE + 2
+            ]
+        );
+        assert_eq!(info.upvalue_types, vec![super::LBC_TYPE_TABLE]);
+        assert_eq!(
+            info.local_types,
+            vec![
+                TypedLocal { type_tag: super::LBC_TYPE_VECTOR, register: 4, start_pc: 10, end_pc: 15 },
+                TypedLocal { type_tag: super::LBC_TYPE_BUFFER, register: 7, start_pc: 128, end_pc: 131 },
+            ]
+        );
+        // Empty block and truncated block.
+        assert!(FunctionTypeInfo::parse(&[]).is_none());
+        assert!(FunctionTypeInfo::parse(&[5, 0, 0, super::LBC_TYPE_FUNCTION, 3]).is_none());
+    }
 
     fn leb128(mut value: usize) -> Vec<u8> {
         let mut out = Vec::new();

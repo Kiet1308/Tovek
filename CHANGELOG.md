@@ -2,6 +2,21 @@
 
 ## Unreleased - Source-like loop structuring without typed rejections
 
+### Parameter types from bytecode
+
+- The deserializer now keeps the compiler's per-prototype type information
+  (bytecode v4+, types version 2/3): the function signature, upvalue tags,
+  typed local ranges, and the chunk's tagged host userdata names.
+- Parameters are annotated with their source-recoverable type
+  (`n: number`, `s: string?`, `pos: Vector3`, `cf: CFrame?`, `b: buffer`,
+  `co: thread`); `table`, `function` and untagged `userdata` parameters stay
+  unannotated because bytecode does not keep their spelling. Recompiling the
+  output reproduces the same bytecode type tags.
+- Type tags also name otherwise-anonymous parameters (`cframe`, `color`,
+  `vector`, `callback`, `flag`, `buffer`) as the lowest-priority hint.
+- Corpus: 4,451 annotations across 1,076 files; 21.9% of prototypes carry a
+  signature. `MEDAL_DUMP_TYPES=1` dumps the raw type info per prototype.
+
 - SSA destructor: init-edge transfers (lowered phi copies, including constant
   initializers the inliner folded into the edge) are now materialized before a
   trailing `FORGPREP`/`FORNPREP` marker instead of after it, restoring the

@@ -156,6 +156,8 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
                 bytecode_function_id: None,
                 name: function_name,
                 parameters: Vec::new(),
+                parameter_annotations: Vec::new(),
+                parameter_name_hints: Vec::new(),
                 is_variadic: false,
                 body: Block(helper_body),
             }))),
