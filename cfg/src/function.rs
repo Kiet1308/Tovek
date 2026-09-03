@@ -1,5 +1,6 @@
 use ast::{LocalRw, RcLocal};
 use contracts::requires;
+use rustc_hash::FxHashMap;
 
 use petgraph::{
     Direction,
@@ -27,6 +28,13 @@ pub struct Function {
     graph: StableDiGraph<ast::Block, BlockEdge>,
     entry: Option<NodeIndex>,
     block_pc_ranges: std::collections::HashMap<NodeIndex, BlockPcRange>,
+    /// Bytecode-type naming hints for the locals WRITTEN by lifted statements,
+    /// keyed by `(block, statement index, index into values_written())`.  Filled
+    /// by the lifter from the compiler's typed-register ranges and consumed
+    /// (moved onto the fresh SSA versions) by `ssa::construct`, which renames
+    /// every definition exactly once before any statement is inserted or
+    /// removed — so the positional keys are only valid until then.
+    pub local_type_hints: FxHashMap<(NodeIndex, usize, usize), String>,
 }
 
 impl Function {
@@ -39,6 +47,7 @@ impl Function {
             graph: StableDiGraph::new(),
             entry: None,
             block_pc_ranges: std::collections::HashMap::new(),
+            local_type_hints: FxHashMap::default(),
         }
     }
 

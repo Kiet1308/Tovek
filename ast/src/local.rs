@@ -1,6 +1,5 @@
 use crate::{SideEffects, Traverse, Type, TypeSystem, type_system::Infer};
 use by_address::ByAddress;
-use derive_more::From;
 use enum_dispatch::enum_dispatch;
 use nohash_hasher::NoHashHasher;
 use parking_lot::Mutex;
@@ -10,12 +9,34 @@ use std::{
 };
 use triomphe::Arc;
 
-#[derive(Debug, Default, From, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
-pub struct Local(pub Option<String>);
+/// A local variable: its (eventual) source name, plus an optional naming hint
+/// derived from the compiler's bytecode type information (`vector`, `buffer`,
+/// `cframe`, ...).  The hint is attached by SSA construction from the lifter's
+/// typed-register ranges and survives local coalescing (`apply_local_map`),
+/// so the AST namer can consult it as the lowest-priority evidence once every
+/// usage-based hint has had its chance.
+#[derive(Debug, Default, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub struct Local(pub Option<String>, pub Option<String>);
+
+impl From<Option<String>> for Local {
+    fn from(name: Option<String>) -> Self {
+        Self(name, None)
+    }
+}
 
 impl Local {
     pub fn new(name: Option<String>) -> Self {
-        Self(name)
+        Self(name, None)
+    }
+
+    /// An unnamed local carrying a bytecode-type naming hint.
+    pub fn with_type_hint(hint: String) -> Self {
+        Self(None, Some(hint))
+    }
+
+    /// The bytecode-type naming hint, if any.
+    pub fn type_hint(&self) -> Option<&str> {
+        self.1.as_deref()
     }
 }
 

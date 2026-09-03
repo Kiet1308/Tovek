@@ -2,6 +2,57 @@
 
 ## Unreleased - Source-like loop structuring without typed rejections
 
+### Local and parameter naming from type info and usage (ROADMAP B)
+
+- Typed local registers from the bytecode type block are mapped onto the SSA
+  locals they define: the lifter records each typed `(register, pc range)`
+  against the statements that write it, SSA construction moves the resulting
+  naming hint (`vector`, `buf`, `thread`, `cframe`, `color`, `flag`) onto the
+  fresh SSA version, and local coalescing keeps it. The namer consults it only
+  after every usage-based hint, never on a single-use temp the later inline
+  passes would fold (so it cannot cost a line).
+- Stored call results are named after what they are when nothing more specific
+  applies: the callee's own noun (`scope:Computed(fn)` -> `computed`,
+  `rng:NextNumber(a, b)` -> `number`, `cf:ToObjectSpace(x)` -> `objectSpace`;
+  bare action verbs such as `Fire`/`Invoke`/`Add` are refused), a transform
+  verb's product (`utils.merge(a, b)` -> `merged`, `table.freeze(t)` ->
+  `frozen`, `table.clone(t)` -> `clone`), a relation lookup's literal key
+  (`state:KeyOf(t, "InputType")` -> `inputType`), a class factory's class
+  (`scope:New("Frame")` -> `frame`), and fixed idioms (`typeof(x)` ->
+  `typeName`, `getmetatable(x)` -> `metatable`, `table.find` -> `index`,
+  `coroutine.running()`/`task.spawn` -> `thread`, `require(<local>)` ->
+  `module`, `require(script.Parent)` -> `parentModule`, `CFrame.Angles`/
+  `CFrame.lookAt`/`Type.from*` -> constructor type, `vector.create` ->
+  `vector`). Single-argument transforms are transparent (`math.floor(x.Height)`
+  -> `height`, `peek(state.Key)` -> `key`, `name:lower()` -> `name`).
+- Usage facts name more locals: a returned `setmetatable(...)` object is
+  `self` in a plain constructor (and `object` when captured, at chunk level or
+  inside a method candidate, so colon-method recovery is never blocked), a
+  multi-use `#t` is `count`, `items[i]` is the singular of the collection, and
+  a numeric cell that only accumulates (`v = v + dt`) is `total`.
+- Parameters are named from how they are used: a Fusion scope (receiver of
+  `:Computed`/`:ForPairs`/`:Observer`/`:New("X")`, or passed to
+  `innerScope`/`deriveScope`/`doCleanup`), `state` (passed to `peek`),
+  `list`/`items` (`#p`, `p[1]`, `p[i]`, `ipairs`/`table.insert`... vs. a plain
+  iteration), `props` (indexed by a Fusion special key such as `[Children]`),
+  `instance` (Instance-only properties, or `:IsA` against unrelated classes),
+  `registry` (Cmdr `:RegisterType`), `maid` (`:GiveTask`/`:Add(function)`),
+  `animator`, `cframe`/`vector`/`connection` receivers, `buf`/`offset`/
+  `value` (`buffer.*`), `duration` (`TweenInfo.new`), `className`, `parent`
+  (`Instance.new`), `message` (`error`), `moduleScript` (`require`),
+  `callback` (`task.spawn`/`pcall`), `player`/`character`/`ancestor`/
+  `cframe`/`position`/`tag`/`json` (Roblox API argument slots), `sequence`
+  (`.Keypoints`), and the honest hypernyms `data`/`state` (a record read
+  through several fields, mutated or not) and `object` (a custom-method
+  receiver). Every rule refuses on contradicting evidence.
+- Guard: a movable single-use copy temp (`local t = outer; table.insert(t, x)`)
+  is never named from whole-tree facts, so the later copy cleanup still folds
+  it; this also removes 84 such copies the collection-fill rule used to keep.
+- Corpus (3,978 files): unnamed `local vN` 34,857 -> 22,111; `pN` parameter
+  tokens 67,667 -> 35,014; output lines 511,308 -> 511,224; colon-method
+  recoveries unchanged (1,961); bytecode round-trip oracle unchanged
+  (2,790 non-equivalent prototypes before and after, no per-file regression).
+
 ### Parameter types from bytecode
 
 - The deserializer now keeps the compiler's per-prototype type information

@@ -356,7 +356,7 @@ fn rvalue_read_count(rvalue: &RValue, local: &RcLocal) -> usize {
     count
 }
 
-fn collect_closures_in_statement(statement: &Statement, f: &mut impl FnMut(&crate::Closure)) {
+pub(crate) fn collect_closures_in_statement(statement: &Statement, f: &mut impl FnMut(&crate::Closure)) {
     for_each_direct_rvalue(statement, &mut |rvalue| {
         collect_closures_in_rvalue(rvalue, f)
     });
@@ -655,7 +655,7 @@ pub(crate) fn is_generated_temp(local: &RcLocal) -> bool {
             .is_some_and(|rest| !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit()))
 }
 
-fn is_movable_single_value(rvalue: &RValue) -> bool {
+pub(crate) fn is_movable_single_value(rvalue: &RValue) -> bool {
     match rvalue {
         RValue::Local(_) | RValue::Literal(_) => true,
         // A constructor or closure always produces exactly one value. Its

@@ -534,6 +534,25 @@ fn apply_local_map_to_values_referenced<T: LocalRw + Traverse>(
 
 // does not replace locals in child closures
 pub fn apply_local_map(function: &mut Function, local_map: FxHashMap<RcLocal, RcLocal>) {
+    // A coalesced local inherits the bytecode-type naming hint of the versions
+    // it absorbs (first hint wins; the hints of one source local agree anyway).
+    for (old, new) in &local_map {
+        let Some(hint) = old.0.lock().type_hint().map(str::to_string) else {
+            continue;
+        };
+        let mut new = new;
+        // Bounded so a (malformed) cyclic map can never hang the pass.
+        for _ in 0..64 {
+            match local_map.get(new) {
+                Some(new_to) if new_to != new => new = new_to,
+                _ => break,
+            }
+        }
+        let mut target = new.0.lock();
+        if target.type_hint().is_none() {
+            target.1 = Some(hint);
+        }
+    }
     for param in &mut function.parameters {
         if let Some(mut new_param) = local_map.get(param) {
             // TODO: make sure this doesnt cycle if theres a li -> li entry
@@ -581,6 +600,21 @@ pub fn apply_local_map(function: &mut Function, local_map: FxHashMap<RcLocal, Rc
 
 // based on "Simple and Efficient Construction of Static Single Assignment Form" (https://pp.info.uni-karlsruhe.de/uploads/publikationen/braun13cc.pdf)
 impl<'a> SsaConstructor<'a> {
+    /// A fresh SSA version for the `local_index`-th local written by statement
+    /// `stat_index` of `node`, carrying the lifter's bytecode-type naming hint
+    /// for that definition when one was recorded (see
+    /// `Function::local_type_hints`).
+    fn fresh_local(&mut self, node: NodeIndex, stat_index: usize, local_index: usize) -> RcLocal {
+        match self
+            .function
+            .local_type_hints
+            .remove(&(node, stat_index, local_index))
+        {
+            Some(hint) => RcLocal::new(ast::Local::with_type_hint(hint)),
+            None => RcLocal::default(),
+        }
+    }
+
     fn write_local(&mut self, node: NodeIndex, local: &RcLocal, new_local: &RcLocal) {
         self.all_definitions
             .entry(local.clone())
@@ -899,7 +933,7 @@ impl<'a> SsaConstructor<'a> {
                     && let Some(local) = assign.left[0].as_local().cloned()
                     && assign.right[0].as_closure().is_some()
                 {
-                    let new_local = RcLocal::default();
+                    let new_local = self.fresh_local(node, stat_index, 0);
                     self.old_locals.insert(new_local.clone(), local.clone());
                     if let Some(upvalues) = self.new_upvalues_in.get_mut(&local) {
                         upvalues.insert(new_local.clone());
@@ -925,7 +959,7 @@ impl<'a> SsaConstructor<'a> {
                     self.read(node, stat_index);
                     // write
                     for (local_index, local) in written.iter().enumerate() {
-                        let new_local = RcLocal::default();
+                        let new_local = self.fresh_local(node, stat_index, local_index);
                         self.old_locals.insert(new_local.clone(), local.clone());
                         if let Some(upvalues) = self.new_upvalues_in.get_mut(local) {
                             upvalues.insert(new_local.clone());

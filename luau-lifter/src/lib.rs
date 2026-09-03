@@ -397,7 +397,7 @@ fn try_decompile_bytecode_internal(
             }
             let mut stack = vec![(root_function, chunk.main, root_function_id)];
             while let Some((ast_func, func_id, static_function_id)) = stack.pop() {
-                {
+                let typed_locals = {
                     let proto = &chunk.functions[func_id];
                     let (annotations, hints) = parameter_types_from_bytecode(
                         proto.type_info.as_ref(),
@@ -407,13 +407,18 @@ fn try_decompile_bytecode_internal(
                     let mut ast_func = ast_func.lock();
                     ast_func.parameter_annotations = annotations;
                     ast_func.parameter_name_hints = hints;
-                }
+                    typed_local_hints_from_bytecode(
+                        proto.type_info.as_ref(),
+                        &chunk.userdata_type_names,
+                    )
+                };
                 let (function, upvalues, child_functions) = Lifter::lift(
                     &chunk.functions,
                     &chunk.string_table,
                     chunk.version,
                     func_id,
                     static_function_id,
+                    &typed_locals,
                 );
                 lifted.push((ast_func, function, upvalues));
                 // The whole-program decompile order determines the monotonic
@@ -1137,7 +1142,9 @@ fn parameter_type_from_bytecode(
         LBC_TYPE_NUMBER => (Some(with_optional("number")), None),
         LBC_TYPE_STRING => (Some(with_optional("string")), None),
         LBC_TYPE_VECTOR => (Some(with_optional("Vector3")), Some("vector".to_string())),
-        LBC_TYPE_BUFFER => (Some(with_optional("buffer")), Some("buffer".to_string())),
+        // `buf`, not `buffer`: the `buffer` library global is almost always in
+        // scope wherever a buffer value is, and would force a `buffer2` suffix.
+        LBC_TYPE_BUFFER => (Some(with_optional("buffer")), Some("buf".to_string())),
         LBC_TYPE_THREAD => (Some(with_optional("thread")), Some("thread".to_string())),
         LBC_TYPE_FUNCTION => (None, Some("callback".to_string())),
         LBC_TYPE_TAGGED_USERDATA_BASE..LBC_TYPE_TAGGED_USERDATA_END => {
@@ -1192,6 +1199,34 @@ pub(crate) fn parameter_types_from_bytecode(
         .iter()
         .map(|&tag| parameter_type_from_bytecode(tag, userdata_type_names))
         .unzip()
+}
+
+/// Naming hints for the prototype's typed local registers (`local v: Vector3`,
+/// or a local the compiler inferred from a builtin such as `Vector3.new` /
+/// `buffer.create` / `coroutine.create`).  Tags without a naming hint
+/// (`number`, `string`, `table`, `any`) are dropped.  The register/PC ranges
+/// are the compiler's own scope records, so the lifter can attribute each
+/// hint to the exact definitions of that source local.
+pub(crate) fn typed_local_hints_from_bytecode(
+    type_info: Option<&deserializer::function::FunctionTypeInfo>,
+    userdata_type_names: &[(u8, Vec<u8>)],
+) -> Vec<lifter::TypedLocalHint> {
+    let Some(info) = type_info else {
+        return Vec::new();
+    };
+    info.local_types
+        .iter()
+        .filter(|local| local.end_pc > local.start_pc)
+        .filter_map(|local| {
+            let (_, hint) = parameter_type_from_bytecode(local.type_tag, userdata_type_names);
+            hint.map(|name| lifter::TypedLocalHint {
+                register: local.register,
+                start_pc: local.start_pc,
+                end_pc: local.end_pc,
+                name,
+            })
+        })
+        .collect()
 }
 
 /// Diagnostic: dump the compiler-recorded type information of every

@@ -16,15 +16,27 @@ use super::{
     instruction::Instruction,
     op_code::OpCode,
 };
-use ast::{self};
+use ast::{self, LocalRw};
 use cfg::{
     block::{BlockEdge, BranchType},
     function::Function,
 };
 
+/// A naming hint for the source local the compiler kept in `register` over
+/// the half-open PC range `start_pc..end_pc`, derived from its bytecode type
+/// tag (`vector`, `buffer`, `cframe`, ...).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypedLocalHint {
+    pub register: u8,
+    pub start_pc: usize,
+    pub end_pc: usize,
+    pub name: String,
+}
+
 pub struct Lifter<'a> {
     function_list: &'a Vec<BytecodeFunction>,
     string_table: &'a Vec<Vec<u8>>,
+    typed_locals: &'a [TypedLocalHint],
     bytecode_version: u8,
     blocks: FxHashMap<usize, NodeIndex>,
     function: Function,
@@ -52,6 +64,7 @@ impl<'a> Lifter<'a> {
         bytecode_version: u8,
         function_id: usize,
         static_function_id: Option<String>,
+        typed_locals: &'a [TypedLocalHint],
     ) -> (
         Function,
         Vec<ast::RcLocal>,
@@ -60,6 +73,7 @@ impl<'a> Lifter<'a> {
         let mut context = Self {
             function_list: f_list,
             string_table: str_list,
+            typed_locals,
             bytecode_version,
             blocks: FxHashMap::default(),
             function: Function::new(function_id),
@@ -124,7 +138,8 @@ impl<'a> Lifter<'a> {
             self.current_node = Some(self.block_to_node(start_pc));
             self.function
                 .set_block_pc_range(self.current_node.unwrap(), start_pc, end_pc);
-            let (statements, edges) = self.lift_block(start_pc, end_pc);
+            let (statements, edges, statement_pcs) = self.lift_block(start_pc, end_pc);
+            self.record_typed_local_hints(&statements, &statement_pcs);
             let block = self.function.block_mut(self.current_node.unwrap()).unwrap();
             block.0.extend(statements);
             self.function.set_edges(self.current_node.unwrap(), edges);
@@ -136,6 +151,44 @@ impl<'a> Lifter<'a> {
             BlockEdge::new(BranchType::Unconditional),
         )]);
         self.function.set_entry(entry_node);
+    }
+
+    /// Attach the compiler's typed-local naming hints to the statements just
+    /// lifted for the current block.  A statement writing register `r` at PC
+    /// `pc` defines the source local the compiler kept in `r` when some typed
+    /// range covers `(r, pc)`; the hint is keyed by the statement's position so
+    /// `ssa::construct` can move it onto the fresh SSA version it mints for that
+    /// definition.  Only plain register writes qualify: the lifter's register
+    /// locals are looked up by identity, so upvalue cells and parameters (never
+    /// typed-local targets) fall through.
+    fn record_typed_local_hints(&mut self, statements: &[ast::Statement], pcs: &[usize]) {
+        if self.typed_locals.is_empty() {
+            return;
+        }
+        let node = self.current_node.unwrap();
+        // The block's statements are appended to whatever the block already
+        // holds (always empty for lifted blocks, but stay exact).
+        let base = self.function.block(node).map_or(0, |block| block.len());
+        let register_of: FxHashMap<ast::RcLocal, u8> = self
+            .register_map
+            .iter()
+            .filter_map(|(&register, local)| u8::try_from(register).ok().map(|r| (local.clone(), r)))
+            .collect();
+        for (index, (statement, &pc)) in statements.iter().zip(pcs).enumerate() {
+            for (written_index, local) in statement.values_written().into_iter().enumerate() {
+                let Some(&register) = register_of.get(local) else {
+                    continue;
+                };
+                let Some(hint) = self.typed_locals.iter().find(|typed| {
+                    typed.register == register && typed.start_pc <= pc && pc < typed.end_pc
+                }) else {
+                    continue;
+                };
+                self.function
+                    .local_type_hints
+                    .insert((node, base + index, written_index), hint.name.clone());
+            }
+        }
     }
 
     /// Pair every generic prep with its FORGLOOP once, before marker lifting.
@@ -424,9 +477,13 @@ impl<'a> Lifter<'a> {
         &mut self,
         block_start: usize,
         block_end: usize,
-    ) -> (Vec<ast::Statement>, Vec<(NodeIndex, BlockEdge)>) {
+    ) -> (Vec<ast::Statement>, Vec<(NodeIndex, BlockEdge)>, Vec<usize>) {
         let mut statements = Vec::with_capacity((block_start..=block_end).count());
         let mut edges = Vec::new();
+        // Bytecode PC of the instruction each statement was lifted from
+        // (parallel to `statements`; a multi-instruction lift is attributed to
+        // its first instruction).
+        let mut statement_pcs: Vec<usize> = Vec::with_capacity(statements.capacity());
 
         let mut top: Option<(ast::RValue, u8)> = None;
 
@@ -435,6 +492,8 @@ impl<'a> Lifter<'a> {
             .enumerate();
 
         while let Some((index, instruction)) = iter.next() {
+            let pc = block_start + index;
+            let lifted_before = statements.len();
             match *instruction {
                 Instruction::BC {
                     op_code,
@@ -1645,6 +1704,8 @@ impl<'a> Lifter<'a> {
                 },
                 _ => unimplemented!("{:?}", instruction),
             }
+            statement_pcs.resize(statements.len(), pc);
+            debug_assert!(statement_pcs.len() >= lifted_before);
         }
 
         let last_index = iter
@@ -1665,7 +1726,9 @@ impl<'a> Lifter<'a> {
             }
         }
 
-        (statements, edges)
+        // The trailing "block does not return" marker writes no local.
+        statement_pcs.resize(statements.len(), block_end);
+        (statements, edges, statement_pcs)
     }
 
     fn register(&mut self, index: usize) -> ast::RcLocal {

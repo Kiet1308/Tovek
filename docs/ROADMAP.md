@@ -26,10 +26,10 @@ Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt c
 | Chỉ số | Giá trị | Ghi chú |
 |---|---:|---|
 | Tổng dòng so với `main` trước PR#3 | +5.352 (+1,0%) | `Write.luau` +2.701 là bytecode tự inline helper 22 lần |
-| Local chưa có tên (`local vN`) | **35.158 / 90.624 (39%)** | |
-| Lượt dùng param chưa tên (`pN`) | **67.667** (trước type info: 70.301) | |
+| Local chưa có tên (`local vN`) | **22.111** (trước B: 34.857) | |
+| Lượt dùng param chưa tên (`pN`) | **35.014** (trước B: 67.667; trước type info: 70.301) | |
 | Annotation type đã khôi phục | 4.451 trong 1.076 file | 21,9% proto có chữ ký |
-| Local có type trong bytecode nhưng chưa dùng | 3.045 (vector 512, number 499, string 255, buffer 110…) | |
+| Local có type trong bytecode | 3.045 (vector 512, number 499, string 255, buffer 110…) | đã map sang SSA local (mục B); chỉ tag có tên (vector/buffer/thread/CFrame/Color3/boolean) mới đặt tên |
 | De-inline call-site khôi phục (`-- inlined by Luau -O2`) | 559 (main: 540) | 5 file mất 1 site, 18 file thêm |
 | Dòng thụt ≥ 8 tab | 26.451 | lồng sâu |
 | Khối `if not c then return end` / `else return end` | 1.596 / 871 | |
@@ -44,6 +44,7 @@ Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt c
 - [x] Bộ fixture round-trip + script + CI pin Luau `c2ec0d4`
 - [x] Type info từ bytecode: annotation param + name hint (`parameter_types_from_bytecode`)
 - [x] Diagnostics: `MEDAL_DUMP_CFG=1`, `MEDAL_DUMP_TYPES=1`, `MEDAL_NO_SHARED_TAIL=1`, `MEDAL_DEBUG_RESTRUCTURE=1`
+- [x] Đặt tên local/param từ type info + cách dùng (mục B): kênh typed-local → SSA, ~60 rule mới trong `name_locals.rs`, `vN` −37 %, `pN` −48 %
 - [x] Oracle bytecode round-trip toàn corpus (mục A) + fix lỗi thật nó tìm ra: `{a, b, f()}` bị hạ thành `t[1], t[2], t[3] = a, b, f()` (mất multret của `f()`) — fold-through `local t = {}` xuống sát `SETLIST` (`cfg/src/ssa/inline.rs::movable_table_declaration`) + fallback giữ ngữ nghĩa `for _k, _v in next, { f() } do t[n + _k] = _v end` (`ast/src/set_list.rs`); 5 test mới, corpus `investigate` 247→38
 
 ---
@@ -64,15 +65,16 @@ Mục tiêu: decompile → recompile `luau-compile -O2 --fflags=false` → so s�
 
 Phát hiện phụ cho các mục sau: decompiler bỏ hẳn `local t = {...}` không dùng kể cả bảng có closure (`FishingRankBanner`: mất 3 hàm `Formatter`; `TouchJump`/`BaseCamera`: bảng enum chuỗi) → 42 file mất thông tin; 20 constructor `{a, b}` vẫn thành `t[1], t[2] = a, b` khi `NEWTABLE` xa `SETLIST` và entry có side-effect (mục C); compiler pin inline `local function` ở nhiều site hơn Roblox → phình dòng khi đo (mục D/E).
 
-### [ ] B. Đặt tên local/param từ type info + cách dùng — *tác động thị giác lớn nhất*
+### [x] B. Đặt tên local/param từ type info + cách dùng — *tác động thị giác lớn nhất* (xong 2026-09-03)
 
-- [ ] Map typed local (`register` + dải `pc`) sang SSA local trong lifter (giống cách debug-locals sẽ được map) → hint tên: vector→`vector`, CFrame→`cframe`, Color3→`color`, buffer→`buffer`, thread→`thread`
-- [ ] Heuristic theo cách dùng cho param chưa tên: `p2 < magnitude`→`maxDistance`/`range`; `for _, x in p`→`items`/`waypoints` (theo tên phần tử); `p.Keypoints`→`sequence`; `p:IsA("X")`→theo X; `#p`→`list`
-- [ ] Naming từ API Roblox: `Instance.new("Part")`→`part`, `:FindFirstChildOfClass("Humanoid")`→`humanoid`, `:GetAttribute("K")`→`k` (mở rộng bảng hiện có trong `name_locals.rs`)
-- [ ] Cân nhắc annotate `p: number` có đáng giữ hay không (hiện có, chính xác 100%)
-- [ ] Không làm: naming liên thủ tục từ call-site (đo chỉ ~184 param)
+- [x] Map typed local (`register` + dải `pc`) sang SSA local: lifter ghi pc cho từng statement (`record_typed_local_hints`), `Function::local_type_hints` keyed `(block, stmt, written)` → `ssa::construct::fresh_local` gắn hint vào `Local.1`, `apply_local_map` giữ hint khi gộp → namer dùng ở tier thấp nhất (20), bỏ qua temp single-use movable. Hint: vector→`vector`, CFrame→`cframe`, Color3→`color`, buffer→`buf` (tránh `buffer2` vì lib `buffer` trong scope), thread→`thread`, boolean→`flag`. Cùng kênh này có thể map debug-locals sau.
+- [x] Heuristic theo cách dùng cho param: `for _, x in p`→`items`; `#p`/`p[1]`/`p[i]`/`ipairs`/`table.insert(p)`→`list`; `p.Keypoints`→`sequence`; `p:IsA("X")` xung đột lớp→`instance`; `p[Children]`→`props`; `p.Parent`+property→`instance`; receiver `:Computed`/`:ForPairs`/`:New("X")`→`scope`; `innerScope(p)`→`scope`, `peek(p)`→`state`; `:RegisterType`→`registry`; `:GiveTask`/`:Add(fn)`→`maid`; `:LoadAnimation`→`animator`; `buffer.*`→`buf`/`offset`/`value`; slot API Roblox (`FireClient`→player, `IsDescendantOf`→ancestor, `PivotTo`→cframe, `Instance.new`→className/parent, `error`→message, `require`→moduleScript, `task.spawn`/`pcall`→callback…); hypernym `data`/`state`/`object`. KHÔNG làm `p2 < magnitude`→`maxDistance` (đoán mò).
+- [x] Naming local từ callee: noun fallback (`:Computed`→computed, `:NextNumber`→number, `:IsValid`→isValid, verb trần bị từ chối), verb→participle (`merge`→merged, `freeze`→frozen), `KeyOf(t,"K")`→k, `scope:New("Frame")`→frame, `typeof`→typeName, `getmetatable`→metatable, `table.find`→index, `coroutine.running`→thread, `require(local)`→module, `require(script.Parent)`→parentModule, `CFrame.Angles/lookAt/from*`→cframe, wrapper trong suốt (`math.floor(x.Height)`→height, `peek(s.Key)`→key), `setmetatable`→self/object, `#t`→count, `items[i]`→item, accumulator→total
+- [x] Annotate `p: number` giữ nguyên (chính xác, không tốn dòng)
+- [x] Không làm: naming liên thủ tục (đo lại: callee→arg chỉ ~246 site)
+- [x] Guard +lines: temp copy movable single-use không bao giờ bị đặt tên từ usage (`movable_temp_locals`) → còn dọn được 84 dòng copy cũ; `self` chỉ khi không bị capture/không ở root/không trong method candidate (giữ 1.961 colon-method)
 
-**Đo lường:** `local vN` từ 35.158 xuống < 25.000; lượt `pN` từ 67.667 xuống < 50.000; round-trip A không đổi.
+**Đo lường:** `local vN` 34.857 → **22.111** (< 25.000 ✅); `pN` 67.667 → **35.014** (< 50.000 ✅); dòng 511.308 → 511.224; A không đổi (oracle baseline 2.790 → 2.790, 0 regression) ✅; ast 590 test xanh.
 
 ### [ ] C. De-inline chuẩn hoá hình dạng — *cắt dòng nhiều nhất*
 
