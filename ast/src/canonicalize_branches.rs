@@ -96,6 +96,44 @@ fn canonicalize_block(block: &mut Block, facts: &FunctionFacts) {
     recover_parent_walks(block, facts);
     reroll_two_index_blocks(block);
     chain_adjacent_return_ifs(&mut block.0);
+    merge_nested_conjunct_ifs(&mut block.0);
+}
+
+/// ROADMAP E1: `if a then if b then BODY end end` (both arms else-less, the
+/// outer arm holding nothing but the inner `if`) -> `if a and b then BODY end`.
+/// Exact: `a and b` evaluates `a`, then `b` only when `a` is truthy — the same
+/// order, count and short-circuit as the nested form — and no other statement
+/// depends on the intermediate nesting. Iterates so `if a then if b then if c`
+/// collapses in one pass (the inner pair was already merged bottom-up).
+fn merge_nested_conjunct_ifs(statements: &mut [Statement]) {
+    for statement in statements.iter_mut() {
+        loop {
+            let Statement::If(outer) = statement else {
+                break;
+            };
+            if !outer.else_block.lock().0.is_empty() {
+                break;
+            }
+            let inner = {
+                let then = outer.then_block.lock();
+                match then.0.as_slice() {
+                    [Statement::If(inner)] if inner.else_block.lock().0.is_empty() => {
+                        Some((inner.condition.clone(), inner.then_block.clone()))
+                    }
+                    _ => None,
+                }
+            };
+            let Some((inner_condition, inner_then)) = inner else {
+                break;
+            };
+            outer.condition = RValue::Binary(crate::Binary::new(
+                std::mem::replace(&mut outer.condition, RValue::Literal(Literal::Nil)),
+                inner_condition,
+                BinaryOperation::And,
+            ));
+            outer.then_block = inner_then;
+        }
+    }
 }
 
 /// Recover the characteristic ancestor iterator
@@ -562,6 +600,39 @@ mod tests {
 
     fn call(name: &str) -> Statement {
         Statement::Call(Call::new(global(name), vec![]))
+    }
+
+    #[test]
+    fn merges_nested_else_less_ifs_into_conjunction() {
+        let inner = Statement::If(If::new(
+            global("b"),
+            Block(vec![call("body")]),
+            Block(vec![]),
+        ));
+        let outer = Statement::If(If::new(global("a"), Block(vec![inner]), Block(vec![])));
+        let mut block = Block(vec![outer]);
+        canonicalize_branches(&mut block);
+        let Statement::If(node) = &block.0[0] else {
+            panic!()
+        };
+        assert_eq!(node.condition.to_string(), "a and b");
+        assert_eq!(node.then_block.lock().0.len(), 1);
+        // an else arm on either level blocks the merge
+        let inner = Statement::If(If::new(
+            global("b"),
+            Block(vec![call("body")]),
+            Block(vec![call("other")]),
+        ));
+        let mut block = Block(vec![Statement::If(If::new(
+            global("a"),
+            Block(vec![inner]),
+            Block(vec![]),
+        ))]);
+        canonicalize_branches(&mut block);
+        let Statement::If(node) = &block.0[0] else {
+            panic!()
+        };
+        assert_eq!(node.condition.to_string(), "a");
     }
 
     fn task_wait() -> Statement {

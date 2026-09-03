@@ -85,12 +85,12 @@ Pass de-inline (`ast/src/deinline.rs`) chỉ khớp hai bản inline khi AST gi�
 - [x] Chuẩn hoá trước khi hash: guard ↔ lồng đã có (`unguard`), nay áp dụng được cả khi khối theo sau bởi `return` rỗng / trong thân loop; trần cửa sổ theo `tail_spine_len`; tên local đã là binding-hole. *Không làm* `and`/`or` giao hoán và `x = x + 1` ↔ `x += 1`: cùng một bytecode nên hai bản inline không lệch dạng này (đo: 0 site cần)
 - [x] Sửa 5 file mất call-site so với `main` (`ClickToMoveDisplay` ×2, `ClientFishingHandler`, `SaveDiscovery`, `pool`) — 4 nguyên nhân: marker bị `factor_common_tails` hoist, tail sau `return`, trần cửa sổ, Gap B arm-return. Kèm written-param + result-alias (probe `grow`/`put` 8/8 site)
 - [x] `Write.luau`: 4.773 → 1.820 dòng. Nguyên nhân thật KHÔNG phải helper inline 22 lần mà là structurer nhân bản khối dispatch (~1.400 dòng) vào 3 vị trí (`continue`-fallthrough trong nguồn); `HoistLeafTails` gộp lại. 147 site helper còn lại dùng local hoisted (`keypoints = offset + N`, do clone chia sẻ RcLocal → `LocalDeclarer` kéo khai báo lên) nên chưa de-inline được → cần pass "sink declarations" chạy lại sau factor/deinline (việc mới, xem C6)
-- [ ] Constructor `{a, b, f()}` có `NEWTABLE` cách xa `SETLIST` vì phần tử cần temporaries có side-effect (Fusion `New "Frame" {...}` lồng): hiện fold-through chỉ khi entry đã có đều thuần; còn 51 file rơi vào fallback `for _k, _v in next, { f() }` và 20 proto `t[1], t[2] = a, b` — cần inline ngược temporaries vào constructor (oracle A: lớp `investigate`)
+- [ ] C4 (HOÃN, ghi lý do 2026-09-03): Constructor `{a, b, f()}` có `NEWTABLE` cách xa `SETLIST` — đo lại: 60 site / 52 file fallback `for _k, _v in next, { f() }`. Dạng thực tế (Fusion): `local t = { A(), Padding = B() }; local frame = scope:New("Frame"); local props = {...}; props[children] = {...}; SETLIST t[2..] = frame(props)`. Không thể kéo constructor xuống (entry `A()`/`B()` có side-effect, các statement giữa cũng gọi `scope:New`) và không thể kéo SETLIST lên; cách đúng là gấp `props` thành biểu thức `scope:New("Frame")({...})` rồi hợp nhất SETLIST vào constructor ở pass AST muộn (sau `rebuild_ui_expression_trees`) — nhưng `props[children] = {...}` với key là local (`children`) không được rebuild gấp lại. Cần mở rộng UI-tree rebuild trước; lợi ích ~60 dòng → để sau
 - [x] Không bỏ `local t = {...}` chết (C5, 2026-09-03): SSA inliner giữ bảng hằng KHÔNG rỗng dù không dùng (`keep_const_table` trong `cfg/src/ssa/inline.rs`), và không forward `{}` vào gốc index-write (`local t = {}; t.k = v` từng thành `({}).k = v` — mất closure `Formatter`). Ra `local _ = {...}`. Oracle `dropped-const-table` 43 → 6 (6 còn lại là khác dạng `SETTABLEN` vs `SETLIST` / field `= nil`, không phải mất mã); proto không tương đương 2.786 → 2.744; +400 dòng (mã khôi phục), 69 file. Fixture mới `semantic_roundtrip/dead_const_tables.luau`
 
-- [ ] C6. Sink lại khai báo local sau `factor_common_tails`/de-inline: khai báo init-less `local a, b, c…` bị kéo lên common dominator vì các bản clone dùng chung RcLocal; sau khi gộp clone, mỗi local chỉ còn dùng ở một khối → hạ khai báo xuống (`local G = keypoints // 0.72…`), mở đường cho ~147 site `expandbuffertosize`/`writebytesign` trong `Write.luau` (ước −800 dòng) và bớt `local v1, v2, …` dài toàn corpus
+- [ ] C6 (KHÔNG làm theo hướng "sink", 2026-09-03 đã điều tra): tái decompile chính output `Write.luau` (không còn clone) vẫn cho `local X, G, buf6, … (78 tên)` hoisted → nguyên nhân KHÔNG phải clone mà là destructor SSA (`cfg/src/ssa/destruct.rs`, Boissinot `coalesce_copies` theo *giá trị*): temp của các site khác nhau trong các nhánh `elseif` (`buf6 = buf3` else-arm ở 3 site, `X = offset + N`) cùng giá trị/copy-related với biến loop-carried nên bị gộp thành MỘT biến dùng ở nhiều nhánh → `LocalDeclarer` phải kéo khai báo lên. Kiểm chứng: dump SSA pre-destruct không có phi chết (0/399 param), post-destruct `UNNAMED_…256095` được định nghĩa ở 6 block (3× `= buf3`, 3× `buffer.create`). Probe cùng hình dạng (`continue`-fallthrough + dispatch, `scratchpad/t4.luau`) compile bằng luau-compile pin thì KHÔNG bị (8/8 site khôi phục) → phụ thuộc cách cấp phát register của bytecode Roblox. Việc đúng: chính sách coalesce trong destruct (không gộp copy cùng giá trị khi các def nằm ở nhánh anh em không giao nhau) — thuộc mục D/F, rủi ro toàn corpus; init-less decl toàn corpus hiện 1.460 dòng (140 nhiều tên, 1.320 một tên)
 
-**Đo lường:** call-site `-- inlined by Luau -O2` ≥ 600 → **588** (chưa đạt, còn C4–C6); `Write.luau` < 2.500 dòng → **1.820** ✅; A không đổi → 2.790 → 2.786, lớp `investigate`/`suspect`/`dropped-const-table` không đổi ✅ (baseline cập nhật).
+**Đo lường:** call-site `-- inlined by Luau -O2` ≥ 600 → **588** (chưa đạt; 147 site còn lại của `Write.luau` chờ chính sách coalesce ở C6/D); `Write.luau` < 2.500 dòng → **1.820** ✅; A không đổi → 2.790 → 2.744 (C1+C5), lớp `investigate`/`suspect` không đổi, `dropped-const-table` 43 → 6 ✅ (baseline cập nhật).
 
 ### [ ] D. Bỏ hẳn legacy structurer — *đóng mảnh code không có proof*
 
@@ -103,13 +103,13 @@ Pass de-inline (`ast/src/deinline.rs`) chỉ khớp hai bản inline khi AST gi�
 
 **Đo lường:** `retry ... Unsupported` = 0; corpus strict vẫn 0 fail; A không đổi.
 
-### [ ] E. Giảm lồng sâu — *công sức thấp*
+### [x] E. Giảm lồng sâu — *công sức thấp* (xong 2026-09-03 — phần làm được; chỉ tiêu < 15.000 KHÔNG khả thi, xem phân tích)
 
-- [ ] Gộp `if a then if b then … end end` (không else, không statement khác) → `if a and b then`
-- [ ] Kéo `elseif` khi nhánh else chỉ chứa một `if`
-- [ ] Guard `if not c then continue end` cho thân loop khi phần còn lại dài (đã có cho `return`, mở rộng cho `continue`/`break`)
+- [x] Gộp `if a then if b then … end end` (không else, không statement khác) → `if a and b then` (`canonicalize_branches::merge_nested_conjunct_ifs`; đếm trên corpus: chỉ 18 site)
+- [x] Kéo `elseif` khi nhánh else chỉ chứa một `if`: formatter đã làm sẵn; 250 chỗ `else` + `if` còn lại đều có statement khác đi kèm (guard + call, marker) nên không phải `elseif`
+- [x] Guard `if not c then continue end` cho thân loop: `recover_guard_continue` (§9) đã có; đếm trên corpus chỉ 1 thân loop là một `if` dài duy nhất còn sót
 
-**Đo lường:** dòng thụt ≥ 8 tab từ 26.451 xuống < 15.000; A không đổi.
+**Đo lường:** dòng thụt ≥ 8 tab: 24.550 (cùng cách đếm, trước C1 26.929). Phân tích thành phần: 11.482 dòng là field của table constructor (cây UI Fusion/React), 11.108 là statement trong closure lồng trong cây UI, chỉ 609 dòng là `if`/`elseif` và 1.351 là `end`. Tức lồng sâu là bản chất nguồn (declarative UI), không phải cấu trúc điều khiển → chỉ tiêu < 15.000 không đạt được bằng biến đổi `if`; A không đổi.
 
 ### [ ] F. Hardening còn lại (ưu tiên thấp)
 
