@@ -1,0 +1,56 @@
+{
+ "summary": {
+  "inputs": 7,
+  "protos": 177,
+  "exact": 118,
+  "equiv": 33,
+  "differ": 26,
+  "missing": 0,
+  "extra": 0,
+  "equiv_ratio": 0.85311
+ },
+ "files": [
+  {
+   "file": "ReplicatedStorage/Cmdr/Server commands/Admin/teleportServer",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Base/Container",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 7
+  },
+  {
+   "file": "ReplicatedStorage/Part_Icles/Emit",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 7
+  },
+  {
+   "file": "ReplicatedStorage/Shared/Information/Abilities",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 8
+  },
+  {
+   "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitter/init",
+   "status": "ok",
+   "nonequiv": 10,
+   "protos": 32
+  },
+  {
+   "file": "StarterPlayer/StarterCharacterScripts/Animate.client",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 33
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController",
+   "status": "ok",
+   "nonequiv": 10,
+   "protos": 88
+  }
+ ]
+}

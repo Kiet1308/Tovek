@@ -78,24 +78,34 @@ impl std::fmt::Display for SetList {
         // A SETLIST that couldn't be folded back into a table constructor.
         // Lower it to plain, valid index assignments:
         //   obj[i], obj[i + 1], ... = v0, v1, ...
-        let count = self.values.len() + self.tail.is_some() as usize;
-        for i in 0..count {
-            if i != 0 {
-                write!(f, ", ")?;
+        // A multret tail (`f()` / `...`) must keep every value it produces, so
+        // it is stored through a packing constructor instead of being
+        // truncated to one value by the multiple assignment:
+        //   for _k, _v in next, { f() } do obj[i + n - 1 + _k] = _v end
+        // (`next` visits every non-nil packed value with its index, which is
+        // exactly what SETLIST stores; a nil is a no-op on a fresh slot.)
+        if !self.values.is_empty() {
+            for i in 0..self.values.len() {
+                if i != 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}[{}]", self.object_local, self.index + i)?;
             }
-            write!(f, "{}[{}]", self.object_local, self.index + i)?;
+            write!(f, " = {}", formatter::format_arg_list(&self.values))?;
         }
-        write!(
-            f,
-            " = {}",
-            formatter::format_arg_list(
-                &self
-                    .values
-                    .iter()
-                    .chain(self.tail.as_ref())
-                    .cloned()
-                    .collect::<Vec<_>>()
-            )
-        )
+        if let Some(tail) = &self.tail {
+            if !self.values.is_empty() {
+                write!(f, "; ")?;
+            }
+            let base = self.index + self.values.len() - 1;
+            write!(f, "for _k, _v in next, {{ {} }} do {}[", tail, self.object_local)?;
+            if base == 0 {
+                write!(f, "_k")?;
+            } else {
+                write!(f, "{} + _k", base)?;
+            }
+            write!(f, "] = _v end")?;
+        }
+        Ok(())
     }
 }

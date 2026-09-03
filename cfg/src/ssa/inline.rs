@@ -590,6 +590,46 @@ fn decrement_rvalue_usages(
     }
 }
 
+/// Index of the `local t = {...}` declaration that a SETLIST at `set_list_index`
+/// can be folded into once the declaration is moved directly before it.
+///
+/// The move is only legal when no statement in between reads or writes `t`
+/// (closure captures count as reads), and when every entry already in the
+/// constructor is total-pure and reads no local written in between (moving the
+/// constructor later must not change what those entries evaluate to).
+fn movable_table_declaration(
+    block: &ast::Block,
+    set_list_index: usize,
+    object_local: &ast::RcLocal,
+) -> Option<usize> {
+    let mut written_between: Vec<ast::RcLocal> = Vec::new();
+    for j in (0..set_list_index).rev() {
+        let statement = &block[j];
+        if let Some(assign) = statement.as_assign()
+            && table_constructor_local(assign).as_ref() == Some(object_local)
+        {
+            let table = assign.right[0].as_table().unwrap();
+            let entries_movable = table.0.iter().all(|(key, value)| {
+                key.iter().chain(std::iter::once(value)).all(|rvalue| {
+                    ast::is_total_pure(rvalue)
+                        && rvalue
+                            .values_read()
+                            .iter()
+                            .all(|local| !written_between.contains(*local))
+                })
+            });
+            return entries_movable.then_some(j);
+        }
+        if statement.values_read().contains(&object_local)
+            || statement.values_written().contains(&object_local)
+        {
+            return None;
+        }
+        written_between.extend(statement.values_written().into_iter().cloned());
+    }
+    None
+}
+
 fn table_constructor_local(assign: &ast::Assign) -> Option<ast::RcLocal> {
     if assign.left.len() == 1
         && assign.right.len() == 1
@@ -798,6 +838,21 @@ pub fn inline(
             for i in 1..block.len() {
                 if let ast::Statement::SetList(set_list) = &block[i] {
                     let object_local = set_list.object_local.clone();
+                    // `local t = {}` may sit several statements above the SETLIST
+                    // when the array items needed temporaries (nested table
+                    // constructors, closures, calls). Allocating the empty table
+                    // later is unobservable, so move the declaration next to the
+                    // SETLIST when nothing in between references `t` and the
+                    // constructor's own entries stay pure and unaffected.
+                    if block[i - 1]
+                        .as_assign()
+                        .is_none_or(|assign| assign.left != [object_local.clone().into()])
+                        && let Some(decl_index) = movable_table_declaration(block, i, &object_local)
+                    {
+                        let decl = block.remove(decl_index);
+                        block.insert(i - 1, decl);
+                        changed = true;
+                    }
                     if let Some(assign) = block[i - 1].as_assign_mut()
                         && assign.left == [object_local.into()]
                     {
@@ -1080,5 +1135,114 @@ mod tests {
         ));
         assert!(local_is_conditionally_evaluated(&expression, &value, false));
         assert!(!local_is_conditionally_evaluated(&expression, &flag, false));
+    }
+}
+
+#[cfg(test)]
+mod set_list_fold_through_tests {
+    use super::movable_table_declaration;
+    use ast::{Assign, Block, Call, Global, LValue, Literal, Local, RValue, RcLocal, SetList, Statement, Table};
+
+    fn local(name: &str) -> RcLocal {
+        RcLocal::new(Local::new(Some(name.to_string())))
+    }
+
+    fn table_decl(local: &RcLocal, entries: Vec<(Option<RValue>, RValue)>) -> Statement {
+        let mut assign = Assign::new(
+            vec![LValue::Local(local.clone())],
+            vec![RValue::Table(Table(entries))],
+        );
+        assign.prefix = true;
+        assign.into()
+    }
+
+    fn call_assign(target: &RcLocal, callee: &str, arguments: Vec<RValue>) -> Statement {
+        let mut assign = Assign::new(
+            vec![LValue::Local(target.clone())],
+            vec![Call::new(RValue::Global(Global::from(callee)), arguments).into()],
+        );
+        assign.prefix = true;
+        assign.into()
+    }
+
+    fn set_list(object: &RcLocal, values: Vec<RValue>, tail: Option<RValue>) -> Statement {
+        SetList::new(object.clone(), 1, values, tail).into()
+    }
+
+    #[test]
+    fn declaration_moves_past_unrelated_temporaries() {
+        let t = local("t");
+        let x = local("x");
+        let y = local("y");
+        let block = Block(vec![
+            table_decl(&t, Vec::new()),
+            call_assign(&x, "f", Vec::new()),
+            call_assign(&y, "g", vec![RValue::Local(x.clone())]),
+            set_list(&t, vec![RValue::Local(x.clone()), RValue::Local(y.clone())], None),
+        ]);
+        assert_eq!(movable_table_declaration(&block, 3, &t), Some(0));
+    }
+
+    #[test]
+    fn declaration_stays_when_the_table_is_referenced_in_between() {
+        let t = local("t");
+        let x = local("x");
+        let block = Block(vec![
+            table_decl(&t, Vec::new()),
+            call_assign(&x, "f", vec![RValue::Local(t.clone())]),
+            set_list(&t, vec![RValue::Local(x.clone())], None),
+        ]);
+        assert_eq!(movable_table_declaration(&block, 2, &t), None);
+    }
+
+    #[test]
+    fn declaration_stays_when_an_entry_reads_a_local_written_in_between() {
+        let t = local("t");
+        let x = local("x");
+        let block = Block(vec![
+            table_decl(
+                &t,
+                vec![(
+                    Some(Literal::String(b"n".to_vec()).into()),
+                    RValue::Local(x.clone()),
+                )],
+            ),
+            call_assign(&x, "f", Vec::new()),
+            set_list(&t, vec![RValue::Local(x.clone())], None),
+        ]);
+        assert_eq!(movable_table_declaration(&block, 2, &t), None);
+    }
+
+    #[test]
+    fn pure_entries_move_with_the_declaration() {
+        let t = local("t");
+        let x = local("x");
+        let block = Block(vec![
+            table_decl(
+                &t,
+                vec![(
+                    Some(Literal::String(b"n".to_vec()).into()),
+                    Literal::Number(1.0).into(),
+                )],
+            ),
+            call_assign(&x, "f", Vec::new()),
+            set_list(&t, vec![RValue::Local(x.clone())], Some(Call::new(RValue::Global(Global::from("g")), Vec::new()).into())),
+        ]);
+        assert_eq!(movable_table_declaration(&block, 2, &t), Some(0));
+    }
+
+    #[test]
+    fn unfolded_multret_tail_is_not_truncated() {
+        let t = local("t");
+        let x = local("x");
+        let statement = set_list(
+            &t,
+            vec![RValue::Local(x.clone())],
+            Some(Call::new(RValue::Global(Global::from("g")), Vec::new()).into()),
+        );
+        let text = statement.to_string();
+        assert!(text.starts_with("t[1] = x; for _k, _v in next, { g() } do t[1 + _k] = _v end"), "{text}");
+        let tail_only = set_list(&t, Vec::new(), Some(RValue::VarArg(ast::VarArg {})));
+        assert_eq!(tail_only.to_string(), "for _k, _v in next, { ... } do t[_k] = _v end");
     }
 }

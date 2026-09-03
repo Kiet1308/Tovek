@@ -1,0 +1,80 @@
+{
+ "summary": {
+  "inputs": 11,
+  "protos": 38,
+  "exact": 17,
+  "equiv": 12,
+  "differ": 6,
+  "missing": 2,
+  "extra": 1,
+  "equiv_ratio": 0.76316
+ },
+ "files": [
+  {
+   "file": "alias_iterators",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "captured_break_continue",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 5
+  },
+  {
+   "file": "captured_cell_iterator",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 5
+  },
+  {
+   "file": "captured_result",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
+  },
+  {
+   "file": "generic_break_found",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
+  },
+  {
+   "file": "iter_metamethod_order",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
+  },
+  {
+   "file": "nested_exports",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
+  },
+  {
+   "file": "parallel_copy_cycle",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
+   "file": "suffix_numeric",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "typed_params",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 5
+  },
+  {
+   "file": "zero_trip_suffix",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  }
+ ]
+}

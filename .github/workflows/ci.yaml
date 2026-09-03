@@ -140,6 +140,27 @@ jobs:
             --lifter target/release/luau-lifter \
             --keep "$RUNNER_TEMP/semantic-roundtrip"
 
+      # Bytecode round-trip oracle: decompile -> recompile with the pinned
+      # compiler -> compare normalised prototypes with the original bytecode.
+      # Gated against the committed baselines: no fixture may regress in
+      # status and no fixture may gain non-equivalent prototypes.
+      - name: Bytecode round-trip oracle (gated against baseline)
+        run: |
+          set -euo pipefail
+          compiler="$RUNNER_TEMP/luau-build/luau-compile"
+          python3 scripts/bytecode_roundtrip.py \
+            --lifter target/release/luau-lifter --compiler "$compiler" \
+            --corpus docs/failure_fixtures/residual_control_flow --key 203 \
+            --baseline docs/bytecode_roundtrip/baseline_residual_control_flow.json \
+            --report "$RUNNER_TEMP/bytecode-roundtrip-residual.json" \
+            --markdown "$RUNNER_TEMP/bytecode-roundtrip-residual.md"
+          python3 scripts/bytecode_roundtrip.py \
+            --lifter target/release/luau-lifter --compiler "$compiler" \
+            --sources docs/failure_fixtures/semantic_roundtrip \
+            --baseline docs/bytecode_roundtrip/baseline_semantic_roundtrip.json \
+            --report "$RUNNER_TEMP/bytecode-roundtrip-semantic.json" \
+            --markdown "$RUNNER_TEMP/bytecode-roundtrip-semantic.md"
+
       - name: Upload fixture manifests and outputs
         if: always()
         uses: actions/upload-artifact@v4
@@ -150,4 +171,6 @@ jobs:
             ${{ runner.temp }}/residual-control-*/**/*.luau
             ${{ runner.temp }}/residual-control-*.log
             ${{ runner.temp }}/semantic-roundtrip/**/*.luau
+            ${{ runner.temp }}/bytecode-roundtrip-*.json
+            ${{ runner.temp }}/bytecode-roundtrip-*.md
           if-no-files-found: warn
