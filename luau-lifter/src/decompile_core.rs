@@ -1287,7 +1287,7 @@ fn decode_and_decompile(
     // passes. The common deserialize-failure path already comes back as Err.
     let (source, upvalue_analysis) = if analysis_root.is_some() {
         let result = catch_unwind(AssertUnwindSafe(|| {
-            luau_lifter::try_decompile_bytecode_artifact_with_options(
+            luau_lifter::try_decompile_bytecode_artifact_with_diagnostics(
                 &bytecode,
                 key,
                 Some(&w.rel),
@@ -1296,7 +1296,7 @@ fn decode_and_decompile(
         }));
         let artifact = match result {
             Ok(Ok(artifact)) => artifact,
-            Ok(Err(reason)) => return (Outcome::Fail(reason), None, None, None),
+            Ok(Err(reason)) => return (Outcome::Fail(reason.to_string()), None, None, None),
             Err(payload) => {
                 return (Outcome::Fail(panic_message(payload)), None, None, None);
             }
@@ -3404,7 +3404,13 @@ mod tests {
         let out_root = std::fs::canonicalize(&out).unwrap();
         assert!(prepare_analysis_root(&out_root).is_err());
 
+        // Unix exposes directory symlinks as symlink files, so `remove_dir`
+        // returns ENOTDIR even though the link itself is valid.  Windows
+        // requires the directory-specific removal API for the same fixture.
+        #[cfg(windows)]
         std::fs::remove_dir(&link).unwrap();
+        #[cfg(unix)]
+        std::fs::remove_file(&link).unwrap();
         std::fs::create_dir_all(&link).unwrap();
         let scripts_link = link.join("scripts");
         #[cfg(windows)]

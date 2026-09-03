@@ -1,0 +1,153 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  rust:
+    name: Rust checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install nightly Rust
+        # This repository still uses `box_patterns`, which was removed from
+        # the moving nightly channel after this known-good toolchain.  Pin the
+        # compiler so CI remains reproducible instead of failing before tests
+        # run whenever nightly advances.
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2024-12-15
+          components: rustfmt
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      # The repository predates the current nightly rustfmt style and contains
+      # unrelated formatting drift. Keep the report visible without making the
+      # roadmap CI job fail before its semantic checks; formatting can be
+      # migrated in a dedicated, repository-wide change.
+      - name: Report formatting status
+        run: |
+          if cargo +nightly-2024-12-15 fmt --all -- --check; then
+            echo "rustfmt: clean"
+          else
+            echo "::warning::rustfmt reports pre-existing repository-wide drift"
+          fi
+
+      - name: Run workspace tests
+        run: cargo +nightly-2024-12-15 test --workspace --all-targets
+
+      - name: Check lifter
+        run: cargo +nightly-2024-12-15 check -p luau-lifter
+
+      - name: Build release lifter
+        run: cargo +nightly-2024-12-15 build --release -p luau-lifter
+
+  # Keep the representative bytecode fixtures and the official Luau parser in
+  # the public CI contract.  Rust tests alone cannot catch a source-shaped
+  # transformation that is syntactically valid but semantically reordered.
+  fixtures:
+    name: Fixture and Luau audit
+    needs: rust
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install --yes cmake g++
+
+      - name: Install nightly Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2024-12-15
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build lifter
+        run: cargo +nightly-2024-12-15 build --release -p luau-lifter
+
+      - name: Build official Luau compiler and runner (pinned)
+        env:
+          # Pinned upstream commit (release 0.736).  Do not float `master` in
+          # the acceptance job: the compiler's bytecode/opcode selection must
+          # be stable for the round-trip proofs below.
+          LUAU_COMMIT: c2ec0d4e5ca50796ba174a7565298f59aa572268
+        run: |
+          git clone https://github.com/luau-lang/luau.git "$RUNNER_TEMP/luau"
+          git -C "$RUNNER_TEMP/luau" checkout --quiet "$LUAU_COMMIT"
+          cmake -S "$RUNNER_TEMP/luau" -B "$RUNNER_TEMP/luau-build" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/luau-build" --target Luau.Compile.CLI Luau.Repl.CLI --parallel 2
+
+      - name: Run residual-control fixtures in strict modes
+        run: |
+          set -euo pipefail
+          fixture_root="docs/failure_fixtures/residual_control_flow"
+          for mode in default strict; do
+            out="${RUNNER_TEMP}/residual-control-${mode}"
+            args=()
+            if [[ "$mode" == strict ]]; then
+              args+=(--strict-no-synthetic-control)
+            fi
+            log="${RUNNER_TEMP}/residual-control-${mode}.log"
+            set +e
+            target/release/luau-lifter decompile-folder "$fixture_root" "$out" \
+              --key 203 --threads 1 --emit-upvalue-analysis --verbose "${args[@]}" \
+              >"$log" 2>&1
+            status=$?
+            set -e
+            # Every fixture must structure into source-shaped Luau in both
+            # modes: the init-edge transfers that used to be reported as a
+            # FORGPREP/FORNPREP "suffix" are now materialized before the
+            # preparation marker by the SSA destructor.
+            test "$status" -eq 0
+            test "$(grep -c '^FAIL ' "$log")" -eq 0
+            count=$(find "$out" -type f -name '*.luau' | wc -l)
+            test "$count" -eq 7
+            if rg -n --glob '*.luau' '(^|[^[:alnum:]_])goto[[:space:]]|controlFlowState|GenericFor(Init|Next)' "$out"; then
+              echo 'internal control marker found in fixture output' >&2
+              exit 1
+            fi
+          done
+
+      - name: Parse and compile every fixture output with official Luau
+        run: |
+          set -euo pipefail
+          compiler="$RUNNER_TEMP/luau-build/luau-compile"
+          test -x "$compiler"
+          for output_root in "$RUNNER_TEMP"/residual-control-*; do
+            while IFS= read -r -d '' file; do
+              "$compiler" --only-parse "$file" >/dev/null
+              "$compiler" --binary -O0 "$file" >/dev/null
+            done < <(find "$output_root" -type f -name '*.luau' -print0)
+          done
+
+      - name: Semantic round-trip of loop-structuring fixtures
+        run: |
+          set -euo pipefail
+          python3 scripts/semantic_roundtrip.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --lifter target/release/luau-lifter \
+            --keep "$RUNNER_TEMP/semantic-roundtrip"
+
+      - name: Upload fixture manifests and outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr3-fixture-audit
+          path: |
+            ${{ runner.temp }}/residual-control-*/.tovek-analysis/manifest.json
+            ${{ runner.temp }}/residual-control-*/**/*.luau
+            ${{ runner.temp }}/residual-control-*.log
+            ${{ runner.temp }}/semantic-roundtrip/**/*.luau
+          if-no-files-found: warn

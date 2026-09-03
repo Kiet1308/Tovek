@@ -5,7 +5,7 @@ mod op_code;
 pub mod upvalue_analysis;
 
 use ast::{
-    Traverse,
+    LocalRw, Traverse,
     flatten_guards::flatten_guards,
     local_declarations::LocalDeclarer,
     name_locals::{NameLocalOptions, name_locals_with_options},
@@ -39,6 +39,9 @@ use deserializer::bytecode::Bytecode;
 pub const DONT_REUSE_VAR: u32 = 1 << 0;
 pub const NO_SYNTH_HELPERS: u32 = 1 << 1;
 pub const ASSUME_NO_NAN: u32 = 1 << 2;
+/// Preserve the strict no-synthetic-dispatcher policy across public option
+/// transports (batch headers, web/worker flags, and cached artifacts).
+pub const STRICT_NO_SYNTHETIC_CONTROL: u32 = 1 << 3;
 
 // ---- TEMPORARY PROFILING (env-gated, remove before ship) ----
 #[doc(hidden)]
@@ -124,17 +127,36 @@ pub struct DecompileOptions {
     pub dont_reuse_var: bool,
     pub no_synth_helpers: bool,
     pub assume_no_nan: bool,
+    pub control_flow_policy: ControlFlowOutputPolicy,
+}
+
+/// Controls whether the certified CFG dispatcher is an acceptable output
+/// representation when source-shaped structuring cannot prove a graph safe.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ControlFlowOutputPolicy {
+    /// Permit the semantics-preserving state-machine fallback.
+    #[default]
+    AllowCertifiedDispatcher,
+    /// Fail closed instead of returning synthetic control-flow scaffolding.
+    StrictNoSyntheticControl,
 }
 
 impl DecompileOptions {
     pub fn from_flag_bits(bits: u32) -> Option<Self> {
-        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN) != 0 {
+        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL)
+            != 0
+        {
             return None;
         }
         Some(Self {
             dont_reuse_var: bits & DONT_REUSE_VAR != 0,
             no_synth_helpers: bits & NO_SYNTH_HELPERS != 0,
             assume_no_nan: bits & ASSUME_NO_NAN != 0,
+            control_flow_policy: if bits & STRICT_NO_SYNTHETIC_CONTROL != 0 {
+                ControlFlowOutputPolicy::StrictNoSyntheticControl
+            } else {
+                ControlFlowOutputPolicy::AllowCertifiedDispatcher
+            },
         })
     }
 
@@ -142,6 +164,9 @@ impl DecompileOptions {
         u32::from(self.dont_reuse_var) * DONT_REUSE_VAR
             | u32::from(self.no_synth_helpers) * NO_SYNTH_HELPERS
             | u32::from(self.assume_no_nan) * ASSUME_NO_NAN
+            | u32::from(
+                self.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl,
+            ) * STRICT_NO_SYNTHETIC_CONTROL
     }
 
     pub fn union(self, other: Self) -> Self {
@@ -149,6 +174,14 @@ impl DecompileOptions {
             dont_reuse_var: self.dont_reuse_var || other.dont_reuse_var,
             no_synth_helpers: self.no_synth_helpers || other.no_synth_helpers,
             assume_no_nan: self.assume_no_nan || other.assume_no_nan,
+            control_flow_policy: if self.control_flow_policy
+                == ControlFlowOutputPolicy::StrictNoSyntheticControl
+                || other.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
+            {
+                ControlFlowOutputPolicy::StrictNoSyntheticControl
+            } else {
+                ControlFlowOutputPolicy::AllowCertifiedDispatcher
+            },
         }
     }
 }
@@ -239,6 +272,7 @@ pub fn try_decompile_bytecode_with_options(
 ) -> Result<String, String> {
     try_decompile_bytecode_internal(bytecode, encode_key, script_name, options, false)
         .map(|artifact| artifact.source)
+        .map_err(|error| error.message)
 }
 
 #[derive(Clone, Debug)]
@@ -246,6 +280,50 @@ pub struct DecompileArtifact {
     pub source: String,
     pub upvalue_analysis: Option<upvalue_analysis::ScriptUpvalueAnalysis>,
 }
+
+/// Machine-readable evidence for a decompilation rejection. Keeping this
+/// independent of CFG internals lets batch/web callers publish actionable
+/// per-function diagnostics without changing successful source output.
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct DecompileDiagnostic {
+    pub stage: String,
+    pub code: String,
+    pub function: String,
+    pub message: String,
+}
+
+/// A decompilation failure with optional per-function evidence. Existing
+/// string-returning APIs render this via `Display`; diagnostic callers can
+/// consume the structured vector directly.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DecompileFailure {
+    pub message: String,
+    pub diagnostics: Vec<DecompileDiagnostic>,
+}
+
+impl DecompileFailure {
+    fn message(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            diagnostics: Vec::new(),
+        }
+    }
+}
+
+impl std::fmt::Display for DecompileFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)?;
+        if !self.diagnostics.is_empty() {
+            // Preserve the legacy prefix while appending a parseable JSON
+            // envelope for folder manifests and other machine consumers.
+            let json = serde_json::to_string(&self.diagnostics).map_err(|_| std::fmt::Error)?;
+            write!(f, " | diagnostics={json}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for DecompileFailure {}
 
 pub fn try_decompile_bytecode_artifact(
     bytecode: &[u8],
@@ -267,6 +345,17 @@ pub fn try_decompile_bytecode_artifact_with_options(
     options: DecompileOptions,
 ) -> Result<DecompileArtifact, String> {
     try_decompile_bytecode_internal(bytecode, encode_key, script_name, options, true)
+        .map_err(|error| error.message)
+}
+
+/// Diagnostic variant preserving typed per-function failure evidence.
+pub fn try_decompile_bytecode_artifact_with_diagnostics(
+    bytecode: &[u8],
+    encode_key: u8,
+    script_name: Option<&str>,
+    options: DecompileOptions,
+) -> Result<DecompileArtifact, DecompileFailure> {
+    try_decompile_bytecode_internal(bytecode, encode_key, script_name, options, true)
 }
 
 fn try_decompile_bytecode_internal(
@@ -275,7 +364,7 @@ fn try_decompile_bytecode_internal(
     script_name: Option<&str>,
     options: DecompileOptions,
     emit_upvalue_analysis: bool,
-) -> Result<DecompileArtifact, String> {
+) -> Result<DecompileArtifact, DecompileFailure> {
     // Reset the per-thread local-id sequence so this decompilation's `RcLocal`
     // ids (and thus the FxHash-iteration order that depends on them, and the
     // generated local names) are independent of any earlier work this thread
@@ -283,15 +372,16 @@ fn try_decompile_bytecode_internal(
     // even though each file is processed on a single thread. See ast::RcLocal.
     ast::reset_local_ids();
     let deser_timer = prof::Timer::new(&prof::DESER_LIFT);
-    let chunk =
-        deserializer::deserialize(bytecode, encode_key).map_err(|e| format!("deserialize: {e}"))?;
+    let chunk = deserializer::deserialize(bytecode, encode_key)
+        .map_err(|e| DecompileFailure::message(format!("deserialize: {e}")))?;
     match chunk {
         Bytecode::Error(msg) => Ok(DecompileArtifact {
             source: msg,
             upvalue_analysis: None,
         }),
         Bytecode::Chunk(chunk) => {
-            validate_prototype_graph(&chunk.functions, chunk.main)?;
+            validate_prototype_graph(&chunk.functions, chunk.main)
+                .map_err(DecompileFailure::message)?;
             let raw_upvalue_analysis =
                 emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
             let mut lifted = Vec::new();
@@ -307,6 +397,7 @@ fn try_decompile_bytecode_internal(
                 let (function, upvalues, child_functions) = Lifter::lift(
                     &chunk.functions,
                     &chunk.string_table,
+                    chunk.version,
                     func_id,
                     static_function_id,
                 );
@@ -383,7 +474,12 @@ fn try_decompile_bytecode_internal(
                     // isolates the per-function panic.
                     let result = panic::catch_unwind(move || {
                         let (ast_function, function, upvalues_in) = args.take().unwrap();
-                        decompile_function(ast_function, function, upvalues_in)
+                        decompile_function(
+                            ast_function,
+                            function,
+                            upvalues_in,
+                            options.control_flow_policy,
+                        )
                     });
 
                     match result {
@@ -420,13 +516,29 @@ fn try_decompile_bytecode_internal(
                             // dropping its code.
                             body.body.extend(unsupported_structuring_sentinel().0);
                             drop(body);
-                            (ByAddress(ast_function), Vec::new())
+                            (
+                                ByAddress(ast_function),
+                                Vec::new(),
+                                Some(DecompileDiagnostic {
+                                    stage: "function".to_string(),
+                                    code: "panic".to_string(),
+                                    function: format!("p{function_id}"),
+                                    message: panic_information,
+                                }),
+                            )
                         }
                     }
                 })
                 .collect::<Vec<_>>();
             drop(par_timer);
-            let mut upvalues = decompiled.into_iter().collect::<FxHashMap<_, _>>();
+            let mut function_diagnostics = Vec::new();
+            let mut upvalues = FxHashMap::default();
+            for (function, values, diagnostic) in decompiled {
+                if let Some(diagnostic) = diagnostic {
+                    function_diagnostics.push(diagnostic);
+                }
+                upvalues.insert(function, values);
+            }
 
             // The rayon driver thread participated in the pool, so its thread-local
             // id counter is now left at some function's (scheduling-dependent)
@@ -473,6 +585,7 @@ fn try_decompile_bytecode_internal(
             {
                 ptime!(S_CLEANUP_RETURNS);
                 ast::cleanup_returns::cleanup_redundant_returns(&mut body);
+                ast::flatten_guards::flatten_terminal_tail_guards(&mut body);
             }
             // Restore the per-iteration snapshot of a by-value (`Upvalue::Copy`)
             // capture that out-of-SSA coalescing merged onto a mutated (loop)
@@ -615,6 +728,7 @@ fn try_decompile_bytecode_internal(
             {
                 ptime!(S_CLEANUP_RETURNS);
                 ast::cleanup_returns::cleanup_redundant_returns(&mut body);
+                ast::flatten_guards::flatten_terminal_tail_guards(&mut body);
             }
             // Luau has no `goto` or labels.  The structurer uses them only as an
             // internal edge representation, so allowing either AST node to reach
@@ -625,16 +739,27 @@ fn try_decompile_bytecode_internal(
             if ast::simplify_gotos::function_tree_has_goto_or_label(&body)
                 || ast::simplify_gotos::function_tree_has_unlowered_control(&body)
             {
-                return Err(
-                    "control-flow structuring failed: residual goto/label would be invalid Luau"
-                        .to_string(),
-                );
+                if function_diagnostics.is_empty() {
+                    function_diagnostics.push(DecompileDiagnostic {
+                        stage: "final_invariant".to_string(),
+                        code: "residual_control_flow".to_string(),
+                        function: format!("root:p{}", chunk.main),
+                        message: "final AST still contains an internal goto/label or loop marker"
+                            .to_string(),
+                    });
+                }
+                return Err(DecompileFailure {
+                    message:
+                        "control-flow structuring failed: residual goto/label would be invalid Luau"
+                            .to_string(),
+                    diagnostics: function_diagnostics,
+                });
             }
             let (out, source_occurrences) = {
                 ptime!(S_FORMAT);
                 if emit_upvalue_analysis {
                     ast::formatter::format_with_source_map(&body, Default::default())
-                        .map_err(|_| "formatting failed".to_string())?
+                        .map_err(|_| DecompileFailure::message("formatting failed"))?
                 } else {
                     (body.to_string(), Vec::new())
                 }
@@ -867,21 +992,222 @@ fn unsupported_structuring_sentinel() -> ast::Block {
     ])
 }
 
+fn fallback_has_synthetic_control(fallback: &restructure::CertifiedFallback) -> bool {
+    fallback.synthetic_locals.iter().any(|synthetic| {
+        matches!(
+            synthetic.role,
+            restructure::SyntheticRole::ProgramCounter
+                | restructure::SyntheticRole::DispatchSignal
+                | restructure::SyntheticRole::DispatchExit
+        )
+    })
+}
+
+/// Select the only state-machine fallback through one policy-aware boundary.
+/// Keeping this helper shared by the ordinary rejection path and legacy panic
+/// recovery prevents a caught matcher panic from accidentally bypassing strict
+/// no-synthetic-control mode.
+fn certified_fallback_for_policy(
+    function: Function,
+    locals_to_ignore: &FxHashSet<ast::RcLocal>,
+    policy: ControlFlowOutputPolicy,
+) -> Option<ast::Block> {
+    let fallback =
+        restructure::lift_certified_fallback_with_ignored_locals(function, locals_to_ignore)?;
+    if policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
+        && fallback_has_synthetic_control(&fallback)
+    {
+        return None;
+    }
+    Some(fallback.block)
+}
+
+/// Run the compatibility structurer, but route a panic through the exact same
+/// certified, policy-aware fallback used by ordinary source-like rejection.
+/// The injected closure keeps the panic route directly testable without a CFG
+/// that depends on an implementation-specific assertion in the legacy pass.
+fn legacy_with_certified_panic_recovery<F>(
+    function: Function,
+    fallback_function: Function,
+    locals_to_ignore: &FxHashSet<ast::RcLocal>,
+    policy: ControlFlowOutputPolicy,
+    reset_local_id: u64,
+    legacy: F,
+) -> (ast::Block, bool)
+where
+    F: FnOnce(Function) -> ast::Block,
+{
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| legacy(function))) {
+        Ok(block) => (block, false),
+        Err(_) => {
+            ast::set_local_id_base(reset_local_id);
+            (
+                certified_fallback_for_policy(fallback_function, locals_to_ignore, policy)
+                    .unwrap_or_else(unsupported_structuring_sentinel),
+                true,
+            )
+        }
+    }
+}
+
+/// The legacy matcher predates semantic rejection reasons.  It can lower the
+/// compiler's generic-for markers when no SSA edge transfers are present.
+/// Keeping this routing decision in one predicate makes it auditable and
+/// testable.
+/// Diagnostic: dump every block and edge of a lifted CFG to stderr.
+/// Enabled with `MEDAL_DUMP_CFG=1`; never used by production output.
+fn debug_dump_cfg(function: &Function, stage: &str) {
+    use petgraph::visit::EdgeRef;
+    let mut out = String::new();
+    out.push_str(&format!(
+        "==== CFG dump [{stage}] id={} name={:?} entry={:?}
+",
+        function.id,
+        function.name,
+        function.entry()
+    ));
+    let mut nodes = function.graph().node_indices().collect::<Vec<_>>();
+    nodes.sort();
+    for node in nodes {
+        out.push_str(&format!("-- block {}
+", node.index()));
+        if let Some(block) = function.block(node) {
+            for statement in block.iter() {
+                out.push_str(&format!("   {statement}
+"));
+            }
+        }
+        for edge in function.graph().edges(node) {
+            out.push_str(&format!(
+                "   -> {} [{:?}] args={:?}
+",
+                edge.target().index(),
+                edge.weight().branch_type,
+                edge.weight()
+                    .arguments
+                    .iter()
+                    .map(|(p, a)| format!("{p} <- {a}"))
+                    .collect::<Vec<_>>()
+            ));
+        }
+    }
+    eprint!("{out}");
+}
+
+fn may_use_legacy_structurer(
+    function: &Function,
+    source_like: &restructure::StructureAttempt,
+) -> bool {
+    matches!(source_like, restructure::StructureAttempt::Unsupported)
+        && !function
+            .graph()
+            .edge_weights()
+            .any(|edge| !edge.arguments.is_empty())
+        && legacy_generic_protocol_is_hidden(function)
+}
+
+/// The legacy matcher predates the typed generic-for protocol and can silently
+/// discard reads/writes of FORGPREP/FORGLOOP's hidden generator/state/control
+/// registers.  Permit it only when those registers occur exclusively in the
+/// marker pair itself; a visible use must remain on the certified fallback
+/// path, even when the graph has no edge arguments.
+fn legacy_generic_protocol_is_hidden(function: &Function) -> bool {
+    let mut protocol = FxHashSet::default();
+    let mut saw_marker = false;
+    for (_, block) in function.blocks() {
+        for statement in block.iter() {
+            match statement {
+                ast::Statement::GenericForInit(init) => {
+                    saw_marker = true;
+                    protocol.extend(
+                        init.0
+                            .left
+                            .iter()
+                            .filter_map(|left| left.as_local().cloned()),
+                    );
+                }
+                ast::Statement::GenericForNext(next) => {
+                    saw_marker = true;
+                    protocol.extend(next.generator.values_read().into_iter().cloned());
+                    protocol.extend(next.state.values_read().into_iter().cloned());
+                    protocol.insert(next.control.clone());
+                }
+                _ => {}
+            }
+        }
+    }
+    if !saw_marker || protocol.is_empty() {
+        return true;
+    }
+    for (_, block) in function.blocks() {
+        for statement in block.iter() {
+            if matches!(
+                statement,
+                ast::Statement::GenericForInit(_) | ast::Statement::GenericForNext(_)
+            ) {
+                continue;
+            }
+            if statement
+                .values_read()
+                .into_iter()
+                .chain(statement.values_written())
+                .any(|local| protocol.contains(local))
+            {
+                return false;
+            }
+        }
+    }
+    !function.graph().edge_weights().any(|edge| {
+        edge.arguments.iter().any(|(destination, value)| {
+            protocol.contains(destination)
+                || value
+                    .values_read()
+                    .into_iter()
+                    .any(|local| protocol.contains(local))
+        })
+    })
+}
+
 fn decompile_function(
     ast_function: Arc<Mutex<ast::Function>>,
     mut function: Function,
     upvalues_in: Vec<ast::RcLocal>,
-) -> (ByAddress<Arc<Mutex<ast::Function>>>, Vec<ast::RcLocal>) {
+    control_flow_policy: ControlFlowOutputPolicy,
+) -> (
+    ByAddress<Arc<Mutex<ast::Function>>>,
+    Vec<ast::RcLocal>,
+    Option<DecompileDiagnostic>,
+) {
+    let function_identity = format!("p{}", function.id);
     let (local_count, local_groups, upvalue_in_groups, upvalue_passed_groups) = {
         ptime!(F_SSA_CONSTRUCT);
         cfg::ssa::construct(&mut function, &upvalues_in)
     };
+    // Every SSA version belonging to an incoming or passed-upvalue group
+    // aliases a function-scope cell.  Keep all of those identities protected
+    // from source-like iterator/result-local allocation; protecting only the
+    // original `upvalues_in` IDs misses versions introduced on a nested
+    // closure's incoming edge and can let a loop register shadow that cell.
+    // Passed groups are canonicalized to fresh dummy locals below, so allocate
+    // those roots once and include the exact same IDs in the protected set.
+    let passed_group_roots = upvalue_passed_groups
+        .iter()
+        .map(|_| ast::RcLocal::default())
+        .collect::<Vec<_>>();
+    let protected_upvalue_locals = upvalue_in_groups
+        .iter()
+        .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
+        .chain(upvalue_passed_groups.iter().flat_map(|group| group.iter()))
+        .chain(passed_group_roots.iter())
+        .cloned()
+        .collect::<FxHashSet<_>>();
     let upvalue_to_group = upvalue_in_groups
         .into_iter()
         .chain(
             upvalue_passed_groups
                 .into_iter()
-                .map(|m| (ast::RcLocal::default(), m)),
+                .zip(passed_group_roots)
+                .map(|(group, root)| (root, group)),
         )
         .flat_map(|(i, g)| g.into_iter().map(move |u| (u, i.clone())))
         .collect::<IndexMap<_, _>>();
@@ -898,6 +1224,9 @@ fn decompile_function(
     // must be recalculated.
     // etc.
     // the macro could also maybe generate an optimal ordering?
+    if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+        debug_dump_cfg(&function, "pre-inline");
+    }
     let mut changed = true;
     while changed {
         changed = false;
@@ -949,6 +1278,9 @@ fn decompile_function(
         }
     }
     // cfg::dot::render_to(&function, &mut std::io::stdout()).unwrap();
+    if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+        debug_dump_cfg(&function, "pre-destruct");
+    }
     {
         ptime!(F_DESTRUCT);
         ssa::Destructor::new(
@@ -958,6 +1290,9 @@ fn decompile_function(
             local_count,
         )
         .destruct();
+    }
+    if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+        debug_dump_cfg(&function, "post-destruct");
     }
     // The proof-driven pass is read-only: it never mutates CFG nodes or nested
     // AST containers, so its speculative copy can stay shallow.  Keep the
@@ -971,12 +1306,6 @@ fn decompile_function(
     // routing through the matcher would silently drop a value transfer and can
     // produce plausible but incorrect Luau.  The state-machine fallback is the
     // only path that materializes those parallel copies explicitly.
-    let has_edge_arguments = fallback_source
-        .as_ref()
-        .unwrap()
-        .graph()
-        .edge_weights()
-        .any(|edge| !edge.arguments.is_empty());
     // Source-like structuring may mint temporary export locals while proving
     // nested-loop live-outs.  If that speculative attempt is rejected, rewind
     // the per-function allocator before building the fallback so failed
@@ -985,37 +1314,59 @@ fn decompile_function(
     let source_like_protected_locals = upvalues_in
         .iter()
         .chain(fallback_source.as_ref().unwrap().parameters.iter())
+        .chain(protected_upvalue_locals.iter())
         .cloned()
         .collect::<FxHashSet<_>>();
     let params = std::mem::take(&mut fallback_source.as_mut().unwrap().parameters);
     let is_variadic = fallback_source.as_ref().unwrap().is_variadic;
     let mut fallback_function = None;
-    let (mut lifted, used_source_like) = {
+    let mut used_certified_dispatcher = false;
+    let (mut lifted, used_source_like, source_like_rejection) = {
         ptime!(F_RESTRUCTURE);
-        match restructure::lift_source_like_with_ignored_locals(
+        let source_like_attempt = restructure::lift_source_like_attempt_with_ignored_locals(
             source_like_function,
             &source_like_protected_locals,
-        ) {
-            Some(block) => (block, true),
-            None => {
+        );
+        match source_like_attempt {
+            restructure::StructureAttempt::Structured(block) => (block, true, None),
+            rejection => {
+                let rejection_description = match &rejection {
+                    restructure::StructureAttempt::Unsupported => (
+                        "source_like_unsupported".to_string(),
+                        "source-like structurer has no proven representation".to_string(),
+                    ),
+                    restructure::StructureAttempt::Unsafe(reason) => (
+                        format!("source_like_unsafe_{reason:?}"),
+                        format!("source-like proof rejected: {reason}"),
+                    ),
+                    restructure::StructureAttempt::Structured(_) => unreachable!(),
+                };
+                let allow_legacy =
+                    may_use_legacy_structurer(fallback_source.as_ref().unwrap(), &rejection);
+                if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                    let function = fallback_source.as_ref().unwrap();
+                    eprintln!(
+                        "source-like structuring rejected function id={} name={:?}: {:?}",
+                        function.id, function.name, rejection
+                    );
+                }
                 ast::set_local_id_base(source_like_id_base);
                 // Preserve an untouched CFG before any mutating fallback or
                 // legacy matcher consumes the original.  This clone is paid
                 // only on the uncommon source-like rejection path.
                 let function = fallback_source.take().unwrap();
                 fallback_function = Some(function.deep_clone());
-                if has_edge_arguments {
-                    let locals_to_ignore = upvalues_in
-                        .iter()
-                        .chain(params.iter())
-                        .cloned()
-                        .collect();
-                    let block = restructure::lift_fallback_with_ignored_locals(
+                if !allow_legacy {
+                    used_certified_dispatcher = true;
+                    let locals_to_ignore =
+                        upvalues_in.iter().chain(params.iter()).cloned().collect();
+                    let block = certified_fallback_for_policy(
                         function,
                         &locals_to_ignore,
+                        control_flow_policy,
                     )
                     .unwrap_or_else(unsupported_structuring_sentinel);
-                    (block, false)
+                    (block, false, Some(rejection_description))
                 } else {
                     // The legacy pattern matcher predates the fail-closed
                     // source-like pass and contains a few internal assertions
@@ -1026,25 +1377,18 @@ fn decompile_function(
                     // for the certified fallback and turn any legacy panic into
                     // the same explicit failure marker used by other rejected
                     // shapes.
-                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        restructure::lift(function)
-                    })) {
-                        Ok(block) => (block, false),
-                        Err(_) => {
-                            ast::set_local_id_base(source_like_id_base);
-                            let locals_to_ignore = upvalues_in
-                                .iter()
-                                .chain(params.iter())
-                                .cloned()
-                                .collect();
-                            let block = restructure::lift_fallback_with_ignored_locals(
-                                fallback_function.as_ref().unwrap().deep_clone(),
-                                &locals_to_ignore,
-                            )
-                            .unwrap_or_else(unsupported_structuring_sentinel);
-                            (block, false)
-                        }
-                    }
+                    let locals_to_ignore =
+                        upvalues_in.iter().chain(params.iter()).cloned().collect();
+                    let (block, recovered_with_dispatcher) = legacy_with_certified_panic_recovery(
+                        function,
+                        fallback_function.as_ref().unwrap().deep_clone(),
+                        &locals_to_ignore,
+                        control_flow_policy,
+                        source_like_id_base,
+                        restructure::lift,
+                    );
+                    used_certified_dispatcher |= recovered_with_dispatcher;
+                    (block, false, Some(rejection_description))
                 }
             }
         }
@@ -1053,6 +1397,18 @@ fn decompile_function(
         ptime!(F_SIMPLIFY_GOTOS);
         simplify_gotos(&mut lifted);
     }
+    // Keep large source-like functions below Luau's 255-register ceiling by
+    // coalescing only proven-disjoint generated temporaries.  This pass is
+    // deliberately after structuring/fallback selection and before
+    // `name_locals`, so it cannot affect CFG proofs or declaration naming.
+    // Do not infer exhaustion-edge ownership from the lowered AST.  A legacy
+    // `GenericFor` with a `ForOrigin` is still indistinguishable from an
+    // ordinary source loop followed by a copy; nil-seed history and loop
+    // provenance are not a path proof.  The source-like builder performs its
+    // adapter rewrite directly from CFG edge ownership.  Legacy output stays
+    // untouched (and is rejected/falls back if it cannot represent the graph)
+    // until the AST pass carries explicit exhaustion-edge provenance.
+    ast::coalesce_locals::coalesce_generated_locals(&mut lifted, &source_like_protected_locals);
     if ast::simplify_gotos::block_has_goto_or_label(&lifted)
         || ast::simplify_gotos::block_has_unlowered_control(&lifted)
     {
@@ -1061,15 +1417,14 @@ fn decompile_function(
         if used_source_like {
             ast::set_local_id_base(source_like_id_base);
         }
-        let fallback_function = fallback_function.or_else(|| {
-            fallback_source
-                .take()
-                .map(|function| function.deep_clone())
-        });
-        if let Some(fallback) = fallback_function.and_then(|function| {
-            restructure::lift_fallback_with_ignored_locals(function, &locals_to_ignore)
-        })
-        {
+        let fallback_function = fallback_function
+            .or_else(|| fallback_source.take().map(|function| function.deep_clone()));
+        if control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl {
+            lifted = unsupported_structuring_sentinel();
+        } else if let Some(fallback) = fallback_function.and_then(|function| {
+            used_certified_dispatcher = true;
+            certified_fallback_for_policy(function, &locals_to_ignore, control_flow_policy)
+        }) {
             lifted = fallback;
         } else {
             // Never retain a partially structured block when the certified
@@ -1082,6 +1437,15 @@ fn decompile_function(
             // attempt so later cleanup passes cannot alias one of its locals.
             ast::set_local_id_base(source_like_end_id.max(ast::current_local_id()));
         }
+    }
+    if used_certified_dispatcher
+        && control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
+    {
+        // The strict policy is intentionally fail-closed even if a later AST
+        // pass happens to simplify the dispatcher into ordinary loops.  The
+        // caller asked for proof that no synthetic control was needed, and
+        // this function did not have that proof at the structuring boundary.
+        lifted = unsupported_structuring_sentinel();
     }
     {
         ptime!(F_FLATTEN_GUARDS);
@@ -1104,7 +1468,33 @@ fn decompile_function(
     // transitions cross synthetic loop iterations, so declarations live across
     // those transitions must already be known and can be hoisted outside exactly
     // that local dispatcher (without guessing parameters/upvalues).
-    ast::simplify_gotos::structure_irreducible_dispatchers(&mut block.lock());
+    // A dispatcher introduced for an inner region can expose a now-local
+    // direct-label set in its parent. Iterate to a fixed point so one pass
+    // does not leave a validly lowerable residual label behind.
+    while ast::simplify_gotos::structure_irreducible_dispatchers(&mut block.lock()) != 0 {}
+
+    // Capture a typed reason at the function boundary. The final chunk-level
+    // invariant still decides success/failure, but this preserves which
+    // function and which proof stage produced the residual control flow.
+    let diagnostic = {
+        let body = block.lock();
+        (ast::simplify_gotos::function_tree_has_goto_or_label(&body)
+            || ast::simplify_gotos::function_tree_has_unlowered_control(&body))
+        .then(|| DecompileDiagnostic {
+            stage: "final_invariant".to_string(),
+            code: source_like_rejection
+                .as_ref()
+                .map(|(code, _)| code.clone())
+                .unwrap_or_else(|| "residual_control_flow".to_string()),
+            function: function_identity,
+            message: source_like_rejection
+                .map(|(_, message)| message)
+                .unwrap_or_else(|| {
+                    "structured AST still contains an internal goto/label or loop marker"
+                        .to_string()
+                }),
+        })
+    };
 
     {
         let mut ast_function = ast_function.lock();
@@ -1112,12 +1502,20 @@ fn decompile_function(
         ast_function.parameters = params;
         ast_function.is_variadic = is_variadic;
     }
-    (ByAddress(ast_function), upvalues_in)
+    (ByAddress(ast_function), upvalues_in, diagnostic)
 }
 
 #[cfg(test)]
 mod option_tests {
-    use super::{ASSUME_NO_NAN, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS};
+    use super::{
+        ASSUME_NO_NAN, ControlFlowOutputPolicy, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS,
+        STRICT_NO_SYNTHETIC_CONTROL, certified_fallback_for_policy,
+        legacy_with_certified_panic_recovery, may_use_legacy_structurer,
+    };
+    use ast::{Assign, GenericForNext, LValue, Literal, Local, RValue, RcLocal};
+    use cfg::function::Function;
+    use restructure::{StructureAttempt, UnsafeStructureReason};
+    use rustc_hash::FxHashSet;
 
     #[test]
     fn decompile_option_bits_round_trip() {
@@ -1125,6 +1523,7 @@ mod option_tests {
             dont_reuse_var: true,
             no_synth_helpers: true,
             assume_no_nan: true,
+            ..DecompileOptions::default()
         };
         assert_eq!(
             DecompileOptions::from_flag_bits(options.bits()),
@@ -1135,6 +1534,157 @@ mod option_tests {
             DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN
         );
         assert!(DecompileOptions::from_flag_bits(1 << 31).is_none());
+    }
+
+    #[test]
+    fn strict_control_policy_round_trips_through_flag_bits() {
+        let options = DecompileOptions {
+            control_flow_policy: ControlFlowOutputPolicy::StrictNoSyntheticControl,
+            ..DecompileOptions::default()
+        };
+        assert_eq!(
+            DecompileOptions::from_flag_bits(options.bits()),
+            Some(options)
+        );
+        assert_ne!(options.bits() & STRICT_NO_SYNTHETIC_CONTROL, 0);
+        assert_eq!(
+            DecompileOptions::from_flag_bits(STRICT_NO_SYNTHETIC_CONTROL)
+                .expect("strict flag is supported")
+                .control_flow_policy,
+            ControlFlowOutputPolicy::StrictNoSyntheticControl
+        );
+    }
+
+    #[test]
+    fn strict_policy_rejects_certified_dispatcher_after_fallback_selection() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+
+        let allow = certified_fallback_for_policy(
+            function.clone(),
+            &FxHashSet::default(),
+            ControlFlowOutputPolicy::AllowCertifiedDispatcher,
+        );
+        assert!(
+            allow.is_some(),
+            "diagnostic dispatcher mode should allow fallback"
+        );
+        assert!(
+            certified_fallback_for_policy(
+                function,
+                &FxHashSet::default(),
+                ControlFlowOutputPolicy::StrictNoSyntheticControl,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn forced_legacy_panic_cannot_bypass_strict_control_policy() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+
+        let ignored = FxHashSet::default();
+        let reset_local_id = ast::current_local_id();
+        let (allowed, used_certified_dispatcher) = legacy_with_certified_panic_recovery(
+            function.clone(),
+            function.clone(),
+            &ignored,
+            ControlFlowOutputPolicy::AllowCertifiedDispatcher,
+            reset_local_id,
+            |_| panic!("forced legacy failure"),
+        );
+        assert!(used_certified_dispatcher);
+        assert!(!ast::simplify_gotos::block_has_unlowered_control(&allowed));
+
+        let (strict, used_certified_dispatcher) = legacy_with_certified_panic_recovery(
+            function.clone(),
+            function,
+            &ignored,
+            ControlFlowOutputPolicy::StrictNoSyntheticControl,
+            reset_local_id,
+            |_| panic!("forced legacy failure"),
+        );
+        assert!(used_certified_dispatcher);
+        assert!(
+            ast::simplify_gotos::block_has_unlowered_control(&strict),
+            "strict recovery must return the fail-closed sentinel, never a dispatcher"
+        );
+    }
+
+    #[test]
+    fn semantic_source_like_rejection_guards_legacy_matcher() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        let local = RcLocal::new(Local::new(Some("value".to_owned())));
+        let protocol_local = local.clone();
+        function.block_mut(entry).unwrap().push(
+            GenericForNext::new(
+                vec![local.clone()],
+                RValue::Local(local.clone()),
+                local.clone(),
+                local,
+            )
+            .into(),
+        );
+        // Generic protocol markers are now allowed to reach the legacy matcher
+        // when no SSA edge arguments are present; this preserves the existing
+        // source-shaped lowering for the committed residual fixtures. Edge
+        // arguments remain a hard guard because legacy cannot materialize phi
+        // transfers safely.
+        assert!(may_use_legacy_structurer(
+            &function,
+            &StructureAttempt::Unsupported,
+        ));
+
+        let mut edge_function = function.clone();
+        let edge_entry = edge_function.entry().unwrap();
+        let edge_exit = edge_function.new_block();
+        let edge = edge_function.graph_mut().add_edge(
+            edge_entry,
+            edge_exit,
+            cfg::block::BlockEdge::default(),
+        );
+        edge_function
+            .graph_mut()
+            .edge_weight_mut(edge)
+            .unwrap()
+            .arguments
+            .push((RcLocal::default(), RValue::Local(RcLocal::default())));
+        assert!(!may_use_legacy_structurer(
+            &edge_function,
+            &StructureAttempt::Unsupported,
+        ));
+
+        let mut visible_protocol_use = function.clone();
+        visible_protocol_use.block_mut(edge_entry).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(protocol_local)],
+                vec![RValue::Literal(Literal::Nil)],
+            )
+            .into(),
+        );
+        assert!(
+            !may_use_legacy_structurer(&visible_protocol_use, &StructureAttempt::Unsupported,),
+            "legacy must not hide a visible generic-for protocol register"
+        );
+
+        let empty = Function::new(0);
+        assert!(!may_use_legacy_structurer(
+            &empty,
+            &StructureAttempt::Unsafe(UnsafeStructureReason::CapturedCellReorder),
+        ));
     }
 }
 
@@ -1312,11 +1862,14 @@ mod v11_fixtures {
         expected.push(1);
         expected.extend(leb128(0)); // strings
         expected.extend(leb128(2)); // protos
-        let mut first = build_proto(&{
-            let mut p = simple_return_proto(vec![]);
-            p.flags = 8;
-            p
-        }, 12);
+        let mut first = build_proto(
+            &{
+                let mut p = simple_return_proto(vec![]);
+                p.flags = 8;
+                p
+            },
+            12,
+        );
         first.push(0xa5); // unknown trailing per-proto field
         expected.extend(leb128(first.len() as u64));
         expected.extend(first);

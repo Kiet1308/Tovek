@@ -1015,6 +1015,14 @@ fn is_for_next(function: &Function, node: NodeIndex) -> bool {
         .unwrap_or(false)
 }
 
+fn is_generic_for_body_edge(function: &Function, before: NodeIndex, body: NodeIndex) -> bool {
+    function
+        .block(before)
+        .and_then(|block| block.first())
+        .is_some_and(|statement| matches!(statement, ast::Statement::GenericForNext(_)))
+        && function.edges(before).any(|edge| edge.target() == body)
+}
+
 // TODO: REFACTOR: same as match_jump in restructure, maybe can use some common code?
 // TODO: STYLE: rename to merge_blocks or something
 pub fn structure_jumps(function: &mut Function, dominators: &Dominators<NodeIndex>) -> bool {
@@ -1033,8 +1041,18 @@ pub fn structure_jumps(function: &mut Function, dominators: &Dominators<NodeInde
             if block.is_empty() {
                 let mut remove = true;
                 for pred in function.predecessor_blocks(node).collect_vec() {
-                    let did = skip_over_node(function, pred, jump_edge)
-                        | try_remove_unnecessary_condition(function, pred);
+                    // An empty block immediately after FORGLOOP is the
+                    // compiler's unconditional-break body.  Collapsing it
+                    // rewires the Then arm to the follow block and erases the
+                    // source-level `break` port before provenance-aware loop
+                    // structuring sees it.  Keep this adapter intact; the
+                    // region pass will consume it as a body-side break.
+                    let did = if is_generic_for_body_edge(function, pred, node) {
+                        false
+                    } else {
+                        skip_over_node(function, pred, jump_edge)
+                            | try_remove_unnecessary_condition(function, pred)
+                    };
                     if did {
                         did_structure = true;
                     }

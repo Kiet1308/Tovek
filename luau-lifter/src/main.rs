@@ -75,6 +75,17 @@ struct FolderArgs {
     /// Faster/cleaner output, but changes behavior when either operand is NaN.
     #[arg(long)]
     assume_no_nan: bool,
+    /// Fail closed when source-like structuring cannot avoid synthetic control
+    /// (the folder driver is already strict by default).
+    #[arg(long)]
+    strict_no_synthetic_control: bool,
+    /// Permit the certified synthetic dispatcher (diagnostic opt-in).
+    ///
+    /// Ordinary folder runs are strict by default; this switch is an explicit
+    /// compatibility escape hatch for callers that need a semantics-preserving
+    /// dispatcher while investigating an otherwise unstructured function.
+    #[arg(long, conflicts_with = "strict_no_synthetic_control")]
+    allow_certified_dispatcher: bool,
     /// Emit immutable static upvalue metadata under OUT/.tovek-analysis.
     #[arg(long)]
     emit_upvalue_analysis: bool,
@@ -116,6 +127,13 @@ struct ValidateArgs {
     /// Default is off to preserve exact NaN semantics.
     #[arg(long)]
     assume_no_nan: bool,
+    /// Fail closed when source-like structuring cannot avoid synthetic control
+    /// (the folder driver is already strict by default).
+    #[arg(long)]
+    strict_no_synthetic_control: bool,
+    /// Permit the certified synthetic dispatcher (diagnostic opt-in).
+    #[arg(long, conflicts_with = "strict_no_synthetic_control")]
+    allow_certified_dispatcher: bool,
     /// Path to `luau-analyze.exe` (overrides LUAU_ANALYZE / --tool-dir / ROOT).
     #[arg(long)]
     analyze: Option<PathBuf>,
@@ -144,6 +162,11 @@ fn main() {
                     dont_reuse_var: a.dont_reuse_var,
                     no_synth_helpers: a.no_synth_helpers,
                     assume_no_nan: a.assume_no_nan,
+                    control_flow_policy: folder_control_flow_policy(
+                        a.strict_no_synthetic_control,
+                        a.allow_certified_dispatcher,
+                    ),
+                    ..luau_lifter::DecompileOptions::default()
                 };
                 let code = batch::run(
                     &a.src,
@@ -181,6 +204,11 @@ fn main() {
                         dont_reuse_var: a.dont_reuse_var,
                         no_synth_helpers: a.no_synth_helpers,
                         assume_no_nan: a.assume_no_nan,
+                        control_flow_policy: folder_control_flow_policy(
+                            a.strict_no_synthetic_control,
+                            a.allow_certified_dispatcher,
+                        ),
+                        ..luau_lifter::DecompileOptions::default()
                     },
                     a.analyze.as_deref(),
                     a.tool_dir.as_deref(),
@@ -198,6 +226,78 @@ fn main() {
     }
 }
 
+/// Select the folder driver's control-flow policy.  A normal folder run is
+/// fail-closed so an `ok` result can never contain the synthetic state-machine
+/// dispatcher.  The explicit allow switch is retained as a diagnostic escape
+/// hatch, while the existing strict flag remains accepted for CLI/API
+/// compatibility.
+fn folder_control_flow_policy(
+    strict_requested: bool,
+    allow_requested: bool,
+) -> luau_lifter::ControlFlowOutputPolicy {
+    if allow_requested && !strict_requested {
+        luau_lifter::ControlFlowOutputPolicy::AllowCertifiedDispatcher
+    } else {
+        luau_lifter::ControlFlowOutputPolicy::StrictNoSyntheticControl
+    }
+}
+
+#[cfg(test)]
+mod policy_tests {
+    use super::{Cli, Command, folder_control_flow_policy};
+    use clap::Parser;
+    use luau_lifter::ControlFlowOutputPolicy;
+
+    #[test]
+    fn ordinary_folder_defaults_to_strict_no_synthetic_control() {
+        assert_eq!(
+            folder_control_flow_policy(false, false),
+            ControlFlowOutputPolicy::StrictNoSyntheticControl
+        );
+        assert_eq!(
+            folder_control_flow_policy(true, false),
+            ControlFlowOutputPolicy::StrictNoSyntheticControl
+        );
+    }
+
+    #[test]
+    fn dispatcher_requires_explicit_diagnostic_opt_in() {
+        assert_eq!(
+            folder_control_flow_policy(false, true),
+            ControlFlowOutputPolicy::AllowCertifiedDispatcher
+        );
+    }
+
+    #[test]
+    fn cli_preserves_strict_flag_and_rejects_conflicting_allow() {
+        let parsed = Cli::try_parse_from([
+            "luau-lifter",
+            "decompile-folder",
+            "src",
+            "out",
+            "--strict-no-synthetic-control",
+        ])
+        .expect("legacy strict flag remains accepted");
+        let Command::DecompileFolder(args) = parsed.command else {
+            panic!("expected folder command");
+        };
+        assert!(args.strict_no_synthetic_control);
+        assert!(!args.allow_certified_dispatcher);
+
+        assert!(
+            Cli::try_parse_from([
+                "luau-lifter",
+                "decompile-folder",
+                "src",
+                "out",
+                "--strict-no-synthetic-control",
+                "--allow-certified-dispatcher",
+            ])
+            .is_err()
+        );
+    }
+}
+
 /// Legacy single-file mode: `luau-lifter <file> [-e] [--script-name NAME]`.
 fn run_single_file() {
     let mut args = std::env::args().skip(1);
@@ -212,6 +312,14 @@ fn run_single_file() {
             "--dont-reuse-var" => options.dont_reuse_var = true,
             "--no-synth-helpers" => options.no_synth_helpers = true,
             "--assume-no-nan" => options.assume_no_nan = true,
+            "--allow-certified-dispatcher" => {
+                options.control_flow_policy =
+                    luau_lifter::ControlFlowOutputPolicy::AllowCertifiedDispatcher;
+            }
+            "--strict-no-synthetic-control" => {
+                options.control_flow_policy =
+                    luau_lifter::ControlFlowOutputPolicy::StrictNoSyntheticControl;
+            }
             "--script-name" => {
                 script_name = Some(args.next().expect("--script-name requires a value"));
             }

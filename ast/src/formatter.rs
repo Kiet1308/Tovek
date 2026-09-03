@@ -1146,6 +1146,63 @@ mod tests {
             "function() end"
         );
     }
+
+    #[test]
+    fn generic_for_preserves_explicit_trailing_nil_iterator_argument() {
+        // The final nil is an explicit second iterator expression, not an
+        // implicit protocol placeholder.  Dropping it changes how a
+        // multret-producing first expression is adjusted by the VM.
+        let value = local("value");
+        let block = Block(vec![
+            GenericFor::new(
+                vec![value],
+                vec![Call::new(global("make"), vec![]).into(), Literal::Nil.into()],
+                Block::default(),
+            )
+            .into(),
+        ]);
+
+        assert_eq!(block.to_string(), "for value in make(), nil do\n\nend");
+    }
+
+    #[test]
+    fn generic_for_keeps_final_select_call_multret() {
+        // The lifter represents a fixed multi-result call feeding the
+        // generic-for protocol as Select::Call.  In the final iterator
+        // position it must remain bare so generator/state/control all spread.
+        let value = local("value");
+        let block = Block(vec![
+            GenericFor::new(
+                vec![value],
+                vec![RValue::Select(Select::Call(Call::new(
+                    global("make"),
+                    vec![],
+                )))],
+                Block::default(),
+            )
+            .into(),
+        ]);
+
+        assert_eq!(block.to_string(), "for value in make() do\n\nend");
+    }
+
+    #[test]
+    fn generic_for_keeps_final_select_vararg_multret() {
+        // Select::VarArg is used for a genuine multret vararg in the final
+        // iterator position.  Parenthesizing it would truncate the iterator
+        // tuple to one value and change the loop protocol.
+        let value = local("value");
+        let block = Block(vec![
+            GenericFor::new(
+                vec![value],
+                vec![RValue::Select(Select::VarArg(crate::VarArg))],
+                Block::default(),
+            )
+            .into(),
+        ]);
+
+        assert_eq!(block.to_string(), "for value in ... do\n\nend");
+    }
 }
 
 impl fmt::Display for IndentationMode {
@@ -1386,6 +1443,33 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 | RValue::Index(_)
                 | RValue::Select(Select::Call(_) | Select::MethodCall(_))
         )
+    }
+
+    /// Whether formatting this expression at the beginning of a statement
+    /// starts with `(`.  Luau treats a parenthesized call receiver as an
+    /// ambiguous continuation of the preceding statement unless a semicolon
+    /// separates the two lines (for example `(obj or fallback).Method()`).
+    fn rvalue_starts_with_parenthesis(value: &RValue) -> bool {
+        match value {
+            RValue::Index(index) => Self::should_wrap_left_rvalue(&index.left),
+            RValue::Call(call) => {
+                Self::should_wrap_left_rvalue(&call.value)
+                    || Self::rvalue_starts_with_parenthesis(&call.value)
+            }
+            RValue::MethodCall(method_call) => {
+                Self::should_wrap_left_rvalue(&method_call.value)
+                    || Self::rvalue_starts_with_parenthesis(&method_call.value)
+            }
+            RValue::Select(Select::Call(call)) => {
+                Self::should_wrap_left_rvalue(&call.value)
+                    || Self::rvalue_starts_with_parenthesis(&call.value)
+            }
+            RValue::Select(Select::MethodCall(method_call)) => {
+                Self::should_wrap_left_rvalue(&method_call.value)
+                    || Self::rvalue_starts_with_parenthesis(&method_call.value)
+            }
+            _ => false,
+        }
     }
 
     fn format_block(&mut self, block: &Block) -> fmt::Result {
@@ -2555,18 +2639,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             "for {} in ",
             generic_for.res_locals.iter().join(", ")
         )?;
-        for (i, rvalue) in generic_for
-            .right
-            .iter()
-            .enumerate()
-            .rev()
-            .skip_while(|(i, v)| *i != 0 && matches!(v, RValue::Literal(Literal::Nil)))
-            .map(|(_, x)| x)
-            .collect_vec()
-            .iter()
-            .rev()
-            .enumerate()
-        {
+        for (i, rvalue) in generic_for.right.iter().enumerate() {
             if i != 0 {
                 write!(self.output, ", ")?;
             }
@@ -2609,6 +2682,21 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     fn format_statement(&mut self, statement: &Statement) -> fmt::Result {
         self.indent()?;
+
+        if matches!(
+            statement,
+            Statement::Call(call)
+                if Self::rvalue_starts_with_parenthesis(&call.value)
+        ) || matches!(
+            statement,
+            Statement::MethodCall(method_call)
+                if Self::rvalue_starts_with_parenthesis(&method_call.value)
+        ) {
+            // A leading semicolon is valid Luau and prevents an expression
+            // statement beginning with `(` from being parsed as arguments to
+            // the preceding call/control statement.
+            write!(self.output, ";")?;
+        }
 
         match statement {
             Statement::Assign(assign) => self.format_assign(assign),

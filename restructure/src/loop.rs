@@ -8,6 +8,36 @@ use tuple::Map;
 use crate::GraphStructurer;
 use petgraph::{algo::dominators::Dominators, stable_graph::NodeIndex, visit::EdgeRef};
 
+/// FORGPREP carries the VM's three-value iterator tuple, but the final two
+/// values are implicit nils for a generalized table loop.  They are not valid
+/// source-level iterator expressions (`for k, v in table, nil, nil do` would
+/// call the table as a function), so preserve the compiler provenance and
+/// collapse this exact tuple to the one-expression Luau form.
+fn normalize_generic_for_operands(generic_for: &mut ast::GenericFor) {
+    if matches!(
+        generic_for.origin.map(|origin| origin.prep_kind),
+        Some(ast::ForPrepKind::Generic)
+    ) && generic_for.right.len() == 3
+        && generic_for.right[1..]
+            .iter()
+            .all(|value| matches!(value, ast::RValue::Literal(ast::Literal::Nil)))
+        && !generic_for
+            .origin
+            .is_some_and(|origin| origin.explicit_nil_args)
+        // A direct call/vararg is a single-result expression only when the
+        // source explicitly supplied the trailing nil arguments.  The
+        // compiler's implicit multi-result call is represented as `Select`.
+        // Dropping nils from the former would change which iterator/state/
+        // control values the generic-for protocol receives.
+        && !matches!(
+            generic_for.right.first(),
+            Some(ast::RValue::Call(_)) | Some(ast::RValue::VarArg(_))
+        )
+    {
+        generic_for.right.truncate(1);
+    }
+}
+
 impl GraphStructurer {
     pub(crate) fn is_loop_header(&self, node: NodeIndex) -> bool {
         self.loop_headers.contains(&node)
@@ -142,7 +172,7 @@ impl GraphStructurer {
                     }
                     ast::Statement::GenericForNext(generic_for_next) => {
                         let for_init = init_ast.remove(init_index).into_generic_for_init().unwrap();
-                        ast::GenericFor::new(
+                        let mut generic_for = ast::GenericFor::new(
                             generic_for_next
                                 .res_locals
                                 .iter()
@@ -150,8 +180,10 @@ impl GraphStructurer {
                                 .collect(),
                             for_init.0.right,
                             body_ast,
-                        )
-                        .into()
+                        );
+                        generic_for.origin = for_init.1;
+                        normalize_generic_for_operands(&mut generic_for);
+                        generic_for.into()
                     }
                     _ => {
                         unreachable!();
@@ -194,11 +226,14 @@ impl GraphStructurer {
                     };
                     let header_block = self.function.block_mut(header).unwrap();
                     *header_block = if header_block.is_empty() {
-                        vec![ast::While::new(
-                            ast::Unary::new(condition, ast::UnaryOperation::Not).reduce_condition(),
-                            header_block.clone(),
-                        )
-                        .into()]
+                        vec![
+                            ast::While::new(
+                                ast::Unary::new(condition, ast::UnaryOperation::Not)
+                                    .reduce_condition(),
+                                header_block.clone(),
+                            )
+                            .into(),
+                        ]
                         .into()
                     } else {
                         vec![ast::Repeat::new(condition, header_block.clone()).into()].into()
@@ -210,11 +245,10 @@ impl GraphStructurer {
                     self.match_jump(header, Some(next));
                 } else {
                     let header_block = self.function.block_mut(header).unwrap();
-                    *header_block = vec![ast::While::new(
-                        ast::Literal::Boolean(true).into(),
-                        header_block.clone(),
-                    )
-                    .into()]
+                    *header_block = vec![
+                        ast::While::new(ast::Literal::Boolean(true).into(), header_block.clone())
+                            .into(),
+                    ]
                     .into();
                     self.function.remove_edges(header);
                     self.match_jump(header, None);
@@ -252,7 +286,7 @@ impl GraphStructurer {
                     }
                     ast::Statement::GenericForNext(generic_for_next) => {
                         let for_init = init_ast.remove(init_index).into_generic_for_init().unwrap();
-                        ast::GenericFor::new(
+                        let mut generic_for = ast::GenericFor::new(
                             generic_for_next
                                 .res_locals
                                 .iter()
@@ -260,8 +294,10 @@ impl GraphStructurer {
                                 .collect(),
                             for_init.0.right,
                             body_ast,
-                        )
-                        .into()
+                        );
+                        generic_for.origin = for_init.1;
+                        normalize_generic_for_operands(&mut generic_for);
+                        generic_for.into()
                     }
                     _ => {
                         unreachable!();
@@ -530,7 +566,7 @@ impl GraphStructurer {
                         ast::Statement::GenericForNext(generic_for_next) => {
                             let for_init =
                                 init_ast.remove(init_index).into_generic_for_init().unwrap();
-                            ast::GenericFor::new(
+                            let mut generic_for = ast::GenericFor::new(
                                 generic_for_next
                                     .res_locals
                                     .iter()
@@ -538,8 +574,10 @@ impl GraphStructurer {
                                     .collect(),
                                 for_init.0.right,
                                 body_ast,
-                            )
-                            .into()
+                            );
+                            generic_for.origin = for_init.1;
+                            normalize_generic_for_operands(&mut generic_for);
+                            generic_for.into()
                         }
                         _ => {
                             unreachable!();
@@ -580,5 +618,57 @@ impl GraphStructurer {
         } else {
             false
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_generic_for_operands;
+    use ast::{Call, ForOrigin, ForPrepKind, GenericFor, Global, Literal, RValue, VmProfileId};
+
+    fn generic_with_first(first: RValue) -> GenericFor {
+        let mut generic = GenericFor::new(
+            vec![ast::RcLocal::default()],
+            vec![first, RValue::Literal(Literal::Nil), RValue::Literal(Literal::Nil)],
+            ast::Block::default(),
+        );
+        generic.origin = Some(ForOrigin {
+            prep_pc: 0,
+            step_pc: 1,
+            body_pc: 2,
+            follow_pc: 3,
+            prep_kind: ForPrepKind::Generic,
+            base_register: 0,
+            result_count: 1,
+            aux: 0,
+            bytecode_version: 6,
+            vm_profile: VmProfileId::Luau,
+            explicit_nil_args: false,
+        });
+        generic
+    }
+
+    #[test]
+    fn preserves_explicit_single_result_call_nil_arguments() {
+        let mut generic = generic_with_first(
+            RValue::Call(Call::new(RValue::Global(Global::from("f")), vec![])),
+        );
+        normalize_generic_for_operands(&mut generic);
+        assert_eq!(generic.right.len(), 3);
+    }
+
+    #[test]
+    fn preserves_explicit_call_padding_after_ssa_localization() {
+        let mut generic = generic_with_first(RValue::Local(ast::RcLocal::default()));
+        generic.origin.as_mut().unwrap().explicit_nil_args = true;
+        normalize_generic_for_operands(&mut generic);
+        assert_eq!(generic.right.len(), 3);
+    }
+
+    #[test]
+    fn collapses_implicit_local_iterator_nil_padding() {
+        let mut generic = generic_with_first(RValue::Local(ast::RcLocal::default()));
+        normalize_generic_for_operands(&mut generic);
+        assert_eq!(generic.right.len(), 1);
     }
 }

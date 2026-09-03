@@ -12,17 +12,44 @@
 //! This module is a fail-closed fallback: it translates the *original,
 //! post-SSA* CFG into a local state machine.  Every CFG edge becomes an explicit
 //! state transition, so no edge is discarded and no source-level goto/label is
-//! needed.  Generic-for VM markers are lowered using the exact Luau iterator
-//! protocol (`iterator(state, control)` and a nil test), including the hidden
-//! control register that ordinary syntax hides.
+//! needed.  Generic-for VM markers are deliberately rejected here until the
+//! CFG preserves VM prep-kind and edge-sensitive write metadata.  Treating
+//! `FORGPREP` as an identity assignment is not equivalent for tables, `__iter`,
+//! `__call`, or unsupported values, and treating `FORGLOOP` as a plain call can
+//! get hidden-control exhaustion semantics wrong.  Returning `None` keeps this
+//! fallback fail-closed instead of emitting plausible but incorrect Luau.
 
 use ast::{
-    Assign, Binary, BinaryOperation, Block, Call, Continue, If, LValue, Literal, Local, LocalRw,
+    Assign, Binary, BinaryOperation, Block, Continue, Global, If, LValue, Literal, Local, LocalRw,
     RValue, RcLocal, Statement, Traverse, Upvalue, While,
 };
 use cfg::{block::BlockEdge, function::Function};
+use itertools::Either;
 use petgraph::{stable_graph::NodeIndex, visit::EdgeRef};
 use rustc_hash::{FxHashMap, FxHashSet};
+
+/// Purpose of a local synthesized by the certified CFG fallback.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SyntheticRole {
+    ProgramCounter,
+    DispatchSignal,
+    DispatchExit,
+}
+
+#[derive(Clone, Debug)]
+pub struct SyntheticLocal {
+    pub local: RcLocal,
+    pub role: SyntheticRole,
+}
+
+/// A fallback block together with identity-based metadata for every synthetic
+/// control local it introduced.  Policies can inspect this without relying on
+/// generated names such as `controlFlowState`.
+#[derive(Debug)]
+pub struct CertifiedFallback {
+    pub block: Block,
+    pub synthetic_locals: Vec<SyntheticLocal>,
+}
 
 /// Lower a post-SSA CFG to a valid Luau state machine.
 ///
@@ -54,9 +81,69 @@ pub fn lift_with_ignored_locals(
     function: Function,
     locals_to_ignore: &FxHashSet<RcLocal>,
 ) -> Option<Block> {
+    lift_certified_with_ignored_locals(function, locals_to_ignore).map(|result| result.block)
+}
+
+pub fn lift_certified_with_ignored_locals(
+    function: Function,
+    locals_to_ignore: &FxHashSet<RcLocal>,
+) -> Option<CertifiedFallback> {
     let entry = *function.entry().as_ref()?;
     let nodes = reachable_nodes(&function, entry);
     if nodes.is_empty() {
+        return None;
+    }
+
+    // The dispatcher only has a proven lowering for the flat, post-SSA CFG
+    // statements above.  A prestructured statement with an embedded block is
+    // opaque to the CFG edge/liveness analysis below: `If::values_read` and
+    // `Traverse` intentionally expose only the condition, while the nested
+    // body can contain writes or reference captures.  Lowering such a block
+    // as an ordinary state statement can therefore reset a captured local on
+    // the next dispatcher iteration.  Reject it until nested-block effects
+    // have a dedicated scope-aware analysis.
+    if nodes.iter().any(|&node| {
+        function.block(node).is_some_and(|block| {
+            block.iter().any(statement_has_embedded_block)
+        })
+    }) {
+        return None;
+    }
+
+    // Break/continue statements are source-level control transfers whose
+    // target is an enclosing loop.  The synthetic dispatcher introduces a
+    // different loop, so copying one of these statements into a state would
+    // break or continue the dispatcher itself instead of the original loop.
+    // Post-SSA CFG input normally represents these transfers as edges; reject
+    // any pre-existing marker rather than guessing its ownership.
+    if nodes.iter().any(|&node| {
+        function.block(node).is_some_and(|block| {
+            block.iter().any(|statement| {
+                matches!(statement, Statement::Break(_) | Statement::Continue(_))
+            })
+        })
+    }) {
+        return None;
+    }
+
+    // A GenericForInit/GenericForNext pair is still a low-level VM protocol,
+    // not a source-level iterator expression.  The current Function IR does
+    // not retain the FORGPREP variant/AUX metadata needed to distinguish the
+    // table fast path, `__iter`, `__call`, and callable-generator paths, nor
+    // the path-specific result writes on exhaustion.  Refuse every reachable
+    // marker until that provenance is available; callers then produce the
+    // explicit unsupported-structuring sentinel rather than wrong source.
+    if nodes.iter().any(|&node| {
+        function
+            .block(node)
+            .is_some_and(crate::region::block_contains_unlowered_control)
+            || function.edges(node).any(|edge| {
+                edge.weight()
+                    .arguments
+                    .iter()
+                    .any(|(_, value)| crate::region::rvalue_contains_unlowered_control(value))
+            })
+    }) {
         return None;
     }
 
@@ -65,7 +152,7 @@ pub fn lift_with_ignored_locals(
         .enumerate()
         .map(|(state, &node)| (node, state))
         .collect();
-    let state_local = RcLocal::new(Local::new(Some("controlFlowState".to_string())));
+    let state_local = fresh_synthetic_local(&function, "controlFlowState");
 
     let mut plans = Vec::with_capacity(nodes.len());
     let mut state_facts = Vec::with_capacity(nodes.len());
@@ -118,6 +205,8 @@ pub fn lift_with_ignored_locals(
         &function,
         &nodes,
         &state_facts,
+        &state_successors,
+        &states,
         &persistent_locals,
         locals_to_ignore,
     ) {
@@ -132,20 +221,273 @@ pub fn lift_with_ignored_locals(
         root.push(declaration.into());
     }
     root.push(
-        Assign::new(
-            vec![LValue::Local(state_local.clone())],
-            vec![Literal::Number(entry_state as f64).into()],
-        )
+        Assign::new(vec![LValue::Local(state_local.clone())], vec![
+            Literal::Number(entry_state as f64).into(),
+        ])
         .into(),
     );
     root.push(While::new(Literal::Boolean(true).into(), dispatch).into());
-    Some(root)
+    Some(CertifiedFallback {
+        block: root,
+        synthetic_locals: vec![SyntheticLocal {
+            local: state_local,
+            role: SyntheticRole::ProgramCounter,
+        }],
+    })
+}
+
+fn statement_has_embedded_block(statement: &Statement) -> bool {
+    match statement {
+        // An empty If is the CFG conditional terminator and is safe: its real
+        // branches are represented by BlockEdges.  A non-empty branch is an
+        // already-structured subgraph whose effects are not visible to the
+        // fallback's flat-state analysis.
+        Statement::If(if_statement) => {
+            !if_statement.then_block.lock().is_empty()
+                || !if_statement.else_block.lock().is_empty()
+        }
+        // These statements always own an embedded body.  They are not emitted
+        // by the post-SSA CFG fallback input and must not be treated as opaque
+        // state statements until their nested effects are analyzed.
+        Statement::While(_)
+        | Statement::Repeat(_)
+        | Statement::NumericFor(_)
+        | Statement::GenericFor(_) => true,
+        _ => false,
+    }
+}
+
+fn fresh_synthetic_local(function: &Function, base: &str) -> RcLocal {
+    let mut used_names = FxHashSet::default();
+    let mut seen_closures = FxHashSet::default();
+    let mut incomplete_closure = false;
+
+    for local in &function.parameters {
+        remember_local_name(local, &mut used_names);
+    }
+    for (node, block) in function.blocks() {
+        remember_names_in_block(
+            block,
+            &mut used_names,
+            &mut seen_closures,
+            &mut incomplete_closure,
+        );
+        for edge in function.edges(node) {
+            for (destination, value) in &edge.weight().arguments {
+                remember_local_name(destination, &mut used_names);
+                remember_globals_in_rvalue(
+                    value,
+                    &mut used_names,
+                    &mut seen_closures,
+                    &mut incomplete_closure,
+                );
+            }
+        }
+    }
+
+    if incomplete_closure {
+        // A child function may still be decompiled on another worker.  Its
+        // eventual body can introduce a global whose name is unavailable now;
+        // leave the synthetic binding unnamed so the pre-naming AST remains
+        // independent of that scheduling race.  The normal naming pass will
+        // assign a readable collision-free name once all child bodies exist.
+        return RcLocal::default();
+    }
+
+    let mut candidate = base.to_string();
+    let mut suffix = 0usize;
+    while used_names.contains(&candidate) {
+        suffix += 1;
+        candidate = format!("{base}_{suffix}");
+    }
+    RcLocal::new(Local::new(Some(candidate)))
+}
+
+fn remember_names_in_block(
+    block: &Block,
+    used_names: &mut FxHashSet<String>,
+    seen_closures: &mut FxHashSet<usize>,
+    incomplete_closure: &mut bool,
+) {
+    for statement in block.iter() {
+        for local in statement.values() {
+            remember_local_name(local, used_names);
+        }
+        if let Statement::Close(close) = statement {
+            // `Close` intentionally has an empty LocalRw summary because it
+            // only closes cells, but its locals still occupy source names.
+            for local in &close.locals {
+                remember_local_name(local, used_names);
+            }
+        }
+        let mut statement_copy = statement.clone();
+        let _: Option<()> = statement_copy.traverse_values(&mut |_, value| -> Option<()> {
+            match value {
+                Either::Left(LValue::Global(global))
+                | Either::Right(RValue::Global(global)) => {
+                    remember_global_name(global, used_names)
+                }
+                Either::Right(RValue::Closure(closure)) => {
+                    remember_closure_names(
+                        closure,
+                        used_names,
+                        seen_closures,
+                        incomplete_closure,
+                    )
+                }
+                _ => {}
+            }
+            None
+        });
+        match statement {
+            Statement::If(node) => {
+                remember_names_in_block(
+                    &node.then_block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                );
+                remember_names_in_block(
+                    &node.else_block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                );
+            }
+            Statement::While(node) => {
+                remember_names_in_block(
+                    &node.block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                )
+            }
+            Statement::Repeat(node) => {
+                remember_names_in_block(
+                    &node.block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                )
+            }
+            Statement::NumericFor(node) => {
+                remember_local_name(&node.counter, used_names);
+                remember_names_in_block(
+                    &node.block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                );
+            }
+            Statement::GenericFor(node) => {
+                for local in &node.res_locals {
+                    remember_local_name(local, used_names);
+                }
+                remember_names_in_block(
+                    &node.block.lock(),
+                    used_names,
+                    seen_closures,
+                    incomplete_closure,
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
+fn remember_closure_names(
+    closure: &ast::Closure,
+    used_names: &mut FxHashSet<String>,
+    seen_closures: &mut FxHashSet<usize>,
+    incomplete_closure: &mut bool,
+) {
+    let identity = closure.function.0.as_ptr() as usize;
+    if !seen_closures.insert(identity) {
+        return;
+    }
+    let (parameters, body) = {
+        let function = closure.function.lock();
+        (function.parameters.clone(), function.body.clone())
+    };
+    for parameter in &parameters {
+        remember_local_name(parameter, used_names);
+    }
+    if body.is_empty() {
+        *incomplete_closure = true;
+    } else {
+        remember_names_in_block(&body, used_names, seen_closures, incomplete_closure);
+    }
+}
+
+fn remember_local_name(local: &RcLocal, used_names: &mut FxHashSet<String>) {
+    if let Some(name) = local.0.0.lock().0.clone() {
+        used_names.insert(name);
+    }
+}
+
+fn remember_global_name(global: &Global, used_names: &mut FxHashSet<String>) {
+    if let Ok(name) = std::str::from_utf8(&global.0) {
+        used_names.insert(name.to_string());
+    }
+}
+
+fn remember_globals_in_rvalue(
+    value: &RValue,
+    used_names: &mut FxHashSet<String>,
+    seen_closures: &mut FxHashSet<usize>,
+    incomplete_closure: &mut bool,
+) {
+    if let RValue::Local(local) = value {
+        remember_local_name(local, used_names);
+    }
+    if let RValue::Global(global) = value {
+        remember_global_name(global, used_names);
+    }
+    if let RValue::Closure(closure) = value {
+        remember_closure_names(closure, used_names, seen_closures, incomplete_closure);
+    }
+    let mut value_copy = value.clone();
+    value_copy.traverse_rvalues(&mut |nested| {
+        match nested {
+            RValue::Local(local) => remember_local_name(local, used_names),
+            RValue::Global(global) => remember_global_name(global, used_names),
+            RValue::Closure(closure) => {
+                remember_closure_names(closure, used_names, seen_closures, incomplete_closure)
+            }
+            _ => {}
+        }
+    });
+}
+
+fn remember_ref_captures_in_rvalue(value: &RValue, captured_ref: &mut FxHashSet<RcLocal>) {
+    // `traverse_rvalues` visits nested expressions but deliberately does not
+    // call the visitor for the root value, so inspect the root explicitly.
+    if let RValue::Closure(closure) = value {
+        for upvalue in &closure.upvalues {
+            if let Upvalue::Ref(local) = upvalue {
+                captured_ref.insert(local.clone());
+            }
+        }
+    }
+    let mut remember = |value: &mut RValue| {
+        if let RValue::Closure(closure) = value {
+            for upvalue in &closure.upvalues {
+                if let Upvalue::Ref(local) = upvalue {
+                    captured_ref.insert(local.clone());
+                }
+            }
+        }
+    };
+    let mut value_copy = value.clone();
+    value_copy.traverse_rvalues(&mut remember);
 }
 
 fn contains_ref_capture(
     function: &Function,
     nodes: &[NodeIndex],
     facts: &[StateFacts],
+    successors: &[Vec<NodeIndex>],
+    states: &FxHashMap<NodeIndex, usize>,
     persistent_locals: &[RcLocal],
     locals_to_ignore: &FxHashSet<RcLocal>,
 ) -> bool {
@@ -183,6 +525,7 @@ fn contains_ref_capture(
             // Such a shape is still ambiguous after CLOSEUPVALS was discarded,
             // so fail closed regardless of whether liveness selected it.
             if persistent.contains(local)
+                || state_is_cyclic(capture_state, successors, states)
                 || edge_values
                     .get(capture_state)
                     .is_some_and(|values| values.contains(local))
@@ -199,6 +542,41 @@ fn contains_ref_capture(
                 return true;
             }
         }
+    }
+    false
+}
+
+/// Return whether re-entering a dispatcher state is possible through one of
+/// its outgoing CFG paths.  A reference capture in such a state would create
+/// a fresh Lua cell on every dispatcher iteration; without preserved
+/// `CLOSEUPVALS` scope metadata the fallback cannot prove that this is the
+/// intended lifetime, so the caller must reject it.
+fn state_is_cyclic(
+    state: usize,
+    successors: &[Vec<NodeIndex>],
+    states: &FxHashMap<NodeIndex, usize>,
+) -> bool {
+    let mut pending = successors
+        .get(state)
+        .into_iter()
+        .flatten()
+        .filter_map(|node| states.get(node).copied())
+        .collect::<Vec<_>>();
+    let mut seen = FxHashSet::default();
+    while let Some(candidate) = pending.pop() {
+        if candidate == state {
+            return true;
+        }
+        if !seen.insert(candidate) {
+            continue;
+        }
+        pending.extend(
+            successors
+                .get(candidate)
+                .into_iter()
+                .flatten()
+                .filter_map(|node| states.get(node).copied()),
+        );
     }
     false
 }
@@ -272,6 +650,10 @@ fn analyze_state(statements: &[Statement], edges: &[(NodeIndex, BlockEdge)]) -> 
     // entry, and over-hoisting is safer than allowing a reset local to leak.
     for (_, edge) in edges {
         for (_, value) in &edge.arguments {
+            // Closures can be materialized as edge arguments, not only in a
+            // source statement.  Their reference captures still need the
+            // same dispatcher-cell lifetime proof as statement closures.
+            remember_ref_captures_in_rvalue(value, &mut facts.captured_ref);
             for local in value.values_read() {
                 if !facts.defs.contains(local) {
                     facts.use_before_def.insert(local.clone());
@@ -339,52 +721,6 @@ fn lower_block(
     states: &FxHashMap<NodeIndex, usize>,
     state_local: &RcLocal,
 ) -> Option<Block> {
-    // A residual GenericForNext is a terminator in the post-SSA CFG.  Lower it
-    // before the ordinary conditional terminator path so the hidden control
-    // register is updated only on the non-nil iterator result edge.
-    if matches!(statements.last(), Some(Statement::GenericForNext(_))) {
-        if edges.len() != 2 {
-            return None;
-        }
-        let next = statements.pop()?.into_generic_for_next().ok()?;
-        let result = next.res_locals.first()?.as_local()?.clone();
-        let then_edge = edge_of_type(edges, cfg::block::BranchType::Then)?;
-        let else_edge = edge_of_type(edges, cfg::block::BranchType::Else)?;
-        let then_target = transition(then_edge, states, state_local)?;
-        let else_target = transition(else_edge, states, state_local)?;
-
-        let call = Call::new(
-            next.generator,
-            vec![next.state, next.control.clone().into()],
-        );
-        let mut assign = Assign::new(next.res_locals, vec![call.into()]);
-        // This is a VM multi-result assignment.  Keeping it parallel is
-        // important when the iterator returns values that alias its inputs.
-        assign.parallel = true;
-        statements.push(assign.into());
-        statements.push(
-            If::new(
-                Binary::new(
-                    result.clone().into(),
-                    Literal::Nil.into(),
-                    BinaryOperation::NotEqual,
-                )
-                .into(),
-                {
-                    let mut body = Block::default();
-                    body.push(
-                        Assign::new(vec![LValue::Local(next.control)], vec![result.into()]).into(),
-                    );
-                    body.extend(then_target.0);
-                    body
-                },
-                else_target,
-            )
-            .into(),
-        );
-        return Some(statements.into());
-    }
-
     // The CFG lifter represents a conditional jump as an empty If terminator;
     // its real branches live on the two outgoing BlockEdges.  Refuse to
     // reinterpret a non-empty If here because doing so could execute a nested
@@ -413,26 +749,15 @@ fn lower_block(
         return Some(statements.into());
     }
 
-    // GenericForInit is an AST-only marker.  Its wrapped assignment already
-    // contains the exact iterator setup expressions; making it an ordinary
-    // multi-assignment preserves evaluation order and initializes the hidden
-    // control value just as Luau's FORGPREP does.
     let mut lowered = Vec::with_capacity(statements.len() + 2);
     for statement in statements {
         match statement {
-            Statement::GenericForInit(init) => {
-                let mut assign = init.0;
-                assign.prefix = false;
-                // FORGPREP initializes the generator/state/control tuple as
-                // one parallel VM operation.  Keep the assignment marked as
-                // parallel so later cleanup passes cannot split, reorder, or
-                // collapse its self-referential copies.
-                assign.parallel = true;
-                lowered.push(assign.into());
-            }
-            // These markers are only valid at the terminator position handled
-            // above.  Never print their debug representation into source.
-            Statement::GenericForNext(_)
+            // Never print low-level protocol markers into source.  The early
+            // reachable-node guard normally handles these; retaining the
+            // match here makes the helper fail closed even if it is reused
+            // independently in the future.
+            Statement::GenericForInit(_)
+            | Statement::GenericForNext(_)
             | Statement::NumForInit(_)
             | Statement::NumForNext(_)
             | Statement::Goto(_)
@@ -486,10 +811,9 @@ fn transition(
         body.push(assign.into());
     }
     body.push(
-        Assign::new(
-            vec![LValue::Local(state_local.clone())],
-            vec![Literal::Number(state as f64).into()],
-        )
+        Assign::new(vec![LValue::Local(state_local.clone())], vec![
+            Literal::Number(state as f64).into(),
+        ])
         .into(),
     );
     body.push(Continue {}.into());
@@ -500,7 +824,8 @@ fn transition(
 mod tests {
     use super::*;
     use ast::{
-        Closure, Function as AstFunction, GenericForInit, GenericForNext, NumForNext, Upvalue,
+        Call, Closure, Function as AstFunction, GenericForInit, GenericForNext, If,
+        NumForNext, Upvalue,
     };
     use cfg::block::BlockEdge;
     use parking_lot::Mutex;
@@ -522,7 +847,7 @@ mod tests {
     }
 
     #[test]
-    fn lowers_generic_for_with_explicit_iterator_control() {
+    fn rejects_generic_for_without_vm_protocol_metadata() {
         let mut function = Function::new(0);
         let entry = function.new_block();
         let next = function.new_block();
@@ -567,12 +892,255 @@ mod tests {
             cfg::block::BranchType::Unconditional,
         );
 
-        let output = lift(function).unwrap().to_string();
-        assert!(output.contains("generator(state, control)"), "{output}");
-        assert!(output.contains("control = result"), "{output}");
-        assert!(!output.contains("GenericFor"), "{output}");
-        assert!(!output.contains("internal control"), "{output}");
-        assert!(!output.contains("goto "), "{output}");
+        // The fallback must not pretend that a tuple assignment implements
+        // Luau's FORGPREP/FORGLOOP protocol.  Without prep-kind/AUX metadata,
+        // emitting a callable iterator would be wrong for plain tables,
+        // __iter/__call values, and path-specific exhaustion writes.
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
+    fn reports_synthetic_control_by_local_identity() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+
+        let fallback = lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals.len(), 1);
+        assert_eq!(
+            fallback.synthetic_locals[0].role,
+            SyntheticRole::ProgramCounter
+        );
+        let rendered = fallback.block.to_string();
+        assert!(rendered.contains("while true do"), "{rendered}");
+    }
+
+    #[test]
+    fn gives_synthetic_control_a_fresh_source_name() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let user_local = local("controlFlowState");
+        function.block_mut(entry).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(user_local.clone())],
+                vec![Literal::Number(7.0).into()],
+            )
+            .into(),
+        );
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(vec![user_local.into()]).into());
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        let synthetic = &fallback.synthetic_locals[0].local;
+        assert_eq!(synthetic.to_string(), "controlFlowState_1");
+        assert_ne!(synthetic.to_string(), "controlFlowState");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_a_global() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(ast::Return::new(vec![Global::from("controlFlowState").into()]).into());
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
+        assert!(fallback.block.to_string().contains("return controlFlowState"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_a_closure_global() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let closure_function = Arc::new(Mutex::new(AstFunction {
+            body: Block(vec![
+                ast::Return::new(vec![Global::from("controlFlowState").into()]).into(),
+            ]),
+            ..AstFunction::default()
+        }));
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(closure_function),
+            upvalues: Vec::new(),
+        };
+        function.block_mut(entry).unwrap().push(
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(closure)]).into(),
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_a_nested_closure_global() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let closure_function = Arc::new(Mutex::new(AstFunction {
+            body: Block(vec![
+                If::new(
+                    Global::from("ready").into(),
+                    Block(vec![
+                        ast::Return::new(vec![Global::from("controlFlowState").into()]).into(),
+                    ]),
+                    Block::default(),
+                )
+                .into(),
+            ]),
+            ..AstFunction::default()
+        }));
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(closure_function),
+            upvalues: Vec::new(),
+        };
+        function.block_mut(entry).unwrap().push(
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(closure)]).into(),
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_an_edge_closure_global() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let target = function.new_block();
+        function.set_entry(entry);
+
+        let closure_function = Arc::new(Mutex::new(AstFunction {
+            body: Block(vec![
+                ast::Return::new(vec![Global::from("controlFlowState").into()]).into(),
+            ]),
+            ..AstFunction::default()
+        }));
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(closure_function),
+            upvalues: Vec::new(),
+        };
+        function
+            .block_mut(target)
+            .unwrap()
+            .push(ast::Return::default().into());
+        function.graph_mut().add_edge(
+            entry,
+            target,
+            BlockEdge {
+                branch_type: cfg::block::BranchType::Unconditional,
+                arguments: vec![(callback, RValue::Closure(closure))],
+            },
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("controlFlowState_1"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_an_edge_local() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let target = function.new_block();
+        function.set_entry(entry);
+
+        let source = local("controlFlowState");
+        let sink = local("sink");
+        function
+            .block_mut(target)
+            .unwrap()
+            .push(ast::Return::new(vec![sink.clone().into()]).into());
+        function.graph_mut().add_edge(
+            entry,
+            target,
+            BlockEdge {
+                branch_type: cfg::block::BranchType::Unconditional,
+                arguments: vec![(sink, RValue::Local(source))],
+            },
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("sink = controlFlowState"));
+    }
+
+    #[test]
+    fn avoids_synthetic_control_name_used_by_close_local() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        let close_local = local("controlFlowState");
+        function.block_mut(entry).unwrap().extend([
+            Statement::Close(ast::Close {
+                locals: vec![close_local],
+            })
+            .into(),
+            ast::Return::default().into(),
+        ]);
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        assert_eq!(fallback.synthetic_locals[0].local.to_string(), "controlFlowState_1");
+        assert!(fallback.block.to_string().contains("__close_uv(controlFlowState)"));
+    }
+
+    #[test]
+    fn leaves_control_name_unnamed_when_a_closure_body_is_not_ready() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let child = Arc::new(Mutex::new(AstFunction::default()));
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(child.clone()),
+            upvalues: Vec::new(),
+        };
+        function.block_mut(entry).unwrap().push(
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(closure)]).into(),
+        );
+
+        let fallback =
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).unwrap();
+        let synthetic_name = fallback.synthetic_locals[0].local.to_string();
+        assert!(
+            synthetic_name.starts_with("UNNAMED_"),
+            "an incomplete child must not influence the synthetic name: {synthetic_name}"
+        );
+
+        // Simulate the child worker filling its AST after the parent fallback
+        // has already been built.  The pre-naming fallback remains collision
+        // free because its control local has no user-visible spelling.
+        child.lock().body.push(
+            ast::Return::new(vec![Global::from("controlFlowState").into()]).into(),
+        );
+        assert_ne!(synthetic_name, "controlFlowState");
+        assert!(fallback.block.to_string().contains("controlFlowState"));
     }
 
     #[test]
@@ -585,10 +1153,9 @@ mod tests {
         let value = local("value");
         let sink = local("sink");
         function.block_mut(entry).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(value.clone())],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(value.clone())], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         function
@@ -617,17 +1184,14 @@ mod tests {
 
         let value = local("value");
         function.block_mut(loop_node).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(value.clone())],
-                vec![
-                    Binary::new(
-                        value.clone().into(),
-                        Literal::Number(1.0).into(),
-                        BinaryOperation::Add,
-                    )
-                    .into(),
-                ],
-            )
+            Assign::new(vec![LValue::Local(value.clone())], vec![
+                Binary::new(
+                    value.clone().into(),
+                    Literal::Number(1.0).into(),
+                    BinaryOperation::Add,
+                )
+                .into(),
+            ])
             .into(),
         );
         edge(
@@ -654,10 +1218,9 @@ mod tests {
         let value = local("value");
         let sink = local("sink");
         function.block_mut(producer).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(value.clone())],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(value.clone())], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         function
@@ -694,10 +1257,9 @@ mod tests {
         let parameter = local("parameter");
         function.parameters.push(parameter.clone());
         function.block_mut(entry).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(local("unused"))],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(local("unused"))], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         function
@@ -745,6 +1307,78 @@ mod tests {
     }
 
     #[test]
+    fn refuses_loop_markers_hidden_in_edge_closure() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(entry);
+
+        let callback = local("callback");
+        let generator = local("generator");
+        let state = local("state");
+        let control = local("control");
+        let value = local("value");
+        let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+        for_init.0.right = vec![RValue::Global(Global::from("items"))];
+        let child = AstFunction {
+            body: Block::from(vec![
+                for_init.into(),
+                GenericForNext::new(vec![value], generator.into(), state, control).into(),
+            ]),
+            ..Default::default()
+        };
+        let closure = RValue::Closure(Closure {
+            function: by_address::ByAddress(Arc::new(Mutex::new(child))),
+            upvalues: Vec::new(),
+        });
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+        function.graph_mut().add_edge(
+            entry,
+            exit,
+            BlockEdge {
+                branch_type: cfg::block::BranchType::Unconditional,
+                arguments: vec![(callback, closure)],
+            },
+        );
+
+        assert!(
+            lift_certified_with_ignored_locals(function, &FxHashSet::default()).is_none(),
+            "fallback must reject markers nested in edge closures"
+        );
+    }
+
+    #[test]
+    fn refuses_prestructured_nested_blocks_until_scope_analysis() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+
+        let captured = local("captured");
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
+            upvalues: vec![Upvalue::Ref(captured)],
+        };
+        let nested = If::new(
+            Literal::Boolean(true).into(),
+            Block(vec![
+                Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(closure)])
+                    .into(),
+            ]),
+            Block::default(),
+        );
+        function.block_mut(entry).unwrap().push(nested.into());
+
+        // `If` bodies are not visible to the flat CFG liveness/capture pass.
+        // Keep the fallback certified by refusing this prestructured shape
+        // until nested-block scope effects have a dedicated analysis.
+        assert!(lift(function).is_none());
+    }
+
+    #[test]
     fn refuses_ref_capture_that_would_cross_dispatcher_iterations() {
         let mut function = Function::new(0);
         let capture = function.new_block();
@@ -758,17 +1392,15 @@ mod tests {
             upvalues: vec![Upvalue::Ref(captured.clone())],
         };
         function.block_mut(capture).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(callback)],
-                vec![RValue::Closure(closure)],
-            )
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(
+                closure,
+            )])
             .into(),
         );
         function.block_mut(write).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(captured.clone())],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(captured.clone())], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         edge(
@@ -805,10 +1437,9 @@ mod tests {
             upvalues: vec![Upvalue::Ref(parameter.clone())],
         };
         function.block_mut(capture).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(callback)],
-                vec![RValue::Closure(closure)],
-            )
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(
+                closure,
+            )])
             .into(),
         );
         function
@@ -851,25 +1482,22 @@ mod tests {
         let captured = local("captured");
         let callback = local("callback");
         function.block_mut(capture).unwrap().extend([
-            Assign::new(
-                vec![LValue::Local(captured.clone())],
-                vec![Literal::Number(0.0).into()],
-            )
+            Assign::new(vec![LValue::Local(captured.clone())], vec![
+                Literal::Number(0.0).into(),
+            ])
             .into(),
-            Assign::new(
-                vec![LValue::Local(callback)],
-                vec![RValue::Closure(Closure {
+            Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(
+                Closure {
                     function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
                     upvalues: vec![Upvalue::Ref(captured.clone())],
-                })],
-            )
+                },
+            )])
             .into(),
         ]);
         function.block_mut(write).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(captured)],
-                vec![Literal::Number(1.0).into()],
-            )
+            Assign::new(vec![LValue::Local(captured)], vec![
+                Literal::Number(1.0).into(),
+            ])
             .into(),
         );
         edge(
@@ -888,6 +1516,134 @@ mod tests {
         assert!(
             lift(function).is_none(),
             "cross-state writes after a Ref capture are ambiguous without Close metadata"
+        );
+    }
+
+    #[test]
+    fn refuses_ref_capture_in_reentered_state() {
+        // The local is assigned and captured in the same state, so ordinary
+        // use-before-def liveness sees no value crossing a state boundary.
+        // A self-loop nevertheless re-enters that state on every dispatcher
+        // iteration, recreating the captured cell and changing closure
+        // behaviour.  Without preserved CLOSEUPVALS scope metadata this shape
+        // must fail closed.
+        let mut function = Function::new(0);
+        let state = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(state);
+
+        let captured = local("captured");
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction {
+                body: Block::from(vec![
+                    ast::Return::new(vec![captured.clone().into()]).into(),
+                ]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Ref(captured.clone())],
+        };
+        function.block_mut(state).unwrap().extend([
+            Assign::new(
+                vec![LValue::Local(captured.clone())],
+                vec![RValue::Call(Call::new(Global::from("nextValue").into(), vec![]))],
+            )
+            .into(),
+            Assign::new(
+                vec![LValue::Local(callback.clone())],
+                vec![RValue::Closure(closure)],
+            )
+            .into(),
+            Statement::Call(Call::new(Global::from("save").into(), vec![callback.into()])).into(),
+            If::new(
+                RValue::Call(Call::new(Global::from("again").into(), vec![])),
+                Block::default(),
+                Block::default(),
+            )
+            .into(),
+        ]);
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(ast::Return::new(Vec::new()).into());
+        edge(
+            &mut function,
+            state,
+            state,
+            cfg::block::BranchType::Then,
+        );
+        edge(
+            &mut function,
+            state,
+            exit,
+            cfg::block::BranchType::Else,
+        );
+
+        assert!(
+            lift(function).is_none(),
+            "fallback must reject Ref captures in states that can be re-entered"
+        );
+    }
+
+    #[test]
+    fn refuses_ref_capture_carried_by_edge_argument() {
+        // A closure may be created by an SSA edge transfer rather than by a
+        // statement in the source block. The transferred closure still
+        // captures the local cell, and the next dispatcher state writes that
+        // local. Missing the edge expression in capture analysis would emit
+        // a fallback that recreates the cell on each iteration.
+        let mut function = Function::new(0);
+        let capture = function.new_block();
+        let write = function.new_block();
+        function.set_entry(capture);
+
+        let captured = local("captured");
+        let callback = local("callback");
+        let closure = Closure {
+            function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
+            upvalues: vec![Upvalue::Ref(captured.clone())],
+        };
+        function.block_mut(write).unwrap().push(
+            Assign::new(
+                vec![LValue::Local(captured.clone())],
+                vec![Literal::Number(1.0).into()],
+            )
+            .into(),
+        );
+        function.graph_mut().add_edge(
+            capture,
+            write,
+            BlockEdge {
+                branch_type: cfg::block::BranchType::Unconditional,
+                arguments: vec![(callback, RValue::Closure(closure))],
+            },
+        );
+        edge(
+            &mut function,
+            write,
+            capture,
+            cfg::block::BranchType::Unconditional,
+        );
+
+        assert!(
+            lift(function).is_none(),
+            "fallback must inspect reference captures in edge arguments"
+        );
+    }
+
+    #[test]
+    fn refuses_preexisting_loop_control_markers() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function
+            .block_mut(entry)
+            .unwrap()
+            .push(Statement::Continue(ast::Continue {}).into());
+
+        assert!(
+            lift(function).is_none(),
+            "fallback cannot infer the owner of a pre-existing Continue"
         );
     }
 }

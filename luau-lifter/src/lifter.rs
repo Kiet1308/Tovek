@@ -25,6 +25,7 @@ use cfg::{
 pub struct Lifter<'a> {
     function_list: &'a Vec<BytecodeFunction>,
     string_table: &'a Vec<Vec<u8>>,
+    bytecode_version: u8,
     blocks: FxHashMap<usize, NodeIndex>,
     function: Function,
     // Insertion-ordered (bytecode/PC order, deterministic) rather than a hash map:
@@ -36,6 +37,10 @@ pub struct Lifter<'a> {
     static_function_id: Option<String>,
     register_map: FxHashMap<usize, ast::RcLocal>,
     constant_map: FxHashMap<usize, ast::Literal>,
+    // Provenance indexed by FORGLOOP PC.  Prep discovery already resolves the
+    // target step PC, so keeping the pair here avoids rescanning the complete
+    // instruction vector for every FORGLOOP marker.
+    for_origins_by_step: FxHashMap<usize, ast::ForOrigin>,
     current_node: Option<NodeIndex>,
     upvalues: Vec<ast::RcLocal>,
 }
@@ -44,6 +49,7 @@ impl<'a> Lifter<'a> {
     pub fn lift(
         f_list: &'a Vec<BytecodeFunction>,
         str_list: &'a Vec<Vec<u8>>,
+        bytecode_version: u8,
         function_id: usize,
         static_function_id: Option<String>,
     ) -> (
@@ -54,12 +60,14 @@ impl<'a> Lifter<'a> {
         let mut context = Self {
             function_list: f_list,
             string_table: str_list,
+            bytecode_version,
             blocks: FxHashMap::default(),
             function: Function::new(function_id),
             child_functions: Vec::new(),
             static_function_id,
             register_map: FxHashMap::default(),
             constant_map: FxHashMap::default(),
+            for_origins_by_step: FxHashMap::default(),
             current_node: None,
             upvalues: Vec::new(),
         };
@@ -70,6 +78,7 @@ impl<'a> Lifter<'a> {
 
     fn lift_function(&mut self) {
         self.discover_blocks().unwrap();
+        self.build_for_origin_map();
 
         let mut blocks = self.blocks.keys().cloned().collect::<Vec<_>>();
 
@@ -113,6 +122,8 @@ impl<'a> Lifter<'a> {
 
         for (start_pc, end_pc) in block_ranges {
             self.current_node = Some(self.block_to_node(start_pc));
+            self.function
+                .set_block_pc_range(self.current_node.unwrap(), start_pc, end_pc);
             let (statements, edges) = self.lift_block(start_pc, end_pc);
             let block = self.function.block_mut(self.current_node.unwrap()).unwrap();
             block.0.extend(statements);
@@ -120,14 +131,158 @@ impl<'a> Lifter<'a> {
         }
 
         let entry_node = self.function.new_block();
-        self.function.set_edges(
-            entry_node,
-            vec![(
-                self.block_to_node(0),
-                BlockEdge::new(BranchType::Unconditional),
-            )],
-        );
+        self.function.set_edges(entry_node, vec![(
+            self.block_to_node(0),
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
         self.function.set_entry(entry_node);
+    }
+
+    /// Pair every generic prep with its FORGLOOP once, before marker lifting.
+    /// The previous FORGLOOP path searched all instructions for each loop,
+    /// making a function with many loops quadratic in instruction count.
+    fn build_for_origin_map(&mut self) {
+        let instructions = &self.function_list[self.function.id].instructions;
+        for (prep_pc, instruction) in instructions.iter().enumerate() {
+            let Instruction::AD {
+                op_code:
+                    prep_op_code @ (OpCode::LOP_FORGPREP
+                    | OpCode::LOP_FORGPREP_NEXT
+                    | OpCode::LOP_FORGPREP_INEXT),
+                a,
+                d,
+                ..
+            } = instruction
+            else {
+                continue;
+            };
+            let step_pc = ((prep_pc + 1) as isize + *d as isize) as usize;
+            let (step_a, step_d, step_aux) = match instructions.get(step_pc) {
+                Some(Instruction::AD {
+                    op_code: OpCode::LOP_FORGLOOP,
+                    a: step_a,
+                    d: step_d,
+                    aux: step_aux,
+                }) => (*step_a, *step_d, *step_aux),
+                _ => panic!(
+                    "FORGPREP at PC {prep_pc} has no FORGLOOP partner at PC {step_pc}"
+                ),
+            };
+            let result_count = (step_aux & 0xff) as u8;
+            assert!(result_count > 0, "FORGLOOP has zero result locals");
+            let explicit_nil_args = Self::has_explicit_nil_args(instructions, prep_pc, *a);
+            let origin = ast::ForOrigin {
+                prep_pc,
+                step_pc,
+                body_pc: ((step_pc + 1) as isize + step_d as isize) as usize,
+                follow_pc: step_pc + 1,
+                prep_kind: match prep_op_code {
+                    OpCode::LOP_FORGPREP => ast::ForPrepKind::Generic,
+                    OpCode::LOP_FORGPREP_NEXT => ast::ForPrepKind::Next,
+                    OpCode::LOP_FORGPREP_INEXT => ast::ForPrepKind::Inext,
+                    _ => unreachable!(),
+                },
+                base_register: *a,
+                result_count,
+                aux: step_aux,
+                bytecode_version: self.bytecode_version,
+                vm_profile: ast::VmProfileId::Luau,
+                explicit_nil_args,
+            };
+            // Duplicate step targets are malformed bytecode.  Keep the
+            // failure explicit instead of allowing one marker to inherit the
+            // provenance of an unrelated prep.
+            assert!(
+                self.for_origins_by_step.insert(step_pc, origin).is_none(),
+                "duplicate FORGPREP target at FORGLOOP PC {step_pc}"
+            );
+            // `step_a` is checked when constructing the paired Next marker;
+            // retain the read here to make the malformed-base case explicit
+            // without normalizing it into a seemingly valid origin.
+            let _ = step_a;
+        }
+    }
+
+    /// Detect the bytecode shape produced by an explicit single-result call
+    /// followed by `, nil, nil` in a generic-for expression.  An implicit
+    /// multi-result call is written directly into the protocol base register
+    /// with `C=3`; explicit padding uses `C=1` and either writes the base
+    /// directly or moves the temporary result into it before the two nil loads.
+    fn has_explicit_nil_args(instructions: &[Instruction], prep_pc: usize, base: u8) -> bool {
+        let load_nil = |pc: usize, register: u8| {
+            matches!(
+                instructions.get(pc),
+                Some(Instruction::BC {
+                    op_code: OpCode::LOP_LOADNIL,
+                    a,
+                    ..
+                }) if *a == register
+            )
+        };
+        let Some(load_two_pc) = prep_pc.checked_sub(1) else {
+            return false;
+        };
+        let Some(load_one_pc) = prep_pc.checked_sub(2) else {
+            return false;
+        };
+        if !load_nil(load_two_pc, base.saturating_add(2))
+            || !load_nil(load_one_pc, base.saturating_add(1))
+        {
+            return false;
+        }
+        let is_single_call = |instruction: &Instruction, register: u8| {
+            matches!(
+                instruction,
+                Instruction::BC {
+                    op_code: OpCode::LOP_CALL | OpCode::LOP_CALLFB,
+                    a,
+                    // C stores result count + 1; textual `C=1` (one result)
+                    // is represented internally as c == 2.
+                    c: 2,
+                    ..
+                } if *a == register
+            )
+        };
+        // CALLFB is followed by an injected NOP carrying its feedback AUX;
+        // that NOP appears between the call and the MOVE/LOADNIL sequence.
+        // Walk backwards over only those no-ops, then require the exact
+        // single-result call (or a MOVE from its result) to avoid matching an
+        // unrelated call in the setup block.
+        let is_nop = |pc: usize| {
+            matches!(
+                instructions.get(pc),
+                Some(Instruction::BC {
+                    op_code: OpCode::LOP_NOP,
+                    ..
+                })
+            )
+        };
+        let Some(mut cursor) = prep_pc.checked_sub(3) else {
+            return false;
+        };
+        while cursor > 0 && is_nop(cursor) {
+            cursor -= 1;
+        }
+        match instructions.get(cursor) {
+            Some(instruction) if is_single_call(instruction, base) => true,
+            Some(Instruction::BC {
+                op_code: OpCode::LOP_MOVE,
+                a,
+                b,
+                ..
+            }) if *a == base => {
+                let Some(mut call_pc) = cursor.checked_sub(1) else {
+                    return false;
+                };
+                while call_pc > 0 && is_nop(call_pc) {
+                    call_pc -= 1;
+                }
+                instructions
+                    .get(call_pc)
+                    .is_some_and(|instruction| is_single_call(instruction, *b))
+            }
+            _ => false,
+        }
     }
 
     fn discover_blocks(&mut self) -> Result<()> {
@@ -854,10 +1009,9 @@ impl<'a> Lifter<'a> {
                     }
                     OpCode::LOP_LOADN => {
                         let target = self.register(a as _);
-                        let statement = ast::Assign::new(
-                            vec![target.into()],
-                            vec![ast::Literal::Number(d as _).into()],
-                        );
+                        let statement = ast::Assign::new(vec![target.into()], vec![
+                            ast::Literal::Number(d as _).into(),
+                        ]);
                         statements.push(statement.into());
                     }
                     OpCode::LOP_GETIMPORT => {
@@ -1279,18 +1433,19 @@ impl<'a> Lifter<'a> {
                     OpCode::LOP_FORGPREP
                     | OpCode::LOP_FORGPREP_INEXT
                     | OpCode::LOP_FORGPREP_NEXT => {
+                        let prep_pc = block_start + index;
                         let generator = self.register(a as _);
                         let state = self.register((a + 1) as _);
                         let counter = self.register((a + 2) as _);
-                        statements.push(ast::GenericForInit::new(generator, state, counter).into());
-                        let loop_index = ((block_start + index + 1) as isize + d as isize) as usize;
-                        assert!(matches!(
-                            self.function_list[self.function.id].instructions[loop_index],
-                            Instruction::AD {
-                                op_code: OpCode::LOP_FORGLOOP,
-                                ..
-                            }
-                        ));
+                        let loop_index = ((prep_pc + 1) as isize + d as isize) as usize;
+                        let origin = *self
+                            .for_origins_by_step
+                            .get(&loop_index)
+                            .expect("generic prep provenance map missing FORGLOOP partner");
+                        statements.push(
+                            ast::GenericForInit::new_with_origin(generator, state, counter, origin)
+                                .into(),
+                        );
                         edges.push((
                             self.block_to_node(loop_index),
                             BlockEdge::new(BranchType::Unconditional),
@@ -1301,20 +1456,29 @@ impl<'a> Lifter<'a> {
                     // this could be done with some custom bytecode
                     // same applies to fastcall
                     OpCode::LOP_FORGLOOP => {
+                        let step_pc = block_start + index;
                         let generator = self.register(a as _);
                         let state = self.register((a + 1) as _);
-                        let _counter = self.register((a + 2) as _);
-                        statements.push(
-                            ast::GenericForNext::new(
-                                (a as usize + 3..a as usize + 3 + (aux & 0xff) as usize)
-                                    .map(|r| self.register(r))
-                                    .collect::<Vec<_>>(),
-                                generator.into(),
-                                state,
-                                self.register((a + 2) as _),
-                            )
-                            .into(),
+                        let result_count = (aux & 0xff) as usize;
+                        assert!(result_count > 0, "FORGLOOP has zero result locals");
+                        let origin = self
+                            .for_origins_by_step
+                            .get(&step_pc)
+                            .copied()
+                            .filter(|origin| {
+                                origin.base_register == a
+                                    && origin.result_count as usize == result_count
+                            });
+                        let mut next = ast::GenericForNext::new(
+                            (a as usize + 3..a as usize + 3 + result_count)
+                                .map(|r| self.register(r))
+                                .collect::<Vec<_>>(),
+                            generator.into(),
+                            state,
+                            self.register((a + 2) as _),
                         );
+                        next.origin = origin;
+                        statements.push(next.into());
                         edges.push((
                             self.block_to_node(
                                 ((block_start + index + 1) as isize + d as isize) as usize,
@@ -1413,16 +1577,13 @@ impl<'a> Lifter<'a> {
                             lifted_function.name = func_name;
                         }
                         statements.push(
-                            ast::Assign::new(
-                                vec![dest_local.into()],
-                                vec![
-                                    ast::Closure {
-                                        function: ByAddress(function),
-                                        upvalues: upvalues_passed,
-                                    }
-                                    .into(),
-                                ],
-                            )
+                            ast::Assign::new(vec![dest_local.into()], vec![
+                                ast::Closure {
+                                    function: ByAddress(function),
+                                    upvalues: upvalues_passed,
+                                }
+                                .into(),
+                            ])
                             .into(),
                         );
                     }
@@ -1621,5 +1782,64 @@ impl<'a> Lifter<'a> {
             ),
             Instruction::E { op_code, .. } => matches!(op_code, OpCode::LOP_JUMPX),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Instruction, Lifter, OpCode};
+
+    #[test]
+    fn detects_explicit_nil_padding_through_callfb_nop() {
+        // CALLFB's textual C=1 (one result) is encoded as c=2 and is followed
+        // by an injected NOP before the MOVE into the FORGPREP base register.
+        let instructions = vec![
+            Instruction::BC {
+                op_code: OpCode::LOP_CALLFB,
+                a: 4,
+                b: 1,
+                c: 2,
+                aux: 0,
+            },
+            Instruction::BC {
+                op_code: OpCode::LOP_NOP,
+                a: 0,
+                b: 0,
+                c: 0,
+                aux: 0,
+            },
+            Instruction::BC {
+                op_code: OpCode::LOP_MOVE,
+                a: 1,
+                b: 4,
+                c: 0,
+                aux: 0,
+            },
+            Instruction::BC {
+                op_code: OpCode::LOP_LOADNIL,
+                a: 2,
+                b: 0,
+                c: 0,
+                aux: 0,
+            },
+            Instruction::BC {
+                op_code: OpCode::LOP_LOADNIL,
+                a: 3,
+                b: 0,
+                c: 0,
+                aux: 0,
+            },
+            Instruction::AD {
+                op_code: OpCode::LOP_FORGPREP,
+                a: 1,
+                d: 0,
+                aux: 0,
+            },
+        ];
+
+        assert!(Lifter::has_explicit_nil_args(&instructions, 5, 1));
+        // Short prefixes must fail closed without underflowing while looking
+        // behind the prep instruction.
+        assert!(!Lifter::has_explicit_nil_args(&instructions, 2, 1));
     }
 }

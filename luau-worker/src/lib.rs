@@ -2,7 +2,9 @@ use futures_util::StreamExt;
 extern crate console_error_panic_hook;
 
 use base64::prelude::*;
-use luau_lifter::{try_decompile_bytecode_with_options, DecompileOptions};
+use luau_lifter::{
+    try_decompile_bytecode_with_options, ControlFlowOutputPolicy, DecompileOptions,
+};
 use serde::{Deserialize, Serialize};
 use worker::*;
 
@@ -135,10 +137,30 @@ fn parse_flags_text(raw: &str) -> std::result::Result<DecompileOptions, String> 
         match normalized.as_str() {
             "NONE" => {}
             "DONT_REUSE_VAR" => options.dont_reuse_var = true,
+            "STRICT_NO_SYNTHETIC_CONTROL" => {
+                options.control_flow_policy = ControlFlowOutputPolicy::StrictNoSyntheticControl;
+            }
             _ => return Err(format!("unsupported decompile flag: {token}")),
         }
     }
     Ok(options)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_flags_text;
+    use luau_lifter::{ControlFlowOutputPolicy, STRICT_NO_SYNTHETIC_CONTROL};
+
+    #[test]
+    fn worker_accepts_strict_control_policy_by_name_and_bits() {
+        let named = parse_flags_text("strict-no-synthetic-control").unwrap();
+        assert_eq!(
+            named.control_flow_policy,
+            ControlFlowOutputPolicy::StrictNoSyntheticControl
+        );
+        let numeric = parse_flags_text(&STRICT_NO_SYNTHETIC_CONTROL.to_string()).unwrap();
+        assert_eq!(numeric, named);
+    }
 }
 
 fn parse_bool(raw: &str, field: &str) -> std::result::Result<bool, String> {

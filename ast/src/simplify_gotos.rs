@@ -144,6 +144,7 @@ fn dc_stmt(statement: &Statement) -> Statement {
             res_locals: generic_for.res_locals.clone(),
             right: generic_for.right.iter().map(dc_rvalue).collect(),
             block: dc_arc(&generic_for.block),
+            origin: generic_for.origin,
         }),
         Statement::SetList(set_list) => Statement::SetList(SetList {
             object_local: set_list.object_local.clone(),
@@ -730,10 +731,9 @@ fn remove_dead_labels(block: &mut Block, targets: &FxHashSet<String>) {
 // It is both smaller and more readable than duplicating a large `B` tail.
 
 fn set_local_number(local: &RcLocal, value: usize) -> Statement {
-    Assign::new(
-        vec![LValue::Local(local.clone())],
-        vec![Literal::Number(value as f64).into()],
-    )
+    Assign::new(vec![LValue::Local(local.clone())], vec![
+        Literal::Number(value as f64).into(),
+    ])
     .into()
 }
 
@@ -1186,6 +1186,18 @@ fn structure_direct_label_dispatcher(
         return false;
     }
 
+    // This pass runs after local naming in the production pipeline, so every
+    // synthetic dispatcher binding must choose a name that is fresh against
+    // both locals and globals already present in this lexical scope.  A fixed
+    // spelling would let the program counter or escape flags shadow a user
+    // binding (or a global lookup) when callers use this public AST pass
+    // directly.
+    let mut reserved = FxHashSet::default();
+    crate::rehoist_constants::collect_reserved_identifiers(block, &mut reserved);
+    let state_name = crate::rehoist_constants::unique_name("controlFlowState", &mut reserved);
+    let jumped_name = crate::rehoist_constants::unique_name("controlFlowJumped", &mut reserved);
+    let exit_name = crate::rehoist_constants::unique_name("controlFlowExit", &mut reserved);
+
     // This fallback runs after LocalDeclarer.  Pull declarations at this lexical
     // level outside the synthetic loop so a state transition cannot redeclare
     // and nil-out a value on the next dispatcher iteration.  Initializers remain
@@ -1213,9 +1225,9 @@ fn structure_direct_label_dispatcher(
         }
     }
 
-    let state = RcLocal::new(crate::Local::new(Some("controlFlowState".to_string())));
-    let jumped = RcLocal::new(crate::Local::new(Some("controlFlowJumped".to_string())));
-    let exit_action = RcLocal::new(crate::Local::new(Some("controlFlowExit".to_string())));
+    let state = RcLocal::new(crate::Local::new(Some(state_name)));
+    let jumped = RcLocal::new(crate::Local::new(Some(jumped_name)));
+    let exit_action = RcLocal::new(crate::Local::new(Some(exit_name)));
     declarations.push(state.clone());
     declarations.push(jumped.clone());
     declarations.push(exit_action.clone());
@@ -1446,10 +1458,9 @@ fn direct_label_index(stmts: &[Statement], label: &str) -> Option<usize> {
 }
 
 fn set_local_bool(local: &RcLocal, value: bool) -> Statement {
-    Assign::new(
-        vec![LValue::Local(local.clone())],
-        vec![Literal::Boolean(value).into()],
-    )
+    Assign::new(vec![LValue::Local(local.clone())], vec![
+        Literal::Boolean(value).into(),
+    ])
     .into()
 }
 
@@ -2404,10 +2415,9 @@ mod tests {
             panic!("hit flag reset should assign a local:\n{}", block);
         };
         assert!(
-            matches!(
-                reset_hit.right.as_slice(),
-                [RValue::Literal(Literal::Boolean(false))]
-            ),
+            matches!(reset_hit.right.as_slice(), [RValue::Literal(
+                Literal::Boolean(false)
+            )]),
             "hit flag must reset before each replacement execution:\n{}",
             block
         );
@@ -2442,10 +2452,10 @@ mod tests {
         };
         let guarded_suffix = fallback_if.then_block.lock();
         assert!(
-            matches!(
-                guarded_suffix.0.as_slice(),
-                [Statement::Call(_), Statement::Assign(_)]
-            ),
+            matches!(guarded_suffix.0.as_slice(), [
+                Statement::Call(_),
+                Statement::Assign(_)
+            ]),
             "hit flag must guard every statement skipped by the original goto:\n{}",
             block
         );
@@ -2544,6 +2554,33 @@ mod tests {
         let named = named.to_string();
         assert!(named.contains("controlFlowState"), "{}", named);
         assert!(named.contains("controlFlowJumped"), "{}", named);
+    }
+
+    #[test]
+    fn irreducible_dispatcher_uses_fresh_names_after_local_naming() {
+        let user = local("controlFlowState");
+        let mut block = Block(vec![
+            assign(&user, RValue::Literal(Literal::Number(7.0))),
+            goto("A"),
+            label("A"),
+            assign(&user, RValue::Literal(Literal::Number(8.0))),
+            goto("B"),
+            label("B"),
+            Return::new(vec![local_value(&user)]).into(),
+        ]);
+
+        let changes = structure_irreducible_dispatchers(&mut block);
+        assert!(changes > 0, "expected a direct irreducible dispatcher:\n{block}");
+        let rendered = block.to_string();
+        assert!(
+            rendered.contains("controlFlowState_2"),
+            "synthetic state must avoid the user's controlFlowState binding:\n{rendered}"
+        );
+        assert!(
+            rendered.contains("controlFlowState = 7")
+                || rendered.contains("controlFlowState = 8"),
+            "user binding must remain distinct from the dispatcher state:\n{rendered}"
+        );
     }
 
     #[test]

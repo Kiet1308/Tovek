@@ -9,6 +9,15 @@ use petgraph::{
 
 use crate::block::{BlockEdge, BranchType};
 
+/// Optional bytecode PC envelope for a lifted CFG block.  Hand-built CFGs may
+/// leave this unset; production Luau lifting records it so provenance-seeded
+/// region proofs can distinguish a loop body from an outer continuation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlockPcRange {
+    pub start: usize,
+    pub end: usize,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Function {
     pub id: usize,
@@ -17,6 +26,7 @@ pub struct Function {
     pub is_variadic: bool,
     graph: StableDiGraph<ast::Block, BlockEdge>,
     entry: Option<NodeIndex>,
+    block_pc_ranges: std::collections::HashMap<NodeIndex, BlockPcRange>,
 }
 
 impl Function {
@@ -28,6 +38,7 @@ impl Function {
             is_variadic: false,
             graph: StableDiGraph::new(),
             entry: None,
+            block_pc_ranges: std::collections::HashMap::new(),
         }
     }
 
@@ -89,6 +100,23 @@ impl Function {
 
     pub fn blocks_mut(&mut self) -> impl Iterator<Item = &mut ast::Block> {
         self.graph.node_weights_mut()
+    }
+
+    pub fn set_block_pc_range(&mut self, block: NodeIndex, start: usize, end: usize) {
+        if self.has_block(block) {
+            self.block_pc_ranges
+                .insert(block, BlockPcRange { start, end });
+        }
+    }
+
+    pub fn block_pc_range(&self, block: NodeIndex) -> Option<BlockPcRange> {
+        self.block_pc_ranges.get(&block).copied()
+    }
+
+    pub fn block_at_pc(&self, pc: usize) -> Option<NodeIndex> {
+        self.block_pc_ranges.iter().find_map(|(node, range)| {
+            (range.start == pc).then_some(*node)
+        })
     }
 
     pub fn successor_blocks(&self, block: NodeIndex) -> Neighbors<BlockEdge> {
@@ -187,6 +215,7 @@ impl Function {
     }
 
     pub fn remove_block(&mut self, block: NodeIndex) -> Option<ast::Block> {
+        self.block_pc_ranges.remove(&block);
         self.graph.remove_node(block)
     }
 }

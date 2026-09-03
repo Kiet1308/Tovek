@@ -1,10 +1,66 @@
 use crate::{
-    has_side_effects, Assign, Block, LValue, LocalRw, RValue, RcLocal, SideEffects, Traverse,
+    Assign, Block, LValue, LocalRw, RValue, RcLocal, SideEffects, Traverse, has_side_effects,
 };
 use itertools::Itertools;
 use parking_lot::Mutex;
 use std::fmt;
 use triomphe::Arc;
+
+/// The bytecode preparation strategy used by a generic-for loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ForPrepKind {
+    Generic,
+    Next,
+    Inext,
+}
+
+/// VM semantics profile used to interpret the protocol metadata.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum VmProfileId {
+    Luau,
+}
+
+/// Stable identity for one generic-for protocol pair.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ForId {
+    pub prep_pc: usize,
+    pub step_pc: usize,
+}
+
+/// Provenance for a compiler-emitted generic-for protocol.
+///
+/// The pair `(prep_pc, step_pc)` is a stable loop identity.  The remaining
+/// fields preserve the exact control-flow and result shape that produced the
+/// internal marker, allowing structuring passes to reject ambiguous pairs.
+/// Metadata is optional only for compatibility with hand-built AST fixtures;
+/// production bytecode lifting always attaches it, and the typed source-like
+/// structurer rejects a reachable marker when the identity is absent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ForOrigin {
+    pub prep_pc: usize,
+    pub step_pc: usize,
+    pub body_pc: usize,
+    pub follow_pc: usize,
+    pub prep_kind: ForPrepKind,
+    pub base_register: u8,
+    pub result_count: u8,
+    pub aux: u32,
+    pub bytecode_version: u8,
+    pub vm_profile: VmProfileId,
+    /// True when the source supplied an explicit single-result call followed
+    /// by nil iterator arguments.  The VM tuple is otherwise padded with
+    /// implicit nils for ordinary one-expression generic loops.
+    pub explicit_nil_args: bool,
+}
+
+impl ForOrigin {
+    pub fn id(self) -> ForId {
+        ForId {
+            prep_pc: self.prep_pc,
+            step_pc: self.step_pc,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct NumForInit {
@@ -267,18 +323,36 @@ impl fmt::Display for NumericFor {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct GenericForInit(pub Assign);
+pub struct GenericForInit(pub Assign, pub Option<ForOrigin>);
 
 impl GenericForInit {
     pub fn new(generator: RcLocal, state: RcLocal, initial_control: RcLocal) -> Self {
-        Self(Assign::new(
-            vec![
-                generator.clone().into(),
-                state.clone().into(),
-                initial_control.clone().into(),
-            ],
-            vec![generator.into(), state.into(), initial_control.into()],
-        ))
+        Self(
+            Assign::new(
+                vec![
+                    generator.clone().into(),
+                    state.clone().into(),
+                    initial_control.clone().into(),
+                ],
+                vec![generator.into(), state.into(), initial_control.into()],
+            ),
+            None,
+        )
+    }
+
+    pub fn new_with_origin(
+        generator: RcLocal,
+        state: RcLocal,
+        initial_control: RcLocal,
+        origin: ForOrigin,
+    ) -> Self {
+        let mut init = Self::new(generator, state, initial_control);
+        init.1 = Some(origin);
+        init
+    }
+
+    pub fn origin(&self) -> Option<ForOrigin> {
+        self.1
     }
 }
 
@@ -344,6 +418,7 @@ pub struct GenericForNext {
     /// made it impossible for a CFG fallback to lower a residual FORGLOOP
     /// without guessing which local carries the control value.
     pub control: RcLocal,
+    pub origin: Option<ForOrigin>,
 }
 
 impl GenericForNext {
@@ -359,7 +434,24 @@ impl GenericForNext {
             generator,
             state: RValue::Local(state),
             control,
+            origin: None,
         }
+    }
+
+    pub fn new_with_origin(
+        res_locals: Vec<RcLocal>,
+        generator: RValue,
+        state: RcLocal,
+        control: RcLocal,
+        origin: ForOrigin,
+    ) -> Self {
+        let mut next = Self::new(res_locals, generator, state, control);
+        next.origin = Some(origin);
+        next
+    }
+
+    pub fn origin(&self) -> Option<ForOrigin> {
+        self.origin
     }
 }
 
@@ -447,6 +539,7 @@ pub struct GenericFor {
     pub res_locals: Vec<RcLocal>,
     pub right: Vec<RValue>,
     pub block: Arc<Mutex<Block>>,
+    pub origin: Option<ForOrigin>,
 }
 
 impl PartialEq for GenericFor {
@@ -462,7 +555,19 @@ impl GenericFor {
             res_locals,
             right,
             block: Arc::new(block.into()),
+            origin: None,
         }
+    }
+
+    pub fn new_with_origin(
+        res_locals: Vec<RcLocal>,
+        right: Vec<RValue>,
+        block: Block,
+        origin: ForOrigin,
+    ) -> Self {
+        let mut generic_for = Self::new(res_locals, right, block);
+        generic_for.origin = Some(origin);
+        generic_for
     }
 }
 
