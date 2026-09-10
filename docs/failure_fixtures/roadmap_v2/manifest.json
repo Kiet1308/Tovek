@@ -16,6 +16,20 @@
   "split": "development",
   "cases": [
     {
+      "name": "arithmetic_effects",
+      "group": "buffer/math",
+      "source": "arithmetic_effects.luau",
+      "driver": "arithmetic_effects.driver.luau",
+      "expected_stdout": "-2\t3\t3\n-zero\t3\t3\n+zero\t3\t3\n4\t11\t11\ninf\tinf\tinf\n-inf\t3\t3\nnan\tnan\tnan\nboxed\t3\t3\tlt:-3,lt:-2\nboxed\t7\t9\tlt:1,mul:2:2,lt:2,mul:3:2\nerror\tfalse\ttrue\tlt:1,mul:error\n"
+    },
+    {
+      "name": "arithmetic_capture",
+      "group": "effect/order",
+      "source": "arithmetic_capture.luau",
+      "driver": "arithmetic_capture.driver.luau",
+      "expected_stdout": "23\tlt:1,mul:10\n"
+    },
+    {
       "name": "global_evaluation_order",
       "group": "effect/order",
       "source": "global_evaluation_order.luau",

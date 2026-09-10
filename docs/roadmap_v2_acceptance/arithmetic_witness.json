@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "compiler_flags": [
+    "--text",
+    "-O2",
+    "-g1/-g2",
+    "--fflags=false"
+  ],
+  "tools": {
+    "compiler": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+      "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+    },
+    "luau": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau.exe",
+      "sha256": "50029806035a3a76f5e8a5c0960fd596fa4a10503d6e35472110b12426fa8b65"
+    },
+    "lifter": {
+      "path": "D:\\Medal\\medal-decompiler\\out\\v2-arithmetic-lifter.exe",
+      "sha256": "97f8a13c980fb849b7e194c371626960b51d9b7bf12dd5a9a58f6c805df7e3cc"
+    },
+    "ast": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau-ast.exe",
+      "sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3"
+    }
+  },
+  "before_report_sha256": "62cb1d672e5e35c7a934bb5e49cd568e029ff3c8ce67ac42980827243f91b9db",
+  "after_report_sha256": "69db4c14fbc530285f1cf72e3f2fa0974dc8ffe775163d5043e378e9ffe471d8",
+  "rows": [
+    {
+      "case": "helper_loop",
+      "opt": 2,
+      "debug": 1,
+      "source_sha256": "a667d2ade624f8d6db2a0e58e149b1d480dc3d65045c475a192dc38f7b6a1682",
+      "output_sha256": "227c0d4857e140863b82746c87a32a5174d8e10e549203d7c9a85da714997fa7",
+      "before_output_sha256": "fe4b8567bfd74be827a67fc2e54e49e6351185f785c9948f6be6b0162c4163cb",
+      "calls_before": 0,
+      "calls_after": 2,
+      "compiler_inlines": 2,
+      "compiler_unrolls": 1,
+      "original_disassembly": "Function 0 (adjust):\r\n    2:     if value < 0 then return bias end\r\nLOADN R2 0\r\nJUMPIFNOTLT R0 R2 L0\r\nRETURN R1 1\r\n    3:     return value * 2 + bias\r\nL0: MULK R3 R0 K0 [2]\r\nADD R2 R3 R1\r\nRETURN R2 1\r\n\r\nFunction 1 (??):\r\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\r\n    2:     if value < 0 then return bias end\r\nLOADN R2 0\r\nJUMPIFNOTLT R0 R2 L0\r\nLOADN R1 3\r\nJUMP L1\r\n    3:     return value * 2 + bias\r\nL0: MULK R2 R0 K1 [2]\r\nADDK R1 R2 K0 [3]\r\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\r\n    7:     local second = adjust(value + 1, 3)\r\nL1: ADDK R3 R0 K2 [1]\r\n    2:     if value < 0 then return bias end\r\nLOADN R4 0\r\nJUMPIFNOTLT R3 R4 L2\r\nLOADN R2 3\r\nJUMP L3\r\n    3:     return value * 2 + bias\r\nL2: MULK R4 R3 K1 [2]\r\nADDK R2 R4 K0 [3]\r\n    8:     local result = 0\r\nL3: LOADN R3 0\r\nREMARK loop unroll succeeded (iterations 4, cost 8, profit 1.50x)\r\n    9:     for i = 1, 4 do result += value * i end\r\nMULK R4 R0 K2 [1]\r\nADD R3 R3 R4\r\nMULK R4 R0 K1 [2]\r\nADD R3 R3 R4\r\nMULK R4 R0 K0 [3]\r\nADD R3 R3 R4\r\nMULK R4 R0 K3 [4]\r\nADD R3 R3 R4\r\n   10:     return first + second + result\r\nADD R5 R1 R2\r\nADD R4 R5 R3\r\nRETURN R4 1\r\n\r\nFunction 2 (??):\r\n    1: local function adjust(value, bias)\r\nDUPCLOSURE R0 K0 ['adjust']\r\n    5: return function(value)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "recompiled_disassembly": "Function 0 (adjust):\r\n    3: \tif p < 0 then\r\nLOADN R2 0\r\nJUMPIFNOTLT R0 R2 L0\r\n    4: \t\treturn p2\r\nRETURN R1 1\r\n    6: \t\treturn p * 2 + p2\r\nL0: MULK R3 R0 K0 [2]\r\nADD R2 R3 R1\r\nRETURN R2 1\r\n\r\nFunction 1 (??):\r\nREMARK inlining succeeded (cost 5, profit 1.60x, depth 0)\r\n    3: \tif p < 0 then\r\nLOADN R2 0\r\nJUMPIFNOTLT R0 R2 L0\r\n    4: \t\treturn p2\r\nLOADN R1 3\r\nJUMP L1\r\n    6: \t\treturn p * 2 + p2\r\nL0: MULK R2 R0 K1 [2]\r\nADDK R1 R2 K0 [3]\r\n   12: \tlocal v2 = p + 1\r\nL1: ADDK R2 R0 K2 [1]\r\nREMARK inlining succeeded (cost 5, profit 1.60x, depth 0)\r\n    3: \tif p < 0 then\r\nLOADN R4 0\r\nJUMPIFNOTLT R2 R4 L2\r\n    4: \t\treturn p2\r\nLOADN R3 3\r\nJUMP L3\r\n    6: \t\treturn p * 2 + p2\r\nL2: MULK R4 R2 K1 [2]\r\nADDK R3 R4 K0 [3]\r\n   14: \tlocal v4 = 0 + p * 1 + p * 2 + p * 3 + p * 4\r\nL3: LOADN R8 0\r\nMULK R9 R0 K2 [1]\r\nADD R7 R8 R9\r\nMULK R8 R0 K1 [2]\r\nADD R6 R7 R8\r\nMULK R7 R0 K0 [3]\r\nADD R5 R6 R7\r\nMULK R6 R0 K3 [4]\r\nADD R4 R5 R6\r\n   15: \treturn v + v3 + v4\r\nADD R6 R1 R3\r\nADD R5 R6 R4\r\nRETURN R5 1\r\n\r\nFunction 2 (??):\r\n    2: local function adjust(p, p2)\r\nDUPCLOSURE R0 K0 ['adjust']\r\n   10: return function(p)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "before_source": "local function adjust(p, p2)\n\tif p < 0 then\n\t\treturn p2\n\telse\n\t\treturn p * 2 + p2\n\tend\nend\n\nreturn function(p)\n\tlocal v = p < 0 and 3 or p * 2 + 3\n\tlocal v2 = p + 1\n\tlocal v3 = v2 < 0 and 3 or v2 * 2 + 3\n\tlocal v4 = 0 + p * 1 + p * 2 + p * 3 + p * 4\n\treturn v + v3 + v4\nend\n",
+      "after_source": "--  equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown\nlocal function adjust(p, p2)\n\tif p < 0 then\n\t\treturn p2\n\telse\n\t\treturn p * 2 + p2\n\tend\nend\n\nreturn function(p)\n\tlocal v = adjust(p, 3)\n\tlocal v2 = p + 1\n\tlocal v3 = adjust(v2, 3)\n\tlocal v4 = 0 + p * 1 + p * 2 + p * 3 + p * 4\n\treturn v + v3 + v4\nend\n",
+      "dataflow_before": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "824bcbee879f65de37b1f48fb05b5ca41fa01a516641c353785e0497693c6643",
+          "824bcbee879f65de37b1f48fb05b5ca41fa01a516641c353785e0497693c6643"
+        ]
+      },
+      "dataflow_after": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "824bcbee879f65de37b1f48fb05b5ca41fa01a516641c353785e0497693c6643",
+          "824bcbee879f65de37b1f48fb05b5ca41fa01a516641c353785e0497693c6643"
+        ]
+      },
+      "runtime": "passed",
+      "classification": "equivalent call inference"
+    },
+    {
+      "case": "helper_loop",
+      "opt": 2,
+      "debug": 2,
+      "source_sha256": "a667d2ade624f8d6db2a0e58e149b1d480dc3d65045c475a192dc38f7b6a1682",
+      "output_sha256": "732c8532795872501ad2b4f2b0b9349f9eed594c42767765a60d78d5a6f3e3e9",
+      "before_output_sha256": "ee755236c89939f7bf1ad324f2b0584325e07602c0587e6b0fcdce6fed671cdc",
+      "calls_before": 0,
+      "calls_after": 2,
+      "compiler_inlines": 2,
+      "compiler_unrolls": 1,
+      "original_disassembly": "Function 0 (adjust):\r\nlocal 0: reg 0, start pc 0 line 2, end pc 6 line 3\r\nlocal 1: reg 1, start pc 0 line 2, end pc 6 line 3\r\n    2:     if value < 0 then return bias end\r\nLOADN R2 0\r\nJUMPIFNOTLT R0 R2 L0\r\nRETURN R1 1\r\n    3:     return value * 2 + bias\r\nL0: MULK R3 R0 K0 [2]\r\nADD R2 R3 R1\r\nRETURN R2 1\r\n\r\nFunction 1 (??):\r\nlocal 0: reg 0, start pc 0 line 2, end pc 6 line 3\r\nlocal 1: reg 3, start pc 8 line 2, end pc 14 line 3\r\nlocal 2: reg 0, start pc 0 line 2, end pc 26 line 10\r\nlocal 3: reg 1, start pc 7 line 7, end pc 26 line 10\r\nlocal 4: reg 2, start pc 15 line 8, end pc 26 line 10\r\nlocal 5: reg 3, start pc 16 line 9, end pc 26 line 10\r\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\r\n    2:     if value < 0 then return bias end\r\nLOADN R2 0\r\nJUMPIFNOTLT R0 R2 L0\r\nLOADN R1 3\r\nJUMP L1\r\n    3:     return value * 2 + bias\r\nL0: MULK R2 R0 K1 [2]\r\nADDK R1 R2 K0 [3]\r\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\r\n    7:     local second = adjust(value + 1, 3)\r\nL1: ADDK R3 R0 K2 [1]\r\n    2:     if value < 0 then return bias end\r\nLOADN R4 0\r\nJUMPIFNOTLT R3 R4 L2\r\nLOADN R2 3\r\nJUMP L3\r\n    3:     return value * 2 + bias\r\nL2: MULK R4 R3 K1 [2]\r\nADDK R2 R4 K0 [3]\r\n    8:     local result = 0\r\nL3: LOADN R3 0\r\nREMARK loop unroll succeeded (iterations 4, cost 8, profit 1.50x)\r\n    9:     for i = 1, 4 do result += value * i end\r\nMULK R4 R0 K2 [1]\r\nADD R3 R3 R4\r\nMULK R4 R0 K1 [2]\r\nADD R3 R3 R4\r\nMULK R4 R0 K0 [3]\r\nADD R3 R3 R4\r\nMULK R4 R0 K3 [4]\r\nADD R3 R3 R4\r\n   10:     return first + second + result\r\nADD R5 R1 R2\r\nADD R4 R5 R3\r\nRETURN R4 1\r\n\r\nFunction 2 (??):\r\nlocal 0: reg 0, start pc 2 line 5, end pc 3 line 5\r\n    1: local function adjust(value, bias)\r\nDUPCLOSURE R0 K0 ['adjust']\r\n    5: return function(value)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "recompiled_disassembly": "Function 0 (adjust):\r\nlocal 0: reg 0, start pc 0 line 3, end pc 6 line 6\r\nlocal 1: reg 1, start pc 0 line 3, end pc 6 line 6\r\n    3: \tif value < 0 then\r\nLOADN R2 0\r\nJUMPIFNOTLT R0 R2 L0\r\n    4: \t\treturn bias\r\nRETURN R1 1\r\n    6: \t\treturn value * 2 + bias\r\nL0: MULK R3 R0 K0 [2]\r\nADD R2 R3 R1\r\nRETURN R2 1\r\n\r\nFunction 1 (??):\r\nlocal 0: reg 0, start pc 0 line 3, end pc 6 line 6\r\nlocal 1: reg 2, start pc 8 line 3, end pc 14 line 6\r\nlocal 2: reg 0, start pc 0 line 3, end pc 26 line 19\r\nlocal 3: reg 1, start pc 7 line 12, end pc 26 line 19\r\nlocal 4: reg 2, start pc 8 line 3, end pc 26 line 19\r\nlocal 5: reg 3, start pc 15 line 14, end pc 26 line 19\r\nlocal 6: reg 4, start pc 16 line 15, end pc 26 line 19\r\nlocal 7: reg 5, start pc 18 line 16, end pc 26 line 19\r\nlocal 8: reg 6, start pc 20 line 17, end pc 26 line 19\r\nlocal 9: reg 7, start pc 22 line 18, end pc 26 line 19\r\nlocal 10: reg 8, start pc 24 line 19, end pc 26 line 19\r\nREMARK inlining succeeded (cost 5, profit 1.60x, depth 0)\r\n    3: \tif value < 0 then\r\nLOADN R2 0\r\nJUMPIFNOTLT R0 R2 L0\r\n    4: \t\treturn bias\r\nLOADN R1 3\r\nJUMP L1\r\n    6: \t\treturn value * 2 + bias\r\nL0: MULK R2 R0 K1 [2]\r\nADDK R1 R2 K0 [3]\r\n   12: \tlocal value2 = value + 1\r\nL1: ADDK R2 R0 K2 [1]\r\nREMARK inlining succeeded (cost 5, profit 1.60x, depth 0)\r\n    3: \tif value < 0 then\r\nLOADN R4 0\r\nJUMPIFNOTLT R2 R4 L2\r\n    4: \t\treturn bias\r\nLOADN R3 3\r\nJUMP L3\r\n    6: \t\treturn value * 2 + bias\r\nL2: MULK R4 R2 K1 [2]\r\nADDK R3 R4 K0 [3]\r\n   14: \tlocal result = 0\r\nL3: LOADN R4 0\r\n   15: \tlocal result2 = result + value * 1\r\nMULK R6 R0 K2 [1]\r\nADD R5 R4 R6\r\n   16: \tlocal result3 = result2 + value * 2\r\nMULK R7 R0 K1 [2]\r\nADD R6 R5 R7\r\n   17: \tlocal result4 = result3 + value * 3\r\nMULK R8 R0 K0 [3]\r\nADD R7 R6 R8\r\n   18: \tlocal result5 = result4 + value * 4\r\nMULK R9 R0 K3 [4]\r\nADD R8 R7 R9\r\n   19: \treturn first + second + result5\r\nADD R10 R1 R3\r\nADD R9 R10 R8\r\nRETURN R9 1\r\n\r\nFunction 2 (??):\r\nlocal 0: reg 0, start pc 2 line 10, end pc 3 line 10\r\n    2: local function adjust(value, bias)\r\nDUPCLOSURE R0 K0 ['adjust']\r\n   10: return function(value)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "before_source": "local function adjust(value, bias)\n\tif value < 0 then\n\t\treturn bias\n\telse\n\t\treturn value * 2 + bias\n\tend\nend\n\nreturn function(value)\n\tlocal first = value < 0 and 3 or value * 2 + 3\n\tlocal value2 = value + 1\n\tlocal second = value2 < 0 and 3 or value2 * 2 + 3\n\tlocal result = 0\n\tlocal result2 = result + value * 1\n\tlocal result3 = result2 + value * 2\n\tlocal result4 = result3 + value * 3\n\tlocal result5 = result4 + value * 4\n\treturn first + second + result5\nend\n",
+      "after_source": "--  equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown\nlocal function adjust(value, bias)\n\tif value < 0 then\n\t\treturn bias\n\telse\n\t\treturn value * 2 + bias\n\tend\nend\n\nreturn function(value)\n\tlocal first = adjust(value, 3)\n\tlocal value2 = value + 1\n\tlocal second = adjust(value2, 3)\n\tlocal result = 0\n\tlocal result2 = result + value * 1\n\tlocal result3 = result2 + value * 2\n\tlocal result4 = result3 + value * 3\n\tlocal result5 = result4 + value * 4\n\treturn first + second + result5\nend\n",
+      "dataflow_before": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "824bcbee879f65de37b1f48fb05b5ca41fa01a516641c353785e0497693c6643",
+          "824bcbee879f65de37b1f48fb05b5ca41fa01a516641c353785e0497693c6643"
+        ]
+      },
+      "dataflow_after": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "824bcbee879f65de37b1f48fb05b5ca41fa01a516641c353785e0497693c6643",
+          "824bcbee879f65de37b1f48fb05b5ca41fa01a516641c353785e0497693c6643"
+        ]
+      },
+      "runtime": "passed",
+      "classification": "equivalent call inference"
+    },
+    {
+      "case": "arithmetic_effects",
+      "opt": 2,
+      "debug": 1,
+      "source_sha256": "23206f085a164cc29adc2cd5951527a46f4f516627b28c7837e2a433ffd293de",
+      "output_sha256": "00455674235634b2ddad13f65de778ae2a838301f5ff61ebab73d1afe2deb4ca",
+      "before_output_sha256": "9d5e8081dac59d8a1c25d03a286da776bb032df79f22e5c83bbedb847038dcff",
+      "calls_before": 0,
+      "calls_after": 1,
+      "compiler_inlines": 2,
+      "compiler_unrolls": 0,
+      "original_disassembly": "Function 0 (weighted):\r\n    2:     if value < pivot then return bias end\r\nJUMPIFNOTLT R0 R1 L0\r\nRETURN R2 1\r\n    3:     return value * 2 + bias\r\nL0: MULK R4 R0 K0 [2]\r\nADD R3 R4 R2\r\nRETURN R3 1\r\n\r\nFunction 1 (??):\r\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\r\n    2:     if value < pivot then return bias end\r\nJUMPIFNOTLT R0 R1 L0\r\nLOADN R2 3\r\nJUMP L1\r\n    3:     return value * 2 + bias\r\nL0: MULK R3 R0 K1 [2]\r\nADDK R2 R3 K0 [3]\r\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\r\n    2:     if value < pivot then return bias end\r\nL1: JUMPIFNOTLT R0 R1 L2\r\nLOADN R3 3\r\nRETURN R2 2\r\n    3:     return value * 2 + bias\r\nL2: MULK R4 R0 K1 [2]\r\nADDK R3 R4 K0 [3]\r\n    9:     return first, second\r\nRETURN R2 2\r\n\r\nFunction 2 (??):\r\n    1: local function weighted(value, pivot, bias)\r\nDUPCLOSURE R0 K0 ['weighted']\r\n    6: return function(value, pivot)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "recompiled_disassembly": "Function 0 (weighted):\r\n    3: \tif p < p2 then\r\nJUMPIFNOTLT R0 R1 L0\r\n    4: \t\treturn p3\r\nRETURN R2 1\r\n    6: \t\treturn p * 2 + p3\r\nL0: MULK R4 R0 K0 [2]\r\nADD R3 R4 R2\r\nRETURN R3 1\r\n\r\nFunction 1 (??):\r\nREMARK inlining succeeded (cost 5, profit 1.60x, depth 0)\r\n    3: \tif p < p2 then\r\nJUMPIFNOTLT R0 R1 L0\r\n    4: \t\treturn p3\r\nLOADN R2 3\r\nJUMP L1\r\n    6: \t\treturn p * 2 + p3\r\nL0: MULK R3 R0 K1 [2]\r\nADDK R2 R3 K0 [3]\r\n   13: \tif p < p2 then\r\nL1: JUMPIFNOTLT R0 R1 L2\r\n   14: \t\treturn v, 3\r\nMOVE R3 R2\r\nLOADN R4 3\r\nRETURN R3 2\r\n   16: \t\treturn v, p * 2 + 3\r\nL2: MOVE R3 R2\r\nMULK R5 R0 K1 [2]\r\nADDK R4 R5 K0 [3]\r\nRETURN R3 2\r\n\r\nFunction 2 (??):\r\n    2: local function weighted(p, p2, p3)\r\nDUPCLOSURE R0 K0 ['weighted']\r\n   10: return function(p, p2)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "before_source": "local function weighted(p, p2, p3)\n\tif p < p2 then\n\t\treturn p3\n\telse\n\t\treturn p * 2 + p3\n\tend\nend\n\nreturn function(p, p2)\n\tlocal v = p < p2 and 3 or p * 2 + 3\n\n\tif p < p2 then\n\t\treturn v, 3\n\telse\n\t\treturn v, p * 2 + 3\n\tend\nend\n",
+      "after_source": "--  equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown\nlocal function weighted(p, p2, p3)\n\tif p < p2 then\n\t\treturn p3\n\telse\n\t\treturn p * 2 + p3\n\tend\nend\n\nreturn function(p, p2)\n\tlocal v = weighted(p, p2, 3)\n\n\tif p < p2 then\n\t\treturn v, 3\n\telse\n\t\treturn v, p * 2 + 3\n\tend\nend\n",
+      "dataflow_before": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "522f20a6f87a844c657745014358a987a2f24f37891fc7e5ccbdf8ae173d3dbd",
+          "522f20a6f87a844c657745014358a987a2f24f37891fc7e5ccbdf8ae173d3dbd"
+        ]
+      },
+      "dataflow_after": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "522f20a6f87a844c657745014358a987a2f24f37891fc7e5ccbdf8ae173d3dbd",
+          "522f20a6f87a844c657745014358a987a2f24f37891fc7e5ccbdf8ae173d3dbd"
+        ]
+      },
+      "runtime": "passed",
+      "classification": "equivalent call inference"
+    },
+    {
+      "case": "arithmetic_effects",
+      "opt": 2,
+      "debug": 2,
+      "source_sha256": "23206f085a164cc29adc2cd5951527a46f4f516627b28c7837e2a433ffd293de",
+      "output_sha256": "8adaf4a290f121665620138cd9a4a98242dc2b706f48f73484973561a9fb9f14",
+      "before_output_sha256": "726603f8fbb86da5bdfa26b9f6cb8cce06252145b6241427a5ac10616430da8e",
+      "calls_before": 0,
+      "calls_after": 1,
+      "compiler_inlines": 2,
+      "compiler_unrolls": 0,
+      "original_disassembly": "Function 0 (weighted):\r\nlocal 0: reg 0, start pc 0 line 2, end pc 5 line 3\r\nlocal 1: reg 1, start pc 0 line 2, end pc 5 line 3\r\nlocal 2: reg 2, start pc 0 line 2, end pc 5 line 3\r\n    2:     if value < pivot then return bias end\r\nJUMPIFNOTLT R0 R1 L0\r\nRETURN R2 1\r\n    3:     return value * 2 + bias\r\nL0: MULK R4 R0 K0 [2]\r\nADD R3 R4 R2\r\nRETURN R3 1\r\n\r\nFunction 1 (??):\r\nlocal 0: reg 0, start pc 0 line 2, end pc 5 line 3\r\nlocal 1: reg 1, start pc 0 line 2, end pc 5 line 3\r\nlocal 2: reg 0, start pc 6 line 2, end pc 11 line 3\r\nlocal 3: reg 1, start pc 6 line 2, end pc 11 line 3\r\nlocal 4: reg 0, start pc 0 line 2, end pc 12 line 9\r\nlocal 5: reg 1, start pc 0 line 2, end pc 12 line 9\r\nlocal 6: reg 2, start pc 6 line 2, end pc 12 line 9\r\nlocal 7: reg 3, start pc 12 line 9, end pc 12 line 9\r\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\r\n    2:     if value < pivot then return bias end\r\nJUMPIFNOTLT R0 R1 L0\r\nLOADN R2 3\r\nJUMP L1\r\n    3:     return value * 2 + bias\r\nL0: MULK R3 R0 K1 [2]\r\nADDK R2 R3 K0 [3]\r\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\r\n    2:     if value < pivot then return bias end\r\nL1: JUMPIFNOTLT R0 R1 L2\r\nLOADN R3 3\r\nRETURN R2 2\r\n    3:     return value * 2 + bias\r\nL2: MULK R4 R0 K1 [2]\r\nADDK R3 R4 K0 [3]\r\n    9:     return first, second\r\nRETURN R2 2\r\n\r\nFunction 2 (??):\r\nlocal 0: reg 0, start pc 2 line 6, end pc 3 line 6\r\n    1: local function weighted(value, pivot, bias)\r\nDUPCLOSURE R0 K0 ['weighted']\r\n    6: return function(value, pivot)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "recompiled_disassembly": "Function 0 (weighted):\r\nlocal 0: reg 0, start pc 0 line 3, end pc 5 line 6\r\nlocal 1: reg 1, start pc 0 line 3, end pc 5 line 6\r\nlocal 2: reg 2, start pc 0 line 3, end pc 5 line 6\r\n    3: \tif value < pivot then\r\nJUMPIFNOTLT R0 R1 L0\r\n    4: \t\treturn bias\r\nRETURN R2 1\r\n    6: \t\treturn value * 2 + bias\r\nL0: MULK R4 R0 K0 [2]\r\nADD R3 R4 R2\r\nRETURN R3 1\r\n\r\nFunction 1 (??):\r\nlocal 0: reg 0, start pc 0 line 3, end pc 5 line 6\r\nlocal 1: reg 1, start pc 0 line 3, end pc 5 line 6\r\nlocal 2: reg 0, start pc 0 line 3, end pc 13 line 18\r\nlocal 3: reg 1, start pc 0 line 3, end pc 13 line 18\r\nlocal 4: reg 2, start pc 6 line 13, end pc 13 line 18\r\nlocal 5: reg 3, start pc 13 line 18, end pc 13 line 18\r\nREMARK inlining succeeded (cost 5, profit 1.60x, depth 0)\r\n    3: \tif value < pivot then\r\nJUMPIFNOTLT R0 R1 L0\r\n    4: \t\treturn bias\r\nLOADN R2 3\r\nJUMP L1\r\n    6: \t\treturn value * 2 + bias\r\nL0: MULK R3 R0 K1 [2]\r\nADDK R2 R3 K0 [3]\r\n   13: \tif value < pivot then\r\nL1: JUMPIFNOTLT R0 R1 L2\r\n   14: \t\treturn first, 3\r\nMOVE R3 R2\r\nLOADN R4 3\r\nRETURN R3 2\r\n   17: \tlocal second = value * 2 + 3\r\nL2: MULK R4 R0 K1 [2]\r\nADDK R3 R4 K0 [3]\r\n   18: \treturn first, second\r\nRETURN R2 2\r\n\r\nFunction 2 (??):\r\nlocal 0: reg 0, start pc 2 line 10, end pc 3 line 10\r\n    2: local function weighted(value, pivot, bias)\r\nDUPCLOSURE R0 K0 ['weighted']\r\n   10: return function(value, pivot)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "before_source": "local function weighted(value, pivot, bias)\n\tif value < pivot then\n\t\treturn bias\n\telse\n\t\treturn value * 2 + bias\n\tend\nend\n\nreturn function(p, p2)\n\tlocal first = p < p2 and 3 or p * 2 + 3\n\n\tif p < p2 then\n\t\treturn first, 3\n\tend\n\n\tlocal second = p * 2 + 3\n\treturn first, second\nend\n",
+      "after_source": "--  equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown\nlocal function weighted(value, pivot, bias)\n\tif value < pivot then\n\t\treturn bias\n\telse\n\t\treturn value * 2 + bias\n\tend\nend\n\nreturn function(value, pivot)\n\tlocal first = weighted(value, pivot, 3)\n\n\tif value < pivot then\n\t\treturn first, 3\n\tend\n\n\tlocal second = value * 2 + 3\n\treturn first, second\nend\n",
+      "dataflow_before": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "522f20a6f87a844c657745014358a987a2f24f37891fc7e5ccbdf8ae173d3dbd",
+          "522f20a6f87a844c657745014358a987a2f24f37891fc7e5ccbdf8ae173d3dbd"
+        ]
+      },
+      "dataflow_after": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "522f20a6f87a844c657745014358a987a2f24f37891fc7e5ccbdf8ae173d3dbd",
+          "522f20a6f87a844c657745014358a987a2f24f37891fc7e5ccbdf8ae173d3dbd"
+        ]
+      },
+      "runtime": "passed",
+      "classification": "equivalent call inference"
+    },
+    {
+      "case": "arithmetic_capture",
+      "opt": 2,
+      "debug": 1,
+      "source_sha256": "1052f20d563ef0f36ef06cf0ce0dc87765b18834e7a406143c46fd902b355ae6",
+      "output_sha256": "4ebc6936fc1e346e1f619a5b7720e1452d7aab95eb54c416b24d560663bee563",
+      "before_output_sha256": "4ebc6936fc1e346e1f619a5b7720e1452d7aab95eb54c416b24d560663bee563",
+      "calls_before": 0,
+      "calls_after": 0,
+      "compiler_inlines": 0,
+      "compiler_unrolls": 0,
+      "original_disassembly": "Function 0 (weighted):\r\n    2:     if value < pivot then return bias end\r\nJUMPIFNOTLT R0 R1 L0\r\nRETURN R2 1\r\n    3:     return value * 2 + bias\r\nL0: MULK R4 R0 K0 [2]\r\nADD R3 R4 R2\r\nRETURN R3 1\r\n\r\nFunction 1 (??):\r\n    8:     install(function(replacement) current = replacement end)\r\nSETUPVAL R0 0\r\nRETURN R0 0\r\n\r\nFunction 2 (??):\r\n    7:     local current = value\r\nMOVE R3 R0\r\n    8:     install(function(replacement) current = replacement end)\r\nMOVE R4 R2\r\nREMARK allocation: closure with 1 upvalues\r\nNEWCLOSURE R5 P0\r\nCAPTURE REF R3\r\nCALL R4 1 0\r\n    9:     return current < pivot and 3 or current * 2 + 3\r\nJUMPIFNOTLT R3 R1 L0\r\nLOADN R4 3\r\nJUMP L1\r\nL0: MULK R5 R3 K1 [2]\r\nADDK R4 R5 K0 [3]\r\nL1: CLOSEUPVALS R3\r\nRETURN R4 1\r\n\r\nFunction 3 (??):\r\n    1: local function weighted(value, pivot, bias)\r\nDUPCLOSURE R0 K0 ['weighted']\r\n    6: return function(value, pivot, install)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "recompiled_disassembly": "Function 0 (weighted):\r\n    2: \tif p < p2 then\r\nJUMPIFNOTLT R0 R1 L0\r\n    3: \t\treturn p3\r\nRETURN R2 1\r\n    5: \t\treturn p * 2 + p3\r\nL0: MULK R4 R0 K0 [2]\r\nADD R3 R4 R2\r\nRETURN R3 1\r\n\r\nFunction 1 (??):\r\n   12: \t\tv = p3\r\nSETUPVAL R0 0\r\n   13: \tend)\r\nRETURN R0 0\r\n\r\nFunction 2 (??):\r\n   10: \tlocal v = p\r\nMOVE R3 R0\r\n   11: \tcallback(function(p3)\r\nMOVE R4 R2\r\nREMARK allocation: closure with 1 upvalues\r\nNEWCLOSURE R5 P0\r\nCAPTURE REF R3\r\nCALL R4 1 0\r\n   14: \treturn v < p2 and 3 or v * 2 + 3\r\nJUMPIFNOTLT R3 R1 L0\r\nLOADN R4 3\r\nJUMP L1\r\nL0: MULK R5 R3 K1 [2]\r\nADDK R4 R5 K0 [3]\r\nL1: CLOSEUPVALS R3\r\nRETURN R4 1\r\n\r\nFunction 3 (??):\r\n    1: local function weighted(p, p2, p3)\r\nDUPCLOSURE R0 K0 ['weighted']\r\n    9: return function(p, p2, callback)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "before_source": "local function weighted(p, p2, p3)\n\tif p < p2 then\n\t\treturn p3\n\telse\n\t\treturn p * 2 + p3\n\tend\nend\n\nreturn function(p, p2, callback)\n\tlocal v = p\n\tcallback(function(p3)\n\t\tv = p3\n\tend)\n\treturn v < p2 and 3 or v * 2 + 3\nend\n",
+      "after_source": "local function weighted(p, p2, p3)\n\tif p < p2 then\n\t\treturn p3\n\telse\n\t\treturn p * 2 + p3\n\tend\nend\n\nreturn function(p, p2, callback)\n\tlocal v = p\n\tcallback(function(p3)\n\t\tv = p3\n\tend)\n\treturn v < p2 and 3 or v * 2 + 3\nend\n",
+      "dataflow_before": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        }
+      },
+      "dataflow_after": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        }
+      },
+      "runtime": "passed",
+      "classification": "refused reference capture"
+    },
+    {
+      "case": "arithmetic_capture",
+      "opt": 2,
+      "debug": 2,
+      "source_sha256": "1052f20d563ef0f36ef06cf0ce0dc87765b18834e7a406143c46fd902b355ae6",
+      "output_sha256": "27860026b3d283cb3a14a6367271783c4c927bc06beffdb6eafd03c673022ebc",
+      "before_output_sha256": "27860026b3d283cb3a14a6367271783c4c927bc06beffdb6eafd03c673022ebc",
+      "calls_before": 0,
+      "calls_after": 0,
+      "compiler_inlines": 0,
+      "compiler_unrolls": 0,
+      "original_disassembly": "Function 0 (weighted):\r\nlocal 0: reg 0, start pc 0 line 2, end pc 5 line 3\r\nlocal 1: reg 1, start pc 0 line 2, end pc 5 line 3\r\nlocal 2: reg 2, start pc 0 line 2, end pc 5 line 3\r\n    2:     if value < pivot then return bias end\r\nJUMPIFNOTLT R0 R1 L0\r\nRETURN R2 1\r\n    3:     return value * 2 + bias\r\nL0: MULK R4 R0 K0 [2]\r\nADD R3 R4 R2\r\nRETURN R3 1\r\n\r\nFunction 1 (??):\r\nlocal 0: reg 0, start pc 0 line 8, end pc 1 line 8\r\n    8:     install(function(replacement) current = replacement end)\r\nSETUPVAL R0 0\r\nRETURN R0 0\r\n\r\nFunction 2 (??):\r\nlocal 0: reg 0, start pc 0 line 7, end pc 12 line 9\r\nlocal 1: reg 1, start pc 0 line 7, end pc 12 line 9\r\nlocal 2: reg 2, start pc 0 line 7, end pc 12 line 9\r\nlocal 3: reg 3, start pc 1 line 8, end pc 12 line 9\r\n    7:     local current = value\r\nMOVE R3 R0\r\n    8:     install(function(replacement) current = replacement end)\r\nMOVE R4 R2\r\nREMARK allocation: closure with 1 upvalues\r\nNEWCLOSURE R5 P0\r\nCAPTURE REF R3\r\nCALL R4 1 0\r\n    9:     return current < pivot and 3 or current * 2 + 3\r\nJUMPIFNOTLT R3 R1 L0\r\nLOADN R4 3\r\nJUMP L1\r\nL0: MULK R5 R3 K1 [2]\r\nADDK R4 R5 K0 [3]\r\nL1: CLOSEUPVALS R3\r\nRETURN R4 1\r\n\r\nFunction 3 (??):\r\nlocal 0: reg 0, start pc 2 line 6, end pc 3 line 6\r\n    1: local function weighted(value, pivot, bias)\r\nDUPCLOSURE R0 K0 ['weighted']\r\n    6: return function(value, pivot, install)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "recompiled_disassembly": "Function 0 (weighted):\r\nlocal 0: reg 0, start pc 0 line 2, end pc 5 line 5\r\nlocal 1: reg 1, start pc 0 line 2, end pc 5 line 5\r\nlocal 2: reg 2, start pc 0 line 2, end pc 5 line 5\r\n    2: \tif value < pivot then\r\nJUMPIFNOTLT R0 R1 L0\r\n    3: \t\treturn bias\r\nRETURN R2 1\r\n    5: \t\treturn value * 2 + bias\r\nL0: MULK R4 R0 K0 [2]\r\nADD R3 R4 R2\r\nRETURN R3 1\r\n\r\nFunction 1 (??):\r\nlocal 0: reg 0, start pc 0 line 12, end pc 1 line 13\r\n   12: \t\tcurrent = replacement\r\nSETUPVAL R0 0\r\n   13: \tend)\r\nRETURN R0 0\r\n\r\nFunction 2 (??):\r\nlocal 0: reg 0, start pc 0 line 10, end pc 12 line 14\r\nlocal 1: reg 1, start pc 0 line 10, end pc 12 line 14\r\nlocal 2: reg 2, start pc 0 line 10, end pc 12 line 14\r\nlocal 3: reg 3, start pc 1 line 11, end pc 12 line 14\r\n   10: \tlocal current = value\r\nMOVE R3 R0\r\n   11: \tinstall(function(replacement)\r\nMOVE R4 R2\r\nREMARK allocation: closure with 1 upvalues\r\nNEWCLOSURE R5 P0\r\nCAPTURE REF R3\r\nCALL R4 1 0\r\n   14: \treturn current < pivot and 3 or current * 2 + 3\r\nJUMPIFNOTLT R3 R1 L0\r\nLOADN R4 3\r\nJUMP L1\r\nL0: MULK R5 R3 K1 [2]\r\nADDK R4 R5 K0 [3]\r\nL1: CLOSEUPVALS R3\r\nRETURN R4 1\r\n\r\nFunction 3 (??):\r\nlocal 0: reg 0, start pc 2 line 9, end pc 3 line 9\r\n    1: local function weighted(value, pivot, bias)\r\nDUPCLOSURE R0 K0 ['weighted']\r\n    9: return function(value, pivot, install)\r\nDUPCLOSURE R1 K1 []\r\nRETURN R1 1\r\n\r\n",
+      "before_source": "local function weighted(value, pivot, bias)\n\tif value < pivot then\n\t\treturn bias\n\telse\n\t\treturn value * 2 + bias\n\tend\nend\n\nreturn function(value, pivot, install)\n\tlocal current = value\n\tinstall(function(replacement)\n\t\tcurrent = replacement\n\tend)\n\treturn current < pivot and 3 or current * 2 + 3\nend\n",
+      "after_source": "local function weighted(value, pivot, bias)\n\tif value < pivot then\n\t\treturn bias\n\telse\n\t\treturn value * 2 + bias\n\tend\nend\n\nreturn function(value, pivot, install)\n\tlocal current = value\n\tinstall(function(replacement)\n\t\tcurrent = replacement\n\tend)\n\treturn current < pivot and 3 or current * 2 + 3\nend\n",
+      "dataflow_before": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        }
+      },
+      "dataflow_after": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        }
+      },
+      "runtime": "passed",
+      "classification": "refused reference capture"
+    }
+  ],
+  "limitations": "Development fixtures only. No original-call uniqueness proof. Loop remains unrolled. The second arithmetic_effects call stays as statements; unknown dataflow is not proof."
+}

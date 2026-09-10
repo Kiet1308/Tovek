@@ -4723,22 +4723,33 @@ pub(crate) fn anchors_in_rvalue(rv: &RValue, n: &mut usize) {
 // ===================================================================
 
 pub(crate) fn insert_def_markers(stmts: &mut Vec<Statement>, converted: &FxHashSet<RcLocal>) {
+    insert_def_markers_with_text(stmts, converted, DEF_MARKER);
+}
+
+pub(crate) fn insert_def_markers_with_text(
+    stmts: &mut Vec<Statement>,
+    converted: &FxHashSet<RcLocal>,
+    marker: &str,
+) {
+    if converted.is_empty() {
+        return;
+    }
     for s in stmts.iter_mut() {
         match s {
             Statement::If(f) => {
-                insert_def_markers(&mut f.then_block.lock().0, converted);
-                insert_def_markers(&mut f.else_block.lock().0, converted);
+                insert_def_markers_with_text(&mut f.then_block.lock().0, converted, marker);
+                insert_def_markers_with_text(&mut f.else_block.lock().0, converted, marker);
             }
-            Statement::While(w) => insert_def_markers(&mut w.block.lock().0, converted),
-            Statement::Repeat(r) => insert_def_markers(&mut r.block.lock().0, converted),
-            Statement::NumericFor(nf) => insert_def_markers(&mut nf.block.lock().0, converted),
-            Statement::GenericFor(gf) => insert_def_markers(&mut gf.block.lock().0, converted),
+            Statement::While(w) => insert_def_markers_with_text(&mut w.block.lock().0, converted, marker),
+            Statement::Repeat(r) => insert_def_markers_with_text(&mut r.block.lock().0, converted, marker),
+            Statement::NumericFor(nf) => insert_def_markers_with_text(&mut nf.block.lock().0, converted, marker),
+            Statement::GenericFor(gf) => insert_def_markers_with_text(&mut gf.block.lock().0, converted, marker),
             _ => {}
         }
         // recover definitions inside ANY closure body (call arguments, table
         // values, ...), matching where `deinline_block` recovers the calls.
         for rv in stmt_rvalues_mut(s) {
-            markers_in_closures(rv, converted);
+            markers_in_closures(rv, converted, marker);
         }
     }
 
@@ -4753,11 +4764,10 @@ pub(crate) fn insert_def_markers(stmts: &mut Vec<Statement>, converted: &FxHashS
                 && converted.contains(l)
                 // Idempotent: if this decl already carries the marker (e.g. the
                 // statement de-inliner converted the same helper earlier, or this
-                // pass already ran), do not emit a second one. Both passes share
-                // `DEF_MARKER`, so a single equality check suffices.
-                && !matches!(out.last(), Some(Statement::Comment(c)) if c.text == DEF_MARKER)
+                // pass already ran), do not emit this marker a second time.
+                && !matches!(out.last(), Some(Statement::Comment(c)) if c.text == marker)
             {
-                out.push(Statement::Comment(Comment::new(DEF_MARKER.to_string())));
+                out.push(Statement::Comment(Comment::new(marker.to_string())));
             }
         }
         out.push(s);
@@ -4765,54 +4775,54 @@ pub(crate) fn insert_def_markers(stmts: &mut Vec<Statement>, converted: &FxHashS
     *stmts = out;
 }
 
-fn markers_in_closures(rv: &mut RValue, converted: &FxHashSet<RcLocal>) {
+fn markers_in_closures(rv: &mut RValue, converted: &FxHashSet<RcLocal>, marker: &str) {
     match rv {
-        RValue::Closure(c) => insert_def_markers(&mut c.function.0.lock().body.0, converted),
+        RValue::Closure(c) => insert_def_markers_with_text(&mut c.function.0.lock().body.0, converted, marker),
         RValue::Call(c) => {
-            markers_in_closures(c.value.as_mut(), converted);
+            markers_in_closures(c.value.as_mut(), converted, marker);
             for a in &mut c.arguments {
-                markers_in_closures(a, converted);
+                markers_in_closures(a, converted, marker);
             }
         }
         RValue::MethodCall(m) => {
-            markers_in_closures(m.value.as_mut(), converted);
+            markers_in_closures(m.value.as_mut(), converted, marker);
             for a in &mut m.arguments {
-                markers_in_closures(a, converted);
+                markers_in_closures(a, converted, marker);
             }
         }
         RValue::Index(ix) => {
-            markers_in_closures(ix.left.as_mut(), converted);
-            markers_in_closures(ix.right.as_mut(), converted);
+            markers_in_closures(ix.left.as_mut(), converted, marker);
+            markers_in_closures(ix.right.as_mut(), converted, marker);
         }
-        RValue::Unary(u) => markers_in_closures(u.value.as_mut(), converted),
+        RValue::Unary(u) => markers_in_closures(u.value.as_mut(), converted, marker),
         RValue::Binary(b) => {
-            markers_in_closures(b.left.as_mut(), converted);
-            markers_in_closures(b.right.as_mut(), converted);
+            markers_in_closures(b.left.as_mut(), converted, marker);
+            markers_in_closures(b.right.as_mut(), converted, marker);
         }
         RValue::Table(t) => {
             for (k, v) in &mut t.0 {
                 if let Some(k) = k {
-                    markers_in_closures(k, converted);
+                    markers_in_closures(k, converted, marker);
                 }
-                markers_in_closures(v, converted);
+                markers_in_closures(v, converted, marker);
             }
         }
         RValue::Select(Select::Call(c)) => {
-            markers_in_closures(c.value.as_mut(), converted);
+            markers_in_closures(c.value.as_mut(), converted, marker);
             for a in &mut c.arguments {
-                markers_in_closures(a, converted);
+                markers_in_closures(a, converted, marker);
             }
         }
         RValue::Select(Select::MethodCall(m)) => {
-            markers_in_closures(m.value.as_mut(), converted);
+            markers_in_closures(m.value.as_mut(), converted, marker);
             for a in &mut m.arguments {
-                markers_in_closures(a, converted);
+                markers_in_closures(a, converted, marker);
             }
         }
         RValue::IfExpression(e) => {
-            markers_in_closures(e.condition.as_mut(), converted);
-            markers_in_closures(e.then_value.as_mut(), converted);
-            markers_in_closures(e.else_value.as_mut(), converted);
+            markers_in_closures(e.condition.as_mut(), converted, marker);
+            markers_in_closures(e.then_value.as_mut(), converted, marker);
+            markers_in_closures(e.else_value.as_mut(), converted, marker);
         }
         _ => {}
     }

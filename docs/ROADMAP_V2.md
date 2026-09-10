@@ -379,7 +379,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 - [ ] Tạo bộ ví dụ compiler cho các họ: statement/expression inlining, constant argument specialization, result alias, early return, fixed-count loop unroll và table lowering. Pin compiler/flags của từng họ.
 - [ ] Giữ candidate helper gắn với prototype/capture identity; dùng line/PC provenance để tìm vùng nghi ngờ trước khi mở search trên mọi subtree.
 - [ ] Chuẩn hóa candidate ở dạng dataflow/region phù hợp, với phi/select và return arity còn rõ. Không yêu cầu helper và call-site đã đi qua cùng một chuỗi AST cleanup mới nhận ra được nhau.
-- [ ] Mở de-inline cho helper số học có tên và specialization như `adjust`, với tiêu chí dựa trên bằng chứng/cost thay cho điều kiện phải có đủ global/string anchor.
+- [x] Mở de-inline cho helper số học có tên và specialization như `adjust`, với tiêu chí dựa trên bằng chứng/cost thay cho điều kiện phải có đủ global/string anchor. Phạm vi đã nghiệm thu: prototype có tên, return/selection scalar, đối số local ổn định hoặc literal, khớp chính xác phép toán; hai call `adjust` được khôi phục ở O2/g1 và O2/g2. [Điều kiện, budget và giới hạn](arithmetic_deinline.md).
 - [ ] Giữ argument evaluation count/order và capture binding khi phục hồi call. Một argument được dùng nhiều lần hoặc chỉ dùng trong một nhánh không được tự động chuyển thành eager evaluation.
 - [ ] Nghiên cứu re-roll loop có số lượt cố định, index thay đổi đều và body tương ứng. Giữ thứ tự operator/effect, giá trị induction, result/capture và ngữ nghĩa zero/last iteration.
 - [ ] Với ca không còn helper prototype hoặc có nhiều source candidate cùng hợp lệ, phân loại là suy luận/synthesis; không cộng vào số helper gốc đã khôi phục chắc chắn.

@@ -1,0 +1,74 @@
+{
+  "before": {
+    "source_profile_sha256": "5581a79dc7afefbfcf17a6d7cb9a9dca7d1857b0fc17302c024487df6f0c2fb1",
+    "header": {
+      "binary": "D:\\Medal\\medal-decompiler\\out\\v2-ssa-cache-lifter.exe",
+      "binary_sha256": "00c9dddfe0f5775b7e280a9d5e3d42a7067cfd71c7c75b8bd488c2de7f0b2386",
+      "command": [
+        "out/v2-ssa-cache-lifter.exe",
+        "decompile-folder",
+        "D:/Medal/examplebytecode/RobloxProject",
+        "out/v2-arithmetic-before-profile-corpus",
+        "--threads",
+        "1",
+        "--strict-no-synthetic-control"
+      ],
+      "counter_contract": "Counts belong to the innermost measured phase. Missing counters are unmeasured or inapplicable, not zero. No cache hit is claimed unless a specifically identified cache is used.",
+      "logical_processors": 24,
+      "model": "tovek-pass-thread-wall-v1",
+      "node_contract": "Bounded statement/rvalue census at explicitly measured AST phases. Includes indexed assignment operands, excludes binder/type syntax and implicit storage. Closure bodies counted once only when owned. node_samples=0 means unmeasured, not empty. Before/after census is outside the measured phase interval.",
+      "node_limit": 1000000,
+      "row_limit": 1000000,
+      "rows_count": 531967,
+      "schema_version": 1,
+      "timing_contract": "Nanosecond wall intervals; exclusive subtracts nested spans on the same thread only. Rayon workers overlap, and waiting is included. Sums are not process wall or CPU time. Profiling/aggregation overhead remains outside child intervals and can be charged to ancestors.",
+      "version": "0.9.0-beta",
+      "dropped_records": 0,
+      "misnested_spans": 0
+    },
+    "excerpt_sha256": "cd6fee405bcbeb1eb84caf7486e2c7e725a53745543bb9ddbb8a5ee031a4a06f",
+    "phase_exclusive_seconds": {
+      "S_EXPR_DEINLINE": 0.1190298,
+      "F_SSA_INLINE": 1.9289758,
+      "F_SSA_CONSTRUCT": 2.6923282,
+      "S_NAME_LOCALS": 1.0264137,
+      "S_DEINLINE": 0.0380424
+    }
+  },
+  "after": {
+    "source_profile_sha256": "9a306b25eb9dd97029408e763f74a884f690fa77446c82dd9ba987fcb38e018a",
+    "header": {
+      "binary": "D:\\Medal\\medal-decompiler\\out\\v2-arithmetic-lifter.exe",
+      "binary_sha256": "4104242664461047f05ab9cd3662eb8afb2141d1b28dbcfbd4deaa67eeeb735d",
+      "command": [
+        "out/v2-arithmetic-lifter.exe",
+        "decompile-folder",
+        "D:/Medal/examplebytecode/RobloxProject",
+        "out/v2-arithmetic-after-profile-corpus",
+        "--threads",
+        "1",
+        "--strict-no-synthetic-control"
+      ],
+      "counter_contract": "Counts belong to the innermost measured phase. Missing counters are unmeasured or inapplicable, not zero. No cache hit is claimed unless a specifically identified cache is used.",
+      "logical_processors": 24,
+      "model": "tovek-pass-thread-wall-v1",
+      "node_contract": "Bounded statement/rvalue census at explicitly measured AST phases. Includes indexed assignment operands, excludes binder/type syntax and implicit storage. Closure bodies counted once only when owned. node_samples=0 means unmeasured, not empty. Before/after census is outside the measured phase interval.",
+      "node_limit": 1000000,
+      "row_limit": 1000000,
+      "rows_count": 531967,
+      "schema_version": 1,
+      "timing_contract": "Nanosecond wall intervals; exclusive subtracts nested spans on the same thread only. Rayon workers overlap, and waiting is included. Sums are not process wall or CPU time. Profiling/aggregation overhead remains outside child intervals and can be charged to ancestors.",
+      "version": "0.9.0-beta",
+      "dropped_records": 0,
+      "misnested_spans": 0
+    },
+    "excerpt_sha256": "236ce22427ac465cccc036bf02814809760ee1fe1f58a04038a47425b8eda906",
+    "phase_exclusive_seconds": {
+      "S_EXPR_DEINLINE": 0.1688609,
+      "F_SSA_INLINE": 1.925201,
+      "F_SSA_CONSTRUCT": 2.7063226,
+      "S_NAME_LOCALS": 1.0314616,
+      "S_DEINLINE": 0.0380664
+    }
+  }
+}

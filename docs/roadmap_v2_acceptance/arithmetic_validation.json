@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "binary": {
+    "path": "D:\\Medal\\medal-decompiler\\out\\v2-arithmetic-lifter.exe",
+    "sha256": "97f8a13c980fb849b7e194c371626960b51d9b7bf12dd5a9a58f6c805df7e3cc"
+  },
+  "before_binary": {
+    "path": "D:\\Medal\\medal-decompiler\\out\\v2-ssa-cache-lifter.exe",
+    "sha256": "00c9dddfe0f5775b7e280a9d5e3d42a7067cfd71c7c75b8bd488c2de7f0b2386"
+  },
+  "checks": {
+    "rust_primary_tests": 906,
+    "rust_child_process_repeat": 1,
+    "python_tests": 42,
+    "runtime_configurations": 108,
+    "oracle_controls": 9,
+    "runtime_outputs_identical": 104,
+    "changed_runtime_configurations_retaining_proved": [
+      {
+        "case": "arithmetic_effects",
+        "opt": 2,
+        "debug": 1
+      },
+      {
+        "case": "arithmetic_effects",
+        "opt": 2,
+        "debug": 2
+      },
+      {
+        "case": "helper_loop",
+        "opt": 2,
+        "debug": 1
+      },
+      {
+        "case": "helper_loop",
+        "opt": 2,
+        "debug": 2
+      }
+    ],
+    "compiler_witnesses": 6,
+    "public_configurations": 513,
+    "holdout_configurations": 45,
+    "public_outputs_identical": 513,
+    "legacy_semantic_cases": 45,
+    "size_gate_files": 52,
+    "size_regressions": 0,
+    "trace_configurations": 108,
+    "trace_modes": 3,
+    "debug_release_corpus_identical": true
+  },
+  "source_identities": {
+    "corpus": {
+      "files": 3978,
+      "changed": 4,
+      "output_tree_sha256": "10ae04fbed5296f57e93a45a5821704a5101a3bf9bd771cc0fbb7a2e55a6b844"
+    },
+    "semantic/out": {
+      "files": 45,
+      "changed": 0,
+      "output_tree_sha256": "ab6ac5da55319871a1ca9bff4a7fca0b0e0336d6c3a60502c296bcf9bd4d727f"
+    },
+    "residual": {
+      "files": 7,
+      "changed": 0,
+      "output_tree_sha256": "76ad15f32c9c0bc3a96368b8cea7626ae8135e9467c9d8a0d8a8fdd76f6cf17a"
+    }
+  },
+  "before_runtime_report_sha256": "62cb1d672e5e35c7a934bb5e49cd568e029ff3c8ce67ac42980827243f91b9db",
+  "before_runtime_summary": {
+    "total": 108,
+    "status": {
+      "passed": 108
+    },
+    "dataflow": {
+      "proved": 50,
+      "unknown": 44,
+      "different": 14
+    },
+    "controls": {
+      "passed": 9
+    },
+    "groups": {
+      "UI": {
+        "passed": 12
+      },
+      "buffer/math": {
+        "passed": 12
+      },
+      "conditional": {
+        "passed": 12
+      },
+      "effect/order": {
+        "passed": 12
+      },
+      "formatter": {
+        "passed": 12
+      },
+      "loop/capture": {
+        "passed": 18
+      },
+      "naming/capture": {
+        "passed": 30
+      }
+    }
+  },
+  "benchmark_summary": [
+    {
+      "label": "before",
+      "threads": 1,
+      "samples": 7,
+      "median_seconds": 17.570762499999546,
+      "p95_nearest_rank_seconds": 20.237528499999826,
+      "min_seconds": 17.311990100000912,
+      "max_seconds": 20.237528499999826,
+      "median_peak_rss_bytes": 33787904,
+      "max_peak_rss_bytes": 34238464
+    },
+    {
+      "label": "before",
+      "threads": 16,
+      "samples": 7,
+      "median_seconds": 1.6652477999996336,
+      "p95_nearest_rank_seconds": 1.7361019999989367,
+      "min_seconds": 1.643953300001158,
+      "max_seconds": 1.7361019999989367,
+      "median_peak_rss_bytes": 114614272,
+      "max_peak_rss_bytes": 118374400
+    },
+    {
+      "label": "after",
+      "threads": 1,
+      "samples": 7,
+      "median_seconds": 18.324407500000234,
+      "p95_nearest_rank_seconds": 18.51240990000042,
+      "min_seconds": 17.365560500000356,
+      "max_seconds": 18.51240990000042,
+      "median_peak_rss_bytes": 33079296,
+      "max_peak_rss_bytes": 33857536
+    },
+    {
+      "label": "after",
+      "threads": 16,
+      "samples": 7,
+      "median_seconds": 1.645224899999448,
+      "p95_nearest_rank_seconds": 1.7043641000000207,
+      "min_seconds": 1.619308400000591,
+      "max_seconds": 1.7043641000000207,
+      "median_peak_rss_bytes": 113225728,
+      "max_peak_rss_bytes": 117067776
+    }
+  ],
+  "logs": [
+    {
+      "path": "out\\v2-arithmetic-rust-final.log",
+      "sha256": "2d203b352582e0e1fcc974daadcd58050d1696f3c435fb9ae5dab9d9eba34344"
+    },
+    {
+      "path": "out\\v2-arithmetic-python.log",
+      "sha256": "34e3ed98554673edce1ccd5f0dd3ca666cbd884b3fdbec8026cec433f7f46521"
+    },
+    {
+      "path": "out\\v2-arithmetic-debug-corpus.log",
+      "sha256": "deaf0cf64e59d3e0ab807d7bedbdcaddd3d0c3f07731612c1ee058d81d33a5e0"
+    },
+    {
+      "path": "out\\v2-arithmetic-final-semantic.log",
+      "sha256": "b3491c741a26d7dc2bf1b0e93271ae99bd552a2764170946cf298c32a8ae061b"
+    }
+  ],
+  "legacy_oracle_gates": "Inherited through byte-identical residual/semantic sources; no baseline updates.",
+  "limitations": "Four changed private corpus files retain unknown whole-file dataflow. No Roblox runtime, original-call uniqueness proof, loop re-roll or arithmetic holdout precision/recall claim."
+}

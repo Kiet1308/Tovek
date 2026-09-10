@@ -3,6 +3,89 @@
 This record distinguishes implemented gates from the research roadmap's wider
 acceptance criteria. The baseline is not an overall source-recovery percentage.
 
+## R5: bounded reconstruction of named arithmetic helpers
+
+The expression de-inliner now has a separate arithmetic family requiring a
+named bytecode prototype, a write-once helper binder, exact operator/branch
+matching and stable scalar arguments. It preserves statement-style helper
+bodies and constructs a return/selection pattern only for matching. Reference
+captures, compound arguments, ambiguous helpers and exhausted budgets refuse
+the new rewrite. The general anchor threshold is unchanged. See the
+[eligibility and proof contract](arithmetic_deinline.md).
+
+Both `adjust` calls in `helper_loop` are restored at O2/g1 and O2/g2, with the
+`value + 1` temporary evaluated at its original position. The pinned compiler
+confirms two original inlines and one four-iteration unroll. Six
+[compiler witnesses](roadmap_v2_acceptance/arithmetic_witness.json) record
+original/recompiled disassembly, source hashes, AST call counts and runtime
+results. The four fixture configurations whose output changes retain ordered
+dataflow `proved`. Literals printed as `math.pi`/`math.huge` are excluded so the
+rewrite cannot move those environment lookups into a different function.
+Output labels the calls as equivalent-call inference from
+the existing helper; it does not claim unique original call sites.
+
+The two new fixtures check arithmetic/comparison metamethod order, mutable
+table state, exceptions, NaN/infinity, signed-zero inputs and reference-capture
+mutation. In the capture negative case, the comparison changes the variable
+before multiplication. The correct result remains 23 with trace
+`lt:1,mul:10`; the new matcher refuses to snapshot that variable into a call.
+All [108 runtime configurations and nine controls](roadmap_v2_acceptance/arithmetic_runtime.json)
+pass, including deterministic output at one/four threads. Of these, 104 outputs
+are byte-identical to the prior binary run against the expanded manifest.
+
+All 3,978 corpus files finish (3,936 nonempty, 42 empty); debug and release
+output trees agree. [Four files change](roadmap_v2_acceptance/arithmetic_corpus.json),
+introducing 13 equivalent arithmetic calls across six definitions:
+`multiplyHue`, `cubicBezier`/`cubicBezierDerivative` in two modules,
+and `blendChannel`. All four before/after files recompile at O0/O1/O2 (12
+configurations per version); their whole-file dataflow remains `unknown`.
+The other 3,974 files are byte-identical. Including inference comments, the
+changed files add three lines and 43 UTF-8 bytes after LF normalization.
+
+All [513 public-source configurations](roadmap_v2_acceptance/arithmetic_public_identity.json),
+including 45 Rodux holdout configurations, retain byte-identical output and
+identical dataflow/source-fidelity results. There are no eligible new sites in
+this holdout, so it supplies regression evidence, not arithmetic recovery
+precision/recall. The 45 legacy runtime fixtures pass and all 52 residual/semantic
+sources stay byte-identical; [the size gate](roadmap_v2_acceptance/arithmetic_size.json)
+has no regressions. Legacy oracle gates are inherited through that exact source
+identity, with no baseline updates. [Provenance checks](roadmap_v2_acceptance/arithmetic_traces.json)
+pass for all 108 configurations, including ordinary analysis and detailed
+traces at one/four threads. Workspace tests pass: 906 primary Rust tests plus
+one child-process repeat, and 42 Python tests. The
+[validation record](roadmap_v2_acceptance/arithmetic_validation.json) retains
+binary, report and log hashes.
+
+The final [seven-round interleaved release benchmark](roadmap_v2_acceptance/arithmetic_benchmark.json)
+uses the same input/build settings and warm-cache CLI protocol as R7, with no
+concurrent build/test workload:
+
+| Threads | Before median | After median | Before / after nearest-rank p95 |
+|---:|---:|---:|---:|
+| 1 | 17.571 s | 18.324 s | 20.238 / 18.512 s |
+| 16 | 1.665 s | 1.645 s | 1.736 / 1.704 s |
+
+The one-thread median costs 4.3%; the 16-thread median changes by -1.2%.
+This is a reconstruction feature, not a throughput improvement. Median peak
+RSS is 33,787,904 → 33,079,296 bytes at one thread and
+114,614,272 → 113,225,728 bytes at 16 threads. All measured output hashes are
+stable within each version. An earlier
+[exploratory benchmark](roadmap_v2_acceptance/arithmetic_preview_benchmark.json)
+and [profile audit](roadmap_v2_acceptance/arithmetic_preview_profile_audit.json)
+are retained separately: they used the candidate before the literal guard,
+whose output included one additional file. Its one-thread CLI samples had a
+larger median difference and two timing clusters; its expression pass cost
+0.119 → 0.169 s. These diagnostic results do not replace the final measurements
+or identify the cause of all CLI timing variation. No cold-cache, allocation
+count or in-memory API claim is made.
+
+This completes the scoped arithmetic-helper checkbox, not all R5 acceptance.
+The four-iteration loop stays unrolled. The second `arithmetic_effects` result
+has become statement-level control flow and is deliberately retained. General
+specialization, line/PC candidate discovery, missing-prototype synthesis and
+independent arithmetic precision/recall remain open. No Roblox runtime result
+is claimed for the public or private corpus.
+
 ## R7: cache statement facts during SSA inline
 
 The SSA inliner's backward scans now reuse read/write group IDs, captured-cell

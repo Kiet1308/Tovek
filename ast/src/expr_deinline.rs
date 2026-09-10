@@ -62,8 +62,16 @@
 //! ([`crate::deinline::unify_rvalue`]): parameters are bind-once holes, callee
 //! locals an injective renaming, and globals/literals(NaN-bit-exact)/operators/
 //! upvalues must match exactly — NO commutativity, associativity, or De-Morgan.
+//!
+//! The additional [`arithmetic`] family accepts named bytecode helpers without
+//! global/string anchors. It constructs an internal return/selection pattern,
+//! admits only parameter/literal arithmetic, checks reference-capture stability,
+//! and uses deterministic search budgets. Its separate output marker identifies
+//! equivalent-call inference; it does not assert unique original call sites.
 
 use std::mem::Discriminant;
+
+mod arithmetic;
 
 use parking_lot::Mutex;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -77,7 +85,7 @@ use crate::{Block, Call, Function, LValue, LocalRw, RValue, RcLocal, Statement, 
 
 type FnPtr = *const Mutex<Function>;
 
-/// Cost gate — readability only, all soundness-neutral. `E` must carry at least
+/// Legacy expression-family cost gate — readability only. `E` must carry at least
 /// this many "anchors" (globals + string literals + method calls) so a trivial
 /// helper like `double(x) = x * 2` (0 anchors) is never replaced. The flagship
 /// `isFiniteNumber` body sits at exactly 2 (the `typeof` global + the `"number"`
@@ -107,6 +115,8 @@ struct ExprTarget {
     locals: FxHashSet<RcLocal>,
     /// Parameters in declaration order, to reconstruct the argument list.
     param_order: Vec<RcLocal>,
+    /// Additional, bounded proof path for named bytecode arithmetic helpers.
+    arithmetic: Option<std::rc::Rc<arithmetic::Safety>>,
 }
 
 impl ExprTarget {
@@ -140,6 +150,16 @@ pub fn expr_deinline(body: &mut Block) {
             .entry(std::mem::discriminant(&t.expr))
             .or_default()
             .push(i);
+        if t.arithmetic.is_some() && matches!(t.expr, RValue::IfExpression(_)) {
+            by_root
+                .entry(std::mem::discriminant(&RValue::Binary(crate::Binary::new(
+                    crate::Literal::Nil.into(),
+                    crate::Literal::Nil.into(),
+                    crate::BinaryOperation::Or,
+                ))))
+                .or_default()
+                .push(i);
+        }
     }
     let mut converted: FxHashSet<RcLocal> = FxHashSet::default();
     walk_block(
@@ -152,6 +172,13 @@ pub fn expr_deinline(body: &mut Block) {
         &mut converted,
     );
     if !converted.is_empty() {
+        let inferred = targets
+            .iter()
+            .filter(|t| t.arithmetic.is_some())
+            .map(|t| t.f_local.clone())
+            .filter(|l| converted.remove(l))
+            .collect();
+        crate::deinline::insert_def_markers_with_text(&mut body.0, &inferred, arithmetic::MARKER);
         insert_def_markers(&mut body.0, &converted);
     }
 }
@@ -161,12 +188,10 @@ pub fn expr_deinline(body: &mut Block) {
 // ===================================================================
 
 fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
-    // Writes to every local across the whole module. The statement de-inliner gates
-    // on `Arc::count(f) == 1` — proving the helper binder is referenced ONLY by its
-    // declaration, hence never reassigned, so an emitted `f(args)` always targets
-    // the recovered function. A §7 helper legitimately fails that gate (it may be
-    // genuinely called or statement-deinlined elsewhere, raising the count), so we
-    // drop it — but must otherwise refuse a helper whose binder is REASSIGNED: if
+    // Writes to every local across the whole module, shared with the statement
+    // de-inliner. Refcounts cannot establish whether a helper is reassigned: a
+    // genuine call or an earlier de-inline also raises them. Refuse a binder
+    // with a second write: if
     // `local f = function...end` is later rebound (`f = otherFn`), emitting `f(args)`
     // at a site past the rebind would call the wrong function. A binder that is
     // never rebound is written exactly once (its declaration); any extra write
@@ -174,6 +199,8 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
     let mut write_counts: FxHashMap<RcLocal, usize> = FxHashMap::default();
     collect_write_counts(&body.0, &mut write_counts);
 
+    let arithmetic_safety = std::rc::Rc::new(arithmetic::Safety::new(body));
+    let mut arithmetic_targets = 0usize;
     let mut targets = Vec::new();
     each_closure_decl(&body.0, &mut |l, fa| {
         // Refuse a reassigned helper binder (written anywhere beyond its decl).
@@ -189,6 +216,22 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
         // helpers regardless of debugname. Variadic stays refused (unprovable
         // arity in a multi-value slot).
         if g.is_variadic || body_unsafe(&g.body.0) {
+            return;
+        }
+        if let Some(expr) = arithmetic::pattern(&g) {
+            arithmetic_targets += 1;
+            if arithmetic_targets > arithmetic::MAX_TARGETS {
+                return;
+            }
+            targets.push(ExprTarget {
+                f_local: l.clone(),
+                func_ptr: Arc::as_ptr(fa),
+                expr,
+                params: g.parameters.iter().cloned().collect(),
+                locals: FxHashSet::default(),
+                param_order: g.parameters.clone(),
+                arithmetic: Some(arithmetic_safety.clone()),
+            });
             return;
         }
         // The body must canonicalise to EXACTLY `return <one value>`. `canon` folds
@@ -232,8 +275,14 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
             params,
             locals: FxHashSet::default(),
             param_order,
+            arithmetic: None,
         });
     });
+    // Never silently truncate the ambiguity set: an omitted helper might also
+    // match. Budget exhaustion disables the entire new family for this module.
+    if arithmetic_targets > arithmetic::MAX_TARGETS {
+        targets.retain(|t| t.arithmetic.is_none());
+    }
     targets
 }
 
@@ -488,6 +537,12 @@ fn try_rewrite(
             if current_func == Some(t.func_ptr) {
                 continue; // never match a helper against its own body
             }
+            if let Some(safety) = &t.arithmetic {
+                if !safety.spend_attempt() {
+                    ambiguous = true;
+                    break;
+                }
+            }
             if let Some(args) = try_match(t, rv) {
                 if hit.is_some() {
                     ambiguous = true; // two distinct helpers match this node: refuse
@@ -521,7 +576,12 @@ fn try_rewrite(
 /// if it matches under all gates, return the reconstructed argument list.
 fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
     let mut b = Bindings::default();
-    if unify_rvalue(&t.ctx(), &t.expr, rv, &mut b).is_err() {
+    let matched = if t.arithmetic.is_some() {
+        arithmetic::unify(&t.ctx(), &t.expr, rv, &mut b)
+    } else {
+        unify_rvalue(&t.ctx(), &t.expr, rv, &mut b).is_ok()
+    };
+    if !matched {
         return None;
     }
     // Every parameter must have bound to an argument (an unread parameter cannot be
@@ -559,11 +619,17 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
     {
         return None;
     }
+    if let Some(safety) = &t.arithmetic {
+        if args.iter().any(|arg| !safety.stable(arg)) {
+            return None;
+        }
+    }
     // Cost: the replacement must be a net node saving against the specialised
     // subtree `S` (rejects `f(bigExpr)` non-shrinks). Computed only on a real match.
     let s_nodes = node_count(rv);
     let args_nodes: usize = args.iter().map(node_count).sum();
-    if s_nodes < 1 + args_nodes + NET_SAVING_FLOOR {
+    let call_nodes = if t.arithmetic.is_some() { 2 } else { 1 };
+    if s_nodes < call_nodes + args_nodes + NET_SAVING_FLOOR {
         return None;
     }
     Some(args)
@@ -1065,5 +1131,232 @@ mod tests {
             !is_call_to(rhs_of(block.0.last().unwrap()), &f),
             "field-access arg must be refused"
         );
+    }
+
+    fn adjust_decl(f: &RcLocal) -> Statement {
+        let value = local("value");
+        let bias = local("bias");
+        let mut decl = helper_decl(f, "adjust", vec![value.clone(), bias.clone()], vec![
+            crate::If::new(
+                bin(lv(&value), BinaryOperation::LessThan, number(0.0)),
+                Block(vec![Return::new(vec![lv(&bias)]).into()]),
+                Block(vec![
+                    Return::new(vec![bin(
+                        bin(lv(&value), BinaryOperation::Mul, number(2.0)),
+                        BinaryOperation::Add,
+                        lv(&bias),
+                    )])
+                    .into(),
+                ]),
+            )
+            .into(),
+        ]);
+        if let Statement::Assign(a) = &mut decl {
+            if let RValue::Closure(c) = &mut a.right[0] {
+                c.function.0.lock().bytecode_proto_id = Some(1);
+            }
+        }
+        decl
+    }
+
+    fn adjust_copy(value: RValue, bias: RValue) -> RValue {
+        bin(
+            bin(
+                bin(value.clone(), BinaryOperation::LessThan, number(0.0)),
+                BinaryOperation::And,
+                bias.clone(),
+            ),
+            BinaryOperation::Or,
+            bin(
+                bin(value, BinaryOperation::Mul, number(2.0)),
+                BinaryOperation::Add,
+                bias,
+            ),
+        )
+    }
+
+    #[test]
+    fn named_arithmetic_recovers_two_scalar_calls_and_marks_inference() {
+        let f = local("adjust");
+        let x = local("x");
+        let next = local("next");
+        let a = local("a");
+        let b = local("b");
+        let mut block = Block(vec![
+            adjust_decl(&f),
+            local_decl(&a, adjust_copy(lv(&x), number(3.0))),
+            local_decl(&next, bin(lv(&x), BinaryOperation::Add, number(1.0))),
+            local_decl(&b, adjust_copy(lv(&next), number(3.0))),
+        ]);
+        expr_deinline(&mut block);
+        assert!(matches!(&block.0[0], Statement::Comment(c) if c.text == arithmetic::MARKER));
+        for (index, argument) in [(2, &x), (4, &next)] {
+            let RValue::Call(call) = rhs_of(&block.0[index]) else {
+                panic!("missing call");
+            };
+            assert!(is_call_to(rhs_of(&block.0[index]), &f));
+            assert_eq!(call.arguments, vec![lv(argument), number(3.0)]);
+        }
+        let before = block.to_string();
+        expr_deinline(&mut block);
+        assert_eq!(before, block.to_string());
+    }
+
+    #[test]
+    fn named_arithmetic_refuses_false_nil_and_compound_arguments() {
+        let f = local("adjust");
+        let x = local("x");
+        let r = local("r");
+        for (value, bias) in [
+            (lv(&x), Literal::Boolean(false).into()),
+            (lv(&x), Literal::Nil.into()),
+            (lv(&x), lv(&local("unknownTruth"))),
+            (bin(lv(&x), BinaryOperation::Add, number(1.0)), number(3.0)),
+            (call(global("nextValue"), vec![]), number(3.0)),
+        ] {
+            let mut block = Block(vec![
+                adjust_decl(&f),
+                local_decl(&r, adjust_copy(value, bias)),
+            ]);
+            let before = block.to_string();
+            expr_deinline(&mut block);
+            assert_eq!(before, block.to_string());
+        }
+    }
+
+    #[test]
+    fn named_arithmetic_requires_prototype_and_unambiguous_helper() {
+        let f = local("adjust");
+        let x = local("x");
+        let r = local("r");
+        for ambiguous in [false, true] {
+            let decl = adjust_decl(&f);
+            if !ambiguous {
+                let RValue::Closure(c) = rhs_of(&decl) else {
+                    unreachable!();
+                };
+                c.function.0.lock().bytecode_proto_id = None;
+            }
+            let mut block = Block(vec![decl]);
+            if ambiguous {
+                block.0.push(adjust_decl(&local("alsoAdjust")));
+            }
+            block
+                .0
+                .push(local_decl(&r, adjust_copy(lv(&x), number(3.0))));
+            let before = block.to_string();
+            expr_deinline(&mut block);
+            assert_eq!(before, block.to_string());
+        }
+    }
+
+    #[test]
+    fn named_arithmetic_refuses_reference_captured_argument() {
+        let f = local("adjust");
+        let x = local("x");
+        let callback = local("mutate");
+        let r = local("r");
+        let decl = helper_decl(&callback, "mutate", vec![], vec![
+            Assign {
+                left: vec![LValue::Local(x.clone())],
+                right: vec![number(9.0)],
+                prefix: false,
+                parallel: false,
+            }
+            .into(),
+        ]);
+        let mut decl = decl;
+        if let Statement::Assign(a) = &mut decl {
+            if let RValue::Closure(c) = &mut a.right[0] {
+                c.upvalues.push(crate::Upvalue::Ref(x.clone()));
+            }
+        }
+        let mut block = Block(vec![
+            adjust_decl(&f),
+            decl,
+            local_decl(&r, adjust_copy(lv(&x), number(3.0))),
+        ]);
+        let before = block.to_string();
+        expr_deinline(&mut block);
+        assert_eq!(before, block.to_string());
+    }
+
+    #[test]
+    fn named_arithmetic_keeps_operator_order_and_literal_bits() {
+        let f = local("adjust");
+        let x = local("x");
+        let r = local("r");
+        for swap in [false, true] {
+            let mut expression = adjust_copy(lv(&x), number(3.0));
+            let RValue::Binary(or) = &mut expression else {
+                unreachable!();
+            };
+            if swap {
+                let RValue::Binary(add) = &mut *or.right else {
+                    unreachable!();
+                };
+                std::mem::swap(&mut add.left, &mut add.right);
+            } else {
+                let RValue::Binary(and) = &mut *or.left else {
+                    unreachable!();
+                };
+                let RValue::Binary(lt) = &mut *and.left else {
+                    unreachable!();
+                };
+                lt.right = Box::new(number(-0.0));
+            }
+            let mut block = Block(vec![adjust_decl(&f), local_decl(&r, expression)]);
+            let before = block.to_string();
+            expr_deinline(&mut block);
+            assert_eq!(before, block.to_string());
+        }
+    }
+
+    #[test]
+    fn named_arithmetic_target_budget_disables_family_without_guessing() {
+        let mut block = Block(
+            (0..=arithmetic::MAX_TARGETS)
+                .map(|i| adjust_decl(&local(&format!("adjust{i}"))))
+                .collect(),
+        );
+        block.0.push(local_decl(
+            &local("r"),
+            adjust_copy(lv(&local("x")), number(3.0)),
+        ));
+        let before = block.to_string();
+        expr_deinline(&mut block);
+        assert_eq!(before, block.to_string());
+    }
+
+    #[test]
+    fn named_arithmetic_handles_early_return_and_false_if_expression() {
+        let f = local("adjust");
+        let x = local("x");
+        let r = local("r");
+        let decl = adjust_decl(&f);
+        let RValue::Closure(c) = rhs_of(&decl) else {
+            unreachable!();
+        };
+        {
+            let mut function = c.function.0.lock();
+            let Statement::If(branch) = &function.body.0[0] else {
+                unreachable!();
+            };
+            let tail = std::mem::take(&mut branch.else_block.lock().0);
+            function.body.0.extend(tail);
+        }
+        let expression = crate::IfExpression::new(
+            bin(lv(&x), BinaryOperation::LessThan, number(0.0)),
+            Literal::Boolean(false).into(),
+            bin(
+                bin(lv(&x), BinaryOperation::Mul, number(2.0)),
+                BinaryOperation::Add,
+                Literal::Boolean(false).into(),
+            ),
+        )
+        .into();
+        let mut block = Block(vec![decl, local_decl(&r, expression)]);
+        expr_deinline(&mut block);
+        assert!(is_call_to(rhs_of(block.0.last().unwrap()), &f));
     }
 }
