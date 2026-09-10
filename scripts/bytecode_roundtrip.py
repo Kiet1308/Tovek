@@ -14,9 +14,8 @@ comment header then one base64 blob of Luau bytecode) the script
 Tiers per prototype pair (see `docs/bytecode_roundtrip.md`):
 
 * ``exact``  - normalised instruction stream identical;
-* ``equiv``  - multiset of semantic instructions identical; only block order,
-               branch polarity, register copies or unconditional jumps differ
-               (guard <-> nesting, `and`/`or` reassociation, `+=`, renaming);
+* ``equiv``  - normalized instruction multiset identical. Operand identity,
+               effect order and capture lifetime are NOT validated by this tier;
 * ``differ`` - the semantic multiset differs; the report lists which
                instruction families were lost/added so the case can be
                triaged into acceptable / investigate / bug;
@@ -35,6 +34,9 @@ Usage (ground-truth mode - directory of real `.luau` sources)::
 
 In ground-truth mode every source is compiled at -O2 first, run through the
 same pipeline, and a token-level "source likeness" ratio is reported as well.
+These legacy tiers and the identifier-erasing token score are triage metrics,
+not semantic equivalence or binding-aware source fidelity. Each successful
+file also receives a separate bounded `dataflow` result; unknown is not proof.
 
 Exit status is non-zero when any input fails to decompile/recompile/parse, or
 when `--baseline` is given and the number of non-equivalent prototypes grew
@@ -140,10 +142,13 @@ class Proto:
     __slots__ = (
         "id", "max_stack", "num_params", "num_upvalues", "is_vararg", "code",
         "constants", "children", "line_defined", "name", "insns", "stream", "sig",
+        "debug_locals", "debug_upvalue_names",
     )
 
     def __init__(self):
         self.insns = []  # list of (pc, op, a, b, c, d, e, aux)
+        self.debug_locals = []
+        self.debug_upvalue_names = []
 
 
 class Chunk:
@@ -208,9 +213,9 @@ def parse_chunk(data: bytes, key: int) -> Chunk:
             r.bytes(4 * (((ncode - 1) >> gap) + 1))
         if r.u8():  # debug info
             for _ in range(r.varint()):
-                r.varint(); r.varint(); r.varint(); r.u8()
+                p.debug_locals.append((r.varint(), r.varint(), r.varint(), r.u8()))
             for _ in range(r.varint()):
-                r.varint()
+                p.debug_upvalue_names.append(r.varint())
         if version >= 11:
             for _ in range(r.varint()):
                 if r.u8() != 0:
@@ -1066,6 +1071,9 @@ def process_file(args, rel: str, orig_raw: bytes, key: int, decompiled: pathlib.
         res["error"] = str(e)
         return res
     results, missing, extra = compare_chunks(orig, new)
+    from bytecode_dataflow import compare_dataflow
+    res["dataflow"] = compare_dataflow(orig, new)
+    res["legacy_comparison"] = "register-erasing-normalization"
     res["orig_protos"] = len(orig.protos)
     res["new_protos"] = len(new.protos)
     for r in results:
@@ -1220,6 +1228,8 @@ def main() -> int:
         "differ_classes": dict(class_count),
         "tags": dict(tag_count),
         "decompile_fail_lines": len(fails),
+        "dataflow": dict(collections.Counter(
+            r.get("dataflow", {}).get("status", "unavailable") for r in results)),
         "seconds": {"decompile": round(t1 - t0, 1), "compare": round(t2 - t1, 1)},
     }
     if any("source_likeness" in r for r in results):

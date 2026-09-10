@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "compiler_flags": [
+    "--fflags=false"
+  ],
+  "optimization_levels": [
+    0,
+    1,
+    2
+  ],
+  "debug_levels": [
+    1,
+    2
+  ],
+  "split": "development",
+  "cases": [
+    {
+      "name": "debug_names",
+      "group": "naming/capture",
+      "source": "debug_names.luau",
+      "driver": "debug_names.driver.luau",
+      "expected_stdout": "48\t12\t48\n"
+    },
+    {
+      "name": "scope_names",
+      "group": "loop/capture",
+      "source": "scope_names.luau",
+      "driver": "scope_names.driver.luau",
+      "expected_stdout": "6\t1\t2\t3\n"
+    },
+    {
+      "name": "ui_builder",
+      "group": "UI",
+      "source": "ui_builder.luau",
+      "driver": "ui_builder.driver.luau",
+      "expected_stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n"
+    },
+    {
+      "name": "branch_ui",
+      "group": "UI",
+      "source": "branch_ui.luau",
+      "driver": "branch_ui.driver.luau",
+      "expected_stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n"
+    },
+    {
+      "name": "helper_loop",
+      "group": "buffer/math",
+      "source": "helper_loop.luau",
+      "driver": "helper_loop.driver.luau",
+      "expected_stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n"
+    },
+    {
+      "name": "conditional",
+      "group": "conditional",
+      "source": "conditional.luau",
+      "driver": "conditional.driver.luau",
+      "expected_stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n"
+    },
+    {
+      "name": "unrolled_effects",
+      "group": "loop/capture",
+      "source": "unrolled_effects.luau",
+      "driver": "unrolled_effects.driver.luau",
+      "expected_stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n"
+    }
+  ],
+  "negative_controls": [
+    {
+      "case": "operand_order",
+      "a": "return function(left, right) return left - right end",
+      "b": "return function(left, right) return right - left end",
+      "source_likeness_identifiers_erased": 1.0,
+      "comparison": [
+        [
+          {
+            "path": "main",
+            "tier": "exact",
+            "insns": 3,
+            "delta": null
+          },
+          {
+            "path": "0",
+            "tier": "exact",
+            "insns": 2,
+            "delta": null
+          }
+        ],
+        [],
+        []
+      ]
+    },
+    {
+      "case": "return_binding",
+      "a": "return function(left, right) return left end",
+      "b": "return function(left, right) return right end",
+      "source_likeness_identifiers_erased": 1.0,
+      "comparison": [
+        [
+          {
+            "path": "main",
+            "tier": "exact",
+            "insns": 3,
+            "delta": null
+          },
+          {
+            "path": "0",
+            "tier": "exact",
+            "insns": 1,
+            "delta": null
+          }
+        ],
+        [],
+        []
+      ]
+    },
+    {
+      "case": "store_binding",
+      "a": "return function(t, left, right) t.Value = left end",
+      "b": "return function(t, left, right) t.Value = right end",
+      "source_likeness_identifiers_erased": 1.0,
+      "comparison": [
+        [
+          {
+            "path": "main",
+            "tier": "exact",
+            "insns": 3,
+            "delta": null
+          },
+          {
+            "path": "0",
+            "tier": "exact",
+            "insns": 2,
+            "delta": null
+          }
+        ],
+        [],
+        []
+      ]
+    }
+  ]
+}

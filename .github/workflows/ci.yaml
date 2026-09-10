@@ -150,6 +150,15 @@ jobs:
             --baseline docs/output_size/baseline_fixtures.json \
             --report "$RUNNER_TEMP/output-size.json"
 
+      - name: V2 source, dataflow and runtime controls
+        run: |
+          python3 scripts/roadmap_v2.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --lifter target/release/luau-lifter \
+            --report "$RUNNER_TEMP/roadmap-v2.json" \
+            --keep "$RUNNER_TEMP/roadmap-v2" --determinism
+
       # Bytecode round-trip oracle: decompile -> recompile with the pinned
       # compiler -> compare normalised prototypes with the original bytecode.
       # Gated against the committed baselines: no fixture may regress in
@@ -184,4 +193,6 @@ jobs:
             ${{ runner.temp }}/bytecode-roundtrip-*.json
             ${{ runner.temp }}/bytecode-roundtrip-*.md
             ${{ runner.temp }}/output-size.json
+            ${{ runner.temp }}/roadmap-v2.json
+            ${{ runner.temp }}/roadmap-v2/**/*.luau
           if-no-files-found: warn

@@ -1,0 +1,2990 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-10",
+  "repository_commit": "d31366187777b49430fd1164e00e7aece3df6beb",
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "hardware": {
+    "cpu": "Intel Core Ultra 9 275HX",
+    "cores": 24,
+    "logical_processors": 24,
+    "os": "Windows",
+    "toolchain": "nightly-2024-12-15",
+    "release_profile": "opt-level 3, fat LTO, codegen-units 1, mimalloc"
+  },
+  "limitations": [
+    "Public modules were compiled, decompiled and recompiled, not executed in Roblox.",
+    "Source matrix includes four O2 trivial return-nil modules. No accuracy percentage is inferred from successful compilation.",
+    "Lexical name counts are not binding-level name accuracy.",
+    "Original prototype inventory, oracle comparison universe and structuring invocation counts have different denominators.",
+    "Benchmark is warm-cache process wall time including folder I/O on this machine; no cold-cache, peak RSS, allocation census or per-file p95 claim.",
+    "Profile counters are instrumented inclusive stage measurements. PAR_LOOP_WALL overlaps F_* counters; S_DEINLINE includes common-tail factoring inside its fixed point. Profiling wall time is not a throughput benchmark.",
+    "Runtime probes compare selected outputs/effect traces/error categories; stack locations and all possible inputs are not compared.",
+    "Bytecode equality can match different original source texts; library matches are candidates, not recovered comments/types."
+  ],
+  "inventory": {
+    "commit": "d31366187777b49430fd1164e00e7aece3df6beb",
+    "metadata": {
+      "inputs": 3978,
+      "protos": 26046,
+      "named_protos": 9594,
+      "line_info_protos": 26046,
+      "debug_info_protos": 0,
+      "debug_local_entries": 0,
+      "debug_upvalue_entries": 0,
+      "params": 30380,
+      "upvalues": 58669,
+      "typed_protos": 5695,
+      "code_words": 1658112,
+      "empty": 42
+    },
+    "type_totals": {
+      "param_tags": 11716,
+      "upvalue_tags": 394,
+      "local_ranges": 3045
+    },
+    "versions": {
+      "(9, 3)": 3936
+    },
+    "distinct_bytecode_sha256": 3350,
+    "duplicate_input_files": 586,
+    "output_totals": {
+      "lines": 504400,
+      "bytes": 13666349,
+      "placeholder_local_first_decls": 24207,
+      "v_tokens": 103534,
+      "p_tokens": 34792,
+      "long_lines_180": 304,
+      "deinline_sites": 660,
+      "pack_fallbacks": 22
+    },
+    "largest_outputs": [
+      {
+        "file": "ReplicatedStorage/DivergentVFX/LightningCore.luau",
+        "lines": 3493,
+        "bytes": 82304,
+        "placeholder_local_first_decls": 401,
+        "v_tokens": 1396,
+        "p_tokens": 239,
+        "long_lines_180": 1,
+        "max_line_chars": 349,
+        "max_indent_tabs": 5,
+        "deinline_sites": 10,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/Utils/init.luau",
+        "lines": 1954,
+        "bytes": 42923,
+        "placeholder_local_first_decls": 86,
+        "v_tokens": 345,
+        "p_tokens": 161,
+        "long_lines_180": 4,
+        "max_line_chars": 230,
+        "max_indent_tabs": 5,
+        "deinline_sites": 1,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/MoonPlayer/init.luau",
+        "lines": 1898,
+        "bytes": 40474,
+        "placeholder_local_first_decls": 118,
+        "v_tokens": 620,
+        "p_tokens": 140,
+        "long_lines_180": 0,
+        "max_line_chars": 149,
+        "max_indent_tabs": 10,
+        "deinline_sites": 3,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/Information/init.luau",
+        "lines": 1609,
+        "bytes": 37130,
+        "placeholder_local_first_decls": 44,
+        "v_tokens": 242,
+        "p_tokens": 190,
+        "long_lines_180": 1,
+        "max_line_chars": 187,
+        "max_indent_tabs": 5,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Part_Icles/TypeRegistry/TypeData.luau",
+        "lines": 1573,
+        "bytes": 29028,
+        "placeholder_local_first_decls": 0,
+        "v_tokens": 0,
+        "p_tokens": 0,
+        "long_lines_180": 0,
+        "max_line_chars": 174,
+        "max_indent_tabs": 5,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/TypeRegistry/TypeData.luau",
+        "lines": 1573,
+        "bytes": 29028,
+        "placeholder_local_first_decls": 0,
+        "v_tokens": 0,
+        "p_tokens": 0,
+        "long_lines_180": 0,
+        "max_line_chars": 174,
+        "max_indent_tabs": 5,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Utils/HyperText/init.luau",
+        "lines": 1557,
+        "bytes": 47989,
+        "placeholder_local_first_decls": 81,
+        "v_tokens": 416,
+        "p_tokens": 236,
+        "long_lines_180": 13,
+        "max_line_chars": 437,
+        "max_indent_tabs": 13,
+        "deinline_sites": 3,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/ClickToMoveController.luau",
+        "lines": 1508,
+        "bytes": 35636,
+        "placeholder_local_first_decls": 96,
+        "v_tokens": 344,
+        "p_tokens": 92,
+        "long_lines_180": 1,
+        "max_line_chars": 220,
+        "max_indent_tabs": 8,
+        "deinline_sites": 13,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.luau",
+        "lines": 1481,
+        "bytes": 35216,
+        "placeholder_local_first_decls": 93,
+        "v_tokens": 331,
+        "p_tokens": 92,
+        "long_lines_180": 1,
+        "max_line_chars": 220,
+        "max_indent_tabs": 8,
+        "deinline_sites": 13,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Dependencies/Mock/init.luau",
+        "lines": 1391,
+        "bytes": 29057,
+        "placeholder_local_first_decls": 57,
+        "v_tokens": 251,
+        "p_tokens": 41,
+        "long_lines_180": 2,
+        "max_line_chars": 368,
+        "max_indent_tabs": 8,
+        "deinline_sites": 1,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.spec.luau",
+        "lines": 1366,
+        "bytes": 44563,
+        "placeholder_local_first_decls": 160,
+        "v_tokens": 624,
+        "p_tokens": 130,
+        "long_lines_180": 0,
+        "max_line_chars": 152,
+        "max_indent_tabs": 6,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Utils/Promise/init.spec.luau",
+        "lines": 1366,
+        "bytes": 44563,
+        "placeholder_local_first_decls": 160,
+        "v_tokens": 624,
+        "p_tokens": 130,
+        "long_lines_180": 0,
+        "max_line_chars": 152,
+        "max_indent_tabs": 6,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/Promise/init.spec.luau",
+        "lines": 1366,
+        "bytes": 44563,
+        "placeholder_local_first_decls": 160,
+        "v_tokens": 624,
+        "p_tokens": 130,
+        "long_lines_180": 0,
+        "max_line_chars": 152,
+        "max_indent_tabs": 6,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.luau",
+        "lines": 1328,
+        "bytes": 29592,
+        "placeholder_local_first_decls": 73,
+        "v_tokens": 362,
+        "p_tokens": 167,
+        "long_lines_180": 1,
+        "max_line_chars": 208,
+        "max_indent_tabs": 7,
+        "deinline_sites": 10,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Utils/Promise/init.luau",
+        "lines": 1328,
+        "bytes": 29592,
+        "placeholder_local_first_decls": 73,
+        "v_tokens": 362,
+        "p_tokens": 167,
+        "long_lines_180": 1,
+        "max_line_chars": 208,
+        "max_indent_tabs": 7,
+        "deinline_sites": 10,
+        "pack_fallbacks": 0
+      }
+    ],
+    "most_placeholders": [
+      {
+        "file": "ReplicatedStorage/DivergentVFX/LightningCore.luau",
+        "lines": 3493,
+        "bytes": 82304,
+        "placeholder_local_first_decls": 401,
+        "v_tokens": 1396,
+        "p_tokens": 239,
+        "long_lines_180": 1,
+        "max_line_chars": 349,
+        "max_indent_tabs": 5,
+        "deinline_sites": 10,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/MoonPlayer/init.luau",
+        "lines": 1898,
+        "bytes": 40474,
+        "placeholder_local_first_decls": 118,
+        "v_tokens": 620,
+        "p_tokens": 140,
+        "long_lines_180": 0,
+        "max_line_chars": 149,
+        "max_indent_tabs": 10,
+        "deinline_sites": 3,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.spec.luau",
+        "lines": 1366,
+        "bytes": 44563,
+        "placeholder_local_first_decls": 160,
+        "v_tokens": 624,
+        "p_tokens": 130,
+        "long_lines_180": 0,
+        "max_line_chars": 152,
+        "max_indent_tabs": 6,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Utils/Promise/init.spec.luau",
+        "lines": 1366,
+        "bytes": 44563,
+        "placeholder_local_first_decls": 160,
+        "v_tokens": 624,
+        "p_tokens": 130,
+        "long_lines_180": 0,
+        "max_line_chars": 152,
+        "max_indent_tabs": 6,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/Promise/init.spec.luau",
+        "lines": 1366,
+        "bytes": 44563,
+        "placeholder_local_first_decls": 160,
+        "v_tokens": 624,
+        "p_tokens": 130,
+        "long_lines_180": 0,
+        "max_line_chars": 152,
+        "max_indent_tabs": 6,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/Network/BufferEncoder/Write.luau",
+        "lines": 959,
+        "bytes": 30539,
+        "placeholder_local_first_decls": 198,
+        "v_tokens": 660,
+        "p_tokens": 79,
+        "long_lines_180": 0,
+        "max_line_chars": 149,
+        "max_indent_tabs": 9,
+        "deinline_sites": 97,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Nodes/init.luau",
+        "lines": 1203,
+        "bytes": 27046,
+        "placeholder_local_first_decls": 95,
+        "v_tokens": 437,
+        "p_tokens": 271,
+        "long_lines_180": 0,
+        "max_line_chars": 139,
+        "max_indent_tabs": 6,
+        "deinline_sites": 2,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/lightning.luau",
+        "lines": 1042,
+        "bytes": 31729,
+        "placeholder_local_first_decls": 135,
+        "v_tokens": 577,
+        "p_tokens": 101,
+        "long_lines_180": 0,
+        "max_line_chars": 178,
+        "max_indent_tabs": 9,
+        "deinline_sites": 2,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Utils/HyperText/init.luau",
+        "lines": 1557,
+        "bytes": 47989,
+        "placeholder_local_first_decls": 81,
+        "v_tokens": 416,
+        "p_tokens": 236,
+        "long_lines_180": 13,
+        "max_line_chars": 437,
+        "max_indent_tabs": 13,
+        "deinline_sites": 3,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/MoonPlayer/LerpCore/init.luau",
+        "lines": 799,
+        "bytes": 17617,
+        "placeholder_local_first_decls": 125,
+        "v_tokens": 479,
+        "p_tokens": 146,
+        "long_lines_180": 0,
+        "max_line_chars": 102,
+        "max_indent_tabs": 6,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Part_Icles/Update.luau",
+        "lines": 774,
+        "bytes": 29321,
+        "placeholder_local_first_decls": 141,
+        "v_tokens": 577,
+        "p_tokens": 41,
+        "long_lines_180": 4,
+        "max_line_chars": 295,
+        "max_indent_tabs": 8,
+        "deinline_sites": 6,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Update.luau",
+        "lines": 774,
+        "bytes": 29321,
+        "placeholder_local_first_decls": 141,
+        "v_tokens": 577,
+        "p_tokens": 41,
+        "long_lines_180": 4,
+        "max_line_chars": 295,
+        "max_indent_tabs": 8,
+        "deinline_sites": 6,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/Mounts/ShenronDragon/init.luau",
+        "lines": 843,
+        "bytes": 25124,
+        "placeholder_local_first_decls": 161,
+        "v_tokens": 541,
+        "p_tokens": 63,
+        "long_lines_180": 0,
+        "max_line_chars": 133,
+        "max_indent_tabs": 6,
+        "deinline_sites": 5,
+        "pack_fallbacks": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Components/Base/SplitTextLabel/init.luau",
+        "lines": 888,
+        "bytes": 19024,
+        "placeholder_local_first_decls": 89,
+        "v_tokens": 493,
+        "p_tokens": 108,
+        "long_lines_180": 0,
+        "max_line_chars": 131,
+        "max_indent_tabs": 11,
+        "deinline_sites": 0,
+        "pack_fallbacks": 1
+      },
+      {
+        "file": "ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/TweenFunctions.luau",
+        "lines": 496,
+        "bytes": 11725,
+        "placeholder_local_first_decls": 106,
+        "v_tokens": 373,
+        "p_tokens": 207,
+        "long_lines_180": 0,
+        "max_line_chars": 66,
+        "max_indent_tabs": 4,
+        "deinline_sites": 0,
+        "pack_fallbacks": 0
+      }
+    ],
+    "largest_bytecode": [
+      {
+        "file": "ReplicatedStorage/DivergentVFX/LightningCore.lua",
+        "protos": 131,
+        "code_words": 10091,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.spec.lua",
+        "protos": 310,
+        "code_words": 8876,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Utils/Promise/init.spec.lua",
+        "protos": 310,
+        "code_words": 8876,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/Promise/init.spec.lua",
+        "protos": 310,
+        "code_words": 8876,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Utils/HyperText/init.lua",
+        "protos": 138,
+        "code_words": 5922,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/Utils/init.lua",
+        "protos": 131,
+        "code_words": 4957,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/MoonPlayer/init.lua",
+        "protos": 86,
+        "code_words": 4755,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.lua",
+        "protos": 128,
+        "code_words": 4232,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/FusionPackage/Utils/Promise/init.lua",
+        "protos": 128,
+        "code_words": 4232,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/Promise/init.lua",
+        "protos": 128,
+        "code_words": 4232,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/Information/init.lua",
+        "protos": 66,
+        "code_words": 4184,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/ClickToMoveController.lua",
+        "protos": 88,
+        "code_words": 4107,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/ForgeVFX/obj/Promise.lua",
+        "protos": 127,
+        "code_words": 4097,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/pkg/Promise.lua",
+        "protos": 127,
+        "code_words": 4097,
+        "debug_local_entries": 0
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.lua",
+        "protos": 88,
+        "code_words": 4062,
+        "debug_local_entries": 0
+      }
+    ]
+  },
+  "naming_loss": {
+    "method": "Lexical absence lower bound, not binding-level name accuracy. Valid debug function names must occur as code identifiers somewhere in the same output to count present; same-name functions can mask losses. Field-to-placeholder is a lexical candidate-site count, not unique bindings.",
+    "counts": {
+      "valid_identifier_named_protos": 9594,
+      "field_to_placeholder_sites": 2908,
+      "name_absent_from_emitted_identifiers": 457
+    },
+    "examples": [
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientAnimations.client.lua",
+        "absent_debug_function_names": [
+          "stopAnimation",
+          "playAnimation"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientClickableHandler.client.lua",
+        "absent_debug_function_names": [
+          "onClickInstance"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientEventReplica.client.lua",
+        "absent_debug_function_names": [
+          "sendEventRequest"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientExpeditionBuildings.client.lua",
+        "absent_debug_function_names": [
+          "cleanupBuilding"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientFishingHandler.client.lua",
+        "absent_debug_function_names": [
+          "destroyRemoteRod"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientGameRequests.client.lua",
+        "absent_debug_function_names": [
+          "receiveRequest"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientGuiController.client.lua",
+        "absent_debug_function_names": [
+          "registerMenu",
+          "getActiveMenu",
+          "isMenu"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientGuiNavigation.client.lua",
+        "absent_debug_function_names": [
+          "startUINavigation"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientInputHandler.client.lua",
+        "absent_debug_function_names": [
+          "setupContext"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientInteractableHandler.client.lua",
+        "absent_debug_function_names": [
+          "updateAttribute"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientKeybindLoader.client.lua",
+        "absent_debug_function_names": [
+          "getCurrentKeyCode",
+          "setupContext"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientMountHandler.client.lua",
+        "absent_debug_function_names": [
+          "handleRideStart",
+          "handleMountRequest"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientMusicHandler.client.lua",
+        "absent_debug_function_names": [
+          "resetMusic"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientNPCModel.client.lua",
+        "absent_debug_function_names": [
+          "createNPC"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientPartyReplica.client.lua",
+        "absent_debug_function_names": [
+          "waitForPartyReplicaById"
+        ]
+      },
+      {
+        "file": "StarterPlayer/StarterPlayerScripts/ClientPlayerDataReplica.client.lua",
+        "absent_debug_function_names": [
+          "bindToPath"
+        ]
+      }
+    ]
+  },
+  "benchmark": {
+    "exe_sha256": "3c948e0f2d7bd14724b8a63c78acb0704555bc8c49b073393c2e5f085d840bbd",
+    "logical_cpus": 24,
+    "measure": "process wall time, warm-cache folder decode+decompile+write; one discarded warmup; interleaved thread counts",
+    "runs": [
+      {
+        "threads": 8,
+        "trial": "warmup",
+        "wall_seconds": 3.540436
+      },
+      {
+        "threads": 1,
+        "trial": 0,
+        "wall_seconds": 22.554892
+      },
+      {
+        "threads": 4,
+        "trial": 0,
+        "wall_seconds": 4.890136
+      },
+      {
+        "threads": 8,
+        "trial": 0,
+        "wall_seconds": 2.831428
+      },
+      {
+        "threads": 16,
+        "trial": 0,
+        "wall_seconds": 1.747057
+      },
+      {
+        "threads": 1,
+        "trial": 1,
+        "wall_seconds": 22.695895
+      },
+      {
+        "threads": 4,
+        "trial": 1,
+        "wall_seconds": 5.359402
+      },
+      {
+        "threads": 8,
+        "trial": 1,
+        "wall_seconds": 2.592813
+      },
+      {
+        "threads": 16,
+        "trial": 1,
+        "wall_seconds": 1.739103
+      },
+      {
+        "threads": 1,
+        "trial": 2,
+        "wall_seconds": 22.759245
+      },
+      {
+        "threads": 4,
+        "trial": 2,
+        "wall_seconds": 5.000436
+      },
+      {
+        "threads": 8,
+        "trial": 2,
+        "wall_seconds": 2.823433
+      },
+      {
+        "threads": 16,
+        "trial": 2,
+        "wall_seconds": 1.936838
+      }
+    ],
+    "median_seconds": {
+      "1": 22.695895,
+      "4": 5.000436,
+      "8": 2.823433,
+      "16": 1.747057
+    }
+  },
+  "profile_microseconds": {
+    "DESER_LIFT": 623282,
+    "PAR_LOOP_WALL": 10122468,
+    "F_SSA_CONSTRUCT": 2581702,
+    "F_SIMPLE_FAST": 138418,
+    "F_STRUCTURE_JUMPS": 57915,
+    "F_SSA_INLINE": 2612942,
+    "F_STRUCTURE_CONDS": 151691,
+    "F_REMOVE_PARAMS": 143471,
+    "F_APPLY_MAP": 187498,
+    "F_DESTRUCT": 1034111,
+    "F_RESTRUCTURE": 1609053,
+    "F_SIMPLIFY_GOTOS": 26619,
+    "F_FLATTEN_GUARDS": 35806,
+    "F_DECLARE_LOCALS": 276825,
+    "F_HOIST": 1259,
+    "S_LINK_UPVALUES": 172665,
+    "S_DEINLINE": 5923473,
+    "S_CLEANUP_RETURNS": 174919,
+    "S_MATERIALIZE": 61236,
+    "S_REHOIST_CONSTANTS": 141959,
+    "S_NAME_LOCALS": 1095485,
+    "S_RECOVER_METHODS": 164035,
+    "S_INLINE_TEMPS_1": 546655,
+    "S_COND_EXPRS": 284020,
+    "S_REBUILD_TABLES": 1169635,
+    "S_MATERIALIZE_CALL_RECEIVERS": 230831,
+    "S_COPY_CLEANUP": 394054,
+    "S_REBALANCE_EXPRS": 348238,
+    "S_CLEANUP_FINAL": 529682,
+    "S_ELIMINATE_NIL": 149847,
+    "S_RECOVER_CONN": 179349,
+    "S_EXPR_DEINLINE": 116340,
+    "S_NORMALIZE_CONDS": 927987,
+    "S_GUARD_CONTINUE": 77773,
+    "S_FORMAT": 272339
+  },
+  "profile_cases": [
+    {
+      "file": "ReplicatedStorage/Shared/Network/BufferEncoder/Write.lua",
+      "warm_process_seconds": [
+        0.14172779978252947,
+        0.13741669990122318,
+        0.14158819988369942
+      ],
+      "median_warm_process_seconds": 0.14158819988369942,
+      "output_identical_to_audited_except_cli_newline": true,
+      "instrumented_microseconds": {
+        "DESER_LIFT": 3157,
+        "PAR_LOOP_WALL": 88093,
+        "F_SSA_CONSTRUCT": 15034,
+        "F_SIMPLE_FAST": 772,
+        "F_STRUCTURE_JUMPS": 266,
+        "F_SSA_INLINE": 5887,
+        "F_STRUCTURE_CONDS": 1063,
+        "F_REMOVE_PARAMS": 1733,
+        "F_APPLY_MAP": 1030,
+        "F_DESTRUCT": 16022,
+        "F_RESTRUCTURE": 38181,
+        "F_SIMPLIFY_GOTOS": 499,
+        "F_FLATTEN_GUARDS": 374,
+        "F_DECLARE_LOCALS": 1715,
+        "F_HOIST": 16,
+        "S_LINK_UPVALUES": 381,
+        "S_DEINLINE": 11253,
+        "S_CLEANUP_RETURNS": 213,
+        "S_MATERIALIZE": 270,
+        "S_REHOIST_CONSTANTS": 204,
+        "S_NAME_LOCALS": 1722,
+        "S_RECOVER_METHODS": 135,
+        "S_INLINE_TEMPS_1": 3211,
+        "S_COND_EXPRS": 1273,
+        "S_REBUILD_TABLES": 3068,
+        "S_MATERIALIZE_CALL_RECEIVERS": 332,
+        "S_COPY_CLEANUP": 2821,
+        "S_REBALANCE_EXPRS": 568,
+        "S_CLEANUP_FINAL": 989,
+        "S_ELIMINATE_NIL": 356,
+        "S_RECOVER_CONN": 435,
+        "S_EXPR_DEINLINE": 413,
+        "S_NORMALIZE_CONDS": 2730,
+        "S_GUARD_CONTINUE": 127,
+        "S_FORMAT": 365
+      }
+    },
+    {
+      "file": "ReplicatedStorage/DivergentVFX/LightningCore.lua",
+      "warm_process_seconds": [
+        0.19591739983297884,
+        0.188996700104326,
+        0.188562500057742
+      ],
+      "median_warm_process_seconds": 0.188996700104326,
+      "output_identical_to_audited_except_cli_newline": true,
+      "instrumented_microseconds": {
+        "DESER_LIFT": 4996,
+        "PAR_LOOP_WALL": 87900,
+        "F_SSA_CONSTRUCT": 20988,
+        "F_SIMPLE_FAST": 1629,
+        "F_STRUCTURE_JUMPS": 601,
+        "F_SSA_INLINE": 15877,
+        "F_STRUCTURE_CONDS": 2352,
+        "F_REMOVE_PARAMS": 3195,
+        "F_APPLY_MAP": 2330,
+        "F_DESTRUCT": 13903,
+        "F_RESTRUCTURE": 16181,
+        "F_SIMPLIFY_GOTOS": 204,
+        "F_FLATTEN_GUARDS": 324,
+        "F_DECLARE_LOCALS": 1966,
+        "F_HOIST": 16,
+        "S_LINK_UPVALUES": 1068,
+        "S_DEINLINE": 31181,
+        "S_CLEANUP_RETURNS": 1013,
+        "S_MATERIALIZE": 572,
+        "S_REHOIST_CONSTANTS": 1058,
+        "S_NAME_LOCALS": 6845,
+        "S_RECOVER_METHODS": 1565,
+        "S_INLINE_TEMPS_1": 3832,
+        "S_COND_EXPRS": 2188,
+        "S_REBUILD_TABLES": 7966,
+        "S_MATERIALIZE_CALL_RECEIVERS": 1450,
+        "S_COPY_CLEANUP": 3486,
+        "S_REBALANCE_EXPRS": 2619,
+        "S_CLEANUP_FINAL": 3508,
+        "S_ELIMINATE_NIL": 1017,
+        "S_RECOVER_CONN": 1549,
+        "S_EXPR_DEINLINE": 907,
+        "S_NORMALIZE_CONDS": 7148,
+        "S_GUARD_CONTINUE": 458,
+        "S_FORMAT": 2132
+      }
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/HyperText/init.lua",
+      "warm_process_seconds": [
+        0.08608820009976625,
+        0.08348979987204075,
+        0.08294540015049279
+      ],
+      "median_warm_process_seconds": 0.08348979987204075,
+      "output_identical_to_audited_except_cli_newline": true,
+      "instrumented_microseconds": {
+        "DESER_LIFT": 3051,
+        "PAR_LOOP_WALL": 33140,
+        "F_SSA_CONSTRUCT": 8504,
+        "F_SIMPLE_FAST": 583,
+        "F_STRUCTURE_JUMPS": 237,
+        "F_SSA_INLINE": 5542,
+        "F_STRUCTURE_CONDS": 921,
+        "F_REMOVE_PARAMS": 1104,
+        "F_APPLY_MAP": 861,
+        "F_DESTRUCT": 3647,
+        "F_RESTRUCTURE": 5764,
+        "F_SIMPLIFY_GOTOS": 67,
+        "F_FLATTEN_GUARDS": 115,
+        "F_DECLARE_LOCALS": 874,
+        "F_HOIST": 8,
+        "S_LINK_UPVALUES": 558,
+        "S_DEINLINE": 5043,
+        "S_CLEANUP_RETURNS": 528,
+        "S_MATERIALIZE": 288,
+        "S_REHOIST_CONSTANTS": 397,
+        "S_NAME_LOCALS": 3528,
+        "S_RECOVER_METHODS": 852,
+        "S_INLINE_TEMPS_1": 3021,
+        "S_COND_EXPRS": 1054,
+        "S_REBUILD_TABLES": 3851,
+        "S_MATERIALIZE_CALL_RECEIVERS": 825,
+        "S_COPY_CLEANUP": 2155,
+        "S_REBALANCE_EXPRS": 917,
+        "S_CLEANUP_FINAL": 1682,
+        "S_ELIMINATE_NIL": 499,
+        "S_RECOVER_CONN": 746,
+        "S_EXPR_DEINLINE": 236,
+        "S_NORMALIZE_CONDS": 3573,
+        "S_GUARD_CONTINUE": 255,
+        "S_FORMAT": 624
+      }
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Menu/init.lua",
+      "warm_process_seconds": [
+        0.02759950002655387,
+        0.030163600109517574,
+        0.027738699922338128
+      ],
+      "median_warm_process_seconds": 0.027738699922338128,
+      "output_identical_to_audited_except_cli_newline": true,
+      "instrumented_microseconds": {
+        "DESER_LIFT": 685,
+        "PAR_LOOP_WALL": 5238,
+        "F_SSA_CONSTRUCT": 1335,
+        "F_SIMPLE_FAST": 38,
+        "F_STRUCTURE_JUMPS": 34,
+        "F_SSA_INLINE": 1708,
+        "F_STRUCTURE_CONDS": 43,
+        "F_REMOVE_PARAMS": 28,
+        "F_APPLY_MAP": 104,
+        "F_DESTRUCT": 260,
+        "F_RESTRUCTURE": 696,
+        "F_SIMPLIFY_GOTOS": 14,
+        "F_FLATTEN_GUARDS": 18,
+        "F_DECLARE_LOCALS": 106,
+        "F_HOIST": 3,
+        "S_LINK_UPVALUES": 98,
+        "S_DEINLINE": 992,
+        "S_CLEANUP_RETURNS": 83,
+        "S_MATERIALIZE": 33,
+        "S_REHOIST_CONSTANTS": 69,
+        "S_NAME_LOCALS": 569,
+        "S_RECOVER_METHODS": 57,
+        "S_INLINE_TEMPS_1": 226,
+        "S_COND_EXPRS": 107,
+        "S_REBUILD_TABLES": 1728,
+        "S_MATERIALIZE_CALL_RECEIVERS": 80,
+        "S_COPY_CLEANUP": 127,
+        "S_REBALANCE_EXPRS": 188,
+        "S_CLEANUP_FINAL": 185,
+        "S_ELIMINATE_NIL": 61,
+        "S_RECOVER_CONN": 68,
+        "S_EXPR_DEINLINE": 32,
+        "S_NORMALIZE_CONDS": 335,
+        "S_GUARD_CONTINUE": 38,
+        "S_FORMAT": 133
+      }
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Promise/init.lua",
+      "warm_process_seconds": [
+        0.06499759992584586,
+        0.06568530015647411,
+        0.06602069991640747
+      ],
+      "median_warm_process_seconds": 0.06568530015647411,
+      "output_identical_to_audited_except_cli_newline": true,
+      "instrumented_microseconds": {
+        "DESER_LIFT": 2295,
+        "PAR_LOOP_WALL": 25688,
+        "F_SSA_CONSTRUCT": 6677,
+        "F_SIMPLE_FAST": 462,
+        "F_STRUCTURE_JUMPS": 196,
+        "F_SSA_INLINE": 3239,
+        "F_STRUCTURE_CONDS": 542,
+        "F_REMOVE_PARAMS": 419,
+        "F_APPLY_MAP": 309,
+        "F_DESTRUCT": 3313,
+        "F_RESTRUCTURE": 5232,
+        "F_SIMPLIFY_GOTOS": 67,
+        "F_FLATTEN_GUARDS": 104,
+        "F_DECLARE_LOCALS": 699,
+        "F_HOIST": 4,
+        "S_LINK_UPVALUES": 504,
+        "S_DEINLINE": 4530,
+        "S_CLEANUP_RETURNS": 334,
+        "S_MATERIALIZE": 135,
+        "S_REHOIST_CONSTANTS": 277,
+        "S_NAME_LOCALS": 2183,
+        "S_RECOVER_METHODS": 547,
+        "S_INLINE_TEMPS_1": 1095,
+        "S_COND_EXPRS": 656,
+        "S_REBUILD_TABLES": 1989,
+        "S_MATERIALIZE_CALL_RECEIVERS": 489,
+        "S_COPY_CLEANUP": 921,
+        "S_REBALANCE_EXPRS": 660,
+        "S_CLEANUP_FINAL": 1207,
+        "S_ELIMINATE_NIL": 307,
+        "S_RECOVER_CONN": 386,
+        "S_EXPR_DEINLINE": 204,
+        "S_NORMALIZE_CONDS": 2033,
+        "S_GUARD_CONTINUE": 162,
+        "S_FORMAT": 460
+      }
+    }
+  ],
+  "cache_analysis": {
+    "identical_bytecode_groups": 173,
+    "groups_with_different_output": 2,
+    "examples": [
+      [
+        [
+          "ReplicatedStorage/FusionPackage/Dependencies/Mock/MockItems/init.luau",
+          "5816d189fadfbc295612f834e2c6a00288f428cb631ea76cdb7e73fa23d2373d"
+        ],
+        [
+          "ReplicatedStorage/FusionPackage/Dependencies/Mock/MockSkins/init.luau",
+          "63a1e40255217c85a2ff9ca8b7b48e979c06972512b42c22c82a5514086d44b7"
+        ],
+        [
+          "ReplicatedStorage/FusionPackage/Dependencies/Mock/MockUnits/init.luau",
+          "da739e8c2f0736351d46850d9f0f5b188e1c99a1df09205ff7fd8ba4b04827c5"
+        ]
+      ],
+      [
+        [
+          "ReplicatedStorage/Assets/Titles/TowerOfGodTitle.luau",
+          "04efaf2512264c9cff8c93ec84944585beae497bc4b488e4f2b647d1b3f699f3"
+        ],
+        [
+          "ReplicatedStorage/Assets/Titles/TowerOfGodTraitlessTitle.luau",
+          "edc0cceb4f5a3f84a6503b2d22be245bdfeebac4d42f4a0601ac1b05b924ffa7"
+        ]
+      ]
+    ]
+  },
+  "probe_cases": [
+    {
+      "name": "debug_names",
+      "source": "local function invoiceTotal(unitPrice: number, quantity: number, discountRate: number)\n    local subtotal = unitPrice * quantity\n    local discountAmount = subtotal * discountRate\n    local totalCost = subtotal - discountAmount\n    return totalCost, function() return discountAmount, totalCost end\nend\nreturn invoiceTotal\n",
+      "output_O2_g1": "return function(p: number, p2: number, p3: number)\n\tlocal v = p * p2\n\tlocal v2 = v * p3\n\tlocal v3 = v - v2\n\treturn v3, function()\n\t\treturn v2, v3\n\tend\nend\n"
+    },
+    {
+      "name": "scope_names",
+      "source": "return function(items, scale)\n    local runningTotal = 0\n    for index, item in items do\n        local weightedScore = item.Score * scale\n        runningTotal += weightedScore\n        item.LastIndex = index\n    end\n    local finalScore = runningTotal / #items\n    return finalScore\nend\n",
+      "output_O2_g1": "return function(list, p)\n\tlocal total = 0\n\n\tfor k, v in list do\n\t\ttotal += v.Score * p\n\t\tv.LastIndex = k\n\tend\n\n\treturn total / #list\nend\n"
+    },
+    {
+      "name": "ui_builder",
+      "source": "return function(scope, Children, Label, title, enabled)\n    local props = {Name = \"Panel\", Visible = enabled}\n    props[Children] = {\n        Label {Text = title},\n        scope:New(\"Frame\") {Name = \"Body\"},\n    }\n    return scope:New(\"Frame\")(props)\nend\n",
+      "output_O2_g1": "return function(scope, p, callback, p2, p3)\n\tlocal v = {\n\t\tName = \"Panel\",\n\t\tVisible = p3,\n\t\t[p] = { callback({\n\t\t\t\tText = p2\n\t\t\t}), scope:New(\"Frame\")({\n\t\t\t\tName = \"Body\"\n\t\t\t}) }\n\t}\n\treturn scope:New(\"Frame\")(v)\nend\n"
+    },
+    {
+      "name": "branch_ui",
+      "source": "return function(scope, Children, Label, title, enabled)\n    local props = {Name = \"Panel\"}\n    if enabled then\n        props.BackgroundTransparency = 0\n    else\n        props.BackgroundTransparency = 1\n    end\n    props[Children] = {Label {Text = title}}\n    return scope:New(\"Frame\")(props)\nend\n",
+      "output_O2_g1": "return function(scope, p, callback, p2, p3)\n\tlocal v = {\n\t\tName = \"Panel\"\n\t}\n\n\tif p3 then\n\t\tv.BackgroundTransparency = 0\n\telse\n\t\tv.BackgroundTransparency = 1\n\tend\n\n\tv[p] = { callback({\n\t\t\tText = p2\n\t\t}) }\n\treturn scope:New(\"Frame\")(v)\nend\n"
+    },
+    {
+      "name": "helper_loop",
+      "source": "local function adjust(value, bias)\n    if value < 0 then return bias end\n    return value * 2 + bias\nend\nreturn function(value)\n    local first = adjust(value, 3)\n    local second = adjust(value + 1, 3)\n    local result = 0\n    for i = 1, 4 do result += value * i end\n    return first + second + result\nend\n",
+      "output_O2_g1": "local function adjust(p, p2)\n\tif p < 0 then\n\t\treturn p2\n\telse\n\t\treturn p * 2 + p2\n\tend\nend\n\nreturn function(p)\n\tlocal v = p < 0 and 3 or p * 2 + 3\n\tlocal v2 = p + 1\n\tlocal v3 = v2 < 0 and 3 or v2 * 2 + 3\n\tlocal v4 = 0 + p * 1 + p * 2 + p * 3 + p * 4\n\treturn v + v3 + v4\nend\n"
+    },
+    {
+      "name": "conditional",
+      "source": "return function(condition, primary, fallback)\n    local selected = if condition then primary else fallback\n    return selected, if selected == nil then \"missing\" else \"present\"\nend\n",
+      "output_O2_g1": "return function(p, p2, p3)\n\tif not p then\n\t\tp2 = p3\n\tend\n\n\tif p2 == nil then\n\t\treturn p2, \"missing\"\n\telse\n\t\treturn p2, \"present\"\n\tend\nend\n"
+    },
+    {
+      "name": "unrolled_effects",
+      "source": "return function(value)\n    local total = 0\n    for index = 1, 4 do\n        total += value * index\n    end\n    return total\nend\n",
+      "output_O2_g1": "return function(p)\n\treturn 0 + p * 1 + p * 2 + p * 3 + p * 4\nend\n"
+    }
+  ],
+  "probe_matrix": {
+    "source_matrix": [
+      {
+        "case": "debug_names",
+        "opt": 0,
+        "debug": 1,
+        "source_lines": 7,
+        "output_lines": 8,
+        "source_likeness_identifiers_erased": 0.8705882352941177,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "debug_names",
+        "opt": 0,
+        "debug": 2,
+        "source_lines": 7,
+        "output_lines": 8,
+        "source_likeness_identifiers_erased": 0.8705882352941177,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "debug_names",
+        "opt": 1,
+        "debug": 1,
+        "source_lines": 7,
+        "output_lines": 8,
+        "source_likeness_identifiers_erased": 0.8705882352941177,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "debug_names",
+        "opt": 1,
+        "debug": 2,
+        "source_lines": 7,
+        "output_lines": 8,
+        "source_likeness_identifiers_erased": 0.8705882352941177,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "debug_names",
+        "opt": 2,
+        "debug": 1,
+        "source_lines": 7,
+        "output_lines": 8,
+        "source_likeness_identifiers_erased": 0.945054945054945,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "local",
+          "number",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "debug_names",
+        "opt": 2,
+        "debug": 2,
+        "source_lines": 7,
+        "output_lines": 8,
+        "source_likeness_identifiers_erased": 0.945054945054945,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "local",
+          "number",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "scope_names",
+        "opt": 0,
+        "debug": 1,
+        "source_lines": 10,
+        "output_lines": 10,
+        "source_likeness_identifiers_erased": 0.8536585365853658,
+        "named_identifiers_retained": [
+          "LastIndex",
+          "Score",
+          "do",
+          "end",
+          "for",
+          "function",
+          "in",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "scope_names",
+        "opt": 0,
+        "debug": 2,
+        "source_lines": 10,
+        "output_lines": 10,
+        "source_likeness_identifiers_erased": 0.8536585365853658,
+        "named_identifiers_retained": [
+          "LastIndex",
+          "Score",
+          "do",
+          "end",
+          "for",
+          "function",
+          "in",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "scope_names",
+        "opt": 1,
+        "debug": 1,
+        "source_lines": 10,
+        "output_lines": 10,
+        "source_likeness_identifiers_erased": 0.8536585365853658,
+        "named_identifiers_retained": [
+          "LastIndex",
+          "Score",
+          "do",
+          "end",
+          "for",
+          "function",
+          "in",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "scope_names",
+        "opt": 1,
+        "debug": 2,
+        "source_lines": 10,
+        "output_lines": 10,
+        "source_likeness_identifiers_erased": 0.8536585365853658,
+        "named_identifiers_retained": [
+          "LastIndex",
+          "Score",
+          "do",
+          "end",
+          "for",
+          "function",
+          "in",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "scope_names",
+        "opt": 2,
+        "debug": 1,
+        "source_lines": 10,
+        "output_lines": 10,
+        "source_likeness_identifiers_erased": 0.8536585365853658,
+        "named_identifiers_retained": [
+          "LastIndex",
+          "Score",
+          "do",
+          "end",
+          "for",
+          "function",
+          "in",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "scope_names",
+        "opt": 2,
+        "debug": 2,
+        "source_lines": 10,
+        "output_lines": 10,
+        "source_likeness_identifiers_erased": 0.8536585365853658,
+        "named_identifiers_retained": [
+          "LastIndex",
+          "Score",
+          "do",
+          "end",
+          "for",
+          "function",
+          "in",
+          "local",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "ui_builder",
+        "opt": 0,
+        "debug": 1,
+        "source_lines": 8,
+        "output_lines": 12,
+        "source_likeness_identifiers_erased": 0.8888888888888888,
+        "named_identifiers_retained": [
+          "Body",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "Visible",
+          "end",
+          "function",
+          "local",
+          "return",
+          "scope"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "ui_builder",
+        "opt": 0,
+        "debug": 2,
+        "source_lines": 8,
+        "output_lines": 12,
+        "source_likeness_identifiers_erased": 0.8888888888888888,
+        "named_identifiers_retained": [
+          "Body",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "Visible",
+          "end",
+          "function",
+          "local",
+          "return",
+          "scope"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "ui_builder",
+        "opt": 1,
+        "debug": 1,
+        "source_lines": 8,
+        "output_lines": 12,
+        "source_likeness_identifiers_erased": 0.8888888888888888,
+        "named_identifiers_retained": [
+          "Body",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "Visible",
+          "end",
+          "function",
+          "local",
+          "return",
+          "scope"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "ui_builder",
+        "opt": 1,
+        "debug": 2,
+        "source_lines": 8,
+        "output_lines": 12,
+        "source_likeness_identifiers_erased": 0.8888888888888888,
+        "named_identifiers_retained": [
+          "Body",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "Visible",
+          "end",
+          "function",
+          "local",
+          "return",
+          "scope"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "ui_builder",
+        "opt": 2,
+        "debug": 1,
+        "source_lines": 8,
+        "output_lines": 12,
+        "source_likeness_identifiers_erased": 0.8888888888888888,
+        "named_identifiers_retained": [
+          "Body",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "Visible",
+          "end",
+          "function",
+          "local",
+          "return",
+          "scope"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "ui_builder",
+        "opt": 2,
+        "debug": 2,
+        "source_lines": 8,
+        "output_lines": 12,
+        "source_likeness_identifiers_erased": 0.8888888888888888,
+        "named_identifiers_retained": [
+          "Body",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "Visible",
+          "end",
+          "function",
+          "local",
+          "return",
+          "scope"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "branch_ui",
+        "opt": 0,
+        "debug": 1,
+        "source_lines": 10,
+        "output_lines": 16,
+        "source_likeness_identifiers_erased": 0.9572649572649573,
+        "named_identifiers_retained": [
+          "BackgroundTransparency",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "else",
+          "end",
+          "function",
+          "if",
+          "local",
+          "return",
+          "scope",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "branch_ui",
+        "opt": 0,
+        "debug": 2,
+        "source_lines": 10,
+        "output_lines": 16,
+        "source_likeness_identifiers_erased": 0.9572649572649573,
+        "named_identifiers_retained": [
+          "BackgroundTransparency",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "else",
+          "end",
+          "function",
+          "if",
+          "local",
+          "return",
+          "scope",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "branch_ui",
+        "opt": 1,
+        "debug": 1,
+        "source_lines": 10,
+        "output_lines": 16,
+        "source_likeness_identifiers_erased": 0.9572649572649573,
+        "named_identifiers_retained": [
+          "BackgroundTransparency",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "else",
+          "end",
+          "function",
+          "if",
+          "local",
+          "return",
+          "scope",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "branch_ui",
+        "opt": 1,
+        "debug": 2,
+        "source_lines": 10,
+        "output_lines": 16,
+        "source_likeness_identifiers_erased": 0.9572649572649573,
+        "named_identifiers_retained": [
+          "BackgroundTransparency",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "else",
+          "end",
+          "function",
+          "if",
+          "local",
+          "return",
+          "scope",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "branch_ui",
+        "opt": 2,
+        "debug": 1,
+        "source_lines": 10,
+        "output_lines": 16,
+        "source_likeness_identifiers_erased": 0.9572649572649573,
+        "named_identifiers_retained": [
+          "BackgroundTransparency",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "else",
+          "end",
+          "function",
+          "if",
+          "local",
+          "return",
+          "scope",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "branch_ui",
+        "opt": 2,
+        "debug": 2,
+        "source_lines": 10,
+        "output_lines": 16,
+        "source_likeness_identifiers_erased": 0.9572649572649573,
+        "named_identifiers_retained": [
+          "BackgroundTransparency",
+          "Frame",
+          "Name",
+          "New",
+          "Panel",
+          "Text",
+          "else",
+          "end",
+          "function",
+          "if",
+          "local",
+          "return",
+          "scope",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "helper_loop",
+        "opt": 0,
+        "debug": 1,
+        "source_lines": 11,
+        "output_lines": 19,
+        "source_likeness_identifiers_erased": 0.9793103448275862,
+        "named_identifiers_retained": [
+          "adjust",
+          "do",
+          "end",
+          "for",
+          "function",
+          "i",
+          "if",
+          "local",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "helper_loop",
+        "opt": 0,
+        "debug": 2,
+        "source_lines": 11,
+        "output_lines": 19,
+        "source_likeness_identifiers_erased": 0.9793103448275862,
+        "named_identifiers_retained": [
+          "adjust",
+          "do",
+          "end",
+          "for",
+          "function",
+          "i",
+          "if",
+          "local",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "helper_loop",
+        "opt": 1,
+        "debug": 1,
+        "source_lines": 11,
+        "output_lines": 19,
+        "source_likeness_identifiers_erased": 0.9793103448275862,
+        "named_identifiers_retained": [
+          "adjust",
+          "do",
+          "end",
+          "for",
+          "function",
+          "i",
+          "if",
+          "local",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "helper_loop",
+        "opt": 1,
+        "debug": 2,
+        "source_lines": 11,
+        "output_lines": 19,
+        "source_likeness_identifiers_erased": 0.9793103448275862,
+        "named_identifiers_retained": [
+          "adjust",
+          "do",
+          "end",
+          "for",
+          "function",
+          "i",
+          "if",
+          "local",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "helper_loop",
+        "opt": 2,
+        "debug": 1,
+        "source_lines": 11,
+        "output_lines": 15,
+        "source_likeness_identifiers_erased": 0.6666666666666666,
+        "named_identifiers_retained": [
+          "adjust",
+          "end",
+          "function",
+          "if",
+          "local",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "helper_loop",
+        "opt": 2,
+        "debug": 2,
+        "source_lines": 11,
+        "output_lines": 15,
+        "source_likeness_identifiers_erased": 0.6666666666666666,
+        "named_identifiers_retained": [
+          "adjust",
+          "end",
+          "function",
+          "if",
+          "local",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "conditional",
+        "opt": 0,
+        "debug": 1,
+        "source_lines": 4,
+        "output_lines": 7,
+        "source_likeness_identifiers_erased": 0.7931034482758621,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "if",
+          "missing",
+          "nil",
+          "present",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "conditional",
+        "opt": 0,
+        "debug": 2,
+        "source_lines": 4,
+        "output_lines": 7,
+        "source_likeness_identifiers_erased": 0.7931034482758621,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "if",
+          "missing",
+          "nil",
+          "present",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "conditional",
+        "opt": 1,
+        "debug": 1,
+        "source_lines": 4,
+        "output_lines": 11,
+        "source_likeness_identifiers_erased": 0.7301587301587301,
+        "named_identifiers_retained": [
+          "else",
+          "end",
+          "function",
+          "if",
+          "missing",
+          "nil",
+          "present",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "conditional",
+        "opt": 1,
+        "debug": 2,
+        "source_lines": 4,
+        "output_lines": 11,
+        "source_likeness_identifiers_erased": 0.7301587301587301,
+        "named_identifiers_retained": [
+          "else",
+          "end",
+          "function",
+          "if",
+          "missing",
+          "nil",
+          "present",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "conditional",
+        "opt": 2,
+        "debug": 1,
+        "source_lines": 4,
+        "output_lines": 11,
+        "source_likeness_identifiers_erased": 0.7301587301587301,
+        "named_identifiers_retained": [
+          "else",
+          "end",
+          "function",
+          "if",
+          "missing",
+          "nil",
+          "present",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "conditional",
+        "opt": 2,
+        "debug": 2,
+        "source_lines": 4,
+        "output_lines": 11,
+        "source_likeness_identifiers_erased": 0.7301587301587301,
+        "named_identifiers_retained": [
+          "else",
+          "end",
+          "function",
+          "if",
+          "missing",
+          "nil",
+          "present",
+          "return",
+          "then"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "unrolled_effects",
+        "opt": 0,
+        "debug": 1,
+        "source_lines": 7,
+        "output_lines": 9,
+        "source_likeness_identifiers_erased": 1.0,
+        "named_identifiers_retained": [
+          "do",
+          "end",
+          "for",
+          "function",
+          "local",
+          "return",
+          "total"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "unrolled_effects",
+        "opt": 0,
+        "debug": 2,
+        "source_lines": 7,
+        "output_lines": 9,
+        "source_likeness_identifiers_erased": 1.0,
+        "named_identifiers_retained": [
+          "do",
+          "end",
+          "for",
+          "function",
+          "local",
+          "return",
+          "total"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "unrolled_effects",
+        "opt": 1,
+        "debug": 1,
+        "source_lines": 7,
+        "output_lines": 9,
+        "source_likeness_identifiers_erased": 1.0,
+        "named_identifiers_retained": [
+          "do",
+          "end",
+          "for",
+          "function",
+          "local",
+          "return",
+          "total"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "unrolled_effects",
+        "opt": 1,
+        "debug": 2,
+        "source_lines": 7,
+        "output_lines": 9,
+        "source_likeness_identifiers_erased": 1.0,
+        "named_identifiers_retained": [
+          "do",
+          "end",
+          "for",
+          "function",
+          "local",
+          "return",
+          "total"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "unrolled_effects",
+        "opt": 2,
+        "debug": 1,
+        "source_lines": 7,
+        "output_lines": 3,
+        "source_likeness_identifiers_erased": 0.40816326530612246,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "return"
+        ],
+        "deinline_sites": 0
+      },
+      {
+        "case": "unrolled_effects",
+        "opt": 2,
+        "debug": 2,
+        "source_lines": 7,
+        "output_lines": 3,
+        "source_likeness_identifiers_erased": 0.40816326530612246,
+        "named_identifiers_retained": [
+          "end",
+          "function",
+          "return"
+        ],
+        "deinline_sites": 0
+      }
+    ],
+    "oracle_negative_controls": [
+      {
+        "case": "operand_order",
+        "a": "return function(left, right) return left - right end",
+        "b": "return function(left, right) return right - left end",
+        "source_likeness_identifiers_erased": 1.0,
+        "comparison": [
+          [
+            {
+              "path": "main",
+              "tier": "exact",
+              "insns": 3,
+              "delta": null
+            },
+            {
+              "path": "0",
+              "tier": "exact",
+              "insns": 2,
+              "delta": null
+            }
+          ],
+          [],
+          []
+        ]
+      },
+      {
+        "case": "return_binding",
+        "a": "return function(left, right) return left end",
+        "b": "return function(left, right) return right end",
+        "source_likeness_identifiers_erased": 1.0,
+        "comparison": [
+          [
+            {
+              "path": "main",
+              "tier": "exact",
+              "insns": 3,
+              "delta": null
+            },
+            {
+              "path": "0",
+              "tier": "exact",
+              "insns": 1,
+              "delta": null
+            }
+          ],
+          [],
+          []
+        ]
+      },
+      {
+        "case": "store_binding",
+        "a": "return function(t, left, right) t.Value = left end",
+        "b": "return function(t, left, right) t.Value = right end",
+        "source_likeness_identifiers_erased": 1.0,
+        "comparison": [
+          [
+            {
+              "path": "main",
+              "tier": "exact",
+              "insns": 3,
+              "delta": null
+            },
+            {
+              "path": "0",
+              "tier": "exact",
+              "insns": 2,
+              "delta": null
+            }
+          ],
+          [],
+          []
+        ]
+      }
+    ]
+  },
+  "probe_runtime": [
+    {
+      "case": "debug_names",
+      "opt": 0,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "debug_names",
+      "opt": 0,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "debug_names",
+      "opt": 1,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "debug_names",
+      "opt": 1,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "debug_names",
+      "opt": 2,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "debug_names",
+      "opt": 2,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "48\t12\t48\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "scope_names",
+      "opt": 0,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "scope_names",
+      "opt": 0,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "scope_names",
+      "opt": 1,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "scope_names",
+      "opt": 1,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "scope_names",
+      "opt": 2,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "scope_names",
+      "opt": 2,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "6\t1\t2\t3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "ui_builder",
+      "opt": 0,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "ui_builder",
+      "opt": 0,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "ui_builder",
+      "opt": 1,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "ui_builder",
+      "opt": 1,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "ui_builder",
+      "opt": 2,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "ui_builder",
+      "opt": 2,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tBody\nnew\tFrame\nconstruct\tPanel\nPanel\ttrue\t2\tCaption\tBody\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "branch_ui",
+      "opt": 0,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "branch_ui",
+      "opt": 0,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "branch_ui",
+      "opt": 1,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "branch_ui",
+      "opt": 1,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "branch_ui",
+      "opt": 2,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "branch_ui",
+      "opt": 2,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "label\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t0\tCaption\nlabel\tCaption\nnew\tFrame\nconstruct\tPanel\nPanel\t1\tCaption\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "helper_loop",
+      "opt": 0,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "helper_loop",
+      "opt": 0,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "helper_loop",
+      "opt": 1,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "helper_loop",
+      "opt": 1,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "helper_loop",
+      "opt": 2,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "helper_loop",
+      "opt": 2,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "-14\n8\n64\ninf\nnan\nboxed_error\tfalse\ttrue\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "conditional",
+      "opt": 0,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "conditional",
+      "opt": 0,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "conditional",
+      "opt": 1,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "conditional",
+      "opt": 1,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "conditional",
+      "opt": 2,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "conditional",
+      "opt": 2,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "false\tpresent\nnil\tmissing\nfallback\tpresent\nnil\tmissing\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "unrolled_effects",
+      "opt": 0,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "unrolled_effects",
+      "opt": 0,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "unrolled_effects",
+      "opt": 1,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "unrolled_effects",
+      "opt": 1,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "unrolled_effects",
+      "opt": 2,
+      "debug": 1,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "unrolled_effects",
+      "opt": 2,
+      "debug": 2,
+      "ok": true,
+      "source": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      },
+      "output": {
+        "exit": 0,
+        "stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n",
+        "stderr": ""
+      }
+    }
+  ],
+  "debug_probe_metadata": [
+    {
+      "case": "debug_names",
+      "debug": 1,
+      "prototype_names": [
+        null,
+        "invoiceTotal",
+        null
+      ],
+      "debug_local_names": [],
+      "names_absent_from_output": []
+    },
+    {
+      "case": "debug_names",
+      "debug": 2,
+      "prototype_names": [
+        null,
+        "invoiceTotal",
+        null
+      ],
+      "debug_local_names": [
+        "discountAmount",
+        "discountRate",
+        "invoiceTotal",
+        "quantity",
+        "subtotal",
+        "totalCost",
+        "unitPrice"
+      ],
+      "names_absent_from_output": [
+        "discountAmount",
+        "discountRate",
+        "invoiceTotal",
+        "quantity",
+        "subtotal",
+        "totalCost",
+        "unitPrice"
+      ]
+    },
+    {
+      "case": "scope_names",
+      "debug": 1,
+      "prototype_names": [
+        null,
+        null
+      ],
+      "debug_local_names": [],
+      "names_absent_from_output": []
+    },
+    {
+      "case": "scope_names",
+      "debug": 2,
+      "prototype_names": [
+        null,
+        null
+      ],
+      "debug_local_names": [
+        "finalScore",
+        "index",
+        "item",
+        "items",
+        "runningTotal",
+        "scale",
+        "weightedScore"
+      ],
+      "names_absent_from_output": [
+        "finalScore",
+        "index",
+        "item",
+        "items",
+        "runningTotal",
+        "scale",
+        "weightedScore"
+      ]
+    },
+    {
+      "case": "helper_loop",
+      "debug": 1,
+      "prototype_names": [
+        "adjust",
+        null,
+        null
+      ],
+      "debug_local_names": [],
+      "names_absent_from_output": []
+    },
+    {
+      "case": "helper_loop",
+      "debug": 2,
+      "prototype_names": [
+        "adjust",
+        null,
+        null
+      ],
+      "debug_local_names": [
+        "adjust",
+        "bias",
+        "first",
+        "result",
+        "second",
+        "value"
+      ],
+      "names_absent_from_output": [
+        "bias",
+        "first",
+        "result",
+        "second",
+        "value"
+      ]
+    }
+  ],
+  "negative_control_runtime": "operand_order\t5\t-5\nreturn_binding\t7\t2\nstore_binding\t7\t2\n",
+  "helper_loop_compiler_disassembly": "Function 0 (adjust):\n    2:     if value < 0 then return bias end\nLOADN R2 0\nJUMPIFNOTLT R0 R2 L0\nRETURN R1 1\n    3:     return value * 2 + bias\nL0: MULK R3 R0 K0 [2]\nADD R2 R3 R1\nRETURN R2 1\n\nFunction 1 (??):\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\n    2:     if value < 0 then return bias end\nLOADN R2 0\nJUMPIFNOTLT R0 R2 L0\nLOADN R1 3\nJUMP L1\n    3:     return value * 2 + bias\nL0: MULK R2 R0 K1 [2]\nADDK R1 R2 K0 [3]\nREMARK inlining succeeded (cost 4, profit 1.75x, depth 0)\n    7:     local second = adjust(value + 1, 3)\nL1: ADDK R3 R0 K2 [1]\n    2:     if value < 0 then return bias end\nLOADN R4 0\nJUMPIFNOTLT R3 R4 L2\nLOADN R2 3\nJUMP L3\n    3:     return value * 2 + bias\nL2: MULK R4 R3 K1 [2]\nADDK R2 R4 K0 [3]\n    8:     local result = 0\nL3: LOADN R3 0\nREMARK loop unroll succeeded (iterations 4, cost 8, profit 1.50x)\n    9:     for i = 1, 4 do result += value * i end\nMULK R4 R0 K2 [1]\nADD R3 R3 R4\nMULK R4 R0 K1 [2]\nADD R3 R3 R4\nMULK R4 R0 K0 [3]\nADD R3 R3 R4\nMULK R4 R0 K3 [4]\nADD R3 R3 R4\n   10:     return first + second + result\nADD R5 R1 R2\nADD R4 R5 R3\nRETURN R4 1\n\nFunction 2 (??):\n    1: local function adjust(value, bias)\nDUPCLOSURE R0 K0 ['adjust']\n    5: return function(value)\nDUPCLOSURE R1 K1 []\nRETURN R1 1\n\n",
+  "library_matches": {
+    "method": "Whole chunk retains decoded opcodes, every register and operand, complete strings/constants/child topology; drops type/line/name metadata outside string table. Conservative exact matching only, not a claim of original textual source.",
+    "matched_corpus_files": 17,
+    "matches": [
+      {
+        "corpus": "ReplicatedStorage/Shared/QuickZone/Types.lua",
+        "public": [
+          "RbxUtil/O2/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O2/modules/comm/Types.luaubc",
+          "RbxUtil/O1/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O1/modules/comm/Types.luaubc",
+          "RbxUtil/O0/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O0/modules/comm/Types.luaubc",
+          "Fusion/O2/src/Types.luaubc",
+          "Fusion/O2/src/State/updateAll.luaubc",
+          "Fusion/O1/src/Types.luaubc",
+          "Fusion/O1/src/State/updateAll.luaubc",
+          "Fusion/O0/src/State/updateAll.luaubc"
+        ],
+        "instruction_count": 3,
+        "trivial_return_nil": true
+      },
+      {
+        "corpus": "ReplicatedStorage/Shared/Zone/SimpleZone/Utility/SimpleSignal/LICENSE.lua",
+        "public": [
+          "RbxUtil/O2/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O2/modules/comm/Types.luaubc",
+          "RbxUtil/O1/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O1/modules/comm/Types.luaubc",
+          "RbxUtil/O0/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O0/modules/comm/Types.luaubc",
+          "Fusion/O2/src/Types.luaubc",
+          "Fusion/O2/src/State/updateAll.luaubc",
+          "Fusion/O1/src/Types.luaubc",
+          "Fusion/O1/src/State/updateAll.luaubc",
+          "Fusion/O0/src/State/updateAll.luaubc"
+        ],
+        "instruction_count": 3,
+        "trivial_return_nil": true
+      },
+      {
+        "corpus": "ReplicatedStorage/Shared/Zone/SimpleZone/Utility/SimpleSignal/Types.lua",
+        "public": [
+          "RbxUtil/O2/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O2/modules/comm/Types.luaubc",
+          "RbxUtil/O1/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O1/modules/comm/Types.luaubc",
+          "RbxUtil/O0/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O0/modules/comm/Types.luaubc",
+          "Fusion/O2/src/Types.luaubc",
+          "Fusion/O2/src/State/updateAll.luaubc",
+          "Fusion/O1/src/Types.luaubc",
+          "Fusion/O1/src/State/updateAll.luaubc",
+          "Fusion/O0/src/State/updateAll.luaubc"
+        ],
+        "instruction_count": 3,
+        "trivial_return_nil": true
+      },
+      {
+        "corpus": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/color/sRGB.lua",
+        "public": [
+          "Fusion/O2/src/Colour/sRGB.luaubc"
+        ],
+        "instruction_count": 79,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Types.lua",
+        "public": [
+          "RbxUtil/O2/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O2/modules/comm/Types.luaubc",
+          "RbxUtil/O1/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O1/modules/comm/Types.luaubc",
+          "RbxUtil/O0/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O0/modules/comm/Types.luaubc",
+          "Fusion/O2/src/Types.luaubc",
+          "Fusion/O2/src/State/updateAll.luaubc",
+          "Fusion/O1/src/Types.luaubc",
+          "Fusion/O1/src/State/updateAll.luaubc",
+          "Fusion/O0/src/State/updateAll.luaubc"
+        ],
+        "instruction_count": 3,
+        "trivial_return_nil": true
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Stories/ui-labs/Types.lua",
+        "public": [
+          "RbxUtil/O2/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O2/modules/comm/Types.luaubc",
+          "RbxUtil/O1/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O1/modules/comm/Types.luaubc",
+          "RbxUtil/O0/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O0/modules/comm/Types.luaubc",
+          "Fusion/O2/src/Types.luaubc",
+          "Fusion/O2/src/State/updateAll.luaubc",
+          "Fusion/O1/src/Types.luaubc",
+          "Fusion/O1/src/State/updateAll.luaubc",
+          "Fusion/O0/src/State/updateAll.luaubc"
+        ],
+        "instruction_count": 3,
+        "trivial_return_nil": true
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Animation/getTweenDuration.lua",
+        "public": [
+          "Fusion/O2/src/Animation/getTweenDuration.luaubc"
+        ],
+        "instruction_count": 23,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Animation/getTweenRatio.lua",
+        "public": [
+          "Fusion/O2/src/Animation/getTweenRatio.luaubc"
+        ],
+        "instruction_count": 45,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Animation/springCoefficients.lua",
+        "public": [
+          "Fusion/O2/src/Animation/springCoefficients.luaubc"
+        ],
+        "instruction_count": 101,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Colour/sRGB.lua",
+        "public": [
+          "Fusion/O2/src/Colour/sRGB.luaubc"
+        ],
+        "instruction_count": 79,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Logging/messages.lua",
+        "public": [
+          "Fusion/O2/src/Logging/messages.luaubc",
+          "Fusion/O1/src/Logging/messages.luaubc"
+        ],
+        "instruction_count": 73,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Memory/needsDestruction.lua",
+        "public": [
+          "Fusion/O2/src/Memory/needsDestruction.luaubc",
+          "Fusion/O1/src/Memory/needsDestruction.luaubc"
+        ],
+        "instruction_count": 11,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/State/updateAll.lua",
+        "public": [
+          "RbxUtil/O2/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O2/modules/comm/Types.luaubc",
+          "RbxUtil/O1/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O1/modules/comm/Types.luaubc",
+          "RbxUtil/O0/modules/buffer-util/Types.luaubc",
+          "RbxUtil/O0/modules/comm/Types.luaubc",
+          "Fusion/O2/src/Types.luaubc",
+          "Fusion/O2/src/State/updateAll.luaubc",
+          "Fusion/O1/src/Types.luaubc",
+          "Fusion/O1/src/State/updateAll.luaubc",
+          "Fusion/O0/src/State/updateAll.luaubc"
+        ],
+        "instruction_count": 3,
+        "trivial_return_nil": true
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Utility/isSimilar.lua",
+        "public": [
+          "Fusion/O2/src/Utility/isSimilar.luaubc",
+          "Fusion/O1/src/Utility/isSimilar.luaubc"
+        ],
+        "instruction_count": 44,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Utility/never.lua",
+        "public": [
+          "Fusion/O2/src/Utility/never.luaubc",
+          "Fusion/O1/src/Utility/never.luaubc"
+        ],
+        "instruction_count": 7,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Utility/nicknames.lua",
+        "public": [
+          "Fusion/O2/src/Utility/nicknames.luaubc"
+        ],
+        "instruction_count": 7,
+        "trivial_return_nil": false
+      },
+      {
+        "corpus": "ReplicatedStorage/FusionPackage/Fusion/Utility/xtypeof.lua",
+        "public": [
+          "Fusion/O2/src/Utility/xtypeof.luaubc",
+          "Fusion/O1/src/Utility/xtypeof.luaubc"
+        ],
+        "instruction_count": 16,
+        "trivial_return_nil": false
+      }
+    ],
+    "nontrivial_matches": 11,
+    "trivial_return_nil_matches": 6
+  },
+  "public_matrix_file": "public_matrix.json"
+}

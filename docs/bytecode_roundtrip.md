@@ -1,8 +1,13 @@
 # Oracle bytecode round-trip
 
-`scripts/bytecode_roundtrip.py` là lưới an toàn ngữ nghĩa cho toàn corpus: mọi thay
+`scripts/bytecode_roundtrip.py` là phép so sánh bytecode **sau normalization** cho toàn corpus: mọi thay
 đổi decompiler đều phải giữ **số proto không tương đương không tăng** (gate CI trên
 fixture, gate cục bộ trên corpus qua `--baseline`).
+
+`exact`/`equiv` là tên tier lịch sử, **không chứng minh tương đương ngữ nghĩa**:
+normalizer bỏ register identity và multiset bỏ thứ tự effect. Token source likeness
+cũng bỏ spelling/identity của identifier. V2 giữ gate cũ để triage, đồng thời báo
+`dataflow` độc lập theo [hợp đồng và fixture V2](roadmap_v2_implementation.md).
 
 Mốc cuối roadmap **2026-09-10**: 3.936/3.936 recompile, proto không tương đương
 **2.744 → 2.699**, `investigate` **14**, `suspect` **5**. Gate corpus, residual và
@@ -50,8 +55,8 @@ thành `ID`, giữ keyword/literal/toán tử) giữa nguồn thật và output.
 
 | Tier | Điều kiện | Ý nghĩa |
 |---|---|---|
-| `exact` | chuỗi lệnh chuẩn hoá (có nhãn) giống hệt | cùng bytecode |
-| `equiv` | multiset lệnh ngữ nghĩa giống hệt | chỉ khác thứ tự block, cực nhánh, MOVE/JUMP — guard ↔ lồng, `and/or` tái kết hợp, `+=`, đổi tên |
+| `exact` | chuỗi lệnh chuẩn hoá (có nhãn) giống hệt | equality sau normalization bỏ register; không phải raw equality |
+| `equiv` | multiset lệnh chuẩn hoá giống hệt | equality của multiset; chưa kiểm tra use–def, effect order hay capture lifetime |
 | `differ` | multiset khác | phân lớp bên dưới |
 | `missing`/`extra` | không có proto đối ứng | helper de-inline, closure bị inline mất |
 
