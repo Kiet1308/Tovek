@@ -29,10 +29,10 @@ fn rvalue_blocks_reorder(rvalue: &ast::RValue) -> bool {
         // catches the possible nil/NaN key error. Literal-keyed tables remain
         // reorderable, preserving the useful inlining optimization.
         ast::RValue::Table(_) => ast::is_observable(rvalue),
-        // Global reads are intentionally treated as reorderable by this pass;
-        // their broad SideEffects classification is a separate conservative
-        // policy used by dead-code cleanup.
-        ast::RValue::Global(_) => false,
+        // A missing global can invoke the environment's __index, which may
+        // mutate state or throw. In particular, fetching a callee must not
+        // move ahead of an earlier effect in one of its arguments.
+        ast::RValue::Global(_) => true,
         _ => ast::is_observable(rvalue),
     }
 }
@@ -1241,6 +1241,44 @@ mod tests {
             number(1.0),
             ast::BinaryOperation::Add,
         ))));
+    }
+
+    #[test]
+    fn global_callee_lookup_stays_after_an_earlier_call() {
+        let value = local("value");
+        let mut block = inline_block(Block(vec![
+            Assign::new(
+                vec![LValue::Local(value.clone())],
+                vec![ast::Call::new(global("fetch"), vec![]).into()],
+            )
+            .into(),
+            ast::Call::new(global("sink"), vec![local_value(&value)]).into(),
+        ]));
+        remove_empty(&mut block);
+        assert_eq!(block.len(), 2, "{block}");
+        assert!(matches!(&block[0], Statement::Assign(_)), "{block}");
+        assert!(matches!(&block[1], Statement::Call(call)
+            if call.arguments == vec![local_value(&value)]), "{block}");
+    }
+
+    #[test]
+    fn global_barrier_still_allows_total_values_and_local_callees() {
+        for (callee, candidate) in [
+            (global("sink"), number(7.0)),
+            (
+                local_value(&local("sink")),
+                ast::Call::new(global("fetch"), vec![]).into(),
+            ),
+        ] {
+            let value = local("value");
+            let mut block = inline_block(Block(vec![
+                Assign::new(vec![LValue::Local(value.clone())], vec![candidate]).into(),
+                ast::Call::new(callee, vec![local_value(&value)]).into(),
+            ]));
+            remove_empty(&mut block);
+            assert_eq!(block.len(), 1, "{block}");
+            assert!(matches!(&block[0], Statement::Call(_)), "{block}");
+        }
     }
 
     #[test]

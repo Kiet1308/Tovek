@@ -1,0 +1,1526 @@
+{
+  "source": "local function run()\n    local value = fetch()\n    return sink(value)\nend\n\nreturn function(mode)\n    local trace = {}\n    local env\n    env = setmetatable({\n        fetch = function()\n            trace[#trace + 1] = \"fetch\"\n            if mode == \"nil\" then\n                return nil, \"extra\"\n            elseif mode == \"false\" then\n                return false, \"extra\"\n            end\n            return 7, \"extra\"\n        end,\n    }, {\n        __index = function(_, key)\n            trace[#trace + 1] = \"lookup:\" .. key\n            if mode == \"throw\" then\n                error(\"lookup failure\")\n            elseif mode == \"mutate\" then\n                env.fetch = function()\n                    trace[#trace + 1] = \"replacement\"\n                    return 99\n                end\n            end\n            return function(...)\n                local values = table.pack(...)\n                trace[#trace + 1] = \"sink:\" .. values.n .. \":\" .. tostring(values[1])\n                return values[1], \"tail\", nil\n            end\n        end,\n    })\n    setfenv(run, env)\n    local results = table.pack(pcall(run))\n    if not results[1] then\n        return table.concat(trace, \",\"), \"error\", string.find(results[2], \"lookup failure\", 1, true) ~= nil\n    end\n    return table.concat(trace, \",\"), results.n, results[2], results[3], results[4]\nend\n",
+  "driver": "for _, mode in {\"normal\", \"mutate\", \"nil\", \"false\", \"throw\"} do\n    print(mode, f(mode))\nend\n",
+  "before_binary": {
+    "path": "D:\\Medal\\medal-decompiler\\out\\v2-profile-lifter.exe",
+    "sha256": "93c089f209d97971da1d2215f1a61bfba2b7f84e1159115d54372378bfd490cc"
+  },
+  "after_binary": {
+    "path": "D:\\Medal\\medal-decompiler\\out\\v2-global-lifter.exe",
+    "sha256": "00e0897890f99c162e6efd01df53acb2e931c097898287a5243460118bda2a7d"
+  },
+  "cases": [
+    {
+      "opt": 0,
+      "debug": 1,
+      "before": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 0,
+        "debug": 1,
+        "status": "failed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.02163119986653328,
+        "output_sha256": "25064e68b1560e5483f720273297a655d98a90ea244aa22597a787d6d94ea78d",
+        "output_bytes": 939,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 4,
+          "equiv": 3,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.9018987341772152,
+          "statement_initializer_normalized_ratio": 0.9018987341772152,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 8,
+          "aligned_bindings": 8,
+          "exact_names": 2,
+          "alignment_coverage": 0.8888888888888888,
+          "exact_name_precision_on_aligned": 0.25,
+          "exact_name_recovery_lower_bound": 0.2222222222222222,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 2,
+              "output_binding": 1,
+              "source_name": "mode",
+              "output_name": "p",
+              "exact_name": false,
+              "occurrences": 5
+            },
+            {
+              "source_binding": 3,
+              "output_binding": 2,
+              "source_name": "trace",
+              "output_name": "v",
+              "exact_name": false,
+              "occurrences": 11
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 3,
+              "source_name": "env",
+              "output_name": "v2",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 4,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 5,
+              "source_name": "key",
+              "output_name": "p2",
+              "exact_name": false,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 7,
+              "output_binding": 6,
+              "source_name": "values",
+              "output_name": "v3",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 7,
+              "source_name": "results",
+              "output_name": "v3",
+              "exact_name": false,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.015819499967619777
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tlookup:sink,fetch,sink:1:7\t4\t7\ttail\tnil\nmutate\tlookup:sink,replacement,sink:1:99\t4\t99\ttail\tnil\nnil\tlookup:sink,fetch,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tlookup:sink,fetch,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tlookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.017493699910119176
+          }
+        },
+        "error": "output observation differs from locked expectation"
+      },
+      "after": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 0,
+        "debug": 1,
+        "status": "passed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.0194671000353992,
+        "output_sha256": "604deb2f9d5a1d00ae7d27a579fc33876243678c7e331224c52b34366c46758b",
+        "output_bytes": 962,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 5,
+          "equiv": 2,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.9496327387198321,
+          "statement_initializer_normalized_ratio": 0.9496327387198321,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 9,
+          "aligned_bindings": 9,
+          "exact_names": 2,
+          "alignment_coverage": 1.0,
+          "exact_name_precision_on_aligned": 0.2222222222222222,
+          "exact_name_recovery_lower_bound": 0.2222222222222222,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 1,
+              "output_binding": 1,
+              "source_name": "value",
+              "output_name": "fetched",
+              "exact_name": false,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 2,
+              "output_binding": 2,
+              "source_name": "mode",
+              "output_name": "p",
+              "exact_name": false,
+              "occurrences": 5
+            },
+            {
+              "source_binding": 3,
+              "output_binding": 3,
+              "source_name": "trace",
+              "output_name": "v",
+              "exact_name": false,
+              "occurrences": 11
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 4,
+              "source_name": "env",
+              "output_name": "v2",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 5,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 6,
+              "source_name": "key",
+              "output_name": "p2",
+              "exact_name": false,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 7,
+              "output_binding": 7,
+              "source_name": "values",
+              "output_name": "v3",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 8,
+              "source_name": "results",
+              "output_name": "v3",
+              "exact_name": false,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.025100699858739972
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.016751900082454085
+          }
+        },
+        "deterministic_threads_1_4": true
+      },
+      "before_source": "local function run()\n\treturn sink((fetch()))\nend\n\nreturn function(p)\n\tlocal v = {}\n\tlocal v2 = nil\n\tv2 = setmetatable({\n\t\tfetch = function()\n\t\t\tv[#v + 1] = \"fetch\"\n\n\t\t\tif p == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif p == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, {\n\t\t__index = function(_, p2)\n\t\t\tv[#v + 1] = \"lookup:\" .. p2\n\n\t\t\tif p == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif p == \"mutate\" then\n\t\t\t\tfunction v2.fetch()\n\t\t\t\t\tv[#v + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal v3 = table.pack(...)\n\t\t\t\tv[#v + 1] = \"sink:\" .. v3.n .. \":\" .. tostring(v3[1])\n\t\t\t\treturn v3[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t})\n\tsetfenv(run, v2)\n\tlocal v3 = table.pack(pcall(run))\n\n\tif v3[1] then\n\t\treturn table.concat(v, \",\"), v3.n, v3[2], v3[3], v3[4]\n\telse\n\t\treturn table.concat(v, \",\"), \"error\", string.find(v3[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n",
+      "after_source": "local function run()\n\tlocal fetched = fetch()\n\treturn sink(fetched)\nend\n\nreturn function(p)\n\tlocal v = {}\n\tlocal v2 = nil\n\tv2 = setmetatable({\n\t\tfetch = function()\n\t\t\tv[#v + 1] = \"fetch\"\n\n\t\t\tif p == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif p == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, {\n\t\t__index = function(_, p2)\n\t\t\tv[#v + 1] = \"lookup:\" .. p2\n\n\t\t\tif p == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif p == \"mutate\" then\n\t\t\t\tfunction v2.fetch()\n\t\t\t\t\tv[#v + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal v3 = table.pack(...)\n\t\t\t\tv[#v + 1] = \"sink:\" .. v3.n .. \":\" .. tostring(v3[1])\n\t\t\t\treturn v3[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t})\n\tsetfenv(run, v2)\n\tlocal v3 = table.pack(pcall(run))\n\n\tif v3[1] then\n\t\treturn table.concat(v, \",\"), v3.n, v3[2], v3[3], v3[4]\n\telse\n\t\treturn table.concat(v, \",\"), \"error\", string.find(v3[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n"
+    },
+    {
+      "opt": 0,
+      "debug": 2,
+      "before": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 0,
+        "debug": 2,
+        "status": "passed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.020693999947980046,
+        "output_sha256": "6c2316b85520e3bda75c7d6449b9ac7603463f9b9477dcce2264761824182976",
+        "output_bytes": 1074,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 5,
+          "equiv": 2,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.9496327387198321,
+          "statement_initializer_normalized_ratio": 0.9496327387198321,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 9,
+          "aligned_bindings": 9,
+          "exact_names": 9,
+          "alignment_coverage": 1.0,
+          "exact_name_precision_on_aligned": 1.0,
+          "exact_name_recovery_lower_bound": 1.0,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 1,
+              "output_binding": 1,
+              "source_name": "value",
+              "output_name": "value",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 2,
+              "output_binding": 2,
+              "source_name": "mode",
+              "output_name": "mode",
+              "exact_name": true,
+              "occurrences": 5
+            },
+            {
+              "source_binding": 3,
+              "output_binding": 3,
+              "source_name": "trace",
+              "output_name": "trace",
+              "exact_name": true,
+              "occurrences": 11
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 4,
+              "source_name": "env",
+              "output_name": "env",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 5,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 6,
+              "source_name": "key",
+              "output_name": "key",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 7,
+              "output_binding": 7,
+              "source_name": "values",
+              "output_name": "values",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 8,
+              "source_name": "results",
+              "output_name": "results",
+              "exact_name": true,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.018847300205379725
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.017486500088125467
+          }
+        },
+        "deterministic_threads_1_4": true
+      },
+      "after": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 0,
+        "debug": 2,
+        "status": "passed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.02117049996741116,
+        "output_sha256": "6c2316b85520e3bda75c7d6449b9ac7603463f9b9477dcce2264761824182976",
+        "output_bytes": 1074,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 5,
+          "equiv": 2,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.9496327387198321,
+          "statement_initializer_normalized_ratio": 0.9496327387198321,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 9,
+          "aligned_bindings": 9,
+          "exact_names": 9,
+          "alignment_coverage": 1.0,
+          "exact_name_precision_on_aligned": 1.0,
+          "exact_name_recovery_lower_bound": 1.0,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 1,
+              "output_binding": 1,
+              "source_name": "value",
+              "output_name": "value",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 2,
+              "output_binding": 2,
+              "source_name": "mode",
+              "output_name": "mode",
+              "exact_name": true,
+              "occurrences": 5
+            },
+            {
+              "source_binding": 3,
+              "output_binding": 3,
+              "source_name": "trace",
+              "output_name": "trace",
+              "exact_name": true,
+              "occurrences": 11
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 4,
+              "source_name": "env",
+              "output_name": "env",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 5,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 6,
+              "source_name": "key",
+              "output_name": "key",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 7,
+              "output_binding": 7,
+              "source_name": "values",
+              "output_name": "values",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 8,
+              "source_name": "results",
+              "output_name": "results",
+              "exact_name": true,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.017789500067010522
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.01777159981429577
+          }
+        },
+        "deterministic_threads_1_4": true
+      },
+      "before_source": "local function run()\n\tlocal value = fetch()\n\treturn sink(value)\nend\n\nreturn function(mode)\n\tlocal trace = {}\n\tlocal env = nil\n\tenv = setmetatable({\n\t\tfetch = function()\n\t\t\ttrace[#trace + 1] = \"fetch\"\n\n\t\t\tif mode == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif mode == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, {\n\t\t__index = function(_, key)\n\t\t\ttrace[#trace + 1] = \"lookup:\" .. key\n\n\t\t\tif mode == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif mode == \"mutate\" then\n\t\t\t\tfunction env.fetch()\n\t\t\t\t\ttrace[#trace + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal values = table.pack(...)\n\t\t\t\ttrace[#trace + 1] = \"sink:\" .. values.n .. \":\" .. tostring(values[1])\n\t\t\t\treturn values[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t})\n\tsetfenv(run, env)\n\tlocal results = table.pack(pcall(run))\n\n\tif results[1] then\n\t\treturn table.concat(trace, \",\"), results.n, results[2], results[3], results[4]\n\telse\n\t\treturn table.concat(trace, \",\"), \"error\", string.find(results[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n",
+      "after_source": "local function run()\n\tlocal value = fetch()\n\treturn sink(value)\nend\n\nreturn function(mode)\n\tlocal trace = {}\n\tlocal env = nil\n\tenv = setmetatable({\n\t\tfetch = function()\n\t\t\ttrace[#trace + 1] = \"fetch\"\n\n\t\t\tif mode == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif mode == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, {\n\t\t__index = function(_, key)\n\t\t\ttrace[#trace + 1] = \"lookup:\" .. key\n\n\t\t\tif mode == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif mode == \"mutate\" then\n\t\t\t\tfunction env.fetch()\n\t\t\t\t\ttrace[#trace + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal values = table.pack(...)\n\t\t\t\ttrace[#trace + 1] = \"sink:\" .. values.n .. \":\" .. tostring(values[1])\n\t\t\t\treturn values[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t})\n\tsetfenv(run, env)\n\tlocal results = table.pack(pcall(run))\n\n\tif results[1] then\n\t\treturn table.concat(trace, \",\"), results.n, results[2], results[3], results[4]\n\telse\n\t\treturn table.concat(trace, \",\"), \"error\", string.find(results[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n"
+    },
+    {
+      "opt": 1,
+      "debug": 1,
+      "before": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 1,
+        "debug": 1,
+        "status": "failed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.018402399960905313,
+        "output_sha256": "25064e68b1560e5483f720273297a655d98a90ea244aa22597a787d6d94ea78d",
+        "output_bytes": 939,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 4,
+          "equiv": 3,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.9018987341772152,
+          "statement_initializer_normalized_ratio": 0.9018987341772152,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 8,
+          "aligned_bindings": 8,
+          "exact_names": 2,
+          "alignment_coverage": 0.8888888888888888,
+          "exact_name_precision_on_aligned": 0.25,
+          "exact_name_recovery_lower_bound": 0.2222222222222222,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 2,
+              "output_binding": 1,
+              "source_name": "mode",
+              "output_name": "p",
+              "exact_name": false,
+              "occurrences": 5
+            },
+            {
+              "source_binding": 3,
+              "output_binding": 2,
+              "source_name": "trace",
+              "output_name": "v",
+              "exact_name": false,
+              "occurrences": 11
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 3,
+              "source_name": "env",
+              "output_name": "v2",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 4,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 5,
+              "source_name": "key",
+              "output_name": "p2",
+              "exact_name": false,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 7,
+              "output_binding": 6,
+              "source_name": "values",
+              "output_name": "v3",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 7,
+              "source_name": "results",
+              "output_name": "v3",
+              "exact_name": false,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.01648310013115406
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tlookup:sink,fetch,sink:1:7\t4\t7\ttail\tnil\nmutate\tlookup:sink,replacement,sink:1:99\t4\t99\ttail\tnil\nnil\tlookup:sink,fetch,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tlookup:sink,fetch,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tlookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.01618629996664822
+          }
+        },
+        "error": "output observation differs from locked expectation"
+      },
+      "after": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 1,
+        "debug": 1,
+        "status": "passed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.0195248001255095,
+        "output_sha256": "a64e52fdb4d325f5e0afb90dd91c19c3117d72b83948c832207ab718e9184cc2",
+        "output_bytes": 1047,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 4,
+          "equiv": 3,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.5144596651445966,
+          "statement_initializer_normalized_ratio": 0.5144596651445966,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 14,
+          "aligned_bindings": 6,
+          "exact_names": 2,
+          "alignment_coverage": 0.6666666666666666,
+          "exact_name_precision_on_aligned": 0.3333333333333333,
+          "exact_name_recovery_lower_bound": 0.2222222222222222,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 1,
+              "output_binding": 1,
+              "source_name": "value",
+              "output_name": "fetched",
+              "exact_name": false,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 4,
+              "source_name": "env",
+              "output_name": "v2",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 6,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 7,
+              "source_name": "key",
+              "output_name": "p2",
+              "exact_name": false,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 13,
+              "source_name": "results",
+              "output_name": "v4",
+              "exact_name": false,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.018564699916169047
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.0194947998970747
+          }
+        },
+        "deterministic_threads_1_4": true
+      },
+      "before_source": "local function run()\n\treturn sink((fetch()))\nend\n\nreturn function(p)\n\tlocal v = {}\n\tlocal v2 = nil\n\tv2 = setmetatable({\n\t\tfetch = function()\n\t\t\tv[#v + 1] = \"fetch\"\n\n\t\t\tif p == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif p == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, {\n\t\t__index = function(_, p2)\n\t\t\tv[#v + 1] = \"lookup:\" .. p2\n\n\t\t\tif p == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif p == \"mutate\" then\n\t\t\t\tfunction v2.fetch()\n\t\t\t\t\tv[#v + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal v3 = table.pack(...)\n\t\t\t\tv[#v + 1] = \"sink:\" .. v3.n .. \":\" .. tostring(v3[1])\n\t\t\t\treturn v3[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t})\n\tsetfenv(run, v2)\n\tlocal v3 = table.pack(pcall(run))\n\n\tif v3[1] then\n\t\treturn table.concat(v, \",\"), v3.n, v3[2], v3[3], v3[4]\n\telse\n\t\treturn table.concat(v, \",\"), \"error\", string.find(v3[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n",
+      "after_source": "local function run()\n\tlocal fetched = fetch()\n\treturn sink(fetched)\nend\n\nreturn function(p)\n\tlocal v = {}\n\tlocal v2 = nil\n\tlocal v3 = {\n\t\t__index = function(_, p2)\n\t\t\tv[#v + 1] = \"lookup:\" .. p2\n\n\t\t\tif p == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif p == \"mutate\" then\n\t\t\t\tfunction v2.fetch()\n\t\t\t\t\tv[#v + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal v4 = table.pack(...)\n\t\t\t\tlocal v5 = v\n\t\t\t\tlocal v6 = #v + 1\n\t\t\t\tlocal n = v4.n\n\t\t\t\tlocal v7 = v4[1]\n\t\t\t\tv5[v6] = \"sink:\" .. n .. \":\" .. tostring(v7)\n\t\t\t\treturn v4[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t}\n\tv2 = setmetatable({\n\t\tfetch = function()\n\t\t\tv[#v + 1] = \"fetch\"\n\n\t\t\tif p == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif p == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, v3)\n\tsetfenv(run, v2)\n\tlocal v4 = table.pack(pcall(run))\n\n\tif v4[1] then\n\t\treturn table.concat(v, \",\"), v4.n, v4[2], v4[3], v4[4]\n\telse\n\t\treturn table.concat(v, \",\"), \"error\", string.find(v4[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n"
+    },
+    {
+      "opt": 1,
+      "debug": 2,
+      "before": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 1,
+        "debug": 2,
+        "status": "passed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.01917360001243651,
+        "output_sha256": "6c2316b85520e3bda75c7d6449b9ac7603463f9b9477dcce2264761824182976",
+        "output_bytes": 1074,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 5,
+          "equiv": 2,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.9496327387198321,
+          "statement_initializer_normalized_ratio": 0.9496327387198321,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 9,
+          "aligned_bindings": 9,
+          "exact_names": 9,
+          "alignment_coverage": 1.0,
+          "exact_name_precision_on_aligned": 1.0,
+          "exact_name_recovery_lower_bound": 1.0,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 1,
+              "output_binding": 1,
+              "source_name": "value",
+              "output_name": "value",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 2,
+              "output_binding": 2,
+              "source_name": "mode",
+              "output_name": "mode",
+              "exact_name": true,
+              "occurrences": 5
+            },
+            {
+              "source_binding": 3,
+              "output_binding": 3,
+              "source_name": "trace",
+              "output_name": "trace",
+              "exact_name": true,
+              "occurrences": 11
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 4,
+              "source_name": "env",
+              "output_name": "env",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 5,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 6,
+              "source_name": "key",
+              "output_name": "key",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 7,
+              "output_binding": 7,
+              "source_name": "values",
+              "output_name": "values",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 8,
+              "source_name": "results",
+              "output_name": "results",
+              "exact_name": true,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.019534100079908967
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.016129700001329184
+          }
+        },
+        "deterministic_threads_1_4": true
+      },
+      "after": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 1,
+        "debug": 2,
+        "status": "passed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.019033399876207113,
+        "output_sha256": "a5681bc1278c724ac7de770dbac75338af85698afa265ce7397f76f1ffa8e0ee",
+        "output_bytes": 1157,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 4,
+          "equiv": 3,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.5144596651445966,
+          "statement_initializer_normalized_ratio": 0.5144596651445966,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 14,
+          "aligned_bindings": 6,
+          "exact_names": 6,
+          "alignment_coverage": 0.6666666666666666,
+          "exact_name_precision_on_aligned": 1.0,
+          "exact_name_recovery_lower_bound": 0.6666666666666666,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 1,
+              "output_binding": 1,
+              "source_name": "value",
+              "output_name": "value",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 4,
+              "source_name": "env",
+              "output_name": "env",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 6,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 7,
+              "source_name": "key",
+              "output_name": "key",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 13,
+              "source_name": "results",
+              "output_name": "results",
+              "exact_name": true,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.01743420003913343
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.019465900026261806
+          }
+        },
+        "deterministic_threads_1_4": true
+      },
+      "before_source": "local function run()\n\tlocal value = fetch()\n\treturn sink(value)\nend\n\nreturn function(mode)\n\tlocal trace = {}\n\tlocal env = nil\n\tenv = setmetatable({\n\t\tfetch = function()\n\t\t\ttrace[#trace + 1] = \"fetch\"\n\n\t\t\tif mode == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif mode == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, {\n\t\t__index = function(_, key)\n\t\t\ttrace[#trace + 1] = \"lookup:\" .. key\n\n\t\t\tif mode == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif mode == \"mutate\" then\n\t\t\t\tfunction env.fetch()\n\t\t\t\t\ttrace[#trace + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal values = table.pack(...)\n\t\t\t\ttrace[#trace + 1] = \"sink:\" .. values.n .. \":\" .. tostring(values[1])\n\t\t\t\treturn values[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t})\n\tsetfenv(run, env)\n\tlocal results = table.pack(pcall(run))\n\n\tif results[1] then\n\t\treturn table.concat(trace, \",\"), results.n, results[2], results[3], results[4]\n\telse\n\t\treturn table.concat(trace, \",\"), \"error\", string.find(results[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n",
+      "after_source": "local function run()\n\tlocal value = fetch()\n\treturn sink(value)\nend\n\nreturn function(mode)\n\tlocal trace = {}\n\tlocal env = nil\n\tlocal v = {\n\t\t__index = function(_, key)\n\t\t\ttrace[#trace + 1] = \"lookup:\" .. key\n\n\t\t\tif mode == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif mode == \"mutate\" then\n\t\t\t\tfunction env.fetch()\n\t\t\t\t\ttrace[#trace + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal values = table.pack(...)\n\t\t\t\tlocal v2 = trace\n\t\t\t\tlocal v3 = #trace + 1\n\t\t\t\tlocal n = values.n\n\t\t\t\tlocal v4 = values[1]\n\t\t\t\tv2[v3] = \"sink:\" .. n .. \":\" .. tostring(v4)\n\t\t\t\treturn values[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t}\n\tenv = setmetatable({\n\t\tfetch = function()\n\t\t\ttrace[#trace + 1] = \"fetch\"\n\n\t\t\tif mode == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif mode == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, v)\n\tsetfenv(run, env)\n\tlocal results = table.pack(pcall(run))\n\n\tif results[1] then\n\t\treturn table.concat(trace, \",\"), results.n, results[2], results[3], results[4]\n\telse\n\t\treturn table.concat(trace, \",\"), \"error\", string.find(results[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n"
+    },
+    {
+      "opt": 2,
+      "debug": 1,
+      "before": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 2,
+        "debug": 1,
+        "status": "failed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.019064099993556738,
+        "output_sha256": "25064e68b1560e5483f720273297a655d98a90ea244aa22597a787d6d94ea78d",
+        "output_bytes": 939,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 4,
+          "equiv": 3,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.9018987341772152,
+          "statement_initializer_normalized_ratio": 0.9018987341772152,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 8,
+          "aligned_bindings": 8,
+          "exact_names": 2,
+          "alignment_coverage": 0.8888888888888888,
+          "exact_name_precision_on_aligned": 0.25,
+          "exact_name_recovery_lower_bound": 0.2222222222222222,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 2,
+              "output_binding": 1,
+              "source_name": "mode",
+              "output_name": "p",
+              "exact_name": false,
+              "occurrences": 5
+            },
+            {
+              "source_binding": 3,
+              "output_binding": 2,
+              "source_name": "trace",
+              "output_name": "v",
+              "exact_name": false,
+              "occurrences": 11
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 3,
+              "source_name": "env",
+              "output_name": "v2",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 4,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 5,
+              "source_name": "key",
+              "output_name": "p2",
+              "exact_name": false,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 7,
+              "output_binding": 6,
+              "source_name": "values",
+              "output_name": "v3",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 7,
+              "source_name": "results",
+              "output_name": "v3",
+              "exact_name": false,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.01863720011897385
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tlookup:sink,fetch,sink:1:7\t4\t7\ttail\tnil\nmutate\tlookup:sink,replacement,sink:1:99\t4\t99\ttail\tnil\nnil\tlookup:sink,fetch,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tlookup:sink,fetch,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tlookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.016657999949529767
+          }
+        },
+        "error": "output observation differs from locked expectation"
+      },
+      "after": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 2,
+        "debug": 1,
+        "status": "passed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.01835590018890798,
+        "output_sha256": "a64e52fdb4d325f5e0afb90dd91c19c3117d72b83948c832207ab718e9184cc2",
+        "output_bytes": 1047,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 4,
+          "equiv": 3,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.5144596651445966,
+          "statement_initializer_normalized_ratio": 0.5144596651445966,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 14,
+          "aligned_bindings": 6,
+          "exact_names": 2,
+          "alignment_coverage": 0.6666666666666666,
+          "exact_name_precision_on_aligned": 0.3333333333333333,
+          "exact_name_recovery_lower_bound": 0.2222222222222222,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 1,
+              "output_binding": 1,
+              "source_name": "value",
+              "output_name": "fetched",
+              "exact_name": false,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 4,
+              "source_name": "env",
+              "output_name": "v2",
+              "exact_name": false,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 6,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 7,
+              "source_name": "key",
+              "output_name": "p2",
+              "exact_name": false,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 13,
+              "source_name": "results",
+              "output_name": "v4",
+              "exact_name": false,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.019352099858224392
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.01702690008096397
+          }
+        },
+        "deterministic_threads_1_4": true
+      },
+      "before_source": "local function run()\n\treturn sink((fetch()))\nend\n\nreturn function(p)\n\tlocal v = {}\n\tlocal v2 = nil\n\tv2 = setmetatable({\n\t\tfetch = function()\n\t\t\tv[#v + 1] = \"fetch\"\n\n\t\t\tif p == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif p == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, {\n\t\t__index = function(_, p2)\n\t\t\tv[#v + 1] = \"lookup:\" .. p2\n\n\t\t\tif p == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif p == \"mutate\" then\n\t\t\t\tfunction v2.fetch()\n\t\t\t\t\tv[#v + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal v3 = table.pack(...)\n\t\t\t\tv[#v + 1] = \"sink:\" .. v3.n .. \":\" .. tostring(v3[1])\n\t\t\t\treturn v3[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t})\n\tsetfenv(run, v2)\n\tlocal v3 = table.pack(pcall(run))\n\n\tif v3[1] then\n\t\treturn table.concat(v, \",\"), v3.n, v3[2], v3[3], v3[4]\n\telse\n\t\treturn table.concat(v, \",\"), \"error\", string.find(v3[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n",
+      "after_source": "local function run()\n\tlocal fetched = fetch()\n\treturn sink(fetched)\nend\n\nreturn function(p)\n\tlocal v = {}\n\tlocal v2 = nil\n\tlocal v3 = {\n\t\t__index = function(_, p2)\n\t\t\tv[#v + 1] = \"lookup:\" .. p2\n\n\t\t\tif p == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif p == \"mutate\" then\n\t\t\t\tfunction v2.fetch()\n\t\t\t\t\tv[#v + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal v4 = table.pack(...)\n\t\t\t\tlocal v5 = v\n\t\t\t\tlocal v6 = #v + 1\n\t\t\t\tlocal n = v4.n\n\t\t\t\tlocal v7 = v4[1]\n\t\t\t\tv5[v6] = \"sink:\" .. n .. \":\" .. tostring(v7)\n\t\t\t\treturn v4[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t}\n\tv2 = setmetatable({\n\t\tfetch = function()\n\t\t\tv[#v + 1] = \"fetch\"\n\n\t\t\tif p == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif p == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, v3)\n\tsetfenv(run, v2)\n\tlocal v4 = table.pack(pcall(run))\n\n\tif v4[1] then\n\t\treturn table.concat(v, \",\"), v4.n, v4[2], v4[3], v4[4]\n\telse\n\t\treturn table.concat(v, \",\"), \"error\", string.find(v4[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n"
+    },
+    {
+      "opt": 2,
+      "debug": 2,
+      "before": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 2,
+        "debug": 2,
+        "status": "passed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.019513099920004606,
+        "output_sha256": "6c2316b85520e3bda75c7d6449b9ac7603463f9b9477dcce2264761824182976",
+        "output_bytes": 1074,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 5,
+          "equiv": 2,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.9496327387198321,
+          "statement_initializer_normalized_ratio": 0.9496327387198321,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 9,
+          "aligned_bindings": 9,
+          "exact_names": 9,
+          "alignment_coverage": 1.0,
+          "exact_name_precision_on_aligned": 1.0,
+          "exact_name_recovery_lower_bound": 1.0,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 1,
+              "output_binding": 1,
+              "source_name": "value",
+              "output_name": "value",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 2,
+              "output_binding": 2,
+              "source_name": "mode",
+              "output_name": "mode",
+              "exact_name": true,
+              "occurrences": 5
+            },
+            {
+              "source_binding": 3,
+              "output_binding": 3,
+              "source_name": "trace",
+              "output_name": "trace",
+              "exact_name": true,
+              "occurrences": 11
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 4,
+              "source_name": "env",
+              "output_name": "env",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 5,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 6,
+              "source_name": "key",
+              "output_name": "key",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 7,
+              "output_binding": 7,
+              "source_name": "values",
+              "output_name": "values",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 8,
+              "source_name": "results",
+              "output_name": "results",
+              "exact_name": true,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.016472200164571404
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.016486299922689795
+          }
+        },
+        "deterministic_threads_1_4": true
+      },
+      "after": {
+        "case": "global_evaluation_order",
+        "group": "effect/order",
+        "opt": 2,
+        "debug": 2,
+        "status": "passed",
+        "dataflow": {
+          "model": "luau-acyclic-use-def-v1",
+          "status": "unknown",
+          "reasons": {
+            "original": "reference/upvalue capture lifetime",
+            "rebuilt": "reference/upvalue capture lifetime"
+          }
+        },
+        "source_sha256": "a2e3ebd76866d58e5b00324318e0c40def39c6526547c853fec0232435c59a02",
+        "decompile_seconds": 0.018041499890387058,
+        "output_sha256": "a5681bc1278c724ac7de770dbac75338af85698afa265ce7397f76f1ffa8e0ee",
+        "output_bytes": 1157,
+        "recompile": "passed",
+        "legacy_normalized": {
+          "exact": 4,
+          "equiv": 3,
+          "missing": 0,
+          "extra": 0
+        },
+        "source_fidelity": {
+          "model": "luau-ast-binding-v2",
+          "status": "measured",
+          "raw_structural_ratio": 0.5144596651445966,
+          "statement_initializer_normalized_ratio": 0.5144596651445966,
+          "style_normalization": "single-local-if-initializer-v1",
+          "source_conditional_expressions": 0,
+          "output_conditional_expressions": 0,
+          "source_bindings": 9,
+          "output_bindings": 14,
+          "aligned_bindings": 6,
+          "exact_names": 6,
+          "alignment_coverage": 0.6666666666666666,
+          "exact_name_precision_on_aligned": 1.0,
+          "exact_name_recovery_lower_bound": 0.6666666666666666,
+          "bindings": [
+            {
+              "source_binding": 0,
+              "output_binding": 0,
+              "source_name": "run",
+              "output_name": "run",
+              "exact_name": true,
+              "occurrences": 3
+            },
+            {
+              "source_binding": 1,
+              "output_binding": 1,
+              "source_name": "value",
+              "output_name": "value",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 4,
+              "output_binding": 4,
+              "source_name": "env",
+              "output_name": "env",
+              "exact_name": true,
+              "occurrences": 4
+            },
+            {
+              "source_binding": 5,
+              "output_binding": 6,
+              "source_name": "_",
+              "output_name": "_",
+              "exact_name": true,
+              "occurrences": 1
+            },
+            {
+              "source_binding": 6,
+              "output_binding": 7,
+              "source_name": "key",
+              "output_name": "key",
+              "exact_name": true,
+              "occurrences": 2
+            },
+            {
+              "source_binding": 8,
+              "output_binding": 13,
+              "source_name": "results",
+              "output_name": "results",
+              "exact_name": true,
+              "occurrences": 7
+            }
+          ],
+          "type_syntax_equal": true
+        },
+        "output_conditional_expressions": 0,
+        "runtime": {
+          "source": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.018562000012025237
+          },
+          "output": {
+            "exit": 0,
+            "stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n",
+            "stderr": "",
+            "seconds": 0.02067580004222691
+          }
+        },
+        "deterministic_threads_1_4": true
+      },
+      "before_source": "local function run()\n\tlocal value = fetch()\n\treturn sink(value)\nend\n\nreturn function(mode)\n\tlocal trace = {}\n\tlocal env = nil\n\tenv = setmetatable({\n\t\tfetch = function()\n\t\t\ttrace[#trace + 1] = \"fetch\"\n\n\t\t\tif mode == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif mode == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, {\n\t\t__index = function(_, key)\n\t\t\ttrace[#trace + 1] = \"lookup:\" .. key\n\n\t\t\tif mode == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif mode == \"mutate\" then\n\t\t\t\tfunction env.fetch()\n\t\t\t\t\ttrace[#trace + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal values = table.pack(...)\n\t\t\t\ttrace[#trace + 1] = \"sink:\" .. values.n .. \":\" .. tostring(values[1])\n\t\t\t\treturn values[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t})\n\tsetfenv(run, env)\n\tlocal results = table.pack(pcall(run))\n\n\tif results[1] then\n\t\treturn table.concat(trace, \",\"), results.n, results[2], results[3], results[4]\n\telse\n\t\treturn table.concat(trace, \",\"), \"error\", string.find(results[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n",
+      "after_source": "local function run()\n\tlocal value = fetch()\n\treturn sink(value)\nend\n\nreturn function(mode)\n\tlocal trace = {}\n\tlocal env = nil\n\tlocal v = {\n\t\t__index = function(_, key)\n\t\t\ttrace[#trace + 1] = \"lookup:\" .. key\n\n\t\t\tif mode == \"throw\" then\n\t\t\t\terror(\"lookup failure\")\n\t\t\telseif mode == \"mutate\" then\n\t\t\t\tfunction env.fetch()\n\t\t\t\t\ttrace[#trace + 1] = \"replacement\"\n\t\t\t\t\treturn 99\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn function(...)\n\t\t\t\tlocal values = table.pack(...)\n\t\t\t\tlocal v2 = trace\n\t\t\t\tlocal v3 = #trace + 1\n\t\t\t\tlocal n = values.n\n\t\t\t\tlocal v4 = values[1]\n\t\t\t\tv2[v3] = \"sink:\" .. n .. \":\" .. tostring(v4)\n\t\t\t\treturn values[1], \"tail\", nil\n\t\t\tend\n\t\tend\n\t}\n\tenv = setmetatable({\n\t\tfetch = function()\n\t\t\ttrace[#trace + 1] = \"fetch\"\n\n\t\t\tif mode == \"nil\" then\n\t\t\t\treturn nil, \"extra\"\n\t\t\tend\n\n\t\t\tif mode == \"false\" then\n\t\t\t\treturn false, \"extra\"\n\t\t\telse\n\t\t\t\treturn 7, \"extra\"\n\t\t\tend\n\t\tend\n\t}, v)\n\tsetfenv(run, env)\n\tlocal results = table.pack(pcall(run))\n\n\tif results[1] then\n\t\treturn table.concat(trace, \",\"), results.n, results[2], results[3], results[4]\n\telse\n\t\treturn table.concat(trace, \",\"), \"error\", string.find(results[2], \"lookup failure\", 1, true) ~= nil\n\tend\nend\n"
+    }
+  ]
+}

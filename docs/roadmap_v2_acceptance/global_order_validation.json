@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "binary": {
+    "path": "D:\\Medal\\medal-decompiler\\out\\v2-global-lifter.exe",
+    "sha256": "00e0897890f99c162e6efd01df53acb2e931c097898287a5243460118bda2a7d"
+  },
+  "compiler": {
+    "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+    "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+  },
+  "checks": {
+    "workspace_all_targets": "passed",
+    "rust_primary_tests": 894,
+    "rust_child_process_repeat": 1,
+    "python_tests": 41,
+    "legacy_semantic_cases": 45,
+    "legacy_residual_strict": 7,
+    "legacy_residual_default": 7,
+    "legacy_residual_default_recompile": 7,
+    "legacy_oracle_residual": {
+      "inputs": 7,
+      "status": {
+        "ok": 7
+      },
+      "protos": 177,
+      "exact": 116,
+      "equiv": 35,
+      "differ": 26,
+      "missing": 0,
+      "extra": 0,
+      "equiv_ratio": 0.85311,
+      "files_fully_equiv": 1,
+      "differ_classes": {
+        "accept": 21,
+        "reduced": 4,
+        "duplicated": 1
+      },
+      "tags": {
+        "reduced": 3,
+        "deinline": 2,
+        "duplicated": 1
+      },
+      "decompile_fail_lines": 0,
+      "dataflow": {
+        "unknown": 7
+      },
+      "seconds": {
+        "decompile": 0.1,
+        "compare": 0.2
+      }
+    },
+    "legacy_oracle_semantic": {
+      "inputs": 15,
+      "status": {
+        "ok": 15
+      },
+      "protos": 74,
+      "exact": 39,
+      "equiv": 20,
+      "differ": 12,
+      "missing": 2,
+      "extra": 1,
+      "equiv_ratio": 0.7973,
+      "files_fully_equiv": 5,
+      "differ_classes": {
+        "accept": 10,
+        "reduced": 1,
+        "outlined": 1
+      },
+      "tags": {
+        "reduced": 1,
+        "proto-count": 3,
+        "outlined": 1
+      },
+      "decompile_fail_lines": 0,
+      "dataflow": {
+        "unknown": 14,
+        "different": 1
+      },
+      "seconds": {
+        "decompile": 1.0,
+        "compare": 0.2
+      },
+      "source_likeness_mean": 0.7878
+    },
+    "size_gate_files": 52,
+    "size_regressions": 0,
+    "runtime_configurations": 96,
+    "oracle_controls": 9,
+    "previous_runtime_outputs_byte_identical": 90,
+    "public_configurations": 513,
+    "holdout_configurations": 45,
+    "metadata_mode_and_threads_fixtures": 96,
+    "profile_mode_and_threads_fixtures": 96,
+    "debug_release_corpus_source_byte_identical": 3978,
+    "debug_release_runtime_source_byte_identical": 96,
+    "debug_release_public_source_byte_identical": 513
+  },
+  "output_tree_sha256": "ba6b674bf91e12bbcb5782b1d298b7c73f3cc2c708f88815569b9e704b29cc17",
+  "logs": [
+    {
+      "path": "out/v2-global-rust.log",
+      "sha256": "d11a054f8a03de97334239ef8c972b26d58560b6f22fb38faa0f6776d6eac803"
+    },
+    {
+      "path": "out/v2-global-python.log",
+      "sha256": "6916d3e55a3bd761da2f39313a69a3e7b17cef012cca5a360c0e048ea3797ddf"
+    },
+    {
+      "path": "out/v2-global-final-semantic.log",
+      "sha256": "b3491c741a26d7dc2bf1b0e93271ae99bd552a2764170946cf298c32a8ae061b"
+    },
+    {
+      "path": "out/v2-global-final-residual.log",
+      "sha256": "d7ca5b97b738ec6f5613fc3d7fa35089842ad1dc887d30c2a589bb6933bb5f3f"
+    },
+    {
+      "path": "out/v2-global-default-residual.log",
+      "sha256": "cac6092ee5033080570ab6d7fa478340a98a4f8d5bcefc3246ab15d1c0b545bd"
+    },
+    {
+      "path": "out/v2-global-oracle-residual.log",
+      "sha256": "b0d3df5c9d6bbc9124eca1cc6c64001d626577f0b757f822802401aa18711a83"
+    },
+    {
+      "path": "out/v2-global-oracle-semantic.log",
+      "sha256": "647fb316f9a901cd9b6b09f9456c3e4ac3c2202fb2e120325e3069fbb17327b8"
+    }
+  ],
+  "baseline_hashes": {
+    "docs/output_size/baseline_fixtures.json": "d14581c3b0edf890116f4b190b3d67a18eb2bef17b1e5378399e3ed351884bcc",
+    "docs/bytecode_roundtrip/baseline_residual_control_flow.json": "5351123e9f7134171ba084a39904d648e01a738b54b409ccf05513a10a498e81",
+    "docs/bytecode_roundtrip/baseline_semantic_roundtrip.json": "a0e527968de47e9b5663f8645e1ba8cdc28d2ae11719fc000b2a2a3ecb13d501"
+  },
+  "limitations": "Bounded dataflow proof only. Public/Roblox corpus has no Roblox runtime validation. Runtime assertions compare finite observations, not stack locations. No baseline was regenerated."
+}

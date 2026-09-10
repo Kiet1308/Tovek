@@ -16,6 +16,13 @@
   "split": "development",
   "cases": [
     {
+      "name": "global_evaluation_order",
+      "group": "effect/order",
+      "source": "global_evaluation_order.luau",
+      "driver": "global_evaluation_order.driver.luau",
+      "expected_stdout": "normal\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nmutate\tfetch,lookup:sink,sink:1:7\t4\t7\ttail\tnil\nnil\tfetch,lookup:sink,sink:1:nil\t4\tnil\ttail\tnil\nfalse\tfetch,lookup:sink,sink:1:false\t4\tfalse\ttail\tnil\nthrow\tfetch,lookup:sink\terror\ttrue\n"
+    },
+    {
       "name": "debug_names",
       "group": "naming/capture",
       "source": "debug_names.luau",

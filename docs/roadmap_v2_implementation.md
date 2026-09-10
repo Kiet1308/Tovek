@@ -3,6 +3,72 @@
 This record distinguishes implemented gates from the research roadmap's wider
 acceptance criteria. The baseline is not an overall source-recovery percentage.
 
+## R4: preserve evaluation order across global lookup
+
+The SSA inliner treated an already visited global read as reorderable. A missing
+global can invoke the environment's `__index`, mutate state or throw. This let
+`local value = fetch(); return sink(value)` become `return sink((fetch()))`,
+looking up `sink` before the earlier call to `fetch`. Global reads now stop an
+observable candidate from moving past them. Total candidates can still cross
+the barrier, and an ordinary local callee does not introduce this barrier.
+No standard-library name or type hint is assumed to establish a pure lookup.
+
+The [locked fixture](failure_fixtures/roadmap_v2/global_evaluation_order.luau)
+checks ordinary lookup, replacement of `fetch` during lookup, nil/false scalar
+results, argument count, trailing nil in multret and a throwing lookup. The
+preceding binary fails all three `-g1` configurations: the call trace changes,
+the replacement function returns 99 instead of 7, and the throwing lookup
+prevents the earlier call from executing. Debug binding protection already
+keeps this local at `-g2`; all six configurations now pass. Error category and
+trace are compared, not stack locations. [Before/after observations and source](roadmap_v2_acceptance/global_order_examples.json).
+
+The [runtime matrix](roadmap_v2_acceptance/global_order_runtime.json) passes
+96 configurations and nine oracle controls, with identical source at one/four
+threads. All prior 90 fixture outputs remain byte-identical. The 45 older
+semantic fixtures and 52-file size gate also pass. Two focused Rust tests cover
+the call barrier and allowed total/local-callee cases; workspace tests and all
+41 Python checks pass. The 96-fixture lineage and profiler checks preserve
+source output and deterministic metadata/counters across modes and threads.
+[Validation details](roadmap_v2_acceptance/global_order_validation.json).
+
+All 3,936 nonempty corpus scripts decompile with zero failures; 42 empty inputs
+remain separate. [Per-file change audit](roadmap_v2_acceptance/global_order_corpus.json)
+records 531 changed outputs and 3,447 byte-identical outputs. Both versions of
+every changed file compile at O0/O1/O2: 1,593 configurations per version. The
+changed subset gains 16 `proved` comparisons with the original bytecode;
+23 remain `different` and 492 `unknown` in the bounded dataflow model. These
+unknowns are not a runtime correctness claim. The change adds 2,116 lines and
+38,899 bytes LF. Larger examples include field reads passed to `typeof`,
+Promise's validation chains and calls passed to `warn`. They now retain the
+temporaries needed under an unknown environment, sometimes preventing branch
+compression or constructor folding. This is a correctness cost, not a claim
+that the output is closer to the source. Size baselines were not changed.
+
+The [public matrix](roadmap_v2_acceptance/global_order_public.json) passes all
+513 configurations, including 45 Rodux holdout configurations. Outputs change
+in 167 configurations: Fusion 72, RbxUtil 51, Roact 35, Rodux six and Promise
+three. At O0, Fusion `lerpType`/`nameOf` and Roact `strict` move from `different`
+to `proved`; all 85 prior proofs remain. Holdout proof statuses remain seven
+`proved`, 16 `different` and 22 `unknown`. These modules have not been executed
+in Roblox. The wider R4 effect model, dependency graph and alias improvements
+remain open.
+
+The [seven-round interleaved benchmark](roadmap_v2_acceptance/global_order_benchmark.json)
+uses the preceding profiler build as its baseline, with instrumentation off.
+All output hashes are stable within each binary across one/16 threads; the
+new hash is `ba6b674bf91e12bbcb5782b1d298b7c73f3cc2c708f88815569b9e704b29cc17`.
+
+| Threads | Before median / p95 | After median / p95 | Median peak RSS before → after |
+|---|---:|---:|---:|
+| 1 | 17.874 / 18.334 s | 18.118 / 18.517 s | 33,964,032 → 33,517,568 B |
+| 16 | 1.686 / 2.600 s | 1.698 / 1.988 s | 111,886,336 → 114,053,120 B |
+
+Median time rises 1.37% and 0.71%, respectively. Seven samples make the reported
+nearest-rank p95 the maximum; the 16-thread baseline has a 2.600-second outlier.
+This is a correctness fix with a measured cost, not a speedup. The maximum
+16-thread peak RSS is 117,702,656 → 121,942,016 B. Both committed legacy oracle
+gates also pass, with no baseline changes.
+
 ## R7: scoped pass profiling and separate factoring measurements
 
 `MEDAL_PROFILE_JSON` enables bounded per-file/prototype/pass diagnostics.
