@@ -189,7 +189,7 @@ fn statement_contains_closure(statement: &Statement) -> bool {
 }
 
 fn is_unnamed(local: &RcLocal) -> bool {
-    local.0.0.lock().0.is_none()
+    !local.has_source_binding() && local.0.0.lock().0.is_none()
 }
 
 fn paths_are_exclusive(left: &[(usize, bool)], right: &[(usize, bool)]) -> bool {

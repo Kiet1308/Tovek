@@ -2,6 +2,7 @@ mod deserializer;
 mod instruction;
 mod lifter;
 mod op_code;
+mod source_recovery;
 pub mod upvalue_analysis;
 
 use ast::{
@@ -651,9 +652,12 @@ fn try_decompile_bytecode_internal(
                 ptime!(S_INLINE_TEMPS_1);
                 ast::inline_temps::inline_single_use_temps(&mut body);
             }
+            // V2 keeps branch assignments/returns as statements. Select/phi
+            // binding analysis happens before SSA destruction; emission does
+            // not need to fold those regions into IfExpression initializers.
             {
                 ptime!(S_COND_EXPRS);
-                ast::conditional_expressions::reconstruct_conditional_expressions(&mut body);
+                ast::conditional_expressions::reconstruct_short_circuit_expressions(&mut body);
             }
             // Rebuild declarative table trees from the leaves upward. Inlining a
             // child table can make a parent's formerly-separated field writes
@@ -683,10 +687,8 @@ fn try_decompile_bytecode_internal(
             // Eliminate redundant `x = nil` stores left by SSA phi-node
             // materialization (a predeclared `local x` then explicit `x = nil` on
             // every path it stays nil). A forward "definitely-nil" dataflow deletes
-            // a `x = nil` only when x is provably already nil there. Runs AFTER
-            // `reconstruct_conditional_expressions` (214) — which needs the
-            // predecl+phi diamond to recover `if c then A else nil` ternaries — and
-            // after the write-count-gated `inline_single_use_temps`/`copy_cleanup`
+            // a `x = nil` only when x is provably already nil there. Runs after
+            // the write-count-gated `inline_single_use_temps`/`copy_cleanup`
             // (whose decisions a write-count change here must not perturb). BEFORE
             // `recover_guard_continue` (which must stay last).
             {
@@ -702,11 +704,10 @@ fn try_decompile_bytecode_internal(
             }
             // Expression-level de-inline (proposal §7): recover small pure scalar
             // helpers that `-O2` inlined as a sub-expression of a caller's
-            // condition/RValue. MUST run after reconstruct_conditional_expressions
-            // (IfExpression/and/or now exist) and BEFORE normalize_conditions: the
+            // condition/RValue. Runs before normalize_conditions: the
             // latter De-Morgans a `not (helper-body)` call-site copy into a
             // disjunction that no longer matches the conjunctive helper body. Run
-            // here and both sides are the same freshly-reconstructed tree; the
+            // here while both sides retain their reconstructed expression trees; the
             // emitted `not helperName(args)` is then preserved by normalize.
             {
                 ptime!(S_EXPR_DEINLINE);
@@ -734,7 +735,7 @@ fn try_decompile_bytecode_internal(
             {
                 ptime!(S_NORMALIZE_CONDS);
                 ast::canonicalize_branches::canonicalize_branches(&mut body);
-                ast::normalize_conditions::normalize_conditions_with_options(
+                ast::normalize_conditions::normalize_for_statement_output(
                     &mut body,
                     options.assume_no_nan,
                 );
@@ -795,12 +796,14 @@ fn try_decompile_bytecode_internal(
                 prof::dump();
             }
             let upvalue_analysis = raw_upvalue_analysis.map(|raw| {
-                upvalue_analysis::reconcile_bindings(
+                let mut analysis = upvalue_analysis::reconcile_bindings(
                     raw,
                     &linked_upvalue_bindings,
                     &out,
                     &source_occurrences,
-                )
+                );
+                analysis.source_recovery = Some(source_recovery::audit(&chunk, &mut body, &analysis.functions));
+                analysis
             });
             Ok(DecompileArtifact {
                 source: out,
@@ -1307,6 +1310,9 @@ fn decompile_function(
     // etc.
     // the macro could also maybe generate an optimal ordering?
     if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+        eprintln!("CFG parameters id={} {:?}; capture groups {:?}", function.id,
+            function.parameters.iter().map(ast::RcLocal::stable_id).collect::<Vec<_>>(),
+            upvalue_to_group.iter().map(|(local, group)| (local.stable_id(), group.stable_id())).collect::<Vec<_>>());
         debug_dump_cfg(&function, "pre-inline");
     }
     let mut changed = true;

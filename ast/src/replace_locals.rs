@@ -11,11 +11,13 @@ pub fn replace_locals<H: std::hash::BuildHasher>(
     for statement in &mut block.0 {
         for local in statement.values_read_mut() {
             if let Some(new_local) = map.get(local) {
+                new_local.inherit_source_bindings(local);
                 *local = new_local.clone();
             }
         }
         for local in statement.values_written_mut() {
             if let Some(new_local) = map.get(local) {
+                new_local.inherit_source_bindings(local);
                 *local = new_local.clone();
             }
         }

@@ -86,7 +86,7 @@ jobs:
           git clone https://github.com/luau-lang/luau.git "$RUNNER_TEMP/luau"
           git -C "$RUNNER_TEMP/luau" checkout --quiet "$LUAU_COMMIT"
           cmake -S "$RUNNER_TEMP/luau" -B "$RUNNER_TEMP/luau-build" -DCMAKE_BUILD_TYPE=Release
-          cmake --build "$RUNNER_TEMP/luau-build" --target Luau.Compile.CLI Luau.Repl.CLI --parallel 2
+          cmake --build "$RUNNER_TEMP/luau-build" --target Luau.Compile.CLI Luau.Repl.CLI Luau.Ast.CLI --parallel 2
 
       - name: Run residual-control fixtures in strict modes
         run: |
@@ -157,7 +157,27 @@ jobs:
             --luau "$RUNNER_TEMP/luau-build/luau" \
             --lifter target/release/luau-lifter \
             --report "$RUNNER_TEMP/roadmap-v2.json" \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --keep "$RUNNER_TEMP/roadmap-v2" --determinism
+
+      - name: V2 seeded programs and bounded failure reduction
+        run: |
+          python3 scripts/generated_roundtrip.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --lifter target/release/luau-lifter \
+            --keep "$RUNNER_TEMP/roadmap-v2-generated" \
+            --report "$RUNNER_TEMP/roadmap-v2-generated.json" --reduce
+
+      - name: V2 pinned public source and independent family holdout
+        run: |
+          python3 scripts/public_source_roundtrip.py \
+            --vendor "$RUNNER_TEMP/roadmap-v2-vendor" --checkout \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --lifter target/release/luau-lifter \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --keep "$RUNNER_TEMP/roadmap-v2-public" \
+            --report "$RUNNER_TEMP/roadmap-v2-public.json"
 
       # Bytecode round-trip oracle: decompile -> recompile with the pinned
       # compiler -> compare normalised prototypes with the original bytecode.
@@ -195,4 +215,7 @@ jobs:
             ${{ runner.temp }}/output-size.json
             ${{ runner.temp }}/roadmap-v2.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau
+            ${{ runner.temp }}/roadmap-v2-generated.json
+            ${{ runner.temp }}/roadmap-v2-generated/**/*.luau
+            ${{ runner.temp }}/roadmap-v2-public.json
           if-no-files-found: warn

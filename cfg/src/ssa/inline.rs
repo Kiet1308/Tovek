@@ -244,6 +244,7 @@ impl<'a> Inliner<'a> {
                         .into_iter()
                         .filter(|&l| {
                             self.local_usages[l] == 1 && !self.upvalue_to_group.contains_key(l)
+                                && (!l.has_source_binding() || ast::assignment_preserves_function_name(stat, l))
                         })
                         .cloned()
                         .map(Some)
@@ -521,6 +522,7 @@ impl<'a> Inliner<'a> {
                             if !new_rvalue_has_side_effects
                                 && let Ok(ast::LValue::Local(local)) =
                                     &assign.left.iter().exactly_one()
+                                && !local.has_source_binding()
                                 && let Some(read) = arg_to_values_read[index]
                                     .iter_mut()
                                     .find(|l| l.as_ref() == Some(local))

@@ -16,27 +16,91 @@ use triomphe::Arc;
 /// so the AST namer can consult it as the lowest-priority evidence once every
 /// usage-based hint has had its chance.
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
-pub struct Local(pub Option<String>, pub Option<String>);
+pub struct Local(pub Option<String>, pub Option<String>, pub Vec<SourceBinding>);
+
+/// Compiler-recorded identity, independent of spelling and SSA/storage identity.
+/// Several origins are retained when a mandatory local map merges evidence.
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub enum BindingOrigin {
+    DebugLocal { prototype: usize, register: u8, start_pc: usize, end_pc: usize },
+    DebugUpvalue { prototype: usize, slot: usize },
+    Function { prototype: usize },
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub struct SourceBinding {
+    pub origin: BindingOrigin,
+    pub name: String,
+}
+
+/// Debug metadata is untrusted input. Never repair spelling and label it recovered.
+pub fn valid_source_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && !matches!(name, "and" | "break" | "do" | "else" | "elseif" | "end" | "false"
+            | "for" | "function" | "goto" | "if" | "in" | "local" | "nil" | "not"
+            | "or" | "repeat" | "return" | "then" | "true" | "until" | "while")
+}
+
+/// A recorded function name is already visible in a same-named field/global
+/// definition. Keeping a temporary here would obscure method syntax. A real
+/// debug local remains protected even if its spelling matches the field.
+pub fn assignment_preserves_function_name(statement: &crate::Statement, local: &RcLocal) -> bool {
+    let crate::Statement::Assign(assign) = statement else { return false; };
+    if assign.left.len() != 1 || assign.right.len() != 1 || assign.right[0].as_local() != Some(local) {
+        return false;
+    }
+    let evidence = local.0.lock();
+    if evidence.2.is_empty() || evidence.2.iter().any(|b| !matches!(b.origin, BindingOrigin::Function { .. })) {
+        return false;
+    }
+    let Some(name) = evidence.source_name() else { return false; };
+    match &assign.left[0] {
+        crate::LValue::Global(global) => global.0 == name.as_bytes(),
+        crate::LValue::Index(index) => matches!(&*index.right,
+            crate::RValue::Literal(crate::Literal::String(key)) if key == name.as_bytes()),
+        _ => false,
+    }
+}
 
 impl From<Option<String>> for Local {
     fn from(name: Option<String>) -> Self {
-        Self(name, None)
+        Self(name, None, Vec::new())
     }
 }
 
 impl Local {
     pub fn new(name: Option<String>) -> Self {
-        Self(name, None)
+        Self(name, None, Vec::new())
     }
 
     /// An unnamed local carrying a bytecode-type naming hint.
     pub fn with_type_hint(hint: String) -> Self {
-        Self(None, Some(hint))
+        Self(None, Some(hint), Vec::new())
     }
 
     /// The bytecode-type naming hint, if any.
     pub fn type_hint(&self) -> Option<&str> {
         self.1.as_deref()
+    }
+
+    pub fn add_source_binding(&mut self, binding: SourceBinding) {
+        if valid_source_name(&binding.name) && !self.2.contains(&binding) {
+            self.2.push(binding);
+            self.2.sort();
+        }
+    }
+
+    pub fn source_name(&self) -> Option<&str> {
+        // A local's own debug interval outranks names recorded at capture sites
+        // and the weaker function-prototype name. Conflicting intervals refuse.
+        let mut locals = self.2.iter().filter(|b| matches!(b.origin, BindingOrigin::DebugLocal { .. }));
+        if let Some(local) = locals.next() {
+            return locals.next().is_none().then_some(local.name.as_str());
+        }
+        let first = self.2.first()?;
+        self.2.iter().all(|b| b.name == first.name).then_some(first.name.as_str())
     }
 }
 
@@ -195,6 +259,32 @@ impl RcLocal {
     pub fn stable_id(&self) -> u64 {
         self.1
     }
+
+    pub fn has_source_binding(&self) -> bool {
+        !self.0.lock().2.is_empty()
+    }
+
+    pub fn inherit_source_bindings(&self, other: &Self) {
+        if self == other { return; }
+        let evidence = other.0.lock().2.clone();
+        if evidence.is_empty() { return; }
+        let mut local = self.0.lock();
+        for binding in evidence { local.add_source_binding(binding); }
+    }
+
+    pub fn source_bindings_compatible(&self, other: &Self) -> bool {
+        if self == other { return true; }
+        // Compare borrowed evidence without allocating or cloning its strings.
+        // Lock by stable identity to keep the order consistent across workers.
+        let (first, second) = if self < other { (self, other) } else { (other, self) };
+        let first = first.0.lock();
+        let second = second.0.lock();
+        // Keep separately recorded locals distinct, even for equal spelling.
+        let own = |b: &&SourceBinding| matches!(b.origin, BindingOrigin::DebugLocal { .. });
+        let mut left = first.2.iter().filter(own).peekable();
+        let mut right = second.2.iter().filter(own).peekable();
+        left.peek().is_none() || right.peek().is_none() || left.eq(right)
+    }
 }
 
 impl LocalRw for RcLocal {
@@ -251,5 +341,51 @@ pub trait LocalRw {
     fn replace_values(&mut self, old: &RcLocal, new: &RcLocal) {
         self.replace_values_read(old, new);
         self.replace_values_written(old, new);
+    }
+}
+
+#[cfg(test)]
+mod source_binding_tests {
+    use super::*;
+
+    fn binding(start_pc: usize, name: &str) -> SourceBinding {
+        SourceBinding { origin: BindingOrigin::DebugLocal {
+            prototype: 2, register: 3, start_pc, end_pc: start_pc + 4,
+        }, name: name.to_string() }
+    }
+
+    #[test]
+    fn register_reuse_and_same_spelling_are_distinct_bindings() {
+        let a = RcLocal::default();
+        let b = RcLocal::default();
+        a.0.lock().add_source_binding(binding(0, "value"));
+        b.0.lock().add_source_binding(binding(8, "value"));
+        assert!(!a.source_bindings_compatible(&b));
+        b.inherit_source_bindings(&a);
+        assert_eq!(b.0.lock().2.len(), 2);
+        assert_eq!(b.0.lock().source_name(), None);
+    }
+
+    #[test]
+    fn debug_binding_outranks_type_and_capture_hints() {
+        let mut local = Local::with_type_hint("number".to_string());
+        local.add_source_binding(SourceBinding { origin: BindingOrigin::DebugUpvalue {
+            prototype: 8, slot: 0,
+        }, name: "capturedAlias".to_string() });
+        local.add_source_binding(binding(2, "discountAmount"));
+        assert_eq!(local.source_name(), Some("discountAmount"));
+        assert_eq!(local.type_hint(), Some("number"));
+    }
+
+    #[test]
+    fn debug_names_are_validated_without_repairing_the_spelling() {
+        for invalid in ["", "for", "123name", "a.b", "a b", "a\0b", "đẹp"] {
+            let mut local = Local::default();
+            local.add_source_binding(binding(0, invalid));
+            assert_eq!(local.source_name(), None, "{invalid:?}");
+        }
+        for valid in ["self", "_", "UpperCamel", "CONSTANT_NAME", "v1"] {
+            assert!(valid_source_name(valid));
+        }
     }
 }

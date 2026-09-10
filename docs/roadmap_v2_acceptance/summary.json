@@ -1,0 +1,57 @@
+{
+ "schema_version": 1,
+ "rust_tests_passed": 862,
+ "python_tests_passed": 31,
+ "semantic_runtime_configurations_passed": 45,
+ "output_size_gates_passed": 52,
+ "corpus": {
+  "inputs": 3936,
+  "status": {
+   "ok": 3936
+  },
+  "protos": 26359,
+  "exact": 15921,
+  "equiv": 7776,
+  "differ": 2551,
+  "missing": 3,
+  "extra": 108,
+  "equiv_ratio": 0.89901,
+  "files_fully_equiv": 2743,
+  "differ_classes": {
+   "inlined": 95,
+   "accept": 2174,
+   "reduced": 170,
+   "duplicated": 51,
+   "outlined": 38,
+   "suspect": 5,
+   "investigate": 12,
+   "dropped-const-table": 6
+  },
+  "tags": {
+   "deinline": 211,
+   "inlined": 22,
+   "proto-count": 73,
+   "reduced": 130,
+   "duplicated": 40,
+   "outlined": 17,
+   "suspect": 5,
+   "investigate": 12,
+   "dropped-const-table": 6
+  },
+  "decompile_fail_lines": 0,
+  "dataflow": {
+   "unknown": 2460,
+   "proved": 651,
+   "different": 825
+  },
+  "seconds": {
+   "decompile": 2.8,
+   "compare": 41.2
+  }
+ },
+ "original_baseline_nonequiv": 2699,
+ "current_nonequiv": 2662,
+ "reviewed_per_file_deltas": 29,
+ "unreviewed_regressions": 0,
+ "limitations": "Runtime fixture/generated results are finite observations; public Roblox modules and corpus are only statically checked. Dataflow unknown/different counts remain in each report."
+}

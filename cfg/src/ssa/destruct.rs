@@ -516,8 +516,14 @@ impl<'a> Destructor<'a> {
     }
 
     fn try_coalesce_copy_by_value(&mut self, left: RcLocal, right: RcLocal) -> bool {
+        if !left.source_bindings_compatible(&right) { return false; }
         let left_con_class = self.get_congruence_class(left).clone();
         let right_con_class = self.get_congruence_class(right).clone();
+
+        if left_con_class.borrow().values().any(|left|
+            right_con_class.borrow().values().any(|right| !left.source_bindings_compatible(right))) {
+            return false;
+        }
 
         if *left_con_class.borrow() == *right_con_class.borrow() {
             true
@@ -533,6 +539,7 @@ impl<'a> Destructor<'a> {
 
     // TODO: find a test for this
     fn try_coalesce_copy_by_sharing(&mut self, local_a: &RcLocal, local_b: &RcLocal) -> bool {
+        if !local_a.source_bindings_compatible(local_b) { return false; }
         let con_class_x = self.get_congruence_class(local_a.clone()).clone();
         let con_class_y = self.get_congruence_class(local_b.clone()).clone();
 
@@ -842,6 +849,7 @@ impl<'a> Destructor<'a> {
         if let Some((_, BlockEdge { arguments, .. })) = self.function.edges_to_block(node).next() {
             for param in arguments.iter().map(|(p, _)| p) {
                 let temp_param = RcLocal::default();
+                temp_param.inherit_source_bindings(param);
                 if let Some(group) = self.upvalue_to_group.get(param) {
                     self.upvalue_to_group
                         .insert(temp_param.clone(), group.clone());
@@ -902,6 +910,7 @@ impl<'a> Destructor<'a> {
 
                 for (param, arg) in args {
                     let temp_local = RcLocal::default();
+                    temp_local.inherit_source_bindings(param);
                     if let ast::RValue::Local(arg) = arg
                         && let Some(group) = self.upvalue_to_group.get(arg)
                     {

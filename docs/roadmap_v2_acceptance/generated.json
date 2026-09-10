@@ -1,0 +1,2331 @@
+{
+ "schema_version": 1,
+ "generator": "scalar-branch-table-capture-loop-v1",
+ "generator_sha256": "34722b1d0b08f90b885899efc1ff1178d1e04f0a6fa88ba6066d2789add91d9c",
+ "tools": {
+  "compiler": {
+   "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+   "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+  },
+  "lifter": {
+   "path": "D:\\Medal\\medal-decompiler\\target\\release\\luau-lifter.exe",
+   "sha256": "633d3ba6f8153c241036e9700fd105574d5daab11f7bfacecd177234d9db1eb3"
+  },
+  "luau": {
+   "path": "D:\\Medal\\luau-tools-src\\build\\luau.exe",
+   "sha256": "50029806035a3a76f5e8a5c0960fd596fa4a10503d6e35472110b12426fa8b65"
+  }
+ },
+ "work": "D:\\Medal\\medal-decompiler\\out\\v2-generated-validated\\generated-xwr_39li",
+ "rows": [
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "df64808b178379417b21c361ca541b7d191df481c69f87135228c35ec4c2d71e",
+   "output_sha256": "23c2243883228ce517caabfd1613257b79f7ec1ed752ae957f40551b02641b6b",
+   "decompile_seconds": 0.027725100051611662,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.026551199844107032
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.020182000007480383
+    }
+   },
+   "seed": 0,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "df64808b178379417b21c361ca541b7d191df481c69f87135228c35ec4c2d71e",
+   "output_sha256": "5914d4a1ef4b30d61c27e89a06d6c13c7c102964ec594aeb18853df866db83e2",
+   "decompile_seconds": 0.021142599871382117,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.02066990011371672
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.019465900026261806
+    }
+   },
+   "seed": 0,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "df64808b178379417b21c361ca541b7d191df481c69f87135228c35ec4c2d71e",
+   "output_sha256": "23c2243883228ce517caabfd1613257b79f7ec1ed752ae957f40551b02641b6b",
+   "decompile_seconds": 0.024208900053054094,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.019217800116166472
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.021156499860808253
+    }
+   },
+   "seed": 0,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "df64808b178379417b21c361ca541b7d191df481c69f87135228c35ec4c2d71e",
+   "output_sha256": "5914d4a1ef4b30d61c27e89a06d6c13c7c102964ec594aeb18853df866db83e2",
+   "decompile_seconds": 0.020944499876350164,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.021050000097602606
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.017984299920499325
+    }
+   },
+   "seed": 0,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "df64808b178379417b21c361ca541b7d191df481c69f87135228c35ec4c2d71e",
+   "output_sha256": "f7dbbf3a4b3cfb1aacaf94d27bfa2a9827e03b7c35b678a2b654b64420eb5de4",
+   "decompile_seconds": 0.03077900013886392,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.029936400009319186
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.05512849986553192
+    }
+   },
+   "seed": 0,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "df64808b178379417b21c361ca541b7d191df481c69f87135228c35ec4c2d71e",
+   "output_sha256": "13920a2f979ee194663af6adc8c77e8792cc6798eac163715ac31f35fc41f5ae",
+   "decompile_seconds": 0.036113099893555045,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.03848129999823868
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-37|-0.02702702702702703|-4|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|-4|-0.25|-1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|18|0.05555555555555555|1|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n5\tboolean:true|nan|nan|nan|string:l41,l71,l72,l73,l74\n",
+     "stderr": "",
+     "seconds": 0.04722109995782375
+    }
+   },
+   "seed": 0,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b6f940e41c7dfaa86864594ae951720bc739bd169705c15eeb6a2a2ea50c812c",
+   "output_sha256": "0abe35ce2cf46b0467d036700b5883c4d433e15e0752cdf293ed5c9d0eab8e8b",
+   "decompile_seconds": 0.027137999888509512,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.036462899995967746
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.041923899902030826
+    }
+   },
+   "seed": 1,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b6f940e41c7dfaa86864594ae951720bc739bd169705c15eeb6a2a2ea50c812c",
+   "output_sha256": "17fa770ff2da3f127a904e50225726d55047a5a016513e290f4fd90ab5b68509",
+   "decompile_seconds": 0.035336999921128154,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.035854300018399954
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.03477360005490482
+    }
+   },
+   "seed": 1,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b6f940e41c7dfaa86864594ae951720bc739bd169705c15eeb6a2a2ea50c812c",
+   "output_sha256": "0abe35ce2cf46b0467d036700b5883c4d433e15e0752cdf293ed5c9d0eab8e8b",
+   "decompile_seconds": 0.043500299798324704,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.056124200113117695
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.043281600112095475
+    }
+   },
+   "seed": 1,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b6f940e41c7dfaa86864594ae951720bc739bd169705c15eeb6a2a2ea50c812c",
+   "output_sha256": "17fa770ff2da3f127a904e50225726d55047a5a016513e290f4fd90ab5b68509",
+   "decompile_seconds": 0.039159000152722,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.03406099998392165
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.03591370000503957
+    }
+   },
+   "seed": 1,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b6f940e41c7dfaa86864594ae951720bc739bd169705c15eeb6a2a2ea50c812c",
+   "output_sha256": "f6f937d37407ed5c1ed70345a649db51479019eb773f5d89d308cae14f2d5ecb",
+   "decompile_seconds": 0.05293789994902909,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.04018900007940829
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.034701500087976456
+    }
+   },
+   "seed": 1,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b6f940e41c7dfaa86864594ae951720bc739bd169705c15eeb6a2a2ea50c812c",
+   "output_sha256": "02d6dcd3434b49c5286695c45f057c2b2fa86f9b947e2efe7ae76271db391cbf",
+   "decompile_seconds": 0.03534800000488758,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.032624199986457825
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-38|-0.02631578947368421|-37|string:l51,l52,l53,l54\n5\tboolean:true|-37|-0.02702702702702703|-36|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|-5|-0.2|-4|string:l51,l52,l53,l54\n5\tboolean:true|-4|-0.25|-3|string:l51,l52,l53,l54\n5\tboolean:true|17|0.058823529411764705|18|string:l51,l52,l53,l54\n5\tboolean:true|18|0.05555555555555555|19|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.028272699797526002
+    }
+   },
+   "seed": 1,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d7fbd052f8a26414fe118201eea021a4d578b30ae6e56de37dd86b37eed76027",
+   "output_sha256": "475f5e03b09b6004ce2728304d09d6b58a34cff21cbc8a6febf27578333b61b3",
+   "decompile_seconds": 0.030373099958524108,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.028651499887928367
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.032713600201532245
+    }
+   },
+   "seed": 2,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d7fbd052f8a26414fe118201eea021a4d578b30ae6e56de37dd86b37eed76027",
+   "output_sha256": "6c55c8e73bfe8741e649bf7624a47ffb46ca64c358f0ae6331d9c71d332fa9df",
+   "decompile_seconds": 0.029687700094655156,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.02072350005619228
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.02223000000230968
+    }
+   },
+   "seed": 2,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d7fbd052f8a26414fe118201eea021a4d578b30ae6e56de37dd86b37eed76027",
+   "output_sha256": "475f5e03b09b6004ce2728304d09d6b58a34cff21cbc8a6febf27578333b61b3",
+   "decompile_seconds": 0.03195420000702143,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.02055379981175065
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.021859999978914857
+    }
+   },
+   "seed": 2,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d7fbd052f8a26414fe118201eea021a4d578b30ae6e56de37dd86b37eed76027",
+   "output_sha256": "6c55c8e73bfe8741e649bf7624a47ffb46ca64c358f0ae6331d9c71d332fa9df",
+   "decompile_seconds": 0.0238733000587672,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.021476099966093898
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.02211289992555976
+    }
+   },
+   "seed": 2,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d7fbd052f8a26414fe118201eea021a4d578b30ae6e56de37dd86b37eed76027",
+   "output_sha256": "4417bbc429ed63e1b6c695c816f0556881a23c4062c2ad814bff3124fef03276",
+   "decompile_seconds": 0.02298110001720488,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.01965459994971752
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.021097399992868304
+    }
+   },
+   "seed": 2,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d7fbd052f8a26414fe118201eea021a4d578b30ae6e56de37dd86b37eed76027",
+   "output_sha256": "fa721b6a3d22e3590b76d9a10a4bac68a881afb0eda26b401907891236161957",
+   "decompile_seconds": 0.022626499878242612,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.019174299901351333
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-3|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|-zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|+zero|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|4|0.25|2|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|-inf|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,l31,l51,l52,l53\n",
+     "stderr": "",
+     "seconds": 0.019789600046351552
+    }
+   },
+   "seed": 2,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "6b2e5cced6e2651ef2ced303b4bd28b8c0a84968a515ff2d3492f030e31b847f",
+   "output_sha256": "887e5049c197927d1ed849e09302c47c4f8162945db372b3c9e9cd0f18f7b099",
+   "decompile_seconds": 0.026348100043833256,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.025947000132873654
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.023721400182694197
+    }
+   },
+   "seed": 3,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "6b2e5cced6e2651ef2ced303b4bd28b8c0a84968a515ff2d3492f030e31b847f",
+   "output_sha256": "926cfeeb996848b80150574b2b3c2dfd87bb5e30fba644c93da294c168d1d490",
+   "decompile_seconds": 0.030594100011512637,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.03266520006582141
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.030255400110036135
+    }
+   },
+   "seed": 3,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "6b2e5cced6e2651ef2ced303b4bd28b8c0a84968a515ff2d3492f030e31b847f",
+   "output_sha256": "887e5049c197927d1ed849e09302c47c4f8162945db372b3c9e9cd0f18f7b099",
+   "decompile_seconds": 0.03421070007607341,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.0259593001101166
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.029512800043448806
+    }
+   },
+   "seed": 3,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "6b2e5cced6e2651ef2ced303b4bd28b8c0a84968a515ff2d3492f030e31b847f",
+   "output_sha256": "926cfeeb996848b80150574b2b3c2dfd87bb5e30fba644c93da294c168d1d490",
+   "decompile_seconds": 0.029814900131896138,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.030643500154837966
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.035768600180745125
+    }
+   },
+   "seed": 3,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "6b2e5cced6e2651ef2ced303b4bd28b8c0a84968a515ff2d3492f030e31b847f",
+   "output_sha256": "591946c8d6aa65e09475c86a04ebf4b56bd217baf07ad12e169b33f556a2dfce",
+   "decompile_seconds": 0.03360180021263659,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.025352200027555227
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.033465599874034524
+    }
+   },
+   "seed": 3,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "6b2e5cced6e2651ef2ced303b4bd28b8c0a84968a515ff2d3492f030e31b847f",
+   "output_sha256": "413911aaf1d6ff580108be4ca28ff02c337657b05623ca9f66491e1b094f29ef",
+   "decompile_seconds": 0.04087209980934858,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.0374741000123322
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-6|-0.16666666666666666|-7|string:l11,t3,t7\n5\tboolean:true|-2|-0.5|-7|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|-1|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|-1|string:l11,t3,t7\n5\tboolean:true|-6|-0.16666666666666666|3|string:l11,f3,f7\n5\tboolean:true|-2|-0.5|3|string:l11,t3,t7\n5\tboolean:true|nan|nan|inf|string:l11,f3,f7\n5\tboolean:true|nan|nan|inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|-inf|string:l11,t3,t7\n5\tboolean:true|nan|nan|nan|string:l11,f3,f7\n5\tboolean:true|nan|nan|nan|string:l11,t3,t7\n",
+     "stderr": "",
+     "seconds": 0.021495900116860867
+    }
+   },
+   "seed": 3,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "796d0ab6cdfe0568f5e4c2f4fec3bbc73aef7263abbdf1adc5afe6ecb2105cb3",
+   "output_sha256": "0dcd3db112814f91fa2176f0fbdc408d4aeac27056d3dc77977e21572b9e2307",
+   "decompile_seconds": 0.030591099988669157,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.023070900002494454
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.021581199951469898
+    }
+   },
+   "seed": 4,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "796d0ab6cdfe0568f5e4c2f4fec3bbc73aef7263abbdf1adc5afe6ecb2105cb3",
+   "output_sha256": "18fa57064c6249605c9d03027232c526ceebde55d3f218c63c41b6d7e03f7a33",
+   "decompile_seconds": 0.04445739998482168,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.0343645999673754
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.03208889998495579
+    }
+   },
+   "seed": 4,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "796d0ab6cdfe0568f5e4c2f4fec3bbc73aef7263abbdf1adc5afe6ecb2105cb3",
+   "output_sha256": "0dcd3db112814f91fa2176f0fbdc408d4aeac27056d3dc77977e21572b9e2307",
+   "decompile_seconds": 0.08382920012809336,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.031418099999427795
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.03681640001013875
+    }
+   },
+   "seed": 4,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "796d0ab6cdfe0568f5e4c2f4fec3bbc73aef7263abbdf1adc5afe6ecb2105cb3",
+   "output_sha256": "18fa57064c6249605c9d03027232c526ceebde55d3f218c63c41b6d7e03f7a33",
+   "decompile_seconds": 0.02603940013796091,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.0271314000710845
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.023966999957337976
+    }
+   },
+   "seed": 4,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "796d0ab6cdfe0568f5e4c2f4fec3bbc73aef7263abbdf1adc5afe6ecb2105cb3",
+   "output_sha256": "4abffabbb0deebfc7a9a8511d7669fa0989e324c58e5a8536a3eda1e17091a67",
+   "decompile_seconds": 0.031366700073704123,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.02216639998368919
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.031315899919718504
+    }
+   },
+   "seed": 4,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "796d0ab6cdfe0568f5e4c2f4fec3bbc73aef7263abbdf1adc5afe6ecb2105cb3",
+   "output_sha256": "f843703ca9391d0408f5d32db300eda14455ef7e9242b4eaf8b4271748f0a5c7",
+   "decompile_seconds": 0.023230999941006303,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.028728700010105968
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-17|-0.058823529411764705|-14|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|-4|-0.25|-1|string:f1,l41,l42\n5\tboolean:true|-2|-0.5|1|string:t1,l41,l42\n5\tboolean:true|4|0.25|7|string:f1,l41,l42\n5\tboolean:true|8|0.125|11|string:t1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:f1,l41,l42\n5\tboolean:true|inf|+zero|inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|-inf|-zero|-inf|string:t1,l41,l42\n5\tboolean:true|nan|nan|nan|string:f1,l41,l42\n5\tboolean:true|nan|nan|nan|string:t1,l41,l42\n",
+     "stderr": "",
+     "seconds": 0.027102999854832888
+    }
+   },
+   "seed": 4,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d6c0a930e14e66296369fd6e679e40fbf50a230c6e3595ce875e80386dcd76ef",
+   "output_sha256": "6dd166337b8251e6f4361472f07c23ef63525c16477afa987e2f4ce898759a31",
+   "decompile_seconds": 0.03473869990557432,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.02141970000229776
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.03792180004529655
+    }
+   },
+   "seed": 5,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d6c0a930e14e66296369fd6e679e40fbf50a230c6e3595ce875e80386dcd76ef",
+   "output_sha256": "f08008e6fdd14e7481b22fb4f158e0802486992bcdffa3eb8ee3affcd85b9140",
+   "decompile_seconds": 0.027964300010353327,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.023403899976983666
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.023830800084397197
+    }
+   },
+   "seed": 5,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d6c0a930e14e66296369fd6e679e40fbf50a230c6e3595ce875e80386dcd76ef",
+   "output_sha256": "6dd166337b8251e6f4361472f07c23ef63525c16477afa987e2f4ce898759a31",
+   "decompile_seconds": 0.024567600106820464,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.021115600131452084
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.02409130008891225
+    }
+   },
+   "seed": 5,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d6c0a930e14e66296369fd6e679e40fbf50a230c6e3595ce875e80386dcd76ef",
+   "output_sha256": "f08008e6fdd14e7481b22fb4f158e0802486992bcdffa3eb8ee3affcd85b9140",
+   "decompile_seconds": 0.02248060004785657,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.02394280000589788
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.02519289986230433
+    }
+   },
+   "seed": 5,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d6c0a930e14e66296369fd6e679e40fbf50a230c6e3595ce875e80386dcd76ef",
+   "output_sha256": "1184814b4e3f667bc9183f195f3812036c7dbd55f821952b92846b1d803bebaf",
+   "decompile_seconds": 0.02590129990130663,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.024239999940618873
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.0207867999561131
+    }
+   },
+   "seed": 5,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "d6c0a930e14e66296369fd6e679e40fbf50a230c6e3595ce875e80386dcd76ef",
+   "output_sha256": "3ef39f5abb461dfa3335635dd83520ead70c16b5235d0c65d03d39e46e28ccf3",
+   "decompile_seconds": 0.02440789993852377,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.01994870021007955
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-35|string:l51,l52,l53,l54\n5\tboolean:true|-35|-0.02857142857142857|-34|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|-3|-0.3333333333333333|-2|string:l51,l52,l53,l54\n5\tboolean:true|-2|-0.5|-1|string:l51,l52,l53,l54\n5\tboolean:true|19|0.05263157894736842|20|string:l51,l52,l53,l54\n5\tboolean:true|20|0.05|21|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|inf|+zero|inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|-inf|-zero|-inf|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54\n",
+     "stderr": "",
+     "seconds": 0.02047890005633235
+    }
+   },
+   "seed": 5,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "a64379ee263d9c32f09678c35a213448e1cd08b268f9e86a03e99c1cb9c6442c",
+   "output_sha256": "7f3ce710bc05425e747baa52a67b04c2f6b0be3594d30d67f0120fa447392e81",
+   "decompile_seconds": 0.03118749987334013,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.020518200006335974
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.03511059982702136
+    }
+   },
+   "seed": 6,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "a64379ee263d9c32f09678c35a213448e1cd08b268f9e86a03e99c1cb9c6442c",
+   "output_sha256": "3fae614c1982ebe90454c29f8df92e9cf76be9816953fb077e9dd510498b91c8",
+   "decompile_seconds": 0.026264600222930312,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.02729649981483817
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.02102410001680255
+    }
+   },
+   "seed": 6,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "a64379ee263d9c32f09678c35a213448e1cd08b268f9e86a03e99c1cb9c6442c",
+   "output_sha256": "7f3ce710bc05425e747baa52a67b04c2f6b0be3594d30d67f0120fa447392e81",
+   "decompile_seconds": 0.02532680006697774,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.022492200136184692
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.023106900043785572
+    }
+   },
+   "seed": 6,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "a64379ee263d9c32f09678c35a213448e1cd08b268f9e86a03e99c1cb9c6442c",
+   "output_sha256": "3fae614c1982ebe90454c29f8df92e9cf76be9816953fb077e9dd510498b91c8",
+   "decompile_seconds": 0.024302199948579073,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.021900499938055873
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.022429199889302254
+    }
+   },
+   "seed": 6,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "a64379ee263d9c32f09678c35a213448e1cd08b268f9e86a03e99c1cb9c6442c",
+   "output_sha256": "27d98da7e52d1b62d9e940893c48b9af484d531377275d22296b06b673006088",
+   "decompile_seconds": 0.024428199976682663,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.0265128999017179
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.01959570008330047
+    }
+   },
+   "seed": 6,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "a64379ee263d9c32f09678c35a213448e1cd08b268f9e86a03e99c1cb9c6442c",
+   "output_sha256": "8ff16e0928b5ebde01ffd339560aff2a7d2fe08e4ab6cad93e47a6dc77be7d9c",
+   "decompile_seconds": 0.024745000060647726,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.05897259991616011
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-52|-0.019230769230769232|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|-51|-0.0196078431372549|-3|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|-zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|-zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|1|1|+zero|string:l51,l52,l53,l54,f6\n5\tboolean:true|9|0.1111111111111111|+zero|string:l51,l52,l53,l54,t6\n5\tboolean:true|21|0.047619047619047616|2|string:l51,l52,l53,l54,f6\n5\tboolean:true|49|0.02040816326530612|2|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|-inf|string:l51,l52,l53,l54,t6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,f6\n5\tboolean:true|nan|nan|nan|string:l51,l52,l53,l54,t6\n",
+     "stderr": "",
+     "seconds": 0.029679999919608235
+    }
+   },
+   "seed": 6,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "777b5b41dd5c7d80dbf558687fe957beb81734186f7d3c543389ed404bfbadad",
+   "output_sha256": "05c6b8b8209a7ac236c5ca82d2d975b14bd9edaeca50b6603fb022c8808d0eea",
+   "decompile_seconds": 0.025383800035342574,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.019664600025862455
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.0217785001732409
+    }
+   },
+   "seed": 7,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "777b5b41dd5c7d80dbf558687fe957beb81734186f7d3c543389ed404bfbadad",
+   "output_sha256": "cb93d2e8b08efbc145d97dddfd7bb761d35182b1f577ff0159eddbf6b57a3841",
+   "decompile_seconds": 0.02621120004914701,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.021083900006487966
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.021538599859923124
+    }
+   },
+   "seed": 7,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "777b5b41dd5c7d80dbf558687fe957beb81734186f7d3c543389ed404bfbadad",
+   "output_sha256": "05c6b8b8209a7ac236c5ca82d2d975b14bd9edaeca50b6603fb022c8808d0eea",
+   "decompile_seconds": 0.038269200129434466,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.02005920000374317
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.02122209989465773
+    }
+   },
+   "seed": 7,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "777b5b41dd5c7d80dbf558687fe957beb81734186f7d3c543389ed404bfbadad",
+   "output_sha256": "cb93d2e8b08efbc145d97dddfd7bb761d35182b1f577ff0159eddbf6b57a3841",
+   "decompile_seconds": 0.02263020002283156,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.04175269999541342
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.028385099954903126
+    }
+   },
+   "seed": 7,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "777b5b41dd5c7d80dbf558687fe957beb81734186f7d3c543389ed404bfbadad",
+   "output_sha256": "c8e95a3fd65438031840ef1e2a676ed47b31f4ba2ea8899f34cf7872ecbdd1fe",
+   "decompile_seconds": 0.023964500054717064,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.019593399949371815
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.019853899953886867
+    }
+   },
+   "seed": 7,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "777b5b41dd5c7d80dbf558687fe957beb81734186f7d3c543389ed404bfbadad",
+   "output_sha256": "aa32ea21ca97925be06c9f198a1f83d566f52f56c65d3ca28645c841b576395e",
+   "decompile_seconds": 0.033627300057560205,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.021462899865582585
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|4|0.25|-5|string:\n5\tboolean:true|5|0.2|-5|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n5\tboolean:true|nan|nan|nan|string:\n",
+     "stderr": "",
+     "seconds": 0.0225660998839885
+    }
+   },
+   "seed": 7,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "818e3f09600390cfddbc3bcdb731de8afcc7fe229321049859056ffc7f74f021",
+   "output_sha256": "ee402cfc227752d0ccc47931cab8b54ea45cf467916f6c8268411246753e987a",
+   "decompile_seconds": 0.02507319999858737,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.022879400057718158
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.023202500073239207
+    }
+   },
+   "seed": 8,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "818e3f09600390cfddbc3bcdb731de8afcc7fe229321049859056ffc7f74f021",
+   "output_sha256": "d527418c57774d29cdcf2ccb772f276ca5bdfe10d620e3dff0add4751614d57c",
+   "decompile_seconds": 0.02497379994019866,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.02431460004299879
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.04988920013420284
+    }
+   },
+   "seed": 8,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "818e3f09600390cfddbc3bcdb731de8afcc7fe229321049859056ffc7f74f021",
+   "output_sha256": "ee402cfc227752d0ccc47931cab8b54ea45cf467916f6c8268411246753e987a",
+   "decompile_seconds": 0.023086300119757652,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.02143849991261959
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.02043460006825626
+    }
+   },
+   "seed": 8,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "818e3f09600390cfddbc3bcdb731de8afcc7fe229321049859056ffc7f74f021",
+   "output_sha256": "d527418c57774d29cdcf2ccb772f276ca5bdfe10d620e3dff0add4751614d57c",
+   "decompile_seconds": 0.03058559983037412,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.023782999953255057
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.02255450002849102
+    }
+   },
+   "seed": 8,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "818e3f09600390cfddbc3bcdb731de8afcc7fe229321049859056ffc7f74f021",
+   "output_sha256": "97d18f07abb06a969c4452a8f1829abfdb45211e25e9d4e019a9ab57d01b903c",
+   "decompile_seconds": 0.027062000008299947,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.022090200101956725
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.022960999980568886
+    }
+   },
+   "seed": 8,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "818e3f09600390cfddbc3bcdb731de8afcc7fe229321049859056ffc7f74f021",
+   "output_sha256": "4866f0b2767aeeea575871f78040a13203c8a98d690c0afdd226fabadaa6e699",
+   "decompile_seconds": 0.025823700008913875,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.04635600000619888
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-3|string:t2\n5\tboolean:true|-1|-1|-zero|string:f2\n5\tboolean:true|-1|-1|-zero|string:t2\n5\tboolean:true|-1|-1|+zero|string:f2\n5\tboolean:true|-1|-1|+zero|string:t2\n5\tboolean:true|-1|-1|2|string:f2\n5\tboolean:true|-1|-1|2|string:t2\n5\tboolean:true|nan|nan|inf|string:f2\n5\tboolean:true|nan|nan|inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|-inf|string:t2\n5\tboolean:true|nan|nan|nan|string:f2\n5\tboolean:true|nan|nan|nan|string:t2\n",
+     "stderr": "",
+     "seconds": 0.021652800031006336
+    }
+   },
+   "seed": 8,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b4f81407a5eaf68af963c80b696cb22546adb4035aec43ccbc71e1920296b3e9",
+   "output_sha256": "0b6923e05a4e0252cd769b15bb9296c08b92dd414f07da94f3dac2f9bc221d2b",
+   "decompile_seconds": 0.024078099988400936,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.020699300104752183
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.025292799808084965
+    }
+   },
+   "seed": 9,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b4f81407a5eaf68af963c80b696cb22546adb4035aec43ccbc71e1920296b3e9",
+   "output_sha256": "850b849fc4e6d3903d088122b09de96069430b8d5b936b9cb29cdd3cf4445490",
+   "decompile_seconds": 0.024389100028201938,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.02152889990247786
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.02127180015668273
+    }
+   },
+   "seed": 9,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b4f81407a5eaf68af963c80b696cb22546adb4035aec43ccbc71e1920296b3e9",
+   "output_sha256": "0b6923e05a4e0252cd769b15bb9296c08b92dd414f07da94f3dac2f9bc221d2b",
+   "decompile_seconds": 0.024038499919697642,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.02119150012731552
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.02221799991093576
+    }
+   },
+   "seed": 9,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b4f81407a5eaf68af963c80b696cb22546adb4035aec43ccbc71e1920296b3e9",
+   "output_sha256": "850b849fc4e6d3903d088122b09de96069430b8d5b936b9cb29cdd3cf4445490",
+   "decompile_seconds": 0.02519309986382723,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.02248489996418357
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.02303889999166131
+    }
+   },
+   "seed": 9,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b4f81407a5eaf68af963c80b696cb22546adb4035aec43ccbc71e1920296b3e9",
+   "output_sha256": "3f0c52434e831b4d1eec300da44dcd6e2a6299be9824bb673abc6b0a04f02363",
+   "decompile_seconds": 0.02521929983049631,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.021777000045403838
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.04299679980613291
+    }
+   },
+   "seed": 9,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "b4f81407a5eaf68af963c80b696cb22546adb4035aec43ccbc71e1920296b3e9",
+   "output_sha256": "cbc64f242693aa8b41ebb655fb1c5f00d68ae14f7b24ed0407cbc53aa1b74232",
+   "decompile_seconds": 0.023659199941903353,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.037609900115057826
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-36|-0.027777777777777776|-20|string:l21,l22,l23,t6\n5\tboolean:true|-32|-0.03125|-20|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|-1|-1|1|string:l21,l22,l23,f6\n5\tboolean:true|10|0.1|1|string:l21,l22,l23,t6\n5\tboolean:true|13|0.07692307692307693|15|string:l21,l22,l23,f6\n5\tboolean:true|38|0.02631578947368421|15|string:l21,l22,l23,t6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,f6\n5\tboolean:true|inf|+zero|inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|-inf|-zero|-inf|string:l21,l22,l23,t6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,f6\n5\tboolean:true|nan|nan|nan|string:l21,l22,l23,t6\n",
+     "stderr": "",
+     "seconds": 0.02141360007226467
+    }
+   },
+   "seed": 9,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "0ace654034e045a7c4ae66cec784b7f255be643616a2bb5249000b3bc7078b83",
+   "output_sha256": "c4d0626dcd9a7599ad26d6cf0763ef046833b17c65b85025d4c3a6d01bfd6388",
+   "decompile_seconds": 0.024190600030124187,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.02470160019584
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.03489460004493594
+    }
+   },
+   "seed": 10,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "0ace654034e045a7c4ae66cec784b7f255be643616a2bb5249000b3bc7078b83",
+   "output_sha256": "9c772fcea7b29c7c44993b05dc435d8a7571d7ef502062a569f056194269af9f",
+   "decompile_seconds": 0.02375520020723343,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.0209733999799937
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.026307699969038367
+    }
+   },
+   "seed": 10,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "0ace654034e045a7c4ae66cec784b7f255be643616a2bb5249000b3bc7078b83",
+   "output_sha256": "c4d0626dcd9a7599ad26d6cf0763ef046833b17c65b85025d4c3a6d01bfd6388",
+   "decompile_seconds": 0.0238454001955688,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.02323619998060167
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.02547909994609654
+    }
+   },
+   "seed": 10,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "0ace654034e045a7c4ae66cec784b7f255be643616a2bb5249000b3bc7078b83",
+   "output_sha256": "9c772fcea7b29c7c44993b05dc435d8a7571d7ef502062a569f056194269af9f",
+   "decompile_seconds": 0.024169899988919497,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.021734600188210607
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.021571299992501736
+    }
+   },
+   "seed": 10,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "0ace654034e045a7c4ae66cec784b7f255be643616a2bb5249000b3bc7078b83",
+   "output_sha256": "4d538c44cbddb5f0fc088bba5f23b0eaf3e7bdf1ed7a152ec4183c074c6fd08d",
+   "decompile_seconds": 0.02190440008416772,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.02623920002952218
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.021350899944081903
+    }
+   },
+   "seed": 10,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "0ace654034e045a7c4ae66cec784b7f255be643616a2bb5249000b3bc7078b83",
+   "output_sha256": "5ac1f6885ef167c773974aa0c9bab94380199e981f6a2f55031488cae3d42f55",
+   "decompile_seconds": 0.02352629997767508,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.02129329997114837
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-3|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|-zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|+zero|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|-1|-1|2|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|-inf|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n5\tboolean:true|nan|nan|nan|string:l31,l61,l62\n",
+     "stderr": "",
+     "seconds": 0.03574700001627207
+    }
+   },
+   "seed": 10,
+   "opt": 2,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "126913b07c0a582740a9006904198553a9fda4d3a110bf8293967cf019609703",
+   "output_sha256": "efa5eb0828b03745e534c40bfe9614818dcf11a97f9aa49e8665c961dce279e7",
+   "decompile_seconds": 0.03192550013773143,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.022484199842438102
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.021685099927708507
+    }
+   },
+   "seed": 11,
+   "opt": 0,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "126913b07c0a582740a9006904198553a9fda4d3a110bf8293967cf019609703",
+   "output_sha256": "5ed26298ac9edbd506ab582c942f1faca9fb822ebb2c26f62641e4d1f354b76e",
+   "decompile_seconds": 0.025528299855068326,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.023966799955815077
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.02864189981482923
+    }
+   },
+   "seed": 11,
+   "opt": 0,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "126913b07c0a582740a9006904198553a9fda4d3a110bf8293967cf019609703",
+   "output_sha256": "efa5eb0828b03745e534c40bfe9614818dcf11a97f9aa49e8665c961dce279e7",
+   "decompile_seconds": 0.030369600048288703,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.021888399962335825
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.021956400014460087
+    }
+   },
+   "seed": 11,
+   "opt": 1,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "126913b07c0a582740a9006904198553a9fda4d3a110bf8293967cf019609703",
+   "output_sha256": "5ed26298ac9edbd506ab582c942f1faca9fb822ebb2c26f62641e4d1f354b76e",
+   "decompile_seconds": 0.024399499874562025,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.02119630016386509
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.022102699847891927
+    }
+   },
+   "seed": 11,
+   "opt": 1,
+   "debug": 2
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "126913b07c0a582740a9006904198553a9fda4d3a110bf8293967cf019609703",
+   "output_sha256": "b9d321a2e26f97748600037a422ce841b5f200696c70c84e14c11bb488affc98",
+   "decompile_seconds": 0.029789899941533804,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.024050400126725435
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.02238819980993867
+    }
+   },
+   "seed": 11,
+   "opt": 2,
+   "debug": 1
+  },
+  {
+   "status": "passed",
+   "failure": null,
+   "source_sha256": "126913b07c0a582740a9006904198553a9fda4d3a110bf8293967cf019609703",
+   "output_sha256": "44814205df8891924d721eb71994dba5969cc79a3d946a0349e7452ccfa50563",
+   "decompile_seconds": 0.02231780020520091,
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "observations": {
+    "source": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.021034599980339408
+    },
+    "output": {
+     "exit": 0,
+     "stdout": "5\tboolean:true|-3|-0.3333333333333333|-3|string:t1,l51\n5\tboolean:true|-2|-0.5|-3|string:t1,l51\n5\tboolean:true|+zero|inf|-zero|string:f1,l51\n5\tboolean:true|1|1|-zero|string:t1,l51\n5\tboolean:true|+zero|inf|+zero|string:f1,l51\n5\tboolean:true|1|1|+zero|string:t1,l51\n5\tboolean:true|2|0.5|2|string:f1,l51\n5\tboolean:true|3|0.3333333333333333|2|string:t1,l51\n5\tboolean:true|nan|nan|inf|string:f1,l51\n5\tboolean:true|nan|nan|inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|-inf|string:t1,l51\n5\tboolean:true|nan|nan|nan|string:f1,l51\n5\tboolean:true|nan|nan|nan|string:t1,l51\n",
+     "stderr": "",
+     "seconds": 0.02094700001180172
+    }
+   },
+   "seed": 11,
+   "opt": 2,
+   "debug": 2
+  }
+ ],
+ "summary": {
+  "passed": 72
+ },
+ "limitations": "Finite generated grammar and runtime vectors; no exhaustive equivalence claim. Reducer preserves failure category, not necessarily root cause.",
+ "full_local_report_sha256": "121317288cc927174336505cb93e61f5c2ed553e113ffe8d7525ba034e89a607"
+}

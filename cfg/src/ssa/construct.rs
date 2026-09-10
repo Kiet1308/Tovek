@@ -424,6 +424,9 @@ pub fn remove_unnecessary_params(
                             arg = arg_to;
                         }
                         if arg != param {
+                            if !param.source_bindings_compatible(arg) {
+                                continue;
+                            }
                             // param is not trivial, replace the param with the arg
                             removable_params.insert(param.clone(), arg.clone());
                         } else if let Some(&param_node) = dependency_graph.local_to_node.get(param)
@@ -538,6 +541,14 @@ pub fn apply_local_map(function: &mut Function, local_map: FxHashMap<RcLocal, Rc
     // A coalesced local inherits the bytecode-type naming hint of the versions
     // it absorbs (first hint wins; the hints of one source local agree anyway).
     for (old, new) in &local_map {
+        let mut target = new;
+        for _ in 0..64 {
+            match local_map.get(target) {
+                Some(next) if next != target => target = next,
+                _ => break,
+            }
+        }
+        target.inherit_source_bindings(old);
         let Some(hint) = old.0.lock().type_hint().map(str::to_string) else {
             continue;
         };
@@ -601,19 +612,51 @@ pub fn apply_local_map(function: &mut Function, local_map: FxHashMap<RcLocal, Rc
 
 // based on "Simple and Efficient Construction of Static Single Assignment Form" (https://pp.info.uni-karlsruhe.de/uploads/publikationen/braun13cc.pdf)
 impl<'a> SsaConstructor<'a> {
+    fn apply_pending_local_map(&mut self) {
+        let map = std::mem::take(&mut self.local_map);
+        // Phi elimination can replace the version originally captured by a
+        // closure with an entry parameter. Keep capture membership on that
+        // exact representative, or destruction writes a new local while the
+        // closure keeps observing the old parameter. Close certificates are
+        // still remapped/intersected by apply_local_map, never copied by name.
+        for group in self.new_upvalues_in.values_mut().chain(
+            self.upvalues_passed.values_mut().flat_map(|groups| groups.values_mut())) {
+            *group = group.iter().map(|local| {
+                let mut current = local;
+                while let Some(next) = map.get(current) { current = next; }
+                current.clone()
+            }).collect();
+        }
+        apply_local_map(self.function, map);
+    }
+
+    fn fresh_phi(&self, node: NodeIndex, register: &RcLocal) -> RcLocal {
+        let local = RcLocal::default();
+        if Some(node) == *self.function.entry() || self.new_upvalues_in.contains_key(register) {
+            local.inherit_source_bindings(register);
+        }
+        if let Some(binding) = self.function.entry_source_bindings.get(&(node, register.clone())) {
+            local.0.lock().add_source_binding(binding.clone());
+        }
+        local
+    }
     /// A fresh SSA version for the `local_index`-th local written by statement
     /// `stat_index` of `node`, carrying the lifter's bytecode-type naming hint
     /// for that definition when one was recorded (see
     /// `Function::local_type_hints`).
     fn fresh_local(&mut self, node: NodeIndex, stat_index: usize, local_index: usize) -> RcLocal {
-        match self
+        let local = match self
             .function
             .local_type_hints
             .remove(&(node, stat_index, local_index))
         {
             Some(hint) => RcLocal::new(ast::Local::with_type_hint(hint)),
             None => RcLocal::default(),
+        };
+        if let Some(bindings) = self.function.local_source_bindings.remove(&(node, stat_index, local_index)) {
+            for binding in bindings { local.0.lock().add_source_binding(binding); }
         }
+        local
     }
 
     fn write_local(&mut self, node: NodeIndex, local: &RcLocal, new_local: &RcLocal) {
@@ -739,7 +782,7 @@ impl<'a> SsaConstructor<'a> {
             // search globally
             if !self.sealed_blocks.contains(&node) {
                 // TODO: this code is repeated multiple times, create new_local function
-                let param_local = RcLocal::default();
+                let param_local = self.fresh_phi(node, local);
                 self.old_locals.insert(param_local.clone(), local.clone());
                 if let Some(upvalues) = self.new_upvalues_in.get_mut(local) {
                     upvalues.insert(param_local.clone());
@@ -753,7 +796,7 @@ impl<'a> SsaConstructor<'a> {
             } else if let Ok(pred) = self.function.predecessor_blocks(node).exactly_one() {
                 self.find_local(pred, local)
             } else {
-                let param_local = RcLocal::default();
+                let param_local = self.fresh_phi(node, local);
                 self.old_locals.insert(param_local.clone(), local.clone());
                 if let Some(upvalues) = self.new_upvalues_in.get_mut(local) {
                     upvalues.insert(param_local.clone());
@@ -795,6 +838,7 @@ impl<'a> SsaConstructor<'a> {
                     let to_old = &self.old_locals[to];
                     if !self.new_upvalues_in.contains_key(to_old)
                         && !self.upvalues_passed.contains_key(to_old)
+                        && from.source_bindings_compatible(to)
                     {
                         self.local_map.insert(from.clone(), to.clone());
                         block[index] = ast::Empty {}.into();
@@ -1026,24 +1070,26 @@ impl<'a> SsaConstructor<'a> {
         // TODO: this is a bit meh, maybe we should have an argument rvalue
         if let Some(mut incomplete_params) = self.incomplete_params.remove(&entry) {
             for param in &mut self.function.parameters {
-                *param = incomplete_params.remove(param).unwrap_or_default();
+                let new = incomplete_params.remove(param).unwrap_or_default();
+                new.inherit_source_bindings(param);
+                *param = new;
             }
         }
         assert!(self.incomplete_params.is_empty());
 
         // TODO: irreducible control flow (see the paper this algorithm is from)
         // TODO: apply_local_map unnecessary number of calls
-        apply_local_map(self.function, std::mem::take(&mut self.local_map));
+        self.apply_pending_local_map();
 
         self.mark_upvalues();
         self.propagate_copies();
-        apply_local_map(self.function, std::mem::take(&mut self.local_map));
+        self.apply_pending_local_map();
 
         // TODO: loop until returns false?
         // During construction the upvalue cell groups are not built yet, so the
         // C4 self-exclusion is disabled here (None) — verbatim original behavior.
         remove_unnecessary_params(self.function, &mut self.local_map, None);
-        apply_local_map(self.function, std::mem::take(&mut self.local_map));
+        self.apply_pending_local_map();
 
         (
             self.local_count,

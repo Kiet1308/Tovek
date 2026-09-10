@@ -64,6 +64,27 @@ impl SideEffects for Literal {}
 impl Traverse for Literal {}
 
 impl Literal {
+    /// Long brackets normalize CR/LF and discard the first newline. Emit one
+    /// framing LF (which the lexer discards), then the exact payload. Decline
+    /// CR, control bytes and invalid UTF-8 rather than changing constant bytes.
+    fn long_string(value: &[u8]) -> Option<String> {
+        let text = std::str::from_utf8(value).ok()?;
+        let newlines = value.iter().filter(|&&byte| byte == b'\n').count();
+        if newlines == 0 || (newlines < 2 && value.len() < 80)
+            || text.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
+            return None;
+        }
+        for count in 0..=16 {
+            let equals = "=".repeat(count);
+            let close = format!("]{equals}]");
+            // Include the closing delimiter in the search: a payload ending in
+            // `]` would otherwise terminate `[[...]]]` one byte too early.
+            if format!("{text}{close}").find(&close) == Some(text.len()) {
+                return Some(format!("[{equals}[\n{text}{close}"));
+            }
+        }
+        None
+    }
     fn format_finite_f64(value: f64) -> String {
         // TODO: fork ryu to remove ".0"
         let mut buffer = ryu::Buffer::new();
@@ -127,6 +148,9 @@ impl fmt::Display for Literal {
             Literal::Boolean(value) => write!(f, "{}", value),
             &Literal::Number(value) => write!(f, "{}", Self::format_number(value)),
             Literal::String(value) => {
+                if let Some(long) = Self::long_string(value) {
+                    return write!(f, "{long}");
+                }
                 write!(
                     f,
                     "\"{}\"",
@@ -154,6 +178,20 @@ impl fmt::Display for Literal {
 #[cfg(test)]
 mod tests {
     use super::Literal;
+
+    #[test]
+    fn long_strings_keep_leading_newline_and_choose_delimiters() {
+        assert_eq!(Literal::String(b"\nfirst\nsecond\n".to_vec()).to_string(), "[[\n\nfirst\nsecond\n]]");
+        assert_eq!(Literal::String(b"a]]\nb]=]\nc".to_vec()).to_string(), "[==[\na]]\nb]=]\nc]==]");
+        assert_eq!(Literal::String(b"a\nb\nc]".to_vec()).to_string(), "[=[\na\nb\nc]]=]");
+    }
+
+    #[test]
+    fn long_strings_decline_normalizing_or_nonprintable_bytes() {
+        for value in [b"a\r\nb\nc".as_slice(), b"a\nb\n\0", b"a\nb\n\xff"] {
+            assert!(Literal::String(value.to_vec()).to_string().starts_with('"'));
+        }
+    }
 
     #[test]
     fn format_number_pi() {

@@ -1,0 +1,566 @@
+{
+ "schema_version": 1,
+ "baseline_sha256": "60f71970f787694649d63c6b448e500b8384ee33389a2714b333dc11430c2ddd",
+ "compiler_profile": "c2ec0d4e5ca50796ba174a7565298f59aa572268 -O2 -g1 --fflags=false",
+ "review_contract": "Only these 29 inspected per-file normalization limits change. Original baseline and raw deltas remain available. This is triage acceptance, not whole-program semantic proof; Roblox corpus code was not executed.",
+ "supporting_fixtures": [
+  "conditional_contexts",
+  "literal_bytes",
+  "branch_ui",
+  "parameter_write",
+  "cell_after_join"
+ ],
+ "rows": [
+  {
+   "file": "ReplicatedStorage/CmdrClient/Commands/help",
+   "status": "ok",
+   "input_sha256": "716c80a5f00a7682b72f06274c8b311fdb6735bdd8086ee0f13c1faf02262a3b",
+   "output_sha256": "a943f1e9f25e3297406b10e0f27e57951afa5d3b91060e3b75db3a3740ba3284",
+   "rebuilt_sha256": "f0319f2b442faecf3c8ac18bd416b7adb2d5fcd7271af7047791d6367ad039ce",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP_INEXT at pc 68",
+     "rebuilt": "unsupported FORGPREP_INEXT at pc 70"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "Long-bracket payloads are byte-preserving. The Reply argument remains a branch-assigned single value before the call.",
+   "diff": "FILE ReplicatedStorage/CmdrClient/Commands/help.luau\n--- \n+++ \n@@ -26,6 +26,19 @@\n \t\t\tend\n \t\telse\n-\t\t\tobject:Reply(\"Argument Shorthands\\n-------------------\\n.   Me/Self\\n*   All/Everyone\\n**  Others\\n?   Random\\n?N  List of N random values\\n\")\n-\t\t\tobject:Reply(\"Tips\\n----\\n\u2022 Utilize the Tab key to automatically complete commands\\n\u2022 Easily select and copy command output\\n\")\n+\t\t\tobject:Reply([[\n+Argument Shorthands\n+-------------------\n+.   Me/Self\n+*   All/Everyone\n+**  Others\n+?   Random\n+?N  List of N random values\n+]])\n+\t\t\tobject:Reply([[\n+Tips\n+----\n+\u2022 Utilize the Tab key to automatically complete commands\n+\u2022 Easily select and copy command output\n+]])\n \t\t\tlocal commands = object.Cmdr.Registry:GetCommands()\n \t\t\ttable.sort(commands, function(a, b)\n@@ -46,5 +59,13 @@\n \t\t\t\tend\n \n-\t\t\t\tobject:Reply(if command.Description then (`{command.Name} - {command.Description}`) else command.Name)\n+\t\t\t\tlocal v\n+\n+\t\t\t\tif command.Description then\n+\t\t\t\t\tv = `{command.Name} - {command.Description}`\n+\t\t\t\telse\n+\t\t\t\t\tv = command.Name\n+\t\t\t\tend\n+\n+\t\t\t\tobject:Reply(v)\n \t\t\tend\n \t\tend\n"
+  },
+  {
+   "file": "ReplicatedStorage/DivergentVFX/effects/impactframe",
+   "status": "ok",
+   "input_sha256": "bf9a0a22f0374f30c5547844fefd1a17a8aaa5e60bbd90bd9136d51c2447ba63",
+   "output_sha256": "fdfa096a088cf562e6149c1d86e9013887b0196c3843268ae256ed9dc596fe54",
+   "rebuilt_sha256": "7b1b08ed9eebdc3e1acc38386c468be2280772b0799fbc9030046499ae242449",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 40",
+     "rebuilt": "unsupported FASTCALL2 at pc 36"
+    }
+   },
+   "baseline_nonequiv": 3,
+   "reviewed_nonequiv": 4,
+   "reason": "Conditional Size uses branch assignments; the surrounding Position/ScaleType/ImageTransparency writes stay in sequence.",
+   "diff": "FILE ReplicatedStorage/DivergentVFX/effects/impactframe.luau\n--- \n+++ \n@@ -202,5 +202,13 @@\n \t\tlocal label = labels[p]\n \t\tlabel.Position = UDim2.fromScale(lerped3.X, lerped3.Y)\n-\t\tlabel.Size = if stretch then (UDim2.fromScale(lerped, lerped)) else (UDim2.fromOffset(attr3.X * lerped, attr3.Y * lerped))\n+\t\tlocal v3\n+\n+\t\tif stretch then\n+\t\t\tv3 = UDim2.fromScale(lerped, lerped)\n+\t\telse\n+\t\t\tv3 = UDim2.fromOffset(attr3.X * lerped, attr3.Y * lerped)\n+\t\tend\n+\n+\t\tlabel.Size = v3\n \t\tlabel.ScaleType = stretch2\n \t\tlabel.ImageTransparency = lerped2\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Base/Button/CheckBox",
+   "status": "ok",
+   "input_sha256": "fe3543154cf5bbdaf13463fab072f2fd2f2b8f0ee9b5533952b71f1b45eed99e",
+   "output_sha256": "6ff571a27fa4460a66f83bd5781ea19c6fe1ed58f767f9482d094cc83af2198e",
+   "rebuilt_sha256": "02376f26b99f825bf79340a6678705f6461cad1e49cc33b159a50571503853b1",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "Conditional Icon stays outside the private props constructor; remaining children and sibling writes keep their order.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Base/Button/CheckBox.luau\n--- \n+++ \n@@ -87,34 +87,43 @@\n \n \t\t\t\t\t\tlocal intro = scope2:Intro(constants.Spring.Speed, constants.Spring.Damping)\n-\t\t\t\t\t\treturn {\n-\t\t\t\t\t\t\tIcon = scope2:Icon_26px({\n-\t\t\t\t\t\t\t\tSize = props.IconSize or UDim2.fromOffset(26, 26),\n-\t\t\t\t\t\t\t\tPosition = UDim2.fromScale(0.5, 0.5),\n-\t\t\t\t\t\t\t\tRotation = scope2:Lerp(45, 0, intro),\n-\t\t\t\t\t\t\t\tAnchorPoint = Vector2.new(0.5, 0.5),\n-\t\t\t\t\t\t\t\tIcon = if props.Icon then (scope2:Fallback(props.Icon, \"\")) else images.Icons_26px.Check,\n-\t\t\t\t\t\t\t\tImageTransparency = 0,\n-\t\t\t\t\t\t\t\t[children] = { scope2:New(\"UIScale\")({\n-\t\t\t\t\t\t\t\t\t\tScale = scope2:Lerp(1.6, 1, intro)\n-\t\t\t\t\t\t\t\t\t}), scope2:New(\"UIGradient\")({\n-\t\t\t\t\t\t\t\t\t\tColor = props.Gradient,\n-\t\t\t\t\t\t\t\t\t\tRotation = 45\n-\t\t\t\t\t\t\t\t\t}) }\n-\t\t\t\t\t\t\t}),\n-\t\t\t\t\t\t\tInnerFill = scope2:New(\"Frame\")({\n-\t\t\t\t\t\t\t\tSize = UDim2.new(1, -10, 1, -10),\n-\t\t\t\t\t\t\t\tPosition = UDim2.fromScale(0.5, 0.5),\n-\t\t\t\t\t\t\t\tAnchorPoint = Vector2.new(0.5, 0.5),\n-\t\t\t\t\t\t\t\tBackgroundColor3 = colors.White,\n-\t\t\t\t\t\t\t\tBackgroundTransparency = scope2:Lerp(0.9, 0.5, lerped),\n-\t\t\t\t\t\t\t\tZIndex = -10,\n-\t\t\t\t\t\t\t\t[children] = { scope2:New(\"UICorner\")({\n-\t\t\t\t\t\t\t\t\t\tCornerRadius = uDim - UDim.new(0, 3)\n-\t\t\t\t\t\t\t\t\t}), scope2:New(\"UIGradient\")({\n-\t\t\t\t\t\t\t\t\t\tColor = props.Gradient,\n-\t\t\t\t\t\t\t\t\t\tRotation = 45\n-\t\t\t\t\t\t\t\t\t}) }\n-\t\t\t\t\t\t\t})\n+\t\t\t\t\t\tlocal v3 = {}\n+\t\t\t\t\t\tlocal v4 = {\n+\t\t\t\t\t\t\tSize = props.IconSize or UDim2.fromOffset(26, 26),\n+\t\t\t\t\t\t\tPosition = UDim2.fromScale(0.5, 0.5),\n+\t\t\t\t\t\t\tRotation = scope2:Lerp(45, 0, intro),\n+\t\t\t\t\t\t\tAnchorPoint = Vector2.new(0.5, 0.5)\n \t\t\t\t\t\t}\n+\t\t\t\t\t\tlocal v5\n+\n+\t\t\t\t\t\tif props.Icon then\n+\t\t\t\t\t\t\tv5 = scope2:Fallback(props.Icon, \"\")\n+\t\t\t\t\t\telse\n+\t\t\t\t\t\t\tv5 = images.Icons_26px.Check\n+\t\t\t\t\t\tend\n+\n+\t\t\t\t\t\tv4.Icon = v5\n+\t\t\t\t\t\tv4.ImageTransparency = 0\n+\t\t\t\t\t\tv4[children] = { scope2:New(\"UIScale\")({\n+\t\t\t\t\t\t\t\tScale = scope2:Lerp(1.6, 1, intro)\n+\t\t\t\t\t\t\t}), scope2:New(\"UIGradient\")({\n+\t\t\t\t\t\t\t\tColor = props.Gradient,\n+\t\t\t\t\t\t\t\tRotation = 45\n+\t\t\t\t\t\t\t}) }\n+\t\t\t\t\t\tv3.Icon = scope2:Icon_26px(v4)\n+\t\t\t\t\t\tv3.InnerFill = scope2:New(\"Frame\")({\n+\t\t\t\t\t\t\tSize = UDim2.new(1, -10, 1, -10),\n+\t\t\t\t\t\t\tPosition = UDim2.fromScale(0.5, 0.5),\n+\t\t\t\t\t\t\tAnchorPoint = Vector2.new(0.5, 0.5),\n+\t\t\t\t\t\t\tBackgroundColor3 = colors.White,\n+\t\t\t\t\t\t\tBackgroundTransparency = scope2:Lerp(0.9, 0.5, lerped),\n+\t\t\t\t\t\t\tZIndex = -10,\n+\t\t\t\t\t\t\t[children] = { scope2:New(\"UICorner\")({\n+\t\t\t\t\t\t\t\t\tCornerRadius = uDim - UDim.new(0, 3)\n+\t\t\t\t\t\t\t\t}), scope2:New(\"UIGradient\")({\n+\t\t\t\t\t\t\t\t\tColor = props.Gradient,\n+\t\t\t\t\t\t\t\t\tRotation = 45\n+\t\t\t\t\t\t\t\t}) }\n+\t\t\t\t\t\t})\n+\t\t\t\t\t\treturn v3\n \t\t\t\t\tend),\n \t\t\t\t\tStyling = {\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Base/ViewportGui/ViewportCFrame",
+   "status": "ok",
+   "input_sha256": "e937609dbab12b696840168af4806d8ebb6ef0773b2f4c31025fcccab4cdf467",
+   "output_sha256": "c32e6c5d33f8ed104a3cd34872bb6c30097ddcc957a2485035c5cda6edb64dd1",
+   "rebuilt_sha256": "262d630bdabf142100b2bdd39ab8555ebb41c0df17dc5c4cf9c6d3948f97a175",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2K at pc 23",
+     "rebuilt": "unsupported FASTCALL2K at pc 21"
+    }
+   },
+   "baseline_nonequiv": 1,
+   "reviewed_nonequiv": 2,
+   "reason": "The conditional CFrame factor stays in a local before the same ordered multiplications.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Base/ViewportGui/ViewportCFrame.luau\n--- \n+++ \n@@ -38,5 +38,13 @@\n \tlocal rotation2 = CFrame.lookAt(v2, v2 - lookVector, upVector).Rotation\n \tlocal v3 = CFrame.new(position) * rotation2 * inverse.Rotation * identity2\n-\tlocal rotation3 = (rotation * (if flag then cframe else CFrame.identity) * inverse.Rotation * identity2).Rotation\n+\tlocal v4\n+\n+\tif flag then\n+\t\tv4 = cframe\n+\telse\n+\t\tv4 = CFrame.identity\n+\tend\n+\n+\tlocal rotation3 = (rotation * v4 * inverse.Rotation * identity2).Rotation\n \tlocal position2 = v3.Position\n \tlocal vector = position2 - v2\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Decals/Water",
+   "status": "ok",
+   "input_sha256": "0475c8cc475c7d3edcb23935ceb8fc67d0857a18532bd682d31e57da77120104",
+   "output_sha256": "ab8e0dbb4311283586969ccc61403afb4a3dbbf68c853e4b55ceb56694077742",
+   "rebuilt_sha256": "7ed1ac08cf239ec4462c188da6baf864651a02ca68ecb82b4c76ba3b1d1d770f",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "invalid or recursive constant"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "The curried ImageLabel factory is saved before conditional Size/AnchorPoint construction. The return preserves its two-result prefix.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Decals/Water.luau\n--- \n+++ \n@@ -50,23 +50,38 @@\n \t\t\t\tBackgroundTransparency = 1,\n \t\t\t\t[children] = { scope:ForPairs(table.create(2, true), function(_, scope2, p2)\n-\t\t\t\t\t\treturn p2, scope2:New(\"ImageLabel\")({\n-\t\t\t\t\t\t\tSize = if p2 == 1 then (UDim2.fromScale(1, 1)) else (UDim2.new(0, v.ImageSize.X, 1)),\n-\t\t\t\t\t\t\tAnchorPoint = if p2 == 2 then Vector2.xAxis else nil,\n-\t\t\t\t\t\t\tBackgroundTransparency = 1,\n-\t\t\t\t\t\t\tImage = v.Image,\n-\t\t\t\t\t\t\tImageTransparency = data.ImageTransparency,\n-\t\t\t\t\t\t\tScaleType = Enum.ScaleType.Tile,\n-\t\t\t\t\t\t\tTileSize = UDim2.fromOffset(v.ImageSize.X, v.ImageSize.Y),\n-\t\t\t\t\t\t\t[children] = { scope2:New(\"UIGradient\")({\n-\t\t\t\t\t\t\t\t\tTransparency = scope2:Computed(function(callback, _)\n-\t\t\t\t\t\t\t\t\t\tif callback(data.Index) == 1 then\n-\t\t\t\t\t\t\t\t\t\t\treturn v.Start\n-\t\t\t\t\t\t\t\t\t\telse\n-\t\t\t\t\t\t\t\t\t\t\treturn v.Blend\n-\t\t\t\t\t\t\t\t\t\tend\n-\t\t\t\t\t\t\t\t\tend),\n-\t\t\t\t\t\t\t\t\tRotation = 90\n-\t\t\t\t\t\t\t\t}) }\n-\t\t\t\t\t\t})\n+\t\t\t\t\t\tlocal imageLabel = scope2:New(\"ImageLabel\")\n+\t\t\t\t\t\tlocal v4 = {}\n+\t\t\t\t\t\tlocal v5\n+\n+\t\t\t\t\t\tif p2 == 1 then\n+\t\t\t\t\t\t\tv5 = UDim2.fromScale(1, 1)\n+\t\t\t\t\t\telse\n+\t\t\t\t\t\t\tv5 = UDim2.new(0, v.ImageSize.X, 1)\n+\t\t\t\t\t\tend\n+\n+\t\t\t\t\t\tv4.Size = v5\n+\t\t\t\t\t\tlocal v6\n+\n+\t\t\t\t\t\tif p2 == 2 then\n+\t\t\t\t\t\t\tv6 = Vector2.xAxis\n+\t\t\t\t\t\tend\n+\n+\t\t\t\t\t\tv4.AnchorPoint = v6\n+\t\t\t\t\t\tv4.BackgroundTransparency = 1\n+\t\t\t\t\t\tv4.Image = v.Image\n+\t\t\t\t\t\tv4.ImageTransparency = data.ImageTransparency\n+\t\t\t\t\t\tv4.ScaleType = Enum.ScaleType.Tile\n+\t\t\t\t\t\tv4.TileSize = UDim2.fromOffset(v.ImageSize.X, v.ImageSize.Y)\n+\t\t\t\t\t\tv4[children] = { scope2:New(\"UIGradient\")({\n+\t\t\t\t\t\t\t\tTransparency = scope2:Computed(function(callback, _)\n+\t\t\t\t\t\t\t\t\tif callback(data.Index) == 1 then\n+\t\t\t\t\t\t\t\t\t\treturn v.Start\n+\t\t\t\t\t\t\t\t\telse\n+\t\t\t\t\t\t\t\t\t\treturn v.Blend\n+\t\t\t\t\t\t\t\t\tend\n+\t\t\t\t\t\t\t\tend),\n+\t\t\t\t\t\t\t\tRotation = 90\n+\t\t\t\t\t\t\t}) }\n+\t\t\t\t\t\treturn p2, imageLabel(v4)\n \t\t\t\t\tend) }\n \t\t\t}) }\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Effects/Magic",
+   "status": "ok",
+   "input_sha256": "69dbf9cf9dcb0fb5a39fd616ea62d2ea9f1ba25d61bf2fe72d61fbcbbed26134",
+   "output_sha256": "31642cb187ddb8d3721a732185770bf7a8edf3baa9a5ac167946521210c9cd70",
+   "rebuilt_sha256": "997abba77e8d7282a01dc78756db03f88b0b0180efab40d5fcb32aa051f78b3c",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 44",
+     "rebuilt": "unsupported FORGPREP at pc 44"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "The original short-circuit idiom remains and/or instead of being re-emitted as an if-expression; the fallback table is truthy.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Effects/Magic.luau\n--- \n+++ \n@@ -26,5 +26,5 @@\n \tlocal osClock = scope:OsClock(0.022222222222222223)\n \tlocal computed = scope:Computed(function(callback, _)\n-\t\treturn if (callback(enabled)) then v else {}\n+\t\treturn not callback(enabled) and {} or v\n \tend)\n \tlocal computed2 = scope:Computed(function(callback, _)\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/AutoUpgradeButton",
+   "status": "ok",
+   "input_sha256": "f8ccbf7b9df8b5361f5adf14153094c8c16f9ebc6893a752f4f40f1a7986b644",
+   "output_sha256": "a663d1e04c3ae86c636682a522e5ae653c9e59ed80f88d2fe2b0ada5941be008",
+   "rebuilt_sha256": "4e00bc9e7ddc6faca6d9645624d11196643630fb0fa8522e665f096744a7f701",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "Dropdown colors stay as branch-assigned values. The OnActivated field keeps its compiler-recorded function identity.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/AutoUpgradeButton.luau\n--- \n+++ \n@@ -78,7 +78,15 @@\n \t\tfor k in table.create(dependencies.Information.MaxHotbarSlots, true) do\n \t\t\tlocal v5 = {\n-\t\t\t\tText = `Priority {k}`,\n-\t\t\t\tColor = if v3 == k then colors.ShieldBlue else colors.Gray\n+\t\t\t\tText = `Priority {k}`\n \t\t\t}\n+\t\t\tlocal v6\n+\n+\t\t\tif v3 == k then\n+\t\t\t\tv6 = colors.ShieldBlue\n+\t\t\telse\n+\t\t\t\tv6 = colors.Gray\n+\t\t\tend\n+\n+\t\t\tv5.Color = v6\n \t\t\tlocal v7 = k\n \n@@ -92,9 +100,21 @@\n \t\tlocal v5 = {\n \t\t\tText = \"Disabled\",\n-\t\t\tColor = if v3 == nil then colors.ShieldBlue else colors.Gray,\n-\t\t\tOnActivated = function()\n-\t\t\t\tactions.UnitManagerDisableAutoUpgrade(peek(unitStates.GameUnitID))\n-\t\t\tend\n+\t\t\tColor = nil,\n+\t\t\tOnActivated = nil\n \t\t}\n+\t\tlocal v6\n+\n+\t\tif v3 == nil then\n+\t\t\tv6 = colors.ShieldBlue\n+\t\telse\n+\t\t\tv6 = colors.Gray\n+\t\tend\n+\n+\t\tv5.Color = v6\n+\n+\t\tfunction v5.OnActivated()\n+\t\t\tactions.UnitManagerDisableAutoUpgrade(peek(unitStates.GameUnitID))\n+\t\tend\n+\n \t\ttable.insert(v4, v5)\n \t\treturn scope:DropdownActionsPrompt({\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Icons/Trait",
+   "status": "ok",
+   "input_sha256": "5231cacc87838ae4189365340972aa45c0e151e4000ed01c0f0223726354fc2c",
+   "output_sha256": "cf39071269fdeb63739feaeee578ed30068122ce8a4a2a0735494eeabec97167",
+   "rebuilt_sha256": "732a5de193934a43575885dc30746e96d7add22814a44c1a2031f1862feac88e",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "baseline_nonequiv": 1,
+   "reviewed_nonequiv": 2,
+   "reason": "Conditional gradients remain statements. Saved factories/partial props preserve sequencing and the SETLIST multret fallback remains.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Icons/Trait.luau\n--- \n+++ \n@@ -57,37 +57,62 @@\n \t\tlocal v7 = merged[children]\n \t\tlocal v8 = scope2:New(\"UIAspectRatioConstraint\")({})\n-\t\tdo local _values = table.pack(v7, v8, scope2:New(\"ImageLabel\")({\n-\tSize = UDim2.fromScale(1.3333333333333333, 1.3333333333333333),\n-\tPosition = UDim2.fromScale(0.5, 0.5),\n-\tAnchorPoint = Vector2.new(0.5, 0.5),\n-\tBackgroundTransparency = 1,\n-\tImage = scope2:Fallback(traitProcessor.Icon, \"\"),\n-\tImageTransparency = merged.ImageTransparency,\n-\t[children] = scope2:New(\"UIGradient\")({\n-\t\tRotation = 45,\n-\t\tColor = if merged.Animated == false then (scope2:Fallback(traitProcessor.Gradient, colors.Gradients.White)) else (scope2:ScrollingGradient({\n-\t\t\tColorSequence = traitProcessor.Gradient,\n-\t\t\tStepTime = merged.StepTime\n-\t\t}))\n-\t})\n-}), scope2:Computed(function(callback2, scope3)\n+\t\tlocal imageLabel = scope2:New(\"ImageLabel\")\n+\t\tlocal v9 = {\n+\t\t\tSize = UDim2.fromScale(1.3333333333333333, 1.3333333333333333),\n+\t\t\tPosition = UDim2.fromScale(0.5, 0.5),\n+\t\t\tAnchorPoint = Vector2.new(0.5, 0.5),\n+\t\t\tBackgroundTransparency = 1,\n+\t\t\tImage = scope2:Fallback(traitProcessor.Icon, \"\"),\n+\t\t\tImageTransparency = merged.ImageTransparency\n+\t\t}\n+\t\tlocal uIGradient = scope2:New(\"UIGradient\")\n+\t\tlocal v11 = {\n+\t\t\tColor = nil,\n+\t\t\tRotation = 45\n+\t\t}\n+\t\tlocal v12\n+\n+\t\tif merged.Animated == false then\n+\t\t\tv12 = scope2:Fallback(traitProcessor.Gradient, colors.Gradients.White)\n+\t\telse\n+\t\t\tv12 = scope2:ScrollingGradient({\n+\t\t\t\tColorSequence = traitProcessor.Gradient,\n+\t\t\t\tStepTime = merged.StepTime\n+\t\t\t})\n+\t\tend\n+\n+\t\tv11.Color = v12\n+\t\tv9[children] = uIGradient(v11)\n+\t\tdo local _values = table.pack(v7, v8, imageLabel(v9), scope2:Computed(function(callback2, scope3)\n \tif not (callback2(merged.HasGlow) and callback2(isValid)) then\n \t\treturn\n \tend\n \n-\treturn scope3:SoftGlow({\n+\tlocal v13 = {\n \t\tSize = UDim2.fromScale(1.5, 1.5),\n \t\tPosition = UDim2.fromScale(0.5, 0.5),\n \t\tAnchorPoint = Vector2.new(0.5, 0.5),\n \t\tImageTransparency = merged.ImageTransparency,\n-\t\tZIndex = -10,\n-\t\t[children] = scope3:New(\"UIGradient\")({\n-\t\t\tRotation = 45,\n-\t\t\tColor = if merged.Animated == false then (scope3:Fallback(traitProcessor.Gradient, colors.Gradients.White)) else (scope3:ScrollingGradient({\n-\t\t\t\tColorSequence = traitProcessor.Gradient,\n-\t\t\t\tStepTime = merged.StepTime\n-\t\t\t}))\n+\t\tZIndex = -10\n+\t}\n+\tlocal uIGradient2 = scope3:New(\"UIGradient\")\n+\tlocal v15 = {\n+\t\tColor = nil,\n+\t\tRotation = 45\n+\t}\n+\tlocal v16\n+\n+\tif merged.Animated == false then\n+\t\tv16 = scope3:Fallback(traitProcessor.Gradient, colors.Gradients.White)\n+\telse\n+\t\tv16 = scope3:ScrollingGradient({\n+\t\t\tColorSequence = traitProcessor.Gradient,\n+\t\t\tStepTime = merged.StepTime\n \t\t})\n-\t})\n+\tend\n+\n+\tv15.Color = v16\n+\tv13[children] = uIGradient2(v15)\n+\treturn scope3:SoftGlow(v13)\n end)); for _k = 1, _values.n do v6[_k] = _values[_k] end end\n \t\tv4[children] = v6\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/GuessUnitEvent/GuessUnitDifficultyButton",
+   "status": "ok",
+   "input_sha256": "8e09d596fb11039f1c8174f0776708da9b6605ddf904fd6f5b256da0db1756e2",
+   "output_sha256": "de4893a89dbb542cc7c8a4bc48b6d54c06c42b7b81f1b458b4ee56c125f97b33",
+   "rebuilt_sha256": "c12e66da40d5765fb24fb76d4c5e895fe92080cf1efaa80bfe72d705434f0ea9",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "Conditional Size, ImageColor3 and GradientTransparency stay in branch assignments; the two-value return remains.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/GuessUnitEvent/GuessUnitDifficultyButton.luau\n--- \n+++ \n@@ -193,18 +193,40 @@\n \t\t\t\t\t\t\t\tAsset = p4\n \t\t\t\t\t\t\t})\n-\t\t\t\t\t\t\treturn p3, object:ModelDisplay({\n-\t\t\t\t\t\t\t\tSize = if p3 == 2 then (object:Lerp(UDim2.fromScale(1, 1), UDim2.new(1, 48, 1, 48), buttonStates.Spring)) else (UDim2.fromScale(1, 1)),\n-\t\t\t\t\t\t\t\tPosition = UDim2.fromScale(0.5, 1),\n-\t\t\t\t\t\t\t\tAnchorPoint = Vector2.new(0.5, 1),\n-\t\t\t\t\t\t\t\tModel = unitProcessor.Model,\n-\t\t\t\t\t\t\t\tModelOffset = unitProcessor.ViewportOffset,\n-\t\t\t\t\t\t\t\tImageColor3 = if p3 == 2 then (object:Lerp(colors.Black, colors.White, buttonStates.HoverSpring)) else colors.Black,\n-\t\t\t\t\t\t\t\tImageTransparency = p3 == 2 and 0 or 0.25,\n-\t\t\t\t\t\t\t\tShadowTransparency = p3 ~= 2 and 1 or object:Lerp(1, 0, buttonStates.HoverSpring),\n-\t\t\t\t\t\t\t\tGradientTransparency = if p3 == 2 then (NumberSequence.new(0)) else nil,\n-\t\t\t\t\t\t\t\tCameraDistance = p3 == 2 and 10 or 14,\n-\t\t\t\t\t\t\t\tCameraOffset = v5[p3],\n-\t\t\t\t\t\t\t\tZIndex = p3 == 2 and 15 or 5\n-\t\t\t\t\t\t\t})\n+\t\t\t\t\t\t\tlocal v6 = {}\n+\t\t\t\t\t\t\tlocal v7\n+\n+\t\t\t\t\t\t\tif p3 == 2 then\n+\t\t\t\t\t\t\t\tv7 = object:Lerp(UDim2.fromScale(1, 1), UDim2.new(1, 48, 1, 48), buttonStates.Spring)\n+\t\t\t\t\t\t\telse\n+\t\t\t\t\t\t\t\tv7 = UDim2.fromScale(1, 1)\n+\t\t\t\t\t\t\tend\n+\n+\t\t\t\t\t\t\tv6.Size = v7\n+\t\t\t\t\t\t\tv6.Position = UDim2.fromScale(0.5, 1)\n+\t\t\t\t\t\t\tv6.AnchorPoint = Vector2.new(0.5, 1)\n+\t\t\t\t\t\t\tv6.Model = unitProcessor.Model\n+\t\t\t\t\t\t\tv6.ModelOffset = unitProcessor.ViewportOffset\n+\t\t\t\t\t\t\tlocal v8\n+\n+\t\t\t\t\t\t\tif p3 == 2 then\n+\t\t\t\t\t\t\t\tv8 = object:Lerp(colors.Black, colors.White, buttonStates.HoverSpring)\n+\t\t\t\t\t\t\telse\n+\t\t\t\t\t\t\t\tv8 = colors.Black\n+\t\t\t\t\t\t\tend\n+\n+\t\t\t\t\t\t\tv6.ImageColor3 = v8\n+\t\t\t\t\t\t\tv6.ImageTransparency = p3 == 2 and 0 or 0.25\n+\t\t\t\t\t\t\tv6.ShadowTransparency = p3 ~= 2 and 1 or object:Lerp(1, 0, buttonStates.HoverSpring)\n+\t\t\t\t\t\t\tlocal v9\n+\n+\t\t\t\t\t\t\tif p3 == 2 then\n+\t\t\t\t\t\t\t\tv9 = NumberSequence.new(0)\n+\t\t\t\t\t\t\tend\n+\n+\t\t\t\t\t\t\tv6.GradientTransparency = v9\n+\t\t\t\t\t\t\tv6.CameraDistance = p3 == 2 and 10 or 14\n+\t\t\t\t\t\t\tv6.CameraOffset = v5[p3]\n+\t\t\t\t\t\t\tv6.ZIndex = p3 == 2 and 15 or 5\n+\t\t\t\t\t\t\treturn p3, object:ModelDisplay(v6)\n \t\t\t\t\t\tend) }\n \t\t\t\t}\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonSecondaryButton",
+   "status": "ok",
+   "input_sha256": "47c880a19ba8f74a7f76deccc69777426c4a8d34116f0ea2f2664d1cd9e838c5",
+   "output_sha256": "bc7c73e3ed7f670fac12a65bc46393a242abbd558a012a28fc5fb00319b62922",
+   "rebuilt_sha256": "495531f0b78ff162f468d45ea99bba020bc453062a2d524dbe4fbbe00eb90f05",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "baseline_nonequiv": 1,
+   "reviewed_nonequiv": 2,
+   "reason": "Conditional decal transparency blocks full constructor fusion. Ordered private-table stores and the SETLIST arity fallback remain explicit.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonSecondaryButton.luau\n--- \n+++ \n@@ -111,5 +111,5 @@\n \ttable.insert(scope, observer:onChange(fn))\n \tlocal merge = utils.merge\n-\treturn value:set(scope:ButtonBase(merge(merged, {\n+\tlocal v3 = {\n \t\tInteractable = scope:Computed(function(callback)\n \t\t\tif callback(merged.Disabled) then\n@@ -119,103 +119,120 @@\n \t\t\tlocal v4 = callback(merged.Interactable)\n \t\t\treturn v4 == nil or v4\n-\t\tend),\n-\t\tContent = { scope:StyledBlock({\n-\t\t\t\tSize = scope:Lerp(UDim2.fromScale(1, 1), UDim2.new(1, 16, 1, 0), buttonStates.Spring),\n-\t\t\t\tPosition = UDim2.fromScale(0.5, 0.5),\n-\t\t\t\tAnchorPoint = Vector2.new(0.5, 0.5),\n-\t\t\t\tAutomaticSize = Enum.AutomaticSize.None,\n-\t\t\t\tFillDirection = Enum.FillDirection.Horizontal,\n-\t\t\t\tHorizontalAlignment = Enum.HorizontalAlignment.Center,\n-\t\t\t\tVerticalAlignment = Enum.VerticalAlignment.Center,\n-\t\t\t\tPadding = UDim.new(0, 4),\n-\t\t\t\tZIndex = -10,\n-\t\t\t\tContent = {\n-\t\t\t\t\tmerged.Content,\n-\t\t\t\t\tscope:New(\"UIPadding\")({\n-\t\t\t\t\t\tPaddingLeft = UDim.new(0, 12),\n-\t\t\t\t\t\tPaddingRight = UDim.new(0, 12)\n-\t\t\t\t\t}),\n-\t\t\t\t\tIcon = scope:Computed(function(callback, object)\n-\t\t\t\t\t\tif not callback(isValid) then\n-\t\t\t\t\t\t\treturn\n-\t\t\t\t\t\tend\n-\n-\t\t\t\t\t\tlocal v6 = object:Switch(merged.Disabled)({\n-\t\t\t\t\t\t\tDefault = 0,\n-\t\t\t\t\t\t\t[true] = 0.5\n-\t\t\t\t\t\t})\n-\t\t\t\t\t\treturn object:Icon_26px({\n-\t\t\t\t\t\t\tIcon = merged.Icon,\n-\t\t\t\t\t\t\tImageTransparency = object:Lerp(v6, 0, buttonStates.Spring),\n-\t\t\t\t\t\t\tMirrorXAxis = merged.IconMirrorXAxis,\n-\t\t\t\t\t\t\tMirrorYAxis = merged.IconMirrorXAxis\n-\t\t\t\t\t\t})\n-\t\t\t\t\tend),\n-\t\t\t\t\tText = scope:Computed(function(callback, object)\n-\t\t\t\t\t\tif callback(isValid2) then\n-\t\t\t\t\t\t\treturn object:StyledTextLabel({\n-\t\t\t\t\t\t\t\tSize = UDim2.fromScale(1, 0),\n-\t\t\t\t\t\t\t\tAutomaticSize = Enum.AutomaticSize.Y,\n-\t\t\t\t\t\t\t\tText = merged.Text,\n-\t\t\t\t\t\t\t\tTextSize = merged.TextSize,\n-\t\t\t\t\t\t\t\tTextColor3 = colors.Black,\n-\t\t\t\t\t\t\t\tTextTransparency = merged.TextTransparency,\n-\t\t\t\t\t\t\t\tTextWrapped = true,\n-\t\t\t\t\t\t\t\tStrokeThickness = 0,\n-\t\t\t\t\t\t\t\tFontFace = merged.FontFace,\n-\t\t\t\t\t\t\t\tLineHeight = merged.LineHeight,\n-\t\t\t\t\t\t\t\tLayoutOrder = 10\n-\t\t\t\t\t\t\t})\n-\t\t\t\t\t\telse\n-\t\t\t\t\t\t\treturn\n-\t\t\t\t\t\tend\n-\t\t\t\t\tend)\n-\t\t\t\t},\n-\t\t\t\tStyling = {\n-\t\t\t\t\tmerged.Styling,\n-\t\t\t\t\tFill = value2:set(scope:Image({\n-\t\t\t\t\t\tSize = UDim2.fromScale(1, 1),\n-\t\t\t\t\t\tImage = \"rbxassetid://75480066819656\",\n-\t\t\t\t\t\tImageGradient = computed2,\n-\t\t\t\t\t\tImageTransparency = merged.ImageTransparency,\n-\t\t\t\t\t\tGradientRotation = 90,\n-\t\t\t\t\t\tScaleType = Enum.ScaleType.Slice,\n-\t\t\t\t\t\tSliceCenter = Rect.new(56, 58, 312, 58)\n-\t\t\t\t\t})),\n-\t\t\t\t\tDecal = scope:Image({\n-\t\t\t\t\t\tSize = UDim2.fromScale(1, 1),\n-\t\t\t\t\t\tImage = \"rbxassetid://90925920453829\",\n-\t\t\t\t\t\tImageColor3 = output,\n-\t\t\t\t\t\tImageTransparency = scope:Switch(merged.Disabled)({\n-\t\t\t\t\t\t\tDefault = 0,\n-\t\t\t\t\t\t\t[true] = 0.5\n-\t\t\t\t\t\t}),\n-\t\t\t\t\t\tGradientRotation = 90,\n-\t\t\t\t\t\tZIndex = 10,\n-\t\t\t\t\t\tGradientTransparency = if merged.HideDecalCenter then (NumberSequence.new({\n-\t\t\t\t\t\t\tNumberSequenceKeypoint.new(0, 0),\n-\t\t\t\t\t\t\tNumberSequenceKeypoint.new(0.15, 1),\n-\t\t\t\t\t\t\tNumberSequenceKeypoint.new(0.85, 1),\n-\t\t\t\t\t\t\tNumberSequenceKeypoint.new(1, 0)\n-\t\t\t\t\t\t})) else nil,\n-\t\t\t\t\t\tScaleType = Enum.ScaleType.Slice,\n-\t\t\t\t\t\tSliceCenter = Rect.new(56, 58, 312, 58)\n+\t\tend)\n+\t}\n+\tlocal v4 = {}\n+\tlocal v5 = {\n+\t\tSize = scope:Lerp(UDim2.fromScale(1, 1), UDim2.new(1, 16, 1, 0), buttonStates.Spring),\n+\t\tPosition = UDim2.fromScale(0.5, 0.5),\n+\t\tAnchorPoint = Vector2.new(0.5, 0.5),\n+\t\tAutomaticSize = Enum.AutomaticSize.None,\n+\t\tFillDirection = Enum.FillDirection.Horizontal,\n+\t\tHorizontalAlignment = Enum.HorizontalAlignment.Center,\n+\t\tVerticalAlignment = Enum.VerticalAlignment.Center,\n+\t\tPadding = UDim.new(0, 4),\n+\t\tZIndex = -10,\n+\t\tContent = {\n+\t\t\tmerged.Content,\n+\t\t\tscope:New(\"UIPadding\")({\n+\t\t\t\tPaddingLeft = UDim.new(0, 12),\n+\t\t\t\tPaddingRight = UDim.new(0, 12)\n+\t\t\t}),\n+\t\t\tIcon = scope:Computed(function(callback, object)\n+\t\t\t\tif not callback(isValid) then\n+\t\t\t\t\treturn\n+\t\t\t\tend\n+\n+\t\t\t\tlocal v6 = object:Switch(merged.Disabled)({\n+\t\t\t\t\tDefault = 0,\n+\t\t\t\t\t[true] = 0.5\n+\t\t\t\t})\n+\t\t\t\treturn object:Icon_26px({\n+\t\t\t\t\tIcon = merged.Icon,\n+\t\t\t\t\tImageTransparency = object:Lerp(v6, 0, buttonStates.Spring),\n+\t\t\t\t\tMirrorXAxis = merged.IconMirrorXAxis,\n+\t\t\t\t\tMirrorYAxis = merged.IconMirrorXAxis\n+\t\t\t\t})\n+\t\t\tend),\n+\t\t\tText = scope:Computed(function(callback, object)\n+\t\t\t\tif callback(isValid2) then\n+\t\t\t\t\treturn object:StyledTextLabel({\n+\t\t\t\t\t\tSize = UDim2.fromScale(1, 0),\n+\t\t\t\t\t\tAutomaticSize = Enum.AutomaticSize.Y,\n+\t\t\t\t\t\tText = merged.Text,\n+\t\t\t\t\t\tTextSize = merged.TextSize,\n+\t\t\t\t\t\tTextColor3 = colors.Black,\n+\t\t\t\t\t\tTextTransparency = merged.TextTransparency,\n+\t\t\t\t\t\tTextWrapped = true,\n+\t\t\t\t\t\tStrokeThickness = 0,\n+\t\t\t\t\t\tFontFace = merged.FontFace,\n+\t\t\t\t\t\tLineHeight = merged.LineHeight,\n+\t\t\t\t\t\tLayoutOrder = 10\n \t\t\t\t\t})\n-\t\t\t\t},\n-\t\t\t\tOverlay = {\n-\t\t\t\t\tmerged.Overlay,\n-\t\t\t\t\tTag = scope:Computed(function(callback, object)\n-\t\t\t\t\t\tif callback(isValid3) then\n-\t\t\t\t\t\t\treturn object:DragonTag({\n-\t\t\t\t\t\t\t\tText = merged.Tag,\n-\t\t\t\t\t\t\t\tDisabled = merged.Disabled,\n-\t\t\t\t\t\t\t\tZIndex = -10\n-\t\t\t\t\t\t\t})\n-\t\t\t\t\t\telse\n-\t\t\t\t\t\t\treturn\n-\t\t\t\t\t\tend\n-\t\t\t\t\tend)\n-\t\t\t\t}\n-\t\t\t}) }\n-\t})))\n+\t\t\t\telse\n+\t\t\t\t\treturn\n+\t\t\t\tend\n+\t\t\tend)\n+\t\t},\n+\t\tStyling = nil,\n+\t\tOverlay = nil\n+\t}\n+\tlocal v6 = {\n+\t\tmerged.Styling,\n+\t\tFill = value2:set(scope:Image({\n+\t\t\tSize = UDim2.fromScale(1, 1),\n+\t\t\tImage = \"rbxassetid://75480066819656\",\n+\t\t\tImageGradient = computed2,\n+\t\t\tImageTransparency = merged.ImageTransparency,\n+\t\t\tGradientRotation = 90,\n+\t\t\tScaleType = Enum.ScaleType.Slice,\n+\t\t\tSliceCenter = Rect.new(56, 58, 312, 58)\n+\t\t}))\n+\t}\n+\tlocal v7 = {\n+\t\tSize = UDim2.fromScale(1, 1),\n+\t\tImage = \"rbxassetid://90925920453829\",\n+\t\tImageColor3 = output,\n+\t\tImageTransparency = scope:Switch(merged.Disabled)({\n+\t\t\tDefault = 0,\n+\t\t\t[true] = 0.5\n+\t\t}),\n+\t\tGradientTransparency = nil,\n+\t\tGradientRotation = 90,\n+\t\tScaleType = nil,\n+\t\tSliceCenter = nil,\n+\t\tZIndex = 10\n+\t}\n+\tlocal v8\n+\n+\tif merged.HideDecalCenter then\n+\t\tv8 = NumberSequence.new({\n+\t\t\tNumberSequenceKeypoint.new(0, 0),\n+\t\t\tNumberSequenceKeypoint.new(0.15, 1),\n+\t\t\tNumberSequenceKeypoint.new(0.85, 1),\n+\t\t\tNumberSequenceKeypoint.new(1, 0)\n+\t\t})\n+\tend\n+\n+\tv7.GradientTransparency = v8\n+\tv7.ScaleType = Enum.ScaleType.Slice\n+\tv7.SliceCenter = Rect.new(56, 58, 312, 58)\n+\tv6.Decal = scope:Image(v7)\n+\tv5.Styling = v6\n+\tv5.Overlay = {\n+\t\tmerged.Overlay,\n+\t\tTag = scope:Computed(function(callback, object)\n+\t\t\tif callback(isValid3) then\n+\t\t\t\treturn object:DragonTag({\n+\t\t\t\t\tText = merged.Tag,\n+\t\t\t\t\tDisabled = merged.Disabled,\n+\t\t\t\t\tZIndex = -10\n+\t\t\t\t})\n+\t\t\telse\n+\t\t\t\treturn\n+\t\t\tend\n+\t\tend)\n+\t}\n+\tdo local _values = table.pack(scope:StyledBlock(v5)); for _k = 1, _values.n do v4[_k] = _values[_k] end end\n+\tv3.Content = v4\n+\treturn value:set(scope:ButtonBase(merge(merged, v3)))\n end\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/QuickOpenLootbox/AutoSellSettings",
+   "status": "ok",
+   "input_sha256": "cc95c3fcf5f4664c7a7fc294966233d90838a2506bf897dcfa34e8321c797fbf",
+   "output_sha256": "fe90a841284413d31c8619f1e60439225aa5389196d747a9e3c6565d63781204",
+   "rebuilt_sha256": "5f81879d7ff39d789f0ba64337c045742e8e61c0fc8471cacda5d992171c43ae",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "baseline_nonequiv": 2,
+   "reviewed_nonequiv": 3,
+   "reason": "The conditional key is evaluated before the same indexed read and action call.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Menu/QuickOpenLootbox/AutoSellSettings.luau\n--- \n+++ \n@@ -120,5 +120,13 @@\n \t\tlocal v3 = peek(tKey)\n \t\tlocal v4 = peek(itemStates.Asset)\n-\t\tlocal v6 = not v3[if flag then (`{p3}_Shiny`) else p3]\n+\t\tlocal v5\n+\n+\t\tif flag then\n+\t\t\tv5 = `{p3}_Shiny`\n+\t\telse\n+\t\t\tv5 = p3\n+\t\tend\n+\n+\t\tlocal v6 = not v3[v5]\n \t\tactions.FireNode(\"CHANGE_LOOTBOX_AUTOSELL_SETTING\", \"FireServer\", peek(v4), p3, flag, v6)\n \tend\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Processors/Event/init",
+   "status": "ok",
+   "input_sha256": "603f4b9920acf801aa21ec2c5cb2575fb00a80a8dda82df5a42bb63ef4916986",
+   "output_sha256": "43972cdf70de11c54f65775044d1a0c6c6c32cdbc5bd4f4da08aaa58bfbb6532",
+   "rebuilt_sha256": "5f18f27f2849a8f5f01080a87d5ac48c2e020dbbad705ad7b9216da6282da2c0",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "invalid or recursive constant",
+     "rebuilt": "invalid or recursive constant"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "The recorded processor function remains named. Its existing truthy-table fallback stays an and/or form.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Processors/Event/init.luau\n--- \n+++ \n@@ -19,5 +19,6 @@\n local eventInfo = require(fusionPackage.Components.Processors.Event.EventInfo)\n v.EventInfoProcessor = eventInfo\n-return function(p, p2)\n+\n+local function processor(p, p2)\n \tlocal scope = innerScope(p, fusion, state, v)\n \tlocal serverTime = scope:ServerTime()\n@@ -206,5 +207,5 @@\n \tlocal computed15 = scope:Computed(function(callback, _)\n \t\tlocal v9 = callback(eventInfoProcessor) or {}\n-\t\treturn if v9.GetRewardPreview then v9:GetRewardPreview((callback(dependencies.PlayerData))) or {} else {}\n+\t\treturn not v9.GetRewardPreview and {} or v9:GetRewardPreview((callback(dependencies.PlayerData))) or {}\n \tend)\n \tlocal isFilled3 = scope:IsFilled(computed15)\n@@ -304,2 +305,4 @@\n \t}\n end\n+\n+return processor\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Prompts/DropdownWindow/GameUnitTargeting",
+   "status": "ok",
+   "input_sha256": "a5e028eff748f95e085a19a31810dbecf66b075e8264d89b3bf93d848a1fab15",
+   "output_sha256": "3af6d307f291319317ecca79dd440f3a03eff554234be1349aae021a6a4f7c7a",
+   "rebuilt_sha256": "382c2eba41895f2298905d081d549c5b40b5a5249187bc59c89376041e55de80",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 52",
+     "rebuilt": "unsupported FORGPREP at pc 52"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "The dropdown Color becomes a branch assignment before the callback and insertion.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Components/Prompts/DropdownWindow/GameUnitTargeting.luau\n--- \n+++ \n@@ -30,7 +30,15 @@\n \tfor _, v6 in v3 do\n \t\tlocal v7 = {\n-\t\t\tText = v6,\n-\t\t\tColor = if v6 == v4 then colors.Blue else colors.Gray\n+\t\t\tText = v6\n \t\t}\n+\t\tlocal v8\n+\n+\t\tif v6 == v4 then\n+\t\t\tv8 = colors.Blue\n+\t\telse\n+\t\t\tv8 = colors.Gray\n+\t\tend\n+\n+\t\tv7.Color = v8\n \t\tlocal v9 = v6\n \n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Dependencies/Mock/MockMaps/init",
+   "status": "ok",
+   "input_sha256": "7f2e1e8d55149e7b095f7ab88165506baafe5848c373db58e443e2bf09df74d3",
+   "output_sha256": "8cf432640dbe212d16fb5276270845b24b97768ac4fc2a401ab0ec9652e18b6f",
+   "rebuilt_sha256": "4822dc286f3672ba952d78b0a4be69b0f33afda94bb0af6743a60081a8e7a563",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 34",
+     "rebuilt": "unsupported FORGPREP at pc 32"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "The pre-existing truthy-table fallback remains an and/or form.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Dependencies/Mock/MockMaps/init.luau\n--- \n+++ \n@@ -83,5 +83,5 @@\n function MockMaps.GetOrderedActs(_, p: string)\n \tlocal mapData = MockMaps:GetMapData(p)\n-\treturn if mapData then mapData.ActProgression else {}\n+\treturn not mapData and {} or mapData.ActProgression\n end\n \n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Utils/ImportBatcher/ImportBatcherOLD",
+   "status": "ok",
+   "input_sha256": "48a038d2e903e06030413033da57fa619fff67b0e09e6348d0b8a283613f16b6",
+   "output_sha256": "10e2b26ed7f14f99da82c780930df4d05193cfc0c8d115b65e7102f1c4b96301",
+   "rebuilt_sha256": "7e821bbc4056f2d523f86378ba7b4cc1bd7024b28c312097b22a2a653d8797a0",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL1 at pc 0",
+     "rebuilt": "unsupported FASTCALL1 at pc 0"
+    }
+   },
+   "baseline_nonequiv": 8,
+   "reviewed_nonequiv": 9,
+   "reason": "The optional getter remains a branch-assigned single result before _setPath; only the selected getter executes.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Utils/ImportBatcher/ImportBatcherOLD.luau\n--- \n+++ \n@@ -501,5 +501,13 @@\n \t\tif _setPath then\n \t\t\tlocal _getRootData = self._getRootData\n-\t\t\t_setPath(_singlePath, if _getRootData then (_getRootData()) else self._rootData)\n+\t\t\tlocal v6\n+\n+\t\t\tif _getRootData then\n+\t\t\t\tv6 = _getRootData()\n+\t\t\telse\n+\t\t\t\tv6 = self._rootData\n+\t\t\tend\n+\n+\t\t\t_setPath(_singlePath, v6)\n \t\telse\n \t\t\tlocal _rootData = nil\n"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Utils/ImportBatcher/init",
+   "status": "ok",
+   "input_sha256": "39a5811fac610ffdf89af70f3761b2d8aef887463cfecd9ba08e43383ffa05f2",
+   "output_sha256": "9e54c0adbc58d06ee9c9ee9b2d385c1b2a31de1c5fd07c8d2f20ac8d81e4faf4",
+   "rebuilt_sha256": "a36e39514019a93f237914629fd0ee7e891c5bc006f40fdf01201961f2f3ad19",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL1 at pc 0",
+     "rebuilt": "unsupported FASTCALL1 at pc 0"
+    }
+   },
+   "baseline_nonequiv": 13,
+   "reviewed_nonequiv": 14,
+   "reason": "The optional getter remains a branch-assigned single result before _setPath; only the selected getter executes.",
+   "diff": "FILE ReplicatedStorage/FusionPackage/Utils/ImportBatcher/init.luau\n--- \n+++ \n@@ -743,5 +743,13 @@\n \t\tif _setPath then\n \t\t\tlocal _getRootData = self._getRootData\n-\t\t\t_setPath(_singlePath, if _getRootData then (_getRootData()) else self._rootData)\n+\t\t\tlocal v7\n+\n+\t\t\tif _getRootData then\n+\t\t\t\tv7 = _getRootData()\n+\t\t\telse\n+\t\t\t\tv7 = self._rootData\n+\t\t\tend\n+\n+\t\t\t_setPath(_singlePath, v7)\n \t\telse\n \t\t\tlocal _rootData = nil\n"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/ForgeVFX/obj/Shake",
+   "status": "ok",
+   "input_sha256": "6292b1cc58458a5e6e97082c1177fa4fb7abf68912ef714dec05e8b3caf0e2a9",
+   "output_sha256": "b1619e04c38bcbc419a93ab8ed26a00a571858323e88fdfa7b3ea0e7d3dd0cc1",
+   "rebuilt_sha256": "a6d03d9c1d233621f84c7b281f13c3af6b14140fbabde173c364ae42a3349a94",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 3",
+     "rebuilt": "unsupported FASTCALL2 at pc 3"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "TimeFunction uses explicit branch assignments. The numeric fallback 1 is truthy, retaining the existing short-circuit form.",
+   "diff": "FILE ReplicatedStorage/Shared/ForgeVFX/obj/Shake.luau\n--- \n+++ \n@@ -15,5 +15,13 @@\n \tself.PositionInfluence = Vector3.new(1, 1, 1)\n \tself.RotationInfluence = Vector3.new(1, 1, 1)\n-\tself.TimeFunction = if (RunService:IsRunning()) then time else os.clock\n+\tlocal v\n+\n+\tif RunService:IsRunning() then\n+\t\tv = time\n+\telse\n+\t\tv = os.clock\n+\tend\n+\n+\tself.TimeFunction = v\n \tself._timeOffset = random:NextNumber(-1000000, 1000000)\n \tself._startTime = 0\n@@ -71,5 +79,5 @@\n \tlocal v2 = (timeFunction + self._timeOffset) / self.Frequency % 10000\n \tlocal v3 = 1\n-\tlocal v4 = if v < self.FadeInTime then v / self.FadeInTime else 1\n+\tlocal v4 = not (v < self.FadeInTime) and 1 or v / self.FadeInTime\n \n \tif not self.Sustain and self.FadeInTime + self.SustainTime < v then\n"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/ForgeVFX/spin",
+   "status": "ok",
+   "input_sha256": "1c110d38f9b5ac48a511667b32319033d2cd247ec3b05fa705f5c467f0ea11ee",
+   "output_sha256": "9949433ffba9eaa10bdeb21aef31cbea95f0d0bd70f2ac6393d431990de54f81",
+   "rebuilt_sha256": "379059f78f6685ad79e07daf664157b2bdc6442b2bb22478d08f561a32ad2bfb",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported CLOSEUPVALS at pc 35",
+     "rebuilt": "unsupported FASTCALL2 at pc 169"
+    }
+   },
+   "baseline_nonequiv": 1,
+   "reviewed_nonequiv": 2,
+   "reason": "The selected frame remains a branch-assigned value before the ordered multiplication and PivotTo.",
+   "diff": "FILE ReplicatedStorage/Shared/ForgeVFX/spin.luau\n--- \n+++ \n@@ -57,5 +57,13 @@\n \t\t\tlocal v4 = p2 / attribute5\n \t\t\tlocal v5 = v3 * math.clamp(v4, 0, 1)\n-\t\t\tinstance:PivotTo((if attachment and attribute4 then attachment:IsA(\"Attachment\") and attachment.WorldCFrame or attachment.CFrame else pivot) * CFrame.fromOrientation(v5.x, v5.y, v5.z))\n+\t\t\tlocal v6\n+\n+\t\t\tif attachment and attribute4 then\n+\t\t\t\tv6 = attachment:IsA(\"Attachment\") and attachment.WorldCFrame or attachment.CFrame\n+\t\t\telse\n+\t\t\t\tv6 = pivot\n+\t\t\tend\n+\n+\t\t\tinstance:PivotTo(v6 * CFrame.fromOrientation(v5.x, v5.y, v5.z))\n \n \t\t\tif lerped > 0 or p2 > 0 and v2.Connected then\n"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/spin",
+   "status": "ok",
+   "input_sha256": "32c50aa97aeb6c7e282a28b30cd9bcd5c501b20c86fef64e32ca7050a540b35a",
+   "output_sha256": "1f65c8ce567e86bf4da111df38894748cd6604149fae641195bda0585a6f95e4",
+   "rebuilt_sha256": "2df59852bd6630ef156551c7ad26e1d851976d7ef4adb3a132b54b7dc143a411",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "baseline_nonequiv": 1,
+   "reviewed_nonequiv": 2,
+   "reason": "The selected transformed frame remains a branch-assigned single result before PivotTo; the helper runs only in its selected arm.",
+   "diff": "FILE ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/spin.luau\n--- \n+++ \n@@ -66,5 +66,13 @@\n \t\t\tlocal v14 = p2 / v8\n \t\t\tlocal v15 = v13 * math.clamp(v14, 0, 1)\n-\t\t\tinstance:PivotTo((if attachment and v7 then (module3.getTransformedOriginExtents(attachment)) else pivot) * CFrame.fromOrientation(v15.x, v15.y, v15.z))\n+\t\t\tlocal v16\n+\n+\t\t\tif attachment and v7 then\n+\t\t\t\tv16 = module3.getTransformedOriginExtents(attachment)\n+\t\t\telse\n+\t\t\t\tv16 = pivot\n+\t\t\tend\n+\n+\t\t\tinstance:PivotTo(v16 * CFrame.fromOrientation(v15.x, v15.y, v15.z))\n \n \t\t\tif lerped > 0 or p2 > 0 and v12.Connected then\n"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/pkg/Shake",
+   "status": "ok",
+   "input_sha256": "2b6d8f65d4b53b157ed70c31453f6563655ed5245093a6fd176477ebc0e9086a",
+   "output_sha256": "b1619e04c38bcbc419a93ab8ed26a00a571858323e88fdfa7b3ea0e7d3dd0cc1",
+   "rebuilt_sha256": "a6d03d9c1d233621f84c7b281f13c3af6b14140fbabde173c364ae42a3349a94",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 3",
+     "rebuilt": "unsupported FASTCALL2 at pc 3"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "TimeFunction uses explicit branch assignments. The numeric fallback 1 is truthy, retaining the existing short-circuit form.",
+   "diff": "FILE ReplicatedStorage/Shared/ForgeVFXForCutscenes/pkg/Shake.luau\n--- \n+++ \n@@ -15,5 +15,13 @@\n \tself.PositionInfluence = Vector3.new(1, 1, 1)\n \tself.RotationInfluence = Vector3.new(1, 1, 1)\n-\tself.TimeFunction = if (RunService:IsRunning()) then time else os.clock\n+\tlocal v\n+\n+\tif RunService:IsRunning() then\n+\t\tv = time\n+\telse\n+\t\tv = os.clock\n+\tend\n+\n+\tself.TimeFunction = v\n \tself._timeOffset = random:NextNumber(-1000000, 1000000)\n \tself._startTime = 0\n@@ -71,5 +79,5 @@\n \tlocal v2 = (timeFunction + self._timeOffset) / self.Frequency % 10000\n \tlocal v3 = 1\n-\tlocal v4 = if v < self.FadeInTime then v / self.FadeInTime else 1\n+\tlocal v4 = not (v < self.FadeInTime) and 1 or v / self.FadeInTime\n \n \tif not self.Sustain and self.FadeInTime + self.SustainTime < v then\n"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/Information/Equipment",
+   "status": "ok",
+   "input_sha256": "5ab9156acc020dfcec49af97d51dbd89833f330f6fce9e40213182b378c3e098",
+   "output_sha256": "6804b39366399d326a7cf5de6cddf2e191d2e212d3f8f528a6f416c401a7a459",
+   "rebuilt_sha256": "9813693c8974096ed551483945b6af090761798b7f43baaa77a7e88cc46f8ead",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "invalid or recursive constant",
+     "rebuilt": "invalid or recursive constant"
+    }
+   },
+   "baseline_nonequiv": 2,
+   "reviewed_nonequiv": 3,
+   "reason": "The original short-circuit fallback 0 is truthy; no field read occurs in the disabled branch.",
+   "diff": "FILE ReplicatedStorage/Shared/Information/Equipment.luau\n--- \n+++ \n@@ -51,5 +51,5 @@\n \n function Equipment:GetUnitSlots(p: string, flag: boolean?)\n-\treturn if flag then Equipment.UnitEquipmentSlots[p] or 0 else 0\n+\treturn not flag and 0 or Equipment.UnitEquipmentSlots[p] or 0\n end\n \n"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/Information/Maps/init",
+   "status": "ok",
+   "input_sha256": "4ac0e3bc4d7c953f017d0dd5171b3613f6d05c2829f9505554c855f2560f6413",
+   "output_sha256": "264c6c2ebfa2eb566c4bda3b9771972c411f940806690d0c8641a5b811e2e482",
+   "rebuilt_sha256": "4731cb433c9fdfc28d61306209a0f98deccb989159301213afbc8405b8efb54d",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 24",
+     "rebuilt": "unsupported FORGPREP at pc 24"
+    }
+   },
+   "baseline_nonequiv": 5,
+   "reviewed_nonequiv": 6,
+   "reason": "Map fallback forms remain and/or; the explicit comparison produces boolean false in the skipped fallback arm.",
+   "diff": "FILE ReplicatedStorage/Shared/Information/Maps/init.luau\n--- \n+++ \n@@ -135,5 +135,5 @@\n \tlocal v2 = p == \"Tournament\" and \"Infinite\" or p\n \tlocal v3 = v[v2] and v[v2][p2]\n-\treturn v3 or (if flag == true then false else (self:GetMapDataFallback(p2)))\n+\treturn v3 or flag ~= true and self:GetMapDataFallback(p2)\n end\n \n@@ -255,5 +255,5 @@\n function Maps:GetOrderedActs(p: string, p2: string)\n \tlocal mapData = Maps:GetMapData(p, p2)\n-\treturn if mapData then mapData.ActProgression else {}\n+\treturn not mapData and {} or mapData.ActProgression\n end\n \n"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/MountOpenGeode.client",
+   "status": "ok",
+   "input_sha256": "cba82dbfcaa26b6515cfad9b89ba4a730d7f37340def6d80ea05941e168b768d",
+   "output_sha256": "6c3f13d05cd530fef49c53fd456784aab57db14d37f3de6f9ece26d00846131d",
+   "rebuilt_sha256": "046fc9800ef09caae10eff28f3e278c5a35ba32ab48416144512497f5771b501",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 10",
+     "rebuilt": "unsupported FORGPREP at pc 9"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "The nonempty-list choice retains the original truthy-table fallback idiom.",
+   "diff": "FILE StarterPlayer/StarterPlayerScripts/MountOpenGeode.client.luau\n--- \n+++ \n@@ -37,5 +37,5 @@\n \n \ttable.sort(v2)\n-\treturn if #v2 > 0 then v2 else { \"ExpeditionGeode\" }\n+\treturn not (#v2 > 0) and { \"ExpeditionGeode\" } or v2\n end\n \n"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/MountRangeIndicator.client",
+   "status": "ok",
+   "input_sha256": "17c2aafc5a202d1a447222f0229edf58d55094a8fc98b23a580167d687ebc65c",
+   "output_sha256": "f9816030c4e1455f07ded92ead6b0fb2554b757a898ff1771529e09b2663754c",
+   "rebuilt_sha256": "642b10dafc0e527d2e9c32c10fbd4d535ae397b9ea9ad72b3f0c0530c8ce0cd4",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "The conditional Range remains a statement before Parent/Color stores and the RangeIndicator call.",
+   "diff": "FILE StarterPlayer/StarterPlayerScripts/MountRangeIndicator.client.luau\n--- \n+++ \n@@ -78,9 +78,17 @@\n \t\t\t\tend\n \n-\t\t\t\treturn object:RangeIndicator({\n-\t\t\t\t\tRange = if useNext then unitStates.Next.Range else unitStates.Range,\n-\t\t\t\t\tParent = object:KeyOf(dependencies.GameUnitModels, v3),\n-\t\t\t\t\tColor = colors.DarkGray\n-\t\t\t\t})\n+\t\t\t\tlocal v5 = {}\n+\t\t\t\tlocal v6\n+\n+\t\t\t\tif useNext then\n+\t\t\t\t\tv6 = unitStates.Next.Range\n+\t\t\t\telse\n+\t\t\t\t\tv6 = unitStates.Range\n+\t\t\t\tend\n+\n+\t\t\t\tv5.Range = v6\n+\t\t\t\tv5.Parent = object:KeyOf(dependencies.GameUnitModels, v3)\n+\t\t\t\tv5.Color = colors.DarkGray\n+\t\t\t\treturn object:RangeIndicator(v5)\n \t\t\tend)\n \t\tend)\n"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/OrbitalCamera",
+   "status": "ok",
+   "input_sha256": "07a9564296ef9c468230338f5f158dc0ec976187a5fa395c07565d5b5ad6fca0",
+   "output_sha256": "312d987ae8b2799d510f209cd0ae67516423145f87740d5908bc3da1f5d7e7e1",
+   "rebuilt_sha256": "91572dece6ad601911a84642b6ebdbb4f5cb642b2d9d0982a37fc1d9a7c815b8",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 95",
+     "rebuilt": "unsupported FASTCALL2 at pc 54"
+    }
+   },
+   "baseline_nonequiv": 2,
+   "reviewed_nonequiv": 3,
+   "reason": "The conditional callback argument stays a branch-assigned value before LoadOrCreateNumberValueParameter.",
+   "diff": "FILE StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/OrbitalCamera.luau\n--- \n+++ \n@@ -134,5 +134,13 @@\n \tself:LoadOrCreateNumberValueParameter(\"InitialElevation\", \"NumberValue\", nil)\n \tself:LoadOrCreateNumberValueParameter(\"InitialDistance\", \"NumberValue\", nil)\n-\tself:LoadOrCreateNumberValueParameter(\"ReferenceAzimuth\", \"NumberValue\", if userFlag then self.SetAndBoundsCheckAzimuthValues else self.SetAndBoundsCheckAzimuthValue)\n+\tlocal v3\n+\n+\tif userFlag then\n+\t\tv3 = self.SetAndBoundsCheckAzimuthValues\n+\telse\n+\t\tv3 = self.SetAndBoundsCheckAzimuthValue\n+\tend\n+\n+\tself:LoadOrCreateNumberValueParameter(\"ReferenceAzimuth\", \"NumberValue\", v3)\n \tself:LoadOrCreateNumberValueParameter(\"CWAzimuthTravel\", \"NumberValue\", self.SetAndBoundsCheckAzimuthValues)\n \tself:LoadOrCreateNumberValueParameter(\"CCWAzimuthTravel\", \"NumberValue\", self.SetAndBoundsCheckAzimuthValues)\n"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/Poppercam",
+   "status": "ok",
+   "input_sha256": "84a726783e46f7a9f19249b4fd3b4b09e195f4554ed5e62084c20310f3d45a26",
+   "output_sha256": "a248b197afc9ecdc87f35c48b2076665f8102d6f382dc742be48a1b1c59da921",
+   "rebuilt_sha256": "6e0235cebdf039241f16f0f1821cf57baf9d1ba8dd519cdb88831e1d4f1c1d03",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 2",
+     "rebuilt": "unsupported FASTCALL2 at pc 2"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "The conditional CFrame is selected once before the same ordered multiplication/addition and return.",
+   "diff": "FILE StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/Poppercam.luau\n--- \n+++ \n@@ -49,5 +49,13 @@\n \t\t\tlocal v23 = v21 * p4\n \t\t\tlocal magnitude = v23.Magnitude\n-\t\t\treturn (if magnitude > 0.00001 then (CFrame.fromAxisAngle(v23, magnitude)) else cframe) * cframe2 + v22\n+\t\t\tlocal v24\n+\n+\t\t\tif magnitude > 0.00001 then\n+\t\t\t\tv24 = CFrame.fromAxisAngle(v23, magnitude)\n+\t\t\telse\n+\t\t\t\tv24 = cframe\n+\t\t\tend\n+\n+\t\t\treturn v24 * cframe2 + v22\n \t\tend,\n \t\tposVelocity = v19,\n"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/ZoomController/Popper",
+   "status": "ok",
+   "input_sha256": "1304ffdbe5eb7b4c18f7e86bf5de025d1b2a9b86ff3fe2dd563d24a75bb03ebf",
+   "output_sha256": "9ef980adff47c86c427852025e419cabdba0a43d77ef329244c257dd63c05256",
+   "rebuilt_sha256": "c474ea052242ad1d4887ea22cc02184f88f3432b8f53e841649b53519de310fb",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORNPREP at pc 3",
+     "rebuilt": "unsupported FORNPREP at pc 3"
+    }
+   },
+   "baseline_nonequiv": 4,
+   "reviewed_nonequiv": 5,
+   "reason": "Capture-group remapping and reaching-open joins keep projection/near-plane writes on the cells read by later callbacks. Existing guarded de-inlining now recognizes both updateProjection calls; currentCamera selection is a statement and Popper retains its name.",
+   "diff": "FILE StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/ZoomController/Popper.luau\n--- \n+++ \n@@ -58,24 +58,20 @@\n local v3 = nil\n local v4 = nil\n-local v5, v6, nearPlaneZ\n+local nearPlaneZ\n \n if userFlag2 then\n+\t--  [-O2 INLINED, UNHOOKABLE] reconstructed definition;\n \tlocal function updateProjection()\n \t\tlocal camera = v:getCamera()\n-\t\tlocal v7 = rad(camera.FieldOfView)\n+\t\tlocal v5 = rad(camera.FieldOfView)\n \t\tlocal viewportSize = camera.ViewportSize\n-\t\tlocal v8 = viewportSize.X / viewportSize.Y\n-\t\tv4 = tan(v7 / 2) * 2\n-\t\tv3 = v8 * v4\n+\t\tlocal v6 = viewportSize.X / viewportSize.Y\n+\t\tv4 = tan(v5 / 2) * 2\n+\t\tv3 = v6 * v4\n \tend\n \n \tv:Connect(\"FieldOfView\", updateProjection)\n \tv:Connect(\"ViewportSize\", updateProjection)\n-\tlocal camera = v:getCamera()\n-\tlocal v7 = rad(camera.FieldOfView)\n-\tlocal viewportSize = camera.ViewportSize\n-\tlocal v8 = viewportSize.X / viewportSize.Y\n-\tv5 = tan(v7 / 2) * 2\n-\tv6 = v8 * v5\n+\tupdateProjection() -- inlined by Luau -O2 (UNHOOKABLE)\n \tnearPlaneZ = v:getCamera().NearPlaneZ\n \tv:Connect(\"NearPlaneZ\", function()\n@@ -83,38 +79,32 @@\n \tend)\n else\n+\t--  [-O2 INLINED, UNHOOKABLE] reconstructed definition;\n \tlocal function updateProjection()\n-\t\tlocal v7 = rad(currentCamera.FieldOfView)\n+\t\tlocal v5 = rad(currentCamera.FieldOfView)\n \t\tlocal viewportSize = currentCamera.ViewportSize\n-\t\tlocal v8 = viewportSize.X / viewportSize.Y\n-\t\tv4 = tan(v7 / 2) * 2\n-\t\tv3 = v8 * v4\n+\t\tlocal v6 = viewportSize.X / viewportSize.Y\n+\t\tv4 = tan(v5 / 2) * 2\n+\t\tv3 = v6 * v4\n \tend\n \n \tcurrentCamera:GetPropertyChangedSignal(\"FieldOfView\"):Connect(updateProjection)\n \tcurrentCamera:GetPropertyChangedSignal(\"ViewportSize\"):Connect(updateProjection)\n-\tlocal v7 = rad(currentCamera.FieldOfView)\n-\tlocal viewportSize = currentCamera.ViewportSize\n-\tlocal v8 = viewportSize.X / viewportSize.Y\n-\tlocal v9 = tan(v7 / 2) * 2\n-\tlocal v10 = v8 * v9\n-\tlocal nearPlaneZ2 = currentCamera.NearPlaneZ\n+\tupdateProjection() -- inlined by Luau -O2 (UNHOOKABLE)\n+\tnearPlaneZ = currentCamera.NearPlaneZ\n \tcurrentCamera:GetPropertyChangedSignal(\"NearPlaneZ\"):Connect(function()\n-\t\tnearPlaneZ2 = currentCamera.NearPlaneZ\n+\t\tnearPlaneZ = currentCamera.NearPlaneZ\n \tend)\n-\tv6 = v10\n-\tnearPlaneZ = nearPlaneZ2\n-\tv5 = v9\n-end\n-\n-local v7 = {}\n-local v8 = {}\n+end\n+\n+local v5 = {}\n+local v6 = {}\n \n local function refreshIgnoreList()\n-\tlocal v9 = 1\n-\tv7 = {}\n-\n-\tfor _, v10 in pairs(v8) do\n-\t\tv7[v9] = v10\n-\t\tv9 += 1\n+\tlocal v7 = 1\n+\tv5 = {}\n+\n+\tfor _, v8 in pairs(v6) do\n+\t\tv5[v7] = v8\n+\t\tv7 += 1\n \tend\n end\n@@ -122,22 +112,22 @@\n local function playerAdded(player)\n \tlocal function characterAdded(p)\n-\t\tv8[player] = p\n-\t\tlocal v9 = 1\n-\t\tv7 = {}\n-\n-\t\tfor _, v10 in pairs(v8) do\n-\t\t\tv7[v9] = v10\n-\t\t\tv9 += 1\n+\t\tv6[player] = p\n+\t\tlocal v7 = 1\n+\t\tv5 = {}\n+\n+\t\tfor _, v8 in pairs(v6) do\n+\t\t\tv5[v7] = v8\n+\t\t\tv7 += 1\n \t\tend\n \tend\n \n \tlocal function characterRemoving()\n-\t\tv8[player] = nil\n-\t\tlocal v9 = 1\n-\t\tv7 = {}\n-\n-\t\tfor _, v10 in pairs(v8) do\n-\t\t\tv7[v9] = v10\n-\t\t\tv9 += 1\n+\t\tv6[player] = nil\n+\t\tlocal v7 = 1\n+\t\tv5 = {}\n+\n+\t\tfor _, v8 in pairs(v6) do\n+\t\t\tv5[v7] = v8\n+\t\t\tv7 += 1\n \t\tend\n \tend\n@@ -152,11 +142,11 @@\n \n \tif player.Character then\n-\t\tv8[player] = player.Character\n-\t\tlocal v9 = 1\n-\t\tv7 = {}\n-\n-\t\tfor _, v10 in pairs(v8) do\n-\t\t\tv7[v9] = v10\n-\t\t\tv9 += 1\n+\t\tv6[player] = player.Character\n+\t\tlocal v7 = 1\n+\t\tv5 = {}\n+\n+\t\tfor _, v8 in pairs(v6) do\n+\t\t\tv5[v7] = v8\n+\t\t\tv7 += 1\n \t\tend\n \tend\n@@ -164,11 +154,11 @@\n \n local function playerRemoving(p)\n-\tv8[p] = nil\n-\tlocal v9 = 1\n-\tv7 = {}\n-\n-\tfor _, v10 in pairs(v8) do\n-\t\tv7[v9] = v10\n-\t\tv9 += 1\n+\tv6[p] = nil\n+\tlocal v7 = 1\n+\tv5 = {}\n+\n+\tfor _, v8 in pairs(v6) do\n+\t\tv5[v7] = v8\n+\t\tv7 += 1\n \tend\n \n@@ -182,14 +172,14 @@\n Players.PlayerRemoving:Connect(playerRemoving)\n \n-for _, v9 in ipairs(Players:GetPlayers()) do\n-\tplayerAdded(v9)\n-end\n-\n-local v9 = 1\n-v7 = {}\n-\n-for _, v10 in pairs(v8) do\n-\tv7[v9] = v10\n-\tv9 += 1\n+for _, v7 in ipairs(Players:GetPlayers()) do\n+\tplayerAdded(v7)\n+end\n+\n+local v7 = 1\n+v5 = {}\n+\n+for _, v8 in pairs(v6) do\n+\tv5[v7] = v8\n+\tv7 += 1\n end\n \n@@ -230,24 +220,24 @@\n \n local function canOcclude(trussPart)\n-\tlocal v10\n+\tlocal v8\n \n \tif getTotalTransparency(trussPart) < 0.25 then\n-\t\tv10 = userFlag or trussPart.CanCollide\n-\n-\t\tif v10 then\n+\t\tv8 = userFlag or trussPart.CanCollide\n+\n+\t\tif v8 then\n \t\t\tif rootPart == (trussPart:GetRootPart() or trussPart) then\n-\t\t\t\tv10 = false\n+\t\t\t\tv8 = false\n \t\t\telse\n-\t\t\t\tv10 = not trussPart:IsA(\"TrussPart\")\n+\t\t\t\tv8 = not trussPart:IsA(\"TrussPart\")\n \t\t\tend\n \t\tend\n \telse\n-\t\tv10 = false\n-\tend\n-\n-\treturn v10\n-end\n-\n-local v10 = {\n+\t\tv8 = false\n+\tend\n+\n+\treturn v8\n+end\n+\n+local v8 = {\n \tVector2.new(0.4, 0),\n \tVector2.new(-0.4, 0),\n@@ -259,5 +249,5 @@\n local function getCollisionPoint(p, p2)\n \tif userFlag then\n-\t\traycastParams.FilterDescendantsInstances = v7\n+\t\traycastParams.FilterDescendantsInstances = v5\n \t\tlocal raycastResult = workspace:Raycast(p, p2, raycastParams)\n \n@@ -268,18 +258,18 @@\n \t\tend\n \telse\n-\t\tlocal count = #v7\n+\t\tlocal count = #v5\n \n \t\twhile true do\n-\t\t\tlocal partOnRayWithIgnoreList, v11 = workspace:FindPartOnRayWithIgnoreList(new(p, p2), v7, false, true)\n+\t\t\tlocal partOnRayWithIgnoreList, v9 = workspace:FindPartOnRayWithIgnoreList(new(p, p2), v5, false, true)\n \n \t\t\tif partOnRayWithIgnoreList then\n \t\t\t\tif partOnRayWithIgnoreList.CanCollide then\n-\t\t\t\t\tfor i = #v7, count + 1, -1 do\n-\t\t\t\t\t\tv7[i] = nil\n+\t\t\t\t\tfor i = #v5, count + 1, -1 do\n+\t\t\t\t\t\tv5[i] = nil\n \t\t\t\t\tend\n \n-\t\t\t\t\treturn v11, true\n+\t\t\t\t\treturn v9, true\n \t\t\t\telse\n-\t\t\t\t\tv7[#v7 + 1] = partOnRayWithIgnoreList\n+\t\t\t\t\tv5[#v5 + 1] = partOnRayWithIgnoreList\n \t\t\t\tend\n \t\t\tend\n@@ -289,6 +279,6 @@\n \t\t\tend\n \n-\t\t\tfor i = #v7, count + 1, -1 do\n-\t\t\t\tv7[i] = nil\n+\t\t\tfor i = #v5, count + 1, -1 do\n+\t\t\t\tv5[i] = nil\n \t\t\tend\n \n@@ -302,21 +292,21 @@\n local function queryPoint(p, p2, p3, p4)\n \tdebug.profilebegin(\"queryPoint\")\n-\tlocal v11 = #v7\n-\tlocal v12 = p3 + nearPlaneZ\n-\tlocal v13 = p + p2 * v12\n-\tlocal v14 = math.huge\n-\tlocal v15 = math.huge\n+\tlocal v9 = #v5\n+\tlocal v10 = p3 + nearPlaneZ\n+\tlocal v11 = p + p2 * v10\n+\tlocal v12 = math.huge\n+\tlocal v13 = math.huge\n \tlocal count = 0\n \tlocal magnitude\n \n \tif userFlag then\n-\t\traycastParams.FilterDescendantsInstances = v7\n-\t\tlocal v16 = p\n+\t\traycastParams.FilterDescendantsInstances = v5\n+\t\tlocal v14 = p\n \n \t\twhile true do\n-\t\t\tlocal raycastResult = workspace:Raycast(p, v13 - p, raycastParams)\n+\t\t\tlocal raycastResult = workspace:Raycast(p, v11 - p, raycastParams)\n \n \t\t\tif not raycastResult then\n-\t\t\t\tmagnitude = v14\n+\t\t\t\tmagnitude = v12\n \t\t\t\tbreak\n \t\t\tend\n@@ -325,20 +315,81 @@\n \t\t\tlocal instance = raycastResult.Instance\n \t\t\tlocal position = raycastResult.Position\n-\t\t\tmagnitude = (position - v16).Magnitude\n+\t\t\tmagnitude = (position - v14).Magnitude\n \n \t\t\tif count >= 64 then\n-\t\t\t\tv15 = magnitude\n-\t\t\t\tmagnitude = v14\n+\t\t\t\tv13 = magnitude\n+\t\t\t\tmagnitude = v12\n \t\t\telse\n+\t\t\t\tlocal v15\n+\n+\t\t\t\tif getTotalTransparency(instance) < 0.25 then\n+\t\t\t\t\tv15 = userFlag or instance.CanCollide\n+\n+\t\t\t\t\tif v15 then\n+\t\t\t\t\t\tif rootPart == (instance:GetRootPart() or instance) then\n+\t\t\t\t\t\t\tv15 = false\n+\t\t\t\t\t\telse\n+\t\t\t\t\t\t\tv15 = not instance:IsA(\"TrussPart\")\n+\t\t\t\t\t\tend\n+\t\t\t\t\tend\n+\t\t\t\telse\n+\t\t\t\t\tv15 = false\n+\t\t\t\tend\n+\n+\t\t\t\tif v15 then\n+\t\t\t\t\traycastParams2.FilterDescendantsInstances = { instance }\n+\n+\t\t\t\t\tif workspace:Raycast(v11, position - v11, raycastParams2) then\n+\t\t\t\t\t\tlocal v16\n+\n+\t\t\t\t\t\tif p4 then\n+\t\t\t\t\t\t\tv16 = workspace:Raycast(p4, v11 - p4, raycastParams2) or workspace:Raycast(v11, p4 - v11, raycastParams2)\n+\t\t\t\t\t\telse\n+\t\t\t\t\t\t\tv16 = false\n+\t\t\t\t\t\tend\n+\n+\t\t\t\t\t\tif v16 then\n+\t\t\t\t\t\t\tv13 = magnitude\n+\t\t\t\t\t\t\tmagnitude = v12\n+\t\t\t\t\t\telseif not (v10 < v12) then\n+\t\t\t\t\t\t\tmagnitude = v12\n+\t\t\t\t\t\tend\n+\t\t\t\t\telse\n+\t\t\t\t\t\tv13 = magnitude\n+\t\t\t\t\t\tmagnitude = v12\n+\t\t\t\t\tend\n+\t\t\t\telse\n+\t\t\t\t\tmagnitude = v12\n+\t\t\t\tend\n+\t\t\tend\n+\n+\t\t\traycastParams:AddToFilter(instance)\n+\t\t\tp = position - p2 * 0.001\n+\n+\t\t\tif v13 < math.huge or not instance then\n+\t\t\t\tbreak\n+\t\t\telse\n+\t\t\t\tv12 = magnitude\n+\t\t\tend\n+\t\tend\n+\telse\n+\t\tlocal v14 = p\n+\n+\t\twhile true do\n+\t\t\tlocal trussPart, v15 = workspace:FindPartOnRayWithIgnoreList(new(p, v11 - p), v5, false, true)\n+\t\t\tcount += 1\n+\n+\t\t\tif trussPart then\n+\t\t\t\tlocal v16 = count >= 64\n \t\t\t\tlocal v17\n \n-\t\t\t\tif getTotalTransparency(instance) < 0.25 then\n-\t\t\t\t\tv17 = userFlag or instance.CanCollide\n+\t\t\t\tif getTotalTransparency(trussPart) < 0.25 then\n+\t\t\t\t\tv17 = userFlag or trussPart.CanCollide\n \n \t\t\t\t\tif v17 then\n-\t\t\t\t\t\tif rootPart == (instance:GetRootPart() or instance) then\n+\t\t\t\t\t\tif rootPart == (trussPart:GetRootPart() or trussPart) then\n \t\t\t\t\t\t\tv17 = false\n \t\t\t\t\t\telse\n-\t\t\t\t\t\t\tv17 = not instance:IsA(\"TrussPart\")\n+\t\t\t\t\t\t\tv17 = not trussPart:IsA(\"TrussPart\")\n \t\t\t\t\t\tend\n \t\t\t\t\tend\n@@ -347,107 +398,46 @@\n \t\t\t\tend\n \n-\t\t\t\tif v17 then\n-\t\t\t\t\traycastParams2.FilterDescendantsInstances = { instance }\n-\n-\t\t\t\t\tif workspace:Raycast(v13, position - v13, raycastParams2) then\n-\t\t\t\t\t\tlocal v18\n+\t\t\t\tif v17 or v16 then\n+\t\t\t\t\tlocal v18 = { trussPart }\n+\t\t\t\t\tlocal partOnRayWithWhitelist = workspace:FindPartOnRayWithWhitelist(new(v11, v15 - v11), v18, true)\n+\t\t\t\t\tmagnitude = (v15 - v14).Magnitude\n+\n+\t\t\t\t\tif partOnRayWithWhitelist and not v16 then\n+\t\t\t\t\t\tlocal v19\n \n \t\t\t\t\t\tif p4 then\n-\t\t\t\t\t\t\tv18 = workspace:Raycast(p4, v13 - p4, raycastParams2) or workspace:Raycast(v13, p4 - v13, raycastParams2)\n+\t\t\t\t\t\t\tv19 = workspace:FindPartOnRayWithWhitelist(new(p4, v11 - p4), v18, true) or workspace:FindPartOnRayWithWhitelist(new(v11, p4 - v11), v18, true)\n \t\t\t\t\t\telse\n-\t\t\t\t\t\t\tv18 = false\n+\t\t\t\t\t\t\tv19 = false\n \t\t\t\t\t\tend\n \n-\t\t\t\t\t\tif v18 then\n-\t\t\t\t\t\t\tv15 = magnitude\n-\t\t\t\t\t\t\tmagnitude = v14\n-\t\t\t\t\t\telseif not (v12 < v14) then\n-\t\t\t\t\t\t\tmagnitude = v14\n+\t\t\t\t\t\tif v19 then\n+\t\t\t\t\t\t\tv13 = magnitude\n+\t\t\t\t\t\t\tmagnitude = v12\n+\t\t\t\t\t\telseif not (v10 < v12) then\n+\t\t\t\t\t\t\tmagnitude = v12\n \t\t\t\t\t\tend\n \t\t\t\t\telse\n-\t\t\t\t\t\tv15 = magnitude\n-\t\t\t\t\t\tmagnitude = v14\n+\t\t\t\t\t\tv13 = magnitude\n+\t\t\t\t\t\tmagnitude = v12\n \t\t\t\t\tend\n \t\t\t\telse\n-\t\t\t\t\tmagnitude = v14\n+\t\t\t\t\tmagnitude = v12\n \t\t\t\tend\n-\t\t\tend\n-\n-\t\t\traycastParams:AddToFilter(instance)\n-\t\t\tp = position - p2 * 0.001\n-\n-\t\t\tif v15 < math.huge or not instance then\n+\n+\t\t\t\tv5[#v5 + 1] = trussPart\n+\t\t\t\tp = v15 - p2 * 0.001\n+\t\t\telse\n+\t\t\t\tmagnitude = v12\n+\t\t\tend\n+\n+\t\t\tif v13 < math.huge or not trussPart then\n+\t\t\t\tfor i = #v5, v9 + 1, -1 do\n+\t\t\t\t\tv5[i] = nil\n+\t\t\t\tend\n+\n \t\t\t\tbreak\n \t\t\telse\n-\t\t\t\tv14 = magnitude\n-\t\t\tend\n-\t\tend\n-\telse\n-\t\tlocal v16 = p\n-\n-\t\twhile true do\n-\t\t\tlocal trussPart, v17 = workspace:FindPartOnRayWithIgnoreList(new(p, v13 - p), v7, false, true)\n-\t\t\tcount += 1\n-\n-\t\t\tif trussPart then\n-\t\t\t\tlocal v18 = count >= 64\n-\t\t\t\tlocal v19\n-\n-\t\t\t\tif getTotalTransparency(trussPart) < 0.25 then\n-\t\t\t\t\tv19 = userFlag or trussPart.CanCollide\n-\n-\t\t\t\t\tif v19 then\n-\t\t\t\t\t\tif rootPart == (trussPart:GetRootPart() or trussPart) then\n-\t\t\t\t\t\t\tv19 = false\n-\t\t\t\t\t\telse\n-\t\t\t\t\t\t\tv19 = not trussPart:IsA(\"TrussPart\")\n-\t\t\t\t\t\tend\n-\t\t\t\t\tend\n-\t\t\t\telse\n-\t\t\t\t\tv19 = false\n-\t\t\t\tend\n-\n-\t\t\t\tif v19 or v18 then\n-\t\t\t\t\tlocal v20 = { trussPart }\n-\t\t\t\t\tlocal partOnRayWithWhitelist = workspace:FindPartOnRayWithWhitelist(new(v13, v17 - v13), v20, true)\n-\t\t\t\t\tmagnitude = (v17 - v16).Magnitude\n-\n-\t\t\t\t\tif partOnRayWithWhitelist and not v18 then\n-\t\t\t\t\t\tlocal v21\n-\n-\t\t\t\t\t\tif p4 then\n-\t\t\t\t\t\t\tv21 = workspace:FindPartOnRayWithWhitelist(new(p4, v13 - p4), v20, true) or workspace:FindPartOnRayWithWhitelist(new(v13, p4 - v13), v20, true)\n-\t\t\t\t\t\telse\n-\t\t\t\t\t\t\tv21 = false\n-\t\t\t\t\t\tend\n-\n-\t\t\t\t\t\tif v21 then\n-\t\t\t\t\t\t\tv15 = magnitude\n-\t\t\t\t\t\t\tmagnitude = v14\n-\t\t\t\t\t\telseif not (v12 < v14) then\n-\t\t\t\t\t\t\tmagnitude = v14\n-\t\t\t\t\t\tend\n-\t\t\t\t\telse\n-\t\t\t\t\t\tv15 = magnitude\n-\t\t\t\t\t\tmagnitude = v14\n-\t\t\t\t\tend\n-\t\t\t\telse\n-\t\t\t\t\tmagnitude = v14\n-\t\t\t\tend\n-\n-\t\t\t\tv7[#v7 + 1] = trussPart\n-\t\t\t\tp = v17 - p2 * 0.001\n-\t\t\telse\n-\t\t\t\tmagnitude = v14\n-\t\t\tend\n-\n-\t\t\tif v15 < math.huge or not trussPart then\n-\t\t\t\tfor i = #v7, v11 + 1, -1 do\n-\t\t\t\t\tv7[i] = nil\n-\t\t\t\tend\n-\n-\t\t\t\tbreak\n-\t\t\telse\n-\t\t\t\tv14 = magnitude\n+\t\t\t\tv12 = magnitude\n \t\t\tend\n \t\tend\n@@ -455,5 +445,5 @@\n \n \tdebug.profileend()\n-\treturn magnitude - nearPlaneZ, v15 - nearPlaneZ\n+\treturn magnitude - nearPlaneZ, v13 - nearPlaneZ\n end\n \n@@ -463,25 +453,33 @@\n \tlocal rightVector = data.rightVector\n \tlocal upVector = data.upVector\n-\tlocal v11 = -data.lookVector\n-\tcurrentCamera = if userFlag2 then (v:getCamera()) else currentCamera\n+\tlocal v9 = -data.lookVector\n+\tlocal v10\n+\n+\tif userFlag2 then\n+\t\tv10 = v:getCamera()\n+\telse\n+\t\tv10 = currentCamera\n+\tend\n+\n+\tcurrentCamera = v10\n \tlocal viewportSize = currentCamera.ViewportSize\n-\tlocal v13 = math.huge\n-\tlocal v14 = math.huge\n+\tlocal v11 = math.huge\n+\tlocal v12 = math.huge\n \n \tfor i = 0, 1 do\n-\t\tlocal v15 = rightVector * ((i - 0.5) * v6)\n+\t\tlocal v13 = rightVector * ((i - 0.5) * v3)\n \n \t\tfor i2 = 0, 1 do\n-\t\t\tlocal v16, v17 = queryPoint(p2 + nearPlaneZ * (v15 + upVector * ((i2 - 0.5) * v5)), v11, p, currentCamera:ViewportPointToRay(viewportSize.x * i, viewportSize.y * i2).Origin)\n-\n-\t\t\tif not (v17 < v14) then\n-\t\t\t\tv17 = v14\n-\t\t\tend\n-\n-\t\t\tif v16 < v13 then\n-\t\t\t\tv14 = v17\n-\t\t\t\tv13 = v16\n+\t\t\tlocal v14, v15 = queryPoint(p2 + nearPlaneZ * (v13 + upVector * ((i2 - 0.5) * v4)), v9, p, currentCamera:ViewportPointToRay(viewportSize.x * i, viewportSize.y * i2).Origin)\n+\n+\t\t\tif not (v15 < v12) then\n+\t\t\t\tv15 = v12\n+\t\t\tend\n+\n+\t\t\tif v14 < v11 then\n+\t\t\t\tv12 = v15\n+\t\t\t\tv11 = v14\n \t\t\telse\n-\t\t\t\tv14 = v17\n+\t\t\t\tv12 = v15\n \t\t\tend\n \t\tend\n@@ -489,5 +487,5 @@\n \n \tdebug.profileend()\n-\treturn v13, v14\n+\treturn v11, v12\n end\n \n@@ -497,5 +495,5 @@\n \tlocal rightVector = data.rightVector\n \tlocal upVector = data.upVector\n-\tlocal v11 = -data.lookVector\n+\tlocal v9 = -data.lookVector\n \tdebug.profilebegin(\"extrapolate\")\n \tlocal magnitude = (getCollisionPoint(p2, data2.posVelocity * 1.25) - p2).Magnitude\n@@ -513,8 +511,8 @@\n \tdebug.profilebegin(\"testOffsets\")\n \n-\tfor _, v12 in ipairs(v10) do\n-\t\tlocal collisionPoint = getCollisionPoint(p2, rightVector * v12.x + upVector * v12.y)\n-\n-\t\tif queryPoint(collisionPoint, (p2 + v11 * p - collisionPoint).Unit, p) == math.huge then\n+\tfor _, v10 in ipairs(v8) do\n+\t\tlocal collisionPoint = getCollisionPoint(p2, rightVector * v10.x + upVector * v10.y)\n+\n+\t\tif queryPoint(collisionPoint, (p2 + v9 * p - collisionPoint).Unit, p) == math.huge then\n \t\t\treturn false\n \t\tend\n@@ -526,23 +524,25 @@\n end\n \n-return function(p, p2, p3)\n+local function Popper(p, p2, p3)\n \tdebug.profilebegin(\"popper\")\n \trootPart = rootPart2 and rootPart2:GetRootPart() or rootPart2\n-\tlocal v11, v12 = queryViewport(p, p2)\n-\n-\tif not (v12 < p2) then\n-\t\tv12 = p2\n-\tend\n-\n-\tif v11 < v12 then\n+\tlocal v9, v10 = queryViewport(p, p2)\n+\n+\tif not (v10 < p2) then\n+\t\tv10 = p2\n+\tend\n+\n+\tif v9 < v10 then\n \t\tif not testPromotion(p, p2, p3) then\n-\t\t\tv11 = v12\n+\t\t\tv9 = v10\n \t\tend\n \telse\n-\t\tv11 = v12\n+\t\tv9 = v10\n \tend\n \n \trootPart = nil\n \tdebug.profileend()\n-\treturn v11\n-end\n+\treturn v9\n+end\n+\n+return Popper\n"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/Poppercam",
+   "status": "ok",
+   "input_sha256": "84a726783e46f7a9f19249b4fd3b4b09e195f4554ed5e62084c20310f3d45a26",
+   "output_sha256": "a248b197afc9ecdc87f35c48b2076665f8102d6f382dc742be48a1b1c59da921",
+   "rebuilt_sha256": "6e0235cebdf039241f16f0f1821cf57baf9d1ba8dd519cdb88831e1d4f1c1d03",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 2",
+     "rebuilt": "unsupported FASTCALL2 at pc 2"
+    }
+   },
+   "baseline_nonequiv": 0,
+   "reviewed_nonequiv": 1,
+   "reason": "The conditional CFrame is selected once before the same ordered multiplication/addition and return.",
+   "diff": "FILE StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/Poppercam.luau\n--- \n+++ \n@@ -49,5 +49,13 @@\n \t\t\tlocal v23 = v21 * p4\n \t\t\tlocal magnitude = v23.Magnitude\n-\t\t\treturn (if magnitude > 0.00001 then (CFrame.fromAxisAngle(v23, magnitude)) else cframe) * cframe2 + v22\n+\t\t\tlocal v24\n+\n+\t\t\tif magnitude > 0.00001 then\n+\t\t\t\tv24 = CFrame.fromAxisAngle(v23, magnitude)\n+\t\t\telse\n+\t\t\t\tv24 = cframe\n+\t\t\tend\n+\n+\t\t\treturn v24 * cframe2 + v22\n \t\tend,\n \t\tposVelocity = v19,\n"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/ZoomController/Popper",
+   "status": "ok",
+   "input_sha256": "9cd7c7e9d67fc2f56ccf87d790b9cb048ac272b46131b74bca205afd1642d2c8",
+   "output_sha256": "ccb34f44de53cf7d2b8532d9054945fb7b56f74a56b4b32dfe021336244883de",
+   "rebuilt_sha256": "e4791a89344da0c1ddcdd4ddd6ba1b7c4d5aff6a634fbe32fdbcec322ffad037",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORNPREP at pc 3",
+     "rebuilt": "unsupported FORNPREP at pc 3"
+    }
+   },
+   "baseline_nonequiv": 4,
+   "reviewed_nonequiv": 5,
+   "reason": "Same capture-identity correction as the other Popper variant: projection and near-plane updates share their intended cells. Both updateProjection calls are recognized by the existing matcher; currentCamera stays a statement and Popper stays named.",
+   "diff": "FILE StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/ZoomController/Popper.luau\n--- \n+++ \n@@ -57,24 +57,20 @@\n local v3 = nil\n local v4 = nil\n-local v5, v6, nearPlaneZ\n+local nearPlaneZ\n \n if userFlag2 then\n+\t--  [-O2 INLINED, UNHOOKABLE] reconstructed definition;\n \tlocal function updateProjection()\n \t\tlocal camera = v:getCamera()\n-\t\tlocal v7 = rad(camera.FieldOfView)\n+\t\tlocal v5 = rad(camera.FieldOfView)\n \t\tlocal viewportSize = camera.ViewportSize\n-\t\tlocal v8 = viewportSize.X / viewportSize.Y\n-\t\tv4 = tan(v7 / 2) * 2\n-\t\tv3 = v8 * v4\n+\t\tlocal v6 = viewportSize.X / viewportSize.Y\n+\t\tv4 = tan(v5 / 2) * 2\n+\t\tv3 = v6 * v4\n \tend\n \n \tv:Connect(\"FieldOfView\", updateProjection)\n \tv:Connect(\"ViewportSize\", updateProjection)\n-\tlocal camera = v:getCamera()\n-\tlocal v7 = rad(camera.FieldOfView)\n-\tlocal viewportSize = camera.ViewportSize\n-\tlocal v8 = viewportSize.X / viewportSize.Y\n-\tv5 = tan(v7 / 2) * 2\n-\tv6 = v8 * v5\n+\tupdateProjection() -- inlined by Luau -O2 (UNHOOKABLE)\n \tnearPlaneZ = v:getCamera().NearPlaneZ\n \tv:Connect(\"NearPlaneZ\", function()\n@@ -82,38 +78,32 @@\n \tend)\n else\n+\t--  [-O2 INLINED, UNHOOKABLE] reconstructed definition;\n \tlocal function updateProjection()\n-\t\tlocal v7 = rad(currentCamera.FieldOfView)\n+\t\tlocal v5 = rad(currentCamera.FieldOfView)\n \t\tlocal viewportSize = currentCamera.ViewportSize\n-\t\tlocal v8 = viewportSize.X / viewportSize.Y\n-\t\tv4 = tan(v7 / 2) * 2\n-\t\tv3 = v8 * v4\n+\t\tlocal v6 = viewportSize.X / viewportSize.Y\n+\t\tv4 = tan(v5 / 2) * 2\n+\t\tv3 = v6 * v4\n \tend\n \n \tcurrentCamera:GetPropertyChangedSignal(\"FieldOfView\"):Connect(updateProjection)\n \tcurrentCamera:GetPropertyChangedSignal(\"ViewportSize\"):Connect(updateProjection)\n-\tlocal v7 = rad(currentCamera.FieldOfView)\n-\tlocal viewportSize = currentCamera.ViewportSize\n-\tlocal v8 = viewportSize.X / viewportSize.Y\n-\tlocal v9 = tan(v7 / 2) * 2\n-\tlocal v10 = v8 * v9\n-\tlocal nearPlaneZ2 = currentCamera.NearPlaneZ\n+\tupdateProjection() -- inlined by Luau -O2 (UNHOOKABLE)\n+\tnearPlaneZ = currentCamera.NearPlaneZ\n \tcurrentCamera:GetPropertyChangedSignal(\"NearPlaneZ\"):Connect(function()\n-\t\tnearPlaneZ2 = currentCamera.NearPlaneZ\n+\t\tnearPlaneZ = currentCamera.NearPlaneZ\n \tend)\n-\tv6 = v10\n-\tnearPlaneZ = nearPlaneZ2\n-\tv5 = v9\n-end\n-\n-local v7 = {}\n-local v8 = {}\n+end\n+\n+local v5 = {}\n+local v6 = {}\n \n local function refreshIgnoreList()\n-\tlocal v9 = 1\n-\tv7 = {}\n-\n-\tfor _, v10 in pairs(v8) do\n-\t\tv7[v9] = v10\n-\t\tv9 += 1\n+\tlocal v7 = 1\n+\tv5 = {}\n+\n+\tfor _, v8 in pairs(v6) do\n+\t\tv5[v7] = v8\n+\t\tv7 += 1\n \tend\n end\n@@ -121,22 +111,22 @@\n local function playerAdded(player)\n \tlocal function characterAdded(p)\n-\t\tv8[player] = p\n-\t\tlocal v9 = 1\n-\t\tv7 = {}\n-\n-\t\tfor _, v10 in pairs(v8) do\n-\t\t\tv7[v9] = v10\n-\t\t\tv9 += 1\n+\t\tv6[player] = p\n+\t\tlocal v7 = 1\n+\t\tv5 = {}\n+\n+\t\tfor _, v8 in pairs(v6) do\n+\t\t\tv5[v7] = v8\n+\t\t\tv7 += 1\n \t\tend\n \tend\n \n \tlocal function characterRemoving()\n-\t\tv8[player] = nil\n-\t\tlocal v9 = 1\n-\t\tv7 = {}\n-\n-\t\tfor _, v10 in pairs(v8) do\n-\t\t\tv7[v9] = v10\n-\t\t\tv9 += 1\n+\t\tv6[player] = nil\n+\t\tlocal v7 = 1\n+\t\tv5 = {}\n+\n+\t\tfor _, v8 in pairs(v6) do\n+\t\t\tv5[v7] = v8\n+\t\t\tv7 += 1\n \t\tend\n \tend\n@@ -151,11 +141,11 @@\n \n \tif player.Character then\n-\t\tv8[player] = player.Character\n-\t\tlocal v9 = 1\n-\t\tv7 = {}\n-\n-\t\tfor _, v10 in pairs(v8) do\n-\t\t\tv7[v9] = v10\n-\t\t\tv9 += 1\n+\t\tv6[player] = player.Character\n+\t\tlocal v7 = 1\n+\t\tv5 = {}\n+\n+\t\tfor _, v8 in pairs(v6) do\n+\t\t\tv5[v7] = v8\n+\t\t\tv7 += 1\n \t\tend\n \tend\n@@ -163,11 +153,11 @@\n \n local function playerRemoving(p)\n-\tv8[p] = nil\n-\tlocal v9 = 1\n-\tv7 = {}\n-\n-\tfor _, v10 in pairs(v8) do\n-\t\tv7[v9] = v10\n-\t\tv9 += 1\n+\tv6[p] = nil\n+\tlocal v7 = 1\n+\tv5 = {}\n+\n+\tfor _, v8 in pairs(v6) do\n+\t\tv5[v7] = v8\n+\t\tv7 += 1\n \tend\n \n@@ -181,14 +171,14 @@\n Players.PlayerRemoving:Connect(playerRemoving)\n \n-for _, v9 in ipairs(Players:GetPlayers()) do\n-\tplayerAdded(v9)\n-end\n-\n-local v9 = 1\n-v7 = {}\n-\n-for _, v10 in pairs(v8) do\n-\tv7[v9] = v10\n-\tv9 += 1\n+for _, v7 in ipairs(Players:GetPlayers()) do\n+\tplayerAdded(v7)\n+end\n+\n+local v7 = 1\n+v5 = {}\n+\n+for _, v8 in pairs(v6) do\n+\tv5[v7] = v8\n+\tv7 += 1\n end\n \n@@ -248,5 +238,5 @@\n end\n \n-local v10 = {\n+local v8 = {\n \tVector2.new(0.4, 0),\n \tVector2.new(-0.4, 0),\n@@ -258,5 +248,5 @@\n local function getCollisionPoint(p, p2)\n \tif userFlag then\n-\t\traycastParams.FilterDescendantsInstances = v7\n+\t\traycastParams.FilterDescendantsInstances = v5\n \n \t\trepeat\n@@ -272,18 +262,18 @@\n \t\tuntil not raycastResult\n \telse\n-\t\tlocal count = #v7\n+\t\tlocal count = #v5\n \n \t\twhile true do\n-\t\t\tlocal partOnRayWithIgnoreList, v11 = workspace:FindPartOnRayWithIgnoreList(new(p, p2), v7, false, true)\n+\t\t\tlocal partOnRayWithIgnoreList, v9 = workspace:FindPartOnRayWithIgnoreList(new(p, p2), v5, false, true)\n \n \t\t\tif partOnRayWithIgnoreList then\n \t\t\t\tif partOnRayWithIgnoreList.CanCollide then\n-\t\t\t\t\tfor i = #v7, count + 1, -1 do\n-\t\t\t\t\t\tv7[i] = nil\n+\t\t\t\t\tfor i = #v5, count + 1, -1 do\n+\t\t\t\t\t\tv5[i] = nil\n \t\t\t\t\tend\n \n-\t\t\t\t\treturn v11, true\n+\t\t\t\t\treturn v9, true\n \t\t\t\telse\n-\t\t\t\t\tv7[#v7 + 1] = partOnRayWithIgnoreList\n+\t\t\t\t\tv5[#v5 + 1] = partOnRayWithIgnoreList\n \t\t\t\tend\n \t\t\tend\n@@ -293,6 +283,6 @@\n \t\t\tend\n \n-\t\t\tfor i = #v7, count + 1, -1 do\n-\t\t\t\tv7[i] = nil\n+\t\t\tfor i = #v5, count + 1, -1 do\n+\t\t\t\tv5[i] = nil\n \t\t\tend\n \n@@ -306,21 +296,21 @@\n local function queryPoint(p, p2, p3, p4)\n \tdebug.profilebegin(\"queryPoint\")\n-\tlocal v11 = #v7\n-\tlocal v12 = p3 + nearPlaneZ\n-\tlocal v13 = p + p2 * v12\n-\tlocal v14 = math.huge\n-\tlocal v15 = math.huge\n+\tlocal v9 = #v5\n+\tlocal v10 = p3 + nearPlaneZ\n+\tlocal v11 = p + p2 * v10\n+\tlocal v12 = math.huge\n+\tlocal v13 = math.huge\n \tlocal count = 0\n \tlocal magnitude\n \n \tif userFlag then\n-\t\traycastParams.FilterDescendantsInstances = v7\n-\t\tlocal v16 = p\n+\t\traycastParams.FilterDescendantsInstances = v5\n+\t\tlocal v14 = p\n \n \t\twhile true do\n-\t\t\tlocal raycastResult = workspace:Raycast(p, v13 - p, raycastParams)\n+\t\t\tlocal raycastResult = workspace:Raycast(p, v11 - p, raycastParams)\n \n \t\t\tif not raycastResult then\n-\t\t\t\tmagnitude = v14\n+\t\t\t\tmagnitude = v12\n \t\t\t\tbreak\n \t\t\tend\n@@ -329,9 +319,9 @@\n \t\t\tlocal instance = raycastResult.Instance\n \t\t\tlocal position = raycastResult.Position\n-\t\t\tmagnitude = (position - v16).Magnitude\n+\t\t\tmagnitude = (position - v14).Magnitude\n \n \t\t\tif count >= 64 then\n-\t\t\t\tv15 = magnitude\n-\t\t\t\tmagnitude = v14\n+\t\t\t\tv13 = magnitude\n+\t\t\t\tmagnitude = v12\n \t\t\telse\n \t\t\t\tlocal canCollide\n@@ -354,25 +344,25 @@\n \t\t\t\t\traycastParams2.FilterDescendantsInstances = { instance }\n \n-\t\t\t\t\tif workspace:Raycast(v13, position - v13, raycastParams2) then\n-\t\t\t\t\t\tlocal v17\n+\t\t\t\t\tif workspace:Raycast(v11, position - v11, raycastParams2) then\n+\t\t\t\t\t\tlocal v15\n \n \t\t\t\t\t\tif p4 then\n-\t\t\t\t\t\t\tv17 = workspace:Raycast(p4, v13 - p4, raycastParams2) or workspace:Raycast(v13, p4 - v13, raycastParams2)\n+\t\t\t\t\t\t\tv15 = workspace:Raycast(p4, v11 - p4, raycastParams2) or workspace:Raycast(v11, p4 - v11, raycastParams2)\n \t\t\t\t\t\telse\n-\t\t\t\t\t\t\tv17 = false\n+\t\t\t\t\t\t\tv15 = false\n \t\t\t\t\t\tend\n \n-\t\t\t\t\t\tif v17 then\n-\t\t\t\t\t\t\tv15 = magnitude\n-\t\t\t\t\t\t\tmagnitude = v14\n-\t\t\t\t\t\telseif not (v12 < v14) then\n-\t\t\t\t\t\t\tmagnitude = v14\n+\t\t\t\t\t\tif v15 then\n+\t\t\t\t\t\t\tv13 = magnitude\n+\t\t\t\t\t\t\tmagnitude = v12\n+\t\t\t\t\t\telseif not (v10 < v12) then\n+\t\t\t\t\t\t\tmagnitude = v12\n \t\t\t\t\t\tend\n \t\t\t\t\telse\n-\t\t\t\t\t\tv15 = magnitude\n-\t\t\t\t\t\tmagnitude = v14\n+\t\t\t\t\t\tv13 = magnitude\n+\t\t\t\t\t\tmagnitude = v12\n \t\t\t\t\tend\n \t\t\t\telse\n-\t\t\t\t\tmagnitude = v14\n+\t\t\t\t\tmagnitude = v12\n \t\t\t\tend\n \t\t\tend\n@@ -381,19 +371,19 @@\n \t\t\tp = position - p2 * 0.001\n \n-\t\t\tif v15 < math.huge or not instance then\n+\t\t\tif v13 < math.huge or not instance then\n \t\t\t\tbreak\n \t\t\telse\n-\t\t\t\tv14 = magnitude\n+\t\t\t\tv12 = magnitude\n \t\t\tend\n \t\tend\n \telse\n-\t\tlocal v16 = p\n+\t\tlocal v14 = p\n \n \t\twhile true do\n-\t\t\tlocal trussPart, v17 = workspace:FindPartOnRayWithIgnoreList(new(p, v13 - p), v7, false, true)\n+\t\t\tlocal trussPart, v15 = workspace:FindPartOnRayWithIgnoreList(new(p, v11 - p), v5, false, true)\n \t\t\tcount += 1\n \n \t\t\tif trussPart then\n-\t\t\t\tlocal v18 = count >= 64\n+\t\t\t\tlocal v16 = count >= 64\n \t\t\t\tlocal canCollide\n \n@@ -412,46 +402,46 @@\n \t\t\t\tend\n \n-\t\t\t\tif canCollide or v18 then\n-\t\t\t\t\tlocal v19 = { trussPart }\n-\t\t\t\t\tlocal partOnRayWithWhitelist = workspace:FindPartOnRayWithWhitelist(new(v13, v17 - v13), v19, true)\n-\t\t\t\t\tmagnitude = (v17 - v16).Magnitude\n-\n-\t\t\t\t\tif partOnRayWithWhitelist and not v18 then\n-\t\t\t\t\t\tlocal v20\n+\t\t\t\tif canCollide or v16 then\n+\t\t\t\t\tlocal v17 = { trussPart }\n+\t\t\t\t\tlocal partOnRayWithWhitelist = workspace:FindPartOnRayWithWhitelist(new(v11, v15 - v11), v17, true)\n+\t\t\t\t\tmagnitude = (v15 - v14).Magnitude\n+\n+\t\t\t\t\tif partOnRayWithWhitelist and not v16 then\n+\t\t\t\t\t\tlocal v18\n \n \t\t\t\t\t\tif p4 then\n-\t\t\t\t\t\t\tv20 = workspace:FindPartOnRayWithWhitelist(new(p4, v13 - p4), v19, true) or workspace:FindPartOnRayWithWhitelist(new(v13, p4 - v13), v19, true)\n+\t\t\t\t\t\t\tv18 = workspace:FindPartOnRayWithWhitelist(new(p4, v11 - p4), v17, true) or workspace:FindPartOnRayWithWhitelist(new(v11, p4 - v11), v17, true)\n \t\t\t\t\t\telse\n-\t\t\t\t\t\t\tv20 = false\n+\t\t\t\t\t\t\tv18 = false\n \t\t\t\t\t\tend\n \n-\t\t\t\t\t\tif v20 then\n-\t\t\t\t\t\t\tv15 = magnitude\n-\t\t\t\t\t\t\tmagnitude = v14\n-\t\t\t\t\t\telseif not (v12 < v14) then\n-\t\t\t\t\t\t\tmagnitude = v14\n+\t\t\t\t\t\tif v18 then\n+\t\t\t\t\t\t\tv13 = magnitude\n+\t\t\t\t\t\t\tmagnitude = v12\n+\t\t\t\t\t\telseif not (v10 < v12) then\n+\t\t\t\t\t\t\tmagnitude = v12\n \t\t\t\t\t\tend\n \t\t\t\t\telse\n-\t\t\t\t\t\tv15 = magnitude\n-\t\t\t\t\t\tmagnitude = v14\n+\t\t\t\t\t\tv13 = magnitude\n+\t\t\t\t\t\tmagnitude = v12\n \t\t\t\t\tend\n \t\t\t\telse\n-\t\t\t\t\tmagnitude = v14\n-\t\t\t\tend\n-\n-\t\t\t\tv7[#v7 + 1] = trussPart\n-\t\t\t\tp = v17 - p2 * 0.001\n+\t\t\t\t\tmagnitude = v12\n+\t\t\t\tend\n+\n+\t\t\t\tv5[#v5 + 1] = trussPart\n+\t\t\t\tp = v15 - p2 * 0.001\n \t\t\telse\n-\t\t\t\tmagnitude = v14\n-\t\t\tend\n-\n-\t\t\tif v15 < math.huge or not trussPart then\n-\t\t\t\tfor i = #v7, v11 + 1, -1 do\n-\t\t\t\t\tv7[i] = nil\n+\t\t\t\tmagnitude = v12\n+\t\t\tend\n+\n+\t\t\tif v13 < math.huge or not trussPart then\n+\t\t\t\tfor i = #v5, v9 + 1, -1 do\n+\t\t\t\t\tv5[i] = nil\n \t\t\t\tend\n \n \t\t\t\tbreak\n \t\t\telse\n-\t\t\t\tv14 = magnitude\n+\t\t\t\tv12 = magnitude\n \t\t\tend\n \t\tend\n@@ -459,5 +449,5 @@\n \n \tdebug.profileend()\n-\treturn magnitude - nearPlaneZ, v15 - nearPlaneZ\n+\treturn magnitude - nearPlaneZ, v13 - nearPlaneZ\n end\n \n@@ -467,25 +457,33 @@\n \tlocal rightVector = data.rightVector\n \tlocal upVector = data.upVector\n-\tlocal v11 = -data.lookVector\n-\tcurrentCamera = if userFlag2 then (v:getCamera()) else currentCamera\n+\tlocal v9 = -data.lookVector\n+\tlocal v10\n+\n+\tif userFlag2 then\n+\t\tv10 = v:getCamera()\n+\telse\n+\t\tv10 = currentCamera\n+\tend\n+\n+\tcurrentCamera = v10\n \tlocal viewportSize = currentCamera.ViewportSize\n-\tlocal v13 = math.huge\n-\tlocal v14 = math.huge\n+\tlocal v11 = math.huge\n+\tlocal v12 = math.huge\n \n \tfor i = 0, 1 do\n-\t\tlocal v15 = rightVector * ((i - 0.5) * v6)\n+\t\tlocal v13 = rightVector * ((i - 0.5) * v3)\n \n \t\tfor i2 = 0, 1 do\n-\t\t\tlocal v16, v17 = queryPoint(p2 + nearPlaneZ * (v15 + upVector * ((i2 - 0.5) * v5)), v11, p, currentCamera:ViewportPointToRay(viewportSize.x * i, viewportSize.y * i2).Origin)\n-\n-\t\t\tif not (v17 < v14) then\n-\t\t\t\tv17 = v14\n-\t\t\tend\n-\n-\t\t\tif v16 < v13 then\n-\t\t\t\tv14 = v17\n-\t\t\t\tv13 = v16\n+\t\t\tlocal v14, v15 = queryPoint(p2 + nearPlaneZ * (v13 + upVector * ((i2 - 0.5) * v4)), v9, p, currentCamera:ViewportPointToRay(viewportSize.x * i, viewportSize.y * i2).Origin)\n+\n+\t\t\tif not (v15 < v12) then\n+\t\t\t\tv15 = v12\n+\t\t\tend\n+\n+\t\t\tif v14 < v11 then\n+\t\t\t\tv12 = v15\n+\t\t\t\tv11 = v14\n \t\t\telse\n-\t\t\t\tv14 = v17\n+\t\t\t\tv12 = v15\n \t\t\tend\n \t\tend\n@@ -493,5 +491,5 @@\n \n \tdebug.profileend()\n-\treturn v13, v14\n+\treturn v11, v12\n end\n \n@@ -501,5 +499,5 @@\n \tlocal rightVector = data.rightVector\n \tlocal upVector = data.upVector\n-\tlocal v11 = -data.lookVector\n+\tlocal v9 = -data.lookVector\n \tdebug.profilebegin(\"extrapolate\")\n \tlocal magnitude = (getCollisionPoint(p2, data2.posVelocity * 1.25) - p2).Magnitude\n@@ -517,8 +515,8 @@\n \tdebug.profilebegin(\"testOffsets\")\n \n-\tfor _, v12 in ipairs(v10) do\n-\t\tlocal collisionPoint = getCollisionPoint(p2, rightVector * v12.x + upVector * v12.y)\n-\n-\t\tif queryPoint(collisionPoint, (p2 + v11 * p - collisionPoint).Unit, p) == math.huge then\n+\tfor _, v10 in ipairs(v8) do\n+\t\tlocal collisionPoint = getCollisionPoint(p2, rightVector * v10.x + upVector * v10.y)\n+\n+\t\tif queryPoint(collisionPoint, (p2 + v9 * p - collisionPoint).Unit, p) == math.huge then\n \t\t\treturn false\n \t\tend\n@@ -530,23 +528,25 @@\n end\n \n-return function(p, p2, p3)\n+local function Popper(p, p2, p3)\n \tdebug.profilebegin(\"popper\")\n \trootPart = rootPart2 and rootPart2:GetRootPart() or rootPart2\n-\tlocal v11, v12 = queryViewport(p, p2)\n-\n-\tif not (v12 < p2) then\n-\t\tv12 = p2\n-\tend\n-\n-\tif v11 < v12 then\n+\tlocal v9, v10 = queryViewport(p, p2)\n+\n+\tif not (v10 < p2) then\n+\t\tv10 = p2\n+\tend\n+\n+\tif v9 < v10 then\n \t\tif not testPromotion(p, p2, p3) then\n-\t\t\tv11 = v12\n+\t\t\tv9 = v10\n \t\tend\n \telse\n-\t\tv11 = v12\n+\t\tv9 = v10\n \tend\n \n \trootPart = nil\n \tdebug.profileend()\n-\treturn v11\n-end\n+\treturn v9\n+end\n+\n+return Popper\n"
+  }
+ ]
+}

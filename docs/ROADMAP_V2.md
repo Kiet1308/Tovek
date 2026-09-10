@@ -274,11 +274,11 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 - [x] Làm rõ tên/status của `exact` hiện tại: đó là equality sau normalization. Giữ raw delta và gate cũ để triage trong giai đoạn chuyển tiếp. — Report thêm tầng `dataflow` độc lập, không đổi baseline/gate cũ.
 - [ ] Thêm biểu diễn so sánh giữ thứ tự operand và use–def: parameter/upvalue là input phân biệt; register tạm được alpha-rename; phi, call target, argument/result arity và capture mode vẫn có nghĩa.
 - [ ] Giữ CFG successor/condition, thứ tự effect và vòng đời closure trong tầng kiểm tra. Bắt đầu với vùng không loop rồi mở rộng theo từng loại proof; trả `unknown` khi chưa chứng minh được.
-- [ ] Thêm mutant cho đổi nhánh, trả nhầm binding, store nhầm value, call nhầm function, cắt multret, đảo effect, đổi copy/ref capture, mất CLOSE và sai iterator edge.
-- [ ] Dùng Luau parser để tạo AST có binding identity cho source và output. Tách type-only syntax/trivia khỏi structural score; vẫn đo tên/type source ở trục riêng. Báo cả khoảng cách với source nguyên bản và mức tuân thủ style statement; chỉ loại khác biệt style khỏi metric bổ sung khi có quy tắc normalization rõ ràng.
-- [ ] Đóng gói 156 source công khai thành manifest có commit/license/hash; thêm họ source giữ riêng để đánh giá. Khử duplicate/lineage trước khi chia tập.
-- [ ] Đưa bảy probe của đợt này vào bộ fixture có runner và expected observations; bổ sung generated programs có seed và reducer cho ca fail.
-- [ ] Báo cáo theo từng file và nhóm: buffer/math, UI, promise/event, OOP, loop/capture, module và type-heavy source. Tính cả trường hợp fail hoặc validator trả unknown trong mẫu số phù hợp.
+- [x] Thêm mutant cho đổi nhánh, trả nhầm binding, store nhầm value, call nhầm function, cắt multret, đảo effect, đổi copy/ref capture, mất CLOSE và sai iterator edge.
+- [x] Dùng Luau parser để tạo AST có binding identity cho source và output. Tách type-only syntax/trivia khỏi structural score; vẫn đo tên/type source ở trục riêng. Báo cả khoảng cách với source nguyên bản và mức tuân thủ style statement; chỉ loại khác biệt style khỏi metric bổ sung khi có quy tắc normalization rõ ràng.
+- [x] Đóng gói 156 source công khai thành manifest có commit/license/hash; thêm họ source giữ riêng để đánh giá. Khử duplicate/lineage trước khi chia tập.
+- [x] Đưa bảy probe của đợt này vào bộ fixture có runner và expected observations; bổ sung generated programs có seed và reducer cho ca fail.
+- [x] Báo cáo theo từng file và nhóm: buffer/math, UI, promise/event, OOP, loop/capture, module và type-heavy source. Tính cả trường hợp fail hoặc validator trả unknown trong mẫu số phù hợp.
 
 **Vị trí:** [bytecode_roundtrip.py](../scripts/bytecode_roundtrip.py), [semantic_roundtrip.py](../scripts/semantic_roundtrip.py), [oracle tests](../scripts/test_bytecode_roundtrip.py), [.github/workflows/ci.yaml](../.github/workflows/ci.yaml). Tầng AST/binding comparison là công cụ mới.
 
@@ -292,12 +292,12 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 **Công việc:**
 
-- [ ] Audit 457 lượt mất identifier của debug function name; phân loại anonymous-return, callback dùng một lần, prototype không được emit, rename/collision và các ca còn lại.
-- [ ] Giữ function identity cùng compiler-recorded name tới formatter. Khi phù hợp, giữ `local function name(...)` rồi dùng `name`, kể cả chỉ có một lần dùng.
-- [ ] Map debug local bằng `(prototype, register, PC interval)` sang definition/binding; không map chỉ bằng số register hoặc spelling.
-- [ ] Ánh xạ parameter và debug upvalue names theo slot, đồng thời xử lý alias/capture group và shadowing bằng identity.
-- [ ] Tách tên gốc khỏi tên suy luận. Một pass về sau không được vô tình đổi tên gốc thành một hint có điểm cao hơn.
-- [ ] Thêm fixture cùng register được dùng lại cho hai source local, hai local cùng tên ở scope khác nhau, closure capture và parameter bị ghi lại.
+- [x] Audit 457 lượt mất identifier của debug function name; phân loại anonymous-return, callback dùng một lần, prototype không được emit, rename/collision và các ca còn lại.
+- [x] Giữ function identity cùng compiler-recorded name tới formatter. Khi phù hợp, giữ `local function name(...)` rồi dùng `name`, kể cả chỉ có một lần dùng.
+- [x] Map debug local bằng `(prototype, register, PC interval)` sang definition/binding; không map chỉ bằng số register hoặc spelling.
+- [x] Ánh xạ parameter và debug upvalue names theo slot, đồng thời xử lý alias/capture group và shadowing bằng identity.
+- [x] Tách tên gốc khỏi tên suy luận. Một pass về sau không được vô tình đổi tên gốc thành một hint có điểm cao hơn.
+- [x] Thêm fixture cùng register được dùng lại cho hai source local, hai local cùng tên ở scope khác nhau, closure capture và parameter bị ghi lại.
 
 **Vị trí:** [deserializer/function.rs](../luau-lifter/src/deserializer/function.rs), [lifter.rs](../luau-lifter/src/lifter.rs), [ssa/construct.rs](../cfg/src/ssa/construct.rs), [local.rs](../ast/src/local.rs), [name_locals.rs](../ast/src/name_locals.rs), [formatter.rs](../ast/src/formatter.rs).
 
@@ -398,12 +398,12 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 **Công việc có thể làm sớm:**
 
-- [ ] Áp dụng style statement của §1 vào cost model và pipeline cuối: ưu tiên `if/else`, assignment và branch return; không thưởng việc nén chúng thành `local x = if ...` hoặc conditional trong `return`. Kiểm tra pass conditional hiện có cùng các cleanup chạy sau nó.
+- [x] Áp dụng style statement của §1 vào cost model và pipeline cuối: ưu tiên `if/else`, assignment và branch return; không thưởng việc nén chúng thành `local x = if ...` hoặc conditional trong `return`. Kiểm tra pass conditional hiện có cùng các cleanup chạy sau nó.
 - [ ] Tách việc tắt một rewrite tạo `if` expression khỏi việc hạ conditional expression đã tồn tại trong IR. Với trường hợp nằm trong call argument, return tuple hoặc loop condition, phải giữ vị trí/thứ tự đánh giá, skipped branch và multret; chưa chứng minh được thì giữ cấu trúc statement ở bước trước.
 - [ ] Thêm layout theo nhóm biểu thức và line width; áp dụng cho call, return tuple, table và callback. Quyết định xuống dòng không làm thay đổi AST semantics.
-- [ ] In literal nhiều dòng bằng long-bracket khi bảo toàn được toàn bộ byte; chọn delimiter đúng và kiểm tra leading newline, CR/LF, byte escape và delimiter nằm trong nội dung.
+- [x] In literal nhiều dòng bằng long-bracket khi bảo toàn được toàn bộ byte; chọn delimiter đúng và kiểm tra leading newline, CR/LF, byte escape và delimiter nằm trong nội dung.
 - [ ] Đưa annotation của de-inline/proof/synthesis ra metadata có vị trí; hỗ trợ cách hiển thị gọn trong source. Giữ khả năng truy vết provenance của từng call-site.
-- [ ] Giữ tên function và source/debug local có ý nghĩa theo R1/R2; dùng cost model coi việc làm mất thông tin này là một chi phí, ngay cả khi giảm số dòng.
+- [x] Giữ tên function và source/debug local có ý nghĩa theo R1/R2; dùng cost model coi việc làm mất thông tin này là một chi phí, ngay cả khi giảm số dòng. — Binding nguồn có bằng chứng được bảo vệ bằng điều kiện cứng; vùng chưa map vẫn báo unknown.
 - [ ] Phân biệt nguyên nhân của dòng dài: literal, expression, UI structure hay control flow. Mỗi nhóm có cách xử lý và test riêng.
 - [ ] Đánh giá một số rule đang ưu tiên rút gọn, như anonymous-return và rehoist chỉ dựa trên số lần lặp, dưới mục tiêu fidelity mới. Không mở rộng hoisting nếu chưa giữ được thứ tự và scope.
 

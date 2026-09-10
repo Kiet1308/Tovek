@@ -20,14 +20,16 @@
       "group": "naming/capture",
       "source": "debug_names.luau",
       "driver": "debug_names.driver.luau",
-      "expected_stdout": "48\t12\t48\n"
+      "expected_stdout": "48\t12\t48\n",
+      "minimum_exact_names_g2": 7
     },
     {
       "name": "scope_names",
       "group": "loop/capture",
       "source": "scope_names.luau",
       "driver": "scope_names.driver.luau",
-      "expected_stdout": "6\t1\t2\t3\n"
+      "expected_stdout": "6\t1\t2\t3\n",
+      "minimum_exact_names_g2": 7
     },
     {
       "name": "ui_builder",
@@ -63,6 +65,55 @@
       "source": "unrolled_effects.luau",
       "driver": "unrolled_effects.driver.luau",
       "expected_stdout": "multiply\t1\nmultiply\t2\nmultiply\t3\nmultiply\t4\nsum\t30\n"
+    },
+    {
+      "name": "binding_scopes",
+      "group": "naming/capture",
+      "source": "binding_scopes.luau",
+      "driver": "binding_scopes.driver.luau",
+      "expected_stdout": "first\t5\nsecond\t12\n7\t5\t4\n"
+    },
+    {
+      "name": "parameter_write",
+      "group": "naming/capture",
+      "source": "parameter_write.luau",
+      "driver": "parameter_write.driver.luau",
+      "expected_stdout": "30\t15\n-10\t-5\n"
+    },
+    {
+      "name": "shadow_capture",
+      "group": "naming/capture",
+      "source": "shadow_capture.luau",
+      "driver": "shadow_capture.driver.luau",
+      "expected_stdout": "8\t14\t7\n"
+    },
+    {
+      "name": "debug_identifier_safety",
+      "group": "naming/capture",
+      "source": "debug_identifier_safety.luau",
+      "driver": "debug_identifier_safety.driver.luau",
+      "expected_stdout": "10\n"
+    },
+    {
+      "name": "literal_bytes",
+      "group": "formatter",
+      "source": "literal_bytes.luau",
+      "driver": "literal_bytes.driver.luau",
+      "expected_stdout": "1\t14\t10,102,105,114,115,116,10,115,101,99,111,110,100,10\n2\t10\t97,93,93,10,98,93,61,93,10,99\n3\t6\t97,10,98,10,99,93\n4\t6\t97,13,10,98,10,99\n5\t5\t97,10,98,10,0\n6\t5\t97,10,98,10,255\n7\t29\t99,97,102,195,169,10,196,145,196,131,110,103,32,110,104,225,186,173,112,10,231,181,130,227,130,143,227,130,138\n"
+    },
+    {
+      "name": "conditional_contexts",
+      "group": "conditional",
+      "source": "conditional_contexts.luau",
+      "driver": "conditional_contexts.driver.luau",
+      "expected_stdout": "yes\tfalse\nargument\tfalse\nprefix\t4\ntail\tnil\nresults\t2\t4\tnil\tnil\nno\tnil\nargument\tnil\nprefix\t4\ntail\tfalse\nresults\t2\t4\tfalse\tnil\n"
+    },
+    {
+      "name": "cell_after_join",
+      "group": "loop/capture",
+      "source": "cell_after_join.luau",
+      "driver": "cell_after_join.driver.luau",
+      "expected_stdout": "0\n1\n0\n0\n"
     }
   ],
   "negative_controls": [

@@ -269,6 +269,10 @@ fn try_convert_method(prefix: &RValue, method: &str, closure: &crate::Closure, s
     let Some(p0) = function.parameters.first() else {
         return;
     };
+    // Recorded parameter spelling outranks a receiver-role inference.
+    if p0.0.lock().source_name().is_some_and(|name| name != "self") {
+        return;
+    }
 
     // Already a `self` receiver (idempotence / pre-existing) — nothing to do.
     if p0.0 .0.lock().0.as_deref() == Some("self") {

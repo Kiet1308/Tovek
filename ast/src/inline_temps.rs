@@ -208,7 +208,9 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
                     | RValue::Select(Select::Call(_) | Select::MethodCall(_))
             )
             && is_call_callee_use(&block.0[use_index], &local);
-        if !call_callee && ((!generated && !named_table) || !is_movable_single_value(&replacement))
+        let named_function = crate::assignment_preserves_function_name(&block.0[use_index], &local);
+        if local.has_source_binding() && !named_function { continue; }
+        if !call_callee && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
         {
             continue;
         }
@@ -721,6 +723,7 @@ fn for_each_method_call_rvalue_mut(method_call: &mut MethodCall, f: &mut impl Fn
 }
 
 pub(crate) fn is_generated_temp(local: &RcLocal) -> bool {
+    if local.has_source_binding() { return false; }
     let Some(name) = local.0 .0.lock().0.clone() else {
         return false;
     };

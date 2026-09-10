@@ -278,6 +278,10 @@ pub struct ScriptUpvalueAnalysis {
     pub prototypes: Vec<PrototypeAnalysis>,
     pub functions: Vec<FunctionUpvalueAnalysis>,
     pub diagnostics: Vec<AnalysisDiagnostic>,
+    /// Additive V2 audit. Names are associated with binding IDs and exact input
+    /// origins; unmatched/ambiguous records remain in the denominator.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_recovery: Option<serde_json::Value>,
 }
 
 pub(crate) fn reconcile_bindings(
@@ -617,6 +621,7 @@ pub(crate) fn reconcile_bindings(
         prototypes: raw.prototypes,
         functions,
         diagnostics: raw.diagnostics,
+        source_recovery: None,
     }
 }
 

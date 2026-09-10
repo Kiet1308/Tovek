@@ -40,36 +40,46 @@ const MAX_NON_OPTIONAL_EXPRESSION_COST: usize = 80;
 /// branch RHS evaluation point except for expression-order details that are
 /// guarded below.
 pub fn reconstruct_conditional_expressions(block: &mut Block) {
-    reconstruct_nested_blocks(block);
-    while reconstruct_once(block) {}
+    reconstruct_with_style(block, true);
 }
 
-fn reconstruct_nested_blocks(block: &mut Block) {
+/// Reconstruct only value-exact boolean short-circuit idioms. Branch values
+/// outside this subset stay as assignments; this never emits IfExpression.
+pub fn reconstruct_short_circuit_expressions(block: &mut Block) {
+    reconstruct_with_style(block, false);
+}
+
+fn reconstruct_with_style(block: &mut Block, allow_if_expression: bool) {
+    reconstruct_nested_blocks(block, allow_if_expression);
+    while reconstruct_once(block, allow_if_expression) {}
+}
+
+fn reconstruct_nested_blocks(block: &mut Block, allow_if_expression: bool) {
     for statement in &mut block.0 {
-        reconstruct_nested_in_statement(statement);
+        reconstruct_nested_in_statement(statement, allow_if_expression);
     }
 }
 
-fn reconstruct_nested_in_statement(statement: &mut Statement) {
-    reconstruct_closures_in_statement(statement);
+fn reconstruct_nested_in_statement(statement: &mut Statement, allow_if_expression: bool) {
+    reconstruct_closures_in_statement(statement, allow_if_expression);
     match statement {
         Statement::If(r#if) => {
-            reconstruct_conditional_expressions(&mut r#if.then_block.lock());
-            reconstruct_conditional_expressions(&mut r#if.else_block.lock());
+            reconstruct_with_style(&mut r#if.then_block.lock(), allow_if_expression);
+            reconstruct_with_style(&mut r#if.else_block.lock(), allow_if_expression);
         }
-        Statement::While(r#while) => reconstruct_conditional_expressions(&mut r#while.block.lock()),
-        Statement::Repeat(repeat) => reconstruct_conditional_expressions(&mut repeat.block.lock()),
+        Statement::While(r#while) => reconstruct_with_style(&mut r#while.block.lock(), allow_if_expression),
+        Statement::Repeat(repeat) => reconstruct_with_style(&mut repeat.block.lock(), allow_if_expression),
         Statement::NumericFor(numeric_for) => {
-            reconstruct_conditional_expressions(&mut numeric_for.block.lock())
+            reconstruct_with_style(&mut numeric_for.block.lock(), allow_if_expression)
         }
         Statement::GenericFor(generic_for) => {
-            reconstruct_conditional_expressions(&mut generic_for.block.lock())
+            reconstruct_with_style(&mut generic_for.block.lock(), allow_if_expression)
         }
         _ => {}
     }
 }
 
-fn reconstruct_closures_in_statement(statement: &mut Statement) {
+fn reconstruct_closures_in_statement(statement: &mut Statement, allow_if_expression: bool) {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
@@ -78,11 +88,11 @@ fn reconstruct_closures_in_statement(statement: &mut Statement) {
         None
     });
     for function in functions {
-        reconstruct_conditional_expressions(&mut function.lock().body);
+        reconstruct_with_style(&mut function.lock().body, allow_if_expression);
     }
 }
 
-fn reconstruct_once(block: &mut Block) -> bool {
+fn reconstruct_once(block: &mut Block, allow_if_expression: bool) -> bool {
     if block.0.len() < 3 {
         return false;
     }
@@ -125,7 +135,13 @@ fn reconstruct_once(block: &mut Block) -> bool {
             continue;
         }
 
-        let replacement = build_if_expression(condition, then_value, else_value);
+        let replacement = if allow_if_expression {
+            build_if_expression(condition, then_value, else_value)
+        } else if let Some(value) = build_short_circuit(condition, then_value, else_value) {
+            value
+        } else {
+            continue;
+        };
         if !replace_direct_rvalue_use(&mut block.0[use_index], &local, replacement, &usage) {
             continue;
         }
@@ -153,7 +169,7 @@ fn candidate_decl(statement: &Statement) -> Option<RcLocal> {
     let LValue::Local(local) = &assign.left[0] else {
         return None;
     };
-    Some(local.clone())
+    (!local.has_source_binding()).then(|| local.clone())
 }
 
 fn branch_assignments(r#if: &If, local: &RcLocal) -> Option<(RValue, RValue, RValue)> {
@@ -176,6 +192,37 @@ fn single_local_assignment_value(block: &Block, local: &RcLocal) -> Option<RValu
         return None;
     }
     Some(assign.right[0].clone())
+}
+
+fn build_short_circuit(condition: RValue, then_value: RValue, else_value: RValue) -> Option<RValue> {
+    let then_true = matches!(then_value, RValue::Literal(Literal::Boolean(true)));
+    let then_false = matches!(then_value, RValue::Literal(Literal::Boolean(false)));
+    let else_true = matches!(else_value, RValue::Literal(Literal::Boolean(true)));
+    let else_false = matches!(else_value, RValue::Literal(Literal::Boolean(false)));
+    if then_false && else_true {
+        return Some(Unary::new(condition, UnaryOperation::Not).into());
+    }
+    // `not C` is always boolean, even when C is nil or a non-boolean value.
+    if then_false {
+        return Some(Binary::new(Unary::new(condition, UnaryOperation::Not).into(),
+            else_value, BinaryOperation::And).into());
+    }
+    if else_true {
+        return Some(Binary::new(Unary::new(condition, UnaryOperation::Not).into(),
+            then_value, BinaryOperation::Or).into());
+    }
+    if !crate::binary::is_boolean(&condition) {
+        return None;
+    }
+    if then_true && else_false {
+        Some(condition)
+    } else if else_false {
+        Some(Binary::new(condition, then_value, BinaryOperation::And).into())
+    } else if then_true {
+        Some(Binary::new(condition, else_value, BinaryOperation::Or).into())
+    } else {
+        None
+    }
 }
 
 fn build_if_expression(condition: RValue, then_value: RValue, else_value: RValue) -> RValue {
@@ -731,6 +778,40 @@ mod tests {
 
     fn assign(left: LValue, value: RValue) -> crate::Statement {
         Assign::new(vec![left], vec![value]).into()
+    }
+
+    #[test]
+    fn statement_style_keeps_general_select_and_false_nil_semantics() {
+        let boolean = |b| RValue::Literal(Literal::Boolean(b));
+        let condition = local("condition");
+        let value = local("value");
+        assert!(super::build_short_circuit(local_value(&condition), local_value(&value), nil()).is_none());
+        // A nil false-condition cannot be replaced with `condition and value`:
+        // that would return nil instead of the branch's literal false.
+        assert!(super::build_short_circuit(local_value(&condition), local_value(&value), boolean(false)).is_none());
+        let shortened = super::build_short_circuit(local_value(&condition), boolean(false), local_value(&value)).unwrap();
+        assert!(matches!(shortened, RValue::Binary(_)));
+
+        let temp = local("v");
+        let mut block = Block(vec![declare_empty(&temp),
+            If::new(local_value(&condition), Block(vec![assign_local(&temp, local_value(&value))]),
+                Block(vec![assign_local(&temp, nil())])).into(),
+            Return::new(vec![local_value(&temp)]).into()]);
+        super::reconstruct_short_circuit_expressions(&mut block);
+        assert_eq!(block.0.len(), 3);
+    }
+
+    #[test]
+    fn statement_style_shortens_boolean_branch_without_if_expression() {
+        let temp = local("v");
+        let condition = Binary::new(local_value(&local("input")), nil(), BinaryOperation::Equal).into();
+        let mut block = Block(vec![declare_empty(&temp),
+            If::new(condition, Block(vec![assign_local(&temp, global("value"))]),
+                Block(vec![assign_local(&temp, RValue::Literal(Literal::Boolean(false)))])).into(),
+            Return::new(vec![local_value(&temp)]).into()]);
+        super::reconstruct_short_circuit_expressions(&mut block);
+        assert_eq!(block.0.len(), 1);
+        assert!(!format!("{block}").contains("if "));
     }
 
     #[test]

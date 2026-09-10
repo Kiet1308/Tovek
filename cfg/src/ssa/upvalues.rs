@@ -38,17 +38,10 @@ enum DefKind {
 
 #[derive(Debug)]
 pub(crate) struct UpvaluesOpen {
-    // Per range, the SET of `(block, statement)` sites where this local was
-    // captured ("opened") as an upvalue along the paths reaching that point. It
-    // is an insertion-ordered `IndexSet` (first-occurrence preserved) rather
-    // than a `Vec`: as a `Vec` these were accumulated across CFG diamonds/loops
-    // with NO deduplication, so the vector doubled at every merge and grew
-    // exponentially (measured 63M entries on a 97-block function, ~17-20s and
-    // hundreds of MB). The ONLY consumer (`construct.rs::mark_upvalues`) reads
-    // `.first()` of this collection, so deduplicating while preserving the first
-    // inserted element is output-exact.
-    // WARNING: keep that invariant — only `.first()` may be relied upon; do not
-    // start iterating/counting these sets without revisiting the dedup-safety.
+    // During dataflow these are deduplicated reaching `(block, statement)` open
+    // sites. Before consumption, overlapping opens of each register are reduced
+    // to a stable representative. `mark_upvalues` uses that first representative
+    // as the cell-group label; CLOSE is a transfer kill, not a name heuristic.
     pub open: FxHashMap<
         NodeIndex,
         FxHashMap<ast::RcLocal, RangeInclusiveMap<usize, IndexSet<(NodeIndex, usize)>>>,
@@ -56,99 +49,152 @@ pub(crate) struct UpvaluesOpen {
     old_locals: FxHashMap<ast::RcLocal, ast::RcLocal>,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::block::BlockEdge;
+
+    fn capture(local: ast::RcLocal) -> ast::Statement {
+        let closure = ast::Closure {
+            function: Default::default(),
+            upvalues: vec![ast::Upvalue::Ref(local)],
+        };
+        ast::Assign::new(vec![ast::RcLocal::default().into()], vec![closure.into()]).into()
+    }
+
+    #[test]
+    fn late_predecessor_unifies_open_cell_with_capture_after_join() {
+        for close_before_join in [false, true] {
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            let join = function.new_block(); // deliberately visited before arm
+            let arm = function.new_block();
+            function.set_entry(entry);
+            function.graph_mut().add_edge(entry, join, BlockEdge::default());
+            function.graph_mut().add_edge(entry, arm, BlockEdge::default());
+            function.graph_mut().add_edge(arm, join, BlockEdge::default());
+            let register = ast::RcLocal::default();
+            let before = ast::RcLocal::default();
+            let after = ast::RcLocal::default();
+            function.block_mut(arm).unwrap().push(capture(before.clone()));
+            if close_before_join {
+                function.block_mut(arm).unwrap().push(ast::Close { locals: vec![register.clone()] }.into());
+            }
+            function.block_mut(join).unwrap().push(capture(after.clone()));
+            let open = UpvaluesOpen::new(&function, FxHashMap::from_iter([
+                (before, register.clone()), (after, register.clone()),
+            ]));
+            let first = open.open[&arm][&register].get(&0).unwrap().first();
+            let second = open.open[&join][&register].get(&0).unwrap().first();
+            assert_eq!(first == second, !close_before_join);
+        }
+    }
+}
+
 impl UpvaluesOpen {
     pub fn new(function: &Function, old_locals: FxHashMap<ast::RcLocal, ast::RcLocal>) -> Self {
-        let mut this = Self {
-            open: Default::default(),
-            old_locals,
-        };
+        type Sites = IndexSet<(NodeIndex, usize)>;
+        type Open = FxHashMap<ast::RcLocal, Sites>;
+        let mut this = Self { open: Default::default(), old_locals };
         let entry = function.entry().unwrap();
-        let mut stack = vec![entry];
+        let mut incoming: FxHashMap<NodeIndex, Open> = FxHashMap::default();
+        let mut work = VecDeque::from([entry]);
+        let mut queued = FxHashSet::from_iter([entry]);
         let mut visited = FxHashSet::default();
-        while let Some(node) = stack.pop() {
+        incoming.insert(entry, Open::default());
+        // Monotone reaching-open dataflow. A visited successor must be revisited
+        // when another predecessor contributes an open cell. The former DFS
+        // skipped that edge, splitting a conditionally-created callback's cell
+        // from a second callback created after the merge.
+        while let Some(node) = work.pop_front() {
+            queued.remove(&node);
             visited.insert(node);
             let block = function.block(node).unwrap();
-            let block_opened = this.open.entry(node).or_default();
-            for (stat_index, statement) in block.iter().enumerate() {
-                // TODO: use traverse rvalues instead
-                // this is because the lifter isnt guaranteed to be lifting bytecode
-                // it could be lifting lua source code for deobfuscation purposes
-                if let ast::Statement::Assign(assign) = statement {
-                    for opened in assign
-                        .right
-                        .iter()
-                        .filter_map(|r| r.as_closure())
-                        .flat_map(|c| c.upvalues.iter())
-                        .filter_map(|u| match u {
-                            ast::Upvalue::Copy(_) => None,
-                            ast::Upvalue::Ref(l) => Some(l),
-                        })
-                        .map(|l| this.old_locals[l].clone())
-                    {
-                        let open_ranges = block_opened.entry(opened).or_default();
-                        let mut open_locations = IndexSet::default();
-                        if let Some((_prev_range, prev_locations)) =
-                            open_ranges.get_key_value(&stat_index)
-                        {
-                            // TODO: this assert fails in Luau with the below code,
-                            // but i dont know why. it appears to work fine with the
-                            // assert commented out, but we should double check it.
-                            /*
-                            local u = a
-
-                            if u then
-                                print'hi'
-                            end
-
-                            function f()
-                                return u
-                            end
-                            */
-                            // assert!(prev_range.contains(&(block.len() - 1)));
-                            open_locations.extend(prev_locations.iter().copied());
-                        }
-                        open_locations.insert((node, stat_index));
-                        open_ranges.insert(stat_index..=block.len() - 1, open_locations);
-                    }
-                } else if let ast::Statement::Close(close) = statement {
-                    for closed in &close.locals {
-                        if let Some(open_ranges) = block_opened.get_mut(closed) {
-                            open_ranges.remove(stat_index..=block.len() - 1);
+            let end = block.len().saturating_sub(1);
+            let mut current = incoming[&node].clone();
+            let mut ranges: FxHashMap<ast::RcLocal, RangeInclusiveMap<usize, Sites>> = FxHashMap::default();
+            for (local, sites) in &current {
+                ranges.entry(local.clone()).or_default().insert(0..=end, sites.clone());
+            }
+            for (index, statement) in block.iter().enumerate() {
+                for version in ref_upvalues(statement) {
+                    let local = this.old_locals[version].clone();
+                    let sites = current.entry(local.clone()).or_default();
+                    sites.insert((node, index));
+                    ranges.entry(local).or_default().insert(index..=end, sites.clone());
+                }
+                if let ast::Statement::Close(close) = statement {
+                    for local in &close.locals {
+                        current.remove(local);
+                        if let Some(ranges) = ranges.get_mut(local) {
+                            ranges.remove(index..=end);
                         }
                     }
                 }
             }
-            for successor in function.successor_blocks(node) {
-                // TODO: is there any case where successor is visited but has open stuff
-                // that wasnt already discovered?
-                // maybe possible with multiple opens
-                if !visited.contains(&successor) {
-                    let successor_block = function.block(successor).unwrap();
-                    let open_at_end = this.open[&node]
-                        .iter()
-                        .filter_map(|(l, m)| {
-                            Some((l.clone(), m.get(&(block.len().saturating_sub(1)))?.clone()))
-                        })
-                        .collect::<Vec<_>>();
-                    let successor_open = this.open.entry(successor).or_default();
-                    for (open, mut locations) in open_at_end {
-                        let open_ranges = successor_open.entry(open).or_default();
-                        // TODO: sorta ugly doing a saturating subtraction, use uninclusive ranges instead?
-                        let range = 0..=successor_block.len().saturating_sub(1);
-                        if let Some((prev_range, prev_locations)) = open_ranges.get_key_value(&0) {
-                            assert_eq!(prev_range, &range);
-                            locations.extend(prev_locations.iter().copied());
-                        }
-                        open_ranges.insert(range, locations);
-                    }
-
-                    stack.push(successor);
+            this.open.insert(node, ranges);
+            let mut successors = function.successor_blocks(node).collect::<Vec<_>>();
+            successors.sort();
+            successors.dedup();
+            for successor in successors {
+                let next = incoming.entry(successor).or_default();
+                let mut changed = false;
+                for (local, sites) in &current {
+                    let next_sites = next.entry(local.clone()).or_default();
+                    let before = next_sites.len();
+                    next_sites.extend(sites.iter().copied());
+                    changed |= before != next_sites.len();
+                }
+                if (changed || !visited.contains(&successor)) && queued.insert(successor) {
+                    work.push_back(successor);
                 }
             }
         }
-
+        this.canonicalize_overlapping_opens();
         this.extend_open_backward(function);
         this
+    }
+
+    /// Two opens of the same VM register belong to one cell when a path reaches
+    /// the latter without CLOSE. Unify their site labels transitively; a CLOSE
+    /// kills the reaching set above and therefore keeps distinct epochs apart.
+    fn canonicalize_overlapping_opens(&mut self) {
+        use std::collections::BTreeMap;
+        type Key = (ast::RcLocal, NodeIndex, usize);
+        fn root(parents: &BTreeMap<Key, Key>, key: &Key) -> Key {
+            let mut current = key;
+            while let Some(next) = parents.get(current) {
+                if next == current { break; }
+                current = next;
+            }
+            current.clone()
+        }
+        let mut parents = BTreeMap::<Key, Key>::new();
+        for locals in self.open.values() {
+            for (local, ranges) in locals {
+                for (_, sites) in ranges.iter() {
+                    let Some(&(node, index)) = sites.first() else { continue; };
+                    let first = (local.clone(), node, index);
+                    for &(node, index) in sites.iter().skip(1) {
+                        let left = root(&parents, &first);
+                        let right = root(&parents, &(local.clone(), node, index));
+                        if left != right {
+                            let (lower, higher) = if left < right { (left, right) } else { (right, left) };
+                            parents.insert(higher, lower);
+                        }
+                    }
+                }
+            }
+        }
+        for locals in self.open.values_mut() {
+            for (local, ranges) in locals {
+                *ranges = ranges.iter().map(|(range, sites)| {
+                    let &(node, index) = sites.first().unwrap();
+                    let (_, node, index) = root(&parents, &(local.clone(), node, index));
+                    (range.clone(), IndexSet::from_iter([(node, index)]))
+                }).collect();
+            }
+        }
     }
 
     /// Pull a by-reference-captured local's *cross-block `nil` initializer* into

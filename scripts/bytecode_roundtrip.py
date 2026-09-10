@@ -49,6 +49,7 @@ import base64
 import collections
 import concurrent.futures
 import difflib
+import hashlib
 import json
 import os
 import pathlib
@@ -1044,6 +1045,7 @@ def process_file(args, rel: str, orig_raw: bytes, key: int, decompiled: pathlib.
     """Compare one input; returns a result dict."""
     res = {"file": rel, "status": "ok", "protos": 0, "exact": 0, "equiv": 0, "differ": 0,
            "missing": [], "extra": [], "differs": [], "tags": []}
+    res["input_sha256"] = hashlib.sha256(orig_raw).hexdigest()
     try:
         orig = parse_chunk(orig_raw, key)
     except BytecodeError as e:
@@ -1054,7 +1056,9 @@ def process_file(args, rel: str, orig_raw: bytes, key: int, decompiled: pathlib.
     if not decompiled.exists():
         res["status"] = "no-output"
         return res
-    text = decompiled.read_text(encoding="utf-8", errors="replace")
+    output_bytes = decompiled.read_bytes()
+    res["output_sha256"] = hashlib.sha256(output_bytes).hexdigest()
+    text = output_bytes.decode("utf-8", errors="replace")
     for marker in ("controlFlowState", "GenericForInit", "GenericForNext", "NumForInit", "goto "):
         if marker in text:
             res["status"] = "marker:" + marker.strip()
@@ -1064,6 +1068,7 @@ def process_file(args, rel: str, orig_raw: bytes, key: int, decompiled: pathlib.
         res["status"] = "recompile-fail"
         res["error"] = err
         return res
+    res["rebuilt_sha256"] = hashlib.sha256(new_raw).hexdigest()
     try:
         new = parse_chunk(new_raw, 1)
     except BytecodeError as e:

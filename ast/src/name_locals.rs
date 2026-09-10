@@ -3913,6 +3913,10 @@ impl Namer {
             }
             return;
         }
+        if let Some(name) = lock.source_name().map(str::to_string) {
+            lock.0 = Some(self.unique(&name, scope, policy));
+            return;
+        }
         if let Some(name) = lock.0.clone()
             && is_constant_identifier(&name)
         {

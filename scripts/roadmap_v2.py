@@ -19,6 +19,7 @@ import time
 
 from bytecode_dataflow import compare_dataflow
 from bytecode_roundtrip import compare_chunks, parse_chunk
+from source_fidelity import compare_ast, conditional_count, parse_ast
 
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -96,6 +97,16 @@ def check_case(args, case, root, work, opt, debug):
         pairs, missing, extra = compare_chunks(a, b)
         row["legacy_normalized"] = dict(collections.Counter(p["tier"] for p in pairs))
         row["legacy_normalized"].update(missing=len(missing), extra=len(extra))
+        if args.ast:
+            source_ast = parse_ast(args.ast, original, args.timeout)
+            output_ast = parse_ast(args.ast, emitted, args.timeout)
+            row["source_fidelity"] = compare_ast(source_ast, output_ast)
+            row["output_conditional_expressions"] = conditional_count(output_ast)
+            if row["output_conditional_expressions"]:
+                raise RuntimeError("statement output style gate failed")
+            if debug == 2 and "minimum_exact_names_g2" in case:
+                if row["source_fidelity"].get("exact_names", -1) < case["minimum_exact_names_g2"]:
+                    raise RuntimeError("binding-aware debug-name recovery gate failed")
         row["runtime"] = {}
         for variant in ("source", "output"):
             runner = directory / f"{variant}_runner.luau"
@@ -146,9 +157,12 @@ def main():
     parser.add_argument("--keep", type=pathlib.Path, help="parent for a fresh work directory (never deleted)")
     parser.add_argument("--timeout", type=float, default=30)
     parser.add_argument("--determinism", action="store_true")
+    parser.add_argument("--ast", type=pathlib.Path, help="pinned luau-ast executable for binding-aware metrics")
     args = parser.parse_args()
     for name in ("compiler", "luau", "lifter"):
         setattr(args, name, getattr(args, name).resolve(strict=True))
+    if args.ast:
+        args.ast = args.ast.resolve(strict=True)
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     if manifest["schema_version"] != 1 or not manifest["cases"]:
         parser.error("unsupported or empty manifest")
@@ -162,6 +176,8 @@ def main():
                         for name in ("compiler", "luau", "lifter")},
               "compiler_flags": ["--binary", "--fflags=false"],
               "work": str(work), "split": manifest["split"], "cases": [], "controls": []}
+    if args.ast:
+        report["tools"]["ast"] = {"path": str(args.ast), "sha256": sha256(args.ast)}
     for case in manifest["negative_controls"]:
         for opt in manifest["optimization_levels"]:
             report["controls"].append(check_control(args, case, work, opt))

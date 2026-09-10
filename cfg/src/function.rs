@@ -35,6 +35,12 @@ pub struct Function {
     /// every definition exactly once before any statement is inserted or
     /// removed — so the positional keys are only valid until then.
     pub local_type_hints: FxHashMap<(NodeIndex, usize, usize), String>,
+    /// Debug interval/name evidence, consumed at definition renaming exactly as
+    /// `local_type_hints`. Keys are invalid after SSA construction.
+    pub local_source_bindings: FxHashMap<(NodeIndex, usize, usize), Vec<ast::SourceBinding>>,
+    /// Source binding visible at a block entry, keyed by original register-local
+    /// identity. Only SSA input/phi creation consumes these facts.
+    pub entry_source_bindings: FxHashMap<(NodeIndex, RcLocal), ast::SourceBinding>,
     /// For each by-reference captured SSA local, loops whose original close
     /// paths prove that capture uses a fresh iteration cell. An empty set is
     /// significant: coalescing with an unproven capture invalidates a proof.
@@ -64,6 +70,8 @@ impl Function {
             entry: None,
             block_pc_ranges: std::collections::HashMap::new(),
             local_type_hints: FxHashMap::default(),
+            local_source_bindings: FxHashMap::default(),
+            entry_source_bindings: FxHashMap::default(),
             iteration_capture_proofs: FxHashMap::default(),
             iteration_capture_obligations: FxHashMap::default(),
             local_capture_bindings: FxHashSet::default(),

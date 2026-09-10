@@ -85,6 +85,7 @@ use crate::{
 #[derive(Clone, Default)]
 struct NonNanFacts {
     locals: FxHashSet<RcLocal>,
+    allow_if_expressions: bool,
 }
 
 impl NonNanFacts {
@@ -144,8 +145,18 @@ pub fn normalize_conditions(block: &mut Block) {
 }
 
 pub fn normalize_conditions_with_options(block: &mut Block, assume_no_nan: bool) {
+    normalize_with_style(block, assume_no_nan, true);
+}
+
+/// Normalize value/boolean semantics without introducing expression-form
+/// conditionals. Existing IfExpression nodes still retain their exact semantics.
+pub fn normalize_for_statement_output(block: &mut Block, assume_no_nan: bool) {
+    normalize_with_style(block, assume_no_nan, false);
+}
+
+fn normalize_with_style(block: &mut Block, assume_no_nan: bool, allow_if_expressions: bool) {
     let usage = collect_usage(block);
-    normalize_block(block, assume_no_nan, &NonNanFacts::default(), &usage);
+    normalize_block(block, assume_no_nan, &NonNanFacts { allow_if_expressions, ..Default::default() }, &usage);
 }
 
 fn normalize_block(
@@ -170,7 +181,7 @@ fn normalize_in_statement(
     // Closures embedded in this statement's expressions are independent scopes;
     // `post_traverse_rvalues` stops at the `Closure` node (empty `Traverse`
     // impl), so descend into their bodies explicitly.
-    normalize_closures_in_statement(statement, assume_no_nan);
+    normalize_closures_in_statement(statement, assume_no_nan, facts.allow_if_expressions);
 
     // Nested statement blocks are not reached by `post_traverse_rvalues` either.
     match statement {
@@ -216,7 +227,7 @@ fn normalize_in_statement(
     });
 }
 
-fn normalize_closures_in_statement(statement: &mut Statement, assume_no_nan: bool) {
+fn normalize_closures_in_statement(statement: &mut Statement, assume_no_nan: bool, allow_if_expressions: bool) {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
@@ -225,7 +236,7 @@ fn normalize_closures_in_statement(statement: &mut Statement, assume_no_nan: boo
         None
     });
     for function in functions {
-        normalize_conditions_with_options(&mut function.lock().body, assume_no_nan);
+        normalize_with_style(&mut function.lock().body, assume_no_nan, allow_if_expressions);
     }
 }
 
@@ -254,7 +265,7 @@ fn normalize_node(rvalue: &mut RValue, assume_no_nan: bool, facts: &NonNanFacts)
             };
             *rvalue = collapse_boolean_and_true_or(binary);
         }
-        RValue::Binary(binary) if is_exact_inverted_ternary(binary) => {
+        RValue::Binary(binary) if facts.allow_if_expressions && is_exact_inverted_ternary(binary) => {
             let RValue::Binary(binary) = std::mem::replace(rvalue, RValue::Literal(Literal::Nil))
             else {
                 unreachable!()

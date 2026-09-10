@@ -122,12 +122,26 @@ impl<'a> Lifter<'a> {
             )
             .1;
 
-        for _ in 0..self.function_list[self.function.id].num_upvalues {
-            self.upvalues.push(ast::RcLocal::default());
+        for slot in 0..self.function_list[self.function.id].num_upvalues {
+            let local = ast::RcLocal::default();
+            if let Some(name) = self.function_list[self.function.id].debug_upvalue_name_indices.get(slot as usize)
+                .and_then(|&index| self.debug_name(index))
+            {
+                local.0.lock().add_source_binding(ast::SourceBinding {
+                    origin: ast::BindingOrigin::DebugUpvalue { prototype: self.function.id, slot: slot as usize }, name,
+                });
+            }
+            self.upvalues.push(local);
         }
 
         for i in 0..self.function_list[self.function.id].num_parameters {
             let parameter = ast::RcLocal::default();
+            let names = self.function_list[self.function.id].debug_locals.iter()
+                .filter(|local| local.register == i && local.start_pc == 0)
+                .filter_map(|local| self.debug_binding(local)).collect::<Vec<_>>();
+            if let [binding] = names.as_slice() {
+                parameter.0.lock().add_source_binding(binding.clone());
+            }
             self.function.parameters.push(parameter.clone());
             self.register_map.insert(i as usize, parameter);
         }
@@ -161,24 +175,89 @@ impl<'a> Lifter<'a> {
     /// definition.  Only plain register writes qualify: the lifter's register
     /// locals are looked up by identity, so upvalue cells and parameters (never
     /// typed-local targets) fall through.
+    fn debug_name(&self, index: usize) -> Option<String> {
+        let raw = self.string_table.get(index.checked_sub(1)?)?;
+        let name = std::str::from_utf8(raw).ok()?;
+        ast::valid_source_name(name).then(|| name.to_string())
+    }
+
+    fn debug_binding(&self, local: &super::deserializer::function::DebugLocal) -> Option<ast::SourceBinding> {
+        let proto = &self.function_list[self.function.id];
+        if local.start_pc >= local.end_pc || local.end_pc > proto.instructions.len()
+            || local.register >= proto.max_stack_size { return None; }
+        Some(ast::SourceBinding {
+            origin: ast::BindingOrigin::DebugLocal { prototype: self.function.id,
+                register: local.register, start_pc: local.start_pc, end_pc: local.end_pc },
+            name: self.debug_name(local.name_index)?,
+        })
+    }
+
     fn record_typed_local_hints(&mut self, statements: &[ast::Statement], pcs: &[usize]) {
-        if self.typed_locals.is_empty() {
-            return;
-        }
         let node = self.current_node.unwrap();
         // The block's statements are appended to whatever the block already
         // holds (always empty for lifted blocks, but stay exact).
         let base = self.function.block(node).map_or(0, |block| block.len());
+        // Function names remain direct evidence when local debug info is stripped.
+        for (index, statement) in statements.iter().enumerate() {
+            if let ast::Statement::Assign(assign) = statement {
+                if assign.left.len() != 1 || assign.right.len() != 1 || assign.left[0].as_local().is_none() { continue; }
+                let ast::RValue::Closure(closure) = &assign.right[0] else { continue; };
+                let function = closure.function.lock();
+                if let (Some(prototype), Some(name)) = (function.bytecode_proto_id,
+                    function.name.as_ref().filter(|n| ast::valid_source_name(n)))
+                {
+                    self.function.local_source_bindings.entry((node, base + index, 0)).or_default().push(ast::SourceBinding {
+                        origin: ast::BindingOrigin::Function { prototype }, name: name.clone(),
+                    });
+                }
+            }
+        }
+        let debug_locals = &self.function_list[self.function.id].debug_locals;
+        if self.typed_locals.is_empty() && debug_locals.is_empty() { return; }
+        let block_start = self.function.block_pc_range(node).unwrap().start;
+        for debug in debug_locals {
+            if debug.start_pc <= block_start && block_start < debug.end_pc {
+                if debug_locals.iter().filter(|other| other.register == debug.register
+                    && other.start_pc <= block_start && block_start < other.end_pc).count() != 1 { continue; }
+                if let (Some(local), Some(binding)) = (self.register_map.get(&(debug.register as usize)), self.debug_binding(debug)) {
+                    self.function.entry_source_bindings.insert((node, local.clone()), binding);
+                }
+            }
+        }
         let register_of: FxHashMap<ast::RcLocal, u8> = self
             .register_map
             .iter()
             .filter_map(|(&register, local)| u8::try_from(register).ok().map(|r| (local.clone(), r)))
             .collect();
+        let mut definitions: FxHashMap<u8, Vec<(usize, usize, usize)>> = FxHashMap::default();
+        if !debug_locals.is_empty() {
+            for (index, (statement, &pc)) in statements.iter().zip(pcs).enumerate() {
+                for (written, local) in statement.values_written().iter().enumerate() {
+                    if let Some(&register) = register_of.get(*local) {
+                        definitions.entry(register).or_default().push((pc, index, written));
+                    }
+                }
+            }
+        }
+        let block_end = self.function.block_pc_range(node).unwrap().end + 1;
         for (index, (statement, &pc)) in statements.iter().zip(pcs).enumerate() {
             for (written_index, local) in statement.values_written().into_iter().enumerate() {
                 let Some(&register) = register_of.get(local) else {
                     continue;
                 };
+                // A debug interval starts AFTER initialization. Use the last
+                // reaching write within this block; never guess across CFG edges.
+                let bindings = debug_locals.iter().filter(|debug| {
+                    if debug.register != register { return false; }
+                    if debug.start_pc <= pc && pc < debug.end_pc { return true; }
+                    if debug.start_pc > block_end { return false; }
+                    let defs = &definitions[&register];
+                    let count = defs.partition_point(|(def_pc, _, _)| *def_pc < debug.start_pc);
+                    count > 0 && defs[count - 1] == (pc, index, written_index)
+                }).filter_map(|debug| self.debug_binding(debug)).collect::<Vec<_>>();
+                if let [binding] = bindings.as_slice() {
+                    self.function.local_source_bindings.entry((node, base + index, written_index)).or_default().push(binding.clone());
+                }
                 let Some(hint) = self.typed_locals.iter().find(|typed| {
                     typed.register == register && typed.start_pc <= pc && pc < typed.end_pc
                 }) else {
