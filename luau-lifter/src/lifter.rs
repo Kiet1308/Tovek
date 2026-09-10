@@ -55,6 +55,16 @@ pub struct Lifter<'a> {
     for_origins_by_step: FxHashMap<usize, ast::ForOrigin>,
     current_node: Option<NodeIndex>,
     upvalues: Vec<ast::RcLocal>,
+    source_lines: Vec<Option<u32>>,
+}
+
+fn take_top(
+    top: &mut Option<(ast::RValue, u8)>,
+    pending_pcs: &mut Vec<usize>,
+    consumed_pcs: &mut Vec<usize>,
+) -> (ast::RValue, u8) {
+    consumed_pcs.append(pending_pcs);
+    top.take().unwrap()
 }
 
 impl<'a> Lifter<'a> {
@@ -65,6 +75,7 @@ impl<'a> Lifter<'a> {
         function_id: usize,
         static_function_id: Option<String>,
         typed_locals: &'a [TypedLocalHint],
+        trace_provenance: bool,
     ) -> (
         Function,
         Vec<ast::RcLocal>,
@@ -84,7 +95,14 @@ impl<'a> Lifter<'a> {
             for_origins_by_step: FxHashMap::default(),
             current_node: None,
             upvalues: Vec::new(),
+            source_lines: Vec::new(),
         };
+
+        if let (true, Some(identity)) = (trace_provenance, &context.static_function_id) {
+            context.function.provenance = Some(Box::new(cfg::provenance::FunctionTrace::new(function_id, identity.clone())));
+            context.function.provenance.as_mut().unwrap().instruction_count = f_list[function_id].instructions.len();
+            context.source_lines = crate::upvalue_analysis::decode_source_lines(&f_list[function_id]);
+        }
 
         context.lift_function();
         (context.function, context.upvalues, context.child_functions)
@@ -131,6 +149,7 @@ impl<'a> Lifter<'a> {
                     origin: ast::BindingOrigin::DebugUpvalue { prototype: self.function.id, slot: slot as usize }, name,
                 });
             }
+            if let Some(trace) = &mut self.function.provenance { trace.register(&local, slot as usize, "incoming_upvalue"); }
             self.upvalues.push(local);
         }
 
@@ -143,6 +162,7 @@ impl<'a> Lifter<'a> {
                 parameter.0.lock().add_source_binding(binding.clone());
             }
             self.function.parameters.push(parameter.clone());
+            if let Some(trace) = &mut self.function.provenance { trace.register(&parameter, i as usize, "parameter"); }
             self.register_map.insert(i as usize, parameter);
         }
 
@@ -152,7 +172,8 @@ impl<'a> Lifter<'a> {
             self.current_node = Some(self.block_to_node(start_pc));
             self.function
                 .set_block_pc_range(self.current_node.unwrap(), start_pc, end_pc);
-            let (statements, edges, statement_pcs) = self.lift_block(start_pc, end_pc);
+            let (statements, edges, statement_pcs, statement_origins) = self.lift_block(start_pc, end_pc);
+            self.record_lifted_origins(&statements, &statement_origins);
             self.record_typed_local_hints(&statements, &statement_pcs);
             let block = self.function.block_mut(self.current_node.unwrap()).unwrap();
             block.0.extend(statements);
@@ -179,6 +200,22 @@ impl<'a> Lifter<'a> {
         let raw = self.string_table.get(index.checked_sub(1)?)?;
         let name = std::str::from_utf8(raw).ok()?;
         ast::valid_source_name(name).then(|| name.to_string())
+    }
+
+    fn record_lifted_origins(&mut self, statements: &[ast::Statement], origins: &[Vec<usize>]) {
+        let Some(trace) = &mut self.function.provenance else { return; };
+        let node = self.current_node.unwrap().index();
+        for (index, (statement, pcs)) in statements.iter().zip(origins).enumerate() {
+            let lines = pcs.iter().filter_map(|pc| self.source_lines.get(*pc).copied().flatten())
+                .collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+            let reads = match statement {
+                ast::Statement::Close(close) => close.locals.iter().map(ast::RcLocal::stable_id).collect(),
+                _ => statement.values_read().into_iter().map(ast::RcLocal::stable_id).collect(),
+            };
+            trace.statement(cfg::provenance::LiftedStatement { block: node, index, pcs: pcs.clone(), lines,
+                kind: cfg::provenance::statement_kind(statement), read_registers: reads,
+                written_registers: statement.values_written().into_iter().map(ast::RcLocal::stable_id).collect() });
+        }
     }
 
     fn debug_binding(&self, local: &super::deserializer::function::DebugLocal) -> Option<ast::SourceBinding> {
@@ -556,7 +593,7 @@ impl<'a> Lifter<'a> {
         &mut self,
         block_start: usize,
         block_end: usize,
-    ) -> (Vec<ast::Statement>, Vec<(NodeIndex, BlockEdge)>, Vec<usize>) {
+    ) -> (Vec<ast::Statement>, Vec<(NodeIndex, BlockEdge)>, Vec<usize>, Vec<Vec<usize>>) {
         let mut statements = Vec::with_capacity((block_start..=block_end).count());
         let mut edges = Vec::new();
         // Bytecode PC of the instruction each statement was lifted from
@@ -565,6 +602,9 @@ impl<'a> Lifter<'a> {
         let mut statement_pcs: Vec<usize> = Vec::with_capacity(statements.capacity());
 
         let mut top: Option<(ast::RValue, u8)> = None;
+        let trace_origins = self.function.provenance.is_some();
+        let mut pending_pcs = Vec::new();
+        let mut statement_origins = Vec::new();
 
         let mut iter = self.function_list[self.function.id].instructions[block_start..=block_end]
             .iter()
@@ -573,6 +613,9 @@ impl<'a> Lifter<'a> {
         while let Some((index, instruction)) = iter.next() {
             let pc = block_start + index;
             let lifted_before = statements.len();
+            let mut consumed_pcs = Vec::new();
+            let mut set_pending = false;
+            let mut stop = false;
             match *instruction {
                 Instruction::BC {
                     op_code,
@@ -813,14 +856,14 @@ impl<'a> Lifter<'a> {
                                 .map(|r| self.register(r as _).into())
                                 .collect()
                         } else {
-                            let (tail, end) = top.take().unwrap();
+                            let (tail, end) = take_top(&mut top, &mut pending_pcs, &mut consumed_pcs);
                             (a..end)
                                 .map(|r| self.register(r as _).into())
                                 .chain(std::iter::once(tail))
                                 .collect()
                         };
                         statements.push(ast::Return::new(values).into());
-                        break;
+                        stop = true;
                     }
                     OpCode::LOP_FASTCALL
                     | OpCode::LOP_FASTCALL1
@@ -870,7 +913,7 @@ impl<'a> Lifter<'a> {
                                         .map(|r| self.register(r as _).into())
                                         .collect()
                                 } else {
-                                    let top = top.take().unwrap();
+                                    let top = take_top(&mut top, &mut pending_pcs, &mut consumed_pcs);
                                     (a + 2..top.1)
                                         .map(|r| self.register(r as _).into())
                                         .chain(std::iter::once(top.0))
@@ -900,6 +943,7 @@ impl<'a> Lifter<'a> {
                                     }
                                 } else {
                                     top = Some((call.into(), a));
+                                    set_pending = true;
                                 }
                             }
                             instruction => unreachable!("{:?}", instruction),
@@ -914,7 +958,7 @@ impl<'a> Lifter<'a> {
                                 .map(|r| self.register(r as _).into())
                                 .collect()
                         } else {
-                            let top = top.take().unwrap();
+                            let top = take_top(&mut top, &mut pending_pcs, &mut consumed_pcs);
                             (a + 1..top.1)
                                 .map(|r| self.register(r as _).into())
                                 .chain(std::iter::once(top.0))
@@ -939,6 +983,7 @@ impl<'a> Lifter<'a> {
                             }
                         } else {
                             top = Some((call.into(), a));
+                            set_pending = true;
                         }
                     }
                     OpCode::LOP_CLOSEUPVALS => {
@@ -958,7 +1003,7 @@ impl<'a> Lifter<'a> {
                                 None,
                             )
                         } else {
-                            let top = top.take().unwrap();
+                            let top = take_top(&mut top, &mut pending_pcs, &mut consumed_pcs);
                             ast::SetList::new(
                                 self.register(a as _).clone(),
                                 aux as usize,
@@ -1059,6 +1104,7 @@ impl<'a> Lifter<'a> {
                             );
                         } else {
                             top = Some((vararg.into(), a));
+                            set_pending = true;
                         }
                     }
                     OpCode::LOP_NOP => {}
@@ -1785,6 +1831,16 @@ impl<'a> Lifter<'a> {
             }
             statement_pcs.resize(statements.len(), pc);
             debug_assert!(statement_pcs.len() >= lifted_before);
+            if trace_origins && (statements.len() != lifted_before || set_pending) {
+                let next_pc = iter.clone().next().map_or(block_end + 1, |(index, _)| block_start + index);
+                consumed_pcs.extend((pc..next_pc).filter(|&at| at == pc || !matches!(
+                    self.function_list[self.function.id].instructions[at], Instruction::BC { op_code: OpCode::LOP_NOP, .. })));
+                consumed_pcs.sort_unstable();
+                consumed_pcs.dedup();
+                if set_pending { pending_pcs = consumed_pcs.clone(); }
+                statement_origins.resize(statements.len(), consumed_pcs);
+            }
+            if stop { break; }
         }
 
         let last_index = iter
@@ -1807,11 +1863,15 @@ impl<'a> Lifter<'a> {
 
         // The trailing "block does not return" marker writes no local.
         statement_pcs.resize(statements.len(), block_end);
-        (statements, edges, statement_pcs)
+        // A generated warning has no source instruction; preserve that unknown.
+        if trace_origins { statement_origins.resize(statements.len(), Vec::new()); }
+        (statements, edges, statement_pcs, statement_origins)
     }
 
     fn register(&mut self, index: usize) -> ast::RcLocal {
-        self.register_map.entry(index).or_default().clone()
+        let local = self.register_map.entry(index).or_default().clone();
+        if let Some(trace) = &mut self.function.provenance { trace.register(&local, index, "register"); }
+        local
     }
 
     fn constant(&mut self, index: usize) -> ast::Literal {
@@ -1930,6 +1990,74 @@ impl<'a> Lifter<'a> {
 #[cfg(test)]
 mod tests {
     use super::{Instruction, Lifter, OpCode};
+
+    fn prototype(parameters: u8, instructions: Vec<Instruction>) -> super::BytecodeFunction {
+        super::BytecodeFunction { max_stack_size: 8, num_parameters: parameters, num_upvalues: 0,
+            is_vararg: false, instructions, constants: vec![], functions: vec![], line_defined: 0,
+            function_name: 0, line_gap_log2: None, line_info_delta: None, abs_line_info_delta: None,
+            has_debug_info: false, debug_locals: vec![], debug_upvalue_name_indices: vec![], type_info: None }
+    }
+
+    fn instruction(op_code: OpCode, a: u8, b: u8, c: u8) -> Instruction {
+        Instruction::BC { op_code, a, b, c, aux: 0 }
+    }
+
+    #[test]
+    fn provenance_keeps_deferred_call_and_vararg_instruction_clusters() {
+        for vararg in [false, true] {
+            let first = if vararg { instruction(OpCode::LOP_GETVARARGS, 1, 0, 0) }
+                else { instruction(OpCode::LOP_CALL, 1, 1, 0) };
+            let mut proto = prototype(if vararg { 1 } else { 2 }, vec![first,
+                instruction(OpCode::LOP_CALL, 0, 0, 0), instruction(OpCode::LOP_RETURN, 0, 0, 0)]);
+            proto.is_vararg = vararg;
+            proto.line_gap_log2 = Some(0);
+            proto.line_info_delta = Some(vec![0, 0, 0]);
+            proto.abs_line_info_delta = Some(vec![9, 1, 1]);
+            let (function, _, _) = Lifter::lift(&vec![proto], &vec![], 9, 0, Some("root:p0".into()), &[], true);
+            let trace = function.provenance.unwrap();
+            let sites = trace.lifted.values().collect::<Vec<_>>();
+            assert_eq!(sites.len(), 1);
+            assert_eq!(sites[0].kind, "return");
+            assert_eq!(sites[0].pcs, vec![0, 1, 2]);
+            assert_eq!(sites[0].lines, vec![9, 10, 11]);
+        }
+    }
+
+    #[test]
+    fn provenance_keeps_namecall_pair_but_excludes_auxiliary_slot() {
+        let mut proto = prototype(1, vec![instruction(OpCode::LOP_NAMECALL, 1, 0, 0),
+            instruction(OpCode::LOP_NOP, 0, 0, 0), instruction(OpCode::LOP_CALL, 1, 2, 0),
+            instruction(OpCode::LOP_RETURN, 1, 0, 0)]);
+        proto.constants.push(super::BytecodeConstant::String(1));
+        let (function, _, _) = Lifter::lift(&vec![proto], &vec![b"method".to_vec()], 9, 0, Some("root:p0".into()), &[], true);
+        let trace = function.provenance.unwrap();
+        assert_eq!(trace.lifted.values().next().unwrap().pcs, vec![0, 2, 3]);
+    }
+
+    #[test]
+    fn provenance_keeps_capture_cluster_and_fixed_return_separate() {
+        let mut root = prototype(1, vec![Instruction::AD { op_code: OpCode::LOP_NEWCLOSURE, a: 1, d: 0, aux: 0 },
+            instruction(OpCode::LOP_CAPTURE, 0, 0, 0), instruction(OpCode::LOP_RETURN, 1, 2, 0)]);
+        root.functions.push(1);
+        let mut child = prototype(0, vec![instruction(OpCode::LOP_GETUPVAL, 0, 0, 0), instruction(OpCode::LOP_RETURN, 0, 2, 0)]);
+        child.num_upvalues = 1;
+        let (function, _, _) = Lifter::lift(&vec![root, child], &vec![], 9, 0, Some("root:p0".into()), &[], true);
+        let trace = function.provenance.unwrap();
+        let sites = trace.lifted.values().collect::<Vec<_>>();
+        assert_eq!(sites[0].pcs, vec![0, 1]);
+        assert_eq!(sites[1].pcs, vec![2]);
+    }
+
+    #[test]
+    fn provenance_records_do_not_keep_local_owners_alive() {
+        let mut trace = cfg::provenance::FunctionTrace::new(0, "root:p0".into());
+        let register = ast::RcLocal::default();
+        let version = ast::RcLocal::default();
+        let count = triomphe::Arc::count(&register.0.0);
+        trace.register(&register, 0, "parameter");
+        trace.definition(&version, &register, petgraph::stable_graph::NodeIndex::new(0), Some((0, 0)), vec![]);
+        assert_eq!(triomphe::Arc::count(&register.0.0), count);
+    }
 
     #[test]
     fn detects_explicit_nil_padding_through_callfb_nop() {

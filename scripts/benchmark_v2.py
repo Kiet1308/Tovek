@@ -58,6 +58,8 @@ def peak_rss_reader(process):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lifter", action="append", required=True, metavar="LABEL=EXE")
+    parser.add_argument("--analysis", action="append", default=[], metavar="LABEL=upvalues|provenance",
+                        help="opt in a labelled binary to metadata generation; source hashing still excludes metadata")
     parser.add_argument("--corpus", type=pathlib.Path, required=True)
     parser.add_argument("--key", type=int, default=203)
     parser.add_argument("--threads", type=int, nargs="+", default=[1, 16])
@@ -74,6 +76,12 @@ def main():
         if not separator or not label or any(c in label for c in "/\\:") or label in binaries:
             parser.error("--lifter needs unique simple labels")
         binaries[label] = pathlib.Path(path).resolve(strict=True)
+    analysis_modes = {}
+    for spec in args.analysis:
+        label, separator, mode = spec.partition('=')
+        if not separator or label not in binaries or label in analysis_modes or mode not in ('upvalues', 'provenance'):
+            parser.error('--analysis needs a known unique label and upvalues/provenance mode')
+        analysis_modes[label] = mode
     args.keep.mkdir(parents=True, exist_ok=True)
     work = pathlib.Path(tempfile.mkdtemp(prefix="bench-", dir=args.keep)).resolve()
     corpus_hash, input_count = tree_hash(args.corpus, "*.lua")
@@ -85,6 +93,8 @@ def main():
         log = work / f"{label}-{threads}-{index}{'-warmup' if warmup else ''}.log"
         command = [str(binaries[label]), "decompile-folder", str(args.corpus.resolve()), str(output),
                    "--key", str(args.key), "--threads", str(threads), "--strict-no-synthetic-control"]
+        if label in analysis_modes:
+            command.append('--emit-upvalue-analysis' if analysis_modes[label] == 'upvalues' else '--emit-binding-provenance')
         peak = None
         started = time.perf_counter()
         with log.open("wb") as stream:
@@ -132,6 +142,7 @@ def main():
                 median_peak_rss_bytes=statistics.median(memories) if memories else None,
                 max_peak_rss_bytes=max(memories) if memories else None))
     report = dict(schema_version=1, tools={label: dict(path=str(path), sha256=sha256(path)) for label, path in binaries.items()},
+                  analysis_modes=analysis_modes,
                   corpus=str(args.corpus.resolve()), corpus_hash=corpus_hash, input_count=input_count,
                   system=dict(platform=platform.platform(), cpu=os.environ.get("PROCESSOR_IDENTIFIER"), logical_processors=os.cpu_count()),
                   rss_contract="Windows PeakWorkingSetSize sampled at 10 ms; unavailable on other platforms. Includes monitor overhead in CLI wall time.",

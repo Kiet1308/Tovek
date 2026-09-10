@@ -43,6 +43,8 @@ pub const ASSUME_NO_NAN: u32 = 1 << 2;
 /// Preserve the strict no-synthetic-dispatcher policy across public option
 /// transports (batch headers, web/worker flags, and cached artifacts).
 pub const STRICT_NO_SYNTHETIC_CONTROL: u32 = 1 << 3;
+/// Detailed SSA/storage lineage in artifact APIs; no effect on emitted source.
+pub const EMIT_BINDING_PROVENANCE: u32 = 1 << 4;
 
 // ---- TEMPORARY PROFILING (env-gated, remove before ship) ----
 #[doc(hidden)]
@@ -129,6 +131,8 @@ pub struct DecompileOptions {
     pub no_synth_helpers: bool,
     pub assume_no_nan: bool,
     pub control_flow_policy: ControlFlowOutputPolicy,
+    /// Opt-in detailed lineage, produced only by artifact/analysis APIs.
+    pub emit_binding_provenance: bool,
 }
 
 /// Controls whether the certified CFG dispatcher is an acceptable output
@@ -144,7 +148,7 @@ pub enum ControlFlowOutputPolicy {
 
 impl DecompileOptions {
     pub fn from_flag_bits(bits: u32) -> Option<Self> {
-        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL)
+        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL | EMIT_BINDING_PROVENANCE)
             != 0
         {
             return None;
@@ -153,6 +157,7 @@ impl DecompileOptions {
             dont_reuse_var: bits & DONT_REUSE_VAR != 0,
             no_synth_helpers: bits & NO_SYNTH_HELPERS != 0,
             assume_no_nan: bits & ASSUME_NO_NAN != 0,
+            emit_binding_provenance: bits & EMIT_BINDING_PROVENANCE != 0,
             control_flow_policy: if bits & STRICT_NO_SYNTHETIC_CONTROL != 0 {
                 ControlFlowOutputPolicy::StrictNoSyntheticControl
             } else {
@@ -165,6 +170,7 @@ impl DecompileOptions {
         u32::from(self.dont_reuse_var) * DONT_REUSE_VAR
             | u32::from(self.no_synth_helpers) * NO_SYNTH_HELPERS
             | u32::from(self.assume_no_nan) * ASSUME_NO_NAN
+            | u32::from(self.emit_binding_provenance) * EMIT_BINDING_PROVENANCE
             | u32::from(
                 self.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl,
             ) * STRICT_NO_SYNTHETIC_CONTROL
@@ -175,6 +181,7 @@ impl DecompileOptions {
             dont_reuse_var: self.dont_reuse_var || other.dont_reuse_var,
             no_synth_helpers: self.no_synth_helpers || other.no_synth_helpers,
             assume_no_nan: self.assume_no_nan || other.assume_no_nan,
+            emit_binding_provenance: self.emit_binding_provenance || other.emit_binding_provenance,
             control_flow_policy: if self.control_flow_policy
                 == ControlFlowOutputPolicy::StrictNoSyntheticControl
                 || other.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
@@ -420,6 +427,7 @@ fn try_decompile_bytecode_internal(
                     func_id,
                     static_function_id,
                     &typed_locals,
+                    emit_upvalue_analysis && options.emit_binding_provenance,
                 );
                 lifted.push((ast_func, function, upvalues));
                 // The whole-program decompile order determines the monotonic
@@ -545,6 +553,7 @@ fn try_decompile_bytecode_internal(
                                     function: format!("p{function_id}"),
                                     message: panic_information,
                                 }),
+                                None,
                             )
                         }
                     }
@@ -552,8 +561,10 @@ fn try_decompile_bytecode_internal(
                 .collect::<Vec<_>>();
             drop(par_timer);
             let mut function_diagnostics = Vec::new();
+            let mut function_traces = Vec::new();
             let mut upvalues = FxHashMap::default();
-            for (function, values, diagnostic) in decompiled {
+            for (function, values, diagnostic, trace) in decompiled {
+                if let Some(trace) = trace { function_traces.push(trace); }
                 if let Some(diagnostic) = diagnostic {
                     function_diagnostics.push(diagnostic);
                 }
@@ -812,6 +823,9 @@ fn try_decompile_bytecode_internal(
                 );
                 analysis.source_recovery = Some(source_recovery::audit(&chunk, &mut body, &analysis.functions));
                 analysis.name_inference = Some(source_recovery::naming_report(name_inference));
+                if options.emit_binding_provenance {
+                    analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body));
+                }
                 analysis
             });
             Ok(DecompileArtifact {
@@ -1265,12 +1279,14 @@ fn decompile_function(
     ByAddress<Arc<Mutex<ast::Function>>>,
     Vec<ast::RcLocal>,
     Option<DecompileDiagnostic>,
+    Option<Box<cfg::provenance::FunctionTrace>>,
 ) {
     let function_identity = format!("p{}", function.id);
     let (local_count, local_groups, upvalue_in_groups, upvalue_passed_groups) = {
         ptime!(F_SSA_CONSTRUCT);
         cfg::ssa::construct(&mut function, &upvalues_in)
     };
+    if let Some(trace) = &mut function.provenance { trace.phase = "ssa_cleanup"; }
     // Every SSA version belonging to an incoming or passed-upvalue group
     // aliases a captured cell. Keep all of those identities protected
     // from source-like iterator/result-local allocation; protecting only the
@@ -1378,6 +1394,13 @@ fn decompile_function(
     if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
         debug_dump_cfg(&function, "pre-destruct");
     }
+    if function.provenance.is_some() {
+        cfg::provenance::record_selects(&mut function, "pre_destruct");
+        let bindings = cfg::provenance::binding_ids(&function);
+        let trace = function.provenance.as_mut().unwrap();
+        trace.pre_destruct_bindings = bindings;
+        trace.phase = "ssa_destruction";
+    }
     {
         ptime!(F_DESTRUCT);
         ssa::Destructor::new(
@@ -1388,6 +1411,13 @@ fn decompile_function(
         )
         .destruct();
     }
+    // Freeze the trace before speculative structuring clones the CFG. This
+    // history contains IDs/strings only and must never keep locals alive.
+    if function.provenance.is_some() {
+        let bindings = cfg::provenance::binding_ids(&function);
+        function.provenance.as_mut().unwrap().post_destruct_bindings = bindings;
+    }
+    let trace = function.provenance.take();
     // Destruction picks a member/root of each captured-cell group. None of
     // these SSA identities belongs to an incoming upvalue group.
     function.local_capture_bindings = local_capture_bindings;
@@ -1566,7 +1596,7 @@ fn decompile_function(
         ast_function.parameters = params;
         ast_function.is_variadic = is_variadic;
     }
-    (ByAddress(ast_function), upvalues_in, diagnostic)
+    (ByAddress(ast_function), upvalues_in, diagnostic, trace)
 }
 
 #[cfg(test)]
@@ -1614,6 +1644,18 @@ mod option_tests {
                 .control_flow_policy,
             ControlFlowOutputPolicy::StrictNoSyntheticControl
         );
+    }
+
+    #[test]
+    fn provenance_opt_in_round_trips_and_unions() {
+        let enabled = DecompileOptions {
+            emit_binding_provenance: true,
+            ..DecompileOptions::default()
+        };
+        assert_eq!(DecompileOptions::from_flag_bits(enabled.bits()), Some(enabled));
+        assert_eq!(enabled.bits(), super::EMIT_BINDING_PROVENANCE);
+        assert_eq!(DecompileOptions::default().union(enabled), enabled);
+        assert_eq!(enabled.union(DecompileOptions::default()), enabled);
     }
 
     #[test]

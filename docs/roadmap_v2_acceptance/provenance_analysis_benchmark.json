@@ -1,0 +1,361 @@
+{
+  "schema_version": 1,
+  "tools": {
+    "r3_analysis": {
+      "path": "D:\\Medal\\medal-decompiler\\out\\v2-naming-lifter.exe",
+      "sha256": "7a833c173020b7e3641befd13720419ce2a5fd987151a5ddfc1d29272105ae31"
+    },
+    "analysis": {
+      "path": "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+      "sha256": "5afdfdf637d87d86daeb5211579bdf0c5a88e0d75a609e3229e0e4105edf5327"
+    },
+    "trace": {
+      "path": "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+      "sha256": "5afdfdf637d87d86daeb5211579bdf0c5a88e0d75a609e3229e0e4105edf5327"
+    }
+  },
+  "analysis_modes": {
+    "r3_analysis": "upvalues",
+    "analysis": "upvalues",
+    "trace": "provenance"
+  },
+  "corpus": "D:\\Medal\\examplebytecode\\RobloxProject",
+  "corpus_hash": "2c8714554de44795b5a77775f1656223bed0bfc1c522347decb097f4ad132d7f",
+  "input_count": 3978,
+  "system": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+    "logical_processors": 24
+  },
+  "rss_contract": "Windows PeakWorkingSetSize sampled at 10 ms; unavailable on other platforms. Includes monitor overhead in CLI wall time.",
+  "cache_contract": "Warm input cache, output directory reused after warmup; no simultaneous benchmark workload.",
+  "rows": [
+    {
+      "label": "r3_analysis",
+      "threads": 16,
+      "round": 0,
+      "warmup": true,
+      "seconds": 5.665256300009787,
+      "peak_rss_bytes": 180547584,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-naming-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\r3_analysis",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-upvalue-analysis"
+      ]
+    },
+    {
+      "label": "analysis",
+      "threads": 16,
+      "round": 0,
+      "warmup": true,
+      "seconds": 8.973998500034213,
+      "peak_rss_bytes": 189308928,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\analysis",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-upvalue-analysis"
+      ]
+    },
+    {
+      "label": "trace",
+      "threads": 16,
+      "round": 0,
+      "warmup": true,
+      "seconds": 5.95677369995974,
+      "peak_rss_bytes": 288714752,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\trace",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-binding-provenance"
+      ]
+    },
+    {
+      "label": "r3_analysis",
+      "threads": 16,
+      "round": 0,
+      "warmup": false,
+      "seconds": 8.657652799971402,
+      "peak_rss_bytes": 191148032,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-naming-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\r3_analysis",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-upvalue-analysis"
+      ]
+    },
+    {
+      "label": "analysis",
+      "threads": 16,
+      "round": 0,
+      "warmup": false,
+      "seconds": 8.796626600204036,
+      "peak_rss_bytes": 186417152,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\analysis",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-upvalue-analysis"
+      ]
+    },
+    {
+      "label": "trace",
+      "threads": 16,
+      "round": 0,
+      "warmup": false,
+      "seconds": 6.136653300141916,
+      "peak_rss_bytes": 328650752,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\trace",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-binding-provenance"
+      ]
+    },
+    {
+      "label": "trace",
+      "threads": 16,
+      "round": 1,
+      "warmup": false,
+      "seconds": 9.669917799998075,
+      "peak_rss_bytes": 308621312,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\trace",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-binding-provenance"
+      ]
+    },
+    {
+      "label": "analysis",
+      "threads": 16,
+      "round": 1,
+      "warmup": false,
+      "seconds": 8.60531589994207,
+      "peak_rss_bytes": 175939584,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\analysis",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-upvalue-analysis"
+      ]
+    },
+    {
+      "label": "r3_analysis",
+      "threads": 16,
+      "round": 1,
+      "warmup": false,
+      "seconds": 9.115031199995428,
+      "peak_rss_bytes": 199454720,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-naming-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\r3_analysis",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-upvalue-analysis"
+      ]
+    },
+    {
+      "label": "r3_analysis",
+      "threads": 16,
+      "round": 2,
+      "warmup": false,
+      "seconds": 5.542841000016779,
+      "peak_rss_bytes": 167948288,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-naming-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\r3_analysis",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-upvalue-analysis"
+      ]
+    },
+    {
+      "label": "analysis",
+      "threads": 16,
+      "round": 2,
+      "warmup": false,
+      "seconds": 8.533298700116575,
+      "peak_rss_bytes": 186400768,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\analysis",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-upvalue-analysis"
+      ]
+    },
+    {
+      "label": "trace",
+      "threads": 16,
+      "round": 2,
+      "warmup": false,
+      "seconds": 10.15730099985376,
+      "peak_rss_bytes": 359874560,
+      "output_hash": "5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14",
+      "output_count": 3978,
+      "deterministic": true,
+      "command": [
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-lifter.exe",
+        "decompile-folder",
+        "D:\\Medal\\examplebytecode\\RobloxProject",
+        "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-analysis-benchmark\\bench-2zdqj0w4\\trace",
+        "--key",
+        "203",
+        "--threads",
+        "16",
+        "--strict-no-synthetic-control",
+        "--emit-binding-provenance"
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "label": "r3_analysis",
+      "threads": 16,
+      "samples": 3,
+      "median_seconds": 8.657652799971402,
+      "p95_nearest_rank_seconds": 9.115031199995428,
+      "min_seconds": 5.542841000016779,
+      "max_seconds": 9.115031199995428,
+      "median_peak_rss_bytes": 191148032,
+      "max_peak_rss_bytes": 199454720
+    },
+    {
+      "label": "analysis",
+      "threads": 16,
+      "samples": 3,
+      "median_seconds": 8.60531589994207,
+      "p95_nearest_rank_seconds": 8.796626600204036,
+      "min_seconds": 8.533298700116575,
+      "max_seconds": 8.796626600204036,
+      "median_peak_rss_bytes": 186400768,
+      "max_peak_rss_bytes": 186417152
+    },
+    {
+      "label": "trace",
+      "threads": 16,
+      "samples": 3,
+      "median_seconds": 9.669917799998075,
+      "p95_nearest_rank_seconds": 10.15730099985376,
+      "min_seconds": 6.136653300141916,
+      "max_seconds": 10.15730099985376,
+      "median_peak_rss_bytes": 328650752,
+      "max_peak_rss_bytes": 359874560
+    }
+  ],
+  "deterministic": true,
+  "limitations": "Finite samples; nearest-rank p95 equals maximum for seven rounds. No allocations, cold-cache or in-memory claim.",
+  "sidecar_sizes": {
+    "r3_analysis": {
+      "sidecar_files": 3936,
+      "sidecar_bytes": 282031094
+    },
+    "analysis": {
+      "sidecar_files": 3936,
+      "sidecar_bytes": 282031094
+    },
+    "trace": {
+      "sidecar_files": 3936,
+      "sidecar_bytes": 1409056857
+    }
+  }
+}

@@ -89,6 +89,10 @@ struct FolderArgs {
     /// Emit immutable static upvalue metadata under OUT/.tovek-analysis.
     #[arg(long)]
     emit_upvalue_analysis: bool,
+    /// Include detailed SSA/storage lineage in analysis (can produce large files).
+    /// Implies --emit-upvalue-analysis.
+    #[arg(long)]
+    emit_binding_provenance: bool,
     /// Source extension written by the folder decompiler.
     #[arg(long, default_value = "luau", value_parser = ["lua", "luau"])]
     output_extension: String,
@@ -162,6 +166,7 @@ fn main() {
                     dont_reuse_var: a.dont_reuse_var,
                     no_synth_helpers: a.no_synth_helpers,
                     assume_no_nan: a.assume_no_nan,
+                    emit_binding_provenance: a.emit_binding_provenance,
                     control_flow_policy: folder_control_flow_policy(
                         a.strict_no_synthetic_control,
                         a.allow_certified_dispatcher,
@@ -175,7 +180,7 @@ fn main() {
                     a.threads,
                     a.verbose,
                     options,
-                    a.emit_upvalue_analysis,
+                    a.emit_upvalue_analysis || a.emit_binding_provenance,
                     &a.output_extension,
                     a.export_manifest.as_deref(),
                 );

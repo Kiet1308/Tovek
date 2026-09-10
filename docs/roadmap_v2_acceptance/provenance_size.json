@@ -1,0 +1,214 @@
+{
+  "files": {
+    "residual/ReplicatedStorage/Cmdr/Server commands/Admin/teleportServer.luau": {
+      "bytes": 577,
+      "lines": 21
+    },
+    "residual/ReplicatedStorage/FusionPackage/Components/Base/Container.luau": {
+      "bytes": 1532,
+      "lines": 73
+    },
+    "residual/ReplicatedStorage/Part_Icles/Emit.luau": {
+      "bytes": 27949,
+      "lines": 950
+    },
+    "residual/ReplicatedStorage/Shared/Information/Abilities.luau": {
+      "bytes": 1991,
+      "lines": 104
+    },
+    "residual/ReplicatedStorage/Shared/TimeManager/MeshEmitter/init.luau": {
+      "bytes": 20908,
+      "lines": 720
+    },
+    "residual/StarterPlayer/StarterCharacterScripts/Animate.client.luau": {
+      "bytes": 12137,
+      "lines": 646
+    },
+    "residual/StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.luau": {
+      "bytes": 35506,
+      "lines": 1497
+    },
+    "semantic/alias_iterators__O0.luau": {
+      "bytes": 515,
+      "lines": 40
+    },
+    "semantic/alias_iterators__O1.luau": {
+      "bytes": 515,
+      "lines": 40
+    },
+    "semantic/alias_iterators__O2.luau": {
+      "bytes": 515,
+      "lines": 40
+    },
+    "semantic/captured_break_continue__O0.luau": {
+      "bytes": 616,
+      "lines": 54
+    },
+    "semantic/captured_break_continue__O1.luau": {
+      "bytes": 616,
+      "lines": 54
+    },
+    "semantic/captured_break_continue__O2.luau": {
+      "bytes": 616,
+      "lines": 54
+    },
+    "semantic/captured_cell_iterator__O0.luau": {
+      "bytes": 403,
+      "lines": 32
+    },
+    "semantic/captured_cell_iterator__O1.luau": {
+      "bytes": 403,
+      "lines": 32
+    },
+    "semantic/captured_cell_iterator__O2.luau": {
+      "bytes": 413,
+      "lines": 31
+    },
+    "semantic/captured_result__O0.luau": {
+      "bytes": 669,
+      "lines": 50
+    },
+    "semantic/captured_result__O1.luau": {
+      "bytes": 669,
+      "lines": 50
+    },
+    "semantic/captured_result__O2.luau": {
+      "bytes": 673,
+      "lines": 50
+    },
+    "semantic/dead_const_tables__O0.luau": {
+      "bytes": 296,
+      "lines": 20
+    },
+    "semantic/dead_const_tables__O1.luau": {
+      "bytes": 296,
+      "lines": 20
+    },
+    "semantic/dead_const_tables__O2.luau": {
+      "bytes": 296,
+      "lines": 20
+    },
+    "semantic/generic_break_found__O0.luau": {
+      "bytes": 590,
+      "lines": 53
+    },
+    "semantic/generic_break_found__O1.luau": {
+      "bytes": 590,
+      "lines": 53
+    },
+    "semantic/generic_break_found__O2.luau": {
+      "bytes": 590,
+      "lines": 53
+    },
+    "semantic/iter_metamethod_order__O0.luau": {
+      "bytes": 472,
+      "lines": 36
+    },
+    "semantic/iter_metamethod_order__O1.luau": {
+      "bytes": 472,
+      "lines": 36
+    },
+    "semantic/iter_metamethod_order__O2.luau": {
+      "bytes": 448,
+      "lines": 33
+    },
+    "semantic/loop_result_exports__O0.luau": {
+      "bytes": 1513,
+      "lines": 110
+    },
+    "semantic/loop_result_exports__O1.luau": {
+      "bytes": 1513,
+      "lines": 110
+    },
+    "semantic/loop_result_exports__O2.luau": {
+      "bytes": 2183,
+      "lines": 188
+    },
+    "semantic/loop_shapes__O0.luau": {
+      "bytes": 3159,
+      "lines": 249
+    },
+    "semantic/loop_shapes__O1.luau": {
+      "bytes": 3181,
+      "lines": 250
+    },
+    "semantic/loop_shapes__O2.luau": {
+      "bytes": 4290,
+      "lines": 327
+    },
+    "semantic/nested_exports__O0.luau": {
+      "bytes": 614,
+      "lines": 45
+    },
+    "semantic/nested_exports__O1.luau": {
+      "bytes": 614,
+      "lines": 45
+    },
+    "semantic/nested_exports__O2.luau": {
+      "bytes": 614,
+      "lines": 45
+    },
+    "semantic/parallel_copy_cycle__O0.luau": {
+      "bytes": 364,
+      "lines": 31
+    },
+    "semantic/parallel_copy_cycle__O1.luau": {
+      "bytes": 364,
+      "lines": 31
+    },
+    "semantic/parallel_copy_cycle__O2.luau": {
+      "bytes": 325,
+      "lines": 25
+    },
+    "semantic/suffix_numeric__O0.luau": {
+      "bytes": 514,
+      "lines": 39
+    },
+    "semantic/suffix_numeric__O1.luau": {
+      "bytes": 514,
+      "lines": 39
+    },
+    "semantic/suffix_numeric__O2.luau": {
+      "bytes": 502,
+      "lines": 39
+    },
+    "semantic/typed_params__O0.luau": {
+      "bytes": 469,
+      "lines": 28
+    },
+    "semantic/typed_params__O1.luau": {
+      "bytes": 469,
+      "lines": 28
+    },
+    "semantic/typed_params__O2.luau": {
+      "bytes": 533,
+      "lines": 26
+    },
+    "semantic/ui_setlist_order__O0.luau": {
+      "bytes": 2121,
+      "lines": 119
+    },
+    "semantic/ui_setlist_order__O1.luau": {
+      "bytes": 2237,
+      "lines": 166
+    },
+    "semantic/ui_setlist_order__O2.luau": {
+      "bytes": 3018,
+      "lines": 203
+    },
+    "semantic/zero_trip_suffix__O0.luau": {
+      "bytes": 548,
+      "lines": 43
+    },
+    "semantic/zero_trip_suffix__O1.luau": {
+      "bytes": 454,
+      "lines": 34
+    },
+    "semantic/zero_trip_suffix__O2.luau": {
+      "bytes": 454,
+      "lines": 34
+    }
+  },
+  "regressions": [],
+  "schema_version": 1
+}

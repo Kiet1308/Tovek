@@ -160,6 +160,14 @@ jobs:
             --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --keep "$RUNNER_TEMP/roadmap-v2" --determinism
 
+      - name: V2 optional SSA lineage and metadata determinism
+        run: |
+          python3 scripts/provenance_fixtures.py \
+            --fixtures-report "$RUNNER_TEMP/roadmap-v2.json" \
+            --lifter target/release/luau-lifter \
+            --report "$RUNNER_TEMP/roadmap-v2-lineage.json" \
+            --keep "$RUNNER_TEMP/roadmap-v2-lineage"
+
       - name: V2 seeded programs and bounded failure reduction
         run: |
           python3 scripts/generated_roundtrip.py \
@@ -214,6 +222,7 @@ jobs:
             ${{ runner.temp }}/bytecode-roundtrip-*.md
             ${{ runner.temp }}/output-size.json
             ${{ runner.temp }}/roadmap-v2.json
+            ${{ runner.temp }}/roadmap-v2-lineage.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau
             ${{ runner.temp }}/roadmap-v2-generated.json
             ${{ runner.temp }}/roadmap-v2-generated/**/*.luau

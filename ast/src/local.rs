@@ -16,7 +16,40 @@ use triomphe::Arc;
 /// so the AST namer can consult it as the lowest-priority evidence once every
 /// usage-based hint has had its chance.
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
-pub struct Local(pub Option<String>, pub Option<String>, pub Vec<SourceBinding>);
+pub struct Local(pub Option<String>, pub Option<String>, pub Vec<SourceBinding>, pub Option<Box<BindingLineage>>);
+
+/// Diagnostic ancestry of storage/SSA identities, not an equality or lifetime
+/// certificate. IDs are scoped to one decompilation. An incomplete set may be
+/// displayed, but must never be used to justify a rewrite.
+#[derive(Debug, Default, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub struct BindingLineage {
+    pub definitions: Vec<u64>,
+    pub incomplete: bool,
+}
+
+impl BindingLineage {
+    pub const LIMIT: usize = 256;
+
+    pub fn add(&mut self, id: u64) {
+        if let Err(index) = self.definitions.binary_search(&id) {
+            if self.definitions.len() < Self::LIMIT {
+                self.definitions.insert(index, id);
+            } else {
+                self.incomplete = true;
+                // A bounded union must be independent of local-map iteration.
+                if index < Self::LIMIT {
+                    self.definitions.insert(index, id);
+                    self.definitions.pop();
+                }
+            }
+        }
+    }
+
+    fn inherit(&mut self, other: &Self) {
+        self.incomplete |= other.incomplete;
+        for &id in &other.definitions { self.add(id); }
+    }
+}
 
 /// Compiler-recorded identity, independent of spelling and SSA/storage identity.
 /// Several origins are retained when a mandatory local map merges evidence.
@@ -66,18 +99,18 @@ pub fn assignment_preserves_function_name(statement: &crate::Statement, local: &
 
 impl From<Option<String>> for Local {
     fn from(name: Option<String>) -> Self {
-        Self(name, None, Vec::new())
+        Self(name, None, Vec::new(), None)
     }
 }
 
 impl Local {
     pub fn new(name: Option<String>) -> Self {
-        Self(name, None, Vec::new())
+        Self(name, None, Vec::new(), None)
     }
 
     /// An unnamed local carrying a bytecode-type naming hint.
     pub fn with_type_hint(hint: String) -> Self {
-        Self(None, Some(hint), Vec::new())
+        Self(None, Some(hint), Vec::new(), None)
     }
 
     /// The bytecode-type naming hint, if any.
@@ -266,10 +299,26 @@ impl RcLocal {
 
     pub fn inherit_source_bindings(&self, other: &Self) {
         if self == other { return; }
-        let evidence = other.0.lock().2.clone();
-        if evidence.is_empty() { return; }
+        let (evidence, lineage) = {
+            let local = other.0.lock();
+            (local.2.clone(), local.3.clone())
+        };
+        if evidence.is_empty() && lineage.is_none() { return; }
         let mut local = self.0.lock();
         for binding in evidence { local.add_source_binding(binding); }
+        if let Some(lineage) = lineage {
+            local.3.get_or_insert_with(Default::default).inherit(&lineage);
+        }
+    }
+
+    /// Enable diagnostic lineage for a newly recorded definition. This does
+    /// not allocate another RcLocal or promote its source/capture evidence.
+    pub fn record_definition_lineage(&self) {
+        self.0.lock().3.get_or_insert_with(Default::default).add(self.stable_id());
+    }
+
+    pub fn mark_lineage_incomplete(&self) {
+        self.0.lock().3.get_or_insert_with(Default::default).incomplete = true;
     }
 
     pub fn source_bindings_compatible(&self, other: &Self) -> bool {

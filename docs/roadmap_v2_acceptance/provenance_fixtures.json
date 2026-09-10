@@ -1,0 +1,2998 @@
+{
+ "schema_version": 1,
+ "lifter_sha256": "5afdfdf637d87d86daeb5211579bdf0c5a88e0d75a609e3229e0e4105edf5327",
+ "input_report_sha256": "6f83b8a2b420bd0d5f8192c6ff156f0b7ae6d3f451c6dc6649e51f1b06376a6f",
+ "work": "D:\\Medal\\medal-decompiler\\out\\v2-provenance-final-traces\\lineage-v34efqus",
+ "dataset": "runtime_fixtures",
+ "input_summary": {
+  "total": 90,
+  "status": {
+   "passed": 90
+  },
+  "dataflow": {
+   "proved": 44,
+   "unknown": 32,
+   "different": 14
+  },
+  "controls": {
+   "passed": 9
+  },
+  "groups": {
+   "UI": {
+    "passed": 12
+   },
+   "buffer/math": {
+    "passed": 6
+   },
+   "conditional": {
+    "passed": 12
+   },
+   "formatter": {
+    "passed": 12
+   },
+   "loop/capture": {
+    "passed": 18
+   },
+   "naming/capture": {
+    "passed": 30
+   }
+  }
+ },
+ "mode_timings": [
+  {
+   "mode": "analysis",
+   "threads": 1,
+   "seconds": 0.475293800001964
+  },
+  {
+   "mode": "trace1",
+   "threads": 1,
+   "seconds": 0.5342125999741256
+  },
+  {
+   "mode": "trace4",
+   "threads": 4,
+   "seconds": 0.2968538000714034
+  }
+ ],
+ "metadata_deterministic_threads_1_4": true,
+ "audit": {
+  "schema_version": 1,
+  "summary": {
+   "scripts": 90,
+   "source_files": 90,
+   "source_set_equal": true,
+   "source_files_changed": 0,
+   "status": {
+    "passed": 90
+   },
+   "conditional_result_records": 111,
+   "definitions": 2410,
+   "definitions_with_final_binding_ancestry": 1417,
+   "dropped_records": 0,
+   "final_bindings": 454,
+   "functions": 266,
+   "incomplete_lineages": 0,
+   "lifted_statements": 1906,
+   "statements_with_pc": 1906,
+   "unlocated_final_bindings": 0
+  },
+  "before_manifest_sha256": "1e2cdded699ca1231a523ec91f461f4b7337974a07326d7f116c1e147d6527d8",
+  "after_manifest_sha256": "d2a981fcf51df3e4ee9f2588ec2c1b8a2db0b06df18cde9b6a846cc225a2f260",
+  "changed_sources": [],
+  "rows": [
+   {
+    "script_path": "binding_scopes_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 31,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 5,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 32,
+     "statements_with_pc": 32,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "binding_scopes_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 31,
+     "definitions_with_final_binding_ancestry": 20,
+     "dropped_records": 0,
+     "final_bindings": 9,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 32,
+     "statements_with_pc": 32,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "binding_scopes_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 26,
+     "definitions_with_final_binding_ancestry": 15,
+     "dropped_records": 0,
+     "final_bindings": 5,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 27,
+     "statements_with_pc": 27,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "binding_scopes_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 26,
+     "definitions_with_final_binding_ancestry": 19,
+     "dropped_records": 0,
+     "final_bindings": 8,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 27,
+     "statements_with_pc": 27,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "binding_scopes_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 26,
+     "definitions_with_final_binding_ancestry": 15,
+     "dropped_records": 0,
+     "final_bindings": 5,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 27,
+     "statements_with_pc": 27,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "binding_scopes_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 26,
+     "definitions_with_final_binding_ancestry": 19,
+     "dropped_records": 0,
+     "final_bindings": 8,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 27,
+     "statements_with_pc": 27,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "branch_ui_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 5,
+     "definitions": 30,
+     "definitions_with_final_binding_ancestry": 20,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 22,
+     "statements_with_pc": 22,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "branch_ui_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 5,
+     "definitions": 30,
+     "definitions_with_final_binding_ancestry": 20,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 22,
+     "statements_with_pc": 22,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "branch_ui_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 5,
+     "definitions": 27,
+     "definitions_with_final_binding_ancestry": 20,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 18,
+     "statements_with_pc": 18,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "branch_ui_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 5,
+     "definitions": 27,
+     "definitions_with_final_binding_ancestry": 20,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 18,
+     "statements_with_pc": 18,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "branch_ui_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 5,
+     "definitions": 27,
+     "definitions_with_final_binding_ancestry": 20,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 18,
+     "statements_with_pc": 18,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "branch_ui_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 5,
+     "definitions": 27,
+     "definitions_with_final_binding_ancestry": 20,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 18,
+     "statements_with_pc": 18,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "cell_after_join_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 3,
+     "definitions": 49,
+     "definitions_with_final_binding_ancestry": 31,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 7,
+     "incomplete_lineages": 0,
+     "lifted_statements": 45,
+     "statements_with_pc": 45,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "cell_after_join_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 3,
+     "definitions": 49,
+     "definitions_with_final_binding_ancestry": 31,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 7,
+     "incomplete_lineages": 0,
+     "lifted_statements": 45,
+     "statements_with_pc": 45,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "cell_after_join_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 3,
+     "definitions": 47,
+     "definitions_with_final_binding_ancestry": 31,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 7,
+     "incomplete_lineages": 0,
+     "lifted_statements": 43,
+     "statements_with_pc": 43,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "cell_after_join_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 3,
+     "definitions": 47,
+     "definitions_with_final_binding_ancestry": 31,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 7,
+     "incomplete_lineages": 0,
+     "lifted_statements": 43,
+     "statements_with_pc": 43,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "cell_after_join_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 3,
+     "definitions": 53,
+     "definitions_with_final_binding_ancestry": 33,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 8,
+     "incomplete_lineages": 0,
+     "lifted_statements": 52,
+     "statements_with_pc": 52,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "cell_after_join_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 3,
+     "definitions": 53,
+     "definitions_with_final_binding_ancestry": 34,
+     "dropped_records": 0,
+     "final_bindings": 8,
+     "functions": 8,
+     "incomplete_lineages": 0,
+     "lifted_statements": 52,
+     "statements_with_pc": 52,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 3,
+     "definitions": 17,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 4,
+     "definitions": 17,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 1,
+     "definitions": 15,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 2,
+     "definitions": 15,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 1,
+     "definitions": 15,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 2,
+     "definitions": 15,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_contexts_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 7,
+     "definitions": 38,
+     "definitions_with_final_binding_ancestry": 26,
+     "dropped_records": 0,
+     "final_bindings": 5,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 29,
+     "statements_with_pc": 29,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_contexts_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 7,
+     "definitions": 38,
+     "definitions_with_final_binding_ancestry": 26,
+     "dropped_records": 0,
+     "final_bindings": 5,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 29,
+     "statements_with_pc": 29,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_contexts_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 4,
+     "definitions": 37,
+     "definitions_with_final_binding_ancestry": 23,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 30,
+     "statements_with_pc": 30,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_contexts_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 4,
+     "definitions": 37,
+     "definitions_with_final_binding_ancestry": 23,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 30,
+     "statements_with_pc": 30,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_contexts_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 4,
+     "definitions": 37,
+     "definitions_with_final_binding_ancestry": 23,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 30,
+     "statements_with_pc": 30,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "conditional_contexts_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 4,
+     "definitions": 37,
+     "definitions_with_final_binding_ancestry": 23,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 30,
+     "statements_with_pc": 30,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_identifier_safety_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 23,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 13,
+     "statements_with_pc": 13,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_identifier_safety_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 23,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 13,
+     "statements_with_pc": 13,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_identifier_safety_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 23,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 13,
+     "statements_with_pc": 13,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_identifier_safety_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 23,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 13,
+     "statements_with_pc": 13,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_identifier_safety_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 24,
+     "definitions_with_final_binding_ancestry": 14,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 14,
+     "statements_with_pc": 14,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_identifier_safety_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 24,
+     "definitions_with_final_binding_ancestry": 14,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 14,
+     "statements_with_pc": 14,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_names_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 16,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_names_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 16,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_names_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 16,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_names_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 16,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_names_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 16,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "debug_names_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 16,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "helper_loop_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 51,
+     "definitions_with_final_binding_ancestry": 27,
+     "dropped_records": 0,
+     "final_bindings": 8,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 30,
+     "statements_with_pc": 30,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "helper_loop_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 51,
+     "definitions_with_final_binding_ancestry": 28,
+     "dropped_records": 0,
+     "final_bindings": 8,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 30,
+     "statements_with_pc": 30,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "helper_loop_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 49,
+     "definitions_with_final_binding_ancestry": 27,
+     "dropped_records": 0,
+     "final_bindings": 8,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 28,
+     "statements_with_pc": 28,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "helper_loop_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 49,
+     "definitions_with_final_binding_ancestry": 28,
+     "dropped_records": 0,
+     "final_bindings": 8,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 28,
+     "statements_with_pc": 28,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "helper_loop_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 5,
+     "definitions": 42,
+     "definitions_with_final_binding_ancestry": 20,
+     "dropped_records": 0,
+     "final_bindings": 8,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 32,
+     "statements_with_pc": 32,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "helper_loop_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 5,
+     "definitions": 42,
+     "definitions_with_final_binding_ancestry": 24,
+     "dropped_records": 0,
+     "final_bindings": 12,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 32,
+     "statements_with_pc": 32,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "literal_bytes_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 9,
+     "definitions_with_final_binding_ancestry": 0,
+     "dropped_records": 0,
+     "final_bindings": 0,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 12,
+     "statements_with_pc": 12,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "literal_bytes_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 9,
+     "definitions_with_final_binding_ancestry": 0,
+     "dropped_records": 0,
+     "final_bindings": 0,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 12,
+     "statements_with_pc": 12,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "literal_bytes_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 9,
+     "definitions_with_final_binding_ancestry": 0,
+     "dropped_records": 0,
+     "final_bindings": 0,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 12,
+     "statements_with_pc": 12,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "literal_bytes_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 9,
+     "definitions_with_final_binding_ancestry": 0,
+     "dropped_records": 0,
+     "final_bindings": 0,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 12,
+     "statements_with_pc": 12,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "literal_bytes_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 9,
+     "definitions_with_final_binding_ancestry": 0,
+     "dropped_records": 0,
+     "final_bindings": 0,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 12,
+     "statements_with_pc": 12,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "literal_bytes_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 9,
+     "definitions_with_final_binding_ancestry": 0,
+     "dropped_records": 0,
+     "final_bindings": 0,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 12,
+     "statements_with_pc": 12,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "parameter_write_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 2,
+     "definitions": 21,
+     "definitions_with_final_binding_ancestry": 14,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 16,
+     "statements_with_pc": 16,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "parameter_write_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 2,
+     "definitions": 21,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 16,
+     "statements_with_pc": 16,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "parameter_write_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 2,
+     "definitions": 18,
+     "definitions_with_final_binding_ancestry": 14,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 13,
+     "statements_with_pc": 13,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "parameter_write_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 2,
+     "definitions": 18,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 13,
+     "statements_with_pc": 13,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "parameter_write_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 1,
+     "definitions": 16,
+     "definitions_with_final_binding_ancestry": 9,
+     "dropped_records": 0,
+     "final_bindings": 2,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 13,
+     "statements_with_pc": 13,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "parameter_write_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 1,
+     "definitions": 16,
+     "definitions_with_final_binding_ancestry": 11,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 13,
+     "statements_with_pc": 13,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "scope_names_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 33,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 5,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 15,
+     "statements_with_pc": 15,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "scope_names_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 33,
+     "definitions_with_final_binding_ancestry": 19,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 15,
+     "statements_with_pc": 15,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "scope_names_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 33,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 5,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 15,
+     "statements_with_pc": 15,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "scope_names_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 33,
+     "definitions_with_final_binding_ancestry": 19,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 15,
+     "statements_with_pc": 15,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "scope_names_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 33,
+     "definitions_with_final_binding_ancestry": 16,
+     "dropped_records": 0,
+     "final_bindings": 5,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 15,
+     "statements_with_pc": 15,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "scope_names_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 33,
+     "definitions_with_final_binding_ancestry": 19,
+     "dropped_records": 0,
+     "final_bindings": 7,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 15,
+     "statements_with_pc": 15,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "shadow_capture_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 18,
+     "definitions_with_final_binding_ancestry": 9,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 20,
+     "statements_with_pc": 20,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "shadow_capture_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 18,
+     "definitions_with_final_binding_ancestry": 9,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 20,
+     "statements_with_pc": 20,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "shadow_capture_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 14,
+     "definitions_with_final_binding_ancestry": 9,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 16,
+     "statements_with_pc": 16,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "shadow_capture_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 14,
+     "definitions_with_final_binding_ancestry": 9,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 16,
+     "statements_with_pc": 16,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "shadow_capture_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 14,
+     "definitions_with_final_binding_ancestry": 9,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 16,
+     "statements_with_pc": 16,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "shadow_capture_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 14,
+     "definitions_with_final_binding_ancestry": 9,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 4,
+     "incomplete_lineages": 0,
+     "lifted_statements": 16,
+     "statements_with_pc": 16,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "ui_builder_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 28,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 26,
+     "statements_with_pc": 26,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "ui_builder_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 28,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 26,
+     "statements_with_pc": 26,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "ui_builder_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 22,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 18,
+     "statements_with_pc": 18,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "ui_builder_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 22,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 18,
+     "statements_with_pc": 18,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "ui_builder_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 22,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 18,
+     "statements_with_pc": 18,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "ui_builder_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 22,
+     "definitions_with_final_binding_ancestry": 13,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 18,
+     "statements_with_pc": 18,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "unrolled_effects_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 23,
+     "definitions_with_final_binding_ancestry": 11,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "unrolled_effects_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 23,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "unrolled_effects_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 23,
+     "definitions_with_final_binding_ancestry": 11,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "unrolled_effects_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 23,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 3,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "unrolled_effects_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 12,
+     "definitions_with_final_binding_ancestry": 2,
+     "dropped_records": 0,
+     "final_bindings": 1,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 12,
+     "statements_with_pc": 12,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "unrolled_effects_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 12,
+     "definitions_with_final_binding_ancestry": 7,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 2,
+     "incomplete_lineages": 0,
+     "lifted_statements": 12,
+     "statements_with_pc": 12,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "wide_layout_O0_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 39,
+     "definitions_with_final_binding_ancestry": 11,
+     "dropped_records": 0,
+     "final_bindings": 2,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 39,
+     "statements_with_pc": 39,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "wide_layout_O0_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 39,
+     "definitions_with_final_binding_ancestry": 19,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 39,
+     "statements_with_pc": 39,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "wide_layout_O1_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 37,
+     "definitions_with_final_binding_ancestry": 11,
+     "dropped_records": 0,
+     "final_bindings": 2,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 37,
+     "statements_with_pc": 37,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "wide_layout_O1_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 37,
+     "definitions_with_final_binding_ancestry": 19,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 37,
+     "statements_with_pc": 37,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "wide_layout_O2_g1.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 37,
+     "definitions_with_final_binding_ancestry": 11,
+     "dropped_records": 0,
+     "final_bindings": 2,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 37,
+     "statements_with_pc": 37,
+     "unlocated_final_bindings": 0
+    }
+   },
+   {
+    "script_path": "wide_layout_O2_g2.lua",
+    "status": "passed",
+    "summary": {
+     "conditional_result_records": 0,
+     "definitions": 37,
+     "definitions_with_final_binding_ancestry": 19,
+     "dropped_records": 0,
+     "final_bindings": 6,
+     "functions": 3,
+     "incomplete_lineages": 0,
+     "lifted_statements": 37,
+     "statements_with_pc": 37,
+     "unlocated_final_bindings": 0
+    }
+   }
+  ],
+  "examples": [
+   {
+    "script_path": "conditional_O2_g1.lua",
+    "trace": {
+     "contract": "Diagnostic ancestry only. Storage coalescing is not value/source-binding equality. No close, ownership, purity or totality certificate is created or transferred by this trace.",
+     "final_bindings": [
+      {
+       "binding_id": "b1099511627784",
+       "has_conditional_result_ancestry": false,
+       "incomplete": false,
+       "lineage": [
+        "b1",
+        "b1099511627783",
+        "b1099511627784"
+       ],
+       "name": "p",
+       "recorded_source_origins": [],
+       "unknown_origins": []
+      },
+      {
+       "binding_id": "b1099511627787",
+       "has_conditional_result_ancestry": true,
+       "incomplete": false,
+       "lineage": [
+        "b2",
+        "b1099511627785",
+        "b1099511627786",
+        "b1099511627787",
+        "b1099511627788",
+        "b1099511627789",
+        "b1099511627791",
+        "b1099511627793"
+       ],
+       "name": "p2",
+       "recorded_source_origins": [],
+       "unknown_origins": []
+      },
+      {
+       "binding_id": "b1099511627796",
+       "has_conditional_result_ancestry": false,
+       "incomplete": false,
+       "lineage": [
+        "b3",
+        "b1099511627794",
+        "b1099511627795",
+        "b1099511627796"
+       ],
+       "name": "p3",
+       "recorded_source_origins": [],
+       "unknown_origins": []
+      }
+     ],
+     "functions": [
+      {
+       "conditional_results": [],
+       "definitions": [
+        {
+         "block": 0,
+         "dependencies": [],
+         "final_bindings": [],
+         "id": "b7",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b0",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "no_final_binding_mapping",
+         "write_index": 0
+        }
+       ],
+       "dropped_records": 0,
+       "function_id": "root:p1",
+       "instruction_count": 3,
+       "lifted_statements": [
+        {
+         "block": 0,
+         "instruction_pcs": [
+          1
+         ],
+         "kind": "assignment",
+         "read_registers": [],
+         "source_lines": [
+          1
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b0"
+         ]
+        },
+        {
+         "block": 0,
+         "instruction_pcs": [
+          2
+         ],
+         "kind": "return",
+         "read_registers": [
+          "b0"
+         ],
+         "source_lines": [
+          1
+         ],
+         "statement_index": 1,
+         "written_registers": []
+        }
+       ],
+       "local_maps": [],
+       "post_destruct_bindings": [],
+       "pre_destruct_bindings": [],
+       "prototype": 1,
+       "registers": [
+        {
+         "final_bindings": [],
+         "id": "b0",
+         "kind": "register",
+         "slot": 0,
+         "source_bindings": []
+        }
+       ]
+      },
+      {
+       "conditional_results": [
+        {
+         "binding_id": "b1099511627788",
+         "branch": 0,
+         "condition_bindings": [
+          "b1099511627783"
+         ],
+         "else_predecessor": 2,
+         "else_value": "b1099511627795",
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "join": 3,
+         "phase": "constructed_ssa",
+         "proof": "two_arm_private_block_join",
+         "then_predecessor": 1,
+         "then_value": "b1099511627786"
+        }
+       ],
+       "definitions": [
+        {
+         "block": 0,
+         "dependencies": [
+          "b1099511627784"
+         ],
+         "final_bindings": [
+          "b1099511627784"
+         ],
+         "id": "b1099511627783",
+         "kind": "ssa_block_parameter",
+         "original_register": "b1",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 6,
+         "dependencies": [],
+         "final_bindings": [
+          "b1099511627784"
+         ],
+         "id": "b1099511627784",
+         "kind": "ssa_block_parameter",
+         "original_register": "b1",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 1,
+         "dependencies": [
+          "b1099511627787"
+         ],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627785",
+         "kind": "ssa_block_parameter",
+         "original_register": "b2",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 1,
+         "dependencies": [
+          "b1099511627785"
+         ],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627786",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b6",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "mapped_storage_ancestry",
+         "write_index": 0
+        },
+        {
+         "block": 6,
+         "dependencies": [],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627787",
+         "kind": "ssa_block_parameter",
+         "original_register": "b2",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 3,
+         "dependencies": [
+          "b1099511627786",
+          "b1099511627795"
+         ],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627788",
+         "kind": "ssa_block_parameter",
+         "original_register": "b6",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 3,
+         "dependencies": [
+          "b1099511627788"
+         ],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627789",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b5",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "mapped_storage_ancestry",
+         "write_index": 0
+        },
+        {
+         "block": 5,
+         "dependencies": [],
+         "final_bindings": [],
+         "id": "b1099511627790",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b4",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "no_final_binding_mapping",
+         "write_index": 0
+        },
+        {
+         "block": 5,
+         "dependencies": [
+          "b1099511627789"
+         ],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627791",
+         "kind": "ssa_block_parameter",
+         "original_register": "b5",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 4,
+         "dependencies": [],
+         "final_bindings": [],
+         "id": "b1099511627792",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b4",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "no_final_binding_mapping",
+         "write_index": 0
+        },
+        {
+         "block": 4,
+         "dependencies": [
+          "b1099511627789"
+         ],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627793",
+         "kind": "ssa_block_parameter",
+         "original_register": "b5",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 2,
+         "dependencies": [
+          "b1099511627796"
+         ],
+         "final_bindings": [
+          "b1099511627796"
+         ],
+         "id": "b1099511627794",
+         "kind": "ssa_block_parameter",
+         "original_register": "b3",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 2,
+         "dependencies": [
+          "b1099511627794"
+         ],
+         "final_bindings": [
+          "b1099511627796"
+         ],
+         "id": "b1099511627795",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b6",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "mapped_storage_ancestry",
+         "write_index": 0
+        },
+        {
+         "block": 6,
+         "dependencies": [],
+         "final_bindings": [
+          "b1099511627796"
+         ],
+         "id": "b1099511627796",
+         "kind": "ssa_block_parameter",
+         "original_register": "b3",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        }
+       ],
+       "dropped_records": 0,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_count": 11,
+       "lifted_statements": [
+        {
+         "block": 0,
+         "instruction_pcs": [
+          0
+         ],
+         "kind": "branch",
+         "read_registers": [
+          "b1"
+         ],
+         "source_lines": [
+          2
+         ],
+         "statement_index": 0,
+         "written_registers": []
+        },
+        {
+         "block": 1,
+         "instruction_pcs": [
+          1
+         ],
+         "kind": "assignment",
+         "read_registers": [
+          "b2"
+         ],
+         "source_lines": [
+          2
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b6"
+         ]
+        },
+        {
+         "block": 2,
+         "instruction_pcs": [
+          3
+         ],
+         "kind": "assignment",
+         "read_registers": [
+          "b3"
+         ],
+         "source_lines": [
+          2
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b6"
+         ]
+        },
+        {
+         "block": 3,
+         "instruction_pcs": [
+          4
+         ],
+         "kind": "assignment",
+         "read_registers": [
+          "b6"
+         ],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b5"
+         ]
+        },
+        {
+         "block": 3,
+         "instruction_pcs": [
+          5
+         ],
+         "kind": "branch",
+         "read_registers": [
+          "b6"
+         ],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 1,
+         "written_registers": []
+        },
+        {
+         "block": 4,
+         "instruction_pcs": [
+          7
+         ],
+         "kind": "assignment",
+         "read_registers": [],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b4"
+         ]
+        },
+        {
+         "block": 4,
+         "instruction_pcs": [
+          8
+         ],
+         "kind": "return",
+         "read_registers": [
+          "b5",
+          "b4"
+         ],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 1,
+         "written_registers": []
+        },
+        {
+         "block": 5,
+         "instruction_pcs": [
+          9
+         ],
+         "kind": "assignment",
+         "read_registers": [],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b4"
+         ]
+        },
+        {
+         "block": 5,
+         "instruction_pcs": [
+          10
+         ],
+         "kind": "return",
+         "read_registers": [
+          "b5",
+          "b4"
+         ],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 1,
+         "written_registers": []
+        }
+       ],
+       "local_maps": [
+        {
+         "from": "b1099511627786",
+         "phase": "ssa_construction",
+         "to": "b1099511627785"
+        },
+        {
+         "from": "b1099511627789",
+         "phase": "ssa_construction",
+         "to": "b1099511627788"
+        },
+        {
+         "from": "b1099511627795",
+         "phase": "ssa_construction",
+         "to": "b1099511627794"
+        },
+        {
+         "from": "b1099511627783",
+         "phase": "ssa_construction",
+         "to": "b1099511627784"
+        },
+        {
+         "from": "b1099511627785",
+         "phase": "ssa_construction",
+         "to": "b1099511627787"
+        },
+        {
+         "from": "b1099511627791",
+         "phase": "ssa_construction",
+         "to": "b1099511627788"
+        },
+        {
+         "from": "b1099511627793",
+         "phase": "ssa_construction",
+         "to": "b1099511627788"
+        },
+        {
+         "from": "b1099511627794",
+         "phase": "ssa_construction",
+         "to": "b1099511627796"
+        },
+        {
+         "from": "b1099511627788",
+         "phase": "ssa_destruction",
+         "to": "b1099511627787"
+        },
+        {
+         "from": "b1099511627797",
+         "phase": "ssa_destruction",
+         "to": "b1099511627787"
+        },
+        {
+         "from": "b1099511627798",
+         "phase": "ssa_destruction",
+         "to": "b1099511627787"
+        },
+        {
+         "from": "b1099511627799",
+         "phase": "ssa_destruction",
+         "to": "b1099511627787"
+        }
+       ],
+       "post_destruct_bindings": [
+        "b1099511627784",
+        "b1099511627787",
+        "b1099511627796"
+       ],
+       "pre_destruct_bindings": [
+        "b1099511627784",
+        "b1099511627787",
+        "b1099511627788",
+        "b1099511627796"
+       ],
+       "prototype": 0,
+       "registers": [
+        {
+         "final_bindings": [
+          "b1099511627784"
+         ],
+         "id": "b1",
+         "kind": "parameter",
+         "slot": 0,
+         "source_bindings": []
+        },
+        {
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b2",
+         "kind": "parameter",
+         "slot": 1,
+         "source_bindings": []
+        },
+        {
+         "final_bindings": [
+          "b1099511627796"
+         ],
+         "id": "b3",
+         "kind": "parameter",
+         "slot": 2,
+         "source_bindings": []
+        },
+        {
+         "final_bindings": [],
+         "id": "b4",
+         "kind": "register",
+         "slot": 5,
+         "source_bindings": []
+        },
+        {
+         "final_bindings": [],
+         "id": "b5",
+         "kind": "register",
+         "slot": 4,
+         "source_bindings": []
+        },
+        {
+         "final_bindings": [],
+         "id": "b6",
+         "kind": "register",
+         "slot": 3,
+         "source_bindings": []
+        }
+       ]
+      }
+     ],
+     "limitations": "An absent direct mapping does not distinguish inlining, dead code, cloning or synthesis. Conditional results are retained as statements; the trace does not authorize eager evaluation or change source naming. Arbitrary value/output-span provenance and pass-complete invalidation remain open.",
+     "limits": {
+      "ancestry_per_binding": 256,
+      "records_per_function": 50000
+     },
+     "model": "ssa-storage-lineage-v1",
+     "origin_granularity": "input instruction clusters per lifted statement and SSA definition write slot; nested value locations and final text spans are not inferred",
+     "schema_version": 1,
+     "summary": {
+      "conditional_result_records": 1,
+      "definitions": 15,
+      "definitions_with_final_binding_ancestry": 12,
+      "dropped_records": 0,
+      "final_bindings": 3,
+      "functions": 2,
+      "incomplete_lineages": 0,
+      "lifted_statements": 11,
+      "statements_with_pc": 11,
+      "unlocated_final_bindings": 0
+     }
+    }
+   },
+   {
+    "script_path": "conditional_O2_g2.lua",
+    "trace": {
+     "contract": "Diagnostic ancestry only. Storage coalescing is not value/source-binding equality. No close, ownership, purity or totality certificate is created or transferred by this trace.",
+     "final_bindings": [
+      {
+       "binding_id": "b1099511627784",
+       "has_conditional_result_ancestry": false,
+       "incomplete": false,
+       "lineage": [
+        "b1",
+        "b1099511627783",
+        "b1099511627784"
+       ],
+       "name": "condition",
+       "recorded_source_origins": [
+        {
+         "end_pc": 11,
+         "kind": "debug_local",
+         "prototype": 0,
+         "register": 0,
+         "start_pc": 0
+        }
+       ],
+       "unknown_origins": []
+      },
+      {
+       "binding_id": "b1099511627787",
+       "has_conditional_result_ancestry": false,
+       "incomplete": false,
+       "lineage": [
+        "b2",
+        "b1099511627785",
+        "b1099511627786",
+        "b1099511627787"
+       ],
+       "name": "primary",
+       "recorded_source_origins": [
+        {
+         "end_pc": 11,
+         "kind": "debug_local",
+         "prototype": 0,
+         "register": 1,
+         "start_pc": 0
+        }
+       ],
+       "unknown_origins": []
+      },
+      {
+       "binding_id": "b1099511627795",
+       "has_conditional_result_ancestry": true,
+       "incomplete": false,
+       "lineage": [
+        "b1099511627788",
+        "b1099511627789",
+        "b1099511627791",
+        "b1099511627793",
+        "b1099511627795"
+       ],
+       "name": "selected",
+       "recorded_source_origins": [
+        {
+         "end_pc": 11,
+         "kind": "debug_local",
+         "prototype": 0,
+         "register": 3,
+         "start_pc": 4
+        }
+       ],
+       "unknown_origins": []
+      },
+      {
+       "binding_id": "b1099511627796",
+       "has_conditional_result_ancestry": false,
+       "incomplete": false,
+       "lineage": [
+        "b3",
+        "b1099511627794",
+        "b1099511627796"
+       ],
+       "name": "fallback",
+       "recorded_source_origins": [
+        {
+         "end_pc": 11,
+         "kind": "debug_local",
+         "prototype": 0,
+         "register": 2,
+         "start_pc": 0
+        }
+       ],
+       "unknown_origins": []
+      }
+     ],
+     "functions": [
+      {
+       "conditional_results": [],
+       "definitions": [
+        {
+         "block": 0,
+         "dependencies": [],
+         "final_bindings": [],
+         "id": "b7",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b0",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "no_final_binding_mapping",
+         "write_index": 0
+        }
+       ],
+       "dropped_records": 0,
+       "function_id": "root:p1",
+       "instruction_count": 3,
+       "lifted_statements": [
+        {
+         "block": 0,
+         "instruction_pcs": [
+          1
+         ],
+         "kind": "assignment",
+         "read_registers": [],
+         "source_lines": [
+          1
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b0"
+         ]
+        },
+        {
+         "block": 0,
+         "instruction_pcs": [
+          2
+         ],
+         "kind": "return",
+         "read_registers": [
+          "b0"
+         ],
+         "source_lines": [
+          1
+         ],
+         "statement_index": 1,
+         "written_registers": []
+        }
+       ],
+       "local_maps": [],
+       "post_destruct_bindings": [],
+       "pre_destruct_bindings": [],
+       "prototype": 1,
+       "registers": [
+        {
+         "final_bindings": [],
+         "id": "b0",
+         "kind": "register",
+         "slot": 0,
+         "source_bindings": []
+        }
+       ]
+      },
+      {
+       "conditional_results": [
+        {
+         "binding_id": "b1099511627788",
+         "branch": 0,
+         "condition_bindings": [
+          "b1099511627783"
+         ],
+         "else_predecessor": 2,
+         "else_value": "b1099511627795",
+         "final_bindings": [
+          "b1099511627795"
+         ],
+         "join": 3,
+         "phase": "constructed_ssa",
+         "proof": "two_arm_private_block_join",
+         "then_predecessor": 1,
+         "then_value": "b1099511627786"
+        },
+        {
+         "binding_id": "b1099511627788",
+         "branch": 6,
+         "condition_bindings": [
+          "b1099511627784"
+         ],
+         "else_predecessor": 2,
+         "else_value": "b1099511627795",
+         "final_bindings": [
+          "b1099511627795"
+         ],
+         "join": 3,
+         "phase": "pre_destruct",
+         "proof": "two_arm_private_block_join",
+         "then_predecessor": 6,
+         "then_value": "b1099511627787"
+        }
+       ],
+       "definitions": [
+        {
+         "block": 0,
+         "dependencies": [
+          "b1099511627784"
+         ],
+         "final_bindings": [
+          "b1099511627784"
+         ],
+         "id": "b1099511627783",
+         "kind": "ssa_block_parameter",
+         "original_register": "b1",
+         "source_bindings": [
+          {
+           "name": "condition",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 0,
+            "start_pc": 0
+           }
+          }
+         ],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 6,
+         "dependencies": [],
+         "final_bindings": [
+          "b1099511627784"
+         ],
+         "id": "b1099511627784",
+         "kind": "ssa_block_parameter",
+         "original_register": "b1",
+         "source_bindings": [
+          {
+           "name": "condition",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 0,
+            "start_pc": 0
+           }
+          }
+         ],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 1,
+         "dependencies": [
+          "b1099511627787"
+         ],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627785",
+         "kind": "ssa_block_parameter",
+         "original_register": "b2",
+         "source_bindings": [
+          {
+           "name": "primary",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 1,
+            "start_pc": 0
+           }
+          }
+         ],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 1,
+         "dependencies": [
+          "b1099511627785"
+         ],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627786",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b6",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "mapped_storage_ancestry",
+         "write_index": 0
+        },
+        {
+         "block": 6,
+         "dependencies": [],
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b1099511627787",
+         "kind": "ssa_block_parameter",
+         "original_register": "b2",
+         "source_bindings": [
+          {
+           "name": "primary",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 1,
+            "start_pc": 0
+           }
+          }
+         ],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 3,
+         "dependencies": [
+          "b1099511627786",
+          "b1099511627795"
+         ],
+         "final_bindings": [
+          "b1099511627795"
+         ],
+         "id": "b1099511627788",
+         "kind": "ssa_block_parameter",
+         "original_register": "b6",
+         "source_bindings": [
+          {
+           "name": "selected",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 3,
+            "start_pc": 4
+           }
+          }
+         ],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 3,
+         "dependencies": [
+          "b1099511627788"
+         ],
+         "final_bindings": [
+          "b1099511627795"
+         ],
+         "id": "b1099511627789",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b5",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "mapped_storage_ancestry",
+         "write_index": 0
+        },
+        {
+         "block": 5,
+         "dependencies": [],
+         "final_bindings": [],
+         "id": "b1099511627790",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b4",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "no_final_binding_mapping",
+         "write_index": 0
+        },
+        {
+         "block": 5,
+         "dependencies": [
+          "b1099511627789"
+         ],
+         "final_bindings": [
+          "b1099511627795"
+         ],
+         "id": "b1099511627791",
+         "kind": "ssa_block_parameter",
+         "original_register": "b5",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 4,
+         "dependencies": [],
+         "final_bindings": [],
+         "id": "b1099511627792",
+         "kind": "unclassified_ssa_definition",
+         "original_register": "b4",
+         "source_bindings": [],
+         "statement_index": 0,
+         "status": "no_final_binding_mapping",
+         "write_index": 0
+        },
+        {
+         "block": 4,
+         "dependencies": [
+          "b1099511627789"
+         ],
+         "final_bindings": [
+          "b1099511627795"
+         ],
+         "id": "b1099511627793",
+         "kind": "ssa_block_parameter",
+         "original_register": "b5",
+         "source_bindings": [],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 2,
+         "dependencies": [
+          "b1099511627796"
+         ],
+         "final_bindings": [
+          "b1099511627796"
+         ],
+         "id": "b1099511627794",
+         "kind": "ssa_block_parameter",
+         "original_register": "b3",
+         "source_bindings": [
+          {
+           "name": "fallback",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 2,
+            "start_pc": 0
+           }
+          }
+         ],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        },
+        {
+         "block": 2,
+         "dependencies": [
+          "b1099511627794"
+         ],
+         "final_bindings": [
+          "b1099511627795"
+         ],
+         "id": "b1099511627795",
+         "kind": "recorded_source_definition",
+         "original_register": "b6",
+         "source_bindings": [
+          {
+           "name": "selected",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 3,
+            "start_pc": 4
+           }
+          }
+         ],
+         "statement_index": 0,
+         "status": "mapped_storage_ancestry",
+         "write_index": 0
+        },
+        {
+         "block": 6,
+         "dependencies": [],
+         "final_bindings": [
+          "b1099511627796"
+         ],
+         "id": "b1099511627796",
+         "kind": "ssa_block_parameter",
+         "original_register": "b3",
+         "source_bindings": [
+          {
+           "name": "fallback",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 2,
+            "start_pc": 0
+           }
+          }
+         ],
+         "statement_index": null,
+         "status": "mapped_storage_ancestry",
+         "write_index": null
+        }
+       ],
+       "dropped_records": 0,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_count": 11,
+       "lifted_statements": [
+        {
+         "block": 0,
+         "instruction_pcs": [
+          0
+         ],
+         "kind": "branch",
+         "read_registers": [
+          "b1"
+         ],
+         "source_lines": [
+          2
+         ],
+         "statement_index": 0,
+         "written_registers": []
+        },
+        {
+         "block": 1,
+         "instruction_pcs": [
+          1
+         ],
+         "kind": "assignment",
+         "read_registers": [
+          "b2"
+         ],
+         "source_lines": [
+          2
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b6"
+         ]
+        },
+        {
+         "block": 2,
+         "instruction_pcs": [
+          3
+         ],
+         "kind": "assignment",
+         "read_registers": [
+          "b3"
+         ],
+         "source_lines": [
+          2
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b6"
+         ]
+        },
+        {
+         "block": 3,
+         "instruction_pcs": [
+          4
+         ],
+         "kind": "assignment",
+         "read_registers": [
+          "b6"
+         ],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b5"
+         ]
+        },
+        {
+         "block": 3,
+         "instruction_pcs": [
+          5
+         ],
+         "kind": "branch",
+         "read_registers": [
+          "b6"
+         ],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 1,
+         "written_registers": []
+        },
+        {
+         "block": 4,
+         "instruction_pcs": [
+          7
+         ],
+         "kind": "assignment",
+         "read_registers": [],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b4"
+         ]
+        },
+        {
+         "block": 4,
+         "instruction_pcs": [
+          8
+         ],
+         "kind": "return",
+         "read_registers": [
+          "b5",
+          "b4"
+         ],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 1,
+         "written_registers": []
+        },
+        {
+         "block": 5,
+         "instruction_pcs": [
+          9
+         ],
+         "kind": "assignment",
+         "read_registers": [],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 0,
+         "written_registers": [
+          "b4"
+         ]
+        },
+        {
+         "block": 5,
+         "instruction_pcs": [
+          10
+         ],
+         "kind": "return",
+         "read_registers": [
+          "b5",
+          "b4"
+         ],
+         "source_lines": [
+          3
+         ],
+         "statement_index": 1,
+         "written_registers": []
+        }
+       ],
+       "local_maps": [
+        {
+         "from": "b1099511627786",
+         "phase": "ssa_construction",
+         "to": "b1099511627785"
+        },
+        {
+         "from": "b1099511627789",
+         "phase": "ssa_construction",
+         "to": "b1099511627788"
+        },
+        {
+         "from": "b1099511627783",
+         "phase": "ssa_construction",
+         "to": "b1099511627784"
+        },
+        {
+         "from": "b1099511627785",
+         "phase": "ssa_construction",
+         "to": "b1099511627787"
+        },
+        {
+         "from": "b1099511627791",
+         "phase": "ssa_construction",
+         "to": "b1099511627788"
+        },
+        {
+         "from": "b1099511627793",
+         "phase": "ssa_construction",
+         "to": "b1099511627788"
+        },
+        {
+         "from": "b1099511627794",
+         "phase": "ssa_construction",
+         "to": "b1099511627796"
+        },
+        {
+         "from": "b1099511627788",
+         "phase": "ssa_destruction",
+         "to": "b1099511627795"
+        },
+        {
+         "from": "b1099511627797",
+         "phase": "ssa_destruction",
+         "to": "b1099511627795"
+        },
+        {
+         "from": "b1099511627798",
+         "phase": "ssa_destruction",
+         "to": "b1099511627795"
+        },
+        {
+         "from": "b1099511627799",
+         "phase": "ssa_destruction",
+         "to": "b1099511627795"
+        }
+       ],
+       "post_destruct_bindings": [
+        "b1099511627784",
+        "b1099511627787",
+        "b1099511627795",
+        "b1099511627796"
+       ],
+       "pre_destruct_bindings": [
+        "b1099511627784",
+        "b1099511627787",
+        "b1099511627788",
+        "b1099511627795",
+        "b1099511627796"
+       ],
+       "prototype": 0,
+       "registers": [
+        {
+         "final_bindings": [
+          "b1099511627784"
+         ],
+         "id": "b1",
+         "kind": "parameter",
+         "slot": 0,
+         "source_bindings": [
+          {
+           "name": "condition",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 0,
+            "start_pc": 0
+           }
+          }
+         ]
+        },
+        {
+         "final_bindings": [
+          "b1099511627787"
+         ],
+         "id": "b2",
+         "kind": "parameter",
+         "slot": 1,
+         "source_bindings": [
+          {
+           "name": "primary",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 1,
+            "start_pc": 0
+           }
+          }
+         ]
+        },
+        {
+         "final_bindings": [
+          "b1099511627796"
+         ],
+         "id": "b3",
+         "kind": "parameter",
+         "slot": 2,
+         "source_bindings": [
+          {
+           "name": "fallback",
+           "origin": {
+            "end_pc": 11,
+            "kind": "debug_local",
+            "prototype": 0,
+            "register": 2,
+            "start_pc": 0
+           }
+          }
+         ]
+        },
+        {
+         "final_bindings": [],
+         "id": "b4",
+         "kind": "register",
+         "slot": 5,
+         "source_bindings": []
+        },
+        {
+         "final_bindings": [],
+         "id": "b5",
+         "kind": "register",
+         "slot": 4,
+         "source_bindings": []
+        },
+        {
+         "final_bindings": [],
+         "id": "b6",
+         "kind": "register",
+         "slot": 3,
+         "source_bindings": []
+        }
+       ]
+      }
+     ],
+     "limitations": "An absent direct mapping does not distinguish inlining, dead code, cloning or synthesis. Conditional results are retained as statements; the trace does not authorize eager evaluation or change source naming. Arbitrary value/output-span provenance and pass-complete invalidation remain open.",
+     "limits": {
+      "ancestry_per_binding": 256,
+      "records_per_function": 50000
+     },
+     "model": "ssa-storage-lineage-v1",
+     "origin_granularity": "input instruction clusters per lifted statement and SSA definition write slot; nested value locations and final text spans are not inferred",
+     "schema_version": 1,
+     "summary": {
+      "conditional_result_records": 2,
+      "definitions": 15,
+      "definitions_with_final_binding_ancestry": 12,
+      "dropped_records": 0,
+      "final_bindings": 4,
+      "functions": 2,
+      "incomplete_lineages": 0,
+      "lifted_statements": 11,
+      "statements_with_pc": 11,
+      "unlocated_final_bindings": 0
+     }
+    }
+   }
+  ],
+  "contract": "Exact source bytes and all prior sidecar fields except analysis identity/options are preserved. Trace checks cover PC bounds, write slots, ID uniqueness and bidirectional ancestry. No semantic proof is inferred from storage lineage."
+ }
+}

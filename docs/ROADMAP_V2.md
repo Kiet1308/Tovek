@@ -311,7 +311,8 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 **Công việc:**
 
-- [ ] Gắn origin ở độ hạt statement/value: prototype, PC range hoặc PC set, vai trò instruction và line range khi có. Origin sinh từ nhiều nơi phải được biểu diễn là nhiều nơi.
+- [x] Nền tảng chẩn đoán: trace tùy chọn từ instruction cluster của statement tới definition SSA và ancestry của binding sau local map/coalescing; giới hạn record/ancestry, báo unknown và kiểm tra determinism. Phạm vi và phần chưa bao phủ được ghi tại [binding provenance](binding_provenance.md).
+- [ ] Gắn origin ở độ hạt statement/value: prototype, PC range hoặc PC set, vai trò instruction và line range khi có. Origin sinh từ nhiều nơi phải được biểu diễn là nhiều nơi. — Đã có statement cluster/SSA write slot; arbitrary nested value còn mở.
 - [ ] Giữ quan hệ definition SSA ↔ register interval ↔ source/debug binding qua inline, clone, phi elimination và local map.
 - [ ] Tạo phân loại local có bằng chứng: parameter, source local đã biết, result của select, iteration binding, capture cell, compiler temporary và synthesized local.
 - [ ] Tách quyết định tái sử dụng storage khỏi quyết định dùng cùng một tên/khai báo nguồn. Áp lực local của Luau vẫn là ràng buộc, nhưng không phải tiêu chí duy nhất.
@@ -353,7 +354,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 **Công việc:**
 
-- [ ] Nhận select/conditional result từ phi và branch region trước out-of-SSA khi có proof. Giữ nguồn gốc result và binding đã biết để phục vụ naming/capture; emitter vẫn chọn statement theo §1.
+- [x] Nhận select/conditional result từ phi và branch region trước out-of-SSA khi có proof. Giữ nguồn gốc result và binding đã biết để phục vụ naming/capture; emitter vẫn chọn statement theo §1. — Phạm vi hiện tại: nhận diện chẩn đoán diamond/triangle với mỗi arm tối đa một private block; lưu ancestry qua destruction trong trace tùy chọn. Chưa dùng trace này để mở rewrite hay suy luận tên mới.
 - [ ] Hạ result dùng nhiều lần thành phép gán trong nhánh, hoặc local riêng được gán bằng `if/else` khi cần. Giữ `return` theo nhánh khi rõ ràng; không tạo initializer `if` expression hay nhân đôi expression có effect để loại local.
 - [ ] Phân tích effect tinh hơn: pure và total, may-throw, table read/write, allocation, call, yield và access tới captured cell. Unknown vẫn là rào cản.
 - [ ] Gắn effect dependency theo vị trí đánh giá callee, argument, LHS base/key, RHS và store. Quyết định inline phải dựa trên quan hệ này.

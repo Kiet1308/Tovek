@@ -26,6 +26,96 @@ pub(crate) fn naming_report(report: ast::refine_names::Report) -> Value {
     })
 }
 
+pub(crate) fn provenance_report(traces: Vec<Box<cfg::provenance::FunctionTrace>>, body: &mut ast::Block) -> Value {
+    let id = |id| format!("b{id}");
+    let ids = |items: &[u64]| items.iter().map(|&item| id(item)).collect::<Vec<_>>();
+    let mut locals = BTreeMap::new();
+    collect(body, &mut locals, &mut BTreeSet::new());
+    let mut emitted_by_origin: BTreeMap<u64, Vec<u64>> = BTreeMap::new();
+    let mut emitted = Vec::new();
+    let mut known_origins = BTreeSet::new();
+    let mut select_origins = BTreeSet::new();
+    for trace in &traces {
+        known_origins.extend(trace.registers.keys().copied());
+        known_origins.extend(trace.definitions.keys().copied());
+        select_origins.extend(trace.selects.iter().map(|select| select.binding));
+    }
+    let mut unlocated = 0;
+    let mut incomplete = 0;
+    for (binding, local) in locals {
+        let local = local.0.lock();
+        if let Some(lineage) = &local.3 {
+            for &origin in &lineage.definitions { emitted_by_origin.entry(origin).or_default().push(binding); }
+            let missing = lineage.definitions.iter().filter(|origin| !known_origins.contains(origin)).copied().collect::<Vec<_>>();
+            incomplete += usize::from(lineage.incomplete || !missing.is_empty());
+            emitted.push(json!({"binding_id": id(binding), "name": local.0, "lineage": ids(&lineage.definitions),
+                "incomplete": lineage.incomplete || !missing.is_empty(), "unknown_origins": ids(&missing),
+                "has_conditional_result_ancestry": lineage.definitions.iter().any(|origin| select_origins.contains(origin)),
+                "recorded_source_origins": local.2.iter().map(|b| origin_json(&b.origin)).collect::<Vec<_>>(),
+            }));
+        } else {
+            unlocated += 1;
+            emitted.push(json!({"binding_id": id(binding), "name": local.0, "lineage": [],
+                "incomplete": true, "reason": "unattributed_or_synthesized_after_ssa"}));
+        }
+    }
+    let mapping = |origin| emitted_by_origin.get(&origin).map(|bindings| ids(bindings)).unwrap_or_default();
+    let mut source_sites = 0;
+    let mut source_sites_with_pc = 0;
+    let mut definition_count = 0;
+    let mut mapped_definitions = 0;
+    let mut dropped_records = 0;
+    let mut select_count = 0;
+    let functions = traces.into_iter().map(|trace| {
+        source_sites += trace.lifted.len();
+        source_sites_with_pc += trace.lifted.values().filter(|site| !site.pcs.is_empty()).count();
+        definition_count += trace.definitions.len();
+        mapped_definitions += trace.definitions.keys().filter(|definition| emitted_by_origin.contains_key(definition)).count();
+        dropped_records += trace.dropped_records;
+        select_count += trace.selects.len();
+        json!({
+            "function_id": trace.function_id, "prototype": trace.prototype,
+            "instruction_count": trace.instruction_count,
+            "dropped_records": trace.dropped_records,
+            "registers": trace.registers.values().map(|r| json!({"id": id(r.id), "slot": r.slot, "kind": r.kind,
+                "source_bindings": r.source_bindings.iter().map(|b| json!({"name": b.name, "origin": origin_json(&b.origin)})).collect::<Vec<_>>(),
+                "final_bindings": mapping(r.id),
+            })).collect::<Vec<_>>(),
+            "lifted_statements": trace.lifted.values().map(|s| json!({
+                "block": s.block, "statement_index": s.index, "instruction_pcs": s.pcs, "source_lines": s.lines,
+                "kind": s.kind, "read_registers": ids(&s.read_registers), "written_registers": ids(&s.written_registers),
+            })).collect::<Vec<_>>(),
+            "definitions": trace.definitions.values().map(|d| json!({"id": id(d.id), "kind": d.kind,
+                "original_register": id(d.register), "block": d.block, "statement_index": d.statement,
+                "write_index": d.write_index, "dependencies": ids(&d.dependencies),
+                "source_bindings": d.source_bindings.iter().map(|b| json!({"name": b.name, "origin": origin_json(&b.origin)})).collect::<Vec<_>>(),
+                "final_bindings": mapping(d.id),
+                "status": if emitted_by_origin.contains_key(&d.id) { "mapped_storage_ancestry" } else { "no_final_binding_mapping" },
+            })).collect::<Vec<_>>(),
+            "local_maps": trace.maps.iter().map(|m| json!({"phase": m.phase, "from": id(m.from), "to": id(m.to)})).collect::<Vec<_>>(),
+            "conditional_results": trace.selects.iter().map(|s| json!({"phase": s.phase,
+                "proof": "two_arm_private_block_join", "branch": s.branch, "join": s.join,
+                "binding_id": id(s.binding), "condition_bindings": ids(&s.condition_bindings),
+                "then_predecessor": s.then_predecessor, "else_predecessor": s.else_predecessor,
+                "then_value": id(s.then_value), "else_value": id(s.else_value), "final_bindings": mapping(s.binding),
+            })).collect::<Vec<_>>(),
+            "pre_destruct_bindings": ids(&trace.pre_destruct_bindings),
+            "post_destruct_bindings": ids(&trace.post_destruct_bindings),
+        })
+    }).collect::<Vec<_>>();
+    json!({"schema_version": 1, "model": "ssa-storage-lineage-v1",
+        "limits": {"records_per_function": cfg::provenance::RECORD_LIMIT, "ancestry_per_binding": ast::BindingLineage::LIMIT},
+        "origin_granularity": "input instruction clusters per lifted statement and SSA definition write slot; nested value locations and final text spans are not inferred",
+        "contract": "Diagnostic ancestry only. Storage coalescing is not value/source-binding equality. No close, ownership, purity or totality certificate is created or transferred by this trace.",
+        "summary": {"functions": functions.len(), "lifted_statements": source_sites, "statements_with_pc": source_sites_with_pc,
+            "definitions": definition_count, "definitions_with_final_binding_ancestry": mapped_definitions,
+            "final_bindings": emitted.len(), "unlocated_final_bindings": unlocated, "incomplete_lineages": incomplete,
+            "conditional_result_records": select_count, "dropped_records": dropped_records},
+        "functions": functions, "final_bindings": emitted,
+        "limitations": "An absent direct mapping does not distinguish inlining, dead code, cloning or synthesis. Conditional results are retained as statements; the trace does not authorize eager evaluation or change source naming. Arbitrary value/output-span provenance and pass-complete invalidation remain open.",
+    })
+}
+
 fn collect(
     block: &mut ast::Block,
     locals: &mut BTreeMap<u64, RcLocal>,

@@ -57,6 +57,8 @@ pub struct Function {
     /// allocating a private iteration local, if no earlier/inside capture can
     /// observe the delayed export. Empty for callers without this provenance.
     pub local_capture_bindings: FxHashSet<RcLocal>,
+    /// Optional diagnostic history, containing IDs rather than RcLocal owners.
+    pub provenance: Option<Box<crate::provenance::FunctionTrace>>,
 }
 
 impl Function {
@@ -75,6 +77,7 @@ impl Function {
             iteration_capture_proofs: FxHashMap::default(),
             iteration_capture_obligations: FxHashMap::default(),
             local_capture_bindings: FxHashSet::default(),
+            provenance: None,
         }
     }
 

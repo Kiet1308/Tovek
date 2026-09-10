@@ -3,6 +3,97 @@
 This record distinguishes implemented gates from the research roadmap's wider
 acceptance criteria. The baseline is not an overall source-recovery percentage.
 
+## R2 foundation and R4 conditional-result recognition
+
+`--emit-binding-provenance` adds a bounded diagnostic trace to static-analysis
+sidecars. It is an explicit opt-in and implies ordinary upvalue analysis;
+the existing artifact APIs leave it disabled unless
+`DecompileOptions::emit_binding_provenance` is set. The
+[record contract](binding_provenance.md) describes initial statement PC sets,
+SSA definition/write slots, debug intervals, local-map history and final
+storage ancestry. Open call/vararg packs, NAMECALL/CALL and closure/CAPTURE
+instruction clusters retain multiple PCs without inventing AUX origins.
+
+Before initial SSA copy propagation and again before destruction, a read-only
+recognizer records distinct scalar phi inputs of diamond/triangle regions.
+Each arm is direct or one private block ending at a two-predecessor join.
+Shared arms, extra join predecessors, self-phi, equal inputs and nonlocal
+inputs are refused. This is a branch-to-phi relation, **not** purity, totality
+or permission to evaluate an arm eagerly. Existing statement output and
+source/capture/close proof rules govern the emitted program.
+
+The `conditional` O2 probe demonstrates the distinction: at `-g1`, the phi
+maps to the final `p2` storage, which also has parameter ancestry; at `-g2`,
+the separately protected source local `selected` retains the phi ancestry.
+This does not guess a new source name or turn storage reuse into source-local
+identity. IDs/strings in the history do not retain extra `RcLocal` owners.
+
+Validation against the preceding R3 binary:
+
+- [Corpus audit](roadmap_v2_acceptance/provenance_corpus.json): all **3,978**
+  output files are byte-identical; all **3,936** script sidecars preserve
+  every prior metadata field except analysis ID/options. PC bounds, ordered
+  write slots, origin uniqueness and both mapping directions pass.
+- There are **26,391 lifted static function instances**, **1,021,632** initial
+  statements, all with instruction PCs, and **1,163,364 SSA definitions**.
+  **468,839 definitions** have final storage ancestry. **38,538** conditional
+  records include both recognition phases; they are not a count of distinct
+  original source conditionals.
+- Of **129,156** final bindings, **290** have no attributed lineage and
+  **11** hit the 256-ancestor limit. They remain explicitly unknown/partial.
+  No function exhausts the combined 50,000-record budget. An unmapped
+  definition is not automatically classified as inlined or dead.
+- [Runtime fixture traces](roadmap_v2_acceptance/provenance_fixtures.json):
+  **90/90** analysis/trace pairs have identical source and prior metadata;
+  detailed sidecars are identical at one/four threads. All 1,906 statement
+  sites have PCs; all 454 final bindings have complete attributed lineage.
+- [Public identity audit](roadmap_v2_acceptance/provenance_public_identity.json)
+  preserves all **513** previous outputs. The separate
+  [public trace audit](roadmap_v2_acceptance/provenance_public_traces.json)
+  covers all 468 development and 45 Rodux holdout configurations, with equal
+  source/metadata at ordinary/trace modes and one/four threads. Its 66
+  unattributed final bindings remain in the denominator; there are no partial
+  nonempty lineages or exhausted record budgets. Public modules are still not
+  executed in Roblox.
+- The source/runtime suite passes **90 configurations and nine negative
+  controls**, the prior semantic suite passes **45**, and size gates pass
+  **52 files**. Rust and Python tests also cover instruction clusters,
+  register reuse, source-proof separation, map-order-independent bounds,
+  shared-arm refusals, corrupted trace references and option isolation.
+
+These results complete the explicitly scoped diagnostic foundation and R4's
+bounded conditional recognition. Arbitrary nested-value provenance,
+clone/synthesis attribution, value-level output spans, a complete per-pass
+invalidation ledger, stripped-input source splitting, effect dependencies
+and using conditional facts for new naming/constructor rewrites remain open.
+No output-quality or performance improvement is claimed for a trace-only
+change.
+
+[Seven-round interleaved CLI measurements](roadmap_v2_acceptance/provenance_benchmark.json)
+with detailed analysis disabled compare archived release binaries on the same
+3,978-input corpus. No other build, test or benchmark ran concurrently:
+
+| Threads | R3 median / p95 | Provenance build median / p95 | Median peak RSS before → after |
+|---|---:|---:|---:|
+| 1 | 16.971 / 17.264 s | 17.008 / 17.071 s | 34,721,792 → 33,030,144 B |
+| 16 | 1.769 / 1.820 s | 1.758 / 1.767 s | 112,926,720 → 116,011,008 B |
+
+Median differences are +0.22% and −0.67%; these do not demonstrate a speedup.
+The 16-thread maximum peak working set is 119,803,904 → 127,004,672 B. All
+runs, thread counts and traced corpus output share source-tree hash
+`5914c1f113bd53340ee5b6a0129f3b65f5ecd29bfeab9416dbf2d660495dcb14`.
+The after binary SHA-256 is
+`5afdfdf637d87d86daeb5211579bdf0c5a88e0d75a609e3229e0e4105edf5327`.
+
+A separate [three-round analysis-mode sample](roadmap_v2_acceptance/provenance_analysis_benchmark.json)
+at 16 threads reports ordinary-analysis median 8.605 s (8.533–8.797 s),
+versus detailed-trace median 9.670 s (6.137–10.157 s). Median peak working
+set rises from 186,400,768 to 328,650,752 B; maximum is 359,874,560 B with
+trace. Timing variance and three samples limit any latency conclusion.
+Ordinary sidecars retain their previous total size of 282,031,094 B;
+detailed sidecars occupy 1,409,056,857 B for 3,936 scripts. This cost is why
+trace collection is opt-in. Source hashes remain equal in every mode.
+
 ## R3: bounded role inference on the final binding graph
 
 `ast::refine_names` runs after every expression/control-flow cleanup and before

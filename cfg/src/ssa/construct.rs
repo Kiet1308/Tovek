@@ -537,6 +537,11 @@ fn apply_local_map_to_values_referenced<T: LocalRw + Traverse>(
 
 // does not replace locals in child closures
 pub fn apply_local_map(function: &mut Function, local_map: FxHashMap<RcLocal, RcLocal>) {
+    if let Some(trace) = &mut function.provenance {
+        let mut entries = local_map.iter().collect::<Vec<_>>();
+        entries.sort_by_key(|(from, to)| (from.stable_id(), to.stable_id()));
+        for (from, to) in entries { trace.local_map(trace.phase, from, to); }
+    }
     super::close_provenance::apply_local_map(function, &local_map);
     // A coalesced local inherits the bytecode-type naming hint of the versions
     // it absorbs (first hint wins; the hints of one source local agree anyway).
@@ -630,7 +635,7 @@ impl<'a> SsaConstructor<'a> {
         apply_local_map(self.function, map);
     }
 
-    fn fresh_phi(&self, node: NodeIndex, register: &RcLocal) -> RcLocal {
+    fn fresh_phi(&mut self, node: NodeIndex, register: &RcLocal) -> RcLocal {
         let local = RcLocal::default();
         if Some(node) == *self.function.entry() || self.new_upvalues_in.contains_key(register) {
             local.inherit_source_bindings(register);
@@ -638,13 +643,16 @@ impl<'a> SsaConstructor<'a> {
         if let Some(binding) = self.function.entry_source_bindings.get(&(node, register.clone())) {
             local.0.lock().add_source_binding(binding.clone());
         }
+        if let Some(trace) = &mut self.function.provenance {
+            trace.definition(&local, register, node, None, Vec::new());
+        }
         local
     }
     /// A fresh SSA version for the `local_index`-th local written by statement
     /// `stat_index` of `node`, carrying the lifter's bytecode-type naming hint
     /// for that definition when one was recorded (see
     /// `Function::local_type_hints`).
-    fn fresh_local(&mut self, node: NodeIndex, stat_index: usize, local_index: usize) -> RcLocal {
+    fn fresh_local(&mut self, node: NodeIndex, stat_index: usize, local_index: usize, register: &RcLocal) -> RcLocal {
         let local = match self
             .function
             .local_type_hints
@@ -655,6 +663,9 @@ impl<'a> SsaConstructor<'a> {
         };
         if let Some(bindings) = self.function.local_source_bindings.remove(&(node, stat_index, local_index)) {
             for binding in bindings { local.0.lock().add_source_binding(binding); }
+        }
+        if let Some(trace) = &mut self.function.provenance {
+            trace.definition(&local, register, node, Some((stat_index, local_index)), Vec::new());
         }
         local
     }
@@ -684,6 +695,12 @@ impl<'a> SsaConstructor<'a> {
             .collect::<Vec<_>>()
         {
             let argument_local = self.find_local(source, local);
+            if let Some(trace) = &mut self.function.provenance
+                && let Some(record) = trace.definitions.get_mut(&param_local.stable_id()) {
+                record.dependencies.push(argument_local.stable_id());
+                record.dependencies.sort_unstable();
+                record.dependencies.dedup();
+            }
             self.function
                 .graph_mut()
                 .edge_weight_mut(edge)
@@ -979,7 +996,7 @@ impl<'a> SsaConstructor<'a> {
                     && let Some(local) = assign.left[0].as_local().cloned()
                     && assign.right[0].as_closure().is_some()
                 {
-                    let new_local = self.fresh_local(node, stat_index, 0);
+                    let new_local = self.fresh_local(node, stat_index, 0, &local);
                     self.old_locals.insert(new_local.clone(), local.clone());
                     if let Some(upvalues) = self.new_upvalues_in.get_mut(&local) {
                         upvalues.insert(new_local.clone());
@@ -1005,7 +1022,7 @@ impl<'a> SsaConstructor<'a> {
                     self.read(node, stat_index);
                     // write
                     for (local_index, local) in written.iter().enumerate() {
-                        let new_local = self.fresh_local(node, stat_index, local_index);
+                        let new_local = self.fresh_local(node, stat_index, local_index, local);
                         self.old_locals.insert(new_local.clone(), local.clone());
                         if let Some(upvalues) = self.new_upvalues_in.get_mut(local) {
                             upvalues.insert(new_local.clone());
@@ -1077,6 +1094,20 @@ impl<'a> SsaConstructor<'a> {
         }
         assert!(self.incomplete_params.is_empty());
 
+        // Record original SSA dependencies while lifted statement positions
+        // are still valid, before copy propagation removes statements.
+        if self.function.provenance.is_some() {
+            let dependencies = self.function.blocks().flat_map(|(_, block)| block.iter().flat_map(|statement| {
+                let reads = statement.values_read().into_iter().map(RcLocal::stable_id).collect::<Vec<_>>();
+                statement.values_written().into_iter().map(move |local| (local.stable_id(), reads.clone()))
+            })).collect::<Vec<_>>();
+            let trace = self.function.provenance.as_mut().unwrap();
+            for (id, dependencies) in dependencies {
+                if let Some(definition) = trace.definitions.get_mut(&id) { definition.dependencies = dependencies; }
+            }
+            crate::provenance::record_selects(self.function, "constructed_ssa");
+        }
+
         // TODO: irreducible control flow (see the paper this algorithm is from)
         // TODO: apply_local_map unnecessary number of calls
         self.apply_pending_local_map();
@@ -1112,6 +1143,7 @@ pub fn construct(
     Vec<(RcLocal, FxHashSet<RcLocal>)>,
     Vec<FxHashSet<RcLocal>>,
 ) {
+    if let Some(trace) = &mut function.provenance { trace.phase = "ssa_construction"; }
     // if entry has predecessors, this might risk it never being incomplete
     // resulting in broken params
     // TODO: verify ^ and insert temporary entry that's removed if there is no block params (if its an issue)

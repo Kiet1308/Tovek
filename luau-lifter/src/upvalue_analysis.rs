@@ -285,6 +285,8 @@ pub struct ScriptUpvalueAnalysis {
     /// Inferred local names and their evidence on the final binding graph.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name_inference: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_provenance: Option<serde_json::Value>,
 }
 
 pub(crate) fn reconcile_bindings(
@@ -626,6 +628,7 @@ pub(crate) fn reconcile_bindings(
         diagnostics: raw.diagnostics,
         source_recovery: None,
         name_inference: None,
+        binding_provenance: None,
     }
 }
 
@@ -1563,7 +1566,7 @@ fn resolve_string(string_table: &[Vec<u8>], index: usize) -> Option<String> {
     Some(String::from_utf8_lossy(bytes).into_owned())
 }
 
-fn decode_source_lines(function: &Function) -> Vec<Option<u32>> {
+pub(crate) fn decode_source_lines(function: &Function) -> Vec<Option<u32>> {
     let Some(gap_log2) = function.line_gap_log2 else {
         return vec![None; function.instructions.len()];
     };
