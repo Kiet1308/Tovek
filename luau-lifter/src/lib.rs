@@ -783,6 +783,14 @@ fn try_decompile_bytecode_internal(
                     diagnostics: function_diagnostics,
                 });
             }
+            // The final naming graph must not keep RcLocal references alive
+            // during earlier cleanup (some passes inspect reference counts).
+            // No expression/condition mutation is permitted after this point.
+            let name_inference = ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
+                dont_reuse_var: options.dont_reuse_var,
+                emit_report: emit_upvalue_analysis,
+                ..Default::default()
+            });
             let (out, source_occurrences) = {
                 ptime!(S_FORMAT);
                 if emit_upvalue_analysis {
@@ -803,6 +811,7 @@ fn try_decompile_bytecode_internal(
                     &source_occurrences,
                 );
                 analysis.source_recovery = Some(source_recovery::audit(&chunk, &mut body, &analysis.functions));
+                analysis.name_inference = Some(source_recovery::naming_report(name_inference));
                 analysis
             });
             Ok(DecompileArtifact {

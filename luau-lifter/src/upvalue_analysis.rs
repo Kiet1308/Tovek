@@ -282,6 +282,9 @@ pub struct ScriptUpvalueAnalysis {
     /// origins; unmatched/ambiguous records remain in the denominator.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_recovery: Option<serde_json::Value>,
+    /// Inferred local names and their evidence on the final binding graph.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name_inference: Option<serde_json::Value>,
 }
 
 pub(crate) fn reconcile_bindings(
@@ -622,6 +625,7 @@ pub(crate) fn reconcile_bindings(
         functions,
         diagnostics: raw.diagnostics,
         source_recovery: None,
+        name_inference: None,
     }
 }
 

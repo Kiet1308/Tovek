@@ -335,11 +335,11 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 - [ ] Lan truyền role qua copy/phi đã chứng minh, field read/write, table record, result tuple và call argument của function resolve được.
 - [ ] Xử lý các ca đã quan sát: table field `component = p`, `props = v`; assertion chứa tên tham số; result nhận từ cùng một helper; tên callback theo event/caller.
 - [ ] Kết hợp type evidence với role: buffer/offset/size, state/scope/props, result/index/item. Type tag `number` đơn độc không đủ để đặt tên `damage`, `duration` hay `price`.
-- [ ] Chọn tên nhất quán trong scope bằng một tập ràng buộc: cùng binding phải cùng tên, binding khác không bị capture nhầm, mutable alias không được coi là đồng nhất, source name mạnh được ưu tiên.
+- [x] Chọn tên nhất quán trong scope bằng một tập ràng buộc: cùng binding phải cùng tên, binding khác không bị capture nhầm, mutable alias không được coi là đồng nhất, source name mạnh được ưu tiên.
 - [ ] Resolve `require` có đường dẫn tĩnh và exports có hình dạng rõ ràng; xây summary call/return theo module và xử lý SCC cho dependency cycle. Dynamic require/call chưa rõ phải giữ unknown.
 - [ ] Có thể bổ sung tên parameter/return từ API metadata có version; metadata về tên/type không được dùng như chứng minh API không có effect hoặc không thể throw.
 - [ ] Phân biệt kiểu source được ghi lại với kiểu được suy luận. Không phát sinh `export type`, generic alias hoặc annotation phức tạp như thể đã đọc được từ bytecode.
-- [ ] Chạy naming trên binding graph ổn định; bảo đảm các cleanup về sau không làm mất tên gốc hoặc tạo shadow mới.
+- [x] Chạy naming trên binding graph ổn định; bảo đảm các cleanup về sau không làm mất tên gốc hoặc tạo shadow mới.
 
 **Vị trí:** [name_locals.rs](../ast/src/name_locals.rs), [local.rs](../ast/src/local.rs), [type_system.rs](../ast/src/type_system.rs), [lifter/type information](../luau-lifter/src/lib.rs), [upvalue_analysis.rs](../luau-lifter/src/upvalue_analysis.rs). Module/call summary và bộ chọn tên theo ràng buộc là phần mới.
 

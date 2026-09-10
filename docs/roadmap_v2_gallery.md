@@ -41,9 +41,30 @@ return function(condition, primary, fallback)
 end
 ```
 
-## createElement: name and message retained
+## createElement: inferred parameter roles and retained message
 
-The g1 output now starts with `local function createElement(p, p2, p3)` and returns `createElement`. Parameter-role naming is still open: preserving the function name does not recover `component`, `props` or `children`. The long warning keeps its original bytes and paragraphs:
+The g1 output previously started with `local function createElement(p, p2, p3)`.
+R3 infers all three parameter roles from assertion messages and record fields.
+The marker import becomes `Children`, leaving `children` available for the
+parameter. The normalized props table remains a separate binding, `props2`.
+These are inferred names; the function name itself is compiler-recorded.
+
+```luau
+local Children = require(script.Parent.PropMarkers.Children)
+-- other imports omitted
+local function createElement(component, props, children)
+	if v.typeChecks then
+		assert(component ~= nil, "`component` is required")
+		assert(typeof(props) == "table" or props == nil, "`props` must be a table or nil")
+		assert(typeof(children) == "table" or children == nil, "`children` must be a table or nil")
+	end
+
+	local props2 = props == nil and {} or props
+	-- remaining body omitted
+end
+```
+
+The long warning keeps its original bytes and paragraphs:
 
 ```luau
 logging.warnOnce([[
@@ -108,10 +129,12 @@ local function springCoefficients(p: number, p2: number, p3: number)
 
 ## UI: conditional field remains a statement
 
-This probe keeps the conditional property before child construction and the factory call. It does not claim new UI grouping or inferred props names. Those remain R3/R4 work.
+This probe keeps the conditional property before child construction and the
+factory call. R3 infers `text` from the child record's `Text` field; the parent
+props/children roles and new grouping remain open.
 
 ```luau
-return function(scope, p, callback, p2, p3)
+return function(scope, p, callback, text, p3)
 	local v = {
 		Name = "Panel"
 	}
@@ -123,7 +146,7 @@ return function(scope, p, callback, p2, p3)
 	end
 
 	v[p] = { callback({
-			Text = p2
+			Text = text
 		}) }
 	return scope:New("Frame")(v)
 end

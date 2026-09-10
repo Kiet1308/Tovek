@@ -111,7 +111,7 @@ fn sanitize_preserve(raw: &str) -> Option<String> {
 /// default `p`: a generic-content word, a single letter, or junk that fails
 /// `sanitize`. NO singularization — `self.items = p` means `p` *is* the
 /// collection, so `items` is the right name.
-fn param_name_from_field_key(key: &str) -> Option<String> {
+pub(crate) fn param_name_from_field_key(key: &str) -> Option<String> {
     // Keys that carry no more meaning than `p`. `name`/`text`/`parent`/etc. are
     // deliberately NOT here — a param written to `.Name`/`.Text` is genuinely a
     // name/text, which is more informative than `p`.

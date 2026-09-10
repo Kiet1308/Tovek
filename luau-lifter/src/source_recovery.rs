@@ -4,6 +4,28 @@ use std::collections::{BTreeMap, BTreeSet};
 use ast::{BindingOrigin, LocalRw, RcLocal, SourceBinding, Traverse};
 use serde_json::{json, Value};
 
+pub(crate) fn naming_report(report: ast::refine_names::Report) -> Value {
+    json!({
+        "schema_version": 1, "phase": "final_binding_graph",
+        "evidence": "inferred roles, except explicitly recorded_source_binding candidates",
+        "priority": "ordinal rule priority, not a probability or effect proof",
+        "legacy_coverage": "selected legacy names only; legacy alternatives are not yet collected",
+        "limits": {"nodes": 100000, "bindings": 50000, "depth": 256, "candidates_per_binding": 24, "propagation_rounds": 4},
+        "visited_nodes": report.visited_nodes, "bindings": report.binding_count,
+        "scopes": report.scope_count, "renamed": report.renamed, "conflicts": report.conflicts,
+        "unresolved_calls": report.unresolved_calls, "refused_edges": report.refused_edges,
+        "budget_exhausted": report.budget_exhausted,
+        "rows": report.bindings.into_iter().map(|binding| json!({
+            "binding_id": format!("b{}", binding.id), "before": binding.before,
+            "after": binding.after, "kind": binding.kind, "scope": binding.scope,
+            "status": binding.status, "candidates": binding.candidates.into_iter().map(|c| json!({
+                "name": c.name, "priority": c.priority, "reason": c.reason, "witness": c.witness,
+                "from_binding": c.from_binding.map(|id| format!("b{id}")),
+            })).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+    })
+}
+
 fn collect(
     block: &mut ast::Block,
     locals: &mut BTreeMap<u64, RcLocal>,

@@ -63,6 +63,8 @@ def main():
     parser.add_argument("--line-limit", type=int, default=180)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=30)
+    parser.add_argument("--allow-local-renames", action="store_true",
+                        help="require alpha-equivalent binding graphs and equal types; report local spelling changes")
     args = parser.parse_args()
     paths = lambda root: {path.relative_to(root).as_posix(): path for path in root.rglob("*.luau")}
     before, after = paths(args.before), paths(args.after)
@@ -77,7 +79,13 @@ def main():
             a, b = first.read_text(encoding="utf-8"), second.read_text(encoding="utf-8")
             right = parse_ast(args.ast.resolve(), second, args.timeout)
             left = right if a == b else parse_ast(args.ast.resolve(), first, args.timeout)
-            row["status"] = "identical_text" if a == b else "equal_ast" if canonicalize(left) == canonicalize(right) else "changed_ast"
+            ca, cb = canonicalize(left), canonicalize(right)
+            equal = ca == cb
+            if args.allow_local_renames:
+                equal = ca[0] == cb[0] and ca[2] == cb[2]
+                row["renamed_bindings"] = [{"binding": key, "before": ca[1][key], "after": cb[1][key]}
+                                           for key in sorted(ca[1].keys() & cb[1].keys()) if ca[1][key] != cb[1][key]]
+            row["status"] = "identical_text" if a == b else "equal_ast" if equal else "changed_ast"
             row["before_long_lines"] = long_lines(a, left, args.line_limit)
             row["after_long_lines"] = long_lines(b, right, args.line_limit)
             row["before_conditional_expressions"] = conditional_count(left)
@@ -89,13 +97,16 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
         rows = list(pool.map(check, sorted(before.keys() | after.keys())))
     summary = {"files": len(rows), "status": dict(collections.Counter(r["status"] for r in rows))}
+    if args.allow_local_renames:
+        summary["renamed_bindings"] = sum(len(row.get("renamed_bindings", [])) for row in rows)
     for side in ("before", "after"):
         summary[f"{side}_long_lines"] = dict(collections.Counter(
             line["kind"] for row in rows for line in row.get(f"{side}_long_lines", [])))
         summary[f"{side}_conditional_expressions"] = sum(row.get(f"{side}_conditional_expressions", 0) for row in rows)
     report = {"schema_version": 1, "ast_sha256": sha256(args.ast), "line_limit": args.line_limit,
               "columns": "Unicode characters, tabs expanded to four-column stops; no terminal-width or grapheme claim",
-              "model": "pinned-luau-ast-with-binding-and-type-syntax-equality", "summary": summary, "rows": rows,
+              "model": "pinned-luau-ast-with-binding-and-type-syntax-equality", "allow_local_renames": args.allow_local_renames,
+              "summary": summary, "rows": rows,
               "limitations": "Strict syntax equality ignores parser trivia/locations; it is appropriate for layout, not a general semantic-equivalence proof. Long-line categories are descriptive heuristics."}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8", newline="\n")

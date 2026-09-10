@@ -3,6 +3,94 @@
 This record distinguishes implemented gates from the research roadmap's wider
 acceptance criteria. The baseline is not an overall source-recovery percentage.
 
+## R3: bounded role inference on the final binding graph
+
+`ast::refine_names` runs after every expression/control-flow cleanup and before
+formatting. It changes only the spelling of existing `RcLocal` identities.
+Record fields, assertion messages with exactly one backtick identifier and a
+guard referring to exactly one parameter, immutable copies, and exact-arity
+calls to uniquely defined local closures supply candidates. A static `script`
+path used as a table key can supply the module leaf's case, such as `Children`.
+This is naming context, not module resolution or an API effect claim.
+
+Each candidate retains an ordinal priority, rule, witness and originating
+binding where applicable. Equal-priority conflicts retain the prior name.
+Recorded source bindings, `self`, meaningful existing roles, uncertain owners
+and overflowing candidate lists are protected. Propagation refuses written
+parameters, multiply defined locals and reference capture cells. Scope
+constraints reserve globals and unchanged ancestor/descendant bindings before
+assigning collision suffixes; sibling reuse follows `dont_reuse_var`.
+
+The pass has limits of 100,000 visited nodes, 50,000 bindings, depth 256,
+24 inference candidates per binding and four propagation rounds. Traversal
+budget exhaustion retains **all** prior names. Optional `name_inference`
+metadata records candidates and refusal status by binding ID. The prior namer's
+selected name is explicitly labelled as partial evidence: its discarded
+alternatives are not yet recorded. Phi/default-value/result-tuple propagation,
+module summaries/SCCs, versioned API metadata and full legacy candidate
+collection remain open.
+
+The [corpus alpha-equivalence audit](roadmap_v2_acceptance/naming_corpus_alpha.json)
+checks all 3,978 outputs: **899 changed texts and 3,079 identical texts**, with
+equal binding graph, expressions, globals/fields/constants and type syntax in
+every file. There are **2,513 renamed bindings**, 143 conflicts, ten uncertain
+owners and no traversal/candidate budget exhaustion. No long-line category or
+conditional-expression count changes. The
+[public audit](roadmap_v2_acceptance/naming_public_alpha.json) similarly passes
+all **513** O0/O1/O2 outputs, with 382 renamed bindings in 141 changed files.
+These exact structural checks are independent of the budgeted source-fidelity
+alignment used to assess original names.
+
+[Binding-aligned source comparison](roadmap_v2_acceptance/naming_comparison.json):
+
+| Locked split | Configurations measured / unknown | Aligned bindings | Exact names before → after | Changed aligned names | Changes to exact / from exact |
+|---|---:|---:|---:|---:|---:|
+| Development | 363 / 105 | 3,526 | 972 → 1,041 | 96 | 69 / 0 |
+| Rodux holdout | 42 / 3 | 200 | 79 → 85 | 6 | 6 / 0 |
+
+Exact-name precision on aligned bindings rises from 27.57% to 29.52% on
+development and from 39.5% to 42.5% on holdout. Of the changed aligned names,
+71.88% and 100% respectively match the original spelling. The six holdout
+changes are a small result, not a general accuracy estimate. O-levels are
+separate configurations of the same sources. The remaining 280 public renames
+are outside complete source alignment and have no exact-name score; unknown
+configurations remain reported. Human role-quality review remains open.
+
+Roact `createElement` now has inferred `component, props, children`; `Children`
+and `Type` retain their static module spelling when used as keys. Its normalized
+props table becomes `props2`, a distinct binding. The gallery also records the
+unchanged buffer/math limitations. No source-name/debug recovery is claimed
+for these inferred roles. The fixed runtime suite passes 90/90 configurations,
+the existing semantic suite passes 45/45, and all 52 size gates pass without a
+baseline change. There are 875 passing Rust tests and 32 Python tests.
+
+The [metadata audit](roadmap_v2_acceptance/naming_metadata.json) preserves the
+recorded mapping contract and all 3,320 protected bindings across 3,936 scripts.
+It archives every inferred rename and candidate witness. Of the corpus's
+2,513 selected names, 2,450 come directly from fields, 41 from resolved local
+call arguments and 22 from immutable-copy propagation. Shouting underscore
+keys such as `EXTREMELY_DANGEROUS_usedAsValue` are deliberately refused as
+parameter roles; ordinary private fields such as `_scope` remain eligible.
+This refinement was made on development cases, without changing the holdout.
+
+Seven interleaved timed rounds after warm-up compare the archived layout
+release with the final naming release, with no concurrent build/test workload.
+[Raw benchmark](roadmap_v2_acceptance/naming_benchmark.json):
+
+| Release | Threads | Median | p95 (nearest rank) | Median peak RSS |
+|---|---:|---:|---:|---:|
+| Layout | 1 | 23.568 s | 23.591 s | 30.77 MiB |
+| Final naming | 1 | 23.856 s | 23.894 s | 32.41 MiB |
+| Layout | 16 | 1.742 s | 1.753 s | 109.24 MiB |
+| Final naming | 16 | 1.732 s | 1.822 s | 104.71 MiB |
+
+Single-thread median cost is about **1.2% higher**. The 16-thread median is
+within 0.6% while p95 is higher; this is not a demonstrated performance gain.
+Seven-sample p95 equals the maximum and is only a small-sample tail indicator.
+Output is byte-identical across all repetitions, both thread counts and
+plain/source-map modes within each release. Final naming release SHA-256:
+`7a833c173020b7e3641befd13720419ce2a5fd987151a5ddfc1d29272105ae31`.
+
 ## M0: bounded dataflow and reproducible fixtures
 
 `scripts/bytecode_dataflow.py` adds a separate, budgeted symbolic execution tree.
