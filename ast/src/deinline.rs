@@ -131,13 +131,25 @@ enum RejectReason {
     LowAnchorScore,
 }
 
+impl RejectReason {
+    fn counter(self) -> &'static str {
+        match self {
+            Self::TargetStillReferenced => "reject_reassigned_binder",
+            Self::Variadic => "reject_variadic",
+            Self::UnsafeBody => "reject_unsafe_body",
+            Self::UnsupportedReturnShape => "reject_return_shape",
+            Self::EmptyPattern => "reject_empty_pattern",
+            Self::LowAnchorScore => "reject_low_anchors",
+        }
+    }
+}
+
 /// Trace a de-inline target rejection. With the `deinline_trace` feature it prints
-/// the gate + function name to stderr; without it the body is absent, so the
-/// reason/name arguments are never evaluated (no lock, no alloc) and release output
-/// stays byte-identical. Kept to the COLD `collect_targets` path only — the hot
-/// per-site matchers stay allocation-free, exactly as the report recommends.
+/// the gate + function name to stderr. Optional JSON profiling records only
+/// a static reason counter; it never evaluates the function-name argument.
 macro_rules! deinline_reject {
     ($reason:expr, $name:expr) => {{
+        if crate::telemetry::enabled() { crate::telemetry::count($reason.counter(), 1); }
         #[cfg(feature = "deinline_trace")]
         {
             let _r: RejectReason = $reason;
@@ -291,12 +303,20 @@ pub fn deinline(body: &mut Block) {
     // map can over-refuse a pathological reassigned-then-inlined binder but can
     // NEVER wrongly admit one.
     let mut write_counts: FxHashMap<RcLocal, usize> = FxHashMap::default();
-    crate::expr_deinline::collect_write_counts(&body.0, &mut write_counts);
+    {
+        let _span = crate::telemetry::Span::new("D_WRITE_CENSUS");
+        crate::expr_deinline::collect_write_counts(&body.0, &mut write_counts);
+        crate::telemetry::count("bindings", write_counts.len() as u64);
+    }
     loop {
         dprof::inc(&dprof::ITERATIONS, 1);
+        crate::telemetry::count("iterations", 1);
         let targets = {
             let _t = dprof::T::new(&dprof::COLLECT_TARGETS_US);
-            collect_targets(body, &write_counts)
+            let _span = crate::telemetry::Span::new("D_COLLECT_TARGETS");
+            let targets = collect_targets(body, &write_counts);
+            crate::telemetry::count("accepted_targets", targets.len() as u64);
+            targets
         };
         if targets.is_empty() {
             break;
@@ -309,17 +329,21 @@ pub fn deinline(body: &mut Block) {
             .map(|(idx, t)| (t.f_local.clone(), idx))
             .collect();
         let mut newly: FxHashSet<RcLocal> = FxHashSet::default();
-        deinline_block(
-            &mut body.0,
-            &targets,
-            &decl_map,
-            &[],
-            &[],
-            None,
-            true,
-            true,
-            &mut newly,
-        );
+        {
+            let _span = crate::telemetry::Span::new("D_SCAN");
+            deinline_block(
+                &mut body.0,
+                &targets,
+                &decl_map,
+                &[],
+                &[],
+                None,
+                true,
+                true,
+                &mut newly,
+            );
+            crate::telemetry::count("converted_binders", newly.len() as u64);
+        }
         // Fixed point is reached when an iteration rewrites NOTHING. `newly` gains a
         // binder on EVERY splice (`deinline_block` -> `newly.insert(hit.f_local)`),
         // so `newly.is_empty()` ⟺ zero sites rewritten this iteration ⟺ the AST is
@@ -356,6 +380,7 @@ pub fn deinline(body: &mut Block) {
         });
         {
             let _t = dprof::T::new(&dprof::COLLAPSE_US);
+            let _span = crate::telemetry::Span::new("D_COLLAPSE_RESULTS");
             collapse_value_results(&mut body.0, &multivalue);
         }
         insert_def_markers(&mut body.0, &converted);
@@ -1038,6 +1063,7 @@ fn canon_window(
         return c.clone();
     }
     dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
+    crate::telemetry::count("canonicalize_calls", 1);
     let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
     let c = std::rc::Rc::new(canon_recurse(
         canon_top(&stmts[start..start + w], true),
@@ -1222,6 +1248,7 @@ fn is_foldable_guard(s: &Statement) -> bool {
 /// pins it to the real `canon_top` length in debug / test builds.
 fn canon_top_len(stmts: &[Statement], tail: bool) -> usize {
     dprof::inc(&dprof::CANON_TOP_LEN_CALLS, 1);
+    crate::telemetry::count("canonical_top_length_calls", 1);
     let _t = dprof::T::new(&dprof::CANON_TOP_LEN_US);
     let total = stmts.iter().filter(|s| !is_match_trivia(s)).count();
     let n = if !tail || total == 0 {
@@ -2426,6 +2453,7 @@ fn try_match_at(
     // keys from a prior position no longer describe the same window content.
     canon_cache.clear();
     dprof::inc(&dprof::MATCH_CALLS, 1);
+    crate::telemetry::count("match_calls", 1);
     let _mt = dprof::T::new(&dprof::MATCH_US);
     let mut found: Option<Hit> = None;
     // Cheap O(1) prefilter anchor: the first non-`Empty` statement at/after `i`.
@@ -2559,6 +2587,7 @@ fn match_void(
     let mut ambiguous = false;
     for w in kc..=max_w {
         dprof::inc(&dprof::WIDTH_ITERS, 1);
+        crate::telemetry::count("width_candidates", 1);
         let raw = &stmts[start..start + w];
         // Never replace a function's ENTIRE top-level body with a single call:
         // the ambiguous thin-wrapper case (`B(x)=A(x)`).
@@ -2574,6 +2603,7 @@ fn match_void(
         if canon_top_len(raw, true) == kc {
             let plain_blocked = {
                 dprof::inc(&dprof::BHR_CALLS, 1);
+                crate::telemetry::count("return_scan_calls", 1);
                 let _t = dprof::T::new(&dprof::BHR_US);
                 block_has_return(raw) && !(is_func_tail && start + w == stmts.len())
             };
@@ -2803,6 +2833,7 @@ fn match_value_prefixed(
         }
         let cwin = {
             dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
+            crate::telemetry::count("canonicalize_calls", 1);
             let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
             canon_recurse(canon_top(&union, true), true)
         };
@@ -3018,6 +3049,7 @@ type Prefix = [(RcLocal, RValue)];
 
 fn try_unify_site(t: &Target, cwin: &[Statement], prefix: &Prefix) -> Option<Unified> {
     dprof::inc(&dprof::UNIFY_CALLS, 1);
+    crate::telemetry::count("unify_calls", 1);
     let _t = dprof::T::new(&dprof::UNIFY_US);
     let mut b = Bindings::default();
     if unify_block(t, &t.pat, cwin, &mut b).is_err() {
@@ -3822,6 +3854,7 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
 
     let mut targets = Vec::new();
     for (f_local, func) in decls {
+        crate::telemetry::count("candidate_binders", 1);
         // gate: the binder is written exactly once (its declaration) — never
         // reassigned, so `f(args)` is unambiguous (see the census note above).
         if write_counts.get(&f_local).copied().unwrap_or(0) != 1 {

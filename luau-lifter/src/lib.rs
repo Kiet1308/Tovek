@@ -3,6 +3,7 @@ mod instruction;
 mod lifter;
 mod op_code;
 mod source_recovery;
+pub mod profile;
 pub mod upvalue_analysis;
 
 use ast::{
@@ -84,6 +85,8 @@ pub mod prof {
         F_HOIST,
         S_LINK_UPVALUES,
         S_DEINLINE,
+        S_FACTOR_INITIAL,
+        S_FACTOR_FIXEDPOINT,
         S_CLEANUP_RETURNS,
         S_MATERIALIZE,
         S_REHOIST_CONSTANTS,
@@ -121,6 +124,7 @@ pub mod prof {
 macro_rules! ptime {
     ($c:ident) => {
         let _t = crate::prof::Timer::new(&crate::prof::$c);
+        let _profile_span = ast::telemetry::Span::new(stringify!($c));
     };
 }
 // ---- END TEMPORARY PROFILING ----
@@ -379,6 +383,11 @@ fn try_decompile_bytecode_internal(
     // did. Without this, parallel `decompile-folder` runs are nondeterministic
     // even though each file is processed on a single thread. See ast::RcLocal.
     ast::reset_local_ids();
+    let profile_context = profile::context(script_name, bytecode);
+    let _profile_context = ast::telemetry::enter(profile_context.clone());
+    let _profile_file = ast::telemetry::Span::new("DECOMPILE");
+    ast::telemetry::count("input_bytes", bytecode.len() as u64);
+    let profile_deser = ast::telemetry::Span::new("DESER_LIFT");
     let deser_timer = prof::Timer::new(&prof::DESER_LIFT);
     let chunk = deserializer::deserialize(bytecode, encode_key)
         .map_err(|e| DecompileFailure::message(format!("deserialize: {e}")))?;
@@ -457,10 +466,12 @@ fn try_decompile_bytecode_internal(
             // byte-identical to the serial path — so no post-merge renumber is
             // needed; the strided bases alone make the whole pipeline deterministic.
             drop(deser_timer);
+            drop(profile_deser);
             let id_base = ast::current_local_id();
             let func_count = lifted.len() as u64;
             const ID_STRIDE: u64 = 1 << 40;
             let par_timer = prof::Timer::new(&prof::PAR_LOOP_WALL);
+            let profile_parallel = ast::telemetry::Span::new("PAR_LOOP_WALL");
             // Decompile every function in parallel. Each function is independent
             // (its only cross-function coupling was the shared monotonic id
             // counter, now made per-function and scheduling-independent via the
@@ -488,6 +499,8 @@ fn try_decompile_bytecode_internal(
                     // serial tail into a rayon region without an equivalent re-base.
                     ast::set_local_id_base(id_base + func_idx as u64 * ID_STRIDE);
                     let function_id = function.id;
+                    let _profile_context = ast::telemetry::enter(profile_context.as_ref().map(|c| c.prototype(function_id)));
+                    let _profile_function = ast::telemetry::Span::new("FUNCTION");
                     let mut args = std::panic::AssertUnwindSafe(Some((
                         ast_function.clone(),
                         function,
@@ -513,6 +526,7 @@ fn try_decompile_bytecode_internal(
                     match result {
                         Ok(r) => r,
                         Err(e) => {
+                            ast::telemetry::count("panicked_functions", 1);
                             let panic_information = match e.downcast::<String>() {
                                 Ok(v) => *v,
                                 Err(e) => match e.downcast::<&str>() {
@@ -560,6 +574,7 @@ fn try_decompile_bytecode_internal(
                 })
                 .collect::<Vec<_>>();
             drop(par_timer);
+            drop(profile_parallel);
             let mut function_diagnostics = Vec::new();
             let mut function_traces = Vec::new();
             let mut upvalues = FxHashMap::default();
@@ -604,14 +619,33 @@ fn try_decompile_bytecode_internal(
                     script_name.unwrap_or("?")
                 );
             }
-            ast::factor_common_tails::factor_common_tails(&mut body);
+            {
+                let _t = crate::prof::Timer::new(&crate::prof::S_FACTOR_INITIAL);
+                let span = ast::telemetry::Span::ast("S_FACTOR_INITIAL", &body, true);
+                let changed = ast::factor_common_tails::factor_common_tails(&mut body);
+                ast::telemetry::count("changed_calls", u64::from(changed));
+                span.finish_ast(&body, true);
+            }
             loop {
-                ptime!(S_DEINLINE);
-                ast::deinline::deinline(&mut body);
+                ast::telemetry::count("deinline_factor_iterations", 1);
+                {
+                    let _t = crate::prof::Timer::new(&crate::prof::S_DEINLINE);
+                    let span = ast::telemetry::Span::ast("S_DEINLINE", &body, true);
+                    ast::deinline::deinline(&mut body);
+                    span.finish_ast(&body, true);
+                }
                 // Replacing an inlined region by a call can make formerly
                 // different branch tails identical. Cross-jump those fresh
                 // tails, then let de-inline consume any newly exposed site.
-                if !ast::factor_common_tails::factor_common_tails(&mut body) {
+                let changed = {
+                    let _t = crate::prof::Timer::new(&crate::prof::S_FACTOR_FIXEDPOINT);
+                    let span = ast::telemetry::Span::ast("S_FACTOR_FIXEDPOINT", &body, true);
+                    let changed = ast::factor_common_tails::factor_common_tails(&mut body);
+                    ast::telemetry::count("changed_calls", u64::from(changed));
+                    span.finish_ast(&body, true);
+                    changed
+                };
+                if !changed {
                     break;
                 }
             }

@@ -129,6 +129,7 @@ dependencies = [
  "petgraph",
  "rustc-hash",
  "ryu",
+ "serde",
  "triomphe",
 ]
 

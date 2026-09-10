@@ -184,7 +184,7 @@ fn main() {
                     &a.output_extension,
                     a.export_manifest.as_deref(),
                 );
-                std::process::exit(code);
+                finish(code);
             }
             _ => unreachable!("argv[1] dispatch guarantees the DecompileFolder variant"),
         },
@@ -196,7 +196,7 @@ fn main() {
                     "new" => false,
                     other => {
                         eprintln!("error: --solver must be 'new' or 'old', got '{other}'");
-                        std::process::exit(2);
+                        finish(2);
                     }
                 };
                 let code = validate::run(
@@ -219,7 +219,7 @@ fn main() {
                     a.tool_dir.as_deref(),
                     old_solver,
                 );
-                std::process::exit(code);
+                finish(code);
             }
             _ => unreachable!("argv[1] dispatch guarantees the ValidateFolder variant"),
         },
@@ -342,7 +342,16 @@ fn run_single_file() {
         Ok(source) => println!("{source}"),
         Err(err) => {
             eprintln!("{err}");
-            std::process::exit(1);
+            finish(1);
         }
     }
+    finish(0);
+}
+
+fn finish(code: i32) -> ! {
+    if let Err(error) = luau_lifter::profile::write_json() {
+        eprintln!("write pass profile: {error}");
+        std::process::exit(if code == 0 { 2 } else { code });
+    }
+    std::process::exit(code);
 }

@@ -36,6 +36,7 @@ pub mod coalesce_locals;
 pub mod conditional_expressions;
 pub mod copy_cleanup;
 pub mod deinline;
+pub mod telemetry;
 pub mod eliminate_nil;
 pub mod expr_deinline;
 pub mod expression_budget;

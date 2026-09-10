@@ -23,7 +23,11 @@ use triomphe::Arc;
 /// Remove exact duplicate continuations throughout `body`, including closures.
 /// Returns whether the AST changed.
 pub fn factor_common_tails(body: &mut Block) -> bool {
-    unshare_blocks(body);
+    {
+        let _span = crate::telemetry::Span::new("TAIL_UNSHARE");
+        unshare_blocks(body);
+    }
+    let _span = crate::telemetry::Span::new("TAIL_SCAN");
     factor_block(&mut body.0, Some(Tail::Return), FactorMode::WholeChunk)
 }
 
@@ -31,7 +35,11 @@ pub fn factor_common_tails(body: &mut Block) -> bool {
 /// this before declarations; nested closure functions are owned by separate
 /// workers and must not be inspected or mutated through their bodies here.
 pub fn factor_function_tails(body: &mut Block, protected: &FxHashSet<crate::RcLocal>) -> bool {
-    unshare_blocks_impl(body, false);
+    {
+        let _span = crate::telemetry::Span::new("TAIL_UNSHARE_FUNCTION");
+        unshare_blocks_impl(body, false);
+    }
+    let _span = crate::telemetry::Span::new("TAIL_SCAN_FUNCTION");
     factor_block(
         &mut body.0,
         Some(Tail::Return),

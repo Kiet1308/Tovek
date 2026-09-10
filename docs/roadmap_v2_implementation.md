@@ -3,6 +3,73 @@
 This record distinguishes implemented gates from the research roadmap's wider
 acceptance criteria. The baseline is not an overall source-recovery percentage.
 
+## R7: scoped pass profiling and separate factoring measurements
+
+`MEDAL_PROFILE_JSON` enables bounded per-file/prototype/pass diagnostics.
+Whole-module AST passes remain module-level rows. Inclusive and exclusive
+times are **thread wall intervals**, with only same-thread nested spans
+subtracted; worker overlap and waits prevent interpreting their sum as CPU or
+process wall time. Before/after statement/rvalue census currently covers
+initial factoring, statement de-inline and subsequent factoring. Other passes
+retain `node_samples: 0` as unmeasured. No cache/allocation measurement is
+invented. See the [profiling contract](pass_profiling.md).
+
+The [full corpus audit](roadmap_v2_acceptance/profile_corpus.json) has
+**531,967 aggregate rows**, covering all **3,936 nonempty scripts** and
+**26,391 function-processing visits**. There are no dropped records,
+misnested spans or incomplete measured node samples. All **3,978 output
+files** are byte-identical to the preceding R2 binary, with profiling off/on
+and one/16 threads. Removing only timing fields leaves identical counters and
+node census across thread counts. Raw one-thread and 16-thread reports are
+archived as [JSON gzip](roadmap_v2_acceptance/profile_corpus_t1.json.gz) and
+[JSON gzip](roadmap_v2_acceptance/profile_corpus_t16.json.gz), respectively.
+
+One-thread measurements on the current pipeline:
+
+| Phase | Calls | Inclusive wall sum | Measured activity |
+|---|---:|---:|---|
+| Initial common-tail factoring | 3,936 | 0.096 s | 302 calls change the AST |
+| Statement de-inline | 3,936 | 0.523 s | 4,156 internal iterations |
+| Subsequent common-tail factoring | 3,936 | 0.081 s | No change on this corpus; the pass remains required for other shapes |
+| De-inline write census | 3,936 | 0.046 s | Existing census computed once per invocation |
+| Target collection | 4,156 | 0.112 s | 5,194 candidates, 3,685 accepted and 1,509 refused |
+| Candidate scanning | 1,236 | 0.240 s | 141,641 width candidates, 123,950 matches attempted, 39,807 unification calls |
+
+Subphase times overlap their parent de-inline/factoring time. Refusals include
+862 low-anchor, 425 return-shape, 220 variadic and two empty-pattern cases.
+The scan also records 149,131 canonical-length calls, 32,185 canonicalization
+calls and 49,897 return scans. These count invocations, not unique recovered
+source constructs. No speedup can be inferred by comparing this experiment
+with the older `MEDAL_PROF` run on a different pipeline.
+
+The largest measured one-thread exclusive pass totals are SSA construction
+(2.400 s), SSA inline (2.257 s), SSA destruction (1.686 s) and restructuring
+(1.458 s). Further performance work should investigate these current costs;
+the prior aggregate `S_DEINLINE` counter does not establish today's bottleneck.
+
+[Fixture profiling](roadmap_v2_acceptance/profile_fixtures.json) passes 90
+configurations with exact source and identical counters at one/four threads.
+A separate combined profile/lineage run preserves all 90 full lineage
+sidecars from R2. Six Rust tests cover nested timing, context restoration on
+unwind, worker isolation, bounded records and partial/ownership-safe census.
+Python checks reject invalid timing, counter/context mismatches and incomplete
+profiles. Runtime, public-source and additional validation results are recorded
+with the [validation summary](roadmap_v2_acceptance/profile_validation.json).
+
+[Seven-round uninstrumented benchmark](roadmap_v2_acceptance/profile_benchmark.json):
+
+| Threads | R2 median / p95 | Profiler build median / p95 | Median peak RSS before → after |
+|---|---:|---:|---:|
+| 1 | 17.943 / 19.016 s | 17.986 / 19.076 s | 33,185,792 → 33,828,864 B |
+| 16 | 1.718 / 1.842 s | 1.697 / 1.719 s | 115,085,312 → 114,454,528 B |
+
+Median differences are +0.24% and −1.20%, with every output hash unchanged.
+Maximum peak RSS at 16 threads is 119,345,152 → 121,192,448 B. This introduces
+diagnostics, not an accepted performance optimization. Timings in the profile
+validation runs include JSON export and are kept separate from this benchmark.
+All-pass node/cache accounting, allocation counts, broader benchmark modes and
+actual algorithm/data-structure optimizations remain open in R7.
+
 ## R2 foundation and R4 conditional-result recognition
 
 `--emit-binding-provenance` adds a bounded diagnostic trace to static-analysis

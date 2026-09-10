@@ -168,6 +168,15 @@ jobs:
             --report "$RUNNER_TEMP/roadmap-v2-lineage.json" \
             --keep "$RUNNER_TEMP/roadmap-v2-lineage"
 
+      - name: V2 pass profile context and counter determinism
+        run: |
+          input_dir=$(python3 -c 'import json,pathlib,sys; print(pathlib.Path(json.load(open(sys.argv[1]))["work"])/"input")' "$RUNNER_TEMP/roadmap-v2-lineage.json")
+          python3 scripts/profile_v2.py \
+            --before target/release/luau-lifter --after target/release/luau-lifter \
+            --corpus "$input_dir" --key 1 --threads 1 4 \
+            --keep "$RUNNER_TEMP/roadmap-v2-profile" \
+            --report "$RUNNER_TEMP/roadmap-v2-profile.json"
+
       - name: V2 seeded programs and bounded failure reduction
         run: |
           python3 scripts/generated_roundtrip.py \
@@ -223,6 +232,7 @@ jobs:
             ${{ runner.temp }}/output-size.json
             ${{ runner.temp }}/roadmap-v2.json
             ${{ runner.temp }}/roadmap-v2-lineage.json
+            ${{ runner.temp }}/roadmap-v2-profile.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau
             ${{ runner.temp }}/roadmap-v2-generated.json
             ${{ runner.temp }}/roadmap-v2-generated/**/*.luau

@@ -1,0 +1,34 @@
+{
+ "schema_version": 1,
+ "rust_workspace_all_targets_passed": 893,
+ "python_tests_passed": 41,
+ "source_and_compile_checks": {
+  "runtime": {
+   "total": 90,
+   "all_output_hashes_identical": true,
+   "report_sha256": "3c5cf3f11f63456346df5fea34fef8c06ec571dd8d2d315414a125ff70f7a1c0"
+  },
+  "public": {
+   "total": 513,
+   "all_output_hashes_identical": true,
+   "report_sha256": "57ae1044e16747e15aae360ef45be6aebaa778e9658fe8802283c3355afe1e7c"
+  }
+ },
+ "runtime_controls_passed": 9,
+ "combined_profile_and_lineage": {
+  "scripts": 90,
+  "sidecars_identical": true,
+  "profile_valid": true
+ },
+ "release_sha256": "93c089f209d97971da1d2215f1a61bfba2b7f84e1159115d54372378bfd490cc",
+ "logs": {
+  "rust": {
+   "path": "out\\v2-profile-rust.log",
+   "sha256": "40276fb9449cbb7b9c1bfb7d990968211ddb4a99412492ef5910e31b76d23909"
+  },
+  "python": {
+   "path": "out\\v2-profile-python.log",
+   "sha256": "a03937eb5d22428282792c2d3f7618ab03f5a2aec3a2dbf02a428f027eced8ef"
+  }
+ }
+}
