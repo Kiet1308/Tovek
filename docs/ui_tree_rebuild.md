@@ -1,0 +1,46 @@
+# Late UI tree rebuilding
+
+The C4 pass now restores curried factory/property/children expressions from
+their temporary-based lowering. On the final corpus it removes **37 of 59**
+SETLIST fallbacks. `FusionPackage/Components/Base/Menu/init` now has one nested
+props/children tree instead of separated factory handles, field stores and a
+packing loop.
+
+The pass alternates table rebuilding and single-use inlining to a fixed point:
+
+1. A factory result can move into another call's callee position only when it
+   has one write, one read, no capture, and crosses no observable evaluation or
+   conditional execution. Callee position keeps exactly one result.
+2. A local/literal key snapshot can move into a single index assignment only
+   when its source remains unchanged. Captured sources require a proved single
+   write before they can cross calls; mutable capture snapshots stay in place.
+3. Contiguous property assignments keep key evaluation, value evaluation and
+   the store in their original order. This permits dynamic/event keys even when
+   they call or raise. A captured target table cannot postpone its initialization.
+4. A contiguous SETLIST appends only at the exact next list index. Fixed values
+   stay single-valued, the final tail stays multret, and an existing expanding
+   tail prevents appending. Luau flushes list entries before a keyed field, so
+   numeric-key overlap and dynamic-key errors preserve their order.
+
+An initial nil placeholder for a literal key can be removed while its final
+value stays at the later position. It cannot be replaced in place across an
+effectful constructor suffix. Nonempty discarded tables and effectful old
+values remain preserved.
+
+There are **22 remaining fallbacks in 21 files**. They include conditional
+property computation (`CollapsedStatLabel`, `StatLabel`), interleaved statements
+and captured bindings. These sites retain their source order rather than
+duplicating a branch or moving a callback. Their complete locations are recorded
+in [ui_setlist_remaining.json](structurer_inventory/ui_setlist_remaining.json).
+
+Fallback evaluates the fixed values and multret tail together with `table.pack`
+and writes indices 1 through the recorded count. Unlike a sparse `next` loop,
+this overwrites old slots with nil and delays every store until all values have
+been evaluated. Generated locals avoid shadowing the target, and naming reserves
+the Luau `table` builtin used by this expansion.
+
+`ui_setlist_order.luau` compares actual traces at O0/O1/O2 for factories,
+dynamic nil/NaN keys, mutable captures, placeholder order, numeric-key overlap,
+multret/nil tails and skipped call sites. AST/CFG tests exercise refused motion,
+observable captured initialization and helper-name collisions. Final guard
+flattening has an expression budget and refuses to duplicate tables/closures.

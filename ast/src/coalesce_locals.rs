@@ -27,6 +27,7 @@ struct LocalInfo {
     first: usize,
     last: usize,
     loop_scope: Vec<usize>,
+    branch_scope: Vec<(usize, bool)>,
     blocked: bool,
 }
 
@@ -46,6 +47,7 @@ impl LocalInfo {
             local,
             first: occurrence.position,
             last: occurrence.position,
+            branch_scope: occurrence.branches.clone(),
             occurrences: vec![occurrence],
             loop_scope: loop_scope.to_vec(),
             blocked,
@@ -55,8 +57,22 @@ impl LocalInfo {
     fn add(&mut self, occurrence: Occurrence, loop_scope: &[usize], blocked: bool) {
         self.first = self.first.min(occurrence.position);
         self.last = self.last.max(occurrence.position);
+        let common = self
+            .branch_scope
+            .iter()
+            .zip(&occurrence.branches)
+            .take_while(|(left, right)| left == right)
+            .count();
+        self.branch_scope.truncate(common);
         if self.loop_scope != loop_scope {
             self.blocked = true;
+            let common = self
+                .loop_scope
+                .iter()
+                .zip(loop_scope)
+                .take_while(|(left, right)| left == right)
+                .count();
+            self.loop_scope.truncate(common);
         }
         self.blocked |= blocked;
         self.occurrences.push(occurrence);
@@ -85,6 +101,29 @@ pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLoca
         protected,
     );
     if has_closure || infos.len() <= 240 {
+        return;
+    }
+
+    // Count declarations along a lexical scope chain, not across the entire
+    // function. Hundreds of locals in separate dispatch arms never occupy
+    // registers at the same time. Coalescing those functions needlessly makes
+    // unrelated computations share identities and hides inline helper shapes.
+    let mut scope_sizes: FxHashMap<(Vec<usize>, Vec<(usize, bool)>), usize> = FxHashMap::default();
+    for info in infos.values() {
+        *scope_sizes
+            .entry((info.loop_scope.clone(), info.branch_scope.clone()))
+            .or_default() += 1;
+    }
+    if scope_sizes.keys().all(|(loops, branches)| {
+        scope_sizes
+            .iter()
+            .filter(|((parent_loops, parent_branches), _)| {
+                loops.starts_with(parent_loops) && branches.starts_with(parent_branches)
+            })
+            .map(|(_, count)| count)
+            .sum::<usize>()
+            <= 240
+    }) {
         return;
     }
 
@@ -121,6 +160,11 @@ pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLoca
 fn can_join_group(group: &CoalesceGroup, info: &LocalInfo) -> bool {
     !group.representative.blocked
         && group.representative.loop_scope == info.loop_scope
+        // Separate lexical arms already reuse VM registers when compiled.
+        // Merging their source locals forces the declaration into their common
+        // parent, *increasing* live register pressure and preventing de-inline
+        // matching. Only reuse storage within the same declaration scope.
+        && group.representative.branch_scope == info.branch_scope
         && group
             .members
             .iter()
@@ -408,6 +452,47 @@ mod tests {
         assert!(can_join_group(&representative_only, &first_later));
         assert!(can_join_group(&representative_only, &overlapping_later));
         assert!(!can_join_group(&group, &overlapping_later));
+    }
+
+    #[test]
+    fn reuses_storage_inside_arms_without_hoisting_their_declarations() {
+        let arm = || {
+            Block(
+                (0..241)
+                    .map(|n| {
+                        Assign::new(vec![LValue::Local(RcLocal::default())], vec![
+                            RValue::Literal(Literal::Number(n as f64)),
+                        ])
+                        .into()
+                    })
+                    .collect(),
+            )
+        };
+        let mut block = Block(vec![
+            If::new(Global::from("flag").into(), arm(), arm()).into(),
+        ]);
+        coalesce_generated_locals(&mut block, &FxHashSet::default());
+        let branch = block[0].as_if().unwrap();
+        let locals_in = |block: &Block| {
+            block
+                .iter()
+                .flat_map(|statement| statement.values_written())
+                .cloned()
+                .collect::<FxHashSet<_>>()
+        };
+        let then_locals = locals_in(&branch.then_block.lock());
+        let else_locals = locals_in(&branch.else_block.lock());
+        assert_eq!(then_locals.len(), 1);
+        assert_eq!(else_locals.len(), 1);
+        assert!(then_locals.is_disjoint(&else_locals));
+        let root = Arc::new(Mutex::new(block));
+        crate::local_declarations::LocalDeclarer::default()
+            .declare_locals(root.clone(), &FxHashSet::default());
+        let root = root.lock();
+        assert_eq!(root.len(), 1, "no declaration should escape its branch");
+        let branch = root[0].as_if().unwrap();
+        assert!(branch.then_block.lock()[0].as_assign().unwrap().prefix);
+        assert!(branch.else_block.lock()[0].as_assign().unwrap().prefix);
     }
 
     #[test]

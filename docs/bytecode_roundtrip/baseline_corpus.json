@@ -1,13 +1,13 @@
 {
  "summary": {
   "inputs": 3936,
-  "protos": 26339,
-  "exact": 15717,
-  "equiv": 7878,
-  "differ": 2609,
+  "protos": 26337,
+  "exact": 15854,
+  "equiv": 7784,
+  "differ": 2566,
   "missing": 3,
-  "extra": 132,
-  "equiv_ratio": 0.89582
+  "extra": 130,
+  "equiv_ratio": 0.89752
  },
  "files": [
   {
@@ -2509,7 +2509,7 @@
   {
    "file": "ReplicatedStorage/CmdrClient/Shared/Argument",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 11
   },
   {
@@ -3961,7 +3961,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Base/Container",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 7
   },
   {
@@ -4009,7 +4009,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Base/Menu/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 8
   },
   {
@@ -5227,7 +5227,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Effects/Flipbook/init",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 0,
    "protos": 8
   },
   {
@@ -5365,7 +5365,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Effects/SplitFlipbook",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 0,
    "protos": 8
   },
   {
@@ -5515,7 +5515,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/RerollEquipment/init",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 42
   },
   {
@@ -5533,7 +5533,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/ScrapEquipment/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 16
   },
   {
@@ -5629,7 +5629,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/TrainingUnits",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 25
   },
   {
@@ -5659,7 +5659,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionShop",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 9
   },
   {
@@ -5695,7 +5695,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionUpgrades/UpgradeTree",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 11
   },
   {
@@ -5791,7 +5791,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingMenu/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 7
   },
   {
@@ -5809,7 +5809,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingRightHUD",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 12
   },
   {
@@ -6205,7 +6205,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Enemies/SandboxSpawnEnemy",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 12
   },
   {
@@ -6349,7 +6349,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/CheckpointShopMenu/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 17
   },
   {
@@ -6397,7 +6397,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/NodeMapMenu/init",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 3,
    "protos": 33
   },
   {
@@ -6475,7 +6475,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/TopHUD/Old",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 7
   },
   {
@@ -6571,7 +6571,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/HUD/Game/RightHUD/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 18
   },
   {
@@ -6703,7 +6703,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/HUD/PlayerList/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 27
   },
   {
@@ -7015,7 +7015,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Icons/Trait",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 5
   },
   {
@@ -7039,7 +7039,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Labels/FlowLabel",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 3
   },
   {
@@ -7279,7 +7279,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/Areas/AreaButton",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 9
   },
   {
@@ -7573,7 +7573,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/BossBountyEvent",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 2,
    "protos": 21
   },
   {
@@ -7609,7 +7609,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/GuessUnitEvent/GuessUnitDifficultyButton",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 11
   },
   {
@@ -7687,7 +7687,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonSecondaryButton",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 10
   },
   {
@@ -7747,13 +7747,13 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/Pages/Gamemode",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 2,
    "protos": 11
   },
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/Pages/Home",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 10
   },
   {
@@ -7975,7 +7975,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/Pages/Vault/EditIconPrompt",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 12
   },
   {
@@ -8011,7 +8011,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/Pages/Vault/VaultLabel",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 6
   },
   {
@@ -8131,7 +8131,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/ItemInventory/ItemPreview",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 18
   },
   {
@@ -8581,7 +8581,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/QuickOpenLootbox/init",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 24
   },
   {
@@ -8611,7 +8611,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Keybind",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 13
   },
   {
@@ -8689,7 +8689,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/ShinyNormalizer",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 18
   },
   {
@@ -8767,7 +8767,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/Store/GamepassButton",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 11
   },
   {
@@ -9133,7 +9133,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/CollapsedStatLabel",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 5
   },
   {
@@ -9163,7 +9163,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/StatLabel/init",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 11
   },
   {
@@ -9229,7 +9229,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Menu/UpdateLog/ScrollerItems/FeaturedGamemode",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 4
   },
   {
@@ -9307,7 +9307,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Notifications/MatchmakingWindow",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 4
   },
   {
@@ -10189,7 +10189,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Processors/ThrottledCount",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 5
   },
   {
@@ -10657,7 +10657,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Prompts/StarterUnitSelection/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 10
   },
   {
@@ -10705,7 +10705,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitEquipment/init",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 10
   },
   {
@@ -10723,7 +10723,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitSelection",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 16
   },
   {
@@ -12001,7 +12001,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/State/Flatten",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -13219,7 +13219,7 @@
   {
    "file": "ReplicatedStorage/FusionPackage/Utils/HyperText/init",
    "status": "ok",
-   "nonequiv": 10,
+   "nonequiv": 9,
    "protos": 138
   },
   {
@@ -14239,7 +14239,7 @@
   {
    "file": "ReplicatedStorage/Nodes/init",
    "status": "ok",
-   "nonequiv": 19,
+   "nonequiv": 20,
    "protos": 88
   },
   {
@@ -14491,7 +14491,7 @@
   {
    "file": "ReplicatedStorage/Part_Icles/Rocks/Trajectory",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 8
   },
   {
@@ -15265,7 +15265,7 @@
   {
    "file": "ReplicatedStorage/Shared/Information/AutoPlayUtils",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 4,
    "protos": 25
   },
   {
@@ -15751,7 +15751,7 @@
   {
    "file": "ReplicatedStorage/Shared/Information/Expeditions/init",
    "status": "ok",
-   "nonequiv": 9,
+   "nonequiv": 8,
    "protos": 50
   },
   {
@@ -18541,7 +18541,7 @@
   {
    "file": "ReplicatedStorage/Shared/Network/BufferEncoder/ReadDatatypes/Ray",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -18793,7 +18793,7 @@
   {
    "file": "ReplicatedStorage/Shared/TeleportUtil",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 6
   },
   {
@@ -19159,7 +19159,7 @@
   {
    "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Rocks/Trajectory",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 8
   },
   {
@@ -19459,7 +19459,7 @@
   {
    "file": "ReplicatedStorage/Shared/Utils/FormatNumber/_internal/class",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 4,
    "protos": 10
   },
   {
@@ -19537,7 +19537,7 @@
   {
    "file": "ReplicatedStorage/Shared/Utils/init",
    "status": "ok",
-   "nonequiv": 17,
+   "nonequiv": 18,
    "protos": 131
   },
   {
@@ -19567,7 +19567,7 @@
   {
    "file": "ReplicatedStorage/Shared/Zone/Geometry/init",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 4,
    "protos": 26
   },
   {
@@ -20833,7 +20833,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/ClientFishingHandler.client",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 6,
    "protos": 25
   },
   {
@@ -20917,7 +20917,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/ClientGuiController.client",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 15
   },
   {
@@ -21187,7 +21187,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/ClientPlayerDataReplica.client",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 10
   },
   {
@@ -21217,7 +21217,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/ClientResetCharacter.client",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 10
   },
   {
@@ -22321,7 +22321,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/VehicleCamera/VehicleCameraCore",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 13
   },
   {
@@ -22573,7 +22573,7 @@
   {
    "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/VehicleCamera/VehicleCameraCore",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 13
   },
   {

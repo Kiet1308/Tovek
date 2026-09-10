@@ -89,6 +89,9 @@ struct LoopInfo {
     right: Vec<RValue>,
     origin: Option<ast::ForOrigin>,
     while_condition: Option<RValue>,
+    /// A natural cycle without a separate header test. The complete header
+    /// belongs inside `while true`; a join equal to the header means no exit.
+    whole_header: bool,
     /// Numeric-for loops do not carry the generic iterator provenance or
     /// result tuple.  Keep their semantic operands alongside the common
     /// region ownership so nested numeric loops can use the same path/exit
@@ -98,6 +101,7 @@ struct LoopInfo {
 
 #[derive(Clone)]
 struct NumericLoopInfo {
+    initial_counter: RcLocal,
     counter: RcLocal,
     initial: RValue,
     limit: RValue,
@@ -1190,6 +1194,7 @@ impl Analysis {
                 right: init_statement.0.right.clone(),
                 origin: Some(origin),
                 while_condition: None,
+                whole_header: false,
                 numeric: None,
             });
         }
@@ -1232,7 +1237,6 @@ impl Analysis {
             for edge in function.edges(*source) {
                 let header = edge.target();
                 if !reachable.contains(&header)
-                    || *source == header
                     || !dominators
                         .dominators(*source)
                         .is_some_and(|mut ds| ds.any(|candidate| candidate == header))
@@ -1242,17 +1246,23 @@ impl Analysis {
                 let Some(block) = function.block(header) else {
                     continue;
                 };
-                if block
-                    .last()
-                    .and_then(|statement| statement.as_if())
-                    .is_none()
-                    || function.conditional_edges(header).is_none()
-                {
+                if block.iter().any(|statement| {
+                    matches!(
+                        statement,
+                        Statement::GenericForInit(_)
+                            | Statement::GenericForNext(_)
+                            | Statement::NumForInit(_)
+                            | Statement::NumForNext(_)
+                    )
+                }) {
                     continue;
                 }
                 let owned = candidates.entry(header).or_default();
                 owned.insert(header);
                 owned.insert(*source);
+                if *source == header {
+                    continue;
+                }
                 let mut work = vec![*source];
                 while let Some(node) = work.pop() {
                     for predecessor in function.predecessor_blocks(node) {
@@ -1269,21 +1279,51 @@ impl Analysis {
 
         let mut result = FxHashMap::default();
         for (header, mut owned) in candidates {
-            let Some((then_edge, else_edge)) = function.conditional_edges(header) else {
-                continue;
+            let conditional =
+                function
+                    .conditional_edges(header)
+                    .and_then(|(then_edge, else_edge)| {
+                        let then_inside = owned.contains(&then_edge.target());
+                        let else_inside = owned.contains(&else_edge.target());
+                        (then_inside != else_inside).then_some((
+                            then_edge.target(),
+                            else_edge.target(),
+                            then_inside,
+                        ))
+                    });
+            let whole_header = conditional.is_none();
+            let (body_entry, normal_exit, then_inside) = match conditional {
+                Some((then_target, else_target, true)) => (then_target, else_target, true),
+                Some((then_target, else_target, false)) => (else_target, then_target, false),
+                None => (header, header, true),
             };
-            let then_target = then_edge.target();
-            let else_target = else_edge.target();
-            let then_inside = owned.contains(&then_target);
-            let else_inside = owned.contains(&else_target);
-            if then_inside == else_inside {
-                continue;
+            {
+                // Whole-header cycles can have several terminal fringes
+                // (for example two cleanup loops ending in different
+                // returns). Own every header-dominated path until an entry
+                // shared with code outside this cycle. Such a shared entry
+                // remains the source loop's exit port.
+                let owner = if whole_header { header } else { body_entry };
+                let mut work = if whole_header {
+                    function.successor_blocks(header).collect_vec()
+                } else {
+                    vec![body_entry]
+                };
+                let mut seen = FxHashSet::default();
+                while let Some(node) = work.pop() {
+                    if node == header
+                        || node == normal_exit
+                        || !seen.insert(node)
+                        || !dominators
+                            .dominators(node)
+                            .is_some_and(|mut ds| ds.any(|candidate| candidate == owner))
+                    {
+                        continue;
+                    }
+                    owned.insert(node);
+                    work.extend(function.successor_blocks(node));
+                }
             }
-            let (body_entry, normal_exit) = if then_inside {
-                (then_target, else_target)
-            } else {
-                (else_target, then_target)
-            };
             // A body node with an incoming edge bypassing the header is a
             // multi-entry region and cannot be represented by one `while`.
             if owned.iter().any(|node| {
@@ -1304,39 +1344,45 @@ impl Analysis {
                 .filter(|target| !owned.contains(target))
                 .unique()
                 .collect_vec();
-            let Some(join) = common_postdominator(&external_targets, post_dominators) else {
+            let join = if whole_header && external_targets.is_empty() {
+                header
+            } else if let Some(join) = common_postdominator(&external_targets, post_dominators) {
+                join
+            } else {
                 continue;
             };
-            if owned.contains(&join) || join == header {
+            if join != header && owned.contains(&join) {
                 continue;
             }
-            let mut condition = function
-                .block(header)
-                .and_then(|block| block.last())
-                .and_then(|statement| statement.as_if())
-                .map(|if_statement| if_statement.condition.clone());
+            let mut condition = if whole_header {
+                Some(Literal::Boolean(true).into())
+            } else {
+                function
+                    .block(header)
+                    .and_then(|block| block.last())
+                    .and_then(|statement| statement.as_if())
+                    .map(|if_statement| if_statement.condition.clone())
+            };
             let Some(mut condition) = condition.take() else {
                 continue;
             };
             if !then_inside {
                 condition = Unary::new(condition, UnaryOperation::Not).reduce_condition();
             }
-            result.insert(
+            result.insert(header, LoopInfo {
                 header,
-                LoopInfo {
-                    header,
-                    init: header,
-                    body_entry,
-                    normal_exit,
-                    join,
-                    nodes: owned,
-                    res_locals: Vec::new(),
-                    right: Vec::new(),
-                    origin: None,
-                    while_condition: Some(condition),
-                    numeric: None,
-                },
-            );
+                init: header,
+                body_entry,
+                normal_exit,
+                join,
+                nodes: owned,
+                res_locals: Vec::new(),
+                right: Vec::new(),
+                origin: None,
+                while_condition: Some(condition),
+                whole_header,
+                numeric: None,
+            });
         }
         result
     }
@@ -1396,7 +1442,18 @@ impl Analysis {
 
         let mut by_init = FxHashMap::default();
         let mut by_header = FxHashMap::default();
-        for (header, nodes_in_loop) in candidates {
+        // A numeric-for body can return on every path, so it need not have a
+        // natural backedge. The explicit marker still identifies its header.
+        for header in nodes {
+            if function
+                .block(*header)
+                .and_then(|block| block.last())
+                .is_some_and(|statement| statement.as_num_for_next().is_some())
+            {
+                candidates.entry(*header).or_default().insert(*header);
+            }
+        }
+        for (header, mut nodes_in_loop) in candidates {
             let Some(next) = function
                 .block(header)
                 .and_then(|block| block.last())
@@ -1416,6 +1473,26 @@ impl Analysis {
             // pair fail-closed rather than guessing a body.
             if body_entry == normal_exit {
                 continue;
+            }
+            // Natural loops contain only paths returning to the header. Add
+            // body-owned terminal arms before finding the external join;
+            // otherwise an early return looks like a second post-loop exit.
+            // Stop at normal exhaustion and at any node whose entry bypasses
+            // the body. This cannot absorb an enclosing loop's continuation.
+            let mut work = vec![body_entry];
+            let mut seen = FxHashSet::default();
+            while let Some(node) = work.pop() {
+                if node == header
+                    || node == normal_exit
+                    || !seen.insert(node)
+                    || !dominators
+                        .dominators(node)
+                        .is_some_and(|mut ds| ds.any(|candidate| candidate == body_entry))
+                {
+                    continue;
+                }
+                nodes_in_loop.insert(node);
+                work.extend(function.successor_blocks(node));
             }
             if !nodes_in_loop.contains(&body_entry) || nodes_in_loop.contains(&normal_exit) {
                 continue;
@@ -1467,12 +1544,39 @@ impl Analysis {
             let Some(next_counter) = next.counter.0.as_local() else {
                 continue;
             };
-            if next_counter != &counter
-                || next.counter.1 != RValue::Local(counter.clone())
+            if next.counter.1 != RValue::Local(counter.clone())
                 || next.limit != RValue::Local(limit_local)
                 || next.step != RValue::Local(step_local)
             {
                 continue;
+            }
+            if next_counter != &counter {
+                // A body with no backedge can retain distinct SSA versions
+                // for FORNPREP's hidden counter and the first FORNLOOP result.
+                // With another step, a fixed input would repeat the same
+                // value, so only the one-step shape can use source `for`.
+                if function.predecessor_blocks(header).any(|node| node != init)
+                    || nodes.iter().any(|node| {
+                        if *node == init || *node == header {
+                            return false;
+                        }
+                        let forbidden = |local: &RcLocal| {
+                            local == &counter
+                                || (local == next_counter && !nodes_in_loop.contains(node))
+                        };
+                        function.block(*node).is_some_and(|block| {
+                            block
+                                .iter()
+                                .any(|statement| statement.values().into_iter().any(forbidden))
+                        }) || function.edges(*node).any(|edge| {
+                            edge.weight().arguments.iter().any(|(local, value)| {
+                                forbidden(local) || value.values_read().into_iter().any(forbidden)
+                            })
+                        })
+                    })
+                {
+                    continue;
+                }
             }
             let external_targets = nodes_in_loop
                 .iter()
@@ -1497,8 +1601,10 @@ impl Analysis {
                 right: Vec::new(),
                 origin: None,
                 while_condition: None,
+                whole_header: false,
                 numeric: Some(NumericLoopInfo {
-                    counter,
+                    initial_counter: counter,
+                    counter: next_counter.clone(),
                     initial: init_statement.counter.1.clone(),
                     limit: init_statement.limit.1.clone(),
                     step: init_statement.step.1.clone(),
@@ -1536,6 +1642,11 @@ fn common_postdominator(
     post_dominators: &FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
 ) -> Option<NodeIndex> {
     let first = *targets.first()?;
+    // A single exit port is its own join, including in a non-terminating
+    // enclosing cycle where exit-based post-dominator sets are empty.
+    if targets.iter().all(|target| *target == first) {
+        return Some(first);
+    }
     let mut common = post_dominators.get(&first)?.clone();
     for target in targets.iter().skip(1) {
         common.retain(|candidate| post_dominators[target].contains(candidate));
@@ -1890,11 +2001,13 @@ impl<'a> Builder<'a> {
                                 .values_read()
                                 .into_iter()
                                 .any(|read| read == *local)
+                                || statement_captures_any(statement, std::slice::from_ref(*local))
                         })
                     });
                     let read_on_edge = self.function.edges(*node).any(|edge| {
                         edge.weight().arguments.iter().any(|(_, value)| {
                             value.values_read().into_iter().any(|read| read == *local)
+                                || rvalue_captures_any(value, std::slice::from_ref(*local))
                         })
                     });
                     read_in_block || read_on_edge
@@ -2189,9 +2302,6 @@ impl<'a> Builder<'a> {
     }
 
     /// Reference-capturing a generic-for result requires a per-iteration cell.
-    /// The CFG currently treats `Close` as an unmodelled event, so there is no
-    /// sound way to prove that lifetime.  Reject every such capture rather
-    /// than treating a body mutation as evidence of a close operation.
     fn has_ref_captured_result(&self, info: &LoopInfo) -> bool {
         info.nodes.iter().any(|node| {
             self.function.block(*node).is_some_and(|block| {
@@ -2211,10 +2321,9 @@ impl<'a> Builder<'a> {
     /// `for` body capture when the result local stays owned by the loop: it
     /// is declared by the emitted `for`, is not renamed or exported, and no
     /// statement or transfer outside the loop's own nodes reads, writes, or
-    /// captures it.  Each source iteration then binds a fresh cell exactly as
-    /// the VM does (the compiler closes captured loop-scope locals on every
-    /// fallthrough/`continue`/`break` boundary), so closures created in
-    /// different iterations observe their own iteration's final value.
+    /// captures it. SSA must also carry a close-path certificate for every
+    /// capture of this exact binding: loop ownership alone says nothing about
+    /// whether custom bytecode closes its cell before the next iteration.
     fn captured_result_is_loop_owned(
         &self,
         info: &LoopInfo,
@@ -2230,6 +2339,16 @@ impl<'a> Builder<'a> {
             });
             if !captured {
                 return true;
+            }
+            if self.function.parameters.contains(result)
+                || !info.origin.is_some_and(|origin| {
+                    self.function
+                        .iteration_capture_proofs
+                        .get(result)
+                        .is_some_and(|proofs| proofs.contains(&origin.id()))
+                })
+            {
+                return false;
             }
             // A ref-captured result is itself an upvalue cell, so it is always
             // in the protected set; that is expected here and is not an escape.
@@ -2414,8 +2533,11 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
-        if self.rewrite.contains_key(&numeric.counter)
-            || self.protected_locals.contains(&numeric.counter)
+        if [&numeric.counter, &numeric.initial_counter]
+            .iter()
+            .any(|counter| {
+                self.rewrite.contains_key(*counter) || self.protected_locals.contains(*counter)
+            })
         {
             // A numeric-for counter is a fresh loop binding.  Reusing a
             // function parameter, upvalue, or an already-exported SSA cell
@@ -2434,15 +2556,23 @@ impl<'a> Builder<'a> {
             return None;
         }
         let header = self.function.block(info.header)?;
-        if header
+        let header_prefix = header
             .iter()
             .take(header.len().saturating_sub(1))
-            .any(|statement| !is_ignorable(statement))
-            || header
-                .last()
-                .and_then(|statement| statement.as_num_for_next())
-                .is_none()
+            .filter(|statement| !is_ignorable(statement))
+            .cloned()
+            .collect_vec();
+        if header_prefix.iter().any(|statement| {
+            !matches!(statement,
+            Statement::Assign(assign) if !assign.prefix && !assign.parallel
+                && assign.left.len() == 1 && assign.right.len() == 1
+                && assign.left[0].as_local().is_some() && assign.right[0].as_local().is_some())
+        }) || header
+            .last()
+            .and_then(|statement| statement.as_num_for_next())
+            .is_none()
         {
+            self.trace_unsupported("numeric-header-prefix", info.header, Some(info.join));
             return None;
         }
         if self
@@ -2468,7 +2598,7 @@ impl<'a> Builder<'a> {
         let counter = init_statement.counter.0.as_local()?;
         let limit_local = init_statement.limit.0.as_local()?.clone();
         let step_local = init_statement.step.0.as_local()?.clone();
-        if counter != &numeric.counter
+        if counter != &numeric.initial_counter
             || init_statement.counter.1 != numeric.initial
             || init_statement.limit.1 != numeric.limit
             || init_statement.step.1 != numeric.step
@@ -2482,6 +2612,19 @@ impl<'a> Builder<'a> {
         // those reads/writes observe the source-level outer locals.  Keep the
         // candidate fail-closed until register aliasing is modelled explicitly.
         let hidden_operands = [limit_local.clone(), step_local.clone()];
+        // A total local copy independent of the numeric protocol can run at
+        // the start of each body and once on normal exhaustion.  The numeric
+        // test itself cannot observe it.  Counter/limit/step accesses cannot
+        // cross that test because they would see a different step value.
+        if header_prefix.iter().any(|statement| {
+            statement.values().into_iter().any(|local| {
+                local == &numeric.counter
+                    || local == &numeric.initial_counter
+                    || hidden_operands.contains(local)
+            })
+        }) {
+            return None;
+        }
         if info
             .nodes
             .iter()
@@ -2540,10 +2683,24 @@ impl<'a> Builder<'a> {
         let initial = self.rewrite_rvalue(numeric.initial.clone());
         let limit = self.rewrite_rvalue(numeric.limit.clone());
         let step = self.rewrite_rvalue(numeric.step.clone());
+        let header_output: Block = header_prefix
+            .into_iter()
+            .map(|statement| self.rewrite_statement(statement))
+            .collect_vec()
+            .into();
+        let exhaustion_flag = (!header_output.is_empty()).then(RcLocal::default);
+        if let Some(flag) = &exhaustion_flag {
+            output.push(
+                Assign::new(vec![LValue::Local(flag.clone())], vec![RValue::Literal(
+                    Literal::Boolean(true),
+                )])
+                .into(),
+            );
+        }
         let context = LoopContext {
             info,
             exports: &[],
-            exhaustion_flag: None,
+            exhaustion_flag: exhaustion_flag.clone(),
         };
         let body_result = match self.build_path(info.body_entry, Some(info.header), Some(&context))
         {
@@ -2556,18 +2713,14 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
-        let mut body = body_result.block;
+        let mut body = header_output.clone();
+        body.extend(body_result.block.0);
         strip_trailing_continues(&mut body);
-        output.push(
-            ast::NumericFor::new(
-                initial,
-                limit,
-                step,
-                numeric.counter.clone(),
-                body,
-            )
-            .into(),
-        );
+        output
+            .push(ast::NumericFor::new(initial, limit, step, numeric.counter.clone(), body).into());
+        if let Some(flag) = exhaustion_flag {
+            output.push(If::new(RValue::Local(flag), header_output, Block::default()).into());
+        }
         self.visited.extend(normal_adapters);
         Some(PathResult {
             block: output,
@@ -2576,6 +2729,33 @@ impl<'a> Builder<'a> {
     }
 
     fn build_while_loop(&mut self, info: &LoopInfo) -> Option<PathResult> {
+        if info.whole_header {
+            let context = LoopContext {
+                info,
+                exports: &[],
+                exhaustion_flag: None,
+            };
+            let result = self.build_path_inner_with_entry(
+                info.header,
+                Some(info.header),
+                Some(&context),
+                true,
+            )?;
+            if result
+                .next
+                .is_some_and(|next| next != info.header && next != info.join)
+            {
+                return None;
+            }
+            let mut body = result.block;
+            strip_trailing_continues(&mut body);
+            return Some(PathResult {
+                block: Block::from(vec![
+                    ast::While::new(Literal::Boolean(true).into(), body).into(),
+                ]),
+                next: (info.join != info.header).then_some(info.join),
+            });
+        }
         let condition = info.while_condition.clone()?;
         // The condition is evaluated at the loop header, before any nested
         // loop in the body can publish an export rewrite.  Capture its
@@ -2588,16 +2768,23 @@ impl<'a> Builder<'a> {
         }
         let header = self.function.block(info.header)?;
         let if_statement = header.last()?.as_if()?;
-        if if_statement.condition != condition
+        let (then_edge, else_edge) = self.function.conditional_edges(info.header)?;
+        let expected_condition = if then_edge.target() == info.body_entry
+            && else_edge.target() == info.normal_exit
+        {
+            if_statement.condition.clone()
+        } else if else_edge.target() == info.body_entry && then_edge.target() == info.normal_exit {
+            Unary::new(if_statement.condition.clone(), UnaryOperation::Not).reduce_condition()
+        } else {
+            return None;
+        };
+        if expected_condition != condition
+            || !if_statement.then_block.lock().is_empty()
+            || !if_statement.else_block.lock().is_empty()
             || header
                 .iter()
                 .take(header.len().saturating_sub(1))
-                // The conditional header executes on every natural backedge.
-                // There is no source-level slot to place a non-trivial
-                // prefix outside the test and inside the loop at the same
-                // time, so accepting one here would move side effects to a
-                // one-time preheader (e.g. `x += 1; while x < 3`).
-                .any(|statement| !is_ignorable(statement))
+                .any(|statement| !is_linear_statement(statement))
             || self
                 .function
                 .edges(info.header)
@@ -2605,20 +2792,35 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
-        let mut output: Block = header
+        let prefix: Block = header
             .iter()
             .take(header.len().saturating_sub(1))
             .cloned()
             .map(|statement| self.rewrite_statement(statement))
             .collect_vec()
             .into();
+        let has_prefix = prefix.iter().any(|statement| !is_ignorable(statement));
+        let mut output = Block::default();
         let context = LoopContext {
             info,
             exports: &[],
             exhaustion_flag: None,
         };
+        // The false header edge may run an adapter before the shared join.
+        // Put it on that exact edge inside the loop; a body-side break must
+        // bypass it. Snapshot coverage because a different break edge can
+        // legitimately reach the same adapter and needs its own copy.
+        let base_visited = self.visited.clone();
+        let normal_adapter =
+            self.build_exit_adapter(info.normal_exit, info.join, &context, Some(info.header))?;
+        let normal_visited = self.visited.clone();
+        self.visited = base_visited;
         let body_result = self.build_path(info.body_entry, Some(info.header), Some(&context))?;
-        if body_result.next != Some(info.header) && body_result.next != Some(info.join) {
+        self.visited.extend(normal_visited);
+        if body_result.next != Some(info.header)
+            && body_result.next != Some(info.join)
+            && body_result.next.is_some()
+        {
             return None;
         }
         let mut body = body_result.block;
@@ -2636,6 +2838,11 @@ impl<'a> Builder<'a> {
                     if for_loop.res_locals.iter().any(|result| result == condition_local))
             });
             if has_aliasing_generic {
+                if has_prefix {
+                    // The prefix needs a separate carried-cell proof before
+                    // it can share this specialized nested-result rewrite.
+                    return None;
+                }
                 let Some(carry) = self.rewrite.get(condition_local).cloned() else {
                     // Without an export mapping there is no distinct
                     // carry-cell to bridge the nested loop's result binding
@@ -2667,6 +2874,28 @@ impl<'a> Builder<'a> {
             }
         }
         strip_trailing_continues(&mut body);
+        if has_prefix || !normal_adapter.block.is_empty() {
+            // Header effects execute before every test, including the final
+            // false test. Put them inside a while-true body and guard the
+            // original body; moving them to the preheader executes them only
+            // once, and placing them after the body loses the final test.
+            let mut guarded = prefix;
+            let mut exit_block = normal_adapter.block;
+            exit_block.push(Statement::Break(ast::Break {}));
+            guarded.push(
+                If::new(
+                    Unary::new(loop_condition, UnaryOperation::Not).reduce_condition(),
+                    exit_block,
+                    Block::default(),
+                )
+                .into(),
+            );
+            guarded.extend(body.0);
+            body = guarded;
+            loop_condition = Literal::Boolean(true).into();
+        } else {
+            output.extend(prefix.0);
+        }
         output.push(ast::While::new(loop_condition, body).into());
         Some(PathResult {
             block: output,
@@ -2683,7 +2912,11 @@ impl<'a> Builder<'a> {
         // `while true` wrapper.  Inside an enclosing loop, returning `next =
         // None` would escape the nested path and alter the parent's control
         // flow, so keep the conservative generic-for lowering there.
-        self.build_loop_inner_with_reentry(info, context.is_none())
+        let result = self.build_loop_inner_with_reentry(info, context.is_none());
+        if result.is_none() {
+            self.trace_unsupported("loop", info.init, Some(info.join));
+        }
+        result
     }
 
     /// Prove a post-loop tail that either terminates or re-enters this
@@ -2692,13 +2925,25 @@ impl<'a> Builder<'a> {
     /// exhaustion reaches the same tail, and the tail prepares the next
     /// iterator.  Every node/edge is checked before AST construction.
     fn reentry_tail(&self, info: &LoopInfo) -> Option<ReentryTail> {
-        if info.numeric.is_some() || info.while_condition.is_some() {
+        if info.while_condition.is_some() {
             return None;
+        }
+        let mut scoped_locals = info.res_locals.clone();
+        if let Some(numeric) = &info.numeric {
+            scoped_locals.extend([numeric.counter.clone(), numeric.initial_counter.clone()]);
+            let init = self
+                .function
+                .block(info.init)?
+                .iter()
+                .find_map(|s| s.as_num_for_init())?;
+            scoped_locals.extend([
+                init.limit.0.as_local()?.clone(),
+                init.step.0.as_local()?.clone(),
+            ]);
         }
         let mut nodes = FxHashSet::default();
         let mut work = vec![info.join];
         let mut reenters = false;
-        let mut terminates = false;
         while let Some(current) = work.pop() {
             if current == info.init {
                 reenters = true;
@@ -2723,8 +2968,8 @@ impl<'a> Builder<'a> {
                 statement
                     .values_read()
                     .into_iter()
-                    .any(|read| info.res_locals.iter().any(|local| local == read))
-                    || statement_captures_any(statement, &info.res_locals)
+                    .any(|read| scoped_locals.iter().any(|local| local == read))
+                    || statement_captures_any(statement, &scoped_locals)
             }) {
                 return None;
             }
@@ -2756,7 +3001,6 @@ impl<'a> Builder<'a> {
                     {
                         return None;
                     }
-                    terminates = true;
                 }
                 [target] => {
                     if edges.len() != 1
@@ -2799,7 +3043,7 @@ impl<'a> Builder<'a> {
                 _ => return None,
             }
         }
-        if !reenters || !terminates {
+        if !reenters {
             return None;
         }
         // The join may be entered from the generic body and its exhaustion
@@ -3232,6 +3476,11 @@ impl<'a> Builder<'a> {
             .0
             .iter()
             .position(|statement| matches!(statement, Statement::GenericFor(_)))?;
+        // Most wrappers have no exhaustion adapter to reposition.  Their
+        // proven tail already follows the loop on every exit path.
+        if generic.0.len() == for_index + 1 {
+            return Some(());
+        }
         // The generic builder protects normal-exhaustion adapters with its
         // own `exhausted` flag.  A re-entry sentinel is the one narrow case
         // where that adapter is intentionally moved before the loop; unwrap
@@ -3418,15 +3667,22 @@ impl<'a> Builder<'a> {
             return None;
         }
         let mut stack = FxHashSet::default();
-        let tail_result = match self.build_reentry_tail(info.join, info.init, &tail.nodes, &mut stack) {
-            Some(result) => result,
-            None => return None,
-        };
-        if !tail_result.reenters || !tail_result.terminates {
+        let tail_result =
+            match self.build_reentry_tail(info.join, info.init, &tail.nodes, &mut stack) {
+                Some(result) => result,
+                None => return None,
+            };
+        if !tail_result.reenters {
             return None;
         }
         let mut generic = generic.block;
-        if self.move_reentry_reset_before_for(&mut generic, &tail_result.block).is_none() {
+        // Numeric lowering already requires an empty exhaustion adapter and
+        // ends in its source loop.  Only generic sentinel adapters move.
+        if info.numeric.is_none()
+            && self
+                .move_reentry_reset_before_for(&mut generic, &tail_result.block)
+                .is_none()
+        {
             return None;
         }
         let mut body = generic;
@@ -3451,7 +3707,11 @@ impl<'a> Builder<'a> {
         if allow_reentry {
             let tail = self.reentry_tail(info);
             if let Some(tail) = tail {
-                return self.build_reentry_loop(info, tail);
+                let result = self.build_reentry_loop(info, tail);
+                if result.is_none() {
+                    self.trace_unsupported("reentry-loop", info.init, Some(info.join));
+                }
+                return result;
             }
         }
         if info.while_condition.is_some() {
@@ -3605,31 +3865,88 @@ impl<'a> Builder<'a> {
                 .cloned()
                 .map(|statement| self.rewrite_statement(statement)),
         );
-        let exports = self.exports_for(info);
+        let mut exports = self.exports_for(info);
         let adapters = match self.normal_adapter_nodes(info, &exports) {
             Some(adapters) => adapters,
-            None => return None,
+            None => {
+                self.trace_unsupported(
+                    "generic-exhaustion-adapter",
+                    info.normal_exit,
+                    Some(info.join),
+                );
+                return None;
+            }
         };
-        if self.has_ref_captured_result(info)
-            && !self.captured_result_is_loop_owned(info, &exports)
-        {
+        let loop_owned_cells = self.captured_result_is_loop_owned(info, &exports);
+        if self.has_ref_captured_result(info) && !loop_owned_cells {
             return self.reject_unsafe(UnsafeStructureReason::CapturedLoopResultRef);
         }
-        if self.has_unsafe_export_write(info, &exports, &adapters)
+        // Keep a source-visible outer cell when it is a parameter, is used by
+        // later closures, or receives writes on a bypass/continuation path.
+        // The VM result is emitted as a private for-binding; explicit exit
+        // copies publish it to the original cell. This avoids rewriting any
+        // closure body or making sibling paths share a branch-local export.
+        let preserve_export_bindings = self.has_unsafe_export_write(info, &exports, &adapters)
+            || self.has_unsafe_captured_result_escape(info)
             || exports
                 .iter()
-                .any(|(local, _)| self.rewrite.contains_key(local))
-            || self.has_unsafe_captured_result_write(info)
-            || self.has_unsafe_captured_result_escape(info)
-        {
+                .any(|(local, _)| self.protected_locals.contains(local));
+        let mut iteration_bindings = FxHashMap::default();
+        if preserve_export_bindings {
+            for (local, private) in &exports {
+                if info.nodes.iter().any(|node| {
+                    self.function.block(*node).is_some_and(|block| {
+                        block.iter().any(|statement| {
+                            statement_captures_any(statement, std::slice::from_ref(local))
+                        })
+                    }) || self.function.edges(*node).any(|edge| {
+                        edge.weight().arguments.iter().any(|(_, value)| {
+                            rvalue_captures_any(value, std::slice::from_ref(local))
+                        })
+                    })
+                }) {
+                    return None;
+                }
+                iteration_bindings.insert(local.clone(), private.clone());
+            }
+        }
+        let failed_obligation = [
+            (
+                !preserve_export_bindings
+                    && self.has_unsafe_export_write(info, &exports, &adapters),
+                "generic-export-write",
+            ),
+            (
+                exports
+                    .iter()
+                    .any(|(local, _)| self.rewrite.contains_key(local)),
+                "generic-export-reuse",
+            ),
+            (
+                self.has_unsafe_captured_result_write(info),
+                "generic-captured-result-write",
+            ),
+            (
+                !preserve_export_bindings && self.has_unsafe_captured_result_escape(info),
+                "generic-captured-result-escape",
+            ),
+        ]
+        .into_iter()
+        .find_map(|(failed, reason)| failed.then_some(reason));
+        if let Some(reason) = failed_obligation {
+            self.trace_unsupported(reason, info.header, Some(info.join));
             return None;
         }
-        for (_, export) in &exports {
+        if preserve_export_bindings {
+            for (local, export) in &mut exports {
+                *export = local.clone();
+            }
+        }
+        for (_, export) in exports.iter().filter(|_| !preserve_export_bindings) {
             output.push(
-                Assign::new(
-                    vec![LValue::Local(export.clone())],
-                    vec![RValue::Literal(Literal::Nil)],
-                )
+                Assign::new(vec![LValue::Local(export.clone())], vec![RValue::Literal(
+                    Literal::Nil,
+                )])
                 .into(),
             );
         }
@@ -3730,8 +4047,8 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
-        // Function parameters and already-linked upvalue cells have
-        // function/closure scope.  A source `for` introduces fresh loop
+        // Function parameters and existing upvalue cells must retain their
+        // scope. A source `for` introduces fresh loop
         // bindings for its result tuple and hides the VM protocol locals;
         // accepting an SSA register that aliases one of those protected
         // cells would turn a parameter/upvalue mutation into a shadowed local
@@ -3739,8 +4056,22 @@ impl<'a> Builder<'a> {
         if protocol_locals
             .iter()
             .chain(info.res_locals.iter())
-            .any(|local| self.protected_locals.contains(local))
+            .any(|local| {
+                self.protected_locals.contains(local)
+                    && !(iteration_bindings.contains_key(local)
+                        && (self.function.parameters.contains(local)
+                            || self.function.local_capture_bindings.contains(local)))
+                    && !(info.res_locals.contains(local)
+                        && loop_owned_cells
+                        && info.origin.is_some_and(|origin| {
+                            self.function
+                                .iteration_capture_proofs
+                                .get(local)
+                                .is_some_and(|proofs| proofs.contains(&origin.id()))
+                        }))
+            })
         {
+            self.trace_unsupported("generic-protected-binding", info.header, Some(info.join));
             return None;
         }
         // Result registers are distinct VM slots from the iterator protocol
@@ -3924,13 +4255,15 @@ impl<'a> Builder<'a> {
             && right[1..]
                 .iter()
                 .all(|value| matches!(value, RValue::Literal(Literal::Nil)))
-            && !info
-                .origin
-                .is_some_and(|origin| origin.explicit_nil_args)
-            && !matches!(right.first(), Some(RValue::Call(_)) | Some(RValue::VarArg(_)))
+            && !info.origin.is_some_and(|origin| origin.explicit_nil_args)
+            && !matches!(
+                right.first(),
+                Some(RValue::Call(_)) | Some(RValue::VarArg(_))
+            )
         {
             right.truncate(1);
         }
+        self.rewrite.extend(iteration_bindings.clone());
         let body_result = if info.body_entry == info.normal_exit {
             // The compiler's unconditional-break shape aliases the body and
             // follow targets.  Do not walk the follow block into the loop;
@@ -3994,9 +4327,17 @@ impl<'a> Builder<'a> {
         }
         let mut body = body_result.block;
         strip_trailing_continues(&mut body);
-        let mut generic_for = GenericFor::new(info.res_locals.clone(), right, body);
+        let iteration_locals = info
+            .res_locals
+            .iter()
+            .map(|local| iteration_bindings.get(local).unwrap_or(local).clone())
+            .collect();
+        let mut generic_for = GenericFor::new(iteration_locals, right, body);
         generic_for.origin = info.origin;
         output.push(generic_for.into());
+        for local in iteration_bindings.keys() {
+            self.rewrite.remove(local);
+        }
         // Exhaustion adapters run after the VM FORGLOOP marker and may copy a
         // live result register (for example, the lower interpolation
         // candidate) into the value consumed by the post-loop join.  Apply
@@ -4058,7 +4399,7 @@ impl<'a> Builder<'a> {
                 output.extend(adapter_output.0);
             }
         }
-        for (local, export) in &exports {
+        for (local, export) in exports.iter().filter(|_| !preserve_export_bindings) {
             self.rewrite.insert(local.clone(), export.clone());
         }
         Some(PathResult {
@@ -4073,7 +4414,26 @@ impl<'a> Builder<'a> {
         stop: Option<NodeIndex>,
         context: Option<&LoopContext<'_>>,
     ) -> Option<PathResult> {
-        self.build_path_inner(start, stop, context)
+        let result = self.build_path_inner(start, stop, context);
+        if result.is_none() {
+            self.trace_unsupported("path", start, stop);
+        }
+        result
+    }
+
+    /// Keep failed proof locations visible without changing the public routing
+    /// result or enabling the much larger full-CFG dump.
+    fn trace_unsupported(&self, reason: &str, node: NodeIndex, stop: Option<NodeIndex>) {
+        if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+            eprintln!(
+                "source-like unsupported id={} shared_tail={} reason={} node={} stop={:?}",
+                self.function.id,
+                self.allow_shared_tail,
+                reason,
+                node.index(),
+                stop.map(|node| node.index()),
+            );
+        }
     }
 
     fn build_path_inner(
@@ -4082,10 +4442,23 @@ impl<'a> Builder<'a> {
         stop: Option<NodeIndex>,
         context: Option<&LoopContext<'_>>,
     ) -> Option<PathResult> {
+        self.build_path_inner_with_entry(start, stop, context, false)
+    }
+
+    fn build_path_inner_with_entry(
+        &mut self,
+        start: NodeIndex,
+        stop: Option<NodeIndex>,
+        context: Option<&LoopContext<'_>>,
+        mut enter_header: bool,
+    ) -> Option<PathResult> {
         let mut output = Block::default();
         let mut current = start;
         loop {
-            if Some(current) == stop || context.is_some_and(|ctx| current == ctx.info.header) {
+            let entering = std::mem::take(&mut enter_header);
+            if !entering
+                && (Some(current) == stop || context.is_some_and(|ctx| current == ctx.info.header))
+            {
                 return Some(PathResult {
                     block: output,
                     next: Some(current),
@@ -4094,15 +4467,18 @@ impl<'a> Builder<'a> {
             if self.analysis.loops_by_header.contains_key(&current)
                 || self.analysis.numeric_loops_by_header.contains_key(&current)
             {
+                self.trace_unsupported("unowned-loop-header", current, stop);
                 return None;
             }
             if !self.visited.insert(current) {
+                self.trace_unsupported("revisited-node", current, stop);
                 return None;
             }
             if let Some(info) = self
                 .analysis
                 .while_loops_by_header
                 .get(&current)
+                .filter(|_| !entering)
                 .or_else(|| self.analysis.loops_by_init.get(&current))
                 .or_else(|| self.analysis.numeric_loops_by_init.get(&current))
                 .cloned()
@@ -4119,6 +4495,7 @@ impl<'a> Builder<'a> {
                     if !info.nodes.is_subset(&ctx.info.nodes)
                         || !ctx.info.nodes.contains(&info.join)
                     {
+                        self.trace_unsupported("nested-loop-outside-owner", current, stop);
                         return None;
                     }
                 }
@@ -4143,6 +4520,7 @@ impl<'a> Builder<'a> {
             }
             let block = self.function.block(current)?;
             if block_has_rewritten_closure(block, &self.rewrite) {
+                self.trace_unsupported("rewritten-closure", current, stop);
                 return None;
             }
             if block.iter().any(|statement| {
@@ -4151,6 +4529,7 @@ impl<'a> Builder<'a> {
                     Statement::GenericForInit(_) | Statement::GenericForNext(_)
                 )
             }) {
+                self.trace_unsupported("unowned-for-marker", current, stop);
                 return None;
             }
             let successors = self.function.successor_blocks(current).collect_vec();
@@ -4168,6 +4547,7 @@ impl<'a> Builder<'a> {
                         // expose the condition, so copying it would make loop
                         // export/liveness analysis unsound.  Let the existing
                         // semantics-preserving structurer handle the shape.
+                        self.trace_unsupported("nonlinear-terminal", current, stop);
                         return None;
                     }
                     output.extend(
@@ -4176,6 +4556,12 @@ impl<'a> Builder<'a> {
                             .cloned()
                             .map(|statement| self.rewrite_statement(statement)),
                     );
+                    if context.is_some() && !block_ends_terminal(&output) {
+                        // CFG fallthrough terminates the function. Inside a
+                        // source loop it needs an explicit return, otherwise
+                        // falling out of the body would start another step.
+                        output.push(ast::Return::default().into());
+                    }
                     return Some(PathResult {
                         block: output,
                         next: None,
@@ -4191,6 +4577,7 @@ impl<'a> Builder<'a> {
                         // region when its edge is explicitly unconditional;
                         // accepting a malformed Then/Else edge would erase
                         // branch semantics while still looking readable.
+                        self.trace_unsupported("invalid-linear-edge", current, stop);
                         return None;
                     }
                     if block
@@ -4201,6 +4588,7 @@ impl<'a> Builder<'a> {
                         // the CFG has only one successor.  Its nested body is
                         // not represented by this edge and cannot safely be
                         // rewritten under a loop-result export map.
+                        self.trace_unsupported("nonlinear-single-successor", current, stop);
                         return None;
                     }
                     output.extend(
@@ -4287,6 +4675,7 @@ impl<'a> Builder<'a> {
                     if !if_statement.then_block.lock().is_empty()
                         || !if_statement.else_block.lock().is_empty()
                     {
+                        self.trace_unsupported("populated-conditional", current, stop);
                         return None;
                     }
                     // Branch order in a StableDiGraph is not semantic.  Always
@@ -4299,6 +4688,7 @@ impl<'a> Builder<'a> {
                         .iter()
                         .any(|statement| !is_linear_statement(statement))
                     {
+                        self.trace_unsupported("nonlinear-conditional-prefix", current, stop);
                         return None;
                     }
                     let prefix = prefix
@@ -4480,7 +4870,25 @@ impl<'a> Builder<'a> {
             context,
             stop,
         );
+        if result.is_none() {
+            self.trace_unsupported("conditional", source, stop);
+        }
         result
+    }
+
+    fn reaches_in_iteration(&self, start: NodeIndex, join: NodeIndex, info: &LoopInfo) -> bool {
+        let mut work = vec![start];
+        let mut seen = FxHashSet::default();
+        while let Some(node) = work.pop() {
+            if node == join {
+                return true;
+            }
+            if node == info.header || !info.nodes.contains(&node) || !seen.insert(node) {
+                continue;
+            }
+            work.extend(self.function.successor_blocks(node));
+        }
+        false
     }
 
     /// `stop` is the node at which the enclosing path walk ends.  When one arm
@@ -4526,7 +4934,15 @@ impl<'a> Builder<'a> {
             }
             let inside_join =
                 common_postdominator(&[then_target, else_target], &self.analysis.post_dominators)
-                    .filter(|join| *join != ctx.info.header && ctx.info.nodes.contains(join));
+                    .filter(|join| *join != ctx.info.header && ctx.info.nodes.contains(join))
+                    // Exit-based post-dominance can reach a candidate only
+                    // in a later iteration. That is not a join of the current
+                    // arms; prefer their actual shared continuation instead.
+                    .filter(|join| {
+                        !ctx.info.whole_header
+                            || (self.reaches_in_iteration(then_target, *join, ctx.info)
+                                && self.reaches_in_iteration(else_target, *join, ctx.info))
+                    });
             if let Some(join) = inside_join {
                 return self.build_inside_join_conditional(
                     source,
@@ -4534,7 +4950,7 @@ impl<'a> Builder<'a> {
                     then_target,
                     else_target,
                     join,
-                    false,
+                    ctx.info.whole_header,
                     ctx,
                 );
             }
@@ -5733,9 +6149,8 @@ pub fn lift(function: Function) -> Option<Block> {
 }
 
 /// Run the source-like pass while retaining whether a rejection is a concrete
-/// semantic safety finding.  Production selection must route `Unsafe` directly
-/// to the certified fallback rather than handing the same CFG to the legacy
-/// matcher.
+/// semantic safety finding. Production selection may use only a certified
+/// fallback allowed by its output policy after a rejection.
 pub fn lift_attempt_with_ignored_locals(
     function: Function,
     protected_locals: &FxHashSet<RcLocal>,
@@ -5763,6 +6178,23 @@ pub fn lift_attempt_with_ignored_locals(
     };
     if let Err(reason) = validate_for_origins(&function, protected_locals) {
         return StructureAttempt::Unsafe(reason);
+    }
+    // A body write can split the marker result and its captured SSA version.
+    // Check original-register obligations before region discovery, so that
+    // split cannot hide an unclosed cell from the source-region proof.
+    if function
+        .iteration_capture_obligations
+        .iter()
+        .any(|(local, required)| {
+            required.iter().any(|id| {
+                !function
+                    .iteration_capture_proofs
+                    .get(local)
+                    .is_some_and(|proven| proven.contains(id))
+            })
+        })
+    {
+        return StructureAttempt::Unsafe(UnsafeStructureReason::CapturedLoopResultRef);
     }
     let allow_shared_tail = std::env::var_os("MEDAL_NO_SHARED_TAIL").is_none();
     let mut attempt = structure_once(&function, protected_locals, allow_shared_tail);
@@ -6437,19 +6869,16 @@ mod tests {
         );
         // Deliberately insert Else first: graph insertion order is not branch
         // semantics, so the structurer must honor the edge tags.
-        function.set_edges(
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        let output = lift(function).expect("simple generic-for should be source-shaped");
+        let output = lift(function.clone()).expect("simple generic-for should be source-shaped");
         let generic_for = output
             .iter()
             .find_map(|statement| statement.as_generic_for())
@@ -6460,6 +6889,19 @@ mod tests {
         assert!(!output.contains("continue"), "{output}");
         assert!(!output.contains("GenericFor"), "{output}");
         assert!(!output.contains("goto "), "{output}");
+
+        function.block_mut(exit).unwrap().0 =
+            vec![Call::new(Global::from("tail").into(), vec![]).into()];
+        function.set_edges(exit, vec![(
+            init,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        let output = production_lift(function)
+            .expect("iterator in an infinite outer cycle")
+            .to_string();
+        assert!(output.contains("while true do"), "{output}");
+        assert!(output.contains("for value in items do"), "{output}");
+        assert_eq!(output.matches("tail()").count(), 1, "{output}");
     }
 
     #[test]
@@ -6845,21 +7287,38 @@ mod tests {
             init,
             vec![(header, BlockEdge::new(BranchType::Unconditional))],
         );
-        function.set_edges(
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (body, BlockEdge::new(BranchType::Then)),
-                (join, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        let attempt = lift_attempt_with_ignored_locals(function, &FxHashSet::default());
+        attach_test_origins(&mut function);
+        let protected = [result.clone()].into_iter().collect();
+        assert!(matches!(
+            production_lift_attempt(function.clone(), &protected),
+            StructureAttempt::Unsafe(UnsafeStructureReason::CapturedLoopResultRef)
+        ));
+        // Model the certificate produced by cfg::ssa::close_provenance. Its
+        // original-close and SSA-renaming behavior is tested in the cfg crate.
+        let origin = function
+            .block(header)
+            .unwrap()
+            .last()
+            .unwrap()
+            .as_generic_for_next()
+            .unwrap()
+            .origin()
+            .unwrap();
+        function
+            .iteration_capture_proofs
+            .insert(result.clone(), [origin.id()].into_iter().collect());
+        let attempt = production_lift_attempt(function, &protected);
         let StructureAttempt::Structured(block) = attempt else {
-            panic!("loop-owned ref capture must structure, got {attempt:?}");
+            panic!("certified loop-owned ref capture must structure, got {attempt:?}");
         };
         let generic_for = block
             .iter()
@@ -7317,21 +7776,38 @@ mod tests {
             init,
             vec![(header, BlockEdge::new(BranchType::Unconditional))],
         );
-        function.set_edges(
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exit, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (body, BlockEdge::new(BranchType::Then)),
-                (exit, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        let attempt = lift_attempt_with_ignored_locals(function, &FxHashSet::default());
+        attach_test_origins(&mut function);
+        let protected = [result.clone()].into_iter().collect();
+        assert!(matches!(
+            production_lift_attempt(function.clone(), &protected),
+            StructureAttempt::Unsafe(UnsafeStructureReason::CapturedLoopResultRef)
+        ));
+        // Model the certificate produced by cfg::ssa::close_provenance. Its
+        // original-close and SSA-renaming behavior is tested in the cfg crate.
+        let origin = function
+            .block(header)
+            .unwrap()
+            .last()
+            .unwrap()
+            .as_generic_for_next()
+            .unwrap()
+            .origin()
+            .unwrap();
+        function
+            .iteration_capture_proofs
+            .insert(result.clone(), [origin.id()].into_iter().collect());
+        let attempt = production_lift_attempt(function, &protected);
         let StructureAttempt::Structured(block) = attempt else {
-            panic!("loop-owned ref capture must structure, got {attempt:?}");
+            panic!("certified loop-owned ref capture must structure, got {attempt:?}");
         };
         let generic_for = block
             .iter()
@@ -7397,21 +7873,38 @@ mod tests {
             init,
             vec![(header, BlockEdge::new(BranchType::Unconditional))],
         );
-        function.set_edges(
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exit, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (body, BlockEdge::new(BranchType::Then)),
-                (exit, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        let attempt = lift_attempt_with_ignored_locals(function, &FxHashSet::default());
+        attach_test_origins(&mut function);
+        let protected = [result.clone()].into_iter().collect();
+        assert!(matches!(
+            production_lift_attempt(function.clone(), &protected),
+            StructureAttempt::Unsafe(UnsafeStructureReason::CapturedLoopResultRef)
+        ));
+        // Model the certificate produced by cfg::ssa::close_provenance. Its
+        // original-close and SSA-renaming behavior is tested in the cfg crate.
+        let origin = function
+            .block(header)
+            .unwrap()
+            .last()
+            .unwrap()
+            .as_generic_for_next()
+            .unwrap()
+            .origin()
+            .unwrap();
+        function
+            .iteration_capture_proofs
+            .insert(result.clone(), [origin.id()].into_iter().collect());
+        let attempt = production_lift_attempt(function, &protected);
         let StructureAttempt::Structured(block) = attempt else {
-            panic!("loop-owned ref capture must structure, got {attempt:?}");
+            panic!("certified loop-owned ref capture must structure, got {attempt:?}");
         };
         let generic_for = block
             .iter()
@@ -7424,8 +7917,46 @@ mod tests {
         }));
     }
 
+    fn assert_outer_capture_preserved(mut function: Function, result: &RcLocal) {
+        attach_test_origins(&mut function);
+        let protected = [result.clone()].into_iter().collect();
+        assert!(
+            matches!(
+                production_lift_attempt(function.clone(), &protected),
+                StructureAttempt::Unsupported
+            ),
+            "an unknown external cell must stay protected"
+        );
+        function.local_capture_bindings.insert(result.clone());
+        let StructureAttempt::Structured(output) = production_lift_attempt(function, &protected)
+        else {
+            panic!("a proven local late capture must retain its outer cell");
+        };
+        let generic = output.iter().find_map(|s| s.as_generic_for()).unwrap();
+        assert!(
+            !generic.res_locals.contains(result),
+            "the iteration binding must be private"
+        );
+        let mut captures = FxHashSet::default();
+        for statement in output.iter() {
+            super::collect_statement_captures(statement, &mut captures);
+        }
+        assert!(captures.contains(result));
+        assert!(
+            generic
+                .res_locals
+                .iter()
+                .all(|local| !captures.contains(local))
+        );
+        assert!(output.iter().any(|s| s.values_written().contains(&result)));
+        assert!(
+            output.to_string().contains("return result"),
+            "closure body identity is retained"
+        );
+    }
+
     #[test]
-    fn refuses_edge_closure_when_result_rewrite_would_split_cells() {
+    fn preserves_edge_closure_result_cell() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -7469,36 +8000,24 @@ mod tests {
             init,
             vec![(header, BlockEdge::new(BranchType::Unconditional))],
         );
-        function.set_edges(
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (body, BlockEdge::new(BranchType::Then)),
-                (join, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            join,
-            vec![(
-                tail,
-                BlockEdge {
-                    branch_type: BranchType::Unconditional,
-                    arguments: vec![(callback, RValue::Closure(closure))],
-                },
-            )],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(join, vec![(tail, BlockEdge {
+            branch_type: BranchType::Unconditional,
+            arguments: vec![(callback, RValue::Closure(closure))],
+        })]);
 
-        // The export rewrite changes the closure upvalue, but the closure body
-        // still contains the original local identity.  Keep this unsupported
-        // until both sides can be rewritten together.
-        assert!(lift(function).is_none());
+        assert_outer_capture_preserved(function, &result);
     }
 
     #[test]
-    fn refuses_statement_closure_when_result_rewrite_would_split_cells() {
+    fn preserves_statement_closure_result_cell() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -7550,29 +8069,24 @@ mod tests {
             init,
             vec![(header, BlockEdge::new(BranchType::Unconditional))],
         );
-        function.set_edges(
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (body, BlockEdge::new(BranchType::Then)),
-                (join, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            join,
-            vec![(tail, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(join, vec![(
+            tail,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        // The statement rewrite updates the closure upvalue metadata, but its
-        // child function body still reads the original local identity.
-        assert!(lift(function).is_none());
+        assert_outer_capture_preserved(function, &result);
     }
 
     #[test]
-    fn refuses_nested_closure_when_result_rewrite_would_split_cells() {
+    fn preserves_nested_closure_result_cell() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -7610,45 +8124,42 @@ mod tests {
             GenericForNext::new(vec![result.clone()], generator.into(), state, control).into(),
         );
         function.block_mut(join).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(result.clone())],
-                vec![RValue::Literal(Literal::Nil)],
-            )
+            Assign::new(vec![LValue::Local(result.clone())], vec![RValue::Literal(
+                Literal::Nil,
+            )])
             .into(),
         );
         let call_outer = RValue::Call(Call::new(RValue::Local(outer.clone()), Vec::new()));
         function.block_mut(tail).unwrap().extend([
-            Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(result)]).into(),
+            Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(
+                result.clone(),
+            )])
+            .into(),
             Assign::new(vec![LValue::Local(outer)], vec![outer_value]).into(),
             ast::Return::new(vec![RValue::Call(Call::new(call_outer, Vec::new()))]).into(),
         ]);
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (body, BlockEdge::new(BranchType::Then)),
-                (join, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            join,
-            vec![(tail, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(join, vec![(
+            tail,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        // The outer closure hides the inner closure's capture from a shallow
-        // scan; recursively inspect child bodies before applying the rewrite.
-        assert!(lift(function).is_none());
+        assert_outer_capture_preserved(function, &result);
     }
 
     #[test]
-    fn refuses_nested_closure_capture_without_result_export() {
+    fn discovers_result_export_used_only_by_nested_closure() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -7700,25 +8211,20 @@ mod tests {
             init,
             vec![(header, BlockEdge::new(BranchType::Unconditional))],
         );
-        function.set_edges(
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (body, BlockEdge::new(BranchType::Then)),
-                (join, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            join,
-            vec![(tail, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(join, vec![(
+            tail,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        // No post-loop read forces an export rewrite, but the nested closure
-        // still captures the VM result cell outside the source loop scope.
-        assert!(lift(function).is_none());
+        assert_outer_capture_preserved(function, &result);
     }
 
     #[test]
@@ -7794,7 +8300,7 @@ mod tests {
     }
 
     #[test]
-    fn refuses_nested_if_closure_capture_after_loop_rewrite() {
+    fn preserves_closure_result_cell_nested_under_if() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -7837,14 +8343,16 @@ mod tests {
             GenericForNext::new(vec![result.clone()], generator.into(), state, control).into(),
         );
         function.block_mut(join).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(result.clone())],
-                vec![RValue::Literal(Literal::Nil)],
-            )
+            Assign::new(vec![LValue::Local(result.clone())], vec![RValue::Literal(
+                Literal::Nil,
+            )])
             .into(),
         );
         function.block_mut(tail).unwrap().extend([
-            Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(result)]).into(),
+            Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(
+                result.clone(),
+            )])
+            .into(),
             Assign::new(vec![LValue::Local(outer.clone())], vec![outer_value]).into(),
             ast::Return::new(vec![RValue::Call(Call::new(
                 RValue::Local(outer),
@@ -7856,25 +8364,20 @@ mod tests {
             init,
             vec![(header, BlockEdge::new(BranchType::Unconditional))],
         );
-        function.set_edges(
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (join, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (body, BlockEdge::new(BranchType::Then)),
-                (join, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            join,
-            vec![(tail, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(join, vec![(
+            tail,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        // Structured statement bodies are opaque to `Traverse`; the capture
-        // scan must still find the inner closure under this prestructured If.
-        assert!(lift(function).is_none());
+        assert_outer_capture_preserved(function, &result);
     }
 
     #[test]
@@ -9533,15 +10036,21 @@ mod tests {
                 (infinite, BlockEdge::new(BranchType::Else)),
             ],
         );
-        function.set_edges(
+        function.set_edges(infinite, vec![(
             infinite,
-            vec![(infinite, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
         let analysis = Analysis::new(&function).expect("analysis itself should be total");
         assert!(analysis.post_dominators[&infinite].is_empty());
         assert!(analysis.post_dominators[&entry].is_empty());
-        assert!(lift(function).is_none());
+        // A terminal natural cycle has a direct source representation even
+        // though it cannot supply a post-dominator for the returning arm.
+        let output = lift(function)
+            .expect("terminal cycle in an if arm")
+            .to_string();
+        assert!(output.contains("while true do"), "{output}");
+        assert!(output.contains("if condition then"), "{output}");
     }
 
     #[test]
@@ -9784,7 +10293,7 @@ mod tests {
     }
 
     #[test]
-    fn refuses_post_loop_write_to_exported_result() {
+    fn preserves_post_loop_write_to_exported_result() {
         let mut function = Function::new(0);
         let init = function.new_block();
         let header = function.new_block();
@@ -9809,48 +10318,49 @@ mod tests {
             .unwrap()
             .push(Statement::Comment(ast::Comment::new("body".into())).into());
         function.block_mut(normal_exit).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(result.clone())],
-                vec![RValue::Literal(Literal::Nil)],
-            )
+            Assign::new(vec![LValue::Local(result.clone())], vec![RValue::Literal(
+                Literal::Nil,
+            )])
             .into(),
         );
-        // This write is outside the loop/normal adapter but the result is
-        // exported below.  Rewriting it to the export would leave closures or
-        // aliases of the original result register observing the wrong cell.
+        // A later write targets the original outer binding, while only the
+        // generic-for body uses a new iteration binding.
         function.block_mut(join).unwrap().extend(
             vec![
-                Assign::new(
-                    vec![LValue::Local(result.clone())],
-                    vec![RValue::Literal(Literal::Nil)],
-                )
+                Assign::new(vec![LValue::Local(result.clone())], vec![RValue::Literal(
+                    Literal::Nil,
+                )])
                 .into(),
-                Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(result)]).into(),
+                Assign::new(vec![LValue::Local(sink)], vec![RValue::Local(
+                    result.clone(),
+                )])
+                .into(),
                 Statement::Return(Default::default()).into(),
             ]
             .into_iter(),
         );
-        function.set_edges(
-            init,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
+        function.set_edges(init, vec![(
             header,
-            vec![
-                (normal_exit, BlockEdge::new(BranchType::Else)),
-                (body, BlockEdge::new(BranchType::Then)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
-        function.set_edges(
-            normal_exit,
-            vec![(join, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(header, vec![
+            (normal_exit, BlockEdge::new(BranchType::Else)),
+            (body, BlockEdge::new(BranchType::Then)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        function.set_edges(normal_exit, vec![(
+            join,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        assert!(lift(function).is_none());
+        let output = lift(function).expect("ordinary continuation write");
+        let generic = output.iter().find_map(|s| s.as_generic_for()).unwrap();
+        assert!(!generic.res_locals.contains(&result));
+        assert!(output.iter().any(|s| s.values_written().contains(&&result)));
+        assert!(output.iter().any(|s| s.values_read().contains(&&result)));
     }
 
     #[test]
@@ -10534,24 +11044,403 @@ mod tests {
             init,
             vec![(header, BlockEdge::new(BranchType::Unconditional))],
         );
-        function.set_edges(
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (exit, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
             header,
-            vec![
-                (body, BlockEdge::new(BranchType::Then)),
-                (exit, BlockEdge::new(BranchType::Else)),
-            ],
-        );
-        function.set_edges(
-            body,
-            vec![(header, BlockEdge::new(BranchType::Unconditional))],
-        );
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
 
-        let output = lift(function)
+        let output = lift(function.clone())
             .expect("a reducible numeric marker pair must become a source for")
             .to_string();
         assert!(output.contains("for i = 1, 3 do"), "{output}");
         assert!(!output.contains("NumForInit"), "{output}");
         assert!(!output.contains("goto "), "{output}");
+
+        function.block_mut(exit).unwrap().0.clear();
+        function.set_edges(exit, vec![(
+            init,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        let output = production_lift(function)
+            .expect("numeric iterator in an infinite outer cycle")
+            .to_string();
+        assert!(output.contains("while true do"), "{output}");
+        assert!(output.contains("for i = 1, 3 do"), "{output}");
+    }
+
+    #[test]
+    fn numeric_header_copy_runs_on_steps_and_exhaustion_but_not_break() {
+        for protocol_read in 0..4 {
+            let mut function = Function::new(0);
+            let init = function.new_block();
+            let header = function.new_block();
+            let body = function.new_block();
+            let exit = function.new_block();
+            function.set_entry(init);
+            let counter = RcLocal::new(Local::new(Some("i".into())));
+            let limit = RcLocal::default();
+            let step = RcLocal::default();
+            let source = RcLocal::new(Local::new(Some("source".into())));
+            let snapshot = RcLocal::new(Local::new(Some("snapshot".into())));
+            let mut prep = NumForInit::new(counter.clone(), limit.clone(), step.clone());
+            prep.counter.1 = Literal::Number(1.0).into();
+            prep.limit.1 = Global::from("count").into();
+            prep.step.1 = Literal::Number(1.0).into();
+            function.block_mut(init).unwrap().push(prep.into());
+            let copy = Assign::new(vec![snapshot.clone().into()], vec![
+                [source.clone(), counter.clone(), limit.clone(), step.clone()][protocol_read]
+                    .clone()
+                    .into(),
+            ]);
+            function.block_mut(header).unwrap().extend([
+                copy.clone().into(),
+                NumForNext::new(counter, limit.into(), step.into()).into(),
+            ]);
+            function.block_mut(body).unwrap().extend([
+                Assign::new(vec![source.into()], vec![
+                    Call::new(Global::from("bump").into(), vec![]).into(),
+                ])
+                .into(),
+                If::new(
+                    Global::from("stop").into(),
+                    Block::default(),
+                    Block::default(),
+                )
+                .into(),
+            ]);
+            function
+                .block_mut(exit)
+                .unwrap()
+                .push(ast::Return::new(vec![snapshot.into()]).into());
+            function.set_edges(init, vec![(
+                header,
+                BlockEdge::new(BranchType::Unconditional),
+            )]);
+            function.set_edges(header, vec![
+                (body, BlockEdge::new(BranchType::Then)),
+                (exit, BlockEdge::new(BranchType::Else)),
+            ]);
+            function.set_edges(body, vec![
+                (exit, BlockEdge::new(BranchType::Then)),
+                (header, BlockEdge::new(BranchType::Else)),
+            ]);
+            let result = production_lift(function);
+            if protocol_read != 0 {
+                assert!(
+                    result.is_none(),
+                    "a protocol read cannot cross the numeric test"
+                );
+                continue;
+            }
+            let result = result.expect("local copy independent of numeric protocol");
+            let init = result[0].as_assign().unwrap();
+            assert_eq!(init.right, vec![Literal::Boolean(true).into()]);
+            let flag = init.left[0].as_local().unwrap();
+            let body = result[1].as_numeric_for().unwrap().block.lock();
+            assert_eq!(body[0], Statement::Assign(copy.clone()));
+            let branch = body[2].as_if().unwrap();
+            let break_arm = branch.then_block.lock();
+            let reset = break_arm[0].as_assign().unwrap();
+            assert_eq!(reset.left[0].as_local(), Some(flag));
+            assert_eq!(reset.right, vec![Literal::Boolean(false).into()]);
+            assert!(matches!(break_arm[1], Statement::Break(_)));
+            let exhausted = result[2].as_if().unwrap();
+            assert_eq!(exhausted.condition, RValue::Local(flag.clone()));
+            assert_eq!(exhausted.then_block.lock().0, vec![Statement::Assign(copy)]);
+        }
+    }
+
+    #[test]
+    fn structures_inverted_while_condition() {
+        let mut function = Function::new(0);
+        let header = function.new_block();
+        let body = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(header);
+        function.block_mut(header).unwrap().push(
+            If::new(
+                Global::from("done").into(),
+                Block::default(),
+                Block::default(),
+            )
+            .into(),
+        );
+        function
+            .block_mut(body)
+            .unwrap()
+            .push(Call::new(Global::from("tick").into(), vec![]).into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(ast::Return::default().into());
+        function.set_edges(header, vec![
+            (exit, BlockEdge::new(BranchType::Then)),
+            (body, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        let output = production_lift(function)
+            .expect("else-edge while body")
+            .to_string();
+        assert!(output.contains("while not done do"), "{output}");
+        assert_eq!(output.matches("tick()").count(), 1, "{output}");
+    }
+
+    #[test]
+    fn whole_header_cycle_preserves_implicit_function_exit() {
+        let mut function = Function::new(0);
+        let header = function.new_block();
+        let left = function.new_block();
+        let right = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(header);
+        function.block_mut(header).unwrap().extend([
+            Call::new(Global::from("tick").into(), vec![]).into(),
+            If::new(
+                Global::from("left").into(),
+                Block::default(),
+                Block::default(),
+            )
+            .into(),
+        ]);
+        function.block_mut(left).unwrap().push(
+            If::new(
+                Global::from("done").into(),
+                Block::default(),
+                Block::default(),
+            )
+            .into(),
+        );
+        function
+            .block_mut(right)
+            .unwrap()
+            .push(Call::new(Global::from("work").into(), vec![]).into());
+        function
+            .block_mut(exit)
+            .unwrap()
+            .push(Call::new(Global::from("finish").into(), vec![]).into());
+        function.set_edges(header, vec![
+            (left, BlockEdge::new(BranchType::Then)),
+            (right, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(left, vec![
+            (exit, BlockEdge::new(BranchType::Then)),
+            (header, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(right, vec![(
+            header,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        let output = production_lift(function)
+            .expect("terminal fringe belongs to the cycle")
+            .to_string();
+        assert!(output.contains("while true do"), "{output}");
+        assert_eq!(output.matches("finish()").count(), 1, "{output}");
+        assert!(
+            output.contains("return"),
+            "fallthrough must exit the function: {output}"
+        );
+    }
+
+    #[test]
+    fn preserves_while_header_effects_and_exhaustion_adapter() {
+        let mut function = Function::new(0);
+        let header = function.new_block();
+        let body = function.new_block();
+        let normal = function.new_block();
+        let join = function.new_block();
+        let condition = RcLocal::new(Local::new(Some("condition".into())));
+        function.set_entry(header);
+        function.block_mut(header).unwrap().extend([
+            Assign::new(vec![condition.clone().into()], vec![
+                Call::new(Global::from("test").into(), vec![]).into(),
+            ])
+            .into(),
+            If::new(condition.into(), Block::default(), Block::default()).into(),
+        ]);
+        function.block_mut(body).unwrap().push(
+            If::new(
+                Global::from("stop").into(),
+                Block::default(),
+                Block::default(),
+            )
+            .into(),
+        );
+        function
+            .block_mut(normal)
+            .unwrap()
+            .push(Call::new(Global::from("exhausted").into(), vec![]).into());
+        function
+            .block_mut(join)
+            .unwrap()
+            .push(ast::Return::default().into());
+        function.set_edges(header, vec![
+            (body, BlockEdge::new(BranchType::Then)),
+            (normal, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(body, vec![
+            (join, BlockEdge::new(BranchType::Then)),
+            (header, BlockEdge::new(BranchType::Else)),
+        ]);
+        function.set_edges(normal, vec![(
+            join,
+            BlockEdge::new(BranchType::Unconditional),
+        )]);
+        let block = production_lift(function).expect("header effects and an exhaustion-only edge");
+        let output = block.to_string();
+        let loop_statement = block[0].as_while().expect("effects stay inside while true");
+        assert_eq!(
+            loop_statement.condition,
+            RValue::Literal(Literal::Boolean(true))
+        );
+        let body = loop_statement.block.lock();
+        assert!(body[0].to_string().contains("test()"));
+        let guard = body[1].as_if().unwrap();
+        let exit = guard.then_block.lock();
+        assert!(exit[0].to_string().contains("exhausted()"));
+        assert!(matches!(exit[1], Statement::Break(_)));
+        assert_eq!(output.matches("exhausted()").count(), 1);
+    }
+
+    #[test]
+    fn numeric_first_step_can_have_a_distinct_ssa_result() {
+        for mode in 0..4 {
+            let mut function = Function::new(0);
+            let init = function.new_block();
+            let header = function.new_block();
+            let body = function.new_block();
+            let exit = function.new_block();
+            function.set_entry(init);
+            let initial = RcLocal::default();
+            let result = RcLocal::new(Local::new(Some("i".into())));
+            let limit = RcLocal::default();
+            let step = RcLocal::default();
+            let mut prep = NumForInit::new(initial.clone(), limit.clone(), step.clone());
+            prep.counter.1 = Literal::Number(1.0).into();
+            prep.limit.1 = Literal::Number(3.0).into();
+            prep.step.1 = Literal::Number(1.0).into();
+            let mut next = NumForNext::new(initial.clone(), limit.into(), step.into());
+            next.counter.0 = LValue::Local(result.clone());
+            function.block_mut(init).unwrap().push(prep.into());
+            function.block_mut(header).unwrap().push(next.into());
+            if mode == 1 {
+                function.block_mut(body).unwrap().push(
+                    Call::new(Global::from("sink").into(), vec![result.clone().into()]).into(),
+                );
+                function.set_edges(body, vec![(
+                    header,
+                    BlockEdge::new(BranchType::Unconditional),
+                )]);
+            } else {
+                function.block_mut(body).unwrap().push(
+                    ast::Return::new(vec![if mode == 2 {
+                        initial.into()
+                    } else {
+                        result.clone().into()
+                    }])
+                    .into(),
+                );
+            }
+            function.block_mut(exit).unwrap().push(
+                ast::Return::new(vec![if mode == 3 {
+                    result.into()
+                } else {
+                    Literal::Number(-1.0).into()
+                }])
+                .into(),
+            );
+            function.set_edges(init, vec![(
+                header,
+                BlockEdge::new(BranchType::Unconditional),
+            )]);
+            function.set_edges(header, vec![
+                (body, BlockEdge::new(BranchType::Then)),
+                (exit, BlockEdge::new(BranchType::Else)),
+            ]);
+            let output = production_lift(function);
+            if mode == 0 {
+                let output = output.expect("one-step numeric SSA result").to_string();
+                assert!(output.contains("for i = 1, 3 do"), "{output}");
+                assert!(output.contains("return i"), "{output}");
+            } else {
+                assert!(
+                    output.is_none(),
+                    "fixed-input backedge or hidden/live-out counter: {mode}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn structures_numeric_for_with_terminal_arms() {
+        for unconditional in [false, true] {
+            let mut function = Function::new(0);
+            let init = function.new_block();
+            let header = function.new_block();
+            let body = function.new_block();
+            let early = function.new_block();
+            let exit = function.new_block();
+            function.set_entry(init);
+            let counter = RcLocal::new(Local::new(Some("i".into())));
+            let limit = RcLocal::default();
+            let step = RcLocal::default();
+            let mut marker = NumForInit::new(counter.clone(), limit.clone(), step.clone());
+            marker.counter.1 = Literal::Number(1.0).into();
+            marker.limit.1 = Literal::Number(3.0).into();
+            marker.step.1 = Literal::Number(1.0).into();
+            function.block_mut(init).unwrap().push(marker.into());
+            function
+                .block_mut(header)
+                .unwrap()
+                .push(NumForNext::new(counter.clone(), limit.into(), step.into()).into());
+            function
+                .block_mut(early)
+                .unwrap()
+                .push(ast::Return::new(vec![counter.into()]).into());
+            function
+                .block_mut(exit)
+                .unwrap()
+                .push(ast::Return::new(vec![Literal::Number(0.0).into()]).into());
+            function.set_edges(init, vec![(
+                header,
+                BlockEdge::new(BranchType::Unconditional),
+            )]);
+            function.set_edges(header, vec![
+                (body, BlockEdge::new(BranchType::Then)),
+                (exit, BlockEdge::new(BranchType::Else)),
+            ]);
+            if unconditional {
+                function.set_edges(body, vec![(
+                    early,
+                    BlockEdge::new(BranchType::Unconditional),
+                )]);
+            } else {
+                function.block_mut(body).unwrap().push(
+                    If::new(
+                        Global::from("stop").into(),
+                        Block::default(),
+                        Block::default(),
+                    )
+                    .into(),
+                );
+                function.set_edges(body, vec![
+                    (early, BlockEdge::new(BranchType::Then)),
+                    (header, BlockEdge::new(BranchType::Else)),
+                ]);
+            }
+            let output = production_lift(function)
+                .expect("numeric return arm")
+                .to_string();
+            assert!(output.contains("for i = 1, 3 do"), "{output}");
+            assert!(output.contains("return i"), "{output}");
+            assert!(output.contains("return 0"), "{output}");
+        }
     }
 
     #[test]

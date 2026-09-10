@@ -693,6 +693,7 @@ fn can_fold_table_field_assignment(
 fn fold_table_constructor_field_assignments(
     block: &mut ast::Block,
     local_usages: &mut FxHashMap<ast::RcLocal, usize>,
+    upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
 ) -> bool {
     let mut changed = false;
     let mut i = 0;
@@ -701,8 +702,19 @@ fn fold_table_constructor_field_assignments(
             i += 1;
             continue;
         };
+        // A callback may observe the table through this cell before a later
+        // field value is evaluated. Folding would postpone the cell assignment.
+        if upvalue_to_group.contains_key(&object_local) {
+            i += 1;
+            continue;
+        }
 
         let table_index = i;
+        let initial_len = block[table_index].as_assign().unwrap().right[0]
+            .as_table()
+            .unwrap()
+            .0
+            .len();
         i += 1;
         while i < block.len() {
             let Some((key, value)) = block[i]
@@ -712,7 +724,17 @@ fn fold_table_constructor_field_assignments(
                 break;
             };
 
-            if !can_fold_table_field_assignment(key, value, &object_local) {
+            let table = block[table_index].as_assign().unwrap().right[0]
+                .as_table()
+                .unwrap();
+            if table.0.last().is_some_and(|(key, value)| {
+                key.is_none()
+                    && matches!(
+                        value,
+                        ast::RValue::Call(_) | ast::RValue::MethodCall(_) | ast::RValue::VarArg(_)
+                    )
+            }) || !can_fold_table_field_assignment(key, value, &object_local)
+            {
                 break;
             }
 
@@ -734,19 +756,35 @@ fn fold_table_constructor_field_assignments(
             let table = block[table_index].as_assign_mut().unwrap().right[0]
                 .as_table_mut()
                 .unwrap();
-            // Overwrite a `nil`/literal placeholder key (from a DUPTABLE
-            // template) in place to preserve template key order and avoid
-            // emitting a duplicate key. Only overwrite when the existing
-            // value has no side effects; otherwise fall back to pushing so we
-            // never drop a side-effectful initializer.
+            // Replacing a nil placeholder moves this evaluation across the
+            // rest of the constructor. Cross only total fields without
+            // mutable-cell snapshots; otherwise append in the original order.
             match table
                 .0
                 .iter()
+                .take(initial_len)
                 .position(|(k, _)| k.as_ref() == Some(&new_key))
             {
-                Some(p) if !table.0[p].1.has_side_effects() => {
+                Some(p)
+                    if matches!(&table.0[p].1, ast::RValue::Literal(ast::Literal::Nil))
+                        && table.0[p..initial_len].iter().all(|(key, value)| {
+                            key.as_ref().is_some_and(ast::is_total_table_key)
+                                && ast::is_total_pure(value)
+                                && !value
+                                    .values_read()
+                                    .iter()
+                                    .any(|read| upvalue_to_group.contains_key(*read))
+                        }) =>
+                {
                     decrement_rvalue_usages(local_usages, &table.0[p].1);
                     table.0[p].1 = new_value;
+                }
+                Some(p)
+                    if matches!(&table.0[p].1, ast::RValue::Literal(ast::Literal::Nil))
+                        && ast::is_total_table_key(&new_key) =>
+                {
+                    table.0.remove(p);
+                    table.0.push((Some(new_key), new_value));
                 }
                 _ => {
                     table.0.push((Some(new_key), new_value));
@@ -860,12 +898,19 @@ pub fn inline(
             block.retain(|s| s.as_empty().is_none());
 
             // `t = {} t.a = 1` -> `t = { a = 1 }`
-            changed |= fold_table_constructor_field_assignments(block, &mut local_usages);
+            changed |= fold_table_constructor_field_assignments(
+                block,
+                &mut local_usages,
+                upvalue_to_group,
+            );
 
             // if the first statement is a set_list, we cant inline it anyway
             for i in 1..block.len() {
                 if let ast::Statement::SetList(set_list) = &block[i] {
                     let object_local = set_list.object_local.clone();
+                    if upvalue_to_group.contains_key(&object_local) {
+                        continue;
+                    }
                     // `local t = {}` may sit several statements above the SETLIST
                     // when the array items needed temporaries (nested table
                     // constructors, closures, calls). Allocating the empty table
@@ -993,7 +1038,7 @@ mod tests {
     }
 
     fn fold_fields(block: &mut Block) -> bool {
-        fold_table_constructor_field_assignments(block, &mut FxHashMap::default())
+        fold_table_constructor_field_assignments(block, &mut FxHashMap::default(), &IndexMap::new())
     }
 
     fn inline_block(block: Block) -> Block {
@@ -1005,6 +1050,50 @@ mod tests {
         inline(&mut function, &FxHashMap::default(), &IndexMap::new());
 
         function.block(entry).unwrap().clone()
+    }
+
+    #[test]
+    fn field_fold_preserves_effectful_suffix_order_and_captured_table_cell() {
+        let config = local("config");
+        let mut block = Block(vec![
+            table_decl(&config),
+            field_assign(
+                &config,
+                string("first"),
+                ast::Call::new(global("first"), vec![]).into(),
+            ),
+        ]);
+        block[0].as_assign_mut().unwrap().right[0] = Table(vec![
+            (Some(string("first")), Literal::Nil.into()),
+            (
+                Some(string("second")),
+                ast::Call::new(global("second"), vec![]).into(),
+            ),
+        ])
+        .into();
+        assert!(fold_fields(&mut block));
+        let output = block.to_string();
+        assert!(
+            output.find("second()").unwrap() < output.find("first()").unwrap(),
+            "{output}"
+        );
+
+        let mut captured = Block(vec![
+            table_decl(&config),
+            field_assign(
+                &config,
+                string("value"),
+                ast::Call::new(global("observe"), vec![]).into(),
+            ),
+        ]);
+        let before = captured.to_string();
+        let protected = IndexMap::from_iter([(config.clone(), config.clone())]);
+        assert!(!fold_table_constructor_field_assignments(
+            &mut captured,
+            &mut FxHashMap::default(),
+            &protected
+        ));
+        assert_eq!(captured.to_string(), before);
     }
 
     #[test]
@@ -1269,8 +1358,11 @@ mod set_list_fold_through_tests {
             Some(Call::new(RValue::Global(Global::from("g")), Vec::new()).into()),
         );
         let text = statement.to_string();
-        assert!(text.starts_with("t[1] = x; for _k, _v in next, { g() } do t[1 + _k] = _v end"), "{text}");
+        assert!(text.starts_with("do local _values = table.pack(x, g()); for _k = 1, _values.n do t[_k] = _values[_k] end end"), "{text}");
         let tail_only = set_list(&t, Vec::new(), Some(RValue::VarArg(ast::VarArg {})));
-        assert_eq!(tail_only.to_string(), "for _k, _v in next, { ... } do t[_k] = _v end");
+        assert_eq!(
+            tail_only.to_string(),
+            "do local _values = table.pack(...); for _k = 1, _values.n do t[_k] = _values[_k] end end"
+        );
     }
 }

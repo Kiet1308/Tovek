@@ -4,6 +4,13 @@
 đổi decompiler đều phải giữ **số proto không tương đương không tăng** (gate CI trên
 fixture, gate cục bộ trên corpus qua `--baseline`).
 
+Mốc cuối roadmap **2026-09-10**: 3.936/3.936 recompile, proto không tương đương
+**2.744 → 2.699**, `investigate` **14**, `suspect` **5**. Gate corpus, residual và
+semantic đều xanh. Mười tăng cục bộ đã được đối chiếu trước khi cập nhật baseline;
+xem [review cùng raw delta và hash baseline cũ](bytecode_roundtrip/review_20260910.md).
+Runtime fixture hiện có 15 nguồn, chạy **45/45** biến thể O0/O1/O2 thành công.
+Các bảng kết quả 2026-09-03 bên dưới là mốc lịch sử.
+
 ## Quy trình
 
 1. `luau-lifter decompile-folder --strict-no-synthetic-control` cả cây input.
@@ -115,8 +122,12 @@ template có hằng (tag 8) và field `nil`; cắt multret ở builtin arity c�
   `{a, b, f()}` mà `NEWTABLE` cách xa `SETLIST` (phần tử cần temporaries) được hạ thành
   `t[1], t[2], t[3] = a, b, f()` → chỉ giữ 1 giá trị của `f()`. Sửa: (1) kéo
   `local t = {}` xuống sát `SETLIST` khi không có tham chiếu `t` ở giữa và entry đã có
-  đều thuần → fold thành constructor; (2) fallback giữ ngữ nghĩa
-  `t[1], t[2] = a, b; for _k, _v in next, { f() } do t[2 + _k] = _v end`.
+  đều thuần → fold thành constructor; (2) fallback hiện dùng
+  `do local values = table.pack(a, b, f()); for i = 1, values.n do t[i] = values[i] end end`.
+  Bản `next` cũ đã được thay ngày 2026-09-10: nó bỏ nil khi ghi đè ô cũ và ghi
+  fixed values trước khi gọi tail. Fixture `ui_setlist_order` bắt cả thứ tự đánh
+  giá và nil/multret. Triage chỉ khử đầy đủ nhóm lệnh pack/count/copy cùng offset
+  của SETLIST bị mất; không đổi tier exact/equiv hay gate số proto.
 
 ## Phát hiện phụ (không lệch ngữ nghĩa, ghi vào roadmap)
 

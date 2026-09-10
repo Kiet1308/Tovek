@@ -1262,18 +1262,14 @@ dependencies = [
 name = "restructure"
 version = "0.9.0-beta"
 dependencies = [
- "array_tool",
  "ast",
  "by_address",
  "cfg",
- "derive_more",
- "enum-as-inner",
  "itertools",
  "parking_lot",
  "petgraph",
  "rustc-hash",
  "triomphe",
- "tuple",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 use ast::{LocalRw, RcLocal};
 use contracts::requires;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use petgraph::{
     Direction,
@@ -35,6 +35,22 @@ pub struct Function {
     /// every definition exactly once before any statement is inserted or
     /// removed — so the positional keys are only valid until then.
     pub local_type_hints: FxHashMap<(NodeIndex, usize, usize), String>,
+    /// For each by-reference captured SSA local, loops whose original close
+    /// paths prove that capture uses a fresh iteration cell. An empty set is
+    /// significant: coalescing with an unproven capture invalidates a proof.
+    /// Populated before SSA erases CLOSEUPVALS; local maps intersect certificates.
+    pub iteration_capture_proofs: FxHashMap<RcLocal, FxHashSet<ast::ForId>>,
+    /// Captures originating from a generic-for result register, even when SSA
+    /// separates a body assignment from the marker result into another local.
+    /// Every listed loop needs a matching close-path certificate before source
+    /// structuring may introduce an iteration-local declaration for that cell.
+    pub iteration_capture_obligations: FxHashMap<RcLocal, FxHashSet<ast::ForId>>,
+    /// Captured cells defined in this function, populated by the lifter from
+    /// SSA's passed-upvalue groups after destruction. Incoming upvalues are
+    /// excluded. A source loop may keep one of these outer bindings while
+    /// allocating a private iteration local, if no earlier/inside capture can
+    /// observe the delayed export. Empty for callers without this provenance.
+    pub local_capture_bindings: FxHashSet<RcLocal>,
 }
 
 impl Function {
@@ -48,6 +64,9 @@ impl Function {
             entry: None,
             block_pc_ranges: std::collections::HashMap::new(),
             local_type_hints: FxHashMap::default(),
+            iteration_capture_proofs: FxHashMap::default(),
+            iteration_capture_obligations: FxHashMap::default(),
+            local_capture_bindings: FxHashSet::default(),
         }
     }
 

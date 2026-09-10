@@ -1031,9 +1031,8 @@ fn fallback_has_synthetic_control(fallback: &restructure::CertifiedFallback) -> 
 }
 
 /// Select the only state-machine fallback through one policy-aware boundary.
-/// Keeping this helper shared by the ordinary rejection path and legacy panic
-/// recovery prevents a caught matcher panic from accidentally bypassing strict
-/// no-synthetic-control mode.
+/// Both initial proof rejection and residual-control recovery pass through
+/// this boundary, so neither can bypass strict no-synthetic-control mode.
 fn certified_fallback_for_policy(
     function: Function,
     locals_to_ignore: &FxHashSet<ast::RcLocal>,
@@ -1049,38 +1048,6 @@ fn certified_fallback_for_policy(
     Some(fallback.block)
 }
 
-/// Run the compatibility structurer, but route a panic through the exact same
-/// certified, policy-aware fallback used by ordinary source-like rejection.
-/// The injected closure keeps the panic route directly testable without a CFG
-/// that depends on an implementation-specific assertion in the legacy pass.
-fn legacy_with_certified_panic_recovery<F>(
-    function: Function,
-    fallback_function: Function,
-    locals_to_ignore: &FxHashSet<ast::RcLocal>,
-    policy: ControlFlowOutputPolicy,
-    reset_local_id: u64,
-    legacy: F,
-) -> (ast::Block, bool)
-where
-    F: FnOnce(Function) -> ast::Block,
-{
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| legacy(function))) {
-        Ok(block) => (block, false),
-        Err(_) => {
-            ast::set_local_id_base(reset_local_id);
-            (
-                certified_fallback_for_policy(fallback_function, locals_to_ignore, policy)
-                    .unwrap_or_else(unsupported_structuring_sentinel),
-                true,
-            )
-        }
-    }
-}
-
-/// The legacy matcher predates semantic rejection reasons.  It can lower the
-/// compiler's generic-for markers when no SSA edge transfers are present.
-/// Keeping this routing decision in one predicate makes it auditable and
-/// testable.
 /// Diagnostic: dump every block and edge of a lifted CFG to stderr.
 /// Enabled with `MEDAL_DUMP_CFG=1`; never used by production output.
 fn debug_dump_cfg(function: &Function, stage: &str) {
@@ -1277,80 +1244,6 @@ fn debug_dump_types(chunk: &deserializer::chunk::Chunk) {
     eprint!("{out}");
 }
 
-fn may_use_legacy_structurer(
-    function: &Function,
-    source_like: &restructure::StructureAttempt,
-) -> bool {
-    matches!(source_like, restructure::StructureAttempt::Unsupported)
-        && !function
-            .graph()
-            .edge_weights()
-            .any(|edge| !edge.arguments.is_empty())
-        && legacy_generic_protocol_is_hidden(function)
-}
-
-/// The legacy matcher predates the typed generic-for protocol and can silently
-/// discard reads/writes of FORGPREP/FORGLOOP's hidden generator/state/control
-/// registers.  Permit it only when those registers occur exclusively in the
-/// marker pair itself; a visible use must remain on the certified fallback
-/// path, even when the graph has no edge arguments.
-fn legacy_generic_protocol_is_hidden(function: &Function) -> bool {
-    let mut protocol = FxHashSet::default();
-    let mut saw_marker = false;
-    for (_, block) in function.blocks() {
-        for statement in block.iter() {
-            match statement {
-                ast::Statement::GenericForInit(init) => {
-                    saw_marker = true;
-                    protocol.extend(
-                        init.0
-                            .left
-                            .iter()
-                            .filter_map(|left| left.as_local().cloned()),
-                    );
-                }
-                ast::Statement::GenericForNext(next) => {
-                    saw_marker = true;
-                    protocol.extend(next.generator.values_read().into_iter().cloned());
-                    protocol.extend(next.state.values_read().into_iter().cloned());
-                    protocol.insert(next.control.clone());
-                }
-                _ => {}
-            }
-        }
-    }
-    if !saw_marker || protocol.is_empty() {
-        return true;
-    }
-    for (_, block) in function.blocks() {
-        for statement in block.iter() {
-            if matches!(
-                statement,
-                ast::Statement::GenericForInit(_) | ast::Statement::GenericForNext(_)
-            ) {
-                continue;
-            }
-            if statement
-                .values_read()
-                .into_iter()
-                .chain(statement.values_written())
-                .any(|local| protocol.contains(local))
-            {
-                return false;
-            }
-        }
-    }
-    !function.graph().edge_weights().any(|edge| {
-        edge.arguments.iter().any(|(destination, value)| {
-            protocol.contains(destination)
-                || value
-                    .values_read()
-                    .into_iter()
-                    .any(|local| protocol.contains(local))
-        })
-    })
-}
-
 fn decompile_function(
     ast_function: Arc<Mutex<ast::Function>>,
     mut function: Function,
@@ -1367,7 +1260,7 @@ fn decompile_function(
         cfg::ssa::construct(&mut function, &upvalues_in)
     };
     // Every SSA version belonging to an incoming or passed-upvalue group
-    // aliases a function-scope cell.  Keep all of those identities protected
+    // aliases a captured cell. Keep all of those identities protected
     // from source-like iterator/result-local allocation; protecting only the
     // original `upvalues_in` IDs misses versions introduced on a nested
     // closure's incoming edge and can let a loop register shadow that cell.
@@ -1381,6 +1274,12 @@ fn decompile_function(
         .iter()
         .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
         .chain(upvalue_passed_groups.iter().flat_map(|group| group.iter()))
+        .chain(passed_group_roots.iter())
+        .cloned()
+        .collect::<FxHashSet<_>>();
+    let local_capture_bindings = upvalue_passed_groups
+        .iter()
+        .flat_map(|group| group.iter())
         .chain(passed_group_roots.iter())
         .cloned()
         .collect::<FxHashSet<_>>();
@@ -1474,6 +1373,9 @@ fn decompile_function(
         )
         .destruct();
     }
+    // Destruction picks a member/root of each captured-cell group. None of
+    // these SSA identities belongs to an incoming upvalue group.
+    function.local_capture_bindings = local_capture_bindings;
     if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
         debug_dump_cfg(&function, "post-destruct");
     }
@@ -1484,11 +1386,6 @@ fn decompile_function(
     // later residual-control check needs a retry).
     let mut fallback_source = Some(function);
     let source_like_function = fallback_source.as_ref().unwrap().clone();
-    // The legacy matcher does not lower edge arguments (SSA phi copies).  It
-    // must never receive such a graph: if source-like structuring rejects it,
-    // routing through the matcher would silently drop a value transfer and can
-    // produce plausible but incorrect Luau.  The state-machine fallback is the
-    // only path that materializes those parallel copies explicitly.
     // Source-like structuring may mint temporary export locals while proving
     // nested-loop live-outs.  If that speculative attempt is rejected, rewind
     // the per-function allocator before building the fallback so failed
@@ -1524,8 +1421,6 @@ fn decompile_function(
                     ),
                     restructure::StructureAttempt::Structured(_) => unreachable!(),
                 };
-                let allow_legacy =
-                    may_use_legacy_structurer(fallback_source.as_ref().unwrap(), &rejection);
                 if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
                     let function = fallback_source.as_ref().unwrap();
                     eprintln!(
@@ -1534,45 +1429,17 @@ fn decompile_function(
                     );
                 }
                 ast::set_local_id_base(source_like_id_base);
-                // Preserve an untouched CFG before any mutating fallback or
-                // legacy matcher consumes the original.  This clone is paid
+                // Preserve an untouched CFG before a fallback consumes the
+                // original. This clone is paid
                 // only on the uncommon source-like rejection path.
                 let function = fallback_source.take().unwrap();
                 fallback_function = Some(function.deep_clone());
-                if !allow_legacy {
-                    used_certified_dispatcher = true;
-                    let locals_to_ignore =
-                        upvalues_in.iter().chain(params.iter()).cloned().collect();
-                    let block = certified_fallback_for_policy(
-                        function,
-                        &locals_to_ignore,
-                        control_flow_policy,
-                    )
-                    .unwrap_or_else(unsupported_structuring_sentinel);
-                    (block, false, Some(rejection_description))
-                } else {
-                    // The legacy pattern matcher predates the fail-closed
-                    // source-like pass and contains a few internal assertions
-                    // for malformed/irreducible CFGs.  A panic here must not be
-                    // converted by the outer per-function guard into a
-                    // comment-only body: that would report success while
-                    // silently erasing the function.  Keep the pristine copy
-                    // for the certified fallback and turn any legacy panic into
-                    // the same explicit failure marker used by other rejected
-                    // shapes.
-                    let locals_to_ignore =
-                        upvalues_in.iter().chain(params.iter()).cloned().collect();
-                    let (block, recovered_with_dispatcher) = legacy_with_certified_panic_recovery(
-                        function,
-                        fallback_function.as_ref().unwrap().deep_clone(),
-                        &locals_to_ignore,
-                        control_flow_policy,
-                        source_like_id_base,
-                        restructure::lift,
-                    );
-                    used_certified_dispatcher |= recovered_with_dispatcher;
-                    (block, false, Some(rejection_description))
-                }
+                used_certified_dispatcher = true;
+                let locals_to_ignore = upvalues_in.iter().chain(params.iter()).cloned().collect();
+                let block =
+                    certified_fallback_for_policy(function, &locals_to_ignore, control_flow_policy)
+                        .unwrap_or_else(unsupported_structuring_sentinel);
+                (block, false, Some(rejection_description))
             }
         }
     };
@@ -1580,17 +1447,18 @@ fn decompile_function(
         ptime!(F_SIMPLIFY_GOTOS);
         simplify_gotos(&mut lifted);
     }
+    // Collapse cloned continuations before choosing lexical declarations.
+    // Otherwise their shared SSA identities force branch-private temporaries
+    // into a common ancestor, and late factoring leaves those declarations
+    // stranded outside the helper bodies the de-inliner should recognize.
+    ast::factor_common_tails::factor_function_tails(&mut lifted, &source_like_protected_locals);
     // Keep large source-like functions below Luau's 255-register ceiling by
     // coalescing only proven-disjoint generated temporaries.  This pass is
     // deliberately after structuring/fallback selection and before
     // `name_locals`, so it cannot affect CFG proofs or declaration naming.
-    // Do not infer exhaustion-edge ownership from the lowered AST.  A legacy
-    // `GenericFor` with a `ForOrigin` is still indistinguishable from an
-    // ordinary source loop followed by a copy; nil-seed history and loop
-    // provenance are not a path proof.  The source-like builder performs its
-    // adapter rewrite directly from CFG edge ownership.  Legacy output stays
-    // untouched (and is rejected/falls back if it cannot represent the graph)
-    // until the AST pass carries explicit exhaustion-edge provenance.
+    // Exhaustion adapters were already placed from CFG edge ownership.
+    // Neither nil-seed history nor a ForOrigin alone would prove their
+    // ordering in a later AST rewrite.
     ast::coalesce_locals::coalesce_generated_locals(&mut lifted, &source_like_protected_locals);
     if ast::simplify_gotos::block_has_goto_or_label(&lifted)
         || ast::simplify_gotos::block_has_unlowered_control(&lifted)
@@ -1611,10 +1479,8 @@ fn decompile_function(
             lifted = fallback;
         } else {
             // Never retain a partially structured block when the certified
-            // fallback declines the graph.  In particular, a legacy matcher can
-            // leave a comment-only artifact after an internal panic; replacing
-            // it with an unlowered marker makes the final invariant fail closed
-            // instead of silently changing the program.
+            // fallback declines the graph. An unlowered marker makes the final
+            // invariant fail closed instead of silently changing the program.
             lifted = unsupported_structuring_sentinel();
             // Keep the allocator above every id minted by either speculative
             // attempt so later cleanup passes cannot alias one of its locals.
@@ -1693,11 +1559,8 @@ mod option_tests {
     use super::{
         ASSUME_NO_NAN, ControlFlowOutputPolicy, DONT_REUSE_VAR, DecompileOptions, NO_SYNTH_HELPERS,
         STRICT_NO_SYNTHETIC_CONTROL, certified_fallback_for_policy,
-        legacy_with_certified_panic_recovery, may_use_legacy_structurer,
     };
-    use ast::{Assign, GenericForNext, LValue, Literal, Local, RValue, RcLocal};
     use cfg::function::Function;
-    use restructure::{StructureAttempt, UnsafeStructureReason};
     use rustc_hash::FxHashSet;
 
     #[test]
@@ -1765,109 +1628,6 @@ mod option_tests {
             )
             .is_none()
         );
-    }
-
-    #[test]
-    fn forced_legacy_panic_cannot_bypass_strict_control_policy() {
-        let mut function = Function::new(0);
-        let entry = function.new_block();
-        function.set_entry(entry);
-        function
-            .block_mut(entry)
-            .unwrap()
-            .push(ast::Return::new(Vec::new()).into());
-
-        let ignored = FxHashSet::default();
-        let reset_local_id = ast::current_local_id();
-        let (allowed, used_certified_dispatcher) = legacy_with_certified_panic_recovery(
-            function.clone(),
-            function.clone(),
-            &ignored,
-            ControlFlowOutputPolicy::AllowCertifiedDispatcher,
-            reset_local_id,
-            |_| panic!("forced legacy failure"),
-        );
-        assert!(used_certified_dispatcher);
-        assert!(!ast::simplify_gotos::block_has_unlowered_control(&allowed));
-
-        let (strict, used_certified_dispatcher) = legacy_with_certified_panic_recovery(
-            function.clone(),
-            function,
-            &ignored,
-            ControlFlowOutputPolicy::StrictNoSyntheticControl,
-            reset_local_id,
-            |_| panic!("forced legacy failure"),
-        );
-        assert!(used_certified_dispatcher);
-        assert!(
-            ast::simplify_gotos::block_has_unlowered_control(&strict),
-            "strict recovery must return the fail-closed sentinel, never a dispatcher"
-        );
-    }
-
-    #[test]
-    fn semantic_source_like_rejection_guards_legacy_matcher() {
-        let mut function = Function::new(0);
-        let entry = function.new_block();
-        function.set_entry(entry);
-        let local = RcLocal::new(Local::new(Some("value".to_owned())));
-        let protocol_local = local.clone();
-        function.block_mut(entry).unwrap().push(
-            GenericForNext::new(
-                vec![local.clone()],
-                RValue::Local(local.clone()),
-                local.clone(),
-                local,
-            )
-            .into(),
-        );
-        // Generic protocol markers are now allowed to reach the legacy matcher
-        // when no SSA edge arguments are present; this preserves the existing
-        // source-shaped lowering for the committed residual fixtures. Edge
-        // arguments remain a hard guard because legacy cannot materialize phi
-        // transfers safely.
-        assert!(may_use_legacy_structurer(
-            &function,
-            &StructureAttempt::Unsupported,
-        ));
-
-        let mut edge_function = function.clone();
-        let edge_entry = edge_function.entry().unwrap();
-        let edge_exit = edge_function.new_block();
-        let edge = edge_function.graph_mut().add_edge(
-            edge_entry,
-            edge_exit,
-            cfg::block::BlockEdge::default(),
-        );
-        edge_function
-            .graph_mut()
-            .edge_weight_mut(edge)
-            .unwrap()
-            .arguments
-            .push((RcLocal::default(), RValue::Local(RcLocal::default())));
-        assert!(!may_use_legacy_structurer(
-            &edge_function,
-            &StructureAttempt::Unsupported,
-        ));
-
-        let mut visible_protocol_use = function.clone();
-        visible_protocol_use.block_mut(edge_entry).unwrap().push(
-            Assign::new(
-                vec![LValue::Local(protocol_local)],
-                vec![RValue::Literal(Literal::Nil)],
-            )
-            .into(),
-        );
-        assert!(
-            !may_use_legacy_structurer(&visible_protocol_use, &StructureAttempt::Unsupported,),
-            "legacy must not hide a visible generic-for protocol register"
-        );
-
-        let empty = Function::new(0);
-        assert!(!may_use_legacy_structurer(
-            &empty,
-            &StructureAttempt::Unsafe(UnsafeStructureReason::CapturedCellReorder),
-        ));
     }
 }
 

@@ -15,6 +15,7 @@ pub(crate) struct Usage {
 struct MotionFacts {
     captured: FxHashSet<RcLocal>,
     stable_captured: FxHashSet<RcLocal>,
+    rebuild_call_chains: bool,
 }
 
 /// Inline generated, single-use local temporaries back into their use sites.
@@ -44,7 +45,8 @@ pub fn inline_single_use_temps(block: &mut Block) -> bool {
 /// compute them once instead of rescanning the whole function between every
 /// table-rebuild layer.
 pub fn rebuild_ui_expression_trees(block: &mut Block) -> bool {
-    let facts = collect_motion_facts(block);
+    let mut facts = collect_motion_facts(block);
+    facts.rebuild_call_chains = true;
     let mut any_changed = false;
     loop {
         let rebuilt = crate::rebuild_table_literals::rebuild_with_captured(block, &facts.captured);
@@ -68,6 +70,7 @@ fn collect_motion_facts(block: &Block) -> MotionFacts {
     MotionFacts {
         captured,
         stable_captured,
+        rebuild_call_chains: false,
     }
 }
 
@@ -182,21 +185,45 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
         }
         let generated = is_generated_temp(&local);
         let named_table = !generated && matches!(&replacement, RValue::Table(_));
-        if (!generated && !named_table) || !is_movable_single_value(&replacement) {
-            continue;
-        }
         if replacement.values_read().iter().any(|read| **read == local) {
             continue;
         }
 
-        let Some(use_index) = direct_use_after(block, index, &local) else {
+        let Some(use_index) = (index + 1..block.0.len()).find(|&use_index| {
+            inlineable_direct_rvalue_read_count(&block.0[use_index], &local) > 0
+                || (facts.rebuild_call_chains
+                    && is_single_index_key_use(&block.0[use_index], &local))
+        }) else {
             continue;
         };
+        // A call used as another call's callee is always adjusted to one
+        // result, just like its original single-local initializer. Reuse the
+        // ordinary motion/order/conditional guards; never inline it into a
+        // multret argument or a branch that may not execute.
+        let call_callee = facts.rebuild_call_chains
+            && matches!(
+                &replacement,
+                RValue::Call(_)
+                    | RValue::MethodCall(_)
+                    | RValue::Select(Select::Call(_) | Select::MethodCall(_))
+            )
+            && is_call_callee_use(&block.0[use_index], &local);
+        if !call_callee && ((!generated && !named_table) || !is_movable_single_value(&replacement))
+        {
+            continue;
+        }
         if named_table && !is_declarative_table_use(&block.0[use_index], &local) {
             continue;
         }
         if !can_move_between(&replacement, &block.0[index + 1..use_index], facts) {
             continue;
+        }
+        if facts.rebuild_call_chains
+            && matches!(&replacement, RValue::Local(_) | RValue::Literal(_))
+            && replace_single_index_key_use(&mut block.0[use_index], &local, &replacement, facts)
+        {
+            block.0.remove(index);
+            return true;
         }
         if replace_direct_rvalue_use(&mut block.0[use_index], &local, replacement, facts) {
             block.0.remove(index);
@@ -284,9 +311,57 @@ fn candidate_decl(statement: &Statement) -> Option<(RcLocal, RValue)> {
     Some((local.clone(), assign.right[0].clone()))
 }
 
-fn direct_use_after(block: &Block, decl_index: usize, local: &RcLocal) -> Option<usize> {
-    (decl_index + 1..block.0.len())
-        .find(|&index| inlineable_direct_rvalue_read_count(&block.0[index], local) > 0)
+fn is_call_callee_use(statement: &Statement, local: &RcLocal) -> bool {
+    fn in_value(value: &RValue, local: &RcLocal) -> bool {
+        let is_callee = match value {
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+                matches!(call.value.as_ref(), RValue::Local(read) if read == local)
+            }
+            _ => false,
+        };
+        is_callee
+            || value
+                .rvalues()
+                .into_iter()
+                .any(|child| in_value(child, local))
+    }
+    let mut found = matches!(statement, Statement::Call(call)
+        if matches!(call.value.as_ref(), RValue::Local(read) if read == local));
+    for_each_inlineable_direct_rvalue(statement, &mut |value| found |= in_value(value, local));
+    found
+}
+
+fn is_single_index_key_use(statement: &Statement, local: &RcLocal) -> bool {
+    matches!(statement, Statement::Assign(assign)
+        if !assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1
+            && matches!(&assign.left[0], LValue::Index(index)
+                if matches!(index.right.as_ref(), RValue::Local(read) if read == local)))
+}
+
+fn replace_single_index_key_use(
+    statement: &mut Statement,
+    local: &RcLocal,
+    replacement: &RValue,
+    facts: &MotionFacts,
+) -> bool {
+    if !is_single_index_key_use(statement, local) {
+        return false;
+    }
+    let Statement::Assign(assign) = statement else {
+        unreachable!()
+    };
+    let LValue::Index(index) = &mut assign.left[0] else {
+        unreachable!()
+    };
+    if !can_replace_after_prior_effects(
+        replacement,
+        rvalue_evaluation_order_barrier(&index.left, facts),
+        facts,
+    ) {
+        return false;
+    }
+    *index.right = replacement.clone();
+    true
 }
 
 pub(crate) fn collect_usage(block: &Block) -> FxHashMap<RcLocal, Usage> {
@@ -687,7 +762,7 @@ fn can_move_between(replacement: &RValue, statements: &[Statement], facts: &Moti
         .cloned()
         .collect::<FxHashSet<_>>();
     let reads_global = contains_global(replacement);
-    let reads_captured_local = reads_captured_local(replacement, &facts.captured);
+    let reads_captured_local = reads_motion_sensitive_capture(replacement, facts);
     // A replacement can be observable without being marked as side-effecting:
     // for example, `{[nil] = 1}` raises while evaluating the constructor. Such
     // expressions must not cross another evaluation barrier or their error is
@@ -718,14 +793,14 @@ fn can_replace_after_prior_effects(
     !before_side_effects
         || !(crate::is_observable(replacement)
             || contains_global(replacement)
-            || reads_captured_local(replacement, &facts.captured))
+            || reads_motion_sensitive_capture(replacement, facts))
 }
 
-fn reads_captured_local(rvalue: &RValue, captured: &FxHashSet<RcLocal>) -> bool {
-    rvalue
-        .values_read()
-        .into_iter()
-        .any(|local| captured.contains(local))
+fn reads_motion_sensitive_capture(rvalue: &RValue, facts: &MotionFacts) -> bool {
+    rvalue.values_read().into_iter().any(|local| {
+        facts.captured.contains(local)
+            && !(facts.rebuild_call_chains && facts.stable_captured.contains(local))
+    })
 }
 
 fn contains_global(rvalue: &RValue) -> bool {
@@ -919,6 +994,90 @@ mod tests {
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(local.clone())],
         })
+    }
+
+    #[test]
+    fn ui_callee_chain_keeps_calls_and_single_value_context() {
+        let factory = local("factory");
+        let handle = local("frame");
+        let mut block = Block(vec![
+            declare(
+                &handle,
+                Call::new(local_value(&factory), vec![string("Frame")]).into(),
+            ),
+            Return::new(vec![
+                Call::new(local_value(&handle), vec![number(1.0)]).into(),
+            ])
+            .into(),
+        ]);
+        assert!(!inline_single_use_temps(&mut block));
+        assert!(super::rebuild_ui_expression_trees(&mut block));
+        assert_eq!(block.to_string(), "return (factory(\"Frame\"))(1)");
+    }
+
+    #[test]
+    fn ui_callee_chain_does_not_cross_effects_or_become_conditional() {
+        for kind in 0..4 {
+            let handle = local("frame");
+            let mut statements = vec![declare(&handle, Call::new(global("new"), vec![]).into())];
+            let call: RValue = Call::new(local_value(&handle), vec![]).into();
+            let use_value = match kind {
+                0 => {
+                    statements.push(Call::new(global("effect"), vec![]).into());
+                    call
+                }
+                1 => Binary::new(global("enabled"), call, BinaryOperation::And).into(),
+                2 => Call::new(global("consume"), vec![
+                    Call::new(global("effect"), vec![]).into(),
+                    call,
+                ])
+                .into(),
+                _ => Call::new(global("consume"), vec![local_value(&handle)]).into(),
+            };
+            statements.push(Return::new(vec![use_value]).into());
+            let mut block = Block(statements);
+            let before = block.to_string();
+            super::rebuild_ui_expression_trees(&mut block);
+            assert_eq!(block.to_string(), before, "case {kind}");
+        }
+    }
+
+    #[test]
+    fn ui_key_snapshot_stays_before_mutating_callback() {
+        let source = local("key");
+        let snapshot = local("v2");
+        let props = local("props");
+        let callback = local("mutate");
+        let mut block = Block(vec![
+            declare(&callback, closure_capturing(&source)),
+            declare(&snapshot, local_value(&source)),
+            Call::new(local_value(&callback), vec![]).into(),
+            assign(
+                Index::new(local_value(&props), local_value(&snapshot)).into(),
+                number(2.0),
+            ),
+        ]);
+        super::rebuild_ui_expression_trees(&mut block);
+        assert!(block.to_string().contains("local v2 = key"));
+        assert!(block.to_string().contains("props[v2] = 2"));
+    }
+
+    #[test]
+    fn ui_key_alias_rebuilds_fresh_props() {
+        let key = local("children");
+        let snapshot = local("v2");
+        let props = local("props");
+        let mut block = Block(vec![
+            declare(&props, Table::default().into()),
+            declare(&snapshot, local_value(&key)),
+            assign(
+                Index::new(local_value(&props), local_value(&snapshot)).into(),
+                number(2.0),
+            ),
+            Return::new(vec![local_value(&props)]).into(),
+        ]);
+        super::rebuild_ui_expression_trees(&mut block);
+        assert_eq!(block.to_string(), "return {\n\t[children] = 2\n}");
     }
 
     #[test]

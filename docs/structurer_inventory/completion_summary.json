@@ -1,0 +1,29 @@
+{
+  "date": "2026-09-10",
+  "corpus_outputs": 3978,
+  "nonempty_recompiled": 3936,
+  "final_unsupported": 0,
+  "unsafe": 0,
+  "structuring_invocations": 26391,
+  "proved_retries": 9,
+  "semantic_executions": 45,
+  "semantic_proved_invocations": 220,
+  "output_lines": 504400,
+  "output_bytes_lf": 13666349,
+  "inline_sites": 660,
+  "write_lines": 959,
+  "write_inline_sites": 97,
+  "setlist_fallback_sites": 22,
+  "lines_at_eight_tabs": 30524,
+  "serial_parallel_outputs_identical": true,
+  "residual_default_strict_identical": true,
+  "internal_marker_files": [],
+  "workspace_tests_passed": 854,
+  "python_tests_passed": 10,
+  "oracle_baseline_gates": {
+    "corpus": "pass",
+    "residual_control_flow": "pass",
+    "semantic_roundtrip": "pass"
+  },
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268"
+}

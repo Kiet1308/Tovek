@@ -316,7 +316,7 @@ pub fn flatten_terminal_tail_guards(block: &mut Block) {
     let mut index = 0;
     while index + 1 < block.0.len() {
         let eligible = match (&block.0[index], &block.0[index + 1]) {
-            (Statement::If(f), tail) if is_guard_terminator(tail) => {
+            (Statement::If(f), tail) if small_guard_tail(tail) => {
                 let then = f.then_block.lock();
                 let else_empty = f.else_block.lock().0.is_empty();
                 else_empty
@@ -355,6 +355,24 @@ pub fn flatten_terminal_tail_guards(block: &mut Block) {
     }
 }
 
+fn small_guard_tail(statement: &Statement) -> bool {
+    fn value_cost(value: &RValue) -> usize {
+        // A single return statement can contain an entire UI tree or several
+        // closures after late inlining. Never duplicate those as a guard.
+        if matches!(value, RValue::Table(_) | RValue::Closure(_)) {
+            return 13;
+        }
+        1 + value.rvalues().into_iter().map(value_cost).sum::<usize>()
+    }
+    is_guard_terminator(statement)
+        && statement
+            .rvalues()
+            .into_iter()
+            .map(value_cost)
+            .sum::<usize>()
+            <= 12
+}
+
 fn flatten_terminal_tail_guards_in_rvalue(value: &mut RValue) {
     if let RValue::Closure(closure) = value {
         flatten_terminal_tail_guards(&mut closure.function.lock().body);
@@ -387,6 +405,29 @@ mod tests {
 
     fn returning_branch() -> Block {
         Block(vec![call("prepare"), Return::default().into()])
+    }
+
+    #[test]
+    fn terminal_guard_does_not_duplicate_inlined_ui_constructor() {
+        let ready = local("ready");
+        let mut block = Block(vec![
+            If::new(
+                lv(&ready),
+                Block(vec![call("a"), call("b"), call("c"), call("d")]),
+                Block::default(),
+            )
+            .into(),
+            Return::new(vec![
+                Call::new(RValue::Global(Global::from("render")), vec![
+                    crate::Table(vec![(None, Literal::Number(1.0).into())]).into(),
+                ])
+                .into(),
+            ])
+            .into(),
+        ]);
+        let before = block.to_string();
+        super::flatten_terminal_tail_guards(&mut block);
+        assert_eq!(block.to_string(), before);
     }
 
     #[test]

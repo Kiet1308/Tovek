@@ -1,6 +1,6 @@
 # Tovek — Tình trạng hiện tại & việc cần làm
 
-> Cập nhật: 2026-09-03 (đợt C1+C5) · `main` @ `742ee0a` + C5 · corpus đo: `D:/Medal/examplebytecode/RobloxProject` (3.978 input, bytecode v9, types v3)
+> Cập nhật: 2026-09-10 — đã hoàn tất A–F trong worktree trên `80c86c2`. Corpus: `D:/Medal/examplebytecode/RobloxProject` (3.978 input). §1.1–1.2 giữ mốc lịch sử 2026-09-03; số liệu cuối ở §1.4 và [structurer_progress.md](structurer_progress.md).
 
 Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt chưa.
 
@@ -8,7 +8,7 @@ Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt c
 
 ## 1. Tình trạng hiện tại
 
-### 1.1 Đúng đắn (đã đạt)
+### 1.1 Đúng đắn (mốc 2026-09-03)
 
 | Chỉ số | Giá trị |
 |---|---:|
@@ -21,7 +21,7 @@ Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt c
 | `cargo test --workspace` | xanh (restructure 102, lifter 44, ast 577, cfg 33…) |
 | Oracle bytecode round-trip (`scripts/bytecode_roundtrip.py`, decompile → recompile pin `c2ec0d4` → so proto chuẩn hoá) | **99,13 %** proto tương đương/chấp nhận (26.113 / 26.343); 3.936 / 3.936 input round-trip; lỗi thật (iii) = **0**; sau C1+C5: không tương đương 2.790 → 2.744, file tương đương hoàn toàn 2.693 → 2.721 |
 
-### 1.2 Đẹp (còn thiếu)
+### 1.2 Đẹp (mốc 2026-09-03, còn thiếu)
 
 | Chỉ số | Giá trị | Ghi chú |
 |---|---:|---|
@@ -51,6 +51,15 @@ Tick `[x]` khi xong. Mỗi mục có **Đo lường** để biết đã đạt c
 
 ---
 
+### 1.4 Kết quả cuối 2026-09-10
+
+- **A–F hoàn tất**. Legacy đã xoá; còn **0** rejection sau retry trên corpus và semantic fixtures. Danh sách trước/sau và biên proof: [structurer_progress.md](structurer_progress.md).
+- Bản release chuẩn (fat LTO): **3.936 decompiled / 42 skipped / 0 failed**; 3.936/3.936 recompile bằng compiler pin `c2ec0d4`. Cả 3.978 output không có marker điều khiển nội bộ.
+- Workspace: **854 test** xanh; Python gate: **10 test** xanh. **45/45** lượt semantic O0/O1/O2 chạy trùng kết quả nguồn. Gate bytecode corpus/residual/semantic và gate kích thước **52 file** đều xanh.
+- Oracle: proto không tương đương **2.744 → 2.699**, `investigate` **38 → 14**, `suspect` **6 → 5**. Mười tăng cục bộ đã được đối chiếu source/bytecode và ghi [review kèm raw delta](bytecode_roundtrip/review_20260910.md) trước khi cập nhật baseline; không nới luật gate.
+- Output **504.400 dòng**; de-inline **660 site** (mục tiêu ≥600); `Write.luau` **959 dòng / 97 site**. C4 giảm fallback SETLIST **59 → 22**, gộp được cây UI tại các vị trí có proof thứ tự/arity.
+- Chỉ tiêu cũ của E `<15.000 dòng thụt ≥8 tab` vẫn là giới hạn đã giải thích ở E, không đổi thành cam kết mới. Sau khi gộp cây UI, số này là **30.524**; guard pass đã chặn nhân đôi constructor/closure lớn.
+
 ## 2. Việc cần làm (xếp theo thứ tự đề xuất)
 
 ### [x] A. Oracle bytecode round-trip cho toàn corpus — *lưới an toàn cho mọi việc sau* (xong 2026-09-03, chi tiết `docs/bytecode_roundtrip.md`)
@@ -78,30 +87,30 @@ Phát hiện phụ cho các mục sau: decompiler bỏ hẳn `local t = {...}` k
 
 **Đo lường:** `local vN` 34.857 → **22.111** (< 25.000 ✅); `pN` 67.667 → **35.014** (< 50.000 ✅); dòng 511.308 → 511.224; A không đổi (oracle baseline 2.790 → 2.790, 0 regression) ✅; ast 590 test xanh.
 
-### [ ] C. De-inline chuẩn hoá hình dạng — *cắt dòng nhiều nhất* (C1 xong 2026-09-03; còn C4/C5)
+### [x] C. De-inline chuẩn hoá hình dạng — hoàn tất C4/C6 ngày 2026-09-10
 
 Pass de-inline (`ast/src/deinline.rs`) chỉ khớp hai bản inline khi AST giống hệt.
 
 - [x] Chuẩn hoá trước khi hash: guard ↔ lồng đã có (`unguard`), nay áp dụng được cả khi khối theo sau bởi `return` rỗng / trong thân loop; trần cửa sổ theo `tail_spine_len`; tên local đã là binding-hole. *Không làm* `and`/`or` giao hoán và `x = x + 1` ↔ `x += 1`: cùng một bytecode nên hai bản inline không lệch dạng này (đo: 0 site cần)
 - [x] Sửa 5 file mất call-site so với `main` (`ClickToMoveDisplay` ×2, `ClientFishingHandler`, `SaveDiscovery`, `pool`) — 4 nguyên nhân: marker bị `factor_common_tails` hoist, tail sau `return`, trần cửa sổ, Gap B arm-return. Kèm written-param + result-alias (probe `grow`/`put` 8/8 site)
-- [x] `Write.luau`: 4.773 → 1.820 dòng. Nguyên nhân thật KHÔNG phải helper inline 22 lần mà là structurer nhân bản khối dispatch (~1.400 dòng) vào 3 vị trí (`continue`-fallthrough trong nguồn); `HoistLeafTails` gộp lại. 147 site helper còn lại dùng local hoisted (`keypoints = offset + N`, do clone chia sẻ RcLocal → `LocalDeclarer` kéo khai báo lên) nên chưa de-inline được → cần pass "sink declarations" chạy lại sau factor/deinline (việc mới, xem C6)
-- [ ] C4 (HOÃN, ghi lý do 2026-09-03): Constructor `{a, b, f()}` có `NEWTABLE` cách xa `SETLIST` — đo lại: 60 site / 52 file fallback `for _k, _v in next, { f() }`. Dạng thực tế (Fusion): `local t = { A(), Padding = B() }; local frame = scope:New("Frame"); local props = {...}; props[children] = {...}; SETLIST t[2..] = frame(props)`. Không thể kéo constructor xuống (entry `A()`/`B()` có side-effect, các statement giữa cũng gọi `scope:New`) và không thể kéo SETLIST lên; cách đúng là gấp `props` thành biểu thức `scope:New("Frame")({...})` rồi hợp nhất SETLIST vào constructor ở pass AST muộn (sau `rebuild_ui_expression_trees`) — nhưng `props[children] = {...}` với key là local (`children`) không được rebuild gấp lại. Cần mở rộng UI-tree rebuild trước; lợi ích ~60 dòng → để sau
+- [x] `Write.luau`: mốc C1 **4.773 → 1.820** dòng nhờ gộp shared-tail; C6 hiện còn **959** dòng và **97** site helper được khôi phục. Shared-tail được factor trước khi đặt phạm vi khai báo; chi tiết C6 bên dưới.
+- [x] C4: `rebuild_ui_expression_trees` gộp handle gọi một lần ở vị trí callee, alias khóa `children`, field động liên tiếp và SETLIST muộn. Giữ thứ tự key → value → store, snapshot capture, điều kiện thực thi và arity; không đổi call thành multret ngoài vị trí cho phép. **59 → 22** fallback (21 file còn lại có nhánh/khai báo/capture cần giữ). `Menu` đã thành cây props/children liền mạch. Fallback còn lại dùng `table.pack` có đếm để ghi đúng cả nil; fixture mới bắt và sửa cả lỗi SSA trì hoãn gán captured table. Chi tiết [ui_tree_rebuild.md](ui_tree_rebuild.md).
 - [x] Không bỏ `local t = {...}` chết (C5, 2026-09-03): SSA inliner giữ bảng hằng KHÔNG rỗng dù không dùng (`keep_const_table` trong `cfg/src/ssa/inline.rs`), và không forward `{}` vào gốc index-write (`local t = {}; t.k = v` từng thành `({}).k = v` — mất closure `Formatter`). Ra `local _ = {...}`. Oracle `dropped-const-table` 43 → 6 (6 còn lại là khác dạng `SETTABLEN` vs `SETLIST` / field `= nil`, không phải mất mã); proto không tương đương 2.786 → 2.744; +400 dòng (mã khôi phục), 69 file. Fixture mới `semantic_roundtrip/dead_const_tables.luau`
 
-- [ ] C6 (KHÔNG làm theo hướng "sink", 2026-09-03 đã điều tra): tái decompile chính output `Write.luau` (không còn clone) vẫn cho `local X, G, buf6, … (78 tên)` hoisted → nguyên nhân KHÔNG phải clone mà là destructor SSA (`cfg/src/ssa/destruct.rs`, Boissinot `coalesce_copies` theo *giá trị*): temp của các site khác nhau trong các nhánh `elseif` (`buf6 = buf3` else-arm ở 3 site, `X = offset + N`) cùng giá trị/copy-related với biến loop-carried nên bị gộp thành MỘT biến dùng ở nhiều nhánh → `LocalDeclarer` phải kéo khai báo lên. Kiểm chứng: dump SSA pre-destruct không có phi chết (0/399 param), post-destruct `UNNAMED_…256095` được định nghĩa ở 6 block (3× `= buf3`, 3× `buffer.create`). Probe cùng hình dạng (`continue`-fallthrough + dispatch, `scratchpad/t4.luau`) compile bằng luau-compile pin thì KHÔNG bị (8/8 site khôi phục) → phụ thuộc cách cấp phát register của bytecode Roblox. Việc đúng: chính sách coalesce trong destruct (không gộp copy cùng giá trị khi các def nằm ở nhánh anh em không giao nhau) — thuộc mục D/F, rủi ro toàn corpus; init-less decl toàn corpus hiện 1.460 dòng (140 nhiều tên, 1.320 một tên)
+- [x] C6: factor shared-tail trước `LocalDeclarer`; coalescing AST đo áp lực local theo chuỗi phạm vi và chỉ ghép các local có cùng phạm vi nhánh/vòng lặp. Khai báo của nhánh giữ trong nhánh, giúp de-inline thêm **91** site ở `Write` (**6 → 97**). Chính sách SSA destructor được giữ nguyên; thử nghiệm chặn copy-coalescing ở SSA không giải quyết được loop protocol, nên thay đổi cuối nằm ở `factor_common_tails` và `coalesce_locals`.
 
-**Đo lường:** call-site `-- inlined by Luau -O2` ≥ 600 → **588** (chưa đạt; 147 site còn lại của `Write.luau` chờ chính sách coalesce ở C6/D); `Write.luau` < 2.500 dòng → **1.820** ✅; A không đổi → 2.790 → 2.744 (C1+C5), lớp `investigate`/`suspect` không đổi, `dropped-const-table` 43 → 6 ✅ (baseline cập nhật).
+**Đo lường:** site `-- inlined by Luau -O2` **588 → 660** (mục tiêu ≥600 ✅); `Write.luau` **1.820 → 959** dòng (<2.500 ✅); toàn corpus **504.400** dòng. Oracle **2.744 → 2.699** proto không tương đương; `investigate` **38 → 14**, `suspect` **6 → 5**, `dropped-const-table` vẫn **6**. Cả gate tổng và từng file xanh sau [review baseline](bytecode_roundtrip/review_20260910.md).
 
-### [ ] D. Bỏ hẳn legacy structurer — *đóng mảnh code không có proof*
+### [x] D. Bỏ hẳn legacy structurer — hoàn tất 2026-09-10
 
-317 function trả `Unsupported` ở cả 2 lần thử của builder source-like.
+Mốc cũ **317** lượt còn `Unsupported` sau retry; hiện **0** trên **26.391** lượt structuring của corpus. Có 9 lượt cần retry bằng builder có proof; cả 9 đều thành công. Bộ semantic cũng không còn rejection sau retry. Legacy matcher và mọi caller đã bị xoá.
 
-- [ ] Liệt kê 317 function (`MEDAL_DEBUG_RESTRUCTURE=1`, lọc `retry ... -> Unsupported`), gom theo lý do `return None` trong `build_path`/`build_loop`
-- [ ] Shared-tail nhiều điểm vào: cho phép nhân bản có ngân sách nhỏ, hoặc tách thành local function (`synthesize_terminal_helpers` đã có)
-- [ ] Các hình dạng hiếm khác (If có body sẵn, block 1 successor có statement không linear, nested loop join ngoài vùng…)
-- [ ] Khi = 0: xoá `restructure/src/lib.rs` legacy matcher và `may_use_legacy_structurer`
+- [x] Liệt kê 317 function (`MEDAL_DEBUG_RESTRUCTURE=1`, lọc `retry ... -> Unsupported`), gom theo nhánh từ chối trong `build_path`/`build_loop`: `scripts/structurer_inventory.py`, báo cáo trong `docs/structurer_inventory/`, chi tiết [structurer_progress.md](structurer_progress.md). Diagnostics có node, stop, loại proof và pha retry; script từ chối log chưa chạy xong hoặc không serial.
+- [x] Shared-tail, re-entry hữu hạn/vô hạn và join trong cùng iteration có ownership rõ ràng; đường hội tụ chỉ được ghép khi cả hai nhánh tới join trước lần lặp kế tiếp. Numeric/generic loop lồng trong outer cycle có biên riêng; giữ clone budget và helper factoring.
+- [x] Numeric-for không backedge, inverted while, header effect/copy, exhaustion adapter, terminal fringe và implicit function exit đều có kiểm tra riêng. Result export giữ outer cell khi parameter/callback dùng sau vòng lặp; loop binding riêng không làm đổi capture. Fixture `loop_shapes` và `loop_result_exports` kiểm chứng các đường continue/break/return/zero-trip.
+- [x] Xoá legacy matcher trong `restructure/src/lib.rs`, các module `conditional.rs`, `jump.rs`, `loop.rs`, `may_use_legacy_structurer` và các dependency không còn dùng. Luau và Lua 5.1 lifter gọi builder có proof; trường hợp chưa chứng minh được đi qua chính sách fallback/refusal hiện hành.
 
-**Đo lường:** `retry ... Unsupported` = 0; corpus strict vẫn 0 fail; A không đổi.
+**Đo lường:** `retry ... Unsupported` **0**; `Unsafe` **0**; corpus strict **3.936 thành công / 42 rỗng / 0 lỗi**; oracle và toàn bộ fixture gate xanh.
 
 ### [x] E. Giảm lồng sâu — *công sức thấp* (xong 2026-09-03 — phần làm được; chỉ tiêu < 15.000 KHÔNG khả thi, xem phân tích)
 
@@ -111,11 +120,11 @@ Pass de-inline (`ast/src/deinline.rs`) chỉ khớp hai bản inline khi AST gi�
 
 **Đo lường:** dòng thụt ≥ 8 tab: 24.550 (cùng cách đếm, trước C1 26.929). Phân tích thành phần: 11.482 dòng là field của table constructor (cây UI Fusion/React), 11.108 là statement trong closure lồng trong cây UI, chỉ 609 dòng là `if`/`elseif` và 1.351 là `end`. Tức lồng sâu là bản chất nguồn (declarative UI), không phải cấu trúc điều khiển → chỉ tiêu < 15.000 không đạt được bằng biến đổi `if`; A không đổi.
 
-### [ ] F. Hardening còn lại (ưu tiên thấp)
+### [x] F. Hardening — hoàn tất 2026-09-10
 
-- [ ] Giữ provenance `CLOSEUPVALS` qua SSA để chứng minh iteration-cell cho bytecode thủ công (mục §6 của reviewer; không cần cho bytecode compiler sinh ra)
-- [ ] Benchmark kích thước output theo file trong CI, chặn regression kiểu Transform 470 → 5.195 dòng
-- [ ] Dọn file scratch untracked trong thư mục repo (`tmp_*`, `*.err`, `out_*`, `selectedOut_*`) hoặc thêm vào `.gitignore`
+- [x] `cfg/src/ssa/close_provenance.rs` ghi proof CLOSEUPVALS trước khi SSA xoá marker; proof/obligation đi qua renaming/coalescing. Ref-capture phải đóng đúng register trên mọi cạnh backedge/continue/break; không cho dùng/ghi/recapture sau close. Bytecode fixture thật bị sửa thành NOP hoặc CLOSE sai register phải bị strict từ chối. Có unit test và integration test `iteration_cell`.
+- [x] Gate kích thước theo từng file trong CI: `scripts/output_size.py`, baseline **52 file** (7 residual + 45 semantic output), 4 test gate. Ngưỡng `max(25%, 40 dòng)` và `max(25%, 2.048 byte)`; file thiếu/chưa baseline cũng fail. Fixture Transform 470 → 5.195 dòng xác nhận không thể che bằng file khác nhỏ đi.
+- [x] Dọn file scratch untracked trong thư mục repo (`tmp_*`, `*.err`, `out_*`, `selectedOut_*`) hoặc thêm vào `.gitignore`: đã ignore các nhóm scratch ở root, không xoá tài liệu hay fixture.
 
 ---
 
@@ -132,7 +141,7 @@ python scripts/semantic_roundtrip.py --compiler D:/Medal/luau-tools-src/build/lu
 # oracle bytecode round-trip toàn corpus (gate: không tăng proto không tương đương)
 python scripts/bytecode_roundtrip.py --lifter target/release/luau-lifter.exe --compiler D:/Medal/luau-tools-src/build/luau-compile.exe --corpus D:/Medal/examplebytecode/RobloxProject --key 203 --threads 8 --report out/rt.json --markdown out/rt.md --baseline docs/bytecode_roundtrip/baseline_corpus.json
 
-# đếm hàm còn dùng legacy
+# kiểm tra rejection cuối cùng (legacy đã bị xoá)
 MEDAL_DEBUG_RESTRUCTURE=1 target/release/luau-lifter.exe decompile-folder <corpus> <out> -t 1 2>&1 | grep -c "retry .* Unsupported"
 
 # dump type info

@@ -10,6 +10,7 @@
 flamegraph.svg
 *.profraw
 dhat-heap.json
+__pycache__/
 
 # Decompiler scratch output (test dumps, sample bytecode, ad-hoc runs)
 result.lua
@@ -17,6 +18,14 @@ result.lua
 *_out.json
 *.bin
 /_trace_*
+# Local corpus runs and one-off debugging. Keep checked-in fixtures under docs.
+/tmp_*
+/*.err
+/out/
+/out_*/
+/selectedOut_*/
+/review_src_*/
+/repro_*.luac
 
 # Editors / IDEs
 .idea/

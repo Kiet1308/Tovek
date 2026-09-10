@@ -130,9 +130,17 @@ fn main() -> anyhow::Result<()> {
             )
             .destruct();
 
-            let params = std::mem::take(&mut function.parameters);
+            let params = function.parameters.clone();
             let is_variadic = function.is_variadic;
-            let mut lifted = restructure::lift(function);
+            let ignored = upvalues_in.iter().chain(params.iter()).cloned().collect();
+            let mut lifted =
+                match restructure::lift_source_like_attempt_with_ignored_locals(function, &ignored)
+                {
+                    restructure::StructureAttempt::Structured(block) => block,
+                    rejection => anyhow::bail!(
+                        "no proven source representation for Lua 5.1 function: {rejection:?}"
+                    ),
+                };
             simplify_gotos(&mut lifted);
             flatten_guards(&mut lifted);
             let block = Arc::new(lifted.into());
@@ -149,9 +157,9 @@ fn main() -> anyhow::Result<()> {
                 ast_function.parameters = params;
                 ast_function.is_variadic = is_variadic;
             }
-            (ByAddress(ast_function), upvalues_in)
+            Ok((ByAddress(ast_function), upvalues_in))
         })
-        .collect::<FxHashMap<_, _>>();
+        .collect::<anyhow::Result<FxHashMap<_, _>>>()?;
 
     let main = ByAddress(main);
     upvalues.remove(&main);

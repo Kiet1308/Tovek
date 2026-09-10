@@ -1,0 +1,1600 @@
+{
+  "summary": {
+    "events": 317,
+    "files": 231,
+    "reasons": {
+      "revisited-node": 116,
+      "loop": 100,
+      "nonlinear-single-successor": 87,
+      "analysis-or-coverage": 11,
+      "conditional": 3
+    }
+  },
+  "rejections": [
+    {
+      "file": "ReplicatedStorage/Assets/Cutscenes/ItachiObtainmentCutscene/SceneSpace/Map/VillainInvasion/Map/Model/Moving Lava/Texture/Script.server.lua",
+      "proto": 2,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Assets/Cutscenes/ItachiObtainmentCutscene/SceneSpace/Map/VillainInvasion/Map/Model/Moving Lava/Texture/Script__volt-script-002682.server.lua",
+      "proto": 2,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/CmdrClient/CmdrInterface/AutoComplete.lua",
+      "proto": 2,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/CmdrClient/Shared/Argument.lua",
+      "proto": 6,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/CmdrClient/Shared/Command.lua",
+      "proto": 3,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/CmdrClient/Shared/Util.lua",
+      "proto": 38,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/CmdrClient/Shared/Util.lua",
+      "proto": 24,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/CmdrClient/Shared/Util.lua",
+      "proto": 4,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/DivergentVFX/LightningCore.lua",
+      "proto": 94,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/DivergentVFX/LightningCore.lua",
+      "proto": 62,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/DivergentVFX/LightningCore.lua",
+      "proto": 9,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/DivergentVFX/curve.lua",
+      "proto": 4,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/DivergentVFX/dispatch.lua",
+      "proto": 2,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/DivergentVFX/util.lua",
+      "proto": 17,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Actions/StringDistance.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Bar/init.lua",
+      "proto": 9,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Billboards.lua",
+      "proto": 20,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Billboards.lua",
+      "proto": 19,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Billboards.lua",
+      "proto": 18,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Button/MenuButton/Notifications/Battlepass.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Button/RepeatActivation.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Container.lua",
+      "proto": 0,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/ScrollingFrame/MilestoneRewards.lua",
+      "proto": 2,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/SplitTextLabel/init.lua",
+      "proto": 8,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/SplitTextLabel/init.lua",
+      "proto": 3,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/SplitTextLabel/init.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/ViewportInput.lua",
+      "proto": 0,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Effects/Flipbook/init.lua",
+      "proto": 1,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Effects/Flipbook/init.lua",
+      "proto": 1,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Effects/Flipbook/init.lua",
+      "proto": 1,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Effects/SplitFlipbook.lua",
+      "proto": 1,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Effects/SplitFlipbook.lua",
+      "proto": 1,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Effects/SplitFlipbook.lua",
+      "proto": 1,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/QuestBoardMilestones.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Game/UpgradeBar/init.lua",
+      "proto": 3,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/Hotbar.lua",
+      "proto": 2,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/Hotbar.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/BossBountyEvent.lua",
+      "proto": 3,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/GuessUnitEvent/GuessUnitPrompt.lua",
+      "proto": 9,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/Pages/Gamemode.lua",
+      "proto": 4,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Menu/LevelMilestones/init.lua",
+      "proto": 6,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Menu/LevelMilestones/init.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/Character/Model/Animate.client.lua",
+      "proto": 31,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/Milestones.lua",
+      "proto": 3,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Processors/Asset/ProductPrice.lua",
+      "proto": 2,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Processors/Battlepass.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Processors/GameUpgrade.lua",
+      "proto": 2,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Processors/Map/init.lua",
+      "proto": 11,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Processors/ThrottledCount.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Processors/Tournament/init.lua",
+      "proto": 8,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Processors/UserInfoFromUserID.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Processors/UserThumbnailFromUserID.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Prompts/Codes.lua",
+      "proto": 3,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Tooltips/TooltipController.lua",
+      "proto": 7,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Dependencies/Mock/init.lua",
+      "proto": 23,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Dependencies/Mock/init.lua",
+      "proto": 20,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Dependencies/Mock/init.lua",
+      "proto": 19,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Fusion/Graph/change.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.lua",
+      "proto": 69,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.lua",
+      "proto": 67,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/init.lua",
+      "proto": 3,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Fusion/State/ForValues.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Keys/IsLoaded.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Keys/IsLoaded.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/State/Flatten.lua",
+      "proto": 0,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/State/ImportState.lua",
+      "proto": 13,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/State/IsEqual.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/State/IsNotEqual.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/CardSelection.story.lua",
+      "proto": 6,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/DamageIndicator.story.lua",
+      "proto": 3,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/DamageIndicator.story.lua",
+      "proto": 2,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/DamageIndicator.story.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/DamageIndicator.story.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/ExpeditionHUD.story.lua",
+      "proto": 2,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/ExpeditionHUDOld.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/Message.story.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/PlayerOverhead.story.lua",
+      "proto": 6,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/PortalSelection.story.lua",
+      "proto": 3,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/TestContainer.story.lua",
+      "proto": 3,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/TestStory.story.lua",
+      "proto": 4,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/UnitBuffs.story.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Stories/UnitManager.story.lua",
+      "proto": 6,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/HyperText/DEMO/ScreenGui/AutomaticSizeX/LocalScript.client.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/HyperText/DEMO/ScreenGui/AutomaticSizeY/LocalScript.client.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/HyperText/DEMO/ScreenGui/scaling/LocalScript.client.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/HyperText/init.lua",
+      "proto": 95,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/ImportBatcher/ImportBatcherOLD.lua",
+      "proto": 12,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/ImportBatcher/init.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/ImportBatcher/init.lua",
+      "proto": 16,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/Promise/init.lua",
+      "proto": 69,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/Promise/init.lua",
+      "proto": 67,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/Signal/Deferred.lua",
+      "proto": 9,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/Signal/Deferred.lua",
+      "proto": 8,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/Signal/Immediate.lua",
+      "proto": 11,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/Signal/Immediate.lua",
+      "proto": 10,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/Signal/Immediate.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/convertNumber.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/deepPeek.lua",
+      "proto": 0,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Utils/getCore.lua",
+      "proto": 2,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/Clock.lua",
+      "proto": 4,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/Bezier.lua",
+      "proto": 1,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/LerpCore/init.lua",
+      "proto": 40,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/LerpCore/init.lua",
+      "proto": 35,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/LerpCore/init.lua",
+      "proto": 22,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/ObjectSampler.lua",
+      "proto": 4,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/TrackPlayer.lua",
+      "proto": 18,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/init.lua",
+      "proto": 56,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/init.lua",
+      "proto": 31,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/MoonPlayer/init.lua",
+      "proto": 14,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Network/init.lua",
+      "proto": 10,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Array/equals.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Array/equals.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Array/equalsDeep.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Array/equalsDeep.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Array/findLast.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Array/findWhere.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Array/findWhereLast.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Dictionary/equals.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Dictionary/equalsDeep.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Schema/Sift/Util/equalObjects.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/Signal.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/init.lua",
+      "proto": 70,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/init.lua",
+      "proto": 18,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/init.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Duration.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Emit.lua",
+      "proto": 3,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Emit.lua",
+      "proto": 2,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Emit.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Flipbook.lua",
+      "proto": 11,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Flipbook.lua",
+      "proto": 9,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Graph.lua",
+      "proto": 7,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/ImageEmit.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Lifecycle.lua",
+      "proto": 33,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Lifecycle.lua",
+      "proto": 16,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Lifecycle.lua",
+      "proto": 5,
+      "reason": "conditional"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Particles.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/PlayHandle.lua",
+      "proto": 6,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Pool.lua",
+      "proto": 6,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Rocks/Trajectory.lua",
+      "proto": 5,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/init.lua",
+      "proto": 17,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/ReplicaShared/Maid.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/ReplicaShared/Remote.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/ReplicaShared/Remote.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/ReplicaShared/Signal.lua",
+      "proto": 9,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/ReplicaShared/Signal.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/ReplicaShared/Signal.lua",
+      "proto": 2,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/ReplicaShared/Signal.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/AssetLoader.lua",
+      "proto": 16,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/AssetLoader.lua",
+      "proto": 4,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/CutsceneUtil.lua",
+      "proto": 10,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/CutsceneUtil.lua",
+      "proto": 8,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/EnemyUtils.lua",
+      "proto": 20,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFX/init.lua",
+      "proto": 2,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFX/mod/lerp.lua",
+      "proto": 12,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFX/obj/Bezier.lua",
+      "proto": 8,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFX/obj/ObjectCache.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFX/shockwave_line.lua",
+      "proto": 12,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/shockwave_line.lua",
+      "proto": 12,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/init.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/common/bezier.lua",
+      "proto": 7,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/common/bezier.lua",
+      "proto": 6,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/lerp.lua",
+      "proto": 12,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/utility.lua",
+      "proto": 16,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/obj/Bezier.lua",
+      "proto": 8,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/obj/ObjectCache.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/services/enabled_effects.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Events/BingoEvent/init.lua",
+      "proto": 14,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Events/BingoEvent/init.lua",
+      "proto": 4,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Events/BingoEvent/init.lua",
+      "proto": 3,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Events/Summer2026Event/FusionUtils.lua",
+      "proto": 5,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Expeditions/init.lua",
+      "proto": 17,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Expeditions/init.lua",
+      "proto": 16,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Expeditions/init.lua",
+      "proto": 7,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/GameModifiers.lua",
+      "proto": 3,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/GuildInfo/LevelData.lua",
+      "proto": 2,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Maps/init.lua",
+      "proto": 14,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Tournaments/init.lua",
+      "proto": 19,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/LootPlan/init.lua",
+      "proto": 7,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Maid.lua",
+      "proto": 13,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Network/BufferEncoder/RbxEnumEncoder.lua",
+      "proto": 6,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Network/BufferEncoder/Read.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Promise/init.lua",
+      "proto": 69,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Promise/init.lua",
+      "proto": 67,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/Classes/Observer.lua",
+      "proto": 82,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/Classes/Observer.lua",
+      "proto": 79,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/Classes/Observer.lua",
+      "proto": 76,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/Classes/Observer.lua",
+      "proto": 74,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/Classes/Observer.lua",
+      "proto": 72,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/Classes/Observer.lua",
+      "proto": 70,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/Classes/Observer.lua",
+      "proto": 56,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/Classes/Zones.lua",
+      "proto": 16,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/Core/Scheduler.lua",
+      "proto": 7,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/init.lua",
+      "proto": 33,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/QuickZone/init.lua",
+      "proto": 31,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/ReplicaClient.lua",
+      "proto": 3,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Signal.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TeleportUtil.lua",
+      "proto": 2,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitter/Graph.lua",
+      "proto": 5,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitter/Graph.lua",
+      "proto": 4,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitterV2/Graph.lua",
+      "proto": 6,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitterV2/init.lua",
+      "proto": 15,
+      "reason": "conditional"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitterV2/init.lua",
+      "proto": 13,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Duration.lua",
+      "proto": 1,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Emit.lua",
+      "proto": 3,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Emit.lua",
+      "proto": 2,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Emit.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Flipbook.lua",
+      "proto": 11,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Flipbook.lua",
+      "proto": 9,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Graph.lua",
+      "proto": 7,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/ImageEmit.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Lifecycle.lua",
+      "proto": 33,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Lifecycle.lua",
+      "proto": 16,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Lifecycle.lua",
+      "proto": 5,
+      "reason": "conditional"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Particles.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/PlayHandle.lua",
+      "proto": 6,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Pool.lua",
+      "proto": 6,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Rocks/Trajectory.lua",
+      "proto": 5,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/init.lua",
+      "proto": 17,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/init.lua",
+      "proto": 11,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/init.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/FormatNumber/_internal/class.lua",
+      "proto": 8,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/FormatNumber/_internal/class.lua",
+      "proto": 3,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/Rig/Animate.client.lua",
+      "proto": 31,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/Timer.lua",
+      "proto": 4,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init.lua",
+      "proto": 117,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init.lua",
+      "proto": 116,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init.lua",
+      "proto": 105,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init.lua",
+      "proto": 104,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init.lua",
+      "proto": 102,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init.lua",
+      "proto": 73,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init.lua",
+      "proto": 68,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init.lua",
+      "proto": 15,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init.lua",
+      "proto": 6,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/VFXMaid.lua",
+      "proto": 17,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Zone/SimpleZone/init.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "ReplicatedStorage/SheetSyncedModules/AllScaling/Parser.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterCharacterScripts/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientAFKHandler.client.lua",
+      "proto": 3,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientCosmeticSystem/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientEnemyEffects/AttackAnimation.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientFishingHandler.client.lua",
+      "proto": 22,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientFishingHandler.client.lua",
+      "proto": 16,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientGuiController.client.lua",
+      "proto": 12,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientHoverableHandler.client.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/LensFlare/LensFlare.lua",
+      "proto": 0,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/Rain/RainModule.lua",
+      "proto": 4,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/init.client.lua",
+      "proto": 20,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientMountHandler.client.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientMovement/HandleFootsteps.lua",
+      "proto": 2,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientMusicHandler.client.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientPartyReplica.client.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientPlayerDataReplica.client.lua",
+      "proto": 8,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientPlayerDataReplica.client.lua",
+      "proto": 3,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientPlayerDataReplica.client.lua",
+      "proto": 2,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientResetCharacter.client.lua",
+      "proto": 1,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientShopReplica.client.lua",
+      "proto": 3,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientUnitDPS.client.lua",
+      "proto": 0,
+      "reason": "analysis-or-coverage"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/CustomShiftLock/SmoothShiftLock/Maid.lua",
+      "proto": 7,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/FireRelay/RelayScript.client.lua",
+      "proto": 7,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/MountPartyView/TeleporterCharacter/Model/Animate.client.lua",
+      "proto": 31,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/MountSummonMenu/SummonCutscene.lua",
+      "proto": 12,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/BaseCamera.lua",
+      "proto": 19,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/ZoomController/Popper.lua",
+      "proto": 17,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/ZoomController/Popper.lua",
+      "proto": 15,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/ZoomController/Popper.lua",
+      "proto": 14,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/AvatarAbilitiesInterface.lua",
+      "proto": 1,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.lua",
+      "proto": 37,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.lua",
+      "proto": 7,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/DynamicThumbstick.lua",
+      "proto": 29,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/PathDisplay.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/VRNavigation.lua",
+      "proto": 15,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/init.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/BaseCamera.lua",
+      "proto": 22,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/ZoomController/Popper.lua",
+      "proto": 17,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/ZoomController/Popper.lua",
+      "proto": 15,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/ZoomController/Popper.lua",
+      "proto": 14,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/ClickToMoveController.lua",
+      "proto": 37,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/ClickToMoveController.lua",
+      "proto": 7,
+      "reason": "nonlinear-single-successor"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/DynamicThumbstick.lua",
+      "proto": 30,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/PathDisplay.lua",
+      "proto": 5,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/VRNavigation.lua",
+      "proto": 15,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/init.lua",
+      "proto": 39,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/init.lua",
+      "proto": 37,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/init.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/test__volt-script-003972.client.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Areas/Gold_Shop  [[[DONE]]]/Gold_Shop_Main/JukeBox/Base/Rythm test.server.lua",
+      "proto": 0,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000029.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000030.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000031.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000032.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000033.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000034.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000035.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000036.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000037.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000038.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000039.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000040.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Lobby/Summerprops/FlagStick/flag animation__volt-script-000041.server.lua",
+      "proto": 1,
+      "reason": "revisited-node"
+    },
+    {
+      "file": "Workspace/Players/Damwibuskibidi/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/Luk_Ppanda/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/Monderhoa/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/OVIS_BL/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/Shielaaago/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/Shinozzz92/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/Superlamtark/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/THE_REDMAN1001/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/Thelight1606/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/WGIT05/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/aseon13me/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/egodgpops2/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/foxyprozed/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/longgay91/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/miracle_hunter35/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/summohay27/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    },
+    {
+      "file": "Workspace/Players/vualucj/Animate.client.lua",
+      "proto": 32,
+      "reason": "loop"
+    }
+  ]
+}

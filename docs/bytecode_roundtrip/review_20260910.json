@@ -1,0 +1,418 @@
+{
+  "date": "2026-09-10",
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "rust_toolchain": "nightly-2024-12-15",
+  "policy": "No exact/equiv, status or per-file gate relaxation. Refresh only after reviewing every increased per-file count; record improvements in the new baseline too.",
+  "baselines": {
+    "corpus": {
+      "old_sha256": "400d7abc5dfcf7cd669929af1c2f16e2a355b1d13d454921156237e14a6ef4ea",
+      "old_inputs": 3936,
+      "new_inputs": 3936,
+      "old_nonequiv": 2744,
+      "new_nonequiv": 2699
+    },
+    "residual_control_flow": {
+      "old_sha256": "01a8213311766aacdfdd40574e131ef2e586e1e882ff186d00ba5730dd347df2",
+      "old_inputs": 7,
+      "new_inputs": 7,
+      "old_nonequiv": 26,
+      "new_nonequiv": 27
+    },
+    "semantic_roundtrip": {
+      "old_sha256": "47d108829bd881ba619ebdd5cca2fb69f3de3a58686fcc39e47c5b3e6e4ae1ac",
+      "old_inputs": 12,
+      "new_inputs": 15,
+      "old_nonequiv": 10,
+      "new_nonequiv": 15
+    }
+  },
+  "reviewed_corpus_increases": [
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Container",
+      "old": 1,
+      "new": 2,
+      "changes": [
+        {
+          "path": "0",
+          "before": null,
+          "after": {
+            "class": "accept",
+            "lost": {},
+            "added": {
+              "RETURN(1)": 1
+            },
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "The initial non-State arm returns the same value before the unchanged repeat loop; the sole new signature token is RETURN(1)."
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/State/Flatten",
+      "old": 0,
+      "new": 1,
+      "changes": [
+        {
+          "path": "0.0",
+          "before": null,
+          "after": {
+            "class": "accept",
+            "lost": {},
+            "added": {
+              "RETURN(1)": 1
+            },
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "The non-State fast path now has an explicit return. Callback and xtypeof evaluations are unchanged on both paths."
+    },
+    {
+      "file": "ReplicatedStorage/Nodes/init",
+      "old": 19,
+      "new": 20,
+      "changes": [
+        {
+          "path": "53.0",
+          "before": null,
+          "after": {
+            "class": "accept",
+            "lost": {},
+            "added": {
+              "RETURN(0)": 1
+            },
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "AwaitAsset uses an explicit early void return when the expected count is already met; wait, clock, descendant checks and timeout error remain on the original paths."
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TeleportUtil",
+      "old": 0,
+      "new": 1,
+      "changes": [
+        {
+          "path": "1",
+          "before": null,
+          "after": {
+            "class": "accept",
+            "lost": {
+              "LOADNIL": 2
+            },
+            "added": {
+              "TEST": 1,
+              "LOADK(5)": 1,
+              "CMPLE": 1,
+              "RETURN(0)": 1
+            },
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "success/result are declared in the retry body. The repeated success/limit guard reads only locals; success short-circuits the limit comparison. pcall, warn, wait and final return order are unchanged."
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/FormatNumber/_internal/class",
+      "old": 3,
+      "new": 4,
+      "changes": [
+        {
+          "path": "2",
+          "before": null,
+          "after": {
+            "class": "accept",
+            "lost": {},
+            "added": {
+              "RETURN(1)": 1
+            },
+            "header": null
+          }
+        },
+        {
+          "path": "6",
+          "before": {
+            "class": "duplicated",
+            "lost": {},
+            "added": {
+              "LOADNIL": 2,
+              "TEST": 1,
+              "GETIMPORT(@error)": 1,
+              "GETIMPORT(@string)": 1,
+              "GETTABLEKS(\"format\")": 1,
+              "LOADK(\"Argument #%d provided must be an integer that is in the range of %d to (and including) %d\")": 1,
+              "CALL(4)": 1,
+              "LOADK(3)": 1,
+              "CALL(2)": 1,
+              "RETURN(1)": 1
+            },
+            "header": null
+          },
+          "after": {
+            "class": "accept",
+            "lost": {},
+            "added": {
+              "LOADNIL": 2
+            },
+            "header": null
+          }
+        },
+        {
+          "path": "7",
+          "before": {
+            "class": "duplicated",
+            "lost": {},
+            "added": {
+              "CALL(2)": 4,
+              "TEST": 2,
+              "GETIMPORT(@error)": 2,
+              "GETIMPORT(@string)": 2,
+              "GETTABLEKS(\"format\")": 2,
+              "LOADK(\"Argument #%d provided is out of range\")": 2,
+              "LOADK(3)": 2,
+              "RETURN(1)": 2,
+              "LOADNIL": 1
+            },
+            "header": null
+          },
+          "after": {
+            "class": "inlined",
+            "lost": {},
+            "added": {
+              "TEST": 2,
+              "CALL(2)": 2,
+              "GETIMPORT(@error)": 1,
+              "GETIMPORT(@string)": 1,
+              "GETTABLEKS(\"format\")": 1,
+              "LOADK(\"Argument #%d provided is out of range\")": 1,
+              "LOADK(3)": 1,
+              "RETURN(1)": 1,
+              "LOADK(true)": 1,
+              "LOADNIL": 1,
+              "LOADK(false)": 1
+            },
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "is_a adds the non-type fast return. Range-error tails are no longer duplicated; the enum search exports its selected item through a private loop binding and preserves parameter/default paths."
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Utils/init",
+      "old": 17,
+      "new": 18,
+      "changes": [
+        {
+          "path": "10",
+          "before": null,
+          "after": {
+            "class": "accept",
+            "lost": {},
+            "added": {
+              "RETURN(1)": 1
+            },
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "GetValidConfig adds an explicit return on its already-loaded path. Refresh/wait order in the repeat is unchanged. Other changed retries retain the gate release and callback paths."
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientFishingHandler.client",
+      "old": 5,
+      "new": 6,
+      "changes": [
+        {
+          "path": "main",
+          "before": {
+            "class": "accept",
+            "lost": {},
+            "added": {
+              "CAPTURE(ref)": 1,
+              "CAPTURE(val)": 1
+            },
+            "header": null
+          },
+          "after": {
+            "class": "accept",
+            "lost": {
+              "CAPTURE(val)": 2,
+              "CAPTURE(ref)": 2
+            },
+            "added": {},
+            "header": null
+          }
+        },
+        {
+          "path": "21",
+          "before": {
+            "class": "suspect",
+            "lost": {},
+            "added": {
+              "GETUPVAL": 18,
+              "RETURN(0)": 10,
+              "TEST": 9,
+              "CALL(1)": 9,
+              "CALL(2)": 9,
+              "SETUPVAL": 9,
+              "LOADNIL": 7,
+              "LOADK(false)": 3,
+              "NAMECALL(\"Request\")": 3,
+              "LOADK(1)": 3,
+              "NAMECALL(\"Timeout\")": 3,
+              "NAMECALL(\"Wait\")": 3,
+              "NAMECALL(\"Destroy\")": 3,
+              "GETTABLEKS(\"Character\")": 3,
+              "CMPEQ": 3,
+              "GETTABLEKS(\"FISHING_ACTIVE\")": 3,
+              "NAMECALL(\"Set\")": 3,
+              "GETTABLEKS(\"FISHING_ACTIVE_CHANGED\")": 3,
+              "NAMECALL(\"FireSelf\")": 3
+            },
+            "header": null
+          },
+          "after": {
+            "class": "accept",
+            "lost": {
+              "LOADNIL": 1
+            },
+            "added": {
+              "RETURN(0)": 1
+            },
+            "header": null
+          }
+        },
+        {
+          "path": "15",
+          "before": null,
+          "after": {
+            "class": "outlined",
+            "lost": {
+              "GETUPVAL": 9,
+              "LOADK(false)": 5,
+              "CALL(2)": 5,
+              "SETUPVAL": 3,
+              "NAMECALL(\"Set\")": 3,
+              "CMPKB(false)": 2,
+              "GETTABLEKS(\"IS_NEAR_WATER\")": 2,
+              "GETTABLEKS(\"Character\")": 1,
+              "TEST": 1,
+              "GETTABLEKS(\"FISHING_ACTIVE\")": 1,
+              "GETTABLEKS(\"FISHING_ACTIVE_CHANGED\")": 1,
+              "NAMECALL(\"FireSelf\")": 1,
+              "NAMECALL(\"IsPlayerNearWater\")": 1,
+              "CMPEQ": 1
+            },
+            "added": {
+              "CALL(0)": 1
+            },
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "The polling task calls the existing updateActiveState helper instead of its expanded body. The selected-rod loop keeps an outer export cell and one shared request/timeout/wait sequence. The former suspect prototype becomes accept."
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientGuiController.client",
+      "old": 1,
+      "new": 2,
+      "changes": [
+        {
+          "path": "7",
+          "before": null,
+          "after": {
+            "class": "duplicated",
+            "lost": {},
+            "added": {
+              "GETUPVAL": 1,
+              "GETTABLE": 1,
+              "CMPKNIL": 1,
+              "LOADK(false)": 1,
+              "LOADK(true)": 1,
+              "RETURN(1)": 1
+            },
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "The v3[p] ~= nil return is copied into the fast path. Each executed path performs the same table reads, including when flag is false; the wait loop is unchanged."
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientPlayerDataReplica.client",
+      "old": 1,
+      "new": 2,
+      "changes": [
+        {
+          "path": "1",
+          "before": null,
+          "after": {
+            "class": "accept",
+            "lost": {},
+            "added": {
+              "GETUPVAL": 1,
+              "RETURN(1)": 1
+            },
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "The ready path returns the same captured replica before the unchanged wait loop; the added GETUPVAL/RETURN pair is in a mutually exclusive arm."
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/ClientResetCharacter.client",
+      "old": 0,
+      "new": 1,
+      "changes": [
+        {
+          "path": "0",
+          "before": null,
+          "after": {
+            "class": "accept",
+            "lost": {
+              "LOADNIL": 1
+            },
+            "added": {},
+            "header": null
+          }
+        }
+      ],
+      "old_extra": [],
+      "new_extra": [],
+      "decision": "accepted after source diff and raw prototype-delta review",
+      "reason": "The pcall result local is declared inside repeat, whose condition can see that local. One unused pre-loop LOADNIL disappears."
+    }
+  ],
+  "fixture_additions": [
+    "loop_result_exports",
+    "loop_shapes",
+    "ui_setlist_order"
+  ],
+  "fixture_validation": "All 15 source fixtures execute identically after strict decompilation at O0, O1 and O2 (45 runs); the original 12 have no increased oracle counts."
+}

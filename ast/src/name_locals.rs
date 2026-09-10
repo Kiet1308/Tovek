@@ -3963,6 +3963,12 @@ impl Namer {
         for statement in &mut block.0 {
             self.at_root = is_root;
             let mut globals: Vec<String> = Vec::new();
+            // An unfused SETLIST uses the Luau table.pack builtin to retain
+            // nils and multret arity. Its formatter expansion must not resolve
+            // to a local that happens to receive the name `table`.
+            if matches!(statement, Statement::SetList(list) if list.tail.is_some()) {
+                globals.push("table".to_string());
+            }
             let mut functions = Vec::new();
             statement.post_traverse_values(&mut |value| -> Option<()> {
                 match value {

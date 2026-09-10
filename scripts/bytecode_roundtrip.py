@@ -759,7 +759,37 @@ _NEUTRAL_REWRITES = [
 _ADDED_ONLY_NEUTRAL_BASES = {"RETURN"}  # shared-tail duplication (`return x` copied into both arms)
 
 
+def _cancel_counted_setlists(lost: collections.Counter, added: collections.Counter) -> None:
+    """Triage the counted SETLIST formatter expansion, retaining raw deltas.
+
+    This only changes the human-review class. The exact/equiv tiers, per-file
+    non-equivalent counts and baseline gate still use the original signatures.
+    Match one lost multret SETLIST, the complete pack/count/copy scaffold and
+    its precise index offset; an arbitrary numeric loop or table.pack call is
+    insufficient.
+    """
+    for token in list(lost):
+        match = re.fullmatch(r"SETLIST\(\*,([1-9][0-9]*)\)", token)
+        if not match:
+            continue
+        base = int(match.group(1)) - 1
+        required = collections.Counter({
+            "GETIMPORT(@table)": 1, 'GETTABLEKS("pack")': 1, "CALL(*)": 1,
+            'GETTABLEKS("n")': 1, "LOADK(1)": 2,
+            "FORNPREP": 1, "FORNLOOP": 1, "GETTABLE": 1, "SETTABLE": 1,
+        })
+        if base:
+            required["ADD"] += 1
+            required[f"LOADK({base})"] += 1
+        count = min([lost[token]] + [added[k] // n for k, n in required.items()])
+        if count:
+            lost[token] -= count
+            for key, amount in required.items():
+                added[key] -= amount * count
+
+
 def _cancel_neutral_rewrites(lost: collections.Counter, added: collections.Counter) -> None:
+    _cancel_counted_setlists(lost, added)
     for l_bag, a_bag in _NEUTRAL_REWRITES:
         while True:
             n_l = min((lost[k] // v for k, v in l_bag.items()), default=None)

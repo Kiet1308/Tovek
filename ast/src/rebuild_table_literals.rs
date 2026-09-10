@@ -22,7 +22,7 @@ pub(crate) fn rebuild_with_captured(
     let nested_changed = rebuild_nested_blocks(block, captured);
     let sunk_changed = sink_total_table_declarations(block, captured);
     let drained_changed = extract_drained_constructor_fields(block);
-    rebuild_current_block(block) | sunk_changed | drained_changed | nested_changed
+    rebuild_current_block(block, captured) | sunk_changed | drained_changed | nested_changed
 }
 
 fn rebuild_nested_blocks(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>) -> bool {
@@ -72,7 +72,7 @@ fn rebuild_closures_in_statement(
     })
 }
 
-fn rebuild_current_block(block: &mut Block) -> bool {
+fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>) -> bool {
     let mut index = 0;
     let mut changed = false;
     while index + 1 < block.0.len() {
@@ -88,6 +88,33 @@ fn rebuild_current_block(block: &mut Block) -> bool {
             .unwrap_or(0);
 
         while index + 1 < block.0.len() {
+            if let Statement::SetList(set_list) = &block.0[index + 1] {
+                let table = block.0[index].as_assign().unwrap().right[0]
+                    .as_table()
+                    .unwrap();
+                if captured.contains(&object_local)
+                    || !can_append_set_list(table, set_list, &object_local)
+                {
+                    break;
+                }
+                let Statement::SetList(set_list) = block.0.remove(index + 1) else {
+                    unreachable!()
+                };
+                let table = block.0[index].as_assign_mut().unwrap().right[0]
+                    .as_table_mut()
+                    .unwrap();
+                table.0.extend(
+                    set_list
+                        .values
+                        .into_iter()
+                        .map(|value| (None, single_value(value))),
+                );
+                if let Some(tail) = set_list.tail {
+                    table.0.push((None, tail));
+                }
+                changed = true;
+                continue;
+            }
             let Some((key, value)) = block.0[index + 1]
                 .as_assign()
                 .and_then(|assign| field_assignment_parts(assign, &object_local))
@@ -95,7 +122,16 @@ fn rebuild_current_block(block: &mut Block) -> bool {
                 break;
             };
 
-            if !can_fold_table_field_assignment(key, value, &object_local) {
+            let table = block.0[index].as_assign().unwrap().right[0]
+                .as_table()
+                .unwrap();
+            if captured.contains(&object_local)
+                || table
+                    .0
+                    .last()
+                    .is_some_and(|(key, value)| key.is_none() && expands(value))
+                || !can_fold_table_field_assignment(key, value, &object_local)
+            {
                 break;
             }
 
@@ -111,6 +147,33 @@ fn rebuild_current_block(block: &mut Block) -> bool {
         index += 1;
     }
     changed
+}
+
+fn expands(value: &RValue) -> bool {
+    matches!(
+        value,
+        RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_)
+    )
+}
+
+fn single_value(value: RValue) -> RValue {
+    match value {
+        RValue::Call(call) => crate::Select::Call(call).into(),
+        RValue::MethodCall(call) => crate::Select::MethodCall(call).into(),
+        RValue::VarArg(vararg) => crate::Select::VarArg(vararg).into(),
+        value => value,
+    }
+}
+
+fn can_append_set_list(table: &Table, list: &crate::SetList, object: &RcLocal) -> bool {
+    list.object_local == *object
+        && list.index == 1 + table.0.iter().filter(|(key, _)| key.is_none()).count()
+        && !table.0.last().is_some_and(|(key, value)| key.is_none() && expands(value))
+        // Luau flushes array entries before every keyed field. Appending at
+        // the exact next list index therefore retains numeric-key overwrites,
+        // nil stores and dynamic-key errors in their original order.
+        && !list.values.iter().chain(list.tail.iter())
+            .any(|value| value.values_read().iter().any(|read| *read == object))
 }
 
 /// Sink an unobservable, total table allocation across intervening local
@@ -339,24 +402,13 @@ fn field_assignment_parts<'a>(
 }
 
 fn can_fold_table_field_assignment(key: &RValue, value: &RValue, object_local: &RcLocal) -> bool {
-    stable_dynamic_key(key)
-        && !key.values_read().iter().any(|read| *read == object_local)
+    !key.values_read().iter().any(|read| *read == object_local)
         && !value.values_read().iter().any(|read| *read == object_local)
 }
 
-/// Keys materialised by Luau's `SETTABLE` lowering are safe to put back at the
-/// same position in the constructor when they are stable lookup chains. `Index`
-/// is conservatively side-effectful in the general AST model (metamethods can
-/// run), but here no statement or field evaluation is crossed: the lookup still
-/// occurs after all existing constructor entries and before the same value.
-/// Calls and operator expressions remain refused.
-fn stable_dynamic_key(key: &RValue) -> bool {
-    match key {
-        RValue::Local(_) | RValue::Global(_) | RValue::Literal(_) => true,
-        RValue::Index(index) => stable_dynamic_key(&index.left) && stable_dynamic_key(&index.right),
-        _ => false,
-    }
-}
+// A contiguous field keeps key evaluation, then value evaluation, then the
+// store at the same position. Keys may call or raise; no other evaluation is
+// crossed and the fresh table cannot be observed by a captured reference.
 
 fn field_assignment_key_value(assign: Assign) -> (RValue, RValue) {
     let key = *assign
@@ -387,6 +439,16 @@ fn insert_table_entry(table: &mut Table, initial_len: usize, key: RValue, value:
         // constructor followed by `t[key] = value`.
         Some(position) if inert_nil_placeholder_suffix(table, position, initial_len) => {
             table.0[position].1 = value;
+        }
+        Some(position)
+            if matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil))
+                && crate::is_total_table_key(&key) =>
+        {
+            // A nil store to a fresh literal-key slot does nothing. Remove
+            // just that placeholder, keeping the later value after every
+            // intervening evaluation instead of moving it to the old slot.
+            table.0.remove(position);
+            table.0.push((Some(key), value));
         }
         _ => table.0.push((Some(key), value)),
     }
@@ -458,6 +520,73 @@ mod tests {
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(local.clone())],
         })
+    }
+
+    #[test]
+    fn appends_setlist_with_fixed_single_value_and_expanding_tail() {
+        let object = local("children");
+        let mut block = Block(vec![
+            declare(
+                &object,
+                Table(vec![
+                    (None, number(1.0)),
+                    (Some(string("Header")), number(9.0)),
+                ])
+                .into(),
+            ),
+            crate::SetList::new(
+                object.clone(),
+                2,
+                vec![Call::new(global("fixed"), vec![]).into()],
+                Some(Call::new(global("tail"), vec![]).into()),
+            )
+            .into(),
+            Return::new(vec![local_value(&object)]).into(),
+        ]);
+        assert!(rebuild_table_literals(&mut block));
+        assert_eq!(block.0.len(), 2);
+        let table = block.0[0].as_assign().unwrap().right[0].as_table().unwrap();
+        assert!(matches!(
+            &table.0[2].1,
+            RValue::Select(crate::Select::Call(_))
+        ));
+        assert!(matches!(&table.0[3].1, RValue::Call(_)));
+    }
+
+    #[test]
+    fn refuses_setlist_with_unproven_slots_arity_or_capture() {
+        for kind in 0..6 {
+            let object = local("children");
+            let entry = match kind {
+                0 => (None, Call::new(global("old_tail"), vec![]).into()),
+                1 => (Some(number(1.0)), number(8.0)),
+                2 => (Some(local_value(&local("key"))), number(8.0)),
+                _ => (None, number(1.0)),
+            };
+            let mut block = Block(vec![
+                declare(&object, Table(vec![entry]).into()),
+                crate::SetList::new(
+                    object.clone(),
+                    if kind == 3 { 4 } else { 2 },
+                    vec![],
+                    Some(if kind == 4 {
+                        closure_capturing(&object)
+                    } else {
+                        Call::new(global("tail"), vec![]).into()
+                    }),
+                )
+                .into(),
+                Return::new(vec![if kind == 5 {
+                    closure_capturing(&object)
+                } else {
+                    local_value(&object)
+                }])
+                .into(),
+            ]);
+            let before = block.to_string();
+            rebuild_table_literals(&mut block);
+            assert_eq!(block.to_string(), before, "case {kind}");
+        }
     }
 
     #[test]
@@ -720,7 +849,7 @@ mod tests {
     }
 
     #[test]
-    fn does_not_fold_side_effectful_dynamic_key() {
+    fn folds_side_effectful_dynamic_key_at_its_original_position() {
         let table = local("table");
         let mut block = Block(vec![
             declare(&table, RValue::Table(Table::default())),
@@ -736,7 +865,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local table = {}\ntable[makeKey()] = \"Value\"\ntable.Name = \"After\""
+            "local table = {\n\t[makeKey()] = \"Value\",\n\tName = \"After\"\n}"
         );
     }
 
@@ -790,7 +919,7 @@ mod tests {
         let mark_b = output.find("B = mark(\"B\")").unwrap();
         let mark_a = output.rfind("A = mark(\"A\")").unwrap();
         assert!(mark_b < mark_a, "{output}");
-        assert_eq!(output.matches("A =").count(), 2, "{output}");
+        assert_eq!(output.matches("A =").count(), 1, "{output}");
     }
 
     #[test]

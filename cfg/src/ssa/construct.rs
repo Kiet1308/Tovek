@@ -534,6 +534,7 @@ fn apply_local_map_to_values_referenced<T: LocalRw + Traverse>(
 
 // does not replace locals in child closures
 pub fn apply_local_map(function: &mut Function, local_map: FxHashMap<RcLocal, RcLocal>) {
+    super::close_provenance::apply_local_map(function, &local_map);
     // A coalesced local inherits the bytecode-type naming hint of the versions
     // it absorbs (first hint wins; the hints of one source local agree anyway).
     for (old, new) in &local_map {
@@ -836,6 +837,7 @@ impl<'a> SsaConstructor<'a> {
     }
 
     fn mark_upvalues(&mut self) {
+        super::close_provenance::record(self.function, &self.old_locals);
         let upvalues_open = UpvaluesOpen::new(self.function, self.old_locals.clone());
         let nodes: Vec<NodeIndex> = self.dfs.iter().copied().collect();
         for node in nodes {

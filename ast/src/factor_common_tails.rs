@@ -24,7 +24,25 @@ use triomphe::Arc;
 /// Returns whether the AST changed.
 pub fn factor_common_tails(body: &mut Block) -> bool {
     unshare_blocks(body);
-    factor_block(&mut body.0, Some(Tail::Return))
+    factor_block(&mut body.0, Some(Tail::Return), FactorMode::WholeChunk)
+}
+
+/// Factor only this function's structured blocks. The parallel lifter calls
+/// this before declarations; nested closure functions are owned by separate
+/// workers and must not be inspected or mutated through their bodies here.
+pub fn factor_function_tails(body: &mut Block, protected: &FxHashSet<crate::RcLocal>) -> bool {
+    unshare_blocks_impl(body, false);
+    factor_block(
+        &mut body.0,
+        Some(Tail::Return),
+        FactorMode::BeforeDeclarations(protected),
+    )
+}
+
+#[derive(Clone, Copy)]
+enum FactorMode<'a> {
+    WholeChunk,
+    BeforeDeclarations(&'a FxHashSet<crate::RcLocal>),
 }
 
 /// The statement that is a semantic NO-OP when appended to a block in tail
@@ -52,34 +70,40 @@ impl Tail {
 /// rewrites. Luau inlining can leave shallow-cloned statements sharing these
 /// Arcs; truncating one arm while it is shared would silently mutate siblings.
 pub(crate) fn unshare_blocks(body: &mut Block) {
+    unshare_blocks_impl(body, true);
+}
+
+fn unshare_blocks_impl(body: &mut Block, include_closures: bool) {
     for statement in &mut body.0 {
         match statement {
             Statement::If(node) => {
                 ensure_unique(&mut node.then_block);
                 ensure_unique(&mut node.else_block);
-                unshare_blocks(&mut node.then_block.lock());
-                unshare_blocks(&mut node.else_block.lock());
+                unshare_blocks_impl(&mut node.then_block.lock(), include_closures);
+                unshare_blocks_impl(&mut node.else_block.lock(), include_closures);
             }
             Statement::While(node) => {
                 ensure_unique(&mut node.block);
-                unshare_blocks(&mut node.block.lock());
+                unshare_blocks_impl(&mut node.block.lock(), include_closures);
             }
             Statement::Repeat(node) => {
                 ensure_unique(&mut node.block);
-                unshare_blocks(&mut node.block.lock());
+                unshare_blocks_impl(&mut node.block.lock(), include_closures);
             }
             Statement::NumericFor(node) => {
                 ensure_unique(&mut node.block);
-                unshare_blocks(&mut node.block.lock());
+                unshare_blocks_impl(&mut node.block.lock(), include_closures);
             }
             Statement::GenericFor(node) => {
                 ensure_unique(&mut node.block);
-                unshare_blocks(&mut node.block.lock());
+                unshare_blocks_impl(&mut node.block.lock(), include_closures);
             }
             _ => {}
         }
-        for value in crate::deinline::stmt_rvalues_mut(statement) {
-            unshare_rvalue(value);
+        if include_closures {
+            for value in crate::deinline::stmt_rvalues_mut(statement) {
+                unshare_rvalue(value);
+            }
         }
     }
 }
@@ -101,18 +125,18 @@ fn unshare_rvalue(value: &mut RValue) {
     }
 }
 
-fn factor_block(stmts: &mut Vec<Statement>, tail: Option<Tail>) -> bool {
+fn factor_block(stmts: &mut Vec<Statement>, tail: Option<Tail>, mode: FactorMode<'_>) -> bool {
     let mut changed = false;
 
     // Work bottom-up.  Shrinking an inner continuation often exposes a larger
     // common tail in its parent on the next local fixed-point iteration.
     let n = stmts.len();
     for (index, stmt) in stmts.iter_mut().enumerate() {
-        changed |= factor_children(stmt, tail.filter(|_| index + 1 == n));
+        changed |= factor_children(stmt, tail.filter(|_| index + 1 == n), mode);
     }
 
     loop {
-        let Some(action) = find_action(stmts, tail) else {
+        let Some(action) = find_action(stmts, tail, mode) else {
             break;
         };
         apply_action(stmts, action);
@@ -124,7 +148,7 @@ fn factor_block(stmts: &mut Vec<Statement>, tail: Option<Tail>) -> bool {
         // newly adjacent parent continuation in one invocation.
         let n = stmts.len();
         for (index, stmt) in stmts.iter_mut().enumerate() {
-            changed |= factor_children(stmt, tail.filter(|_| index + 1 == n));
+            changed |= factor_children(stmt, tail.filter(|_| index + 1 == n), mode);
         }
     }
 
@@ -133,19 +157,21 @@ fn factor_block(stmts: &mut Vec<Statement>, tail: Option<Tail>) -> bool {
 
 /// `tail` is the tail context of `stmt`'s own position: `Some` only when `stmt`
 /// is the last statement of a tail block (so its `if` arms are tail blocks too).
-fn factor_children(stmt: &mut Statement, tail: Option<Tail>) -> bool {
+fn factor_children(stmt: &mut Statement, tail: Option<Tail>, mode: FactorMode<'_>) -> bool {
     let mut changed = match stmt {
         Statement::If(node) => {
-            factor_block(&mut node.then_block.lock().0, tail)
-                | factor_block(&mut node.else_block.lock().0, tail)
+            factor_block(&mut node.then_block.lock().0, tail, mode)
+                | factor_block(&mut node.else_block.lock().0, tail, mode)
         }
-        Statement::While(node) => factor_block(&mut node.block.lock().0, Some(Tail::Continue)),
-        Statement::Repeat(node) => factor_block(&mut node.block.lock().0, None),
+        Statement::While(node) => {
+            factor_block(&mut node.block.lock().0, Some(Tail::Continue), mode)
+        }
+        Statement::Repeat(node) => factor_block(&mut node.block.lock().0, None, mode),
         Statement::NumericFor(node) => {
-            factor_block(&mut node.block.lock().0, Some(Tail::Continue))
+            factor_block(&mut node.block.lock().0, Some(Tail::Continue), mode)
         }
         Statement::GenericFor(node) => {
-            factor_block(&mut node.block.lock().0, Some(Tail::Continue))
+            factor_block(&mut node.block.lock().0, Some(Tail::Continue), mode)
         }
         _ => false,
     };
@@ -153,15 +179,21 @@ fn factor_children(stmt: &mut Statement, tail: Option<Tail>) -> bool {
     // Closure bodies can occur in any expression position, including conditions,
     // table fields and call arguments.  `Traverse` keeps this exhaustive when a
     // new expression form is added.
-    for value in crate::deinline::stmt_rvalues_mut(stmt) {
-        changed |= factor_in_rvalue(value);
+    if matches!(mode, FactorMode::WholeChunk) {
+        for value in crate::deinline::stmt_rvalues_mut(stmt) {
+            changed |= factor_in_rvalue(value);
+        }
     }
     changed
 }
 
 fn factor_in_rvalue(value: &mut RValue) -> bool {
     if let RValue::Closure(closure) = value {
-        return factor_block(&mut closure.function.0.lock().body.0, Some(Tail::Return));
+        return factor_block(
+            &mut closure.function.0.lock().body.0,
+            Some(Tail::Return),
+            FactorMode::WholeChunk,
+        );
     }
     let mut changed = false;
     for child in value.rvalues_mut() {
@@ -201,7 +233,32 @@ enum Action {
     },
 }
 
-fn find_action(stmts: &[Statement], tail: Option<Tail>) -> Option<Action> {
+fn should_factor_tail(stmts: &[Statement], mode: FactorMode<'_>) -> bool {
+    let FactorMode::BeforeDeclarations(protected) = mode else {
+        return true;
+    };
+    // An early pass is needed only for duplicated local definitions. Factoring
+    // a shared return, call, property store, or captured-cell cleanup has no
+    // declaration benefit and can prevent the existing guard normalization.
+    stmts.iter().any(|stmt| match stmt {
+        Statement::Assign(assign) => assign
+            .left
+            .iter()
+            .filter_map(LValue::as_local)
+            .any(|local| !protected.contains(local)),
+        Statement::If(node) => {
+            should_factor_tail(&node.then_block.lock().0, mode)
+                || should_factor_tail(&node.else_block.lock().0, mode)
+        }
+        Statement::While(node) => should_factor_tail(&node.block.lock().0, mode),
+        Statement::Repeat(node) => should_factor_tail(&node.block.lock().0, mode),
+        Statement::NumericFor(node) => should_factor_tail(&node.block.lock().0, mode),
+        Statement::GenericFor(node) => should_factor_tail(&node.block.lock().0, mode),
+        _ => false,
+    })
+}
+
+fn find_action(stmts: &[Statement], tail: Option<Tail>, mode: FactorMode<'_>) -> Option<Action> {
     for at in (0..stmts.len()).rev() {
         let Statement::If(node) = &stmts[at] else {
             continue;
@@ -210,6 +267,7 @@ fn find_action(stmts: &[Statement], tail: Option<Tail>) -> Option<Action> {
         let else_block = node.else_block.lock();
         if let Some(terminator) = tail
             && at + 1 == stmts.len()
+            && should_factor_tail(&else_block.0, mode)
             && let Some(leaves) = find_leaf_hoist(&then_block.0, &else_block.0)
         {
             return Some(Action::HoistLeafTails {
@@ -225,7 +283,9 @@ fn find_action(stmts: &[Statement], tail: Option<Tail>) -> Option<Action> {
         if !parent.is_empty() {
             let then_count = terminal_parent_overlap(&then_block.0, parent);
             let else_count = terminal_parent_overlap(&else_block.0, parent);
-            if then_count > 0 || else_count > 0 {
+            if (then_count > 0 || else_count > 0)
+                && should_factor_tail(&parent[..then_count.max(else_count)], mode)
+            {
                 return Some(Action::ReuseParent {
                     at,
                     then_count,
@@ -235,7 +295,7 @@ fn find_action(stmts: &[Statement], tail: Option<Tail>) -> Option<Action> {
         }
 
         let common = common_suffix_len(&then_block.0, &else_block.0);
-        if common > 0 {
+        if common > 0 && should_factor_tail(&then_block.0[then_block.len() - common..], mode) {
             let then_prefix = &then_block.0[..then_block.0.len() - common];
             let else_prefix = &else_block.0[..else_block.0.len() - common];
             // A local declared before the shared tail is branch-scoped.  Moving
@@ -704,6 +764,83 @@ mod tests {
         };
         assert_eq!(node.then_block.lock().0.len(), 1);
         assert_eq!(node.else_block.lock().0.len(), 1);
+    }
+
+    #[test]
+    fn function_pass_leaves_child_function_bodies_untouched() {
+        let child = crate::Closure {
+            function: by_address::ByAddress(Arc::new(Mutex::new(crate::Function {
+                body: Block(vec![cond_if(vec![call("left"), call("shared")], vec![
+                    call("right"),
+                    call("shared"),
+                ])]),
+                ..Default::default()
+            }))),
+            upvalues: vec![],
+        };
+        let local = RcLocal::default();
+        let assignment: Statement =
+            Assign::new(vec![LValue::Local(local)], vec![global("value")]).into();
+        let mut body = Block(vec![
+            cond_if(vec![call("a"), assignment.clone()], vec![
+                call("b"),
+                assignment,
+            ]),
+            Statement::Return(Return::new(vec![RValue::Closure(child.clone())])),
+        ]);
+        assert!(factor_function_tails(&mut body, &FxHashSet::default()));
+        assert_eq!(body.len(), 3);
+        // The same closure can be under construction in another lifter worker.
+        // Parent factoring must not alter its tree or depend on its completion.
+        assert_eq!(child.function.0.lock().body.len(), 1);
+        assert!(factor_common_tails(&mut body));
+        assert_eq!(child.function.0.lock().body.len(), 2);
+    }
+
+    #[test]
+    fn factoring_before_declarations_keeps_a_cloned_tail_local_in_its_arm() {
+        let local = RcLocal::default();
+        let tail = cond_if(
+            vec![
+                Assign::new(vec![LValue::Local(local.clone())], vec![global("value")]).into(),
+                Call::new(global("sink"), vec![RValue::Local(local)]).into(),
+            ],
+            vec![],
+        );
+        let mut body = Block(vec![cond_if(
+            vec![cond_if(vec![tail.clone()], vec![ret("done")])],
+            vec![tail],
+        )]);
+        assert!(factor_function_tails(&mut body, &FxHashSet::default()));
+        let root = Arc::new(Mutex::new(body));
+        crate::local_declarations::LocalDeclarer::default()
+            .declare_locals(root.clone(), &FxHashSet::default());
+        let root = root.lock();
+        assert_eq!(
+            root.len(),
+            2,
+            "the local must not be hoisted before both owners"
+        );
+        let tail = root[1].as_if().unwrap();
+        assert!(tail.then_block.lock()[0].as_assign().unwrap().prefix);
+    }
+
+    #[test]
+    fn early_factoring_preserves_guard_cleanup_of_an_existing_cell() {
+        let cell = RcLocal::default();
+        let cleanup: Statement =
+            Assign::new(vec![LValue::Local(cell.clone())], vec![Literal::Nil.into()]).into();
+        let mut body = Block(vec![cond_if(vec![cleanup.clone(), ret("done")], vec![
+            call("work"),
+            cleanup,
+            ret("done"),
+        ])]);
+        assert!(!factor_function_tails(
+            &mut body,
+            &[cell].into_iter().collect()
+        ));
+        assert_eq!(body.len(), 1);
+        assert!(factor_common_tails(&mut body));
     }
 
     #[test]

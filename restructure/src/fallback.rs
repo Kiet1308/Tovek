@@ -1,13 +1,9 @@
-//! Semantics-preserving fallback for CFGs that are not reducible to the small
-//! set of structured patterns handled by [`GraphStructurer`].
+//! Semantics-preserving fallback for CFGs whose source-shaped region proof
+//! cannot be established.
 //!
-//! The normal structurer deliberately aims for readable Lua and uses labels as
-//! an intermediate representation when a graph has several entries.  A later
-//! pass removes those labels in the common cases.  Some bytecode shapes (most
-//! notably a generic-for containing a break that rejoins an outer generic-for)
-//! are irreducible in that representation, however.  Falling through to the
-//! label printer would either emit invalid Luau or require a semantics-changing
-//! guess about which loop a jump belongs to.
+//! The normal structurer emits source-level conditionals and loops only after
+//! proving region ownership and every exit transfer. Irreducible graphs and
+//! unproven VM protocols cannot pass that boundary by guessing a jump target.
 //!
 //! This module is a fail-closed fallback: it translates the *original,
 //! post-SSA* CFG into a local state machine.  Every CFG edge becomes an explicit

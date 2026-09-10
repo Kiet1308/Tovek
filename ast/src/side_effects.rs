@@ -77,17 +77,13 @@ pub fn is_total_pure(value: &crate::RValue) -> bool {
 /// local/global key may evaluate to nil or NaN even when its expression has no
 /// explicit side effects, so it is not safe to move the constructor across a
 /// call merely because the key is a leaf read.
-pub(crate) fn is_total_table_key(key: &crate::RValue) -> bool {
+pub fn is_total_table_key(key: &crate::RValue) -> bool {
     use crate::{Literal, RValue};
     match key {
         RValue::Literal(Literal::Nil) => false,
         RValue::Literal(Literal::Number(number)) => !number.is_nan(),
-        RValue::Literal(Literal::Vector(x, y, z)) => {
-            !x.is_nan() && !y.is_nan() && !z.is_nan()
-        }
-        RValue::Literal(Literal::VectorD(x, y, z)) => {
-            !x.is_nan() && !y.is_nan() && !z.is_nan()
-        }
+        RValue::Literal(Literal::Vector(x, y, z)) => !x.is_nan() && !y.is_nan() && !z.is_nan(),
+        RValue::Literal(Literal::VectorD(x, y, z)) => !x.is_nan() && !y.is_nan() && !z.is_nan(),
         RValue::Literal(_) => true,
         _ => false,
     }

@@ -140,6 +140,16 @@ jobs:
             --lifter target/release/luau-lifter \
             --keep "$RUNNER_TEMP/semantic-roundtrip"
 
+      - name: Gate per-file output size
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s scripts -p 'test_*.py'
+          python3 scripts/output_size.py \
+            --root "residual=$RUNNER_TEMP/residual-control-strict" \
+            --root "semantic=$RUNNER_TEMP/semantic-roundtrip/out" \
+            --baseline docs/output_size/baseline_fixtures.json \
+            --report "$RUNNER_TEMP/output-size.json"
+
       # Bytecode round-trip oracle: decompile -> recompile with the pinned
       # compiler -> compare normalised prototypes with the original bytecode.
       # Gated against the committed baselines: no fixture may regress in
@@ -173,4 +183,5 @@ jobs:
             ${{ runner.temp }}/semantic-roundtrip/**/*.luau
             ${{ runner.temp }}/bytecode-roundtrip-*.json
             ${{ runner.temp }}/bytecode-roundtrip-*.md
+            ${{ runner.temp }}/output-size.json
           if-no-files-found: warn
