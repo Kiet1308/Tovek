@@ -114,6 +114,13 @@
       "source": "cell_after_join.luau",
       "driver": "cell_after_join.driver.luau",
       "expected_stdout": "0\n1\n0\n0\n"
+    },
+    {
+      "name": "wide_layout",
+      "group": "formatter",
+      "source": "wide_layout.luau",
+      "driver": "wide_layout.driver.luau",
+      "expected_stdout": "5\t70\t70\ttail\tnil\t17\n3\t70\t70\ttail\tnil\tnil\ntail\tnil\t17\ttail\tnil\tnil\n3\ttail\tnil\t5\n"
     }
   ],
   "negative_controls": [

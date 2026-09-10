@@ -51,6 +51,17 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertEqual(metric["raw_structural_ratio"], 1)
         self.assertFalse(metric["type_syntax_equal"])
 
+    def test_type_name_locations_are_trivia_but_type_names_are_not(self):
+        first = copy.deepcopy(program())
+        first["args"][0]["luauType"] = {"type": "AstTypeReference", "name": "Number",
+                                        "nameLocation": "1,0 - 1,6", "prefixLocation": "1,0 - 1,1"}
+        second = copy.deepcopy(first)
+        second["args"][0]["luauType"]["nameLocation"] = "9,10 - 9,16"
+        second["args"][0]["luauType"]["prefixLocation"] = "9,10 - 9,11"
+        self.assertEqual(canonicalize(first), canonicalize(second))
+        second["args"][0]["luauType"]["name"] = "String"
+        self.assertFalse(compare_ast(first, second)["type_syntax_equal"])
+
     def test_grouped_call_and_global_names_remain_significant(self):
         call = {"type": "AstExprCall", "func": {"type": "AstExprGlobal", "global": "f"}, "args": []}
         grouped = {"type": "AstExprGroup", "expr": call}

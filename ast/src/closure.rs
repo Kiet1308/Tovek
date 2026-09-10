@@ -85,6 +85,7 @@ impl fmt::Display for Closure {
             colon_method_calls: Vec::new(),
             position_query: None,
             closure_observer: None,
+            layout_budget: None,
         }
         .format_closure(self)
     }

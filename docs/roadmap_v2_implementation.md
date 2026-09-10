@@ -216,3 +216,51 @@ For seven samples the reported p95 equals the maximum; it is not a stable tail
 estimate. Every output hash is identical across repeated runs and thread counts
 within its release. Old/new releases intentionally differ. Cold cache,
 allocations, per-pass JSON and in-memory API profiling remain open.
+
+## R6 follow-up: bounded group layout
+
+Call/method argument groups, return tuples and compact arrays use a soft
+120-column budget. The width counter stores no rendered output and stops at
+120 columns or 256 expression nodes. It preserves existing multiline constructor/callback
+shapes when their opening line fits. Single constructor arguments retain the
+usual `factory({ ... })` form. Tail `Select` parentheses are unchanged for
+calls, arrays and returns, so a one-result adjustment cannot become a spread.
+Plain and source-map output now share column tracking; previewing never records
+an extra closure occurrence. Literal payloads and indivisible expressions can
+still exceed the target.
+
+`layout_audit.py` uses strict equality of the pinned parser's canonical AST,
+binding names/identity and type syntax. [The corpus audit](roadmap_v2_acceptance/layout.json)
+compares all 3,978 output files (3,936 bytecode inputs plus 42 empty placeholders):
+**719 changed text with equal AST, 3,259 identical text, zero changed/unknown**.
+Both sides have zero conditional-expression nodes. With tabs expanded to four
+columns, lines over 180 columns fall from **368 to 131**:
+
+| Descriptive syntax category | Before | After |
+|---|---:|---:|
+| Literal | 56 | 48 |
+| Expression | 110 | 13 |
+| Constructor/callback | 108 | 1 |
+| Control flow | 48 | 47 |
+| Return expression | 46 | 22 |
+
+The categories describe line syntax, not semantic roles or a source-fidelity
+score. Existing literal-byte, arity and control-flow tests remain the relevant
+gates for each category. The 84 runtime/name configurations, 45 existing semantic
+configurations and 52 size gates pass. The dedicated wide-layout fixture adds
+spread/adjusted call, table and return contexts, bringing the release suite to
+**90/90** configurations. There are now 865 Rust tests and 32 Python
+tests. The release and debug corpus outputs have the same tree hash, including
+the release's source-map mode.
+
+The [public layout audit](roadmap_v2_acceptance/layout_public.json) also preserves
+AST, bindings and type syntax for all **513** O0/O1/O2 outputs: 86 layout changes
+and 427 identical texts, including the held-out family. Long lines drop from
+39 to 10, with only literal and control-flow cases remaining in this inventory.
+
+This audit exposed two measurement issues: the AST metric now ignores type
+`nameLocation`/`prefixLocation` along with other parser trivia (model
+`luau-ast-binding-v2`), while retaining the actual type names. The pinned Windows
+CLI receives an exact-byte temporary copy for Unicode/long paths it cannot open;
+six corpus filenames now parse instead of becoming unknown. The original v1
+acceptance artifacts remain historical records, not silently rescored baselines.

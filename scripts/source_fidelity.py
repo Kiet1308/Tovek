@@ -7,13 +7,18 @@ partial or conflicting matches remain unaligned and in the coverage denominator.
 from __future__ import annotations
 
 import collections
+import contextlib
 import difflib
 import json
+import os
+import pathlib
 import subprocess
+import tempfile
 
 
 TRIVIA = {"location", "varargLocation", "functionDepth", "debugname", "hasEnd",
-          "hasThen", "hasDo", "hasIn", "indexLocation", "opPosition", "argLocation"}
+          "hasThen", "hasDo", "hasIn", "indexLocation", "opPosition", "argLocation",
+          "nameLocation", "prefixLocation"}
 TYPE_FIELDS = {"luauType", "annotation", "returnAnnotation", "varargAnnotation",
                "generics", "genericPacks"}
 TYPE_STATEMENTS = {"AstStatTypeAlias", "AstStatTypeFunction", "AstStatDeclareFunction",
@@ -21,7 +26,16 @@ TYPE_STATEMENTS = {"AstStatTypeAlias", "AstStatTypeFunction", "AstStatDeclareFun
 
 
 def parse_ast(executable, source, timeout=30):
-    result = subprocess.run([str(executable), str(source)], capture_output=True, timeout=timeout)
+    path = pathlib.Path(source)
+    with contextlib.ExitStack() as stack:
+        # The pinned Windows CLI uses narrow file APIs. Preserve the exact bytes
+        # under a short ASCII filename when a Unicode/long path cannot be read.
+        if os.name == "nt" and (not str(path.resolve()).isascii() or len(str(path.resolve())) > 230):
+            temporary = pathlib.Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="tovek_ast_")))
+            staged = temporary / "input.luau"
+            staged.write_bytes(path.read_bytes())
+            path = staged
+        result = subprocess.run([str(executable), str(path)], capture_output=True, timeout=timeout)
     if result.returncode:
         raise ValueError(result.stderr.decode(errors="replace")[:2000])
     # The pinned CLI writes string-constant bytes directly, including non-UTF-8
@@ -144,7 +158,7 @@ def compare_ast(source, output, *, token_pair_budget=4_000_000):
     right, right_names, right_types = canonicalize(output)
     a, b = tokens(left), tokens(right)
     if len(a) * len(b) > token_pair_budget:
-        return {"model": "luau-ast-binding-v1", "status": "unknown", "reason": "alignment token-pair budget",
+        return {"model": "luau-ast-binding-v2", "status": "unknown", "reason": "alignment token-pair budget",
                 "source_bindings": len(left_names), "output_bindings": len(right_names)}
     raw = difflib.SequenceMatcher(None, a, b, autojunk=False).ratio()
     # Align structure without spelling or arbitrary binding numbering, then
@@ -166,7 +180,7 @@ def compare_ast(source, output, *, token_pair_budget=4_000_000):
     style_a = tokens(canonicalize(source, statement_style=True)[0])
     style_b = tokens(canonicalize(output, statement_style=True)[0])
 
-    return {"model": "luau-ast-binding-v1", "status": "measured", "raw_structural_ratio": raw,
+    return {"model": "luau-ast-binding-v2", "status": "measured", "raw_structural_ratio": raw,
             "statement_initializer_normalized_ratio": difflib.SequenceMatcher(None, style_a, style_b, autojunk=False).ratio(),
             "style_normalization": "single-local-if-initializer-v1",
             "source_conditional_expressions": conditional_count(source),

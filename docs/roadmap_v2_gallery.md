@@ -83,7 +83,7 @@ end
 
 ## springCoefficients: named helper, unresolved mathematical roles
 
-Previously an anonymous return, the helper is now named. The g1 bytecode has no local names: meaningful mathematical parameter/result names and wide-return layout remain open. The first branch is representative:
+Previously an anonymous return, the helper is now named. The g1 bytecode has no local names: meaningful mathematical parameter/result names remain open. The first branch is representative:
 
 ```luau
 local function springCoefficients(p: number, p2: number, p3: number)
@@ -127,4 +127,16 @@ return function(scope, p, callback, p2, p3)
 		}) }
 	return scope:New("Frame")(v)
 end
+```
+
+## Width follow-up: argument group and result arity
+
+The wide-layout runtime fixture formats a multi-argument call across lines. The final call still spreads its results; its adjusted counterpart retains parentheses. Both forms pass at O0/O1/O2 and g1/g2.
+
+```luau
+table.pack(callback(
+			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			callback2()
+		)),
 ```

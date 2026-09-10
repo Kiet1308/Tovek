@@ -67,6 +67,7 @@ impl fmt::Display for If {
             colon_method_calls: Vec::new(),
             position_query: None,
             closure_observer: None,
+            layout_budget: None,
         }
         .format_if(self)
     }

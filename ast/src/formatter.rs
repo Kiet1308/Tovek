@@ -1166,6 +1166,46 @@ mod tests {
     }
 
     #[test]
+    fn wide_groups_preserve_tail_result_adjustment() {
+        for truncate in [false, true] {
+            let call = Call::new(global("two"), vec![]);
+            let tail = if truncate { RValue::Select(Select::Call(call)) } else { call.into() };
+            let values = vec![string(&"a".repeat(70)), string(&"b".repeat(70)), tail];
+            let call = Call::new(global("collect"), values.clone()).to_string();
+            let returned = Return::new(values.clone()).to_string();
+            let array = Table(values.into_iter().map(|v| (None, v)).collect()).to_string();
+            assert!(call.starts_with("collect(\n"));
+            assert!(returned.starts_with("return\n"));
+            assert!(array.starts_with("{\n"));
+            let final_value = if truncate { "(two())" } else { "two()" };
+            assert!(call.ends_with(&format!("\t{final_value}\n)")));
+            assert!(returned.ends_with(&format!("\t{final_value}")));
+            assert!(array.ends_with(&format!("\t{final_value}\n}}")));
+        }
+    }
+
+    #[test]
+    fn layout_counts_assignment_prefix_and_matches_source_map_mode() {
+        let result = local(&"r".repeat(90));
+        let block = Block(vec![Assign::new(
+            vec![result.into()],
+            vec![Call::new(global("collect"), vec![string("argument_one"), string("argument_two")]).into()],
+        ).into()]);
+        let plain = block.to_string();
+        let (mapped, _) = format_with_source_map(&block, IndentationMode::Tab).unwrap();
+        assert_eq!(plain, mapped);
+        assert!(plain.contains("collect(\n"), "{plain}");
+        assert!(plain.lines().all(|line| line.chars().count() <= PREFERRED_LINE_WIDTH));
+    }
+
+    #[test]
+    fn short_calls_and_single_constructor_arguments_stay_compact() {
+        assert_eq!(Call::new(global("f"), vec![number(1.0), number(2.0)]).to_string(), "f(1, 2)");
+        let table = Table(vec![(Some(string("field")), number(1.0))]);
+        assert_eq!(Call::new(global("f"), vec![table.into()]).to_string(), "f({\n\tfield = 1\n})");
+    }
+
+    #[test]
     fn generic_for_keeps_final_select_call_multret() {
         // The lifter represents a fixed multi-result call feeding the
         // generic-for protocol as Select::Call.  In the final iterator
@@ -1240,6 +1280,35 @@ pub struct Formatter<'a, W: fmt::Write> {
     pub(crate) colon_method_calls: Vec<(RValue, String)>,
     pub(crate) position_query: Option<fn(&W) -> SourcePosition>,
     pub(crate) closure_observer: Option<&'a mut dyn ClosureObserver>,
+    /// Some only in a bounded, non-emitting layout preview. Normal formatting
+    /// uses None; previews never recursively ask for another width preview.
+    pub(crate) layout_budget: Option<usize>,
+}
+
+const PREFERRED_LINE_WIDTH: usize = 120;
+
+/// Stops as soon as a group cannot fit flat. No rendered String is allocated
+/// and a multiline literal/closure is never scanned through its body.
+struct FlatWidth {
+    remaining: usize,
+    already_multiline: bool,
+}
+
+impl fmt::Write for FlatWidth {
+    fn write_str(&mut self, text: &str) -> fmt::Result {
+        for character in text.chars() {
+            let width = if character == '\t' { 4 } else { 1 };
+            if character == '\n' || character == '\r' {
+                self.already_multiline = true;
+                return Err(fmt::Error);
+            }
+            if width > self.remaining {
+                return Err(fmt::Error);
+            }
+            self.remaining -= width;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1339,6 +1408,7 @@ pub fn format_with_source_map(
             colon_method_calls: collect_colon_method_calls(main),
             position_query: Some(tracked_position::<String>),
             closure_observer: Some(&mut observer),
+            layout_budget: None,
         };
         formatter.format_block_no_indent(main)?;
     }
@@ -1417,15 +1487,52 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         output: &'a mut W,
         indentation_mode: IndentationMode,
     ) -> fmt::Result {
-        let mut formatter = Self {
+        // Layout must see the same column with and without source-map output.
+        let mut tracked = PositionTrackingWriter::new(output);
+        let mut formatter = Formatter {
             indentation_level: 0,
             indentation_mode,
-            output,
+            output: &mut tracked,
             colon_method_calls: collect_colon_method_calls(main),
-            position_query: None,
+            position_query: Some(tracked_position::<W>),
             closure_observer: None,
+            layout_budget: None,
         };
         formatter.format_block_no_indent(main)
+    }
+
+    fn fits_flat(&self, render: impl FnOnce(&mut Formatter<'_, FlatWidth>) -> fmt::Result) -> bool {
+        let indentation_width = match self.indentation_mode {
+            IndentationMode::Spaces(n) => usize::from(n),
+            IndentationMode::Tab => 4,
+        };
+        let column = self.position_query.map_or(self.indentation_level * indentation_width, |query| {
+            let column = query(self.output).column_one_based.saturating_sub(1);
+            // Source positions count a tab as one character; the layout budget
+            // treats indentation tabs as four display columns.
+            column + if matches!(self.indentation_mode, IndentationMode::Tab) { self.indentation_level * 3 } else { 0 }
+        });
+        let mut width = FlatWidth {
+            remaining: PREFERRED_LINE_WIDTH.saturating_sub(column),
+            already_multiline: false,
+        };
+        let mut preview = Formatter {
+            indentation_level: self.indentation_level,
+            indentation_mode: match self.indentation_mode {
+                IndentationMode::Spaces(n) => IndentationMode::Spaces(n),
+                IndentationMode::Tab => IndentationMode::Tab,
+            },
+            output: &mut width,
+            colon_method_calls: Vec::new(),
+            position_query: None,
+            closure_observer: None,
+            layout_budget: Some(256),
+        };
+        let fits = render(&mut preview).is_ok();
+        // Existing constructor/callback layouts already break the group. Keep
+        // their shape when its opening line fits; nested calls get their own
+        // budgets during real emission. Literal payload lines stay untouched.
+        fits || width.already_multiline
     }
 
     fn indent(&mut self) -> fmt::Result {
@@ -1648,8 +1755,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     pub(crate) fn format_table(&mut self, table: &Table) -> fmt::Result {
         let sequential_keys = Self::are_table_keys_sequential(table);
         let should_space = !table.0.is_empty();
-        let should_format = !table.0.is_empty() && (!sequential_keys || table.0.len() > 3)
+        let mut should_format = !table.0.is_empty() && (!sequential_keys || table.0.len() > 3)
             || Self::contains_table(table);
+        if !should_format && table.0.len() > 1 && self.layout_budget.is_none() {
+            should_format = !self.fits_flat(|preview| preview.format_table(table));
+        }
         write!(self.output, "{{")?;
         if should_format {
             writeln!(self.output)?;
@@ -2138,6 +2248,10 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn format_rvalue(&mut self, rvalue: &RValue) -> fmt::Result {
+        if let Some(budget) = self.layout_budget.as_mut() {
+            if *budget == 0 { return Err(fmt::Error); }
+            *budget -= 1;
+        }
         match rvalue {
             RValue::Select(Select::Call(call)) | RValue::Call(call) => self.format_call(call),
             RValue::Select(Select::MethodCall(method_call)) | RValue::MethodCall(method_call) => {
@@ -2153,8 +2267,13 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
     }
 
-    fn format_arg_list(&mut self, list: &[RValue]) -> fmt::Result {
+    fn format_arg_list(&mut self, list: &[RValue], multiline: bool) -> fmt::Result {
+        if multiline {
+            writeln!(self.output)?;
+            self.indentation_level += 1;
+        }
         for (index, rvalue) in list.iter().enumerate() {
+            if multiline { self.indent()?; }
             if index + 1 == list.len() {
                 let wrap = matches!(rvalue, RValue::Select(_));
                 if wrap {
@@ -2166,8 +2285,14 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 }
             } else {
                 self.format_rvalue(rvalue)?;
-                write!(self.output, ", ")?;
+                write!(self.output, ",")?;
+                if multiline { writeln!(self.output)?; } else { write!(self.output, " ")?; }
             }
+        }
+        if multiline {
+            self.indentation_level -= 1;
+            writeln!(self.output)?;
+            self.indent()?;
         }
         Ok(())
     }
@@ -2323,6 +2448,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_call(&mut self, call: &Call) -> fmt::Result {
+        let multiline = self.layout_budget.is_none() && call.arguments.len() > 1
+            && !self.fits_flat(|preview| preview.format_call(call));
         let wrap = Self::should_wrap_left_rvalue(&call.value);
         if wrap {
             write!(self.output, "(")?;
@@ -2333,7 +2460,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
 
         write!(self.output, "(")?;
-        self.format_arg_list(&call.arguments)?;
+        self.format_arg_list(&call.arguments, multiline)?;
         write!(self.output, ")")
     }
 
@@ -2350,6 +2477,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             return write!(self.output, "{}", interpolated);
         }
 
+        let multiline = self.layout_budget.is_none() && method_call.arguments.len() > 1
+            && !self.fits_flat(|preview| preview.format_method_call(method_call));
         let wrap = Self::should_wrap_left_rvalue(&method_call.value);
         if wrap {
             write!(self.output, "(")?;
@@ -2362,7 +2491,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         write!(self.output, ":{}", method_call.method)?;
 
         write!(self.output, "(")?;
-        self.format_arg_list(&method_call.arguments)?;
+        self.format_arg_list(&method_call.arguments, multiline)?;
         write!(self.output, ")")
     }
 
@@ -2380,6 +2509,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             colon_method_calls: self.colon_method_calls.clone(),
             position_query: None,
             closure_observer: None,
+            layout_budget: self.layout_budget,
         };
         sub.format_rvalue(rvalue).ok()?;
         Some(buffer)
@@ -2664,9 +2794,16 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_return(&mut self, r#return: &Return) -> fmt::Result {
+        let multiline = self.layout_budget.is_none() && r#return.values.len() > 1
+            && !self.fits_flat(|preview| preview.format_return(r#return));
         write!(self.output, "return")?;
+        if multiline { self.indentation_level += 1; }
         for (i, rvalue) in r#return.values.iter().enumerate() {
-            if i == 0 {
+            if multiline {
+                if i != 0 { write!(self.output, ",")?; }
+                writeln!(self.output)?;
+                self.indent()?;
+            } else if i == 0 {
                 write!(self.output, " ")?;
             } else {
                 write!(self.output, ", ")?;
@@ -2688,6 +2825,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
         }
 
+        if multiline { self.indentation_level -= 1; }
         Ok(())
     }
 

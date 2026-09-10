@@ -82,6 +82,7 @@ impl fmt::Display for Assign {
             colon_method_calls: Vec::new(),
             position_query: None,
             closure_observer: None,
+            layout_budget: None,
         }
         .format_assign(self)
     }
