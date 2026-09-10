@@ -3,6 +3,66 @@
 This record distinguishes implemented gates from the research roadmap's wider
 acceptance criteria. The baseline is not an overall source-recovery percentage.
 
+## R7: cache statement facts during SSA inline
+
+The SSA inliner's backward scans now reuse read/write group IDs, captured-cell
+access and existing effect predicates within one block visit. Modified
+consumers and emptied producers invalidate their entries; the cache is
+discarded before statement reindexing or cleanup. It retains no AST/local
+owners and changes no rewrite condition. Small/oversized blocks compute fresh
+facts. See the [cache contract](ssa_inline_cache.md).
+
+The [seven-round interleaved release benchmark](roadmap_v2_acceptance/ssa_cache_benchmark.json)
+compares the R4 global-lookup fix with this cache, with profiling disabled.
+
+| Threads | Before median / p95 | Cached median / p95 | Median peak RSS before → after |
+|---|---:|---:|---:|
+| 1 | 18.190 / 18.532 s | 17.503 / 18.380 s | 33,837,056 → 33,464,320 B |
+| 16 | 1.726 / 2.138 s | 1.676 / 1.992 s | 117,760,000 → 110,825,472 B |
+
+Median time falls **3.78% at one thread** and **2.85% at 16 threads**. Six of
+seven paired one-thread rounds are faster with the cache. Both versions have a
+16-thread timing outlier; nearest-rank p95 is the maximum of seven samples.
+Maximum peak RSS is 34,439,168 → 34,144,256 B at one thread and
+122,335,232 → 112,775,168 B at 16 threads. This is a modest measured gain on
+this machine/corpus, below the roadmap's proposed 10% end-to-end target.
+It is not an allocation-count or cold-cache measurement.
+
+All 3,978 corpus outputs remain byte-identical to R4, across binaries, build
+modes and the measured thread counts. Debug builds recompute facts on every
+cache hit; the entire corpus passes that invariant, with 3,936 nonempty
+scripts, 42 empty inputs and zero decompile failures. Three Rust tests cover
+invalidation, captured access, emptied statements, size fallback and deliberate
+failure of the debug guard. Workspace tests and all 42 Python checks pass.
+[Validation record](roadmap_v2_acceptance/ssa_cache_validation.json).
+
+The [complete profile validation](roadmap_v2_acceptance/ssa_cache_corpus_profiles.json)
+checks 531,967 rows per profile at one/16 threads. Cache counters are identical:
+5,784,537 hits, 1,615,852 stored computations, 200,006 uncached computations,
+555,603 invalidations and 1,463,967 allocated statement slots across visits.
+Slots are not peak live entries or allocation bytes. Removing the three timing
+fields and new cache counters leaves **every prior row field unchanged** from
+a fresh profile of the R4 binary. [Comparison and excerpt hashes](roadmap_v2_acceptance/ssa_cache_profile_audit.json).
+
+In the separate one-thread diagnostic runs, `F_SSA_INLINE` takes 2.237 →
+1.743 seconds across 62,305 calls, a 22.11% reduction within that phase.
+The phase has 26,037 distinct file/prototype rows; these are not the total
+prototype or function-visit counts. Other pass timings and profile-export
+overhead prevent treating this phase reduction as process speedup. The gzip
+artifacts linked by the audit contain the SSA-inline rows only; complete raw
+profiles were validated before extraction and their hashes are retained.
+
+All [96 runtime configurations](roadmap_v2_acceptance/ssa_cache_runtime.json),
+nine oracle controls, 45 older semantic cases and the 52-file size gate pass.
+Every one of these source outputs is identical to R4. All
+[513 public configurations](roadmap_v2_acceptance/ssa_cache_public_identity.json),
+including the 45 Rodux holdout configurations, compile and preserve exact
+source hashes; the prior AST/dataflow results therefore remain unchanged.
+The 96-fixture lineage run preserves every full R4 sidecar, and both lineage
+and profiler counters remain deterministic across modes and one/four threads.
+No baseline was changed. Broader AST/CFG caches, allocation instrumentation
+and the remaining R7 benchmark modes remain open.
+
 ## R4: preserve evaluation order across global lookup
 
 The SSA inliner treated an already visited global read as reorderable. A missing

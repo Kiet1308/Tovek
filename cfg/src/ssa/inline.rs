@@ -5,6 +5,8 @@ use itertools::{Either, Itertools};
 use petgraph::visit::EdgeRef;
 use rustc_hash::{FxHashMap, FxHashSet};
 
+mod facts;
+
 /// Whether moving an inline candidate *past* this already-visited rvalue could
 /// reorder an observable event. This includes runtime errors (for example a
 /// dynamic table key evaluating to nil), not only explicit side effects.
@@ -232,9 +234,11 @@ impl<'a> Inliner<'a> {
     // TODO: REFACTOR: move to ssa module?
     // TODO: inline into block arguments
     fn inline_rvalues(self) {
+        let mut fact_statistics = facts::Statistics::default();
         let node_indices = self.function.graph().node_indices().collect::<Vec<_>>();
         for node in node_indices {
             let block = self.function.block_mut(node).unwrap();
+            let mut facts = facts::Cache::new(block.len(), self.local_to_group, self.upvalue_to_group);
 
             // TODO: rename values_read to locals_read
             let mut stat_to_values_read = Vec::with_capacity(block.len());
@@ -273,11 +277,9 @@ impl<'a> Inliner<'a> {
                     }
                     // we cant inline across upvalue writes because an inlining candidate with side effects,
                     // for ex. a non-local function call, might access the upvalue
-                    for value_written in block[stat_index].values_written() {
-                        if self.upvalue_to_group.contains_key(value_written) {
-                            // TODO: set allow_side_effects to false instead
-                            allow_side_effects = false;
-                        }
+                    let statement_facts = facts.get(stat_index, &block[stat_index]);
+                    if statement_facts.writes_upvalue {
+                        allow_side_effects = false;
                     }
 
                     /*
@@ -290,10 +292,7 @@ impl<'a> Inliner<'a> {
                         print(b)
                     end
                     */
-                    if block[stat_index]
-                        .values_read()
-                        .into_iter()
-                        .filter_map(|l| self.local_to_group.get(l))
+                    if statement_facts.read_groups.iter()
                         .any(|g| groups_written.contains(g))
                     {
                         // We are stepping OVER this statement without inlining it
@@ -303,18 +302,14 @@ impl<'a> Inliner<'a> {
                         // (C9: `c1=A(); m=B(a); … return c1+m` inlined A() past B()).
                         // Close the side-effect window here, exactly as the
                         // fall-through path at the bottom of the loop does.
-                        allow_side_effects &= !ast::statement_is_observable(&block[stat_index]);
+                        allow_side_effects &= !statement_facts.observable;
                         continue;
                     }
 
                     if let ast::Statement::Assign(assign) = &block[stat_index]
                         && let Ok(new_rvalue) = assign.right.iter().exactly_one()
                     {
-                        let new_rvalue_has_side_effects = ast::is_observable(new_rvalue)
-                            || new_rvalue
-                                .values_read()
-                                .iter()
-                                .any(|v| self.upvalue_to_group.contains_key(*v));
+                        let new_rvalue_has_side_effects = statement_facts.single_rhs_observable.unwrap();
                         if (!new_rvalue_has_side_effects || allow_side_effects)
                             && !is_service_or_require_handle(new_rvalue)
                         {
@@ -358,6 +353,8 @@ impl<'a> Inliner<'a> {
                                     // with no declarations serves no purpose
                                     block[stat_index] = ast::Empty {}.into();
                                     *read = None;
+                                    facts.invalidate(stat_index);
+                                    facts.invalidate(index);
                                     continue 'w;
                                 } else {
                                     block[stat_index]
@@ -430,19 +427,15 @@ impl<'a> Inliner<'a> {
                                             .find(|l| l.as_ref() == Some(&old_local))
                                             .unwrap() = None;
                                     }
+                                    facts.invalidate(stat_index);
+                                    facts.invalidate(index);
                                     continue 'w;
                                 }
                             }
                         }
                     }
-                    groups_written.extend(
-                        block[stat_index]
-                            .values_written()
-                            .into_iter()
-                            .filter_map(|l| self.local_to_group.get(l))
-                            .cloned(),
-                    );
-                    allow_side_effects &= !ast::statement_is_observable(&block[stat_index]);
+                    groups_written.extend(statement_facts.write_groups.iter().copied());
+                    allow_side_effects &= !statement_facts.observable;
                 }
                 index += 1;
             }
@@ -484,12 +477,10 @@ impl<'a> Inliner<'a> {
                         let block = self.function.block_mut(node).unwrap();
                         // we cant inline across upvalue writes because an inlining candidate with side effects,
                         // for ex. a non-local function call, might access the upvalue
-                        for value_written in block[stat_index].values_written() {
-                            if self.upvalue_to_group.contains_key(value_written) {
-                                // TODO: set allow_side_effects to false instead
-                                index += 1;
-                                continue 'w;
-                            }
+                        let statement_facts = facts.get(stat_index, &block[stat_index]);
+                        if statement_facts.writes_upvalue {
+                            index += 1;
+                            continue 'w;
                         }
 
                         /*
@@ -502,23 +493,16 @@ impl<'a> Inliner<'a> {
                             print(b)
                         end
                         */
-                        if block[stat_index]
-                            .values_read()
-                            .into_iter()
-                            .filter_map(|l| self.local_to_group.get(l))
+                        if statement_facts.read_groups.iter()
                             .any(|g| groups_written.contains(g))
                         {
                             continue;
                         }
 
                         if let ast::Statement::Assign(assign) = &block[stat_index]
-                            && let Ok(new_rvalue) = assign.right.iter().exactly_one()
+                            && assign.right.len() == 1
                         {
-                            let new_rvalue_has_side_effects = ast::is_observable(new_rvalue)
-                                || new_rvalue
-                                    .values_read()
-                                    .iter()
-                                    .any(|v| self.upvalue_to_group.contains_key(*v));
+                            let new_rvalue_has_side_effects = statement_facts.single_rhs_observable.unwrap();
                             if !new_rvalue_has_side_effects
                                 && let Ok(ast::LValue::Local(local)) =
                                     &assign.left.iter().exactly_one()
@@ -564,6 +548,7 @@ impl<'a> Inliner<'a> {
 
                                     block[stat_index] = ast::Empty {}.into();
                                     *read = None;
+                                    facts.invalidate(stat_index);
                                     continue 'w;
                                 } else {
                                     let block = self.function.block_mut(node).unwrap();
@@ -576,20 +561,14 @@ impl<'a> Inliner<'a> {
                                 }
                             }
                         }
-                        let block = self.function.block(node).unwrap();
-
-                        groups_written.extend(
-                            block[stat_index]
-                                .values_written()
-                                .into_iter()
-                                .filter_map(|l| self.local_to_group.get(l))
-                                .cloned(),
-                        );
+                        groups_written.extend(statement_facts.write_groups.iter().copied());
                     }
                     index += 1;
                 }
             }
+            fact_statistics.add(facts.statistics());
         }
+        fact_statistics.record();
     }
 }
 

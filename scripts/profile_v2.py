@@ -47,6 +47,18 @@ def validate(profile, expected_scripts):
             errors.append('invalid sample count')
         if row['node_samples_incomplete']:
             errors.append('incomplete node census')
+        cache = {k.removeprefix('ssa_fact_cache_'): v for k, v in row['counters'].items()
+                 if k.startswith('ssa_fact_cache_')}
+        if cache:
+            required = {'hits', 'misses', 'uncached', 'invalidations', 'slots'}
+            if not required <= cache.keys() or any(type(v) is not int or v < 0 for v in cache.values()):
+                errors.append('invalid SSA cache counters')
+            elif (cache['invalidations'] > cache['misses']
+                  or cache['misses'] > cache['slots'] + cache['invalidations']
+                  or (cache['hits'] and not cache['misses'])):
+                errors.append('SSA cache accounting mismatch')
+            if row['pass'] != 'F_SSA_INLINE' or row['prototype'] is None:
+                errors.append('SSA cache counter context mismatch')
         if row['prototype'] is None:
             by_script[row['script']][row['pass']] = row
             if row['pass'] in AST_PHASES and row['node_samples'] != row['calls']:

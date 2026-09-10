@@ -42,6 +42,22 @@ class ProfileChecks(unittest.TestCase):
         next(r for r in profile['rows'] if r['pass'] == 'S_FACTOR_INITIAL')['node_samples'] = 0
         self.assertTrue(validate(profile, {'input.lua'}))
 
+    def test_ssa_cache_requires_consistent_counts_and_function_context(self):
+        profile = valid_profile()
+        row = dict(profile['rows'][0], prototype=3, **{'pass': 'F_SSA_INLINE'})
+        row['counters'] = {f'ssa_fact_cache_{k}': v for k,v in
+                           dict(hits=20, misses=8, uncached=3, invalidations=2, slots=6).items()}
+        profile['rows'].append(row)
+        profile['rows_count'] += 1
+        self.assertEqual(validate(profile, {'input.lua'}), [])
+        row['counters']['ssa_fact_cache_invalidations'] = 1
+        self.assertIn('SSA cache accounting mismatch', validate(profile, {'input.lua'}))
+        row['counters']['ssa_fact_cache_invalidations'] = 2
+        row['prototype'] = None
+        self.assertIn('SSA cache counter context mismatch', validate(profile, {'input.lua'}))
+        del row['counters']['ssa_fact_cache_misses']
+        self.assertIn('invalid SSA cache counters', validate(profile, {'input.lua'}))
+
 
 if __name__ == '__main__':
     unittest.main()

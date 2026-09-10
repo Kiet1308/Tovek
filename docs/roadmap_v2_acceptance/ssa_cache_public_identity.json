@@ -1,0 +1,5292 @@
+{
+  "schema_version": 1,
+  "tools": {
+    "compiler": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+      "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+    },
+    "lifter": {
+      "path": "D:\\Medal\\medal-decompiler\\out\\v2-ssa-cache-lifter.exe",
+      "sha256": "00c9dddfe0f5775b7e280a9d5e3d42a7067cfd71c7c75b8bd488c2de7f0b2386"
+    },
+    "ast": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau-ast.exe",
+      "sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3"
+    }
+  },
+  "manifest_sha256": "9da7c48918781966de563f4163dca8a33f0ebda0b4c545899a3a66ea047cd14f",
+  "summary": {
+    "development": {
+      "total": 468,
+      "status": {
+        "passed": 468
+      },
+      "dataflow": {
+        "unknown": 317,
+        "different": 70,
+        "proved": 81
+      },
+      "ast": {
+        "measured": 363,
+        "unknown": 105
+      }
+    },
+    "holdout": {
+      "total": 45,
+      "status": {
+        "passed": 45
+      },
+      "dataflow": {
+        "unknown": 22,
+        "different": 16,
+        "proved": 7
+      },
+      "ast": {
+        "measured": 42,
+        "unknown": 3
+      }
+    }
+  },
+  "source_groups": {
+    "OOP": {
+      "total": 27,
+      "status": {
+        "passed": 27
+      },
+      "dataflow": {
+        "unknown": 20,
+        "proved": 3,
+        "different": 4
+      },
+      "ast": {
+        "unknown": 12,
+        "measured": 15
+      }
+    },
+    "UI": {
+      "total": 306,
+      "status": {
+        "passed": 306
+      },
+      "dataflow": {
+        "unknown": 191,
+        "different": 49,
+        "proved": 66
+      },
+      "ast": {
+        "measured": 273,
+        "unknown": 33
+      }
+    },
+    "buffer/math": {
+      "total": 33,
+      "status": {
+        "passed": 33
+      },
+      "dataflow": {
+        "different": 8,
+        "proved": 9,
+        "unknown": 16
+      },
+      "ast": {
+        "measured": 18,
+        "unknown": 15
+      }
+    },
+    "loop/capture": {
+      "total": 30,
+      "status": {
+        "passed": 30
+      },
+      "dataflow": {
+        "unknown": 29,
+        "proved": 1
+      },
+      "ast": {
+        "measured": 21,
+        "unknown": 9
+      }
+    },
+    "module": {
+      "total": 513,
+      "status": {
+        "passed": 513
+      },
+      "dataflow": {
+        "unknown": 339,
+        "different": 86,
+        "proved": 88
+      },
+      "ast": {
+        "measured": 405,
+        "unknown": 108
+      }
+    },
+    "promise/event": {
+      "total": 111,
+      "status": {
+        "passed": 111
+      },
+      "dataflow": {
+        "unknown": 74,
+        "proved": 11,
+        "different": 26
+      },
+      "ast": {
+        "measured": 87,
+        "unknown": 24
+      }
+    },
+    "type-heavy": {
+      "total": 135,
+      "status": {
+        "passed": 135
+      },
+      "dataflow": {
+        "unknown": 88,
+        "different": 35,
+        "proved": 12
+      },
+      "ast": {
+        "unknown": 48,
+        "measured": 87
+      }
+    }
+  },
+  "rows": [
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/ExternalTime.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2c72b91d04916aa432edb9baa318837e3d78a46b948b1a93b321ec28ed76fbf8",
+      "output_sha256": "0045927fdb63216d7705dbc68223c146bc8ea967046f07fbe70ef6fecca404d5",
+      "output_bytes": 1128
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/ExternalTime.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2c72b91d04916aa432edb9baa318837e3d78a46b948b1a93b321ec28ed76fbf8",
+      "output_sha256": "f683ffd7a0b648e63fa49851ef761d1c158f8f893c8d7329f4ead6b0cb3a8945",
+      "output_bytes": 1126
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/ExternalTime.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2c72b91d04916aa432edb9baa318837e3d78a46b948b1a93b321ec28ed76fbf8",
+      "output_sha256": "cdda03bf800314ae89f2bf2020c3340160f59af43d8a8817b505a8881fd6d73e",
+      "output_bytes": 1134
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/Spring.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a6ed0e01a28f560878e713bedf3e820c47394084626f4803196ce6ac75eb38cb",
+      "output_sha256": "e0dba91fba05cb9b70c7a92ef9ffba5743c1aa896826cc5a79ef4fcc40e8c127",
+      "output_bytes": 6166
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/Spring.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a6ed0e01a28f560878e713bedf3e820c47394084626f4803196ce6ac75eb38cb",
+      "output_sha256": "11b9278e4263c328360450c95f058aa4e2dfd66ab99816eb42cd600448a630bd",
+      "output_bytes": 6166
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/Spring.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a6ed0e01a28f560878e713bedf3e820c47394084626f4803196ce6ac75eb38cb",
+      "output_sha256": "11b9278e4263c328360450c95f058aa4e2dfd66ab99816eb42cd600448a630bd",
+      "output_bytes": 6166
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/Stopwatch.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "6b327d60c8f498af4b4e785ca7e2d452546404a1d5729e2660cb25b36d462887",
+      "output_sha256": "5d38cb26b42ef1d377d36cae92071d3f6d6d127dddf21ffb256b4c21381322a4",
+      "output_bytes": 1982
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/Stopwatch.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "6b327d60c8f498af4b4e785ca7e2d452546404a1d5729e2660cb25b36d462887",
+      "output_sha256": "9cd47d18413211a3c1bc5df206b341e57bd907250aefac5efe19d859623dcfbe",
+      "output_bytes": 1980
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/Stopwatch.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "6b327d60c8f498af4b4e785ca7e2d452546404a1d5729e2660cb25b36d462887",
+      "output_sha256": "9cd47d18413211a3c1bc5df206b341e57bd907250aefac5efe19d859623dcfbe",
+      "output_bytes": 1980
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/Tween.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "79dbd91ff45437d060d5208393a94e20962dae4990a8a87bb79680178cf554d7",
+      "output_sha256": "a877655f63b591d01d1d45ca44802246bd763b38c7a8331ed9e9303bfe02e746",
+      "output_bytes": 3568
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/Tween.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "79dbd91ff45437d060d5208393a94e20962dae4990a8a87bb79680178cf554d7",
+      "output_sha256": "954b3f9c6ae15b4ff8da8ce8ff9311e9074fb5154836a286f525f9f762933bb4",
+      "output_bytes": 3800
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/Tween.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "79dbd91ff45437d060d5208393a94e20962dae4990a8a87bb79680178cf554d7",
+      "output_sha256": "954b3f9c6ae15b4ff8da8ce8ff9311e9074fb5154836a286f525f9f762933bb4",
+      "output_bytes": 3800
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/getTweenDuration.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d64a2d318611a78f0f553e62ce2b4667adb641947883d9ff04e0c9901610d965",
+      "output_sha256": "ecd457d119b98348af578a408c75576efa46f042b2000cdf4f2f8278086c1a98",
+      "output_bytes": 277
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/getTweenDuration.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d64a2d318611a78f0f553e62ce2b4667adb641947883d9ff04e0c9901610d965",
+      "output_sha256": "ecd457d119b98348af578a408c75576efa46f042b2000cdf4f2f8278086c1a98",
+      "output_bytes": 277
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/getTweenDuration.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d64a2d318611a78f0f553e62ce2b4667adb641947883d9ff04e0c9901610d965",
+      "output_sha256": "ecd457d119b98348af578a408c75576efa46f042b2000cdf4f2f8278086c1a98",
+      "output_bytes": 277
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/getTweenRatio.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cb129f3279084e31bec0ff7c3466d56c2aed042b50eaf2e23b223b87b7cd1eeb",
+      "output_sha256": "3afba808f06b981f3ef60318a52894f20421c315b4c0673b2ad396725ade40aa",
+      "output_bytes": 674
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/getTweenRatio.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cb129f3279084e31bec0ff7c3466d56c2aed042b50eaf2e23b223b87b7cd1eeb",
+      "output_sha256": "3afba808f06b981f3ef60318a52894f20421c315b4c0673b2ad396725ade40aa",
+      "output_bytes": 674
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/getTweenRatio.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cb129f3279084e31bec0ff7c3466d56c2aed042b50eaf2e23b223b87b7cd1eeb",
+      "output_sha256": "371d308943a359ccf11a625f0f7d35fd23378e403dd12e65e44699ab0208736d",
+      "output_bytes": 682
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/lerpType.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4127c646e680750fd7cdd4e506e5c53fba3c333b3b9ffd5a8dd648b4000903ca",
+      "output_sha256": "c5ea126130b034593cba2f3a64d08a88a8fd809c677431920a8fddcd27949d67",
+      "output_bytes": 3886
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/lerpType.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4127c646e680750fd7cdd4e506e5c53fba3c333b3b9ffd5a8dd648b4000903ca",
+      "output_sha256": "c5ea126130b034593cba2f3a64d08a88a8fd809c677431920a8fddcd27949d67",
+      "output_bytes": 3886
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/lerpType.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4127c646e680750fd7cdd4e506e5c53fba3c333b3b9ffd5a8dd648b4000903ca",
+      "output_sha256": "6a6b80db360ca36988838a2704a17dd2889e0cb7f43ac4847a7857621eddad24",
+      "output_bytes": 3894
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/packType.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d9ed5a6a8077543802963c81dd5900b8903f69c03ee3a82ec5db796eaa5bce88",
+      "output_sha256": "3c1d5e654ca9a49306fe40be3f9f95c1335e3ec42350c97a85c523750b2660cb",
+      "output_bytes": 2218
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/packType.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d9ed5a6a8077543802963c81dd5900b8903f69c03ee3a82ec5db796eaa5bce88",
+      "output_sha256": "e3f86dc607c8788ac971bac5aabbb98032b500e2f2d397de18538ccc7a4e3d05",
+      "output_bytes": 2761
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/packType.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d9ed5a6a8077543802963c81dd5900b8903f69c03ee3a82ec5db796eaa5bce88",
+      "output_sha256": "fe6a757796023fb83e6f616129bd2d6ab14b214c5fe264a80408120d98b50b57",
+      "output_bytes": 2781
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/springCoefficients.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ab318db93329222b7d2d3f49a18b895c3f44e92bec020fed763c07cb172267d0",
+      "output_sha256": "c12dd9ec93199e1ef5cb954c615f3a74e592057952f03a0d1a9135aaab90dc14",
+      "output_bytes": 999
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/springCoefficients.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ab318db93329222b7d2d3f49a18b895c3f44e92bec020fed763c07cb172267d0",
+      "output_sha256": "1d2ae86c6d198741c94801f135b83941aee4d76d040a64306eb5401cc9d6b968",
+      "output_bytes": 1009
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/springCoefficients.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ab318db93329222b7d2d3f49a18b895c3f44e92bec020fed763c07cb172267d0",
+      "output_sha256": "a7a8f8f6e7c5e617c0924ac6470ab0928622ad4c9148c42e6b4429529fb26fd7",
+      "output_bytes": 1033
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/unpackType.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c397e5d37733c2b689cc118d5323bfad594747290d45f65c5579aed5b135d8eb",
+      "output_sha256": "9642e88fd35b5455ca7e4f6d387208c4ba80da30d15e810bfb3e1b171d705ee3",
+      "output_bytes": 1849
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/unpackType.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c397e5d37733c2b689cc118d5323bfad594747290d45f65c5579aed5b135d8eb",
+      "output_sha256": "9642e88fd35b5455ca7e4f6d387208c4ba80da30d15e810bfb3e1b171d705ee3",
+      "output_bytes": 1849
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Animation/unpackType.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c397e5d37733c2b689cc118d5323bfad594747290d45f65c5579aed5b135d8eb",
+      "output_sha256": "34e0ef58196b78c7e8940d9043fac4a6eb0a27c8be71dca24a9887a6f386f5be",
+      "output_bytes": 1857
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Colour/Oklab.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "371de92b85aee5c761538191455ef376fd99af962cee54d0b630a36c4c724e31",
+      "output_sha256": "2f4b65bc76ee73f7398a01addba56b4b63fafbc10b7e5246ea01725a077413b3",
+      "output_bytes": 1437
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Colour/Oklab.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "371de92b85aee5c761538191455ef376fd99af962cee54d0b630a36c4c724e31",
+      "output_sha256": "49b26c91aa61891ce6a5f8243ee9b4ada8613f398bf587b234b3c6fd36405ea5",
+      "output_bytes": 1470
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Colour/Oklab.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "371de92b85aee5c761538191455ef376fd99af962cee54d0b630a36c4c724e31",
+      "output_sha256": "6e79dd3f9a801d5f662cf892936afa56a26aea2104421fbc073ef29bb5f44cdb",
+      "output_bytes": 1500
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Colour/sRGB.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "51cf1c07f475f4c9ea6510f9bb0dac893fd7dc46bcd71826e6f2376f1b462485",
+      "output_sha256": "728ff5b939dc649ac3398215ae7c2fa744375f610bf5e99ffc03496a1ee7c668",
+      "output_bytes": 489
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Colour/sRGB.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "51cf1c07f475f4c9ea6510f9bb0dac893fd7dc46bcd71826e6f2376f1b462485",
+      "output_sha256": "7a0dd29228bb2162472b48580f5573973f9a030d58cb70dbf207173c54eb1e17",
+      "output_bytes": 498
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Colour/sRGB.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "51cf1c07f475f4c9ea6510f9bb0dac893fd7dc46bcd71826e6f2376f1b462485",
+      "output_sha256": "dd7f74210a6bd296a6ec874b10bf97f6c6fb419fdd23603c9eaccce14d7813cc",
+      "output_bytes": 1179
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/External.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f37c96ffa5c1e43f1e781113ea4e206e70416cc194323a855e16acdf9057dad3",
+      "output_sha256": "5b3e6837c9ef548ac75dc1e48c9a242767a82779c3391eb18321080e61469523",
+      "output_bytes": 1301
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/External.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f37c96ffa5c1e43f1e781113ea4e206e70416cc194323a855e16acdf9057dad3",
+      "output_sha256": "5b3e6837c9ef548ac75dc1e48c9a242767a82779c3391eb18321080e61469523",
+      "output_bytes": 1301
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/External.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f37c96ffa5c1e43f1e781113ea4e206e70416cc194323a855e16acdf9057dad3",
+      "output_sha256": "e7b3be5bca538ef456e7462ad9566c575a775a5dd929525aaf4eba31e973d9ca",
+      "output_bytes": 1375
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/ExternalDebug.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cdc2acc380aaf00b166d05de8413d0ca66dbc3e7f3d9ebafb422618d74513e3f",
+      "output_sha256": "c19d685912bcaa9afc821ce5f694cce10cc013fa591670cd06dd3b3cf183e7a1",
+      "output_bytes": 466
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/ExternalDebug.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cdc2acc380aaf00b166d05de8413d0ca66dbc3e7f3d9ebafb422618d74513e3f",
+      "output_sha256": "c19d685912bcaa9afc821ce5f694cce10cc013fa591670cd06dd3b3cf183e7a1",
+      "output_bytes": 466
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/ExternalDebug.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cdc2acc380aaf00b166d05de8413d0ca66dbc3e7f3d9ebafb422618d74513e3f",
+      "output_sha256": "c19d685912bcaa9afc821ce5f694cce10cc013fa591670cd06dd3b3cf183e7a1",
+      "output_bytes": 466
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/Observer.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a01e4dd01e8072f7d3a5b5fdf92e3ee61561e2477a20625536f52e7eb4444e32",
+      "output_sha256": "9d840f4b6ce1f6a16776dd8f452d4a06e9f04baff11005233df398dd626aeb96",
+      "output_bytes": 1733
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/Observer.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a01e4dd01e8072f7d3a5b5fdf92e3ee61561e2477a20625536f52e7eb4444e32",
+      "output_sha256": "a22d7a542cc145ce4b04ab8dc8136d48495c23801a53c44cf78898f0c32d7c6c",
+      "output_bytes": 1731
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/Observer.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a01e4dd01e8072f7d3a5b5fdf92e3ee61561e2477a20625536f52e7eb4444e32",
+      "output_sha256": "a5a055ccdada999e4dc413ec4098ca6d1546afbe996370765cd1a327c6f2b227",
+      "output_bytes": 1764
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/castToGraph.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d7a515c23f5923fe216a9657d797c26823ff8967f3713e0b5252bb2a76d560b1",
+      "output_sha256": "1d93f1b3b1ffef0f372e673efd6d936e79a5a27593b984108e7db65a624eb0bc",
+      "output_bytes": 348
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/castToGraph.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d7a515c23f5923fe216a9657d797c26823ff8967f3713e0b5252bb2a76d560b1",
+      "output_sha256": "7b780411295ae71592e6f27fa33cd06c18d5be7d751397b0268fc8e45a68df23",
+      "output_bytes": 578
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/castToGraph.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d7a515c23f5923fe216a9657d797c26823ff8967f3713e0b5252bb2a76d560b1",
+      "output_sha256": "7b780411295ae71592e6f27fa33cd06c18d5be7d751397b0268fc8e45a68df23",
+      "output_bytes": 578
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/change.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1ca3b7e3b41b004e4042ed5c905e55736c0c3e1f339ccc590b38071a6c2392fe",
+      "output_sha256": "fe4fcc550e57c49bb3687a1bafdc4d078b5952730e69f925209db682c360ad22",
+      "output_bytes": 1176
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/change.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1ca3b7e3b41b004e4042ed5c905e55736c0c3e1f339ccc590b38071a6c2392fe",
+      "output_sha256": "e01c6db561fbd94db0de699b5262cc9742d9318c2c1d2bae310c081af75a9062",
+      "output_bytes": 1162
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/change.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1ca3b7e3b41b004e4042ed5c905e55736c0c3e1f339ccc590b38071a6c2392fe",
+      "output_sha256": "e01c6db561fbd94db0de699b5262cc9742d9318c2c1d2bae310c081af75a9062",
+      "output_bytes": 1162
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/depend.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "93ec2ab81d53b5fc7bb1ded5f77d49c919f3d5416ff5c7b1022c24ed15d02492",
+      "output_sha256": "26e4f07ef6a199c443e6c334e2b59bcd3f2ee9d48d1f549101cf4f95c488eed2",
+      "output_bytes": 493
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/depend.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "93ec2ab81d53b5fc7bb1ded5f77d49c919f3d5416ff5c7b1022c24ed15d02492",
+      "output_sha256": "26e4f07ef6a199c443e6c334e2b59bcd3f2ee9d48d1f549101cf4f95c488eed2",
+      "output_bytes": 493
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/depend.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "93ec2ab81d53b5fc7bb1ded5f77d49c919f3d5416ff5c7b1022c24ed15d02492",
+      "output_sha256": "26e4f07ef6a199c443e6c334e2b59bcd3f2ee9d48d1f549101cf4f95c488eed2",
+      "output_bytes": 493
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/evaluate.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4d9f592d288318974080a98d42fccd40335cfa7144980a91e8d4a96f42ff4d8b",
+      "output_sha256": "937e45ffb4ad0cea84ffc871569f78574e68fdba583c3ba78074107e6fea9f72",
+      "output_bytes": 821
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/evaluate.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4d9f592d288318974080a98d42fccd40335cfa7144980a91e8d4a96f42ff4d8b",
+      "output_sha256": "937e45ffb4ad0cea84ffc871569f78574e68fdba583c3ba78074107e6fea9f72",
+      "output_bytes": 821
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Graph/evaluate.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4d9f592d288318974080a98d42fccd40335cfa7144980a91e8d4a96f42ff4d8b",
+      "output_sha256": "6b3d07b9fff3fab816bb39077d29312a32f76cf55a0b84d48233ba96bf9b2462",
+      "output_bytes": 839
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Attribute.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e0081ccf848a4a1122a36f3ee01b4339ed852b79359ebeb07e2a819f60234f91",
+      "output_sha256": "5a6cfdbee3fab569818e0c7f84da54f0195d20d9be4043dc3b95e24cd8cee77c",
+      "output_bytes": 842
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Attribute.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e0081ccf848a4a1122a36f3ee01b4339ed852b79359ebeb07e2a819f60234f91",
+      "output_sha256": "1fc6f3e486cfd1c8e6b4a6222b7f5e0a6fb0ed0569015cab5fc35f8a87da4f33",
+      "output_bytes": 839
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Attribute.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e0081ccf848a4a1122a36f3ee01b4339ed852b79359ebeb07e2a819f60234f91",
+      "output_sha256": "87db174304918a2432263ce5ba9a246f4cffabd0c1e553c3217a60c90d7e2041",
+      "output_bytes": 847
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/AttributeChange.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b7a5909e5ffc1e9bd12537ddd2a3c46d46a647e3065bbf6c3f29a3296b37dd0c",
+      "output_sha256": "fd5c9905ffb4c1e877f31a0710d801df906e454292998fdb42ebfd28197a2820",
+      "output_bytes": 777
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/AttributeChange.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b7a5909e5ffc1e9bd12537ddd2a3c46d46a647e3065bbf6c3f29a3296b37dd0c",
+      "output_sha256": "493ccd846d98209b32b177ce50a5ad248579dc6bef116a608dccf6cd69a23050",
+      "output_bytes": 795
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/AttributeChange.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b7a5909e5ffc1e9bd12537ddd2a3c46d46a647e3065bbf6c3f29a3296b37dd0c",
+      "output_sha256": "a8765a6c01977c8f37e9ef4badb680efabb202a7d764c857a5c6d0b650297108",
+      "output_bytes": 803
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/AttributeOut.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "62c14e50a709364ac4bcffb487ee1e42abaca4fc7352842ea92ccb26fb041ade",
+      "output_sha256": "bf457f127a82215ba7eeb88d7543af0afda3c5ce6ec1ae7ab2391ebc53162daf",
+      "output_bytes": 1177
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/AttributeOut.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "62c14e50a709364ac4bcffb487ee1e42abaca4fc7352842ea92ccb26fb041ade",
+      "output_sha256": "0ac8b90b02671d9b0560b7b2fe3d0fbdc0b437823c5a676d113167f36f8c1200",
+      "output_bytes": 1195
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/AttributeOut.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "62c14e50a709364ac4bcffb487ee1e42abaca4fc7352842ea92ccb26fb041ade",
+      "output_sha256": "4ed7f5de248777a065f0aaf9623113ae9810a12ef29403d21cce5dc19f3dd377",
+      "output_bytes": 1203
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Child.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ad34bc10945c04880a6f03fc75f130d8c8d822cb7549055999a2276a290ae88a",
+      "output_sha256": "6653eef7d1c1bfb113146d682da27bf227256818ce732cd2c40dd1cf5e97a617",
+      "output_bytes": 111
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Child.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ad34bc10945c04880a6f03fc75f130d8c8d822cb7549055999a2276a290ae88a",
+      "output_sha256": "6653eef7d1c1bfb113146d682da27bf227256818ce732cd2c40dd1cf5e97a617",
+      "output_bytes": 111
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Child.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ad34bc10945c04880a6f03fc75f130d8c8d822cb7549055999a2276a290ae88a",
+      "output_sha256": "6653eef7d1c1bfb113146d682da27bf227256818ce732cd2c40dd1cf5e97a617",
+      "output_bytes": 111
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Children.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d7edc6dd097e4b4e5d15fd2a8f6ecc016706519731d37085be03979c448f54ba",
+      "output_sha256": "033912d40ddac6d84c3a7c55daa7c03fb2f17388e46a823da77560de2e49e8df",
+      "output_bytes": 1935
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Children.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d7edc6dd097e4b4e5d15fd2a8f6ecc016706519731d37085be03979c448f54ba",
+      "output_sha256": "8e8b1ae6b3ee6d2820a9c2711756a86da92694e998706a89c87494aeed32b05c",
+      "output_bytes": 1916
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Children.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d7edc6dd097e4b4e5d15fd2a8f6ecc016706519731d37085be03979c448f54ba",
+      "output_sha256": "005ad377c757ee6bec4ab30256792a7a3736a84f1805d1843ba71b3d316ecb88",
+      "output_bytes": 1925
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Hydrate.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "85d73d7106a71c0e6605b9fe3e35639f6d923c3ad415f498310ea8324befff05",
+      "output_sha256": "5e23ba433c80896365e8e884e39721288fee0088bf39cd598250c33a4ee33d10",
+      "output_bytes": 278
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Hydrate.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "85d73d7106a71c0e6605b9fe3e35639f6d923c3ad415f498310ea8324befff05",
+      "output_sha256": "2f731de06b938629a61303c551849a33470f3c1ee005116388f8388e1c919ed4",
+      "output_bytes": 273
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Hydrate.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "85d73d7106a71c0e6605b9fe3e35639f6d923c3ad415f498310ea8324befff05",
+      "output_sha256": "2f731de06b938629a61303c551849a33470f3c1ee005116388f8388e1c919ed4",
+      "output_bytes": 273
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/New.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "66aec827274815b1c378580db200c12077b43396cc3493558601f26af778d204",
+      "output_sha256": "e54d9ae359ab246bd96dc870addc384a8c456f157bcca0224a05c729fac77596",
+      "output_bytes": 653
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/New.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "66aec827274815b1c378580db200c12077b43396cc3493558601f26af778d204",
+      "output_sha256": "b9cd2507ae113448dc5ddedbdede3fa467344b0c8030f298966f245c1d1cef68",
+      "output_bytes": 648
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/New.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "66aec827274815b1c378580db200c12077b43396cc3493558601f26af778d204",
+      "output_sha256": "4d9ddad9f1867d80cff8d08290d2521452d3d4b906f71200483568117f6e36f9",
+      "output_bytes": 656
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/OnChange.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cb8bd847f75799f40e54c1e37bfdf0478827e80cf45f1379c366f9b691d5537d",
+      "output_sha256": "a28a9c2ff2393b803fb1a4349812325cb77debcfefdbd30de0ce42c86467a1b8",
+      "output_bytes": 815
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/OnChange.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cb8bd847f75799f40e54c1e37bfdf0478827e80cf45f1379c366f9b691d5537d",
+      "output_sha256": "6b5bfdf7c453be56e5c87b0ab3c6632041d582eb5eea31bdceaeef24cbc2d811",
+      "output_bytes": 834
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/OnChange.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cb8bd847f75799f40e54c1e37bfdf0478827e80cf45f1379c366f9b691d5537d",
+      "output_sha256": "efddcf039b4ceb097a33fdbafe4d2b56dd89a79d75a247e051163cd2b7e4e83a",
+      "output_bytes": 842
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/OnEvent.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5ec1d30174abede633c63aa180d87440a13af790541e02e68f45ca37c75f8336",
+      "output_sha256": "1e1912d1951cb5d727cb7d1c44f740c9e8790e88cfd00412037b7cc99f537d1d",
+      "output_bytes": 824
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/OnEvent.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5ec1d30174abede633c63aa180d87440a13af790541e02e68f45ca37c75f8336",
+      "output_sha256": "9d5df811ac977113575f51cc2b1e82974c55720faf1daea633f27de84889a970",
+      "output_bytes": 826
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/OnEvent.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5ec1d30174abede633c63aa180d87440a13af790541e02e68f45ca37c75f8336",
+      "output_sha256": "b4275b43d2e391a816c3e73c255ad0ac1b4dc2410717e49326de1bb35b7c488f",
+      "output_bytes": 842
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Out.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "96a2736ff39da4f48d1fdc4b57f75196469c188f18590be36d042ad74c3d351c",
+      "output_sha256": "9ef820420b73f6d7e06b8f3966356b8988cfd9da730140801725da5868680842",
+      "output_bytes": 1150
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Out.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "96a2736ff39da4f48d1fdc4b57f75196469c188f18590be36d042ad74c3d351c",
+      "output_sha256": "7c4c1acb03ce3a4f47b1a2cae2b3f311cf4dcf865daa6daad851b1ad7a167881",
+      "output_bytes": 1168
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Out.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "96a2736ff39da4f48d1fdc4b57f75196469c188f18590be36d042ad74c3d351c",
+      "output_sha256": "3add1a05d2066c1dbda1a45abe501a228fc1e29108015c495549e8f766e8bd5f",
+      "output_bytes": 1176
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Tag.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "95a564f6d00147659c1214f174e88dcd053d1587aa4198dcb767705374e7f06e",
+      "output_sha256": "9b07a3dd562f74ec0de5d8baf2e88dd701fad7536c9f3f8c83a5dff4a90fa363",
+      "output_bytes": 931
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Tag.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "95a564f6d00147659c1214f174e88dcd053d1587aa4198dcb767705374e7f06e",
+      "output_sha256": "9744fdc953f83384f1c11f2a04e5ea620964d187905d49c9bd0e58c619c19d45",
+      "output_bytes": 952
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/Tag.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "95a564f6d00147659c1214f174e88dcd053d1587aa4198dcb767705374e7f06e",
+      "output_sha256": "da7498e38747652b48759796df8cd9795756b31e56bdd6c8832489c2da4bd89e",
+      "output_bytes": 960
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/applyInstanceProps.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "38e9def5945e2121eada3e69913f5679c018c26ca29ee45288cff281ce098574",
+      "output_sha256": "c3d901cfd4a5a1a9558756b5806e424260e37acdbe98d5eb9ee5d0423b72b9b6",
+      "output_bytes": 2293
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/applyInstanceProps.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "38e9def5945e2121eada3e69913f5679c018c26ca29ee45288cff281ce098574",
+      "output_sha256": "95c8201665be3df17e57e4cecec05e6212cafc813d2974ae3a9cb042fd8be431",
+      "output_bytes": 2308
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/applyInstanceProps.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "38e9def5945e2121eada3e69913f5679c018c26ca29ee45288cff281ce098574",
+      "output_sha256": "694c80e179b3f5d6f55c3f522b9b4042aaa5ab10d48691db9557956fbe47036e",
+      "output_bytes": 2340
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/defaultProps.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "695643681ad7cb9c082ad2eb63d0ba087187a6eefb420c8544d23ce8981b634b",
+      "output_sha256": "653deebf30a57138fe603408099c53031bb634916d84e5d7e269c3be982dc09b",
+      "output_bytes": 3907
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/defaultProps.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "695643681ad7cb9c082ad2eb63d0ba087187a6eefb420c8544d23ce8981b634b",
+      "output_sha256": "653deebf30a57138fe603408099c53031bb634916d84e5d7e269c3be982dc09b",
+      "output_bytes": 3907
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Instances/defaultProps.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "695643681ad7cb9c082ad2eb63d0ba087187a6eefb420c8544d23ce8981b634b",
+      "output_sha256": "653deebf30a57138fe603408099c53031bb634916d84e5d7e269c3be982dc09b",
+      "output_bytes": 3907
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Logging/formatError.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "913175d43a9a3e659dec2e6a054ac430f08f41fe6d67662802655de6d2b96f83",
+      "output_sha256": "e7fe808722a6b312326e8f0e29003aff302a11c1d42e8409636017180371f62b",
+      "output_bytes": 1022
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Logging/formatError.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "913175d43a9a3e659dec2e6a054ac430f08f41fe6d67662802655de6d2b96f83",
+      "output_sha256": "97556abbdc523505f52883ed709bc8ef610182a5f3e2ad322ce5bd118157cdd9",
+      "output_bytes": 1000
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Logging/formatError.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "913175d43a9a3e659dec2e6a054ac430f08f41fe6d67662802655de6d2b96f83",
+      "output_sha256": "86da019e8681c4b6c9982dbfef741c87b8f349531ea712eef086a603d170c376",
+      "output_bytes": 1008
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Logging/messages.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4c0a449e056069f066a53c2fecdce0fb47830a21b9ba160bffb495707d6c6e1e",
+      "output_sha256": "35b5262a12b1f491b7d70fb10921bcae2f43d958db68c9e8d46056b19a237c93",
+      "output_bytes": 3049
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Logging/messages.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4c0a449e056069f066a53c2fecdce0fb47830a21b9ba160bffb495707d6c6e1e",
+      "output_sha256": "35b5262a12b1f491b7d70fb10921bcae2f43d958db68c9e8d46056b19a237c93",
+      "output_bytes": 3049
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Logging/messages.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4c0a449e056069f066a53c2fecdce0fb47830a21b9ba160bffb495707d6c6e1e",
+      "output_sha256": "35b5262a12b1f491b7d70fb10921bcae2f43d958db68c9e8d46056b19a237c93",
+      "output_bytes": 3049
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Logging/parseError.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e0955bbc27521d62893fd97f95260bc9eda86ca8dc78f0ae14502ec53ea45b9f",
+      "output_sha256": "21a36e8be3c5cb6927ccc4886952d15d4ad3b53e91b6a6d20440dc292ebb5e38",
+      "output_bytes": 232
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Logging/parseError.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e0955bbc27521d62893fd97f95260bc9eda86ca8dc78f0ae14502ec53ea45b9f",
+      "output_sha256": "21a36e8be3c5cb6927ccc4886952d15d4ad3b53e91b6a6d20440dc292ebb5e38",
+      "output_bytes": 232
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Logging/parseError.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e0955bbc27521d62893fd97f95260bc9eda86ca8dc78f0ae14502ec53ea45b9f",
+      "output_sha256": "152cd645fe1b826ce0144d27e10c09591a51218b7e5bbd750d5bc75581c9046d",
+      "output_bytes": 240
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/checkLifetime.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c75ab57b75ecb04c6953a1a8b71ff0170dbc61374102e795e80b92d13ccf4830",
+      "output_sha256": "a0729ebb480117b9e505a5104b82123d25362f7bde5d479848fb762aef9c8748",
+      "output_bytes": 2252
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/checkLifetime.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c75ab57b75ecb04c6953a1a8b71ff0170dbc61374102e795e80b92d13ccf4830",
+      "output_sha256": "a0729ebb480117b9e505a5104b82123d25362f7bde5d479848fb762aef9c8748",
+      "output_bytes": 2252
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/checkLifetime.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c75ab57b75ecb04c6953a1a8b71ff0170dbc61374102e795e80b92d13ccf4830",
+      "output_sha256": "5949f9ee0afb955b25d76b6024e4c581d0778158471519c6dbb92f22053f235c",
+      "output_bytes": 2292
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/deriveScope.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9a7d7c3585e439670f65973f9eab3d1c5f30048c11ec95b0215aff5b2082d2b7",
+      "output_sha256": "e0f216b821f8f1587bbefcdc24cbd790f24e268edc5249f416aa44e827ad0de9",
+      "output_bytes": 301
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/deriveScope.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9a7d7c3585e439670f65973f9eab3d1c5f30048c11ec95b0215aff5b2082d2b7",
+      "output_sha256": "e0f216b821f8f1587bbefcdc24cbd790f24e268edc5249f416aa44e827ad0de9",
+      "output_bytes": 301
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/deriveScope.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9a7d7c3585e439670f65973f9eab3d1c5f30048c11ec95b0215aff5b2082d2b7",
+      "output_sha256": "e0f216b821f8f1587bbefcdc24cbd790f24e268edc5249f416aa44e827ad0de9",
+      "output_bytes": 301
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/deriveScopeImpl.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "114a45a75e4613d6a2c71fb77e08ca6994726900f3b023d97a13f0851378bebd",
+      "output_sha256": "28bdb8fbcdd7c9a13e633c4ac71a42a58ca3db6c78c67d6c84e6ceda27df9b36",
+      "output_bytes": 392
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/deriveScopeImpl.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "114a45a75e4613d6a2c71fb77e08ca6994726900f3b023d97a13f0851378bebd",
+      "output_sha256": "28bdb8fbcdd7c9a13e633c4ac71a42a58ca3db6c78c67d6c84e6ceda27df9b36",
+      "output_bytes": 392
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/deriveScopeImpl.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "114a45a75e4613d6a2c71fb77e08ca6994726900f3b023d97a13f0851378bebd",
+      "output_sha256": "1a7902f022a5b581115da7dc9fdd9b4e6e8f25e1197161345bb96099c69c89b7",
+      "output_bytes": 394
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/doCleanup.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e1320bc83af84ee27d8a074291a541fe7247c681ece9f229712e5896c95c3c16",
+      "output_sha256": "cfb7ccb7a8910354ae3ea53b94625fefb2550f37d731fc8b292c8fef88d26e7b",
+      "output_bytes": 1155
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/doCleanup.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e1320bc83af84ee27d8a074291a541fe7247c681ece9f229712e5896c95c3c16",
+      "output_sha256": "be5719d93c8d52edbcdf66a95354851c84078c9d998396ab9fb3131db9cca27d",
+      "output_bytes": 1298
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/doCleanup.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e1320bc83af84ee27d8a074291a541fe7247c681ece9f229712e5896c95c3c16",
+      "output_sha256": "be5719d93c8d52edbcdf66a95354851c84078c9d998396ab9fb3131db9cca27d",
+      "output_bytes": 1298
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/innerScope.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "66fe3c8ef8326a4ca707609e1dc0030bc91a1a3bbc061cc05f45ceb177f842b9",
+      "output_sha256": "0398fa75291334b6ad47a98c6f4ceac9f652c7afcf0f2e2bcfb85622f1624185",
+      "output_bytes": 463
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/innerScope.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "66fe3c8ef8326a4ca707609e1dc0030bc91a1a3bbc061cc05f45ceb177f842b9",
+      "output_sha256": "0398fa75291334b6ad47a98c6f4ceac9f652c7afcf0f2e2bcfb85622f1624185",
+      "output_bytes": 463
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/innerScope.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "66fe3c8ef8326a4ca707609e1dc0030bc91a1a3bbc061cc05f45ceb177f842b9",
+      "output_sha256": "0398fa75291334b6ad47a98c6f4ceac9f652c7afcf0f2e2bcfb85622f1624185",
+      "output_bytes": 463
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/insert.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "7a936f8a46b00dfa21adce0db3a30e11c02c2c9f9550fea825e42c71b370fc12",
+      "output_sha256": "4a2cc22dc104b870ce304771a8119038fe70fe026000858b42a251b6900a3d0b",
+      "output_bytes": 198
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/insert.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "7a936f8a46b00dfa21adce0db3a30e11c02c2c9f9550fea825e42c71b370fc12",
+      "output_sha256": "05d7954b5a39ab9f064e0c2f5f48ecda5d1b66eb42747ef67e5bc3327106759c",
+      "output_bytes": 224
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/insert.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "7a936f8a46b00dfa21adce0db3a30e11c02c2c9f9550fea825e42c71b370fc12",
+      "output_sha256": "05d7954b5a39ab9f064e0c2f5f48ecda5d1b66eb42747ef67e5bc3327106759c",
+      "output_bytes": 224
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/needsDestruction.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a92d5f69de2bb16136433e635a19722d8a6c9eeb3ff4e34deccaa93a57ac57a0",
+      "output_sha256": "5aed0f3cadcb62ee336cce552296cc771a5a4dfa6ae0f07dbebb90b1730075d9",
+      "output_bytes": 110
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/needsDestruction.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a92d5f69de2bb16136433e635a19722d8a6c9eeb3ff4e34deccaa93a57ac57a0",
+      "output_sha256": "5aed0f3cadcb62ee336cce552296cc771a5a4dfa6ae0f07dbebb90b1730075d9",
+      "output_bytes": 110
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/needsDestruction.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a92d5f69de2bb16136433e635a19722d8a6c9eeb3ff4e34deccaa93a57ac57a0",
+      "output_sha256": "5aed0f3cadcb62ee336cce552296cc771a5a4dfa6ae0f07dbebb90b1730075d9",
+      "output_bytes": 110
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/scoped.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9f8f019f63906d750fce098b0eefd3167905f8a6a98e2dd54a69cb744a6f40f9",
+      "output_sha256": "012c5e12634acf812bbe8c5604c21cd3a41ae98868e9b4b1f880c8a1e1c56474",
+      "output_bytes": 330
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/scoped.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9f8f019f63906d750fce098b0eefd3167905f8a6a98e2dd54a69cb744a6f40f9",
+      "output_sha256": "012c5e12634acf812bbe8c5604c21cd3a41ae98868e9b4b1f880c8a1e1c56474",
+      "output_bytes": 330
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Memory/scoped.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9f8f019f63906d750fce098b0eefd3167905f8a6a98e2dd54a69cb744a6f40f9",
+      "output_sha256": "012c5e12634acf812bbe8c5604c21cd3a41ae98868e9b4b1f880c8a1e1c56474",
+      "output_bytes": 330
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/RobloxExternal.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e6339482e5e5c2d34df26590ec1b9addb0659f10ddfcb96ad3a664d9d6f64394",
+      "output_sha256": "67bac1c5a69c377c119676b3734e5a52751c32f3fdf9405af1c8336943046403",
+      "output_bytes": 1128
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/RobloxExternal.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e6339482e5e5c2d34df26590ec1b9addb0659f10ddfcb96ad3a664d9d6f64394",
+      "output_sha256": "4b6038d2f8820b70d00e9fa301369eabc7755f9eb6cacc7fb62ee792eaa2dba1",
+      "output_bytes": 1148
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/RobloxExternal.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e6339482e5e5c2d34df26590ec1b9addb0659f10ddfcb96ad3a664d9d6f64394",
+      "output_sha256": "e536d254bfe4a731203a1f37e56524d255f82b3d5be0c401d1dad9c675006aaa",
+      "output_bytes": 1156
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/Computed.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f6a9529c9291162e7bed76bd44ddcb862fa7e6b4715f855c91fa969945ea62bc",
+      "output_sha256": "510c438b3d314fa09b3f948b593f01c9d4dfd087b361190e404a148770277afd",
+      "output_bytes": 2231
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/Computed.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f6a9529c9291162e7bed76bd44ddcb862fa7e6b4715f855c91fa969945ea62bc",
+      "output_sha256": "8f0a4528882bd77c7ee56afbfe3796bf896d11abd687710cf863c6043425ed8a",
+      "output_bytes": 2229
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/Computed.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f6a9529c9291162e7bed76bd44ddcb862fa7e6b4715f855c91fa969945ea62bc",
+      "output_sha256": "8f0a4528882bd77c7ee56afbfe3796bf896d11abd687710cf863c6043425ed8a",
+      "output_bytes": 2229
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/For/Disassembly.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "db0f00c192d5b78665d0d85a65d4fd658a39657079d6a66425004adbe2881b26",
+      "output_sha256": "6274982f29bac04e292c7764b4b6a7386864ae04b4c4fad807e46522d2efabd9",
+      "output_bytes": 3419
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/For/Disassembly.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "db0f00c192d5b78665d0d85a65d4fd658a39657079d6a66425004adbe2881b26",
+      "output_sha256": "46c0f00b50514c3f6d397f3c96a7120089899c9dcda3a9f22a0640acb94d10f1",
+      "output_bytes": 3417
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/For/Disassembly.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "db0f00c192d5b78665d0d85a65d4fd658a39657079d6a66425004adbe2881b26",
+      "output_sha256": "7241b373c86cd10e6ab036fecce8abaf2cd57ff1393485f18fa7e78d8062b876",
+      "output_bytes": 3405
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/For/ForTypes.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "101fbe4ba2a032503743c9cbda8fe3e6427e2d87d7fb0d23475587be126c8279",
+      "output_sha256": "2eb43ea088011d96c77017d278172e6f9c5b9f24b5f27df16bda7609f360e2b5",
+      "output_bytes": 76
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/For/ForTypes.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "101fbe4ba2a032503743c9cbda8fe3e6427e2d87d7fb0d23475587be126c8279",
+      "output_sha256": "2eb43ea088011d96c77017d278172e6f9c5b9f24b5f27df16bda7609f360e2b5",
+      "output_bytes": 76
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/For/ForTypes.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "101fbe4ba2a032503743c9cbda8fe3e6427e2d87d7fb0d23475587be126c8279",
+      "output_sha256": "2eb43ea088011d96c77017d278172e6f9c5b9f24b5f27df16bda7609f360e2b5",
+      "output_bytes": 76
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/For/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "989ca64d55f563f97e69e5885166566bdc8aaef9d781edfdc05369ffbd9ea06f",
+      "output_sha256": "4b9bbec51dfaa8170d3276c3c0a773ef8d0a2e8154578b91bde7ecb89da072bb",
+      "output_bytes": 1380
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/For/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "989ca64d55f563f97e69e5885166566bdc8aaef9d781edfdc05369ffbd9ea06f",
+      "output_sha256": "8701163c92cd901b0bb100d66f0305fdf745ac905fd2b822049c4e5bd32a7831",
+      "output_bytes": 1378
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/For/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "989ca64d55f563f97e69e5885166566bdc8aaef9d781edfdc05369ffbd9ea06f",
+      "output_sha256": "5b5f6883af03d8389cfa64df7460d133af39281362b315d5eb10a7bf7e835d46",
+      "output_bytes": 1390
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/ForKeys.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ab96c8fe3db3a3814c340d0080fc90b496a4a287ff8383cecd767e0907b8eb25",
+      "output_sha256": "658d7594f8578a56eae6733c570771dc9a7ae87e5c134bc97f45a4366e1e54bc",
+      "output_bytes": 1444
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/ForKeys.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ab96c8fe3db3a3814c340d0080fc90b496a4a287ff8383cecd767e0907b8eb25",
+      "output_sha256": "658d7594f8578a56eae6733c570771dc9a7ae87e5c134bc97f45a4366e1e54bc",
+      "output_bytes": 1444
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/ForKeys.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ab96c8fe3db3a3814c340d0080fc90b496a4a287ff8383cecd767e0907b8eb25",
+      "output_sha256": "75acaf369aa1390f18e24ab2f9a860a4845fe46906e5101b6bbc95e9be71f2b3",
+      "output_bytes": 1461
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/ForPairs.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "db966f111d26132f3b4f4dec0e95dac3e8f0cb54e7991d4ef9d1577b7b6cc840",
+      "output_sha256": "7d986a7258e985bda2e8e44c4957003a771f5dff660218ae2aba5e5abeeb9a28",
+      "output_bytes": 1700
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/ForPairs.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "db966f111d26132f3b4f4dec0e95dac3e8f0cb54e7991d4ef9d1577b7b6cc840",
+      "output_sha256": "7d986a7258e985bda2e8e44c4957003a771f5dff660218ae2aba5e5abeeb9a28",
+      "output_bytes": 1700
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/ForPairs.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "db966f111d26132f3b4f4dec0e95dac3e8f0cb54e7991d4ef9d1577b7b6cc840",
+      "output_sha256": "c247bfecd1149e105edacd78b2c3c026cbf3a59edab8ddd97c9908bd155964dd",
+      "output_bytes": 1718
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/ForValues.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "0cd2d5dad110f6c61011a678b8da5fe7cc62bd97c7378aa188e3481b526bc2c4",
+      "output_sha256": "790f623e23d777ae4df8d2bd99c5b686729313f4c88aea8a810f496de4301da6",
+      "output_bytes": 1462
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/ForValues.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "0cd2d5dad110f6c61011a678b8da5fe7cc62bd97c7378aa188e3481b526bc2c4",
+      "output_sha256": "790f623e23d777ae4df8d2bd99c5b686729313f4c88aea8a810f496de4301da6",
+      "output_bytes": 1462
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/ForValues.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "0cd2d5dad110f6c61011a678b8da5fe7cc62bd97c7378aa188e3481b526bc2c4",
+      "output_sha256": "675286bdae08212b5704f23b3bb04eb17c31cfce13449df29eb9528126ad60e7",
+      "output_bytes": 1479
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/Value.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "bf00de8181940b1dc8482a431e01344389bb3124f5d03b158127d9917f7a7665",
+      "output_sha256": "6bc70c837568647783fa1267055519bc8c335d4413c6d0bcc3e68f9c182c32e5",
+      "output_bytes": 1112
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/Value.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "bf00de8181940b1dc8482a431e01344389bb3124f5d03b158127d9917f7a7665",
+      "output_sha256": "99f0fc8abf01e45a07a6994af7ee37935392fbedbea8b3fbd3ee9a6a3210d44c",
+      "output_bytes": 1110
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/Value.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "bf00de8181940b1dc8482a431e01344389bb3124f5d03b158127d9917f7a7665",
+      "output_sha256": "99f0fc8abf01e45a07a6994af7ee37935392fbedbea8b3fbd3ee9a6a3210d44c",
+      "output_bytes": 1110
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/castToState.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "898100aefc4d3a4cdf38ae58b6989e9756d126fa968f515fd57ff83553f70cab",
+      "output_sha256": "62bbf96ace2b0df2972c1ef796af354ae4b7e31e381417cb9a00a890f2adbe80",
+      "output_bytes": 200
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/castToState.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "898100aefc4d3a4cdf38ae58b6989e9756d126fa968f515fd57ff83553f70cab",
+      "output_sha256": "62bbf96ace2b0df2972c1ef796af354ae4b7e31e381417cb9a00a890f2adbe80",
+      "output_bytes": 200
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/castToState.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "898100aefc4d3a4cdf38ae58b6989e9756d126fa968f515fd57ff83553f70cab",
+      "output_sha256": "62bbf96ace2b0df2972c1ef796af354ae4b7e31e381417cb9a00a890f2adbe80",
+      "output_bytes": 200
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/peek.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ec3b70199dde19ec895a9a53fc7df3a7315c69787395bd9b9c4176920107f53d",
+      "output_sha256": "1cfaa86924342e69ce5d2c9ba7a472908685aef8dd1a36cc73368a2b4e912241",
+      "output_bytes": 326
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/peek.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ec3b70199dde19ec895a9a53fc7df3a7315c69787395bd9b9c4176920107f53d",
+      "output_sha256": "1cfaa86924342e69ce5d2c9ba7a472908685aef8dd1a36cc73368a2b4e912241",
+      "output_bytes": 326
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/peek.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ec3b70199dde19ec895a9a53fc7df3a7315c69787395bd9b9c4176920107f53d",
+      "output_sha256": "1cfaa86924342e69ce5d2c9ba7a472908685aef8dd1a36cc73368a2b4e912241",
+      "output_bytes": 326
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/updateAll.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f9517c59debae52ccc37b7bc65113bb2611297984f90ed67744f46fc3180577e",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/updateAll.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f9517c59debae52ccc37b7bc65113bb2611297984f90ed67744f46fc3180577e",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/State/updateAll.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f9517c59debae52ccc37b7bc65113bb2611297984f90ed67744f46fc3180577e",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Types.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "773116086a8c8bf2d4d5cc2b6141fde8e1005686143d395482d1ef72515ffa97",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Types.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "773116086a8c8bf2d4d5cc2b6141fde8e1005686143d395482d1ef72515ffa97",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Types.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "773116086a8c8bf2d4d5cc2b6141fde8e1005686143d395482d1ef72515ffa97",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/Contextual.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "6bb3a425affced33ffdb791b45b6f37005bcd376466137ca0e7f3cd712a84aad",
+      "output_sha256": "2e0c90fd25b9bed2a6fa33f31ff9fddac016e49c5df250aba6f5f08c36449818",
+      "output_bytes": 1030
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/Contextual.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "6bb3a425affced33ffdb791b45b6f37005bcd376466137ca0e7f3cd712a84aad",
+      "output_sha256": "8e844bb1f5b229b1b38ca9264ea8a8a1d2ea61515c242b9d92639e8abf4b7628",
+      "output_bytes": 1045
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/Contextual.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "6bb3a425affced33ffdb791b45b6f37005bcd376466137ca0e7f3cd712a84aad",
+      "output_sha256": "8e844bb1f5b229b1b38ca9264ea8a8a1d2ea61515c242b9d92639e8abf4b7628",
+      "output_bytes": 1045
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/Safe.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "004dfb352e66ee42160f55dd3b61cc40bb95b3b85697600e345776511c6f19c2",
+      "output_sha256": "5137b787e08f41ff272908069e7fc9b5584accb887e5822024f920f58441f137",
+      "output_bytes": 122
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/Safe.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "004dfb352e66ee42160f55dd3b61cc40bb95b3b85697600e345776511c6f19c2",
+      "output_sha256": "5137b787e08f41ff272908069e7fc9b5584accb887e5822024f920f58441f137",
+      "output_bytes": 122
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/Safe.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "004dfb352e66ee42160f55dd3b61cc40bb95b3b85697600e345776511c6f19c2",
+      "output_sha256": "5137b787e08f41ff272908069e7fc9b5584accb887e5822024f920f58441f137",
+      "output_bytes": 122
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/isSimilar.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "98f0d85a069b1a2e158e2b5017058847d07819ae198b9eaa4b8f73270219567e",
+      "output_sha256": "b5589b45d51373e5b89166ebc47ce13040190d8f21053220b2b3fc0f2ad34a81",
+      "output_bytes": 431
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/isSimilar.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "98f0d85a069b1a2e158e2b5017058847d07819ae198b9eaa4b8f73270219567e",
+      "output_sha256": "f541a610433d1acc1e2a47b7a7c427c79110a644177fd022c49318b00b8ba76e",
+      "output_bytes": 405
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/isSimilar.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "98f0d85a069b1a2e158e2b5017058847d07819ae198b9eaa4b8f73270219567e",
+      "output_sha256": "f541a610433d1acc1e2a47b7a7c427c79110a644177fd022c49318b00b8ba76e",
+      "output_bytes": 405
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/merge.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "49fa0fc023a864ab1c64e7307cd857fbc4bf755dd34c1865f2bff6a8d140bf0a",
+      "output_sha256": "4a65d6823574b482af8acf3a739e12d68da5a25c7b247d3d2ecf2732045a1d46",
+      "output_bytes": 376
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/merge.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "49fa0fc023a864ab1c64e7307cd857fbc4bf755dd34c1865f2bff6a8d140bf0a",
+      "output_sha256": "4a65d6823574b482af8acf3a739e12d68da5a25c7b247d3d2ecf2732045a1d46",
+      "output_bytes": 376
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/merge.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "49fa0fc023a864ab1c64e7307cd857fbc4bf755dd34c1865f2bff6a8d140bf0a",
+      "output_sha256": "499c875bc78d46fc540bab9169b6dc7b776e3614536258bd981ec9a66def849c",
+      "output_bytes": 391
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/nameOf.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "bbab44f98c19063dbdadaac4b7d160c1ccd425d128fca7f532a1a9a8e449b6e7",
+      "output_sha256": "b27a154edead1aa18f6f03eeecb302ba1cfabec9579658bc655ec110e9a82eb4",
+      "output_bytes": 494
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/nameOf.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "bbab44f98c19063dbdadaac4b7d160c1ccd425d128fca7f532a1a9a8e449b6e7",
+      "output_sha256": "9892c56d1648a98d6b52ae9dcea1baaa0150c2f7ee56b483767417480eee3488",
+      "output_bytes": 554
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/nameOf.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "bbab44f98c19063dbdadaac4b7d160c1ccd425d128fca7f532a1a9a8e449b6e7",
+      "output_sha256": "cf956d9bd29d34a89c2f0079cff00e1d431b657fdf04efe04ef28a1ef3c158c2",
+      "output_bytes": 562
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/never.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "520564ece8f357a9ae4f2a8870e2f6d97f877ffb4b4c5e65e08cc0011b18762d",
+      "output_sha256": "bc595d4a8c2e56b483c2978c22265ee220ff97073490369ff34b428acd0eabae",
+      "output_bytes": 89
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/never.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "520564ece8f357a9ae4f2a8870e2f6d97f877ffb4b4c5e65e08cc0011b18762d",
+      "output_sha256": "bc595d4a8c2e56b483c2978c22265ee220ff97073490369ff34b428acd0eabae",
+      "output_bytes": 89
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/never.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "520564ece8f357a9ae4f2a8870e2f6d97f877ffb4b4c5e65e08cc0011b18762d",
+      "output_sha256": "bc595d4a8c2e56b483c2978c22265ee220ff97073490369ff34b428acd0eabae",
+      "output_bytes": 89
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/nicknames.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "60a2190a6e31c8b7ae177d15a7427e6324912766751829637ee6c658a8e34489",
+      "output_sha256": "4de8e99324bd2108d9655ec55f61bc832bae84887dabec63373deb265fbfdd46",
+      "output_bytes": 43
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/nicknames.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "60a2190a6e31c8b7ae177d15a7427e6324912766751829637ee6c658a8e34489",
+      "output_sha256": "4de8e99324bd2108d9655ec55f61bc832bae84887dabec63373deb265fbfdd46",
+      "output_bytes": 43
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/nicknames.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "60a2190a6e31c8b7ae177d15a7427e6324912766751829637ee6c658a8e34489",
+      "output_sha256": "7b6fef8315042156fdf30d30eea7408b7d9f149fa42801efda9424b90fe4d488",
+      "output_bytes": 45
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/xtypeof.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "805f11d18f5ed507a8ac33583076dbf1cfc6118d388d0d459e6be7a619db272c",
+      "output_sha256": "a19d7c358bfb9fb0f002a87e40be7d5f810f4fcff736684400a9e07828738431",
+      "output_bytes": 180
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/xtypeof.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "805f11d18f5ed507a8ac33583076dbf1cfc6118d388d0d459e6be7a619db272c",
+      "output_sha256": "9c19c3bfda3d97f25e12258d33e82b3fe8e0ed48ad05085fb613145f6dcef3f3",
+      "output_bytes": 229
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/Utility/xtypeof.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "805f11d18f5ed507a8ac33583076dbf1cfc6118d388d0d459e6be7a619db272c",
+      "output_sha256": "9c19c3bfda3d97f25e12258d33e82b3fe8e0ed48ad05085fb613145f6dcef3f3",
+      "output_bytes": 229
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "137770a20683852ab8eac95e2639bab0a1de56145aaf30c4b0d641acd064b696",
+      "output_sha256": "1ca6362884792e0c64dc191a7d6cc90b83e648e1a60737f7933aa431e737ea17",
+      "output_bytes": 2145
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "137770a20683852ab8eac95e2639bab0a1de56145aaf30c4b0d641acd064b696",
+      "output_sha256": "1ca6362884792e0c64dc191a7d6cc90b83e648e1a60737f7933aa431e737ea17",
+      "output_bytes": 2145
+    },
+    {
+      "repo": "Fusion",
+      "file": "src/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "137770a20683852ab8eac95e2639bab0a1de56145aaf30c4b0d641acd064b696",
+      "output_sha256": "1ca6362884792e0c64dc191a7d6cc90b83e648e1a60737f7933aa431e737ea17",
+      "output_bytes": 2145
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/BufferReader.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a3e8112e4b9d23ed52d5f47312c2be5e88bae229dcde396c93abe596f535ad25",
+      "output_sha256": "94a67fee2a6a1b4f0eedb14b439498134ce2001f90e7b86ab9a520c06094d938",
+      "output_bytes": 3892
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/BufferReader.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a3e8112e4b9d23ed52d5f47312c2be5e88bae229dcde396c93abe596f535ad25",
+      "output_sha256": "94a67fee2a6a1b4f0eedb14b439498134ce2001f90e7b86ab9a520c06094d938",
+      "output_bytes": 3892
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/BufferReader.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a3e8112e4b9d23ed52d5f47312c2be5e88bae229dcde396c93abe596f535ad25",
+      "output_sha256": "94a67fee2a6a1b4f0eedb14b439498134ce2001f90e7b86ab9a520c06094d938",
+      "output_bytes": 3892
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/BufferWriter.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5ed66075b2e8ed504c748a7c39e671fcae3f2183bcf6dc6e19d430ff5926b7b3",
+      "output_sha256": "adcbb16a1b92ab380c6d674da32dd3e731e63457f6ae367ec29e941f2d43196b",
+      "output_bytes": 4432
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/BufferWriter.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5ed66075b2e8ed504c748a7c39e671fcae3f2183bcf6dc6e19d430ff5926b7b3",
+      "output_sha256": "adcbb16a1b92ab380c6d674da32dd3e731e63457f6ae367ec29e941f2d43196b",
+      "output_bytes": 4432
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/BufferWriter.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5ed66075b2e8ed504c748a7c39e671fcae3f2183bcf6dc6e19d430ff5926b7b3",
+      "output_sha256": "adcbb16a1b92ab380c6d674da32dd3e731e63457f6ae367ec29e941f2d43196b",
+      "output_bytes": 4432
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/DataTypeBuffer.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d786b8718c14a3a5a146579e3754678867eba31f36ba6233e468822bb7f89111",
+      "output_sha256": "a6b82176e5a479a3c516eb9d449c2fea2c9475b6141ab8308293f5bde58008f9",
+      "output_bytes": 5240
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/DataTypeBuffer.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d786b8718c14a3a5a146579e3754678867eba31f36ba6233e468822bb7f89111",
+      "output_sha256": "a6b82176e5a479a3c516eb9d449c2fea2c9475b6141ab8308293f5bde58008f9",
+      "output_bytes": 5240
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/DataTypeBuffer.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d786b8718c14a3a5a146579e3754678867eba31f36ba6233e468822bb7f89111",
+      "output_sha256": "a6b82176e5a479a3c516eb9d449c2fea2c9475b6141ab8308293f5bde58008f9",
+      "output_bytes": 5240
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/Types.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d37252e7aa75612ff26d3fa91ea1e54534e03170b39d50ab3e20c5344639dad9",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/Types.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d37252e7aa75612ff26d3fa91ea1e54534e03170b39d50ab3e20c5344639dad9",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/Types.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d37252e7aa75612ff26d3fa91ea1e54534e03170b39d50ab3e20c5344639dad9",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "67cdf24ca81c6424dc7cb6ad259b900169c771ea0f881ddbff6a71d9e7c11e8e",
+      "output_sha256": "1aa4266a97f4f31096f8da08a56a7adb6ea265b2400ddd7a0c1c6241d3007bdd",
+      "output_bytes": 166
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "67cdf24ca81c6424dc7cb6ad259b900169c771ea0f881ddbff6a71d9e7c11e8e",
+      "output_sha256": "1aa4266a97f4f31096f8da08a56a7adb6ea265b2400ddd7a0c1c6241d3007bdd",
+      "output_bytes": 166
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/buffer-util/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "67cdf24ca81c6424dc7cb6ad259b900169c771ea0f881ddbff6a71d9e7c11e8e",
+      "output_sha256": "1aa4266a97f4f31096f8da08a56a7adb6ea265b2400ddd7a0c1c6241d3007bdd",
+      "output_bytes": 166
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/ClientComm.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "063347b877d2f89ec140deef3c15e5ff8b73a6c3e5f23dcdd63da181d57852af",
+      "output_sha256": "1f5e64c1b6f06bdb293833a23367d26cd7a35b041e8dd202fbfbcfefccf641bf",
+      "output_bytes": 2093
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/ClientComm.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "063347b877d2f89ec140deef3c15e5ff8b73a6c3e5f23dcdd63da181d57852af",
+      "output_sha256": "45300e2c034a57f972f9a95c76dd4a8b696c643152df35e2e93ce5351eb8c9db",
+      "output_bytes": 2154
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/ClientComm.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "063347b877d2f89ec140deef3c15e5ff8b73a6c3e5f23dcdd63da181d57852af",
+      "output_sha256": "5e4c56940527ab5bb222f5d55864b8846022cd9346bf5b8c4e42a7884963b8db",
+      "output_bytes": 2196
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/ClientRemoteProperty.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "420dfaa236e69229c79dad9aa9179cdaff9f4b00ea7e70b1b88915f6c27368c4",
+      "output_sha256": "509baa120cfa63e047d5a828b7bca9f1643b4af56c63a8afdd3cd1f27600ed25",
+      "output_bytes": 1473
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/ClientRemoteProperty.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "420dfaa236e69229c79dad9aa9179cdaff9f4b00ea7e70b1b88915f6c27368c4",
+      "output_sha256": "bec43e6bafb428feaf546388b79f3ed841ea0c618413402d4363836d414effe5",
+      "output_bytes": 1476
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/ClientRemoteProperty.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "420dfaa236e69229c79dad9aa9179cdaff9f4b00ea7e70b1b88915f6c27368c4",
+      "output_sha256": "bec43e6bafb428feaf546388b79f3ed841ea0c618413402d4363836d414effe5",
+      "output_bytes": 1476
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/ClientRemoteSignal.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f5fc0fe166264f5294d3485700042fc82e0c4299f12e8d7ddbd9ad4ec030b7f5",
+      "output_sha256": "716411a12f4078cdc567be29e58e91e730a1ed2dafb542c53fe7597eaf580592",
+      "output_bytes": 1569
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/ClientRemoteSignal.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f5fc0fe166264f5294d3485700042fc82e0c4299f12e8d7ddbd9ad4ec030b7f5",
+      "output_sha256": "d9b03e03304c79138cf9ccea73784856fa1bc9dec6f5598152b69e49ae38d2d7",
+      "output_bytes": 1646
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/ClientRemoteSignal.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f5fc0fe166264f5294d3485700042fc82e0c4299f12e8d7ddbd9ad4ec030b7f5",
+      "output_sha256": "1f33a7f13e874555ca10f60df8c1ffb54a4cde14de9c8db4ff80e9b0d41d4657",
+      "output_bytes": 1667
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c5ca25d7896ed1aa60352a1a32e2a39d7e6d4e704fa1e4b14331ea6a14f6c366",
+      "output_sha256": "dbf98ed6b218ae6618f90f4436dc92eb6bebbd85b3a30a8345306f6af19f1409",
+      "output_bytes": 3426
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c5ca25d7896ed1aa60352a1a32e2a39d7e6d4e704fa1e4b14331ea6a14f6c366",
+      "output_sha256": "202cc99394041d44907c1c08e84d9b8598440860e4a13809dc4a1ea83426be7c",
+      "output_bytes": 3730
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Client/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c5ca25d7896ed1aa60352a1a32e2a39d7e6d4e704fa1e4b14331ea6a14f6c366",
+      "output_sha256": "c9cea13a99302cb3b098cbea6cbd9a6c42bc2c7de4e16ff2f70237e08ed04709",
+      "output_bytes": 3769
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/RemoteProperty.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "59db709f5bb7018a5d9a64be476bbcedc3d3458c8e2887bf31416b34d0932188",
+      "output_sha256": "cfcdc95c231b7621eacda7644658f5c614f17e480a2bc8da3ec86aa314b110de",
+      "output_bytes": 2318
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/RemoteProperty.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "59db709f5bb7018a5d9a64be476bbcedc3d3458c8e2887bf31416b34d0932188",
+      "output_sha256": "80a447c50c64db0faf774baefaf2f3382e306bcb26dfcb4c3ebccd246f22b76b",
+      "output_bytes": 2302
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/RemoteProperty.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "59db709f5bb7018a5d9a64be476bbcedc3d3458c8e2887bf31416b34d0932188",
+      "output_sha256": "3b750143cba24a10ef7a0dbb9255e0589ba19db2bc7e1eb0bef2d37ab994c933",
+      "output_bytes": 2310
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/RemoteSignal.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "79b531edd8fae69fe9537e5ffa63353f4099920814d6b6b47d1a34a1278d69d9",
+      "output_sha256": "8e4e49cc701fb5a02aa5895d09126700ec98cb5896a08839de1a6befde7c91fe",
+      "output_bytes": 2441
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/RemoteSignal.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "79b531edd8fae69fe9537e5ffa63353f4099920814d6b6b47d1a34a1278d69d9",
+      "output_sha256": "cc33d82eb28d8f620d99792dec345504321d0d58cd6064a1631685f8363b51f5",
+      "output_bytes": 2512
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/RemoteSignal.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "79b531edd8fae69fe9537e5ffa63353f4099920814d6b6b47d1a34a1278d69d9",
+      "output_sha256": "e9190e235c3086e31991a686c38245a5da6acff782a301cae639afe9da3224f6",
+      "output_bytes": 2533
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/ServerComm.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2230adad782b21ebdbdffaecd4f3c034a2a6e0cda54923386d442542c1f903d4",
+      "output_sha256": "0d6011bec184ef0c9935adbfc523135ff024c4564ac4a83445e3c58db6e89a81",
+      "output_bytes": 1360
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/ServerComm.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2230adad782b21ebdbdffaecd4f3c034a2a6e0cda54923386d442542c1f903d4",
+      "output_sha256": "92b6aa3a5053d480c6ce12bbcd6a522ce843fd8f3ee91458106ebc498eeca101",
+      "output_bytes": 1430
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/ServerComm.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2230adad782b21ebdbdffaecd4f3c034a2a6e0cda54923386d442542c1f903d4",
+      "output_sha256": "8dbbe2e3762e34600661a56493261e0b191f90f0bd46a125dd75e2bdc2195472",
+      "output_bytes": 1485
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "68162221cb3c0d0b2637a42d78c2bf5049653eeea5414744c2d8549365b00fd0",
+      "output_sha256": "4ce6304cc53d0a6e75defb2b2f760ddf6ab51a55578a25810343174f35f3ddb9",
+      "output_bytes": 2766
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "68162221cb3c0d0b2637a42d78c2bf5049653eeea5414744c2d8549365b00fd0",
+      "output_sha256": "14dba51480ff75307c39222d5ace5c27daeec60975ffdf0be6231405ceb352da",
+      "output_bytes": 3093
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Server/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "68162221cb3c0d0b2637a42d78c2bf5049653eeea5414744c2d8549365b00fd0",
+      "output_sha256": "43766254585f83ef910a2d66d77ca562aa64f9cc3903432320cbc4718ca9b185",
+      "output_bytes": 3139
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Types.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1f1b2009a65242578e71691b38557c6e6ec36c6a5749b09edc0c4d6ede636c72",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Types.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1f1b2009a65242578e71691b38557c6e6ec36c6a5749b09edc0c4d6ede636c72",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Types.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1f1b2009a65242578e71691b38557c6e6ec36c6a5749b09edc0c4d6ede636c72",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Util.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "34c4310d928a02ccef70ba4947dafe44f2bc155af43d3d2c143676b3559d0468",
+      "output_sha256": "944da7dc607814ee2aabdd2be313fec60ace77606312d720577d89e08ce01716",
+      "output_bytes": 550
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Util.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "34c4310d928a02ccef70ba4947dafe44f2bc155af43d3d2c143676b3559d0468",
+      "output_sha256": "944da7dc607814ee2aabdd2be313fec60ace77606312d720577d89e08ce01716",
+      "output_bytes": 550
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/Util.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "34c4310d928a02ccef70ba4947dafe44f2bc155af43d3d2c143676b3559d0468",
+      "output_sha256": "a7b2364a4a40acd91aa7b20e96189890a74eb4da45a483c77badc8554f921df1",
+      "output_bytes": 558
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c45dfff552db1e0800663915b9c6891e392bd20fed231e82fabacc18001e8372",
+      "output_sha256": "840a906001c0c27fa995347737fdcd50ae6c95f366342861d79cb50db42f7f36",
+      "output_bytes": 280
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c45dfff552db1e0800663915b9c6891e392bd20fed231e82fabacc18001e8372",
+      "output_sha256": "840a906001c0c27fa995347737fdcd50ae6c95f366342861d79cb50db42f7f36",
+      "output_bytes": 280
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/comm/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c45dfff552db1e0800663915b9c6891e392bd20fed231e82fabacc18001e8372",
+      "output_sha256": "840a906001c0c27fa995347737fdcd50ae6c95f366342861d79cb50db42f7f36",
+      "output_bytes": 280
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/component/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "13d69c6cc6b8484c5d540bebc2d508192798d6e13004d210ce95b4533ca34d72",
+      "output_sha256": "3381df52c4bc1f747bd6288ca57ad5d783474a1a3234d8def90dc1ed66e78967",
+      "output_bytes": 7341
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/component/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "13d69c6cc6b8484c5d540bebc2d508192798d6e13004d210ce95b4533ca34d72",
+      "output_sha256": "855ab1ab68c80549f3af0c8a0da34c7bf0790636f84bc8098282d9e7a7f39e5c",
+      "output_bytes": 7479
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/component/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "13d69c6cc6b8484c5d540bebc2d508192798d6e13004d210ce95b4533ca34d72",
+      "output_sha256": "d1f49e6d0d299201a7d0906a838d41b381c217955e2a08d7420e8a69072b0c81",
+      "output_bytes": 8831
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/concur/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c1da1059b3e44112e26a3f125938353979e6f00568ec3e59ec3c1327a31e5cfa",
+      "output_sha256": "12b1a2790a4d97e8d2104396e44ce60e90eeca811711884c3c21727f0becab2c",
+      "output_bytes": 4793
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/concur/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c1da1059b3e44112e26a3f125938353979e6f00568ec3e59ec3c1327a31e5cfa",
+      "output_sha256": "73d16de5f73a77ca687b40379c37f82541abd56ae199e04eaa5bf0e3f67f86d3",
+      "output_bytes": 4984
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/concur/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c1da1059b3e44112e26a3f125938353979e6f00568ec3e59ec3c1327a31e5cfa",
+      "output_sha256": "2e81646d31ab9b1ce54c828419ad9817f62a5888a972f0d24303bc5d140bb30e",
+      "output_bytes": 5010
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/enum-list/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f35cff2803a0bd710281e795a5e33a6550be0af7c4844f59b274c62a4889a575",
+      "output_sha256": "dc83e43be2ae617c43e3fcb06e7ea039adb437f1609283e4a740e00be326ad6f",
+      "output_bytes": 900
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/enum-list/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f35cff2803a0bd710281e795a5e33a6550be0af7c4844f59b274c62a4889a575",
+      "output_sha256": "42b59c98507c7f065cc2a0a0a88d762471f6a5a2770b3e997fe62072aa00d7bd",
+      "output_bytes": 962
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/enum-list/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f35cff2803a0bd710281e795a5e33a6550be0af7c4844f59b274c62a4889a575",
+      "output_sha256": "14ec2ba37d998cf8beff85818a61dee8b500cab8a3cccd23daf6e83bf349fb9a",
+      "output_bytes": 1042
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/find/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9e3899dd35e4a02afbec9d264eb4adc0241ba2854083c0f15466ca98bb8c2951",
+      "output_sha256": "85915bac864ef76dd1edd60265adc857128faa2b74cc723b07e1883fa66c81bc",
+      "output_bytes": 304
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/find/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9e3899dd35e4a02afbec9d264eb4adc0241ba2854083c0f15466ca98bb8c2951",
+      "output_sha256": "85915bac864ef76dd1edd60265adc857128faa2b74cc723b07e1883fa66c81bc",
+      "output_bytes": 304
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/find/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9e3899dd35e4a02afbec9d264eb4adc0241ba2854083c0f15466ca98bb8c2951",
+      "output_sha256": "85915bac864ef76dd1edd60265adc857128faa2b74cc723b07e1883fa66c81bc",
+      "output_bytes": 304
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Gamepad.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "57e8680ecf10abff29da2e6853d6a1f49302b9efc6950f200303573347df8025",
+      "output_sha256": "ff026bfe57dde5faac1a250584ee065bf3b09e2a078cbfb7e9616f6b102afe2b",
+      "output_bytes": 5422
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Gamepad.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "57e8680ecf10abff29da2e6853d6a1f49302b9efc6950f200303573347df8025",
+      "output_sha256": "9f084d6eb701e0025a831c7ae083b7b97e9cf56d71a3da79f324d44a6524b45e",
+      "output_bytes": 5441
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Gamepad.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "57e8680ecf10abff29da2e6853d6a1f49302b9efc6950f200303573347df8025",
+      "output_sha256": "e4dddc6ab2c71e0286a26e8b5b5caf774c33a695bb85564685e9a69309a67a9f",
+      "output_bytes": 5829
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Keyboard.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "017fa22a174dfd4390a6c44bdcd5c134f976facdd19d1817cd1c4367845bb41a",
+      "output_sha256": "432873c2670ac3f74c58053e3684257213ee42ce94132f6d7d17bcf747612459",
+      "output_bytes": 1132
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Keyboard.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "017fa22a174dfd4390a6c44bdcd5c134f976facdd19d1817cd1c4367845bb41a",
+      "output_sha256": "432873c2670ac3f74c58053e3684257213ee42ce94132f6d7d17bcf747612459",
+      "output_bytes": 1132
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Keyboard.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "017fa22a174dfd4390a6c44bdcd5c134f976facdd19d1817cd1c4367845bb41a",
+      "output_sha256": "432873c2670ac3f74c58053e3684257213ee42ce94132f6d7d17bcf747612459",
+      "output_bytes": 1132
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Mouse.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "712aa95885d11715279909f6665dc7406ec9630ee8a94c4f19a89763672b80ce",
+      "output_sha256": "20dd09472c42fffcfaac4eb9f24c1aa00aaa766637643640e62b54d2fc1110e8",
+      "output_bytes": 3036
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Mouse.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "712aa95885d11715279909f6665dc7406ec9630ee8a94c4f19a89763672b80ce",
+      "output_sha256": "ce0a1ea6872d10a94a4b63297ff1c2d69f01111b815ef227b32b5648522d45ab",
+      "output_bytes": 3121
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Mouse.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "712aa95885d11715279909f6665dc7406ec9630ee8a94c4f19a89763672b80ce",
+      "output_sha256": "fa90defec0f348379f31cc51330606d5b6b3c1d5e14ba9740a83abbb07bd7510",
+      "output_bytes": 3139
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/PreferredInput.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "302b4737bbf30b0a103044449ed168c32ca07a32bd6b44d039fe34b64e28d34a",
+      "output_sha256": "df2392542009cc0fcae60b6ba04fafb40f5ebe4a5a018e1d0f288f9bc492d347",
+      "output_bytes": 779
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/PreferredInput.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "302b4737bbf30b0a103044449ed168c32ca07a32bd6b44d039fe34b64e28d34a",
+      "output_sha256": "8b6cf247c9a491f69ae2ecba3660d2f48b62004f86cb2efa5b0529583ded3202",
+      "output_bytes": 801
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/PreferredInput.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "302b4737bbf30b0a103044449ed168c32ca07a32bd6b44d039fe34b64e28d34a",
+      "output_sha256": "8b6cf247c9a491f69ae2ecba3660d2f48b62004f86cb2efa5b0529583ded3202",
+      "output_bytes": 801
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Touch.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "7bb0916d2f583e260a9a4e4eed1fa68ab3a85edbcea2515490704ef4660ec635",
+      "output_sha256": "57e72ceeac29dadebbfe9a33bf1457724030e82617e4b99430067b48ae53d3de",
+      "output_bytes": 1295
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Touch.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "7bb0916d2f583e260a9a4e4eed1fa68ab3a85edbcea2515490704ef4660ec635",
+      "output_sha256": "57e72ceeac29dadebbfe9a33bf1457724030e82617e4b99430067b48ae53d3de",
+      "output_bytes": 1295
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/Touch.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "7bb0916d2f583e260a9a4e4eed1fa68ab3a85edbcea2515490704ef4660ec635",
+      "output_sha256": "57e72ceeac29dadebbfe9a33bf1457724030e82617e4b99430067b48ae53d3de",
+      "output_bytes": 1295
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e7ceee15c16ba27d8fa97a029e9c113be22cf2313615f3673b01e6d3c3add8d3",
+      "output_sha256": "20cdd99e1afb601adfd77ad2beb13ed0ddbb1c3dba989fdda1504f6f461bfe19",
+      "output_bytes": 326
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e7ceee15c16ba27d8fa97a029e9c113be22cf2313615f3673b01e6d3c3add8d3",
+      "output_sha256": "20cdd99e1afb601adfd77ad2beb13ed0ddbb1c3dba989fdda1504f6f461bfe19",
+      "output_bytes": 326
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/input/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e7ceee15c16ba27d8fa97a029e9c113be22cf2313615f3673b01e6d3c3add8d3",
+      "output_sha256": "20cdd99e1afb601adfd77ad2beb13ed0ddbb1c3dba989fdda1504f6f461bfe19",
+      "output_bytes": 326
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/loader/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2147728d19fb647389f3eb93e8b62e5140ddc7e7cef0641e2de650e767277311",
+      "output_sha256": "84f66c67e6348783a2e760c3b035f1e7efedcf43bddf0109a09834bc289c0600",
+      "output_bytes": 1102
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/loader/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2147728d19fb647389f3eb93e8b62e5140ddc7e7cef0641e2de650e767277311",
+      "output_sha256": "84f66c67e6348783a2e760c3b035f1e7efedcf43bddf0109a09834bc289c0600",
+      "output_bytes": 1102
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/loader/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2147728d19fb647389f3eb93e8b62e5140ddc7e7cef0641e2de650e767277311",
+      "output_sha256": "733f4016500ff0dc53f9e75b75dd15101b170e14cb78e2f3de86a2b23064e9d2",
+      "output_bytes": 1118
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/log/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2d32f37cecf6661c52a1730511dc72a07e5cd55a2c9fb124ff1e1f948e64950a",
+      "output_sha256": "8cf3b6a5b5685d74cc4a110880efbbfc5f4bad5ec6a42248b3a98286671974e4",
+      "output_bytes": 8913
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/log/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2d32f37cecf6661c52a1730511dc72a07e5cd55a2c9fb124ff1e1f948e64950a",
+      "output_sha256": "a7d613b5cf1261740e9f381660bfdc29f526b33f3a08ba6bce6038abb39f787b",
+      "output_bytes": 9350
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/log/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2d32f37cecf6661c52a1730511dc72a07e5cd55a2c9fb124ff1e1f948e64950a",
+      "output_sha256": "7549beb1a2024cd35c9130ef55df64661327897c71040b8e507c05a556461fcf",
+      "output_bytes": 9648
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/net/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5e1435a072758433604fe7f669a7836998204d748ebf26ab6586a887144b46da",
+      "output_sha256": "d43b3b2f46eb38317da527b64f62bb29154aa90a3de2b762bee87628cca5bfb9",
+      "output_bytes": 2032
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/net/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5e1435a072758433604fe7f669a7836998204d748ebf26ab6586a887144b46da",
+      "output_sha256": "d43b3b2f46eb38317da527b64f62bb29154aa90a3de2b762bee87628cca5bfb9",
+      "output_bytes": 2032
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/net/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5e1435a072758433604fe7f669a7836998204d748ebf26ab6586a887144b46da",
+      "output_sha256": "33e29a0cab4936c57a8d74bb811e4481cd84860a0a80dfc338c9e9ebd676830a",
+      "output_bytes": 2124
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/option/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "dd294adba17e7622e496d0dcd613f37bf455e031b0ceb6f56a94f9deab55a2a5",
+      "output_sha256": "05596c8ebff1d00deaf1b2ddfd57c8b59069cd1a8098d7224b03e4d048a88f3d",
+      "output_bytes": 3013
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/option/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "dd294adba17e7622e496d0dcd613f37bf455e031b0ceb6f56a94f9deab55a2a5",
+      "output_sha256": "0a12fe4a9f3f90362816af4c80bc78d850c88a5cb7d1d60b35e49b15e10ca687",
+      "output_bytes": 3145
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/option/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "dd294adba17e7622e496d0dcd613f37bf455e031b0ceb6f56a94f9deab55a2a5",
+      "output_sha256": "0a12fe4a9f3f90362816af4c80bc78d850c88a5cb7d1d60b35e49b15e10ca687",
+      "output_bytes": 3145
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/pid/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "7a645d52b54476421468be8636467d2784ed51e4b540eed7b3fe40e4dd86d58b",
+      "output_sha256": "dab5b86bd00bd62ff89cb6cd9710e45aa82d0223d1b7dc446071eecdb741b9b5",
+      "output_bytes": 3012
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/pid/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "7a645d52b54476421468be8636467d2784ed51e4b540eed7b3fe40e4dd86d58b",
+      "output_sha256": "dab5b86bd00bd62ff89cb6cd9710e45aa82d0223d1b7dc446071eecdb741b9b5",
+      "output_bytes": 3012
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/pid/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "7a645d52b54476421468be8636467d2784ed51e4b540eed7b3fe40e4dd86d58b",
+      "output_sha256": "dab5b86bd00bd62ff89cb6cd9710e45aa82d0223d1b7dc446071eecdb741b9b5",
+      "output_bytes": 3012
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/quaternion/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c182cb08e7c3dc46301b883cfa242c5237bde2ac1bad39521ad35af46338c55a",
+      "output_sha256": "cd0ac5f3c8d2451ce97f696a5f96a691845610b0a45b5785d324512e450f26f3",
+      "output_bytes": 6929
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/quaternion/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c182cb08e7c3dc46301b883cfa242c5237bde2ac1bad39521ad35af46338c55a",
+      "output_sha256": "ef36e62c60e75deb0f7c4e6e0735cd281fe1c6453e793c0789234b418fa6abe1",
+      "output_bytes": 7444
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/quaternion/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c182cb08e7c3dc46301b883cfa242c5237bde2ac1bad39521ad35af46338c55a",
+      "output_sha256": "c38d6fb08c2b5b8f0e4238d89d8f15dfb9a072783bb115e734b2dbb34d24b74d",
+      "output_bytes": 7578
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/query/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b94623203256a0ee73c4dd8e582abf0d50e064a3be2dd14af5a6ebb4ea5e1fcf",
+      "output_sha256": "67fbc968b2afdac49d6037fcf0ad0217bc2ee529997488a53357a041ff6ae806",
+      "output_bytes": 869
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/query/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b94623203256a0ee73c4dd8e582abf0d50e064a3be2dd14af5a6ebb4ea5e1fcf",
+      "output_sha256": "67fbc968b2afdac49d6037fcf0ad0217bc2ee529997488a53357a041ff6ae806",
+      "output_bytes": 869
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/query/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b94623203256a0ee73c4dd8e582abf0d50e064a3be2dd14af5a6ebb4ea5e1fcf",
+      "output_sha256": "15faeb662c477a6a496d0936014cbeac8c693e06ecc980dfdeb592c0c7251c7e",
+      "output_bytes": 909
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/sequent/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ae97fe1d502f40c25fc0b17933fc346632f52cf37a422c404abba74080e9f852",
+      "output_sha256": "f84ad537c260505901509bb33fe355c9a4670a9d97765118a8cba959b5b21409",
+      "output_bytes": 3674
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/sequent/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ae97fe1d502f40c25fc0b17933fc346632f52cf37a422c404abba74080e9f852",
+      "output_sha256": "bd3ad663bc04115478291882825cb1789c9a34942ee7c7bfe0545e90c2cc001b",
+      "output_bytes": 3741
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/sequent/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ae97fe1d502f40c25fc0b17933fc346632f52cf37a422c404abba74080e9f852",
+      "output_sha256": "16368922dd65cf0a0aaffc70fa0a7c86408c9e767f282520fd63bfdf7585782c",
+      "output_bytes": 3748
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/ser/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "213d6751b32fbb396754f1f0fbffab6d0f1f2c6a87d9ca221818478694a1d137",
+      "output_sha256": "da6d7e9d439f7fc57b494e687504a5e616ea9d1dbf12a850e1fedd250192655e",
+      "output_bytes": 1633
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/ser/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "213d6751b32fbb396754f1f0fbffab6d0f1f2c6a87d9ca221818478694a1d137",
+      "output_sha256": "d8ca4ed512d70f69082a26c53fb97d9f130fb6b82372d8149675a920453fad00",
+      "output_bytes": 1672
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/ser/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "213d6751b32fbb396754f1f0fbffab6d0f1f2c6a87d9ca221818478694a1d137",
+      "output_sha256": "d8ca4ed512d70f69082a26c53fb97d9f130fb6b82372d8149675a920453fad00",
+      "output_bytes": 1672
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/shake/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "20a395f69fab19b27f0eda9297685470d78b30167e916f371173d931a5cf508c",
+      "output_sha256": "afab63a76f1d022fdd15766c0ab2beaa11ffa024927fdd9ac9aab4399fe103f2",
+      "output_bytes": 3297
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/shake/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "20a395f69fab19b27f0eda9297685470d78b30167e916f371173d931a5cf508c",
+      "output_sha256": "afab63a76f1d022fdd15766c0ab2beaa11ffa024927fdd9ac9aab4399fe103f2",
+      "output_bytes": 3297
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/shake/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "20a395f69fab19b27f0eda9297685470d78b30167e916f371173d931a5cf508c",
+      "output_sha256": "afab63a76f1d022fdd15766c0ab2beaa11ffa024927fdd9ac9aab4399fe103f2",
+      "output_bytes": 3297
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/signal/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a2c3a044ad291f1b8ea7d9ab38147d0ca8807c22532a45f31f33c79b89b74124",
+      "output_sha256": "04ab488a26aebc5be619e962b2985d5118fbb8786e6915115177f7de11f05e6f",
+      "output_bytes": 4456
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/signal/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a2c3a044ad291f1b8ea7d9ab38147d0ca8807c22532a45f31f33c79b89b74124",
+      "output_sha256": "4e0e9ba1ed2d433919f2ae8d023d93ee4c456d029f7425f61e6d3c7555eb8930",
+      "output_bytes": 4530
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/signal/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a2c3a044ad291f1b8ea7d9ab38147d0ca8807c22532a45f31f33c79b89b74124",
+      "output_sha256": "968c9d63f50c443697d155ce4e829adc75f27623175012f86ba308df995c4c22",
+      "output_bytes": 4538
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/silo/TableWatcher.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d74fc9cc18de245a529064fe0d6c660609416bf998b7df3de29fdeefc9fe87b4",
+      "output_sha256": "59e409bb93d31d8f0cc5818f8c43d9f34e82235b03d276b16c8640ad1e0e476d",
+      "output_bytes": 806
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/silo/TableWatcher.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d74fc9cc18de245a529064fe0d6c660609416bf998b7df3de29fdeefc9fe87b4",
+      "output_sha256": "59e409bb93d31d8f0cc5818f8c43d9f34e82235b03d276b16c8640ad1e0e476d",
+      "output_bytes": 806
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/silo/TableWatcher.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d74fc9cc18de245a529064fe0d6c660609416bf998b7df3de29fdeefc9fe87b4",
+      "output_sha256": "59e409bb93d31d8f0cc5818f8c43d9f34e82235b03d276b16c8640ad1e0e476d",
+      "output_bytes": 806
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/silo/Util.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d75624f67db2490c0254f974faf21a0d6e11237a13382c12620b54d2bf82c492",
+      "output_sha256": "ba8d0bc383eb85753a3a255fd1209695fc00ee1a656917ad60b7ef687e02f197",
+      "output_bytes": 727
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/silo/Util.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d75624f67db2490c0254f974faf21a0d6e11237a13382c12620b54d2bf82c492",
+      "output_sha256": "aeb325ca248bd009a3dda26c7530929268bb9c0ada945851c3301c8012b09e2d",
+      "output_bytes": 743
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/silo/Util.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "d75624f67db2490c0254f974faf21a0d6e11237a13382c12620b54d2bf82c492",
+      "output_sha256": "aeb325ca248bd009a3dda26c7530929268bb9c0ada945851c3301c8012b09e2d",
+      "output_bytes": 743
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/silo/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f25f9f2a387575a43ec130361fb5b4cf0ea462706fb1b3bab0e1b50fa4fba8c3",
+      "output_sha256": "30bcd02bb3a36ced3168f455cc7cee447b69e35b931cd18bfc7b33fd90d72501",
+      "output_bytes": 3597
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/silo/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f25f9f2a387575a43ec130361fb5b4cf0ea462706fb1b3bab0e1b50fa4fba8c3",
+      "output_sha256": "9e75999bee2f98e1f96f3e4ecc698f139b716dfe3950e16445a803f2a74bc17e",
+      "output_bytes": 3634
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/silo/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f25f9f2a387575a43ec130361fb5b4cf0ea462706fb1b3bab0e1b50fa4fba8c3",
+      "output_sha256": "a21377a3e01af952af87a4d1fba5e45d8340f06cd7f4dc203f5b6bac175b0ebb",
+      "output_bytes": 3662
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/spring/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9ed98ecff13288f8a196f9c3d6879752f6beac0bcb0b75eee2fce588d7417660",
+      "output_sha256": "e01c6b243fe07fb69767a1d5c19833b7b9d705d7c5f84707842d7e6b643166a0",
+      "output_bytes": 1024
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/spring/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9ed98ecff13288f8a196f9c3d6879752f6beac0bcb0b75eee2fce588d7417660",
+      "output_sha256": "742011bd3af0c11c6f854b9e3abe37e477821d7e37b672bbbd753a6346685915",
+      "output_bytes": 1012
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/spring/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9ed98ecff13288f8a196f9c3d6879752f6beac0bcb0b75eee2fce588d7417660",
+      "output_sha256": "abac2b4ae218652fefec4b03186d80d94f8bf05d0f2589865182a35f62027288",
+      "output_bytes": 1013
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/stream/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "3e4fd044b0e2a605862d9ed9946fb5e748ad1c0f874dd5c7349b0c4af0653182",
+      "output_sha256": "ed04fcbca6e3f5b51729e8fd8d24a0cc97f9469ddd6b7108f56c996b74569ec0",
+      "output_bytes": 8225
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/stream/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "3e4fd044b0e2a605862d9ed9946fb5e748ad1c0f874dd5c7349b0c4af0653182",
+      "output_sha256": "ed04fcbca6e3f5b51729e8fd8d24a0cc97f9469ddd6b7108f56c996b74569ec0",
+      "output_bytes": 8225
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/stream/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "3e4fd044b0e2a605862d9ed9946fb5e748ad1c0f874dd5c7349b0c4af0653182",
+      "output_sha256": "ed04fcbca6e3f5b51729e8fd8d24a0cc97f9469ddd6b7108f56c996b74569ec0",
+      "output_bytes": 8225
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/streamable/Streamable.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4686fadaece8638d0793be461a67339c459833e6b9f24ac33a4e0174dcb85a56",
+      "output_sha256": "076fde2602175da40bbda868a7080626a7307d4f19677c44828767e1e6221e7d",
+      "output_bytes": 1958
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/streamable/Streamable.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4686fadaece8638d0793be461a67339c459833e6b9f24ac33a4e0174dcb85a56",
+      "output_sha256": "076fde2602175da40bbda868a7080626a7307d4f19677c44828767e1e6221e7d",
+      "output_bytes": 1958
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/streamable/Streamable.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4686fadaece8638d0793be461a67339c459833e6b9f24ac33a4e0174dcb85a56",
+      "output_sha256": "e4769fc01e38f9bfdf86975a591deb9de5336940c01a3ca6188207ea27f8dcad",
+      "output_bytes": 2058
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/streamable/StreamableUtil.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "60f86fa6689ad9a727f0683f3b00fe2a4aa591702c4121fbf610f7b27d48fe21",
+      "output_sha256": "d01e2069b0eeb3f72839323570bc7ed1794c7bcdc6e1dc5b2bfeea0fa9f655c4",
+      "output_bytes": 673
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/streamable/StreamableUtil.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "60f86fa6689ad9a727f0683f3b00fe2a4aa591702c4121fbf610f7b27d48fe21",
+      "output_sha256": "d01e2069b0eeb3f72839323570bc7ed1794c7bcdc6e1dc5b2bfeea0fa9f655c4",
+      "output_bytes": 673
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/streamable/StreamableUtil.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "60f86fa6689ad9a727f0683f3b00fe2a4aa591702c4121fbf610f7b27d48fe21",
+      "output_sha256": "dfaec33c915e75e874329afa27dd23561a58197a8b1d02c0e0f039dafd3fc0b5",
+      "output_bytes": 922
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/streamable/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "50986451fc9c1fa8bd4434d211cb6eb0333729840bfb592a021baa3028e9b1b0",
+      "output_sha256": "04f9b21732e046955887c0ebc5f513bd3759e1c4d2de297d2f7ad70368a03038",
+      "output_bytes": 170
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/streamable/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "50986451fc9c1fa8bd4434d211cb6eb0333729840bfb592a021baa3028e9b1b0",
+      "output_sha256": "04f9b21732e046955887c0ebc5f513bd3759e1c4d2de297d2f7ad70368a03038",
+      "output_bytes": 170
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/streamable/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "50986451fc9c1fa8bd4434d211cb6eb0333729840bfb592a021baa3028e9b1b0",
+      "output_sha256": "04f9b21732e046955887c0ebc5f513bd3759e1c4d2de297d2f7ad70368a03038",
+      "output_bytes": 170
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/symbol/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "3901b4b0e0518f401e717e2d7337dab1e546d8889bfbb93ad1f0120108e0222c",
+      "output_sha256": "7b4a6cb80ec1ed82d03c5d2e85ef07442a738ace9a4f3a221bcfe171f67e399c",
+      "output_bytes": 225
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/symbol/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "3901b4b0e0518f401e717e2d7337dab1e546d8889bfbb93ad1f0120108e0222c",
+      "output_sha256": "7b4a6cb80ec1ed82d03c5d2e85ef07442a738ace9a4f3a221bcfe171f67e399c",
+      "output_bytes": 225
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/symbol/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "3901b4b0e0518f401e717e2d7337dab1e546d8889bfbb93ad1f0120108e0222c",
+      "output_sha256": "774424a63c5b1f20cbf631f08fedab90210407b8faa52cf13933157cf0827a0a",
+      "output_bytes": 234
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/table-util/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "25783a5e9f20615af1eeb323b12ca39b17cdee876126d7b0ddb1efdf82624e06",
+      "output_sha256": "6f68350610019878b1395552a05dd7aa1a8a2c25d928d659bc575327dcff9b5c",
+      "output_bytes": 7332
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/table-util/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "25783a5e9f20615af1eeb323b12ca39b17cdee876126d7b0ddb1efdf82624e06",
+      "output_sha256": "884805e404f68b725c9794f3777479d7f4c41291a125bc10ec32ce15381f6cfe",
+      "output_bytes": 7571
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/table-util/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "25783a5e9f20615af1eeb323b12ca39b17cdee876126d7b0ddb1efdf82624e06",
+      "output_sha256": "d0b242e73fdc35400894d2a01f4caf2d4e25812f8728499dc184bca69d004fcd",
+      "output_bytes": 8942
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/task-queue/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "be06ac2d424d9577e1eb55daa6efc2fd069db46fb97ce0829e2001aa1204c18f",
+      "output_sha256": "6fe8183e098af588e8814c7cfac15c3a3af1ece5274bda5bc3636f09ba619794",
+      "output_bytes": 771
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/task-queue/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "be06ac2d424d9577e1eb55daa6efc2fd069db46fb97ce0829e2001aa1204c18f",
+      "output_sha256": "e740a7dd9315e56ed8cd5974b83513670a45e17d4475cbb5c7b8faa60ee92d84",
+      "output_bytes": 794
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/task-queue/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "be06ac2d424d9577e1eb55daa6efc2fd069db46fb97ce0829e2001aa1204c18f",
+      "output_sha256": "e740a7dd9315e56ed8cd5974b83513670a45e17d4475cbb5c7b8faa60ee92d84",
+      "output_bytes": 794
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/timer/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5b7b4c868f95f78fc08b276274021fca938b0316cf1e8ecffd7e74cda60d4651",
+      "output_sha256": "54d0ebc77dbe76de824df38bcf97d150c17bd4e6fb58cacc4cbecb2aa3d66154",
+      "output_bytes": 2197
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/timer/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5b7b4c868f95f78fc08b276274021fca938b0316cf1e8ecffd7e74cda60d4651",
+      "output_sha256": "367e9dd6e6d0a39f11231da2220e697be7a435d9d692126cbf076262e85fe769",
+      "output_bytes": 2271
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/timer/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "5b7b4c868f95f78fc08b276274021fca938b0316cf1e8ecffd7e74cda60d4651",
+      "output_sha256": "681bd1d5e59c4d12d80711c4389c2e185390f6844b5cced579ff674eeb8f183d",
+      "output_bytes": 2315
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/tree/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e82a1d974f94fc066abba10c524ff9c6d65a02fd767fc4c3fc52a6fdcc9b06b0",
+      "output_sha256": "9b66fc620c892a8384ddae32d0a5b1ff3ddf16bac48e84273943e4bac7267385",
+      "output_bytes": 1434
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/tree/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e82a1d974f94fc066abba10c524ff9c6d65a02fd767fc4c3fc52a6fdcc9b06b0",
+      "output_sha256": "96cbc1663f5ea97155b9bb6eda76b03d3740bfc80709da95c1a989d57b6403c6",
+      "output_bytes": 1421
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/tree/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e82a1d974f94fc066abba10c524ff9c6d65a02fd767fc4c3fc52a6fdcc9b06b0",
+      "output_sha256": "e485aea6ac43a2ccbf6792299acad2d7c79bc1f8aae24407cfd4a4a8792769f6",
+      "output_bytes": 1511
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/trove/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "6037d12780509f4d7b6119c437b29918f230c2b90344247d591c58179ecef4b1",
+      "output_sha256": "5f0f502b0b601954630e3f77a180e681819de0da0f9f52586dfaf48cf4a1c1bd",
+      "output_bytes": 4894
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/trove/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "6037d12780509f4d7b6119c437b29918f230c2b90344247d591c58179ecef4b1",
+      "output_sha256": "7ff7965cf3919b1dfa82a3da3f1d795a17a58d13767474b92464c614d3b6c8c8",
+      "output_bytes": 5531
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/trove/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "6037d12780509f4d7b6119c437b29918f230c2b90344247d591c58179ecef4b1",
+      "output_sha256": "5774ed27e6d468b951a74206394a33ea0e474f8952b7d568fdce41a12d656b69",
+      "output_bytes": 5830
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/typed-remote/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1bb12a87f6bd3899ce780eedb38d4283613ef4adcca7b512de8568afe4e5e752",
+      "output_sha256": "15728e69e91a7b17e7557c52c8ca3889d08673a5c569aa979b3ebf56610489bd",
+      "output_bytes": 1206
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/typed-remote/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1bb12a87f6bd3899ce780eedb38d4283613ef4adcca7b512de8568afe4e5e752",
+      "output_sha256": "c28033af6b98e560242804c5810de952ef485dfa368a2b9d65c6f6bee19e25f3",
+      "output_bytes": 1600
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/typed-remote/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1bb12a87f6bd3899ce780eedb38d4283613ef4adcca7b512de8568afe4e5e752",
+      "output_sha256": "72475df6a0c39a844cb2ec128e88007b404b896fad8cd9459f528217308a7f29",
+      "output_bytes": 1648
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/wait-for/init.luau",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "8d6f2b914c0c4cc61c137d38b555144fa869419966e65126bf1a71acf986648d",
+      "output_sha256": "5196d48bbf66509200503bb928e1d342eade0e6462455fa8929ff48b605371e9",
+      "output_bytes": 3053
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/wait-for/init.luau",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "8d6f2b914c0c4cc61c137d38b555144fa869419966e65126bf1a71acf986648d",
+      "output_sha256": "06686edc295b16ad4395cbdc4f84d4308878880fe2c8e0c90cc18fe2bdc9b8c6",
+      "output_bytes": 3076
+    },
+    {
+      "repo": "RbxUtil",
+      "file": "modules/wait-for/init.luau",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "8d6f2b914c0c4cc61c137d38b555144fa869419966e65126bf1a71acf986648d",
+      "output_sha256": "3fee0bd0c7daaf00ca0ac34ce01281cb91959bcd7603578ea5f93684d3a9ae2f",
+      "output_bytes": 3170
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/NoYield.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "532de2b227110d701dbc9c6f8c452c6ebbef07411ebbfcb6501e037f55d0e4f3",
+      "output_sha256": "b336503a23d47c2f13acc2a46f9be1111e144becd90112930f7d64161aa250ed",
+      "output_bytes": 502
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/NoYield.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "532de2b227110d701dbc9c6f8c452c6ebbef07411ebbfcb6501e037f55d0e4f3",
+      "output_sha256": "b336503a23d47c2f13acc2a46f9be1111e144becd90112930f7d64161aa250ed",
+      "output_bytes": 502
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/NoYield.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "532de2b227110d701dbc9c6f8c452c6ebbef07411ebbfcb6501e037f55d0e4f3",
+      "output_sha256": "f3729f13337a1b2405bb914624ab6e7d70ae58421316f19aec22f9fccb6701af",
+      "output_bytes": 525
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/Signal.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "0b5d3ab6a0c2e0ba4e8fd45e1fb1b22f18fdc06f154b5c0ab281b3f915dbf53f",
+      "output_sha256": "544a34cf51c8a07f73c510c9784cee98f1c86bbff4660f32fdd2217841c426a5",
+      "output_bytes": 2204
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/Signal.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "0b5d3ab6a0c2e0ba4e8fd45e1fb1b22f18fdc06f154b5c0ab281b3f915dbf53f",
+      "output_sha256": "ee440759e4b5026b081d1ab2b62ccd799f80e1f562b9896ad58fe1f3fccd401d",
+      "output_bytes": 2355
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/Signal.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "0b5d3ab6a0c2e0ba4e8fd45e1fb1b22f18fdc06f154b5c0ab281b3f915dbf53f",
+      "output_sha256": "9cf0704e2f268688ca5c8e84d18feeb7f7a0e773fa402c4532b64c60dc7ed578",
+      "output_bytes": 2357
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/Store.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "ae3c9db904271463f19769feab057bd4613016f32079f070c898ec5ca5589782",
+      "output_sha256": "d751744d4b599cc60c1374bdf593a8559b94ce3bddef23d7ede5eedccbf4d655",
+      "output_bytes": 4261
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/Store.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "ae3c9db904271463f19769feab057bd4613016f32079f070c898ec5ca5589782",
+      "output_sha256": "53885af1b2586ec049d5bc8241d6f81161b1d1df4352cd3ff09639e8965d67bd",
+      "output_bytes": 4425
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/Store.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "ae3c9db904271463f19769feab057bd4613016f32079f070c898ec5ca5589782",
+      "output_sha256": "5876036f9587c2d2abeaf01f76c5857867efdded376556f539b45dc730b82345",
+      "output_bytes": 4431
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/combineReducers.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "e768ae3a68f46286ebf90bde8e8037d92b76dd5d6d71f0f5286eec6705d96236",
+      "output_sha256": "3ca11b6fd8b595aab759bcc2090b3931aa94679ab2a148dcc2ae0d115793608d",
+      "output_bytes": 346
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/combineReducers.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "e768ae3a68f46286ebf90bde8e8037d92b76dd5d6d71f0f5286eec6705d96236",
+      "output_sha256": "3ca11b6fd8b595aab759bcc2090b3931aa94679ab2a148dcc2ae0d115793608d",
+      "output_bytes": 346
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/combineReducers.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "e768ae3a68f46286ebf90bde8e8037d92b76dd5d6d71f0f5286eec6705d96236",
+      "output_sha256": "3ca11b6fd8b595aab759bcc2090b3931aa94679ab2a148dcc2ae0d115793608d",
+      "output_bytes": 346
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/createReducer.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "6df84ba2d3a638891a6f6f9730fa5feb332a137159eb4cfede0d411c7457ec9f",
+      "output_sha256": "dae4bc4180cd4aa1c80d67ea16bfcca898677a12ada36a2c44104c2e11dba506",
+      "output_bytes": 252
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/createReducer.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "6df84ba2d3a638891a6f6f9730fa5feb332a137159eb4cfede0d411c7457ec9f",
+      "output_sha256": "dae4bc4180cd4aa1c80d67ea16bfcca898677a12ada36a2c44104c2e11dba506",
+      "output_bytes": 252
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/createReducer.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "6df84ba2d3a638891a6f6f9730fa5feb332a137159eb4cfede0d411c7457ec9f",
+      "output_sha256": "dae4bc4180cd4aa1c80d67ea16bfcca898677a12ada36a2c44104c2e11dba506",
+      "output_bytes": 252
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/init.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "bb5d60e3153d7a37ae50bacb6ab0db080f291d7853e3eaa254c6363321bcab09",
+      "output_sha256": "803d7ea8de0e128b5a0b0e24b383a400ee462ee2af9a575c1cfc0776a61d36c7",
+      "output_bytes": 763
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/init.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "bb5d60e3153d7a37ae50bacb6ab0db080f291d7853e3eaa254c6363321bcab09",
+      "output_sha256": "803d7ea8de0e128b5a0b0e24b383a400ee462ee2af9a575c1cfc0776a61d36c7",
+      "output_bytes": 763
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/init.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "bb5d60e3153d7a37ae50bacb6ab0db080f291d7853e3eaa254c6363321bcab09",
+      "output_sha256": "803d7ea8de0e128b5a0b0e24b383a400ee462ee2af9a575c1cfc0776a61d36c7",
+      "output_bytes": 763
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/loggerMiddleware.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "8c43f603a3b75bdc383eb0386df64a677e8c75cb9c682633064fc81f2b873776",
+      "output_sha256": "34d0826ca81f1865b1acff800572d2876f2f86ee2525cbca3aca496f950cff97",
+      "output_bytes": 401
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/loggerMiddleware.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "8c43f603a3b75bdc383eb0386df64a677e8c75cb9c682633064fc81f2b873776",
+      "output_sha256": "34d0826ca81f1865b1acff800572d2876f2f86ee2525cbca3aca496f950cff97",
+      "output_bytes": 401
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/loggerMiddleware.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "8c43f603a3b75bdc383eb0386df64a677e8c75cb9c682633064fc81f2b873776",
+      "output_sha256": "34d0826ca81f1865b1acff800572d2876f2f86ee2525cbca3aca496f950cff97",
+      "output_bytes": 401
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/makeActionCreator.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "585166d619a1921ee2ce880500f3e60c7b390a91f073827256a0f1c5bf53b803",
+      "output_sha256": "2077aba1d5e51195b54e77322e736fbc6b271f1f2fdb5230578a29670ded012b",
+      "output_bytes": 545
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/makeActionCreator.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "585166d619a1921ee2ce880500f3e60c7b390a91f073827256a0f1c5bf53b803",
+      "output_sha256": "b63aefd9256afd35cccf04e744c20c83f48c161fed5d8a6d05e41af0166a09fd",
+      "output_bytes": 594
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/makeActionCreator.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "585166d619a1921ee2ce880500f3e60c7b390a91f073827256a0f1c5bf53b803",
+      "output_sha256": "ff36e5f46250c9aa80688233ad9f735f4d8f5ac3d43bb8be348a4324b92e4679",
+      "output_bytes": 596
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/makeThunkMiddleware.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "26a4cb6ca252966eec70f63105cadf5ae91147287829b1be1446aea34f3a390f",
+      "output_sha256": "82fc7541f0dcecfa59d1c8a11a8581961ee533cd6981947bc13f1b1e7a737464",
+      "output_bytes": 648
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/makeThunkMiddleware.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "26a4cb6ca252966eec70f63105cadf5ae91147287829b1be1446aea34f3a390f",
+      "output_sha256": "82fc7541f0dcecfa59d1c8a11a8581961ee533cd6981947bc13f1b1e7a737464",
+      "output_bytes": 648
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/makeThunkMiddleware.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "26a4cb6ca252966eec70f63105cadf5ae91147287829b1be1446aea34f3a390f",
+      "output_sha256": "82fc7541f0dcecfa59d1c8a11a8581961ee533cd6981947bc13f1b1e7a737464",
+      "output_bytes": 648
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/prettyPrint.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "a9e4711bdac3996740c06004d93ba931336381ded5378eafff00e44f59ee1afe",
+      "output_sha256": "82005f676349aa0d44a94050c4a4e4e4d9cc9b456ccf226e0a085d36382530b8",
+      "output_bytes": 732
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/prettyPrint.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "a9e4711bdac3996740c06004d93ba931336381ded5378eafff00e44f59ee1afe",
+      "output_sha256": "7f5490fb960d95f00fa076701e6a9c6032071e74f3379fd981ed50ee30b3d876",
+      "output_bytes": 892
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/prettyPrint.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "a9e4711bdac3996740c06004d93ba931336381ded5378eafff00e44f59ee1afe",
+      "output_sha256": "19f31a432eb0794e0b94cadf9bb16b3bac22cae64b950cd6efb4d1a87c407787",
+      "output_bytes": 875
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/thunkMiddleware.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "ab5681f8ae2864103fb18210bd5888766a3502856d6fb30081284aac54c9365c",
+      "output_sha256": "42075195f26e5bebe3bd9447a5703130ce1558359eab1bc9baff8dcec2a2e26d",
+      "output_bytes": 55
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/thunkMiddleware.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "ab5681f8ae2864103fb18210bd5888766a3502856d6fb30081284aac54c9365c",
+      "output_sha256": "42075195f26e5bebe3bd9447a5703130ce1558359eab1bc9baff8dcec2a2e26d",
+      "output_bytes": 55
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/thunkMiddleware.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "ab5681f8ae2864103fb18210bd5888766a3502856d6fb30081284aac54c9365c",
+      "output_sha256": "42075195f26e5bebe3bd9447a5703130ce1558359eab1bc9baff8dcec2a2e26d",
+      "output_bytes": 55
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/actions.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "7cd41ac8f64c113e56475091dc728161729f17716762a26801a166d0d3e778f0",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/actions.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "7cd41ac8f64c113e56475091dc728161729f17716762a26801a166d0d3e778f0",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/actions.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "7cd41ac8f64c113e56475091dc728161729f17716762a26801a166d0d3e778f0",
+      "output_sha256": "d06dfa7571cc2cc603bfe12842b9e80b2f7c24ea6f4654b1db649fc0c616f193",
+      "output_bytes": 11
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/reducers.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "bd030cc2a4a5f7c2b867c4fc46668b1de3a0936c32ff7d57acfc6b5ff7ef9a63",
+      "output_sha256": "0125a3f408fb490f34314a962b0ae264b7bc058be6c70c3c5bda9e918b067a87",
+      "output_bytes": 42
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/reducers.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "bd030cc2a4a5f7c2b867c4fc46668b1de3a0936c32ff7d57acfc6b5ff7ef9a63",
+      "output_sha256": "0125a3f408fb490f34314a962b0ae264b7bc058be6c70c3c5bda9e918b067a87",
+      "output_bytes": 42
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/reducers.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "bd030cc2a4a5f7c2b867c4fc46668b1de3a0936c32ff7d57acfc6b5ff7ef9a63",
+      "output_sha256": "0125a3f408fb490f34314a962b0ae264b7bc058be6c70c3c5bda9e918b067a87",
+      "output_bytes": 42
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/store.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "e1a5c2da900553c90f8643217b1c7f4c3d742a5a9c4413480bba3f7eadef5d93",
+      "output_sha256": "0125a3f408fb490f34314a962b0ae264b7bc058be6c70c3c5bda9e918b067a87",
+      "output_bytes": 42
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/store.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "e1a5c2da900553c90f8643217b1c7f4c3d742a5a9c4413480bba3f7eadef5d93",
+      "output_sha256": "0125a3f408fb490f34314a962b0ae264b7bc058be6c70c3c5bda9e918b067a87",
+      "output_bytes": 42
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/store.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "e1a5c2da900553c90f8643217b1c7f4c3d742a5a9c4413480bba3f7eadef5d93",
+      "output_sha256": "0125a3f408fb490f34314a962b0ae264b7bc058be6c70c3c5bda9e918b067a87",
+      "output_bytes": 42
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/thunks.lua",
+      "opt": 0,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "52a4caf36d3e670e324d58d88543d42d86c0518f087d98de3be15c30e891f92d",
+      "output_sha256": "95dfeafc0d736eafe2d0f22ca4d0100010b9fd7a76399ba1f8f4ea55e2453478",
+      "output_bytes": 40
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/thunks.lua",
+      "opt": 1,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "52a4caf36d3e670e324d58d88543d42d86c0518f087d98de3be15c30e891f92d",
+      "output_sha256": "95dfeafc0d736eafe2d0f22ca4d0100010b9fd7a76399ba1f8f4ea55e2453478",
+      "output_bytes": 40
+    },
+    {
+      "repo": "Rodux",
+      "file": "src/types/thunks.lua",
+      "opt": 2,
+      "split": "holdout",
+      "status": "passed",
+      "source_sha256": "52a4caf36d3e670e324d58d88543d42d86c0518f087d98de3be15c30e891f92d",
+      "output_sha256": "95dfeafc0d736eafe2d0f22ca4d0100010b9fd7a76399ba1f8f4ea55e2453478",
+      "output_bytes": 40
+    },
+    {
+      "repo": "promise",
+      "file": "lib/init.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ee4b0ec96b155898c4209b0dff424f6f12b6da289a78fac89a6fc24fc8f8c049",
+      "output_sha256": "132c05970df1d680977dc4552ffa6c21dff35eb2ca655f0350f64e8d1ed27bd4",
+      "output_bytes": 22600
+    },
+    {
+      "repo": "promise",
+      "file": "lib/init.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ee4b0ec96b155898c4209b0dff424f6f12b6da289a78fac89a6fc24fc8f8c049",
+      "output_sha256": "fad1150f7516b2c32e5c4105d655bf39707aca9d613a3158dfc76e251e39b597",
+      "output_bytes": 24607
+    },
+    {
+      "repo": "promise",
+      "file": "lib/init.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "ee4b0ec96b155898c4209b0dff424f6f12b6da289a78fac89a6fc24fc8f8c049",
+      "output_sha256": "a7385cf234306f50e3d185360c6b9717898ce76e1d3cde3d0b20616e651f9ca4",
+      "output_bytes": 29411
+    },
+    {
+      "repo": "roact",
+      "file": "src/Binding.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e4fe5d4fc98df564d3a6a5d5778c9dea5bc1948b443fb93e6fbc89db3239bad2",
+      "output_sha256": "268d7b92e66fb4617afa57cc404b044cfe46fd789a1935d17ba1c3d4ed8c1ef9",
+      "output_bytes": 2822
+    },
+    {
+      "repo": "roact",
+      "file": "src/Binding.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e4fe5d4fc98df564d3a6a5d5778c9dea5bc1948b443fb93e6fbc89db3239bad2",
+      "output_sha256": "f05c353587c07641bb18f40d3163fba5d4c6de5c250cb4b8ab002e6f339a6c23",
+      "output_bytes": 2915
+    },
+    {
+      "repo": "roact",
+      "file": "src/Binding.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "e4fe5d4fc98df564d3a6a5d5778c9dea5bc1948b443fb93e6fbc89db3239bad2",
+      "output_sha256": "4678860b4e3a9f548414fb4d602ae9fab47c743b8d7652595cf934ed8412c1f1",
+      "output_bytes": 2927
+    },
+    {
+      "repo": "roact",
+      "file": "src/Component.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a8b65d2e431ceeb6f3f5a3c2cc3a86b511cbceba76332a2220299662cebc03cf",
+      "output_sha256": "c0b0ffe65f8d3827d1ed9f5602309f42008cde7c0e04d87a946ce1758042ea43",
+      "output_bytes": 10216
+    },
+    {
+      "repo": "roact",
+      "file": "src/Component.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a8b65d2e431ceeb6f3f5a3c2cc3a86b511cbceba76332a2220299662cebc03cf",
+      "output_sha256": "35677871073670481a1b969d7f94d83431cb95552d26c1b9ac03c7e734e86de8",
+      "output_bytes": 10518
+    },
+    {
+      "repo": "roact",
+      "file": "src/Component.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "a8b65d2e431ceeb6f3f5a3c2cc3a86b511cbceba76332a2220299662cebc03cf",
+      "output_sha256": "6f40c4f9986563066eedadf03f755022b372703f09116fa55d92cfce84ed8266",
+      "output_bytes": 10526
+    },
+    {
+      "repo": "roact",
+      "file": "src/ComponentLifecyclePhase.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "8cd4327e805d87aa59be97ec4dd81105889a1afe7e5fe2bf869fe677ac14051c",
+      "output_sha256": "4851972631e746c434068e6cf94ddddeac4cc134d96c77142ec58f1df0960a2b",
+      "output_bytes": 475
+    },
+    {
+      "repo": "roact",
+      "file": "src/ComponentLifecyclePhase.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "8cd4327e805d87aa59be97ec4dd81105889a1afe7e5fe2bf869fe677ac14051c",
+      "output_sha256": "4851972631e746c434068e6cf94ddddeac4cc134d96c77142ec58f1df0960a2b",
+      "output_bytes": 475
+    },
+    {
+      "repo": "roact",
+      "file": "src/ComponentLifecyclePhase.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "8cd4327e805d87aa59be97ec4dd81105889a1afe7e5fe2bf869fe677ac14051c",
+      "output_sha256": "4851972631e746c434068e6cf94ddddeac4cc134d96c77142ec58f1df0960a2b",
+      "output_bytes": 475
+    },
+    {
+      "repo": "roact",
+      "file": "src/Config.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "8fe80c4ab5fc9ec01efdeedb297a53c83156911efb7742f79cb0bbe5756d4dff",
+      "output_sha256": "e3bf110fea0a5a7e9cf71a2495aeb3b7cbb942da11fbf4c623b985e09e546698",
+      "output_bytes": 1558
+    },
+    {
+      "repo": "roact",
+      "file": "src/Config.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "8fe80c4ab5fc9ec01efdeedb297a53c83156911efb7742f79cb0bbe5756d4dff",
+      "output_sha256": "39487e523d1a356c46970bdc2171a424e2e6cfadf619f96f13203ef6130b153c",
+      "output_bytes": 1550
+    },
+    {
+      "repo": "roact",
+      "file": "src/Config.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "8fe80c4ab5fc9ec01efdeedb297a53c83156911efb7742f79cb0bbe5756d4dff",
+      "output_sha256": "13499f5910653c36429408314e027778fda89c5e430cb122f76e4bb950cdd992",
+      "output_bytes": 1552
+    },
+    {
+      "repo": "roact",
+      "file": "src/ElementKind.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c35df50d4bc074cd2c2fd3abb995956506947830b36c1c1031a415f05a08f02c",
+      "output_sha256": "7dc59a231c26705d018a972e321cbd5d9d80aace5bc686082199c18726d99c8b",
+      "output_bytes": 743
+    },
+    {
+      "repo": "roact",
+      "file": "src/ElementKind.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c35df50d4bc074cd2c2fd3abb995956506947830b36c1c1031a415f05a08f02c",
+      "output_sha256": "7dc59a231c26705d018a972e321cbd5d9d80aace5bc686082199c18726d99c8b",
+      "output_bytes": 743
+    },
+    {
+      "repo": "roact",
+      "file": "src/ElementKind.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c35df50d4bc074cd2c2fd3abb995956506947830b36c1c1031a415f05a08f02c",
+      "output_sha256": "7dc59a231c26705d018a972e321cbd5d9d80aace5bc686082199c18726d99c8b",
+      "output_bytes": 743
+    },
+    {
+      "repo": "roact",
+      "file": "src/ElementUtils.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "58903a9a8b4b18dee58e1437071d13121155e4cb46b353355777ba67053d74e9",
+      "output_sha256": "a05cf8691c2e7912b73cb893c6570b1937106a9ee99d75e61195398439f91992",
+      "output_bytes": 953
+    },
+    {
+      "repo": "roact",
+      "file": "src/ElementUtils.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "58903a9a8b4b18dee58e1437071d13121155e4cb46b353355777ba67053d74e9",
+      "output_sha256": "a05cf8691c2e7912b73cb893c6570b1937106a9ee99d75e61195398439f91992",
+      "output_bytes": 953
+    },
+    {
+      "repo": "roact",
+      "file": "src/ElementUtils.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "58903a9a8b4b18dee58e1437071d13121155e4cb46b353355777ba67053d74e9",
+      "output_sha256": "a05cf8691c2e7912b73cb893c6570b1937106a9ee99d75e61195398439f91992",
+      "output_bytes": 953
+    },
+    {
+      "repo": "roact",
+      "file": "src/GlobalConfig.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "003a6f315055bc220c42bbdfcc33f2b004cd6d9c53d081c49309cc079da07896",
+      "output_sha256": "552bcc3e0f2075453aea2edb730d81b6adda49ca1d5321ecb83c9c7e72d9f5ac",
+      "output_bytes": 65
+    },
+    {
+      "repo": "roact",
+      "file": "src/GlobalConfig.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "003a6f315055bc220c42bbdfcc33f2b004cd6d9c53d081c49309cc079da07896",
+      "output_sha256": "552bcc3e0f2075453aea2edb730d81b6adda49ca1d5321ecb83c9c7e72d9f5ac",
+      "output_bytes": 65
+    },
+    {
+      "repo": "roact",
+      "file": "src/GlobalConfig.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "003a6f315055bc220c42bbdfcc33f2b004cd6d9c53d081c49309cc079da07896",
+      "output_sha256": "552bcc3e0f2075453aea2edb730d81b6adda49ca1d5321ecb83c9c7e72d9f5ac",
+      "output_bytes": 65
+    },
+    {
+      "repo": "roact",
+      "file": "src/Logging.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "157059a34cf7ce007be47631515986584803324cc9314fd7404ea97fafdca38d",
+      "output_sha256": "e202cbc3ae110a3612003663b0f16a516a562877e68bca3f4d6274247b65e09b",
+      "output_bytes": 1931
+    },
+    {
+      "repo": "roact",
+      "file": "src/Logging.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "157059a34cf7ce007be47631515986584803324cc9314fd7404ea97fafdca38d",
+      "output_sha256": "056e262e7c1747453d592da0db322d5b174c9cda910ed7f6ed564aaef05781e2",
+      "output_bytes": 2037
+    },
+    {
+      "repo": "roact",
+      "file": "src/Logging.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "157059a34cf7ce007be47631515986584803324cc9314fd7404ea97fafdca38d",
+      "output_sha256": "d1d14094173b0f601da9c8835e5103794324a59d9e6662d55d533d6b0b0290d4",
+      "output_bytes": 2159
+    },
+    {
+      "repo": "roact",
+      "file": "src/None.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "990e12913c350a0856589f4e1cba49ec2992118dcf3612e5d33407d492d30e6b",
+      "output_sha256": "6a48d2b5d63b12e6f4d7358b95c88ad02534942ad7b2a8f9fa5fe2a5fd88f76f",
+      "output_bytes": 75
+    },
+    {
+      "repo": "roact",
+      "file": "src/None.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "990e12913c350a0856589f4e1cba49ec2992118dcf3612e5d33407d492d30e6b",
+      "output_sha256": "6a48d2b5d63b12e6f4d7358b95c88ad02534942ad7b2a8f9fa5fe2a5fd88f76f",
+      "output_bytes": 75
+    },
+    {
+      "repo": "roact",
+      "file": "src/None.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "990e12913c350a0856589f4e1cba49ec2992118dcf3612e5d33407d492d30e6b",
+      "output_sha256": "6a48d2b5d63b12e6f4d7358b95c88ad02534942ad7b2a8f9fa5fe2a5fd88f76f",
+      "output_bytes": 75
+    },
+    {
+      "repo": "roact",
+      "file": "src/NoopRenderer.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4fecc89c01f194371c28b1d2d4f7b54dca6634e3ae06b41341140ca4bd8be748",
+      "output_sha256": "252c35404d51fd65d8a8b97431bf672b49b3c6d56976f597387b6b95d4176539",
+      "output_bytes": 262
+    },
+    {
+      "repo": "roact",
+      "file": "src/NoopRenderer.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4fecc89c01f194371c28b1d2d4f7b54dca6634e3ae06b41341140ca4bd8be748",
+      "output_sha256": "252c35404d51fd65d8a8b97431bf672b49b3c6d56976f597387b6b95d4176539",
+      "output_bytes": 262
+    },
+    {
+      "repo": "roact",
+      "file": "src/NoopRenderer.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4fecc89c01f194371c28b1d2d4f7b54dca6634e3ae06b41341140ca4bd8be748",
+      "output_sha256": "252c35404d51fd65d8a8b97431bf672b49b3c6d56976f597387b6b95d4176539",
+      "output_bytes": 262
+    },
+    {
+      "repo": "roact",
+      "file": "src/Portal.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9e5c175f8de1a52cb464977265487b34c0462b96d82fe32eb95865f6e2d34310",
+      "output_sha256": "fc80eef50d907c23a87b41c7fd14a15402a55f872d28bdb4dc57d5315d9b531f",
+      "output_bytes": 77
+    },
+    {
+      "repo": "roact",
+      "file": "src/Portal.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9e5c175f8de1a52cb464977265487b34c0462b96d82fe32eb95865f6e2d34310",
+      "output_sha256": "fc80eef50d907c23a87b41c7fd14a15402a55f872d28bdb4dc57d5315d9b531f",
+      "output_bytes": 77
+    },
+    {
+      "repo": "roact",
+      "file": "src/Portal.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9e5c175f8de1a52cb464977265487b34c0462b96d82fe32eb95865f6e2d34310",
+      "output_sha256": "fc80eef50d907c23a87b41c7fd14a15402a55f872d28bdb4dc57d5315d9b531f",
+      "output_bytes": 77
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Change.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b999f40433b93343dad579c5e36923bd285a307e28375e6546c74f4126fec05a",
+      "output_sha256": "a44a8bd97132a27e9ceb4d3bd4a61ca8cd9630bd5d9653efccafddfe5674bb10",
+      "output_bytes": 360
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Change.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b999f40433b93343dad579c5e36923bd285a307e28375e6546c74f4126fec05a",
+      "output_sha256": "a44a8bd97132a27e9ceb4d3bd4a61ca8cd9630bd5d9653efccafddfe5674bb10",
+      "output_bytes": 360
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Change.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b999f40433b93343dad579c5e36923bd285a307e28375e6546c74f4126fec05a",
+      "output_sha256": "a44a8bd97132a27e9ceb4d3bd4a61ca8cd9630bd5d9653efccafddfe5674bb10",
+      "output_bytes": 360
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Children.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "eb5044312d52a25c0ece93b6d8f072d2215e90dda2f55dc840e9d4fc7173512d",
+      "output_sha256": "4ad94d5afdec725c660aa50dab278d0873dee4279a93f448969c75f407b1f290",
+      "output_bytes": 86
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Children.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "eb5044312d52a25c0ece93b6d8f072d2215e90dda2f55dc840e9d4fc7173512d",
+      "output_sha256": "4ad94d5afdec725c660aa50dab278d0873dee4279a93f448969c75f407b1f290",
+      "output_bytes": 86
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Children.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "eb5044312d52a25c0ece93b6d8f072d2215e90dda2f55dc840e9d4fc7173512d",
+      "output_sha256": "4ad94d5afdec725c660aa50dab278d0873dee4279a93f448969c75f407b1f290",
+      "output_bytes": 86
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Event.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1ef407b024b122afbe87f70d1971cf3967c0281b8ccc74857315db971c4be286",
+      "output_sha256": "b696015822945780dd677024bd7be4377c8caa12b152ae7a338e3ec11c863258",
+      "output_bytes": 344
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Event.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1ef407b024b122afbe87f70d1971cf3967c0281b8ccc74857315db971c4be286",
+      "output_sha256": "b696015822945780dd677024bd7be4377c8caa12b152ae7a338e3ec11c863258",
+      "output_bytes": 344
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Event.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1ef407b024b122afbe87f70d1971cf3967c0281b8ccc74857315db971c4be286",
+      "output_sha256": "b696015822945780dd677024bd7be4377c8caa12b152ae7a338e3ec11c863258",
+      "output_bytes": 344
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Ref.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "528c5c8400b9333cb41e81ed709e736d003d6362a56e69a3eefb15df3ce8a078",
+      "output_sha256": "340e0b4df69989c48649fccc6bc442d2dc8f8d1cf4fe6544f77d49ff8cd5e4a1",
+      "output_bytes": 81
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Ref.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "528c5c8400b9333cb41e81ed709e736d003d6362a56e69a3eefb15df3ce8a078",
+      "output_sha256": "340e0b4df69989c48649fccc6bc442d2dc8f8d1cf4fe6544f77d49ff8cd5e4a1",
+      "output_bytes": 81
+    },
+    {
+      "repo": "roact",
+      "file": "src/PropMarkers/Ref.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "528c5c8400b9333cb41e81ed709e736d003d6362a56e69a3eefb15df3ce8a078",
+      "output_sha256": "340e0b4df69989c48649fccc6bc442d2dc8f8d1cf4fe6544f77d49ff8cd5e4a1",
+      "output_bytes": 81
+    },
+    {
+      "repo": "roact",
+      "file": "src/PureComponent.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "411a948bb7c0a7f7677f6019b5c9322116bdea694ae2f27f91492cec4544827e",
+      "output_sha256": "22e745234c09cf129544982d47d359771b3270c7c73c2343a8d2dc359dc830f5",
+      "output_bytes": 478
+    },
+    {
+      "repo": "roact",
+      "file": "src/PureComponent.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "411a948bb7c0a7f7677f6019b5c9322116bdea694ae2f27f91492cec4544827e",
+      "output_sha256": "22e745234c09cf129544982d47d359771b3270c7c73c2343a8d2dc359dc830f5",
+      "output_bytes": 478
+    },
+    {
+      "repo": "roact",
+      "file": "src/PureComponent.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "411a948bb7c0a7f7677f6019b5c9322116bdea694ae2f27f91492cec4544827e",
+      "output_sha256": "22e745234c09cf129544982d47d359771b3270c7c73c2343a8d2dc359dc830f5",
+      "output_bytes": 478
+    },
+    {
+      "repo": "roact",
+      "file": "src/RobloxRenderer.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "843f2b45f376cc6b50739030faa81c0f5a1734db972fa323e4c7b38f75a8c4ac",
+      "output_sha256": "0ee1b06266bd99b471d1ea9a0177fd0743a74c74984bbea6ad8d4540eed9ef06",
+      "output_bytes": 5537
+    },
+    {
+      "repo": "roact",
+      "file": "src/RobloxRenderer.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "843f2b45f376cc6b50739030faa81c0f5a1734db972fa323e4c7b38f75a8c4ac",
+      "output_sha256": "5c73a2d509df3c2dbebf73fb6c4d64cbc0747345f5f840a46e1bc71144ce77d8",
+      "output_bytes": 5592
+    },
+    {
+      "repo": "roact",
+      "file": "src/RobloxRenderer.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "843f2b45f376cc6b50739030faa81c0f5a1734db972fa323e4c7b38f75a8c4ac",
+      "output_sha256": "ceb25fba92b7509db8e1d8f46c1ee5398bcc1ae08515e12d25850d25c5b33327",
+      "output_bytes": 6030
+    },
+    {
+      "repo": "roact",
+      "file": "src/SingleEventManager.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f6612564d2fa125ae496ae21660d961d6d32f3c56fb6666916bb61f89f8f92d2",
+      "output_sha256": "880f97279f8756bca5e0101ac43326b9b9b5d64bec942aa9ba382face49163ee",
+      "output_bytes": 2195
+    },
+    {
+      "repo": "roact",
+      "file": "src/SingleEventManager.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f6612564d2fa125ae496ae21660d961d6d32f3c56fb6666916bb61f89f8f92d2",
+      "output_sha256": "798c8928ec235fd8bd76a3192f98479e034a9f54baea39b3673e1ac189eeaf19",
+      "output_bytes": 2335
+    },
+    {
+      "repo": "roact",
+      "file": "src/SingleEventManager.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "f6612564d2fa125ae496ae21660d961d6d32f3c56fb6666916bb61f89f8f92d2",
+      "output_sha256": "798c8928ec235fd8bd76a3192f98479e034a9f54baea39b3673e1ac189eeaf19",
+      "output_bytes": 2335
+    },
+    {
+      "repo": "roact",
+      "file": "src/Symbol.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "edab8ba1c5f8cef139024ba7aba55ea3f327c3ba13c6d2a39e8ab6923db45312",
+      "output_sha256": "a5fe241feb455594321b50652751978851f48f1b3a62a520c9463c24cd7c5ca9",
+      "output_bytes": 318
+    },
+    {
+      "repo": "roact",
+      "file": "src/Symbol.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "edab8ba1c5f8cef139024ba7aba55ea3f327c3ba13c6d2a39e8ab6923db45312",
+      "output_sha256": "f4316352812495196e7cdbafa430e44c67f42f30ddac3730695cf8a1d6dbb093",
+      "output_bytes": 335
+    },
+    {
+      "repo": "roact",
+      "file": "src/Symbol.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "edab8ba1c5f8cef139024ba7aba55ea3f327c3ba13c6d2a39e8ab6923db45312",
+      "output_sha256": "f4316352812495196e7cdbafa430e44c67f42f30ddac3730695cf8a1d6dbb093",
+      "output_bytes": 335
+    },
+    {
+      "repo": "roact",
+      "file": "src/Type.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "05b8ef99acc9eabdbdab000a173dbcb2fccd18069caddd3a270326097df9c3aa",
+      "output_sha256": "4e89e4f3b0615ee71e20c13047ccc2ed363c07628f62f5610e8ea726025f1d06",
+      "output_bytes": 689
+    },
+    {
+      "repo": "roact",
+      "file": "src/Type.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "05b8ef99acc9eabdbdab000a173dbcb2fccd18069caddd3a270326097df9c3aa",
+      "output_sha256": "4e89e4f3b0615ee71e20c13047ccc2ed363c07628f62f5610e8ea726025f1d06",
+      "output_bytes": 689
+    },
+    {
+      "repo": "roact",
+      "file": "src/Type.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "05b8ef99acc9eabdbdab000a173dbcb2fccd18069caddd3a270326097df9c3aa",
+      "output_sha256": "d6674359bcd79fad1263ee3f019163eac2e1725d37c3eecd5b46e014ad70dd48",
+      "output_bytes": 924
+    },
+    {
+      "repo": "roact",
+      "file": "src/assertDeepEqual.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "afc3d88feceb7c07a183e15b76137620fefd589e83531078b2d9b4e70641f748",
+      "output_sha256": "7322c555985076acde0a8ad0cb3eda10e044ea0c28eecce64464423ed136dee2",
+      "output_bytes": 1157
+    },
+    {
+      "repo": "roact",
+      "file": "src/assertDeepEqual.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "afc3d88feceb7c07a183e15b76137620fefd589e83531078b2d9b4e70641f748",
+      "output_sha256": "7322c555985076acde0a8ad0cb3eda10e044ea0c28eecce64464423ed136dee2",
+      "output_bytes": 1157
+    },
+    {
+      "repo": "roact",
+      "file": "src/assertDeepEqual.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "afc3d88feceb7c07a183e15b76137620fefd589e83531078b2d9b4e70641f748",
+      "output_sha256": "705fe1f9bcad16f2ba7f8d84437c7966aa5ab63b0242d216f1bbbff795d619a3",
+      "output_bytes": 1167
+    },
+    {
+      "repo": "roact",
+      "file": "src/assign.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2e60a0bdd8f72cd1bae13df4f9cb7760f3c7de4e4cdcfc37d227fe9e7b24fef0",
+      "output_sha256": "d4471a998fd9a37576e0dffcf240f3c556a49ba4bb68e8341c123f78f159ef7b",
+      "output_bytes": 304
+    },
+    {
+      "repo": "roact",
+      "file": "src/assign.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2e60a0bdd8f72cd1bae13df4f9cb7760f3c7de4e4cdcfc37d227fe9e7b24fef0",
+      "output_sha256": "d4471a998fd9a37576e0dffcf240f3c556a49ba4bb68e8341c123f78f159ef7b",
+      "output_bytes": 304
+    },
+    {
+      "repo": "roact",
+      "file": "src/assign.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2e60a0bdd8f72cd1bae13df4f9cb7760f3c7de4e4cdcfc37d227fe9e7b24fef0",
+      "output_sha256": "d4471a998fd9a37576e0dffcf240f3c556a49ba4bb68e8341c123f78f159ef7b",
+      "output_bytes": 304
+    },
+    {
+      "repo": "roact",
+      "file": "src/createContext.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cfacec976f22b8cba2f5d9716174ccab1664b95a316176ebc902e86194449767",
+      "output_sha256": "b19a82c17c54bd4206edeb193d922137e56eeaccf67f9ef9c5e1e5c91fd6afc3",
+      "output_bytes": 2334
+    },
+    {
+      "repo": "roact",
+      "file": "src/createContext.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cfacec976f22b8cba2f5d9716174ccab1664b95a316176ebc902e86194449767",
+      "output_sha256": "e2e0ebdd3c9222d113ea7f63b7f8812c347da9c5f2ae6b29754e4d11b9bfce15",
+      "output_bytes": 2372
+    },
+    {
+      "repo": "roact",
+      "file": "src/createContext.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cfacec976f22b8cba2f5d9716174ccab1664b95a316176ebc902e86194449767",
+      "output_sha256": "e3896806def46fd2a3f837ee28a8d1fca5738a5e5b6fe8b5b0caad20abc24317",
+      "output_bytes": 2393
+    },
+    {
+      "repo": "roact",
+      "file": "src/createElement.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cc4088ecaa661af5b02336c7b017afc01aeec5ff591dd3ed52c0c226615aa088",
+      "output_sha256": "e56841b2353f7f24d78f4d513a2323b19db5affbefc2692d0dae625bd336a1a2",
+      "output_bytes": 1625
+    },
+    {
+      "repo": "roact",
+      "file": "src/createElement.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cc4088ecaa661af5b02336c7b017afc01aeec5ff591dd3ed52c0c226615aa088",
+      "output_sha256": "97181bca58825c9fec1352a7ec599cdfa984ff0c96451fa2b012deef7f606c97",
+      "output_bytes": 1610
+    },
+    {
+      "repo": "roact",
+      "file": "src/createElement.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cc4088ecaa661af5b02336c7b017afc01aeec5ff591dd3ed52c0c226615aa088",
+      "output_sha256": "97181bca58825c9fec1352a7ec599cdfa984ff0c96451fa2b012deef7f606c97",
+      "output_bytes": 1610
+    },
+    {
+      "repo": "roact",
+      "file": "src/createFragment.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b6e4302ece6a7e6deb9a60ae9050eb441654f62c9365baac388996a9d3f2e24f",
+      "output_sha256": "8288e5de6c0a6112a8645cdc04112dc63a4d24e67079cccfc5efc0105db51c1a",
+      "output_bytes": 264
+    },
+    {
+      "repo": "roact",
+      "file": "src/createFragment.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b6e4302ece6a7e6deb9a60ae9050eb441654f62c9365baac388996a9d3f2e24f",
+      "output_sha256": "8288e5de6c0a6112a8645cdc04112dc63a4d24e67079cccfc5efc0105db51c1a",
+      "output_bytes": 264
+    },
+    {
+      "repo": "roact",
+      "file": "src/createFragment.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "b6e4302ece6a7e6deb9a60ae9050eb441654f62c9365baac388996a9d3f2e24f",
+      "output_sha256": "8288e5de6c0a6112a8645cdc04112dc63a4d24e67079cccfc5efc0105db51c1a",
+      "output_bytes": 264
+    },
+    {
+      "repo": "roact",
+      "file": "src/createReconciler.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "283ae1630441fb0a67d3ac9ae8037a6c923b0dcd2862019467fe16662e5bd113",
+      "output_sha256": "f42d4677293057b6e285c04d497958939f96bc0b95881bf4bec1b1cb4e97d767",
+      "output_bytes": 10768
+    },
+    {
+      "repo": "roact",
+      "file": "src/createReconciler.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "283ae1630441fb0a67d3ac9ae8037a6c923b0dcd2862019467fe16662e5bd113",
+      "output_sha256": "297674399207a310e4bf0bd16cd54e1881ac9780c9710b85255f5fa48b3da47d",
+      "output_bytes": 10960
+    },
+    {
+      "repo": "roact",
+      "file": "src/createReconciler.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "283ae1630441fb0a67d3ac9ae8037a6c923b0dcd2862019467fe16662e5bd113",
+      "output_sha256": "7c041a843ca52cb46b59476f697bb1504a78e3e026d722c535d4fdcb43f9c8e5",
+      "output_bytes": 12863
+    },
+    {
+      "repo": "roact",
+      "file": "src/createReconcilerCompat.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "99765193cf961dc0589162f717bc298fe36dea20977713877f0a30e3ef656516",
+      "output_sha256": "d20a770d584866a885c3cad96706bef1e177cb28a097551be8c77190082f8160",
+      "output_bytes": 848
+    },
+    {
+      "repo": "roact",
+      "file": "src/createReconcilerCompat.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "99765193cf961dc0589162f717bc298fe36dea20977713877f0a30e3ef656516",
+      "output_sha256": "0b9bb5a8a32dda7966f54d3e71718a8631b00affd50b1bfa5a3bad94f68719aa",
+      "output_bytes": 808
+    },
+    {
+      "repo": "roact",
+      "file": "src/createReconcilerCompat.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "99765193cf961dc0589162f717bc298fe36dea20977713877f0a30e3ef656516",
+      "output_sha256": "0b9bb5a8a32dda7966f54d3e71718a8631b00affd50b1bfa5a3bad94f68719aa",
+      "output_bytes": 808
+    },
+    {
+      "repo": "roact",
+      "file": "src/createRef.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "718c979aee6995d0f76e8461528ad6220e4f33c6e09cc890bee88fd58ea734d1",
+      "output_sha256": "22282840c0699748f601e98803a8603d190343b0b96190cce5bb86f6967eb8fb",
+      "output_bytes": 539
+    },
+    {
+      "repo": "roact",
+      "file": "src/createRef.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "718c979aee6995d0f76e8461528ad6220e4f33c6e09cc890bee88fd58ea734d1",
+      "output_sha256": "22282840c0699748f601e98803a8603d190343b0b96190cce5bb86f6967eb8fb",
+      "output_bytes": 539
+    },
+    {
+      "repo": "roact",
+      "file": "src/createRef.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "718c979aee6995d0f76e8461528ad6220e4f33c6e09cc890bee88fd58ea734d1",
+      "output_sha256": "b39a6846d2c4be71d9e77237124381dbad3fd26e8fd403e60840731899fbac92",
+      "output_bytes": 541
+    },
+    {
+      "repo": "roact",
+      "file": "src/createSignal.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "29d941627c9c0794fe4d8de1e149ce4b6d3e90959454d7876cd011077bec1cad",
+      "output_sha256": "ac4d7b3bfb3d58d2f8aef5259e5c2b7a50a0cacc3ff51c53422d130ffde38f29",
+      "output_bytes": 845
+    },
+    {
+      "repo": "roact",
+      "file": "src/createSignal.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "29d941627c9c0794fe4d8de1e149ce4b6d3e90959454d7876cd011077bec1cad",
+      "output_sha256": "397f368411eb13943024ab9602314ee1048a09864a7c17195977486721a26d67",
+      "output_bytes": 869
+    },
+    {
+      "repo": "roact",
+      "file": "src/createSignal.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "29d941627c9c0794fe4d8de1e149ce4b6d3e90959454d7876cd011077bec1cad",
+      "output_sha256": "397f368411eb13943024ab9602314ee1048a09864a7c17195977486721a26d67",
+      "output_bytes": 869
+    },
+    {
+      "repo": "roact",
+      "file": "src/createSpy.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "62b511a10097aeb944e356c5d32928cbdeb9fb8e1af3c7c3775e9110e5f16894",
+      "output_sha256": "8e051ffa05639d2cad292dca0ebad87af825be15efd8ac21af346c70b0b84ef0",
+      "output_bytes": 1377
+    },
+    {
+      "repo": "roact",
+      "file": "src/createSpy.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "62b511a10097aeb944e356c5d32928cbdeb9fb8e1af3c7c3775e9110e5f16894",
+      "output_sha256": "0958b8a919ac83e789b8f965bd2b5660ec6399673488e44284c6f38b18292088",
+      "output_bytes": 1393
+    },
+    {
+      "repo": "roact",
+      "file": "src/createSpy.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "62b511a10097aeb944e356c5d32928cbdeb9fb8e1af3c7c3775e9110e5f16894",
+      "output_sha256": "0958b8a919ac83e789b8f965bd2b5660ec6399673488e44284c6f38b18292088",
+      "output_bytes": 1393
+    },
+    {
+      "repo": "roact",
+      "file": "src/forwardRef.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cd5abbcb6d997f7eca560353dc92cd0aad557e0cd4f5296939724f9824284645",
+      "output_sha256": "ad9ad83709fbeb2a0682b5c3c423578aee7c3a364844c61da4097a02c32f550d",
+      "output_bytes": 503
+    },
+    {
+      "repo": "roact",
+      "file": "src/forwardRef.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cd5abbcb6d997f7eca560353dc92cd0aad557e0cd4f5296939724f9824284645",
+      "output_sha256": "e1357b93a7538eec6455bffa3e1875f0292052123e0f98053637791ddc80041d",
+      "output_bytes": 519
+    },
+    {
+      "repo": "roact",
+      "file": "src/forwardRef.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "cd5abbcb6d997f7eca560353dc92cd0aad557e0cd4f5296939724f9824284645",
+      "output_sha256": "e1357b93a7538eec6455bffa3e1875f0292052123e0f98053637791ddc80041d",
+      "output_bytes": 519
+    },
+    {
+      "repo": "roact",
+      "file": "src/getDefaultInstanceProperty.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2331caf01459c1ff5779b974a05db370c384f573d85e6c3d699fc451f4a3fe3b",
+      "output_sha256": "c82116eb710f128e0c6a0bc794bf693f458c46102f8462511723dae6ea3eee0b",
+      "output_bytes": 633
+    },
+    {
+      "repo": "roact",
+      "file": "src/getDefaultInstanceProperty.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2331caf01459c1ff5779b974a05db370c384f573d85e6c3d699fc451f4a3fe3b",
+      "output_sha256": "68a896c09784b3d60e4d8e3d057b0c1a2150939844e1c6b83393ed64f28c2b5e",
+      "output_bytes": 658
+    },
+    {
+      "repo": "roact",
+      "file": "src/getDefaultInstanceProperty.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2331caf01459c1ff5779b974a05db370c384f573d85e6c3d699fc451f4a3fe3b",
+      "output_sha256": "68a896c09784b3d60e4d8e3d057b0c1a2150939844e1c6b83393ed64f28c2b5e",
+      "output_bytes": 658
+    },
+    {
+      "repo": "roact",
+      "file": "src/init.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2af82df804876fda1b17f08a93742a6a71ef0b1c4b16dd636e899e67cd397bc3",
+      "output_sha256": "3db0053d065e9cf60ed6f43b99af329a1a067ca0f0378caa983b33cb0305b33b",
+      "output_bytes": 1783
+    },
+    {
+      "repo": "roact",
+      "file": "src/init.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2af82df804876fda1b17f08a93742a6a71ef0b1c4b16dd636e899e67cd397bc3",
+      "output_sha256": "3db0053d065e9cf60ed6f43b99af329a1a067ca0f0378caa983b33cb0305b33b",
+      "output_bytes": 1783
+    },
+    {
+      "repo": "roact",
+      "file": "src/init.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "2af82df804876fda1b17f08a93742a6a71ef0b1c4b16dd636e899e67cd397bc3",
+      "output_sha256": "3db0053d065e9cf60ed6f43b99af329a1a067ca0f0378caa983b33cb0305b33b",
+      "output_bytes": 1783
+    },
+    {
+      "repo": "roact",
+      "file": "src/internalAssert.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9cb3c4f538936e1f29c4042f6a6e491c6cab6156e5549ba5040c6db816443dc6",
+      "output_sha256": "3f3d6250b1283a1d1fbfb5212efee82881aab8dd6add93a69ee12db3c7edc141",
+      "output_bytes": 140
+    },
+    {
+      "repo": "roact",
+      "file": "src/internalAssert.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9cb3c4f538936e1f29c4042f6a6e491c6cab6156e5549ba5040c6db816443dc6",
+      "output_sha256": "3f3d6250b1283a1d1fbfb5212efee82881aab8dd6add93a69ee12db3c7edc141",
+      "output_bytes": 140
+    },
+    {
+      "repo": "roact",
+      "file": "src/internalAssert.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "9cb3c4f538936e1f29c4042f6a6e491c6cab6156e5549ba5040c6db816443dc6",
+      "output_sha256": "3f3d6250b1283a1d1fbfb5212efee82881aab8dd6add93a69ee12db3c7edc141",
+      "output_bytes": 140
+    },
+    {
+      "repo": "roact",
+      "file": "src/invalidSetStateMessages.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4937e3ff04b421efc832903b9f4445263754f097caa8ebc96eb4ec1900648e9d",
+      "output_sha256": "9cd9540a503ba412a0e68d27508c63ed4f06a5041a203616b853137ab2c2c794",
+      "output_bytes": 995
+    },
+    {
+      "repo": "roact",
+      "file": "src/invalidSetStateMessages.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4937e3ff04b421efc832903b9f4445263754f097caa8ebc96eb4ec1900648e9d",
+      "output_sha256": "9cd9540a503ba412a0e68d27508c63ed4f06a5041a203616b853137ab2c2c794",
+      "output_bytes": 995
+    },
+    {
+      "repo": "roact",
+      "file": "src/invalidSetStateMessages.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "4937e3ff04b421efc832903b9f4445263754f097caa8ebc96eb4ec1900648e9d",
+      "output_sha256": "9cd9540a503ba412a0e68d27508c63ed4f06a5041a203616b853137ab2c2c794",
+      "output_bytes": 995
+    },
+    {
+      "repo": "roact",
+      "file": "src/oneChild.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c356c39f58351ba7f78ea253cb87b189f4d95960cda6d82b8473d6b4814dac7b",
+      "output_sha256": "51c6e336eceff8abc845751e6f6f382c231f9f3e29cf1c740691a741adb4f05d",
+      "output_bytes": 257
+    },
+    {
+      "repo": "roact",
+      "file": "src/oneChild.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c356c39f58351ba7f78ea253cb87b189f4d95960cda6d82b8473d6b4814dac7b",
+      "output_sha256": "51c6e336eceff8abc845751e6f6f382c231f9f3e29cf1c740691a741adb4f05d",
+      "output_bytes": 257
+    },
+    {
+      "repo": "roact",
+      "file": "src/oneChild.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "c356c39f58351ba7f78ea253cb87b189f4d95960cda6d82b8473d6b4814dac7b",
+      "output_sha256": "51c6e336eceff8abc845751e6f6f382c231f9f3e29cf1c740691a741adb4f05d",
+      "output_bytes": 257
+    },
+    {
+      "repo": "roact",
+      "file": "src/strict.lua",
+      "opt": 0,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1e71ce83e36fc23bb752c07d4c438b4bbc2f32dc99b6f75c12f5fba3e9a21fa5",
+      "output_sha256": "24cae9cd467ee1e308cdc5d401d8045788ebe06dbccc4640abbdcbf006b43a4a",
+      "output_bytes": 422
+    },
+    {
+      "repo": "roact",
+      "file": "src/strict.lua",
+      "opt": 1,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1e71ce83e36fc23bb752c07d4c438b4bbc2f32dc99b6f75c12f5fba3e9a21fa5",
+      "output_sha256": "24cae9cd467ee1e308cdc5d401d8045788ebe06dbccc4640abbdcbf006b43a4a",
+      "output_bytes": 422
+    },
+    {
+      "repo": "roact",
+      "file": "src/strict.lua",
+      "opt": 2,
+      "split": "development",
+      "status": "passed",
+      "source_sha256": "1e71ce83e36fc23bb752c07d4c438b4bbc2f32dc99b6f75c12f5fba3e9a21fa5",
+      "output_sha256": "aa393ab7e3b9a07ac89b4f43c558ceffa0dde1904743987ace56ee7397be8b4b",
+      "output_bytes": 433
+    }
+  ],
+  "source_and_prior_metrics_identical": true,
+  "before_report_sha256": "a52fdb22cf5e9eec86d26e26847a5045ff26229967a15cfc61c66e00c1994936",
+  "full_after_report_sha256": "4a336525b094f25eb0472b3d5726c0915b415743882b9aad531d70038707536e",
+  "inherited_metrics": "Exact source, dataflow and source_fidelity equality with global_order_public.json; no Roblox runtime claim."
+}

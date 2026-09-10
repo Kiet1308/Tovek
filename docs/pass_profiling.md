@@ -45,6 +45,12 @@ attached to the innermost active span. A missing counter means unmeasured or
 inapplicable. The existing write-once census is measured once per de-inline
 invocation; this change does not introduce or claim a new cache.
 
+The later SSA-inline optimization adds `ssa_fact_cache_*` counters to
+`F_SSA_INLINE`. They distinguish reuse, stored computation, uncached fallback,
+invalidation and allocated statement slots. The [cache contract](ssa_inline_cache.md)
+defines the block-visit lifetime and which mutations invalidate entries.
+Slot totals do not measure allocation bytes or peak live memory.
+
 Before/after node census currently covers the three `S_FACTOR_*`/`S_DEINLINE`
 phases. It counts statement and rvalue occurrences, including indexed
 assignment operands, and visits each owned closure body once. Binder/type

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "binary": {
+    "path": "D:\\Medal\\medal-decompiler\\out\\v2-ssa-cache-lifter.exe",
+    "sha256": "00c9dddfe0f5775b7e280a9d5e3d42a7067cfd71c7c75b8bd488c2de7f0b2386"
+  },
+  "compiler": {
+    "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+    "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+  },
+  "checks": {
+    "workspace_all_targets": "passed",
+    "rust_primary_tests": 897,
+    "rust_child_process_repeat": 1,
+    "python_tests": 42,
+    "debug_cache_hit_assertions": "passed on all nonempty corpus scripts",
+    "runtime_configurations": 96,
+    "oracle_controls": 9,
+    "runtime_source_byte_identical": 96,
+    "public_configurations": 513,
+    "holdout_configurations": 45,
+    "public_source_byte_identical": 513,
+    "legacy_semantic_cases": 45,
+    "size_gate_files": 52,
+    "size_regressions": 0,
+    "full_sidecar_identity_configurations": 96,
+    "full_sidecar_identity_modes": 3,
+    "fixture_profile_modes": "off/on at one/four threads"
+  },
+  "source_identities": {
+    "corpus": {
+      "output_tree_sha256": "ba6b674bf91e12bbcb5782b1d298b7c73f3cc2c708f88815569b9e704b29cc17",
+      "files": 3978,
+      "byte_identical": true
+    },
+    "debug_corpus": {
+      "output_tree_sha256": "ba6b674bf91e12bbcb5782b1d298b7c73f3cc2c708f88815569b9e704b29cc17",
+      "files": 3978,
+      "byte_identical": true
+    },
+    "semantic": {
+      "output_tree_sha256": "ab6ac5da55319871a1ca9bff4a7fca0b0e0336d6c3a60502c296bcf9bd4d727f",
+      "files": 45,
+      "byte_identical": true
+    },
+    "residual": {
+      "output_tree_sha256": "76ad15f32c9c0bc3a96368b8cea7626ae8135e9467c9d8a0d8a8fdd76f6cf17a",
+      "files": 7,
+      "byte_identical": true
+    }
+  },
+  "logs": [
+    {
+      "path": "out/v2-ssa-cache-rust.log",
+      "sha256": "bb82fecbd4b53a096ec5c9fb31edcffefe4064aa706be4ce43d960ec8d2961d9"
+    },
+    {
+      "path": "out/v2-ssa-cache-python.log",
+      "sha256": "ea914d144410401ada8fc682cd1a307ad3d15a4ed95d79301be4de64d1753044"
+    },
+    {
+      "path": "out/v2-ssa-cache-checked-debug-corpus.log",
+      "sha256": "970dac13a31f16ca84975f3803adc33f2bd1c8b75c5bd59b42541aa9d210541e"
+    },
+    {
+      "path": "out/v2-ssa-cache-final-semantic.log",
+      "sha256": "b3491c741a26d7dc2bf1b0e93271ae99bd552a2764170946cf298c32a8ae061b"
+    }
+  ],
+  "legacy_oracle_gates": "Inherited from R4 through byte-identical residual/semantic source; no oracle or size baseline changed.",
+  "limitations": "Modest measured warm-cache CLI gain on one machine. No cold-cache, in-memory API or allocation-count claim; no Roblox runtime on the public/private corpus."
+}
