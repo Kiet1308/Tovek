@@ -207,6 +207,10 @@ jobs:
             --root "$trace_dir" \
             --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --report "$RUNNER_TEMP/binding-graph.json"
+          python3 scripts/local_producer_controls.py \
+            --root "$trace_dir" \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --report "$RUNNER_TEMP/local-producer-controls.json"
 
       - name: V2 formatter observable evaluation counterexamples
         run: |
@@ -327,6 +331,7 @@ jobs:
             ${{ runner.temp }}/roadmap-v2-formatter-controls.json
             ${{ runner.temp }}/roadmap-v2-assignment-order.json
             ${{ runner.temp }}/branch-constructor-controls.json
+            ${{ runner.temp }}/local-producer-controls.json
             ${{ runner.temp }}/roadmap-v2-cache-controls.json
             ${{ runner.temp }}/roadmap-v2-profile.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau

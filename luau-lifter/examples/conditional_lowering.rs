@@ -134,6 +134,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let before = module.to_string();
         let report = ast::lower_conditionals::lower_existing_conditionals(&mut module);
         let after = module.to_string();
+        let (mapped, _, emission_map) = ast::formatter::format_with_emission_map(&module, Default::default(), true)?;
+        assert_eq!(after, mapped, "diagnostic formatting changed {name}");
+        assert_eq!(emission_map.omitted_occurrences, 0);
+        let producer_ids: std::collections::BTreeSet<_> = report.introduced_bindings.records.iter()
+            .map(|r| r.binding_id.clone()).collect();
+        let producer_tokens: Vec<_> = emission_map.bindings.iter()
+            .filter(|token| producer_ids.contains(&format!("b{}", token.binding_id)))
+            .map(|token| serde_json::json!({"binding_id": format!("b{}", token.binding_id),
+                "role": token.role, "span": [token.span.start.byte_offset, token.span.end.byte_offset]}))
+            .collect();
         if let Some(reason) = refusal {
             assert_eq!(before, after, "refusal changed {name}");
             assert!(
@@ -160,11 +170,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         fs::write(dir.join("output.luau"), after + "\n")?;
         cases.push(
             serde_json::json!({"case":name,"report":report,"expected_refusal":refusal,
-            "extra_arguments":inputs.vararg_count.unwrap_or(0)}),
+            "extra_arguments":inputs.vararg_count.unwrap_or(0), "emitter_introduction_tokens": producer_tokens}),
         );
         Ok(())
     };
     let x = Inputs::new();
+    // A synthesized storage local for an existing closure can be emitted as
+    // `local function`; the local producer does not own the closure prototype.
+    add("closure_callee_snapshot", &x, Block(vec![ret(vec![Call::new(
+        closure(vec![], Block(vec![ret(vec![number(7.)])]), &[]), vec![x.choice()]
+    ).into()])]), false, None)?;
+    add("closure_short_circuit", &x, Block(vec![ret(vec![Call::new(
+        Binary::new(closure(vec![], Block(vec![ret(vec![number(7.)])]), &[]), x.choice(), Op::Or).into(),
+        vec![],
+    ).into()])]), false, None)?;
     for count in [0, 2] {
         let mut v = Inputs::new();
         v.vararg_count = Some(count);

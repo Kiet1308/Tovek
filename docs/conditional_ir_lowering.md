@@ -11,6 +11,9 @@ one arm assigns it. A single destination adjusts a call/vararg arm to one result
 including nil. Existing destination/source bindings retain their identity and
 declaration point. A result read several times is computed once. Fresh locals
 have no copied source/debug binding, SSA lineage or ownership certificate.
+Their [explicit emitter introductions](emitter_local_origins.md) record selected
+results, short-circuit results and evaluation snapshots by binding ID. Records
+from a refused tentative rewrite are discarded; input ancestry remains unknown.
 
 The lowerer snapshots preceding ordinary callee, argument and tuple values when
 later conditional statements must execute. A last open call/vararg pack remains

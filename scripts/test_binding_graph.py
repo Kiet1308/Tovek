@@ -81,6 +81,44 @@ class BindingGraphTests(unittest.TestCase):
         self.assertEqual(graph['declarations'][1]['kind'], 'local')
         self.assertFalse(graph['declarations'][1]['protect_recorded_name'])
 
+    def producer_fixture(self):
+        from test_local_producers import fixture
+        source, root, metadata = self.fixture()
+        producer_trace, producer_metadata = fixture()
+        record = producer_trace['local_producers']['passes'][0]['records'][0]
+        record['binding_id'] = 'b2'
+        metadata['branch_constructors'] = producer_metadata['branch_constructors']
+        metadata['binding_provenance']['local_producers'] = producer_trace['local_producers']
+        metadata['binding_provenance']['final_bindings'][1]['emitter_introduction'] = {'pass': 'branch_constructors', 'record': 0}
+        return source, root, metadata
+
+    def test_explicit_emitter_origin_joins_by_identity_even_with_identical_names(self):
+        source, root, metadata = self.producer_fixture()
+        graph = attach_storage(lexical_graph(root, source), metadata, source)
+        self.assertNotIn('emitter_introduction', graph['declarations'][0])
+        row = graph['declarations'][1]
+        self.assertEqual(row['emitter_introduction']['role'], 'constructor_property_value')
+        self.assertEqual(row['recorded_origins'], [])
+        self.assertFalse(row['protect_recorded_name'])
+
+    def test_shared_storage_does_not_assign_producer_to_one_lexical_declaration(self):
+        source, root, metadata = self.producer_fixture()
+        trace = metadata['binding_provenance']
+        for token in trace['output_map']['bindings']:
+            token['binding_id'] = 'b2'
+        trace['final_bindings'].pop(0)
+        graph = attach_storage(lexical_graph(root, source), metadata, source)
+        for row in graph['declarations']:
+            self.assertNotIn('emitter_introduction', row)
+            self.assertEqual(row['emitter_introduction_status'], 'ambiguous_shared_storage')
+
+    def test_emitter_record_cannot_relabel_a_parameter_as_synthesized(self):
+        source, root, metadata = self.producer_fixture()
+        graph = lexical_graph(root, source)
+        graph['declarations'][1]['kind'] = 'parameter'
+        with self.assertRaisesRegex(Refused, 'incompatible_lexical_kind'):
+            attach_storage(graph, metadata, source)
+
     def test_budget_exhaustion_does_not_return_partial_graph(self):
         source, root, _ = self.fixture()
         for field, value in dict(source_bytes=4, nodes=2, depth=1, declarations=1, tokens=1).items():

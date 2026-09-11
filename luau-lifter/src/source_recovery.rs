@@ -57,6 +57,7 @@ pub(crate) fn provenance_report(
     traces: Vec<Box<cfg::provenance::FunctionTrace>>,
     body: &mut ast::Block,
     emission_map: ast::emission_map::EmissionMap,
+    local_producers: Vec<ast::local_producers::Pass>,
 ) -> Value {
     let id = |id| format!("b{id}");
     let ids = |items: &[u64]| items.iter().map(|&item| id(item)).collect::<Vec<_>>();
@@ -120,6 +121,22 @@ pub(crate) fn provenance_report(
                 "incomplete": true, "reason": "unattributed_or_synthesized_after_ssa"}));
         }
     }
+    // Only explicit committed introductions authorize a synthesis label. Keep
+    // input storage ancestry and its missing/incomplete flags unchanged.
+    let mut producer_bindings = BTreeMap::new();
+    let mut producer_omissions = 0;
+    for pass in &local_producers {
+        producer_omissions += pass.ledger.omitted_records;
+        for (record, producer) in pass.ledger.records.iter().enumerate() {
+            producer_bindings.insert(producer.binding_id.clone(), json!({"pass": pass.pass, "record": record}));
+        }
+    }
+    for binding in &mut emitted {
+        if let Some(producer) = producer_bindings.get(binding["binding_id"].as_str().unwrap()) {
+            binding["emitter_introduction"] = producer.clone();
+        }
+    }
+    let producer_count = producer_bindings.len();
     let mapping = |origin| emitted_by_origin.get(&origin).map(|bindings| ids(bindings)).unwrap_or_default();
     let mut source_sites = 0;
     let mut source_sites_with_pc = 0;
@@ -175,6 +192,13 @@ pub(crate) fn provenance_report(
             "identifier_spans": token_count, "annotation_spans": annotation_count,
             "opaque_output_regions": opaque_count, "omitted_output_occurrences": omitted_count,
             "bindings_without_identifier_tokens": bindings_without_tokens},
+        "local_producers": {
+            "schema_version": 1, "model": "committed-emitter-local-introductions-v1",
+            "records_per_pass": ast::local_producers::RECORD_LIMIT,
+            "recorded_introductions": producer_count, "omitted_records": producer_omissions,
+            "passes": local_producers,
+            "contract": "Explicit committed introductions keyed by final storage identity and linked to exact emitted identifier spans. Input instruction/value ancestry remains unknown unless separately recorded. No source/debug, SSA, close, ownership or effect evidence is copied to these locals. Missing records, including budget omissions and uninstrumented passes, never prove an input local or compiler temporary.",
+        },
         "functions": functions, "final_bindings": emitted,
         "output_map": output_map,
         "limitations": "An absent direct mapping does not distinguish inlining, dead code, cloning or synthesis. Conditional results are retained as statements; the trace does not authorize eager evaluation or change source naming. Arbitrary value-producer provenance and pass-complete invalidation remain open.",

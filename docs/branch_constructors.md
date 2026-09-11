@@ -52,8 +52,10 @@ lowering and naming. It never mutates shared original arm blocks. New locals
 receive no copied source/debug, SSA, close or ownership evidence. The optional
 `branch_constructors` sidecar reports model
 `luau-v9-private-property-diamond-v2`, candidate/rebuilt counts, snapshots, fresh
-locals, folded fields, refusal reasons and budget exhaustion. Counts do not
-constitute a producer-to-binding provenance ledger; that R2 work remains open.
+locals, folded fields, refusal reasons and budget exhaustion. The later
+[emitter origin ledger](emitter_local_origins.md) links committed selected-value
+and initializer-snapshot introductions to their final binding IDs. Earlier
+producer tracking and arbitrary value provenance remain R2 work.
 
 ## Validation and limits
 

@@ -853,9 +853,16 @@ fn try_decompile_bytecode_internal(
             // during earlier cleanup (some passes inspect reference counts).
             // Rebuild private property diamonds after expression cleanup, so
             // later inlining cannot erase their ordered initializer snapshots.
+            let mut local_producers = Vec::new();
             let branch_constructors = if chunk.version == 9 {
                 let _span = ast::telemetry::Span::new("S_BRANCH_CONSTRUCTORS");
                 let report = ast::branch_constructors::rebuild_branch_constructors(&mut body);
+                if options.emit_binding_provenance {
+                    local_producers.push(ast::local_producers::Pass {
+                        pass: "branch_constructors", rewrite_model: report.model,
+                        introduced_locals: report.introduced_locals, ledger: report.introduced_bindings.clone(),
+                    });
+                }
                 ast::telemetry::count("constructor_candidates", report.candidate_regions as u64);
                 ast::telemetry::count("constructor_rebuilt", report.rebuilt_regions as u64);
                 ast::telemetry::count("constructor_refused", report.refused_regions.values().sum::<usize>() as u64);
@@ -867,6 +874,12 @@ fn try_decompile_bytecode_internal(
             let conditional_lowering = if chunk.version == 9 {
                 let _span = ast::telemetry::Span::new("S_LOWER_SELECTS");
                 let report = ast::lower_conditionals::lower_existing_conditionals(&mut body);
+                if options.emit_binding_provenance {
+                    local_producers.push(ast::local_producers::Pass {
+                        pass: "conditional_lowering", rewrite_model: report.model,
+                        introduced_locals: report.introduced_locals, ledger: report.introduced_bindings.clone(),
+                    });
+                }
                 ast::telemetry::count("select_input", report.input_selects as u64);
                 ast::telemetry::count("select_lowered", report.lowered_selects as u64);
                 ast::telemetry::count("select_locals", report.introduced_locals as u64);
@@ -905,7 +918,7 @@ fn try_decompile_bytecode_internal(
                 analysis.conditional_lowering = conditional_lowering;
                 analysis.branch_constructors = branch_constructors;
                 if options.emit_binding_provenance {
-                    analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map));
+                    analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map, local_producers));
                 }
                 analysis
             });

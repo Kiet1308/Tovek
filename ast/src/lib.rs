@@ -29,6 +29,7 @@ mod if_expression;
 mod index;
 mod literal;
 mod local;
+pub mod local_producers;
 //mod name_gen;
 pub mod canonicalize_branches;
 pub mod branch_constructors;

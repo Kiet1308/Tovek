@@ -14,7 +14,7 @@ from roadmap_v2 import sha256
 from emission_map_audit import validate_emission_map
 
 
-def validate_trace(trace):
+def validate_trace(trace, metadata=None):
     errors = []
     def require(ok, reason):
         if not ok and len(errors) < 20:
@@ -79,6 +79,8 @@ def validate_trace(trace):
             require(b['incomplete'], 'empty lineage claimed complete')
         for origin in set(lineage) & origins.keys():
             require(bid in origins[origin]['final_bindings'], 'forward lineage mapping changed')
+    from local_producers import validate_local_producers
+    errors.extend(validate_local_producers(trace, metadata))
     return errors
 
 
@@ -124,7 +126,7 @@ def main():
         if trace is None:
             row['status'] = 'missing_trace'
         else:
-            errors = validate_trace(trace)
+            errors = validate_trace(trace, right)
             if 'output_map' in trace:
                 source_path = (args.after / right['source_path']).resolve()
                 if not source_path.is_relative_to(args.after.resolve()) or sha256(source_path) != right['source_sha256']:

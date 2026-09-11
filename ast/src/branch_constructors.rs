@@ -7,6 +7,7 @@ use serde::Serialize;
 
 use crate::{Assign, Block, If, LValue, Local, LocalRw, RValue, RcLocal, Statement, Traverse};
 use crate::lower_conditionals::{Frame, local_rewrite_frame, prepare_local_rewrite};
+use crate::local_producers::{Ledger, Role};
 
 const REGION_LIMIT: usize = 256;
 
@@ -16,6 +17,7 @@ pub struct Report {
     pub candidate_regions: usize,
     pub rebuilt_regions: usize,
     pub introduced_locals: usize,
+    pub introduced_bindings: Ledger,
     pub initializer_snapshots: usize,
     pub folded_following_fields: usize,
     pub refused_regions: BTreeMap<&'static str, usize>,
@@ -184,7 +186,7 @@ impl State {
 
         // A fresh presentation local carries no recorded source, close or
         // ownership evidence from the table or either selected expression.
-        let selected = self.fresh(frame);
+        let selected = self.fresh(frame, Role::ConstructorPropertyValue);
         let mut declaration = Assign::new(vec![LValue::Local(selected.clone())], vec![]);
         declaration.prefix = true;
         let arm = |value| Block(vec![Assign::new(vec![LValue::Local(selected.clone())], vec![value]).into()]);
@@ -192,7 +194,7 @@ impl State {
         let mut constructor = block.0.remove(index).into_assign().unwrap();
         let mut replacement = Vec::new();
         for position in snapshots {
-            let snapshot = self.fresh(frame);
+            let snapshot = self.fresh(frame, Role::ConstructorInitializerSnapshot);
             let value = &mut constructor.right[0].as_table_mut().unwrap().0[position].1;
             let mut initializer = Assign::new(vec![snapshot.clone().into()],
                 vec![std::mem::replace(value, snapshot.into())]);
@@ -221,7 +223,7 @@ impl State {
         Ok(inserted)
     }
 
-    fn fresh(&mut self, frame: &mut Frame) -> RcLocal {
+    fn fresh(&mut self, frame: &mut Frame, role: Role) -> RcLocal {
         let name = loop {
             self.next_name += 1;
             let name = format!("v{}", self.next_name);
@@ -231,6 +233,7 @@ impl State {
         frame.locals.insert(local.stable_id());
         frame.headroom -= 1;
         self.report.introduced_locals += 1;
+        self.report.introduced_bindings.record(&local, role);
         local
     }
 }
@@ -306,6 +309,9 @@ mod tests {
         assert!(matches!(body.0[1], Statement::If(_)));
         let fresh = body.0[0].as_assign().unwrap().left[0].as_local().unwrap();
         assert!(!fresh.has_source_binding());
+        assert_eq!(report.introduced_bindings.records.len(), 1);
+        assert_eq!(report.introduced_bindings.records[0].binding_id, format!("b{}", fresh.stable_id()));
+        assert!(matches!(report.introduced_bindings.records[0].role, Role::ConstructorPropertyValue));
         assert_eq!(report.folded_following_fields, 1);
         let text = body.to_string();
         assert!(text.contains("if condition() then"));
@@ -387,6 +393,9 @@ mod tests {
         assert_eq!(report.rebuilt_regions, 1);
         assert_eq!(report.initializer_snapshots, 2);
         assert_eq!(report.introduced_locals, 3);
+        assert_eq!(report.introduced_bindings.records.len(), 3);
+        assert!(report.introduced_bindings.records[1..].iter().all(|r|
+            matches!(r.role, Role::ConstructorInitializerSnapshot)));
         assert_eq!(body.0[0].to_string(), "local v2 = first()");
         assert_eq!(body.0[1].to_string(), "local v3 = second()");
         assert!(matches!(body.0[3], Statement::If(_)));
@@ -475,6 +484,7 @@ mod tests {
         let report = rebuild_branch_constructors(&mut body);
         assert_eq!(report.refused_regions.get("local_or_register_budget"), Some(&1));
         assert_eq!(report.introduced_locals, 0);
+        assert!(report.introduced_bindings.records.is_empty());
         assert_eq!(body.to_string(), before);
     }
 

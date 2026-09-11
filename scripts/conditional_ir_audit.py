@@ -15,6 +15,48 @@ import subprocess
 from bytecode_dataflow import compare_dataflow
 from bytecode_roundtrip import parse_chunk
 from roadmap_v2 import ROOT, sha256, parse_ast, conditional_count
+from binding_graph import lexical_graph
+from local_producers import PASSES
+
+
+def introduction_audit(case, tree, source):
+    """Join actual native AST introductions to parser-resolved lexical tokens."""
+    if 'introduced_bindings' not in case['report'] and 'emitter_introduction_tokens' not in case:
+        return dict(status='historical_fixture_without_introduction_records')
+    ledger = case['report']['introduced_bindings']
+    records = {r['binding_id']: r for r in ledger['records']}
+    if ledger['omitted_records'] or len(records) != len(ledger['records']) or len(records) != case['report']['introduced_locals']:
+        raise ValueError('IR producer count/coverage differs')
+    graph = lexical_graph(tree, source)
+    tokens = {tuple(t['span']): (r, t) for r in graph['declarations'] for t in r['tokens']}
+    mapped, spans = {}, set()
+    for token in case['emitter_introduction_tokens']:
+        bid, span = token['binding_id'], tuple(token['span'])
+        if bid not in records or span in spans or span not in tokens:
+            raise ValueError('IR producer token identity/span differs')
+        spans.add(span)
+        row, parsed = tokens[span]
+        emitted_role = {'assignment_target': 'write', 'function_declaration': 'declaration'}.get(token['role'], token['role'])
+        if token['role'] == 'function_declaration' and row['kind'] != 'local_function':
+            raise ValueError('IR producer function declaration syntax differs')
+        allowed_kinds = {'local'}
+        if records[bid]['role'] in ('evaluation_snapshot', 'short_circuit_result'):
+            allowed_kinds.add('local_function')
+        if row['kind'] not in allowed_kinds or emitted_role != parsed['role']:
+            raise ValueError('IR producer lexical role differs')
+        if bid in mapped and mapped[bid] != row['declaration_id']:
+            raise ValueError('IR producer maps to multiple lexical declarations')
+        mapped[bid] = row['declaration_id']
+    if mapped.keys() != records.keys() or len(set(mapped.values())) != len(mapped):
+        raise ValueError('IR producer declaration coverage differs')
+    for bid, declaration in mapped.items():
+        row = next(r for r in graph['declarations'] if r['declaration_id'] == declaration)
+        if {tuple(t['span']) for t in row['tokens']} != {tuple(t['span']) for t in case['emitter_introduction_tokens'] if t['binding_id'] == bid}:
+            raise ValueError('IR producer lexical references incomplete')
+        if records[bid]['role'] not in PASSES['conditional_lowering'][1]:
+            raise ValueError('IR producer role not supported by pass')
+    return dict(status='verified', introductions=len(records), tokens=len(spans),
+                roles=dict(collections.Counter(r['role'] for r in records.values())))
 
 
 def main():
@@ -37,7 +79,9 @@ def main():
         if directory.parent != args.fixtures or not directory.is_dir():
             raise ValueError("invalid fixture name")
         paths = [directory / (variant + ".luau") for variant in ("source", "output")]
-        counts = [conditional_count(parse_ast(args.ast, path, 30)) for path in paths]
+        trees = [parse_ast(args.ast, path, 30) for path in paths]
+        counts = [conditional_count(tree) for tree in trees]
+        producers = introduction_audit(case, trees[1], paths[1].read_bytes())
         report = case["report"]
         if counts[0] != report["input_selects"] or counts[1] != counts[0] - report["lowered_selects"]:
             raise ValueError("parser/pass conditional counts disagree: " + name)
@@ -45,6 +89,7 @@ def main():
             for debug in (1, 2):
                 row = dict(case=name, opt=opt, debug=debug, status="failed", report=report,
                            extra_arguments=extra,
+                           emitter_introductions=producers,
                            source_sha256=sha256(paths[0]), output_sha256=sha256(paths[1]),
                            source_selects=counts[0], output_selects=counts[1])
                 try:

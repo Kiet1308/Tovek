@@ -20,6 +20,7 @@ import time
 
 from emission_map_audit import validate_emission_map
 from provenance_audit import manifest, validate_trace
+from local_producers import introductions
 
 
 MODEL = 'luau-lexical-declarations-v1'
@@ -219,7 +220,7 @@ def attach_storage(graph, metadata, source):
     if metadata['source_sha256'] != digest(source) or graph['source_sha256'] != digest(source):
         raise Refused('source_hash_mismatch')
     trace = metadata['binding_provenance']
-    errors = validate_trace(trace) + validate_emission_map(trace, source)
+    errors = validate_trace(trace, metadata) + validate_emission_map(trace, source)
     if errors:
         raise Refused('invalid_trace: ' + '; '.join(errors[:5]))
     token_map = {tuple(token['span']): (row, token) for row in graph['declarations'] for token in row['tokens']}
@@ -257,6 +258,7 @@ def attach_storage(graph, metadata, source):
             origin_index[register['id']] = dict(kind=register['kind'], prototype=function['prototype'],
                                                 function_id=function['function_id'], slot=register['slot'])
     recorded = {row['binding_id']: row for row in metadata.get('source_recovery', {}).get('bindings', [])}
+    producers = introductions(trace)
     for final in trace['final_bindings']:
         bid = final['binding_id']
         lexical = sorted(storage_declarations[bid], key=lambda d: int(d[1:]))
@@ -265,6 +267,8 @@ def attach_storage(graph, metadata, source):
             has_conditional_result_ancestry=final.get('has_conditional_result_ancestry', False),
             input_slots=[dict(origin_id=origin, **origin_index[origin]) for origin in final['lineage'] if origin in origin_index],
             recorded_origins=recorded.get(bid, {}).get('origins', [])))
+        if bid in producers:
+            graph['storage'][-1]['emitter_introduction'] = producers[bid]
     for row in graph['declarations']:
         bid = row['storage_id']
         if bid is None:
@@ -279,6 +283,16 @@ def attach_storage(graph, metadata, source):
             row['recorded_identity_status'] = 'unrecorded'
         # Protect any recorded evidence, even when shared-storage attribution is ambiguous.
         row['protect_recorded_name'] = bool(evidence and evidence.get('origins'))
+        if bid in producers:
+            allowed_kinds = {'local'}
+            if producers[bid]['role'] in ('evaluation_snapshot', 'short_circuit_result'):
+                allowed_kinds.add('local_function')
+            if row['kind'] not in allowed_kinds:
+                raise Refused('introduced_local_has_incompatible_lexical_kind')
+            if len(storage_declarations[bid]) == 1:
+                row['emitter_introduction'] = producers[bid]
+            else:
+                row['emitter_introduction_status'] = 'ambiguous_shared_storage'
     return graph
 
 
@@ -288,6 +302,8 @@ def summarize(graph):
         tokens=sum(len(row['tokens']) for row in rows), captured_bindings=sum(row['captured_in_output'] for row in rows),
         written_bindings=sum(row['written_in_output'] for row in rows),
         shared_storage_ids=sum(len(row['declarations']) > 1 for row in graph['storage']))
+    result['explicit_emitter_introductions'] = sum('emitter_introduction' in row for row in rows)
+    result['ambiguous_emitter_introductions'] = sum(row.get('emitter_introduction_status') == 'ambiguous_shared_storage' for row in rows)
     result.update('kind_' + row['kind'] for row in rows)
     result.update('identity_' + row['recorded_identity_status'] for row in rows)
     result.update('token_' + token['storage_mapping'] for row in rows for token in row['tokens'] if 'storage_mapping' in token)
@@ -296,8 +312,9 @@ def summarize(graph):
 
 CONTRACT = ('Lexical IDs identify declarations in these exact output bytes, independently of IR storage. '
             'Current syntax/capture roles and historical storage ancestry are separate. Recorded origins '
-            'on shared storage remain ambiguous. No unique original source identity, compiler-temporary, '
-            'synthesis, precise nested value/PC, REF/VAL, CLOSE, ownership or effect proof is inferred.')
+            'on shared storage remain ambiguous. Synthesis is reported only for validated explicit emitter '
+            'introductions, never inferred from missing debug/SSA evidence. No unique original source identity, '
+            'compiler-temporary, precise nested value/PC, REF/VAL, CLOSE, ownership or effect proof is inferred.')
 
 
 def main():

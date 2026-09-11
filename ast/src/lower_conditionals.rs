@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 
 use rustc_hash::FxHashSet;
 use serde::Serialize;
+use crate::local_producers::{Ledger, Role};
 
 use crate::{
     Assign, BinaryOperation, Block, If, LValue, Literal, Local, RValue, RcLocal, Select, Statement,
@@ -24,6 +25,7 @@ pub struct Report {
     pub input_selects: usize,
     pub lowered_selects: usize,
     pub introduced_locals: usize,
+    pub introduced_bindings: Ledger,
     pub refused_statements: BTreeMap<&'static str, usize>,
     pub budget_exhausted: bool,
 }
@@ -453,6 +455,7 @@ impl State {
                 reserved: &self.reserved,
                 next_name: self.next_name,
                 names: Vec::new(),
+                producers: Ledger::default(),
                 lowered: 0,
             };
             match attempt.statement(&mut statement) {
@@ -460,6 +463,7 @@ impl State {
                     self.next_name = attempt.next_name;
                     self.report.lowered_selects += attempt.lowered;
                     self.report.introduced_locals += attempt.names.len();
+                    self.report.introduced_bindings.append(attempt.producers);
                     attempt.frame.headroom -= attempt.names.len();
                     self.reserved.extend(attempt.names);
                     output.extend(prefix);
@@ -501,6 +505,8 @@ mod tests {
         assert_eq!(block.to_string(), before);
         assert_eq!(report.lowered_selects, 0);
         assert_eq!(report.introduced_locals, 0);
+        assert!(report.introduced_bindings.records.is_empty());
+        assert_eq!(report.introduced_bindings.omitted_records, 0);
         assert_eq!(report.refused_statements["table_constructor_order"], 1);
     }
 
@@ -572,11 +578,12 @@ struct Attempt<'a> {
     reserved: &'a FxHashSet<String>,
     next_name: usize,
     names: Vec<String>,
+    producers: Ledger,
     lowered: usize,
 }
 
 impl Attempt<'_> {
-    fn fresh(&mut self) -> Result<RcLocal, &'static str> {
+    fn fresh(&mut self, role: Role) -> Result<RcLocal, &'static str> {
         if self.names.len() >= self.frame.headroom {
             return Err("local_budget");
         }
@@ -585,7 +592,9 @@ impl Attempt<'_> {
             let name = format!("selectedValue{}", self.next_name);
             if !self.reserved.contains(&name) {
                 self.names.push(name.clone());
-                return Ok(RcLocal::new(Local::new(Some(name))));
+                let local = RcLocal::new(Local::new(Some(name)));
+                self.producers.record(&local, role);
+                return Ok(local);
             }
         }
     }
@@ -603,7 +612,7 @@ impl Attempt<'_> {
         {
             return Ok(value);
         }
-        let local = self.fresh()?;
+        let local = self.fresh(Role::EvaluationSnapshot)?;
         prefix.push(assign(&local, value, true));
         Ok(local.into())
     }
@@ -648,7 +657,7 @@ impl Attempt<'_> {
         match value {
             RValue::IfExpression(node) => {
                 let (mut prefix, condition) = self.value(&node.condition)?;
-                let local = self.fresh()?;
+                let local = self.fresh(Role::ScalarSelectResult)?;
                 let (mut yes, yes_value) = self.value(&node.then_value)?;
                 let (mut no, no_value) = self.value(&node.else_value)?;
                 // One destination adjusts each branch to one result, including
@@ -677,7 +686,7 @@ impl Attempt<'_> {
                     result.left = Box::new(left);
                     return Ok((prefix, result.into()));
                 }
-                let local = self.fresh()?;
+                let local = self.fresh(Role::ShortCircuitResult)?;
                 prefix.push(assign(&local, left, true));
                 let (mut branch, right) = self.value(&node.right)?;
                 branch.push(assign(&local, right, false));

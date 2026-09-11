@@ -73,7 +73,9 @@ compiler temporary. `unknown_origins` and `incomplete` remain visible.
 `incomplete_lineages` counts partial nonempty ancestry; unlocated final
 bindings are a separate summary category.
 
-Arbitrary nested-value provenance, clone/synthesis event attribution and a
+Two late passes now publish [explicit local introductions](emitter_local_origins.md),
+linked to final identifiers without replacing unknown input storage ancestry.
+Arbitrary nested-value provenance, earlier clone/synthesis event attribution and a
 complete per-pass preserve/merge/invalidate ledger remain R2 work. Exact final
 identifier and annotation locations are available through `output_map`, with
 explicit opaque regions for interpolation sub-rendering and display fallbacks.

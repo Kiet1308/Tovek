@@ -26,13 +26,15 @@ assignment has one `read_write` token.
 | `recorded_identity_status` | Recorded evidence on one unique output binding, ambiguous shared storage, unrecorded, or no storage mapping. Even unique output mapping does not claim one unique author declaration for every origin. |
 | `recorded_origins` | On a uniquely mapped output binding, preserves recorded debug PC intervals/upvalue slots/function-name origins. Shared-storage origins stay at the storage level. |
 | `protect_recorded_name` | Preserve names with recorded evidence, including ambiguous shared storage. |
+| `emitter_introduction` | An explicitly recorded local introduction by an instrumented pass, joined by binding ID. Attached to one compatible local declaration, including a closure snapshot formatted as `local function`; shared storage retains ambiguity. |
 
 An implicit self declaration has an anchor at the method keyword and **no
 identifier declaration token**. It cannot be renamed by an ordinary
 all-occurrences token edit. Even unused implicit declarations have a graph
-row. An unrecorded local is not classified as a compiler temporary or a
-synthesized local. Producer events are required for that attribution; this
-exporter does not invent them from generated names or comments.
+row. Being unrecorded does not classify a local as a compiler temporary or a
+synthesized local. [Explicit emitter records](emitter_local_origins.md) are
+required for synthesis attribution; the exporter does not invent them from
+generated names, missing SSA ancestry or comments.
 
 Source, parser executable, analysis sidecar and graph bytes have separate
 SHA-256 identities. Every manifest sidecar/source path must resolve inside
@@ -43,7 +45,7 @@ identity otherwise refuses the graph; no partial graph is published.
 
 This is a diagnostic/consumer layer. It does not modify decompiler source,
 split runtime storage or change core coalescing decisions. Arbitrary nested
-value origins, clone/synthesis attribution and the complete pass ledger
+value origins, earlier clone/synthesis attribution and the complete pass ledger
 remain separate R2 tasks. No purity, alias, ownership or capture certificate
 is transferred by graph connectivity.
 

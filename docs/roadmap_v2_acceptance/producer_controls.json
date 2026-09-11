@@ -1,0 +1,71 @@
+{
+ "schema_version": 1,
+ "script_path": "branch_constructor_order_O0_g1.lua",
+ "source_sha256": "6c2120a9e2e8ff25650d2a615ec8f0a2096cf6ded391dacccbe81f36335d50ae",
+ "sidecar_sha256": "7fd2c545ecf63385f861cb5ba57de6492b68734b1fd0faac3aee2b5d2a1804b0",
+ "ast_sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3",
+ "rows": [
+  {
+   "control": "original",
+   "status": "passed",
+   "summary": {
+    "declarations": 51,
+    "functions": 10,
+    "tokens": 147,
+    "captured_bindings": 2,
+    "written_bindings": 6,
+    "shared_storage_ids": 0,
+    "explicit_emitter_introductions": 7,
+    "ambiguous_emitter_introductions": 0,
+    "kind_local": 16,
+    "kind_parameter": 35,
+    "identity_unrecorded": 51,
+    "token_mapped": 147
+   }
+  },
+  {
+   "control": "missing_final_identity",
+   "status": "passed",
+   "reason": "invalid_trace: local producer: unordered or out-of-range binding ID; local producer: duplicate or missing final binding; local producer: unordered or out-of-range binding ID; local producer: ledger differs from committed pass report"
+  },
+  {
+   "control": "copied_debug_identity",
+   "status": "passed",
+   "reason": "invalid_trace: local producer: recorded source identity copied to introduced local"
+  },
+  {
+   "control": "copied_input_ancestry",
+   "status": "passed",
+   "reason": "invalid_trace: local producer: input ancestry copied to introduced local"
+  },
+  {
+   "control": "wrong_record_pointer",
+   "status": "passed",
+   "reason": "invalid_trace: local producer: forward introduction link changed"
+  },
+  {
+   "control": "duplicate_introduction",
+   "status": "passed",
+   "reason": "invalid_trace: local producer: unordered or out-of-range binding ID; local producer: duplicate or missing final binding; local producer: forward introduction link changed"
+  },
+  {
+   "control": "wrong_pass_role",
+   "status": "passed",
+   "reason": "invalid_trace: local producer: role not supported by producer pass; local producer: ledger differs from committed pass report"
+  },
+  {
+   "control": "missing_pass_report",
+   "status": "passed",
+   "reason": "invalid_trace: local producer: missing pass report"
+  },
+  {
+   "control": "missing_lexical_use_token",
+   "status": "passed",
+   "reason": "unexplained_unmapped_local_token"
+  }
+ ],
+ "summary": {
+  "passed": 9
+ },
+ "contract": "Real emitted local introductions and pinned-parser lexical bindings. One positive and eight deliberately corrupted metadata controls; no source edits or inferred input-origin proof."
+}
