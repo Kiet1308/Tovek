@@ -1,0 +1,136 @@
+{
+ "schema_version": 1,
+ "binaries": {
+  "baseline": {
+   "path": "D:\\Medal\\medal-decompiler\\out\\v2-pgo\\windows-zkca0d0q\\baseline.exe",
+   "sha256": "caca22f2157b9f0c0d31ad1e17efa29ac6f14eb5749988d656f877551b6a27f0"
+  },
+  "optimized": {
+   "path": "D:\\Medal\\medal-decompiler\\out\\v2-pgo\\windows-zkca0d0q\\optimized.exe",
+   "sha256": "e9d2c376ea242e5fdec119936b5a4e9f3fda37e08dcc0ff6e6e9169d3097c5d7"
+  }
+ },
+ "corpus_sha256": "b849b0259177f0cc1d648a7b2a8f08cc630e7bad7d8709ed2ad353783dff7bd4",
+ "work": "D:\\Medal\\medal-decompiler\\out\\v2-pgo\\windows-zkca0d0q\\quality\\quality-kmom1ncy",
+ "rows": [
+  {
+   "dataset": "holdout",
+   "binary": "baseline",
+   "mode": "source",
+   "threads": 1,
+   "source_sha256": "c84cbccf8ed5e728f2afe018c8da26d9909362bd8a0f0cd4b599112302c55720",
+   "files": 42,
+   "status": "passed"
+  },
+  {
+   "dataset": "holdout",
+   "binary": "baseline",
+   "mode": "source",
+   "threads": 16,
+   "source_sha256": "c84cbccf8ed5e728f2afe018c8da26d9909362bd8a0f0cd4b599112302c55720",
+   "files": 42,
+   "status": "passed"
+  },
+  {
+   "dataset": "holdout",
+   "binary": "optimized",
+   "mode": "source",
+   "threads": 1,
+   "source_sha256": "c84cbccf8ed5e728f2afe018c8da26d9909362bd8a0f0cd4b599112302c55720",
+   "files": 42,
+   "status": "passed"
+  },
+  {
+   "dataset": "holdout",
+   "binary": "optimized",
+   "mode": "source",
+   "threads": 16,
+   "source_sha256": "c84cbccf8ed5e728f2afe018c8da26d9909362bd8a0f0cd4b599112302c55720",
+   "files": 42,
+   "status": "passed"
+  },
+  {
+   "dataset": "holdout",
+   "mode": "full_sidecars",
+   "threads": 16,
+   "scripts": 42,
+   "status": "passed"
+  },
+  {
+   "dataset": "private",
+   "binary": "baseline",
+   "mode": "source",
+   "threads": 1,
+   "source_sha256": "cff4b18ccfc4ca8507622c37af00635027811acd5338a0b9ef5ef4a1bdadbec8",
+   "files": 3922,
+   "status": "passed"
+  },
+  {
+   "dataset": "private",
+   "binary": "baseline",
+   "mode": "source",
+   "threads": 16,
+   "source_sha256": "cff4b18ccfc4ca8507622c37af00635027811acd5338a0b9ef5ef4a1bdadbec8",
+   "files": 3922,
+   "status": "passed"
+  },
+  {
+   "dataset": "private",
+   "binary": "optimized",
+   "mode": "source",
+   "threads": 1,
+   "source_sha256": "cff4b18ccfc4ca8507622c37af00635027811acd5338a0b9ef5ef4a1bdadbec8",
+   "files": 3922,
+   "status": "passed"
+  },
+  {
+   "dataset": "private",
+   "binary": "optimized",
+   "mode": "source",
+   "threads": 16,
+   "source_sha256": "cff4b18ccfc4ca8507622c37af00635027811acd5338a0b9ef5ef4a1bdadbec8",
+   "files": 3922,
+   "status": "passed"
+  },
+  {
+   "dataset": "private",
+   "mode": "full_sidecars",
+   "threads": 16,
+   "scripts": 3922,
+   "status": "passed"
+  },
+  {
+   "mode": "real_panic_isolation",
+   "binary": "baseline",
+   "threads": 1,
+   "expected_exit": 1,
+   "good_item_sha256": "0045927fdb63216d7705dbc68223c146bc8ea967046f07fbe70ef6fecca404d5",
+   "status": "passed"
+  },
+  {
+   "mode": "real_panic_isolation",
+   "binary": "baseline",
+   "threads": 16,
+   "expected_exit": 1,
+   "good_item_sha256": "0045927fdb63216d7705dbc68223c146bc8ea967046f07fbe70ef6fecca404d5",
+   "status": "passed"
+  },
+  {
+   "mode": "real_panic_isolation",
+   "binary": "optimized",
+   "threads": 1,
+   "expected_exit": 1,
+   "good_item_sha256": "0045927fdb63216d7705dbc68223c146bc8ea967046f07fbe70ef6fecca404d5",
+   "status": "passed"
+  },
+  {
+   "mode": "real_panic_isolation",
+   "binary": "optimized",
+   "threads": 16,
+   "expected_exit": 1,
+   "good_item_sha256": "0045927fdb63216d7705dbc68223c146bc8ea967046f07fbe70ef6fecca404d5",
+   "status": "passed"
+  }
+ ],
+ "contract": "Full source bytes agree across builds at 1/16 threads. Full provenance sidecar bytes agree at 16 threads. Unsupported bytecode version 99 triggers the actual deserializer panic; process exit must be 1, with a valid following file unchanged, at 1/16 threads. No unknown proof is promoted and no panic=abort build is admitted."
+}

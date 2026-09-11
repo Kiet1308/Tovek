@@ -1,5 +1,11 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R7c: isolated PGO on Windows and Linux
+
+The reviewed `9b7d1a1` source now has a reproducible PGO experiment with 648 development training profiles, 42 repository-holdout profiles and 3,922 external private inputs. Exact execution-image leakage is excluded before training. Each native target retains unwind, uses isolated build/profile directories, and trains through the existing API example. Full source and detailed sidecar bytes agree across builds; real panic isolation passes at 1/16 threads on both platforms. All 111 Python tests and both RSS controls pass. [Data, reproduction and limits](pgo_experiment.md).
+
+Seven interleaved rounds give private median reductions of 9.03%/5.27% on Windows at 1/16 threads, missing the frozen 10% target. Linux under WSL2 on the same machine reduces medians by 10.52%/15.08% and meets the frozen p95/RSS/holdout gates. The Windows holdout's 16-thread p95 rises 46.10% (35.901 -> 52.452 ms), retained as an additional limitation. PGO is not promoted to default. Only scripts, inventories and reports are committed; compiler profiles, binaries, private inputs and model files remain local. This closes the PGO experiment row, not all of R7. [Acceptance inventory](roadmap_v2_acceptance/pgo_validation.json).
+
 ## R6/R5: call reconstruction locations and compiler witness families
 
 Optional call-creation events now connect statement/expression/arithmetic de-inline and terminal synthesis to actual emitted call spans. Parser checks resolve the direct callee by binding identity. Original caller PCs remain unknown, clones retain creation IDs, and rebuilt/opaque/omitted calls gain no invented provenance. `--compact-annotations` retains complete annotation text in detailed sidecars and shortens only recognized source comments; defaults preserve existing source. [Contract and coverage](call_reconstruction_annotations.md).

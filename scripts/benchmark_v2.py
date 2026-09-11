@@ -3,7 +3,7 @@
 
 Measures warm filesystem cache and repeated output directories. Hashing and
 validation are outside the timed interval. RSS is sampled Windows peak working
-set where supported; allocations and a true cold-cache run are not claimed.
+set or Linux process high-water RSS; allocations and a cold-cache run are not claimed.
 """
 import argparse
 import collections
@@ -16,6 +16,7 @@ import pathlib
 import platform
 import statistics
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -35,6 +36,18 @@ def tree_hash(root, pattern):
 
 
 def peak_rss_reader(process):
+    if sys.platform.startswith('linux'):
+        status = pathlib.Path('/proc') / str(process.pid) / 'status'
+        def read_linux():
+            try:
+                for line in status.read_text(encoding='ascii').splitlines():
+                    if line.startswith('VmHWM:'):
+                        fields = line.split()
+                        return int(fields[1]) * 1024 if fields[2] == 'kB' else None
+            except (OSError, ValueError, IndexError):
+                pass  # The process may exit between polling and the read.
+            return None
+        return read_linux
     if os.name != "nt":
         return lambda: None
     from ctypes import wintypes
@@ -152,7 +165,9 @@ def main():
                   analysis_modes=analysis_modes, lifter_args=lifter_args,
                   corpus=str(args.corpus.resolve()), corpus_hash=corpus_hash, input_count=input_count,
                   system=dict(platform=platform.platform(), cpu=os.environ.get("PROCESSOR_IDENTIFIER"), logical_processors=os.cpu_count()),
-                  rss_contract="Windows PeakWorkingSetSize sampled at 10 ms; unavailable on other platforms. Includes monitor overhead in CLI wall time.",
+                  rss_contract=("Windows PeakWorkingSetSize sampled at 10 ms; unavailable on other platforms. Includes monitor overhead in CLI wall time."
+                    if os.name == 'nt' else "Linux /proc/PID/status VmHWM sampled at 10 ms, KiB converted to bytes. Includes monitor overhead; a peak after the last successful sample can be missed."
+                    if sys.platform.startswith('linux') else "Peak RSS unavailable on this platform."),
                   cache_contract="Warm input cache, output directory reused after warmup; no simultaneous benchmark workload.",
                   rows=rows, summary=summary, deterministic=all(r["deterministic"] for r in rows),
                   limitations="Finite samples; nearest-rank p95 equals maximum for seven rounds. No allocations, cold-cache or in-memory claim.")

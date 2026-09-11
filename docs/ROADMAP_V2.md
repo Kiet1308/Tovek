@@ -451,7 +451,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 - [x] Cache cho xử lý lặp/incremental theo bytecode, decode key, build/version, options và toàn bộ ngữ cảnh ảnh hưởng output. Regenerate metadata theo script identity/path khi cần. — CLI tùy chọn, khóa bằng binary SHA, tất cả options và module context; metadata được tạo lại, có quota và corruption/invalidation controls. [Phạm vi và nghiệm thu](artifact_cache.md).
 - [x] Chỉ deduplicate giữa các đường dẫn khi đã có context key đầy đủ. Nghiên cứu đã tìm hai nhóm cùng bytecode nhưng output khác do tên module/context; cache chỉ bằng hash bytecode sẽ trả nhầm output. — Cả hai counterexample được giữ; 3.350 bytecode hash tạo 3.706 cache key, mọi output private/public giữ nguyên. Concurrent misses có thể tính lặp, chỉ hợp nhất publication khi artifact bằng nhau.
-- [ ] Thử PGO bằng tập train đại diện, đánh giá trên tập giữ riêng, build sang target riêng và giữ unwind recovery. Đo Windows native và deployment target khác riêng biệt.
+- [x] Thử PGO bằng tập train đại diện, đánh giá trên tập giữ riêng, build sang target riêng và giữ unwind recovery. Đo Windows native và deployment target khác riêng biệt. — Đã đo Windows native và Linux/WSL2 riêng trên cùng máy; Windows chưa đạt ngưỡng median 10%, Linux đạt các gate trong lượt đo này. Source/sidecar và panic recovery giữ nguyên; PGO vẫn là thí nghiệm, không bật mặc định. [Phạm vi và toàn bộ số đo](pgo_experiment.md).
 
 **Vị trí:** [profiling/pipeline](../luau-lifter/src/lib.rs), [batch.rs](../luau-lifter/src/batch.rs), [decompile_core.rs](../luau-lifter/src/decompile_core.rs), [SSA](../cfg/src/ssa.rs), [deinline.rs](../ast/src/deinline.rs), [factor_common_tails.rs](../ast/src/factor_common_tails.rs), [Cargo.toml](../Cargo.toml).
 

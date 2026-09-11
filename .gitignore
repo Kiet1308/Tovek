@@ -9,6 +9,7 @@
 # Profiling / heap-debug output
 flamegraph.svg
 *.profraw
+*.profdata
 dhat-heap.json
 __pycache__/
 

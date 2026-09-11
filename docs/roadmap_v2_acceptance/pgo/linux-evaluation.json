@@ -1,0 +1,167 @@
+{
+ "schema_version": 1,
+ "status": "evaluated",
+ "performance_gates_passed": true,
+ "default_promoted": false,
+ "build_commit": "9b7d1a134edb3dcf3faf545eb867d5ffb4fc3a41",
+ "target": "x86_64-unknown-linux-gnu",
+ "input_reports": {
+  "corpus": {
+   "file": "linux-corpus.json",
+   "sha256": "cb30031c1616cfacbc21d0705919afb19e7c8bd1e67da28aebbfea0460579dc4"
+  },
+  "build": {
+   "file": "linux-optimized.json",
+   "sha256": "8e1cc6cfc76bb3364bed82b162d18da20051376860230d25b3d425290d385a0e"
+  },
+  "quality": {
+   "file": "linux-quality.json",
+   "sha256": "cd1089f2a90d36ad845e7855630e53f6d9668d6a3acf674c97b4ef9a4286302d"
+  },
+  "holdout": {
+   "file": "linux-benchmark-holdout.json",
+   "sha256": "1443273e79bbe179417a1117b284f48ee90c2da29d716c40b316a3c436cdc12a"
+  },
+  "private": {
+   "file": "linux-benchmark-private.json",
+   "sha256": "31bf5019fc301232ba3c74762cc0d3beec1b0cfa9d3088943ccef1718512771e"
+  }
+ },
+ "policy": {
+  "rounds": 7,
+  "threads": [
+   1,
+   16
+  ],
+  "primary_workload": "private",
+  "secondary_workload": "holdout",
+  "target_median_reduction_percent": 10,
+  "allowed_p95_regression_percent": 5,
+  "allowed_rss_regression_percent": 5,
+  "allowed_holdout_median_regression_percent": 5,
+  "default_promotion": false
+ },
+ "quality_source_sha256": {
+  "holdout": "c84cbccf8ed5e728f2afe018c8da26d9909362bd8a0f0cd4b599112302c55720",
+  "private": "cff4b18ccfc4ca8507622c37af00635027811acd5338a0b9ef5ef4a1bdadbec8"
+ },
+ "rows": [
+  {
+   "dataset": "holdout",
+   "threads": 1,
+   "baseline": {
+    "samples": 7,
+    "median_seconds": 0.06192044299999999,
+    "p95_nearest_rank_seconds": 0.06212601800000028,
+    "median_peak_rss_bytes": 17707008,
+    "max_peak_rss_bytes": 17903616
+   },
+   "pgo": {
+    "samples": 7,
+    "median_seconds": 0.051661617000000604,
+    "p95_nearest_rank_seconds": 0.05184659199999997,
+    "median_peak_rss_bytes": 17924096,
+    "max_peak_rss_bytes": 18116608
+   },
+   "change_percent": {
+    "median_seconds": -16.56775291481586,
+    "p95_nearest_rank_seconds": -16.546088629083332,
+    "median_peak_rss_bytes": 1.2260004626416743,
+    "max_peak_rss_bytes": 1.1896591169068937
+   },
+   "gates": {
+    "median": true
+   },
+   "passed": true
+  },
+  {
+   "dataset": "holdout",
+   "threads": 16,
+   "baseline": {
+    "samples": 7,
+    "median_seconds": 0.0211927890000001,
+    "p95_nearest_rank_seconds": 0.03147757999999978,
+    "median_peak_rss_bytes": 49037312,
+    "max_peak_rss_bytes": 57810944
+   },
+   "pgo": {
+    "samples": 7,
+    "median_seconds": 0.021403513000000096,
+    "p95_nearest_rank_seconds": 0.031813910000000334,
+    "median_peak_rss_bytes": 47050752,
+    "max_peak_rss_bytes": 49631232
+   },
+   "change_percent": {
+    "median_seconds": 0.994319341357075,
+    "p95_nearest_rank_seconds": 1.068474768392469,
+    "median_peak_rss_bytes": -4.051119278316073,
+    "max_peak_rss_bytes": -14.149071843559591
+   },
+   "gates": {
+    "median": true
+   },
+   "passed": true
+  },
+  {
+   "dataset": "private",
+   "threads": 1,
+   "baseline": {
+    "samples": 7,
+    "median_seconds": 16.04988403599998,
+    "p95_nearest_rank_seconds": 16.14144209599999,
+    "median_peak_rss_bytes": 68554752,
+    "max_peak_rss_bytes": 68562944
+   },
+   "pgo": {
+    "samples": 7,
+    "median_seconds": 14.362121330999997,
+    "p95_nearest_rank_seconds": 14.688094411999998,
+    "median_peak_rss_bytes": 66875392,
+    "max_peak_rss_bytes": 66879488
+   },
+   "change_percent": {
+    "median_seconds": -10.515731460827515,
+    "p95_nearest_rank_seconds": -9.003828005926106,
+    "median_peak_rss_bytes": -2.449662424568322,
+    "max_peak_rss_bytes": -2.455343807873822
+   },
+   "gates": {
+    "median": true,
+    "p95": true,
+    "rss": true
+   },
+   "passed": true
+  },
+  {
+   "dataset": "private",
+   "threads": 16,
+   "baseline": {
+    "samples": 7,
+    "median_seconds": 1.491669146999996,
+    "p95_nearest_rank_seconds": 1.55524371300001,
+    "median_peak_rss_bytes": 220532736,
+    "max_peak_rss_bytes": 233218048
+   },
+   "pgo": {
+    "samples": 7,
+    "median_seconds": 1.266776354000001,
+    "p95_nearest_rank_seconds": 1.4098407639999948,
+    "median_peak_rss_bytes": 224780288,
+    "max_peak_rss_bytes": 239972352
+   },
+   "change_percent": {
+    "median_seconds": -15.076586751981381,
+    "p95_nearest_rank_seconds": -9.349206673180376,
+    "median_peak_rss_bytes": 1.9260414925428515,
+    "max_peak_rss_bytes": 2.896132635498261
+   },
+   "gates": {
+    "median": true,
+    "p95": true,
+    "rss": true
+   },
+   "passed": true
+  }
+ ],
+ "contract": "Gates use all seven measured samples at each frozen thread count: primary workload median reduction, nearest-rank p95 regression and median per-process peak RSS regression, plus secondary workload median regression. Maximum RSS is reported separately. Any missing primary RSS fails its gate. Summaries are recalculated from individual samples. Seven-sample p95 equals the maximum; no significance, cold-cache, cross-machine, whole-VM memory or automatic-promotion claim."
+}

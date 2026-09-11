@@ -1,0 +1,17 @@
+{
+ "schema_version": 1,
+ "status": "passed",
+ "platform": "linux",
+ "rows": [
+  {
+   "resident_allocation_bytes": 0,
+   "sampled_peak_rss_bytes": 8847360
+  },
+  {
+   "resident_allocation_bytes": 67108864,
+   "sampled_peak_rss_bytes": 76087296
+  }
+ ],
+ "growth_bytes": 67239936,
+ "contract": "Separate child processes touch every page of a 64 MiB buffer. The sampled high-water RSS must grow by 48\u201380 MiB; this checks units and per-process scope, not exact allocator overhead or the last unsampled instant."
+}

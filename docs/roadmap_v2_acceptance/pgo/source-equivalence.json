@@ -1,0 +1,1 @@
+{"status": "passed", "files": 140, "normalized_lf_inventory_sha256": "3c191c5905433a6116339bc4d99befd7a41a4aa60bcd9f6472bade7f02e8ac00", "contract": "All selected Rust/build inputs agree after CRLF-to-LF normalization. Exact platform-specific source hashes remain distinct and are preserved in each build record."}

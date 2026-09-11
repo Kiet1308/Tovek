@@ -1,0 +1,136 @@
+{
+ "schema_version": 1,
+ "config": {
+  "commit": "9b7d1a134edb3dcf3faf545eb867d5ffb4fc3a41",
+  "work": "/home/tvk1308/tovek-pgo/linux-_7d0fpo7",
+  "source": "/home/tvk1308/tovek-pgo/linux-_7d0fpo7/source",
+  "target": "x86_64-unknown-linux-gnu",
+  "toolchain": "nightly-2024-12-15",
+  "base_rustflags": "-Cpanic=unwind"
+ },
+ "source_hash": "d7b15ff6607c61b7b9715e6422096530bce6626562e8a0f7d1474a37c4c59e5a",
+ "corpus_sha256": "cb30031c1616cfacbc21d0705919afb19e7c8bd1e67da28aebbfea0460579dc4",
+ "api_manifest_sha256": "ee90f023359bc4e177ad85eb7b8c576dc8e89421791298a34d5ef303f704ccf2",
+ "trainer_sha256": "240cdd20eb4c1602062c64171bb110d2011af0406bde2bdb6f5217642467e814",
+ "baseline_sha256": "5c94e3549d61c85fead475ca6e8021aefb37600f24e8f96db8e3b3656f0ef17f",
+ "profiler_sha256": "0b3fc45444cd03bd809c0bf25959820985dfbcda8939d6ddedf1822852e873b1",
+ "merged_sha256": "696bfbfc67e8a49ea343659a683e3c13341844d16e669090ce78ac165a12af2a",
+ "raw_profiles": [
+  {
+   "file": "8812881726187744761_0-254.profraw",
+   "bytes": 1829336,
+   "sha256": "2646287e1e5ae8a217e342a36b58db30c6f2ca13ad82bceab488bc62194b84de"
+  },
+  {
+   "file": "8812881726187744761_0-256.profraw",
+   "bytes": 1829384,
+   "sha256": "dfe0fbfc657d3252802ac495e863f71adf866fc02faf8ffe5cedfea263fe3570"
+  }
+ ],
+ "llvm_summary": "Instrumentation level: IR  entry_first = 0\nTotal functions: 6732\nMaximum function count: 78274046\nMaximum internal block count: 21655804\n",
+ "training": [
+  {
+   "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+   "allocation_instrumented": false,
+   "api": "decompile_batch_with_options",
+   "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+   "decode_key": 1,
+   "decoded_input_bytes": 991745,
+   "executable_sha256": "240cdd20eb4c1602062c64171bb110d2011af0406bde2bdb6f5217642467e814",
+   "group": "all",
+   "manifest_sha256": "ee90f023359bc4e177ad85eb7b8c576dc8e89421791298a34d5ef303f704ccf2",
+   "nonempty_scripts": 648,
+   "option_bits": 8,
+   "rows": [
+    {
+     "allocations": null,
+     "first_call": true,
+     "output_bytes": 963525,
+     "output_tree_hash": "8001d1d2be241f51be64d55e8cf388d564909c7dd2f45fbbce2e398b75451066",
+     "round": 0,
+     "seconds": 1.6314318239999999
+    },
+    {
+     "allocations": null,
+     "first_call": false,
+     "output_bytes": 963525,
+     "output_tree_hash": "8001d1d2be241f51be64d55e8cf388d564909c7dd2f45fbbce2e398b75451066",
+     "round": 1,
+     "seconds": 1.641684724
+    },
+    {
+     "allocations": null,
+     "first_call": false,
+     "output_bytes": 963525,
+     "output_tree_hash": "8001d1d2be241f51be64d55e8cf388d564909c7dd2f45fbbce2e398b75451066",
+     "round": 2,
+     "seconds": 1.608340751
+    }
+   ],
+   "schema_version": 1,
+   "scripts": 648,
+   "threads": 1
+  },
+  {
+   "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+   "allocation_instrumented": false,
+   "api": "decompile_batch_with_options",
+   "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+   "decode_key": 1,
+   "decoded_input_bytes": 991745,
+   "executable_sha256": "240cdd20eb4c1602062c64171bb110d2011af0406bde2bdb6f5217642467e814",
+   "group": "all",
+   "manifest_sha256": "ee90f023359bc4e177ad85eb7b8c576dc8e89421791298a34d5ef303f704ccf2",
+   "nonempty_scripts": 648,
+   "option_bits": 8,
+   "rows": [
+    {
+     "allocations": null,
+     "first_call": true,
+     "output_bytes": 963525,
+     "output_tree_hash": "8001d1d2be241f51be64d55e8cf388d564909c7dd2f45fbbce2e398b75451066",
+     "round": 0,
+     "seconds": 2.45554038
+    },
+    {
+     "allocations": null,
+     "first_call": false,
+     "output_bytes": 963525,
+     "output_tree_hash": "8001d1d2be241f51be64d55e8cf388d564909c7dd2f45fbbce2e398b75451066",
+     "round": 1,
+     "seconds": 2.439928293
+    },
+    {
+     "allocations": null,
+     "first_call": false,
+     "output_bytes": 963525,
+     "output_tree_hash": "8001d1d2be241f51be64d55e8cf388d564909c7dd2f45fbbce2e398b75451066",
+     "round": 2,
+     "seconds": 2.462927727
+    }
+   ],
+   "schema_version": 1,
+   "scripts": 648,
+   "threads": 16
+  }
+ ],
+ "contract": "Only locked training inputs execute in the instrumented API process. Successful API runs independently enforce source hashes from the baseline CLI. Normal main return flushes LLVM counters; CLI process-exit behavior is unchanged. Profile data is platform/compiler-specific, and no profile files are published.",
+ "optimized_sha256": "ffcd4a6bdadb3dcb84a60074bc1892d3341a598c10ab2c627a16a2ecb245b5fa",
+ "build_command": [
+  "cargo",
+  "+nightly-2024-12-15",
+  "build",
+  "--release",
+  "--locked",
+  "--target",
+  "x86_64-unknown-linux-gnu",
+  "--target-dir",
+  "/home/tvk1308/tovek-pgo/linux-_7d0fpo7/target",
+  "-p",
+  "luau-lifter",
+  "--bin",
+  "luau-lifter"
+ ],
+ "rustflags": "-Cpanic=unwind -Cprofile-use=/home/tvk1308/tovek-pgo/linux-_7d0fpo7/merged.profdata -Cllvm-args=-pgo-warn-missing-function",
+ "build_log_sha256": "4a4d02f983d4077963fda96c40ffaaee4f0ce2ed1ae327cb383dfcfa66c2de63"
+}
