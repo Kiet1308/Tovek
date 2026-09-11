@@ -172,6 +172,13 @@ jobs:
             --report "$RUNNER_TEMP/roadmap-v2-lineage.json" \
             --keep "$RUNNER_TEMP/roadmap-v2-lineage" --cache
 
+      - name: V2 nested assignment function dataflow
+        run: |
+          python3 scripts/assignment_order_audit.py \
+            --fixtures-report "$RUNNER_TEMP/roadmap-v2.json" \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --report "$RUNNER_TEMP/roadmap-v2-assignment-order.json"
+
       - name: V2 existing conditional IR lowering and VM controls
         run: |
           cargo +nightly-2024-12-15 run -p luau-lifter --example conditional_lowering -- "$RUNNER_TEMP/conditional-ir"
@@ -310,6 +317,7 @@ jobs:
             ${{ runner.temp }}/roadmap-v2-lineage.json
             ${{ runner.temp }}/roadmap-v2-public-lineage.json
             ${{ runner.temp }}/roadmap-v2-formatter-controls.json
+            ${{ runner.temp }}/roadmap-v2-assignment-order.json
             ${{ runner.temp }}/roadmap-v2-cache-controls.json
             ${{ runner.temp }}/roadmap-v2-profile.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau

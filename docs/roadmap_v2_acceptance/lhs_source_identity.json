@@ -1,0 +1,6824 @@
+{
+ "runtime": {
+  "prior_cases": 168,
+  "added_cases": 6,
+  "rows": [
+   {
+    "case": [
+     "sum_helper",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "sum_helper",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "sum_helper",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "sum_helper",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "sum_helper",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "sum_helper",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_capture",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_capture",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_capture",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_capture",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_capture",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_capture",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_effects",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_effects",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_effects",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_effects",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_effects",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_effects",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_capture",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_capture",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_capture",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_capture",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_capture",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "arithmetic_capture",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "global_evaluation_order",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "global_evaluation_order",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "global_evaluation_order",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "global_evaluation_order",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "global_evaluation_order",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "global_evaluation_order",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_names",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_names",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_names",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_names",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_names",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_names",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "scope_names",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "scope_names",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "scope_names",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "scope_names",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "scope_names",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "scope_names",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "ui_builder",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "ui_builder",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "ui_builder",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "ui_builder",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "ui_builder",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "ui_builder",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "branch_ui",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "branch_ui",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "branch_ui",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "branch_ui",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "branch_ui",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "branch_ui",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "helper_loop",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "helper_loop",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "helper_loop",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "helper_loop",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "helper_loop",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "helper_loop",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_effects",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_effects",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_effects",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_effects",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_effects",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "unrolled_effects",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "binding_scopes",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "binding_scopes",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "binding_scopes",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "binding_scopes",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "binding_scopes",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "binding_scopes",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "parameter_write",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "parameter_write",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "parameter_write",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "parameter_write",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "parameter_write",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "parameter_write",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "shadow_capture",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "shadow_capture",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "shadow_capture",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "shadow_capture",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "shadow_capture",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "shadow_capture",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_identifier_safety",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_identifier_safety",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_identifier_safety",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_identifier_safety",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_identifier_safety",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "debug_identifier_safety",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "literal_bytes",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "literal_bytes",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "literal_bytes",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "literal_bytes",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "literal_bytes",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "literal_bytes",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional_contexts",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional_contexts",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional_contexts",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional_contexts",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional_contexts",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "conditional_contexts",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "cell_after_join",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "cell_after_join",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "cell_after_join",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "cell_after_join",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "cell_after_join",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "cell_after_join",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "wide_layout",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "wide_layout",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "wide_layout",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "wide_layout",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "wide_layout",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "wide_layout",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "role_results",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "role_results",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "role_results",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "role_results",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "role_results",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "role_results",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "buffer_role_slots",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "buffer_role_slots",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "buffer_role_slots",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "buffer_role_slots",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "buffer_role_slots",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "buffer_role_slots",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "compound_effects",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "compound_effects",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "compound_effects",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "compound_effects",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "compound_effects",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "compound_effects",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "equality_order",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "equality_order",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "equality_order",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "equality_order",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "equality_order",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "equality_order",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "method_evaluation_order",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "method_evaluation_order",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "method_evaluation_order",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "method_evaluation_order",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "method_evaluation_order",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "method_evaluation_order",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_callee_order",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_callee_order",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_callee_order",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_callee_order",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_callee_order",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_callee_order",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_prefix_order",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_prefix_order",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_prefix_order",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_prefix_order",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_prefix_order",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "captured_prefix_order",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "capture_forwarding",
+     0,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "capture_forwarding",
+     0,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "capture_forwarding",
+     1,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "capture_forwarding",
+     1,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "capture_forwarding",
+     2,
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "capture_forwarding",
+     2,
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   }
+  ]
+ },
+ "public": {
+  "prior_cases": 513,
+  "added_cases": 0,
+  "rows": [
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/ExternalTime.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/ExternalTime.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/ExternalTime.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/getTweenDuration.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/getTweenDuration.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/getTweenDuration.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/getTweenRatio.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/getTweenRatio.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/getTweenRatio.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/lerpType.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/lerpType.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/lerpType.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/packType.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/packType.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/packType.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/Spring.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/Spring.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/Spring.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/springCoefficients.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/springCoefficients.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/springCoefficients.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/Stopwatch.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/Stopwatch.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/Stopwatch.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/Tween.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/Tween.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/Tween.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/unpackType.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/unpackType.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Animation/unpackType.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Colour/Oklab.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Colour/Oklab.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Colour/Oklab.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Colour/sRGB.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Colour/sRGB.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Colour/sRGB.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/External.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/External.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/External.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/ExternalDebug.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/ExternalDebug.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/ExternalDebug.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/castToGraph.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/castToGraph.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/castToGraph.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/change.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/change.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/change.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/depend.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/depend.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/depend.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/evaluate.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/evaluate.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/evaluate.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/Observer.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/Observer.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Graph/Observer.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/applyInstanceProps.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/applyInstanceProps.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/applyInstanceProps.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Attribute.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Attribute.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Attribute.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/AttributeChange.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/AttributeChange.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/AttributeChange.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/AttributeOut.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/AttributeOut.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/AttributeOut.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Child.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Child.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Child.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Children.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Children.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Children.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/defaultProps.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/defaultProps.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/defaultProps.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Hydrate.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Hydrate.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Hydrate.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/New.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/New.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/New.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/OnChange.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/OnChange.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/OnChange.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/OnEvent.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/OnEvent.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/OnEvent.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Out.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Out.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Out.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Tag.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Tag.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Instances/Tag.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Logging/formatError.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Logging/formatError.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Logging/formatError.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Logging/messages.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Logging/messages.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Logging/messages.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Logging/parseError.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Logging/parseError.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Logging/parseError.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/checkLifetime.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/checkLifetime.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/checkLifetime.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/deriveScope.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/deriveScope.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/deriveScope.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/deriveScopeImpl.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/deriveScopeImpl.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/deriveScopeImpl.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/doCleanup.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/doCleanup.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/doCleanup.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/innerScope.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/innerScope.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/innerScope.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/insert.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/insert.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/insert.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/needsDestruction.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/needsDestruction.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/needsDestruction.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/scoped.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/scoped.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Memory/scoped.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/RobloxExternal.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/RobloxExternal.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/RobloxExternal.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/castToState.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/castToState.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/castToState.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/Computed.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/Computed.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/Computed.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/For/Disassembly.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/For/Disassembly.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/For/Disassembly.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/For/ForTypes.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/For/ForTypes.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/For/ForTypes.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/For/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/For/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/For/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/ForKeys.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/ForKeys.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/ForKeys.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/ForPairs.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/ForPairs.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/ForPairs.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/ForValues.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/ForValues.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/ForValues.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/peek.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/peek.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/peek.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/updateAll.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/updateAll.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/updateAll.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/Value.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/Value.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/State/Value.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Types.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Types.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Types.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/Contextual.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/Contextual.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/Contextual.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/isSimilar.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/isSimilar.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/isSimilar.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/merge.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/merge.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/merge.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/nameOf.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/nameOf.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/nameOf.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/never.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/never.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/never.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/nicknames.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/nicknames.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/nicknames.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/Safe.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/Safe.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/Safe.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/xtypeof.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/xtypeof.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Fusion",
+     "src/Utility/xtypeof.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/assertDeepEqual.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/assertDeepEqual.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/assertDeepEqual.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/assign.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/assign.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/assign.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Binding.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Binding.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Binding.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Component.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Component.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Component.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/ComponentLifecyclePhase.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/ComponentLifecyclePhase.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/ComponentLifecyclePhase.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Config.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Config.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Config.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createContext.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createContext.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createContext.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createElement.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createElement.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createElement.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createFragment.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createFragment.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createFragment.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createReconciler.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createReconciler.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createReconciler.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createReconcilerCompat.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createReconcilerCompat.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createReconcilerCompat.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createRef.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createRef.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createRef.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createSignal.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createSignal.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createSignal.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createSpy.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createSpy.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/createSpy.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/ElementKind.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/ElementKind.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/ElementKind.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/ElementUtils.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/ElementUtils.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/ElementUtils.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/forwardRef.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/forwardRef.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/forwardRef.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/getDefaultInstanceProperty.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/getDefaultInstanceProperty.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/getDefaultInstanceProperty.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/GlobalConfig.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/GlobalConfig.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/GlobalConfig.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/init.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/init.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/init.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/internalAssert.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/internalAssert.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/internalAssert.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/invalidSetStateMessages.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/invalidSetStateMessages.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/invalidSetStateMessages.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Logging.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Logging.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Logging.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/None.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/None.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/None.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/NoopRenderer.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/NoopRenderer.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/NoopRenderer.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/oneChild.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/oneChild.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/oneChild.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Portal.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Portal.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Portal.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Change.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Change.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Change.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Children.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Children.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Children.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Event.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Event.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Event.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Ref.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Ref.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PropMarkers/Ref.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PureComponent.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PureComponent.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/PureComponent.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/RobloxRenderer.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/RobloxRenderer.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/RobloxRenderer.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/SingleEventManager.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/SingleEventManager.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/SingleEventManager.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/strict.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/strict.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/strict.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Symbol.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Symbol.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Symbol.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Type.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Type.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "roact",
+     "src/Type.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "promise",
+     "lib/init.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "promise",
+     "lib/init.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "promise",
+     "lib/init.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/BufferReader.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/BufferReader.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/BufferReader.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/BufferWriter.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/BufferWriter.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/BufferWriter.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/DataTypeBuffer.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/DataTypeBuffer.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/DataTypeBuffer.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/Types.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/Types.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/buffer-util/Types.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/ClientComm.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/ClientComm.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/ClientComm.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/ClientRemoteProperty.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/ClientRemoteProperty.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/ClientRemoteProperty.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/ClientRemoteSignal.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/ClientRemoteSignal.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/ClientRemoteSignal.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Client/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/RemoteProperty.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/RemoteProperty.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/RemoteProperty.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/RemoteSignal.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/RemoteSignal.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/RemoteSignal.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/ServerComm.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/ServerComm.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Server/ServerComm.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Types.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Types.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Types.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Util.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Util.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/comm/Util.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/component/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/component/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/component/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/concur/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/concur/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/concur/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/enum-list/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/enum-list/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/enum-list/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/find/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/find/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/find/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Gamepad.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Gamepad.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Gamepad.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Keyboard.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Keyboard.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Keyboard.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Mouse.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Mouse.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Mouse.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/PreferredInput.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/PreferredInput.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/PreferredInput.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Touch.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Touch.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/input/Touch.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/loader/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/loader/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/loader/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/log/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/log/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/log/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/net/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/net/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/net/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/option/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/option/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/option/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/pid/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/pid/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/pid/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/quaternion/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/quaternion/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/quaternion/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/query/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/query/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/query/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/sequent/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/sequent/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/sequent/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/ser/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/ser/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/ser/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/shake/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/shake/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/shake/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/signal/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/signal/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/signal/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/silo/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/silo/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/silo/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/silo/TableWatcher.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/silo/TableWatcher.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/silo/TableWatcher.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/silo/Util.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/silo/Util.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/silo/Util.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/spring/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/spring/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/spring/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/stream/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/stream/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/stream/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/streamable/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/streamable/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/streamable/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/streamable/Streamable.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/streamable/Streamable.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/streamable/Streamable.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/streamable/StreamableUtil.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/streamable/StreamableUtil.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/streamable/StreamableUtil.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/symbol/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/symbol/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/symbol/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/table-util/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/table-util/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/table-util/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/task-queue/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/task-queue/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/task-queue/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/timer/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/timer/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/timer/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/tree/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/tree/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/tree/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/trove/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/trove/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/trove/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/typed-remote/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/typed-remote/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/typed-remote/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/wait-for/init.luau",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/wait-for/init.luau",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "RbxUtil",
+     "modules/wait-for/init.luau",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/combineReducers.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/combineReducers.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/combineReducers.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/createReducer.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/createReducer.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/createReducer.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/init.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/init.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/init.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/loggerMiddleware.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/loggerMiddleware.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/loggerMiddleware.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/makeActionCreator.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/makeActionCreator.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/makeActionCreator.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/makeThunkMiddleware.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/makeThunkMiddleware.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/makeThunkMiddleware.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/NoYield.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/NoYield.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/NoYield.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/prettyPrint.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/prettyPrint.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/prettyPrint.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/Signal.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/Signal.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/Signal.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/Store.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/Store.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/Store.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/thunkMiddleware.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/thunkMiddleware.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/thunkMiddleware.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/actions.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/actions.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/actions.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/reducers.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/reducers.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/reducers.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/store.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/store.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/store.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/thunks.lua",
+     0
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/thunks.lua",
+     1
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   },
+   {
+    "case": [
+     "Rodux",
+     "src/types/thunks.lua",
+     2
+    ],
+    "source_equal": true,
+    "dataflow_equal": true,
+    "fidelity_equal": true
+   }
+  ]
+ }
+}

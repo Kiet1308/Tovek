@@ -1,0 +1,2742 @@
+{
+ "runtime": {
+  "before": "D:\\Medal\\medal-decompiler\\out\\v2-select-final-traces\\lineage-6504aqht\\trace1",
+  "after": "D:\\Medal\\medal-decompiler\\out\\v2-lhs-traces\\lineage-cgnai6vr\\trace1",
+  "prior_scripts": 168,
+  "added_scripts": 6,
+  "rows": [
+   {
+    "script_path": "arithmetic_capture_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_capture_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_capture_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_capture_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_capture_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_capture_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_effects_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_effects_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_effects_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_effects_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_effects_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "arithmetic_effects_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "binding_scopes_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "binding_scopes_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "binding_scopes_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "binding_scopes_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "binding_scopes_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "binding_scopes_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "branch_ui_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "branch_ui_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "branch_ui_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "branch_ui_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "branch_ui_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "branch_ui_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "buffer_role_slots_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "buffer_role_slots_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "buffer_role_slots_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "buffer_role_slots_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "buffer_role_slots_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "buffer_role_slots_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "capture_forwarding_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "capture_forwarding_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "capture_forwarding_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "capture_forwarding_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "capture_forwarding_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "capture_forwarding_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_callee_order_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_callee_order_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_callee_order_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_callee_order_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_callee_order_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_callee_order_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_prefix_order_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_prefix_order_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_prefix_order_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_prefix_order_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_prefix_order_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "captured_prefix_order_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "cell_after_join_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "cell_after_join_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "cell_after_join_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "cell_after_join_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "cell_after_join_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "cell_after_join_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "compound_effects_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "compound_effects_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "compound_effects_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "compound_effects_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "compound_effects_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "compound_effects_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_contexts_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_contexts_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_contexts_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_contexts_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_contexts_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "conditional_contexts_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_identifier_safety_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_identifier_safety_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_identifier_safety_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_identifier_safety_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_identifier_safety_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_identifier_safety_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_names_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_names_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_names_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_names_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_names_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "debug_names_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "equality_order_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "equality_order_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "equality_order_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "equality_order_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "equality_order_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "equality_order_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "global_evaluation_order_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "global_evaluation_order_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "global_evaluation_order_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "global_evaluation_order_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "global_evaluation_order_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "global_evaluation_order_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "helper_loop_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "helper_loop_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "helper_loop_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "helper_loop_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "helper_loop_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "helper_loop_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "literal_bytes_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "literal_bytes_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "literal_bytes_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "literal_bytes_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "literal_bytes_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "literal_bytes_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "method_evaluation_order_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "method_evaluation_order_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "method_evaluation_order_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "method_evaluation_order_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "method_evaluation_order_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "method_evaluation_order_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "parameter_write_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "parameter_write_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "parameter_write_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "parameter_write_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "parameter_write_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "parameter_write_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "role_results_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "role_results_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "role_results_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "role_results_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "role_results_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "role_results_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "scope_names_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "scope_names_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "scope_names_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "scope_names_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "scope_names_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "scope_names_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "shadow_capture_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "shadow_capture_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "shadow_capture_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "shadow_capture_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "shadow_capture_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "shadow_capture_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "sum_helper_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "sum_helper_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "sum_helper_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "sum_helper_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "sum_helper_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "sum_helper_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "ui_builder_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "ui_builder_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "ui_builder_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "ui_builder_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "ui_builder_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "ui_builder_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_capture_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_capture_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_capture_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_capture_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_capture_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_capture_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_effects_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_effects_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_effects_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_effects_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_effects_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "unrolled_effects_O2_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "wide_layout_O0_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "wide_layout_O0_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "wide_layout_O1_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "wide_layout_O1_g2.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "wide_layout_O2_g1.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "wide_layout_O2_g2.lua",
+    "metadata_equal": true
+   }
+  ]
+ },
+ "public": {
+  "before": "D:\\Medal\\medal-decompiler\\out\\v2-select-final-public-traces\\lineage-3sq_ac87\\trace1",
+  "after": "D:\\Medal\\medal-decompiler\\out\\v2-lhs-public-traces\\lineage-08s2j6b2\\trace1",
+  "prior_scripts": 513,
+  "added_scripts": 0,
+  "rows": [
+   {
+    "script_path": "Fusion/O0/src/Animation/ExternalTime.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Animation/Spring.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Animation/Stopwatch.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Animation/Tween.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Animation/getTweenDuration.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Animation/getTweenRatio.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Animation/lerpType.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Animation/packType.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Animation/springCoefficients.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Animation/unpackType.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Colour/Oklab.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Colour/sRGB.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/External.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/ExternalDebug.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Graph/Observer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Graph/castToGraph.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Graph/change.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Graph/depend.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Graph/evaluate.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/Attribute.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/AttributeChange.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/AttributeOut.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/Child.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/Children.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/Hydrate.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/New.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/OnChange.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/OnEvent.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/Out.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/Tag.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/applyInstanceProps.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Instances/defaultProps.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Logging/formatError.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Logging/messages.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Logging/parseError.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Memory/checkLifetime.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Memory/deriveScope.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Memory/deriveScopeImpl.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Memory/doCleanup.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Memory/innerScope.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Memory/insert.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Memory/needsDestruction.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Memory/scoped.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/RobloxExternal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/Computed.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/For/Disassembly.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/For/ForTypes.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/For/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/ForKeys.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/ForPairs.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/ForValues.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/Value.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/castToState.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/peek.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/State/updateAll.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Types.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Utility/Contextual.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Utility/Safe.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Utility/isSimilar.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Utility/merge.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Utility/nameOf.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Utility/never.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Utility/nicknames.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/Utility/xtypeof.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O0/src/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/ExternalTime.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/Spring.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/Stopwatch.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/Tween.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/getTweenDuration.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/getTweenRatio.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/lerpType.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/packType.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/springCoefficients.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Animation/unpackType.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Colour/Oklab.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Colour/sRGB.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/External.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/ExternalDebug.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Graph/Observer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Graph/castToGraph.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Graph/change.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Graph/depend.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Graph/evaluate.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/Attribute.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/AttributeChange.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/AttributeOut.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/Child.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/Children.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/Hydrate.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/New.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/OnChange.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/OnEvent.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/Out.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/Tag.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/applyInstanceProps.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Instances/defaultProps.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Logging/formatError.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Logging/messages.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Logging/parseError.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Memory/checkLifetime.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Memory/deriveScope.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Memory/deriveScopeImpl.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Memory/doCleanup.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Memory/innerScope.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Memory/insert.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Memory/needsDestruction.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Memory/scoped.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/RobloxExternal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/Computed.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/For/Disassembly.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/For/ForTypes.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/For/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/ForKeys.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/ForPairs.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/ForValues.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/Value.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/castToState.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/peek.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/State/updateAll.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Types.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Utility/Contextual.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Utility/Safe.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Utility/isSimilar.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Utility/merge.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Utility/nameOf.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Utility/never.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Utility/nicknames.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/Utility/xtypeof.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O1/src/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/ExternalTime.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/Spring.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/Stopwatch.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/Tween.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/getTweenDuration.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/getTweenRatio.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/lerpType.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/packType.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/springCoefficients.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Animation/unpackType.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Colour/Oklab.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Colour/sRGB.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/External.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/ExternalDebug.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Graph/Observer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Graph/castToGraph.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Graph/change.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Graph/depend.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Graph/evaluate.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/Attribute.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/AttributeChange.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/AttributeOut.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/Child.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/Children.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/Hydrate.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/New.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/OnChange.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/OnEvent.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/Out.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/Tag.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/applyInstanceProps.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Instances/defaultProps.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Logging/formatError.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Logging/messages.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Logging/parseError.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Memory/checkLifetime.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Memory/deriveScope.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Memory/deriveScopeImpl.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Memory/doCleanup.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Memory/innerScope.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Memory/insert.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Memory/needsDestruction.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Memory/scoped.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/RobloxExternal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/Computed.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/For/Disassembly.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/For/ForTypes.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/For/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/ForKeys.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/ForPairs.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/ForValues.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/Value.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/castToState.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/peek.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/State/updateAll.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Types.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Utility/Contextual.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Utility/Safe.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Utility/isSimilar.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Utility/merge.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Utility/nameOf.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Utility/never.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Utility/nicknames.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/Utility/xtypeof.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Fusion/O2/src/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/buffer-util/BufferReader.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/buffer-util/BufferWriter.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/buffer-util/DataTypeBuffer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/buffer-util/Types.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/buffer-util/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Client/ClientComm.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Client/ClientRemoteProperty.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Client/ClientRemoteSignal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Client/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Server/RemoteProperty.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Server/RemoteSignal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Server/ServerComm.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Server/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Types.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/Util.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/comm/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/component/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/concur/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/enum-list/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/find/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/input/Gamepad.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/input/Keyboard.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/input/Mouse.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/input/PreferredInput.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/input/Touch.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/input/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/loader/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/log/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/net/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/option/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/pid/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/quaternion/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/query/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/sequent/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/ser/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/shake/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/signal/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/silo/TableWatcher.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/silo/Util.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/silo/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/spring/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/stream/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/streamable/Streamable.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/streamable/StreamableUtil.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/streamable/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/symbol/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/table-util/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/task-queue/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/timer/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/tree/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/trove/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/typed-remote/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O0/modules/wait-for/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/buffer-util/BufferReader.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/buffer-util/BufferWriter.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/buffer-util/DataTypeBuffer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/buffer-util/Types.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/buffer-util/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Client/ClientComm.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Client/ClientRemoteProperty.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Client/ClientRemoteSignal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Client/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Server/RemoteProperty.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Server/RemoteSignal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Server/ServerComm.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Server/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Types.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/Util.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/comm/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/component/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/concur/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/enum-list/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/find/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/input/Gamepad.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/input/Keyboard.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/input/Mouse.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/input/PreferredInput.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/input/Touch.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/input/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/loader/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/log/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/net/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/option/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/pid/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/quaternion/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/query/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/sequent/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/ser/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/shake/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/signal/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/silo/TableWatcher.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/silo/Util.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/silo/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/spring/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/stream/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/streamable/Streamable.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/streamable/StreamableUtil.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/streamable/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/symbol/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/table-util/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/task-queue/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/timer/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/tree/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/trove/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/typed-remote/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O1/modules/wait-for/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/buffer-util/BufferReader.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/buffer-util/BufferWriter.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/buffer-util/DataTypeBuffer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/buffer-util/Types.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/buffer-util/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Client/ClientComm.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Client/ClientRemoteProperty.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Client/ClientRemoteSignal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Client/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Server/RemoteProperty.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Server/RemoteSignal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Server/ServerComm.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Server/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Types.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/Util.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/comm/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/component/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/concur/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/enum-list/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/find/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/input/Gamepad.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/input/Keyboard.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/input/Mouse.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/input/PreferredInput.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/input/Touch.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/input/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/loader/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/log/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/net/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/option/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/pid/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/quaternion/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/query/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/sequent/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/ser/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/shake/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/signal/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/silo/TableWatcher.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/silo/Util.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/silo/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/spring/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/stream/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/streamable/Streamable.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/streamable/StreamableUtil.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/streamable/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/symbol/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/table-util/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/task-queue/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/timer/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/tree/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/trove/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/typed-remote/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "RbxUtil/O2/modules/wait-for/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/NoYield.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/Signal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/Store.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/combineReducers.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/createReducer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/loggerMiddleware.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/makeActionCreator.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/makeThunkMiddleware.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/prettyPrint.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/thunkMiddleware.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/types/actions.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/types/reducers.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/types/store.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O0/src/types/thunks.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/NoYield.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/Signal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/Store.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/combineReducers.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/createReducer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/loggerMiddleware.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/makeActionCreator.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/makeThunkMiddleware.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/prettyPrint.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/thunkMiddleware.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/types/actions.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/types/reducers.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/types/store.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O1/src/types/thunks.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/NoYield.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/Signal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/Store.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/combineReducers.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/createReducer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/loggerMiddleware.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/makeActionCreator.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/makeThunkMiddleware.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/prettyPrint.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/thunkMiddleware.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/types/actions.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/types/reducers.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/types/store.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "Rodux/O2/src/types/thunks.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "promise/O0/lib/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "promise/O1/lib/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "promise/O2/lib/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/Binding.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/Component.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/ComponentLifecyclePhase.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/Config.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/ElementKind.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/ElementUtils.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/GlobalConfig.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/Logging.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/None.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/NoopRenderer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/Portal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/PropMarkers/Change.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/PropMarkers/Children.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/PropMarkers/Event.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/PropMarkers/Ref.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/PureComponent.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/RobloxRenderer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/SingleEventManager.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/Symbol.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/Type.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/assertDeepEqual.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/assign.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/createContext.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/createElement.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/createFragment.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/createReconciler.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/createReconcilerCompat.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/createRef.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/createSignal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/createSpy.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/forwardRef.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/getDefaultInstanceProperty.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/internalAssert.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/invalidSetStateMessages.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/oneChild.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O0/src/strict.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/Binding.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/Component.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/ComponentLifecyclePhase.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/Config.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/ElementKind.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/ElementUtils.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/GlobalConfig.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/Logging.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/None.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/NoopRenderer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/Portal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/PropMarkers/Change.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/PropMarkers/Children.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/PropMarkers/Event.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/PropMarkers/Ref.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/PureComponent.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/RobloxRenderer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/SingleEventManager.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/Symbol.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/Type.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/assertDeepEqual.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/assign.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/createContext.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/createElement.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/createFragment.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/createReconciler.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/createReconcilerCompat.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/createRef.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/createSignal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/createSpy.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/forwardRef.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/getDefaultInstanceProperty.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/internalAssert.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/invalidSetStateMessages.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/oneChild.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O1/src/strict.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/Binding.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/Component.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/ComponentLifecyclePhase.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/Config.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/ElementKind.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/ElementUtils.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/GlobalConfig.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/Logging.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/None.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/NoopRenderer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/Portal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/PropMarkers/Change.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/PropMarkers/Children.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/PropMarkers/Event.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/PropMarkers/Ref.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/PureComponent.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/RobloxRenderer.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/SingleEventManager.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/Symbol.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/Type.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/assertDeepEqual.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/assign.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/createContext.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/createElement.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/createFragment.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/createReconciler.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/createReconcilerCompat.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/createRef.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/createSignal.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/createSpy.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/forwardRef.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/getDefaultInstanceProperty.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/init.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/internalAssert.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/invalidSetStateMessages.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/oneChild.lua",
+    "metadata_equal": true
+   },
+   {
+    "script_path": "roact/O2/src/strict.lua",
+    "metadata_equal": true
+   }
+  ]
+ }
+}

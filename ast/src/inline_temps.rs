@@ -839,10 +839,10 @@ fn index_component_order_barrier(value: &RValue, facts: &MotionFacts) -> bool {
             facts.captured.contains(local) && !facts.stable_captured.contains(local)
         }
         RValue::Literal(_) => false,
-        RValue::Index(index) => {
-            index_component_order_barrier(&index.left, facts)
-                || index_component_order_barrier(&index.right, facts)
-        }
+        // The outer LValue index stores after the RHS, but an index inside
+        // its base/key executes before it. Even local/literal children may
+        // invoke __index, mutate captured state, yield or raise here.
+        RValue::Index(_) => true,
         _ => true,
     }
 }
@@ -1016,6 +1016,69 @@ mod tests {
         assert!(!inline_single_use_temps(&mut block));
         assert!(super::rebuild_ui_expression_trees(&mut block));
         assert_eq!(block.to_string(), "return (factory(\"Frame\"))(1)");
+    }
+
+    #[test]
+    fn ui_callee_chain_preserves_nested_assignment_evaluation() {
+        for shape in 0..3 {
+            let factory = local("factory");
+            let handle = local("v1");
+            let target = local("target");
+            let keys = local("keys");
+            let base = if shape != 1 {
+                Index::new(local_value(&target), string("Child")).into()
+            } else {
+                local_value(&target)
+            };
+            let key = if shape != 0 {
+                Index::new(local_value(&keys), string("Key")).into()
+            } else {
+                string("Value")
+            };
+            let mut block = Block(vec![
+                declare(&handle, Call::new(local_value(&factory), vec![]).into()),
+                assign(Index::new(base, key).into(), Call::new(local_value(&handle), vec![]).into()),
+            ]);
+            let before = block.to_string();
+            assert!(!super::rebuild_ui_expression_trees(&mut block));
+            assert_eq!(block.to_string(), before);
+        }
+    }
+
+    #[test]
+    fn ui_callee_chain_can_cross_only_the_terminal_index_store() {
+        let factory = local("factory");
+        let handle = local("v1");
+        let target = local("target");
+        let mut block = Block(vec![
+            declare(&handle, Call::new(local_value(&factory), vec![]).into()),
+            assign(
+                Index::new(local_value(&target), string("Value")).into(),
+                Call::new(local_value(&handle), vec![]).into(),
+            ),
+        ]);
+        assert!(super::rebuild_ui_expression_trees(&mut block));
+        assert_eq!(block.0.len(), 1);
+        assert_eq!(block.to_string(), "target.Value = (factory())()");
+    }
+
+    #[test]
+    fn captured_snapshot_preserves_nested_assignment_reads() {
+        let source = local("source");
+        let handler = local("handler");
+        let temp = local("v1");
+        let target = local("target");
+        let mut block = Block(vec![
+            declare(&handler, closure_capturing(&source)),
+            declare(&temp, local_value(&source)),
+            assign(
+                Index::new(Index::new(local_value(&target), string("Child")).into(), string("Value")).into(),
+                local_value(&temp),
+            ),
+        ]);
+        let before = block.to_string();
+        assert!(!inline_single_use_temps(&mut block));
+        assert_eq!(block.to_string(), before);
     }
 
     #[test]

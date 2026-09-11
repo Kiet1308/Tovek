@@ -1,5 +1,13 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R4: nested assignment address reads before RHS inlining
+
+Late AST/UI inline now treats every nested index in an assignment's base or key as an observable read before the RHS. It preserves earlier factory calls and mutable-capture snapshots; the terminal store remains after the RHS, so ordinary local/literal leaf addresses still permit valid call-chain inlining. The previous release fails 162 nested-address vectors at each g1 profile; all six new profiles now pass 216 vectors each, including failures, scalar/multret values and nil/NaN keys. [Contract and examples](assignment_evaluation_order.md).
+
+All 959 primary Rust tests, one child repeat, 93 Python tests, 174 runtime configurations, nine controls, 513 public configurations, 45 legacy semantic configurations and 52 size gates pass. Every prior runtime/public source, full oracle/fidelity result and detailed sidecar is preserved; emission/provenance and one/four-thread cold/warm cache checks pass. All 3,978 private source files are byte-identical, with recorded-name/capture contracts equal on 3,936 nonempty scripts. The general statement/store/alias graph remains open. [Validation inventory](roadmap_v2_acceptance/lhs_validation.json).
+
+The bounded checker proves all 24 named function/profile comparisons in the new fixture. The six whole-module comparisons remain different because of existing module/table construction changes; the local certificates do not promote them. Seven interleaved warm CLI rounds are deterministic: one-thread median 25.552 -> 25.191 s (-1.42%), 16-thread 1.935 -> 1.988 s (+2.70%), with median peak RSS 33,468,416 -> 33,067,008 and 122,179,584 -> 118,030,336 bytes. This records cost rather than claiming an R7 speedup.
+
 ## R2: lexical declaration graph, independent of storage ancestry
 
 The optional parser-backed exporter creates source-hash-scoped declaration/function IDs and exact reference spans, including implicit self, type-only references and captures. It joins validated emission spans to IR storage without merging distinct lexical declarations. Recorded origins on shared storage remain ambiguous. Unrecorded locals are not labelled compiler temporaries or synthesis. This is a diagnostic layer; it does not change core coalescing or infer value/effect/ownership proof. [Contract and commands](lexical_binding_graph.md).

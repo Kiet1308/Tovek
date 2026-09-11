@@ -110,9 +110,19 @@ def check_case(args, case, root, work, opt, debug):
         row["runtime"] = {}
         for variant in ("source", "output"):
             runner = directory / f"{variant}_runner.luau"
-            runner.write_text(f'local f = require("./{variant}")\n' + driver,
+            runtime_command = [args.luau, runner]
+            if case.get("runtime_compile_inline"):
+                # Compile this subject body under the actual matrix profile;
+                # do not depend on require's separate module compiler settings.
+                subject = (directory / f"{variant}.luau").read_text(encoding="utf-8")
+                prefix = "local f = (function()\n" + subject + "\nend)()\n"
+                runtime_command = [args.luau, f"-O{opt}", f"-g{debug}", "--fflags=false", runner]
+                row["runtime_compilation"] = "inline_body_at_matrix_profile"
+            else:
+                prefix = f'local f = require("./{variant}")\n'
+            runner.write_text(prefix + driver,
                               encoding="utf-8", newline="\n")
-            result = observation([args.luau, runner], timeout=args.timeout)
+            result = observation(runtime_command, timeout=args.timeout)
             row["runtime"][variant] = result
             if result["exit"] != 0 or result["stdout"] != case["expected_stdout"]:
                 raise RuntimeError(f"{variant} observation differs from locked expectation")
