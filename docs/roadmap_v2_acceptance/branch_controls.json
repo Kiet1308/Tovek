@@ -1,0 +1,622 @@
+{
+ "schema_version": 1,
+ "rows": [
+  {
+   "control": "original",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "ce31d4f845f43a9274a1ac8bdf5975181ad753a637c3ff2ee8bb23492367ffcd",
+   "vectors": 1470,
+   "changed_vectors": 0,
+   "stdout_sha256": "19f7354387233b350b019b6e5f70f7cc141ebaa972029687d531754affdf3c5d"
+  },
+  {
+   "control": "original",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "ce31d4f845f43a9274a1ac8bdf5975181ad753a637c3ff2ee8bb23492367ffcd",
+   "vectors": 1470,
+   "changed_vectors": 0,
+   "stdout_sha256": "19f7354387233b350b019b6e5f70f7cc141ebaa972029687d531754affdf3c5d"
+  },
+  {
+   "control": "original",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "ce31d4f845f43a9274a1ac8bdf5975181ad753a637c3ff2ee8bb23492367ffcd",
+   "vectors": 1470,
+   "changed_vectors": 0,
+   "stdout_sha256": "19f7354387233b350b019b6e5f70f7cc141ebaa972029687d531754affdf3c5d"
+  },
+  {
+   "control": "original",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "ce31d4f845f43a9274a1ac8bdf5975181ad753a637c3ff2ee8bb23492367ffcd",
+   "vectors": 1470,
+   "changed_vectors": 0,
+   "stdout_sha256": "19f7354387233b350b019b6e5f70f7cc141ebaa972029687d531754affdf3c5d"
+  },
+  {
+   "control": "original",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "ce31d4f845f43a9274a1ac8bdf5975181ad753a637c3ff2ee8bb23492367ffcd",
+   "vectors": 1470,
+   "changed_vectors": 0,
+   "stdout_sha256": "19f7354387233b350b019b6e5f70f7cc141ebaa972029687d531754affdf3c5d"
+  },
+  {
+   "control": "original",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "ce31d4f845f43a9274a1ac8bdf5975181ad753a637c3ff2ee8bb23492367ffcd",
+   "vectors": 1470,
+   "changed_vectors": 0,
+   "stdout_sha256": "19f7354387233b350b019b6e5f70f7cc141ebaa972029687d531754affdf3c5d"
+  },
+  {
+   "control": "late_initializer",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "9b134a613e7bf402e53cc5a8c84fec7d8cef4f096dac054e5fa62057ef9a8cbe",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "bcfc88b21da9d05b3beab9359b9eb9f4dda7b4cdfe9dde1dd211f4eb11489790",
+   "first_difference": {
+    "vector": 840,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tinitial,condition,else,child,observe",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,initial,child,observe"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "9b134a613e7bf402e53cc5a8c84fec7d8cef4f096dac054e5fa62057ef9a8cbe",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "bcfc88b21da9d05b3beab9359b9eb9f4dda7b4cdfe9dde1dd211f4eb11489790",
+   "first_difference": {
+    "vector": 840,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tinitial,condition,else,child,observe",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,initial,child,observe"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "9b134a613e7bf402e53cc5a8c84fec7d8cef4f096dac054e5fa62057ef9a8cbe",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "bcfc88b21da9d05b3beab9359b9eb9f4dda7b4cdfe9dde1dd211f4eb11489790",
+   "first_difference": {
+    "vector": 840,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tinitial,condition,else,child,observe",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,initial,child,observe"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "9b134a613e7bf402e53cc5a8c84fec7d8cef4f096dac054e5fa62057ef9a8cbe",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "bcfc88b21da9d05b3beab9359b9eb9f4dda7b4cdfe9dde1dd211f4eb11489790",
+   "first_difference": {
+    "vector": 840,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tinitial,condition,else,child,observe",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,initial,child,observe"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "9b134a613e7bf402e53cc5a8c84fec7d8cef4f096dac054e5fa62057ef9a8cbe",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "bcfc88b21da9d05b3beab9359b9eb9f4dda7b4cdfe9dde1dd211f4eb11489790",
+   "first_difference": {
+    "vector": 840,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tinitial,condition,else,child,observe",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,initial,child,observe"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "9b134a613e7bf402e53cc5a8c84fec7d8cef4f096dac054e5fa62057ef9a8cbe",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "bcfc88b21da9d05b3beab9359b9eb9f4dda7b4cdfe9dde1dd211f4eb11489790",
+   "first_difference": {
+    "vector": 840,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tinitial,condition,else,child,observe",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,initial,child,observe"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "67f8bb7a9d391f4aa9dd359e52ded3f33796d2a3d1e1f33545b900138adcbdce",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "6e4dc151513cc7117f26f1ea3414bd61d60cb90a0e9eb045cea48a242e3a65ac",
+   "first_difference": {
+    "vector": 210,
+    "expected": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "67f8bb7a9d391f4aa9dd359e52ded3f33796d2a3d1e1f33545b900138adcbdce",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "6e4dc151513cc7117f26f1ea3414bd61d60cb90a0e9eb045cea48a242e3a65ac",
+   "first_difference": {
+    "vector": 210,
+    "expected": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "67f8bb7a9d391f4aa9dd359e52ded3f33796d2a3d1e1f33545b900138adcbdce",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "6e4dc151513cc7117f26f1ea3414bd61d60cb90a0e9eb045cea48a242e3a65ac",
+   "first_difference": {
+    "vector": 210,
+    "expected": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "67f8bb7a9d391f4aa9dd359e52ded3f33796d2a3d1e1f33545b900138adcbdce",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "6e4dc151513cc7117f26f1ea3414bd61d60cb90a0e9eb045cea48a242e3a65ac",
+   "first_difference": {
+    "vector": 210,
+    "expected": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "67f8bb7a9d391f4aa9dd359e52ded3f33796d2a3d1e1f33545b900138adcbdce",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "6e4dc151513cc7117f26f1ea3414bd61d60cb90a0e9eb045cea48a242e3a65ac",
+   "first_difference": {
+    "vector": 210,
+    "expected": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "67f8bb7a9d391f4aa9dd359e52ded3f33796d2a3d1e1f33545b900138adcbdce",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "6e4dc151513cc7117f26f1ea3414bd61d60cb90a0e9eb045cea48a242e3a65ac",
+   "first_difference": {
+    "vector": 210,
+    "expected": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "observed\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_table",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "17edb4d97ca44f6e89705700ad8c2604138a69a521038d98421fe447782e7aea",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "51fd434f29759a1699c823f32080f3275731df2f2aefd4e75433ab5b5d243e23",
+   "first_difference": {
+    "vector": 420,
+    "expected": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_table",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "17edb4d97ca44f6e89705700ad8c2604138a69a521038d98421fe447782e7aea",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "51fd434f29759a1699c823f32080f3275731df2f2aefd4e75433ab5b5d243e23",
+   "first_difference": {
+    "vector": 420,
+    "expected": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_table",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "17edb4d97ca44f6e89705700ad8c2604138a69a521038d98421fe447782e7aea",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "51fd434f29759a1699c823f32080f3275731df2f2aefd4e75433ab5b5d243e23",
+   "first_difference": {
+    "vector": 420,
+    "expected": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_table",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "17edb4d97ca44f6e89705700ad8c2604138a69a521038d98421fe447782e7aea",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "51fd434f29759a1699c823f32080f3275731df2f2aefd4e75433ab5b5d243e23",
+   "first_difference": {
+    "vector": 420,
+    "expected": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_table",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "17edb4d97ca44f6e89705700ad8c2604138a69a521038d98421fe447782e7aea",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "51fd434f29759a1699c823f32080f3275731df2f2aefd4e75433ab5b5d243e23",
+   "first_difference": {
+    "vector": 420,
+    "expected": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_table",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "17edb4d97ca44f6e89705700ad8c2604138a69a521038d98421fe447782e7aea",
+   "vectors": 1470,
+   "changed_vectors": 180,
+   "stdout_sha256": "51fd434f29759a1699c823f32080f3275731df2f2aefd4e75433ab5b5d243e23",
+   "first_difference": {
+    "vector": 420,
+    "expected": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,partial:initial-value:Panel,else,child,newindex:Child,observe",
+    "actual": "captured\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_initializer",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "87ae443d7ad41d36c3f93ce4c52f041d18a6d90455468504b32c2bc15178e201",
+   "vectors": 1470,
+   "changed_vectors": 36,
+   "stdout_sha256": "60651ba5c67b80d9c1aba2ab002997682219a56f00fc0ee5d034b50eb12154d5",
+   "first_difference": {
+    "vector": 630,
+    "expected": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tinitial-value\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tmutated\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_initializer",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "87ae443d7ad41d36c3f93ce4c52f041d18a6d90455468504b32c2bc15178e201",
+   "vectors": 1470,
+   "changed_vectors": 36,
+   "stdout_sha256": "60651ba5c67b80d9c1aba2ab002997682219a56f00fc0ee5d034b50eb12154d5",
+   "first_difference": {
+    "vector": 630,
+    "expected": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tinitial-value\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tmutated\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_initializer",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "87ae443d7ad41d36c3f93ce4c52f041d18a6d90455468504b32c2bc15178e201",
+   "vectors": 1470,
+   "changed_vectors": 36,
+   "stdout_sha256": "60651ba5c67b80d9c1aba2ab002997682219a56f00fc0ee5d034b50eb12154d5",
+   "first_difference": {
+    "vector": 630,
+    "expected": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tinitial-value\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tmutated\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_initializer",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "87ae443d7ad41d36c3f93ce4c52f041d18a6d90455468504b32c2bc15178e201",
+   "vectors": 1470,
+   "changed_vectors": 36,
+   "stdout_sha256": "60651ba5c67b80d9c1aba2ab002997682219a56f00fc0ee5d034b50eb12154d5",
+   "first_difference": {
+    "vector": 630,
+    "expected": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tinitial-value\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tmutated\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_initializer",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "87ae443d7ad41d36c3f93ce4c52f041d18a6d90455468504b32c2bc15178e201",
+   "vectors": 1470,
+   "changed_vectors": 36,
+   "stdout_sha256": "60651ba5c67b80d9c1aba2ab002997682219a56f00fc0ee5d034b50eb12154d5",
+   "first_difference": {
+    "vector": 630,
+    "expected": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tinitial-value\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tmutated\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "late_captured_initializer",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "87ae443d7ad41d36c3f93ce4c52f041d18a6d90455468504b32c2bc15178e201",
+   "vectors": 1470,
+   "changed_vectors": 36,
+   "stdout_sha256": "60651ba5c67b80d9c1aba2ab002997682219a56f00fc0ee5d034b50eb12154d5",
+   "first_difference": {
+    "vector": 630,
+    "expected": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tinitial-value\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "captured_initial\tfalse\tnone\t7\tstring\t6\tPanel\tmutated\t7\tseed\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "eager_unselected_arm",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "060f07ad4e5c664fc90b908a7bfa1abaad5edb4c35874a2020f0edc5633d11e1",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "87bef7cf22d128e99784aaebb074b182aa9b01a1f289f46008aeacb18f03fe4d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tthen,else,condition,child,observe"
+   }
+  },
+  {
+   "control": "eager_unselected_arm",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "060f07ad4e5c664fc90b908a7bfa1abaad5edb4c35874a2020f0edc5633d11e1",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "87bef7cf22d128e99784aaebb074b182aa9b01a1f289f46008aeacb18f03fe4d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tthen,else,condition,child,observe"
+   }
+  },
+  {
+   "control": "eager_unselected_arm",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "060f07ad4e5c664fc90b908a7bfa1abaad5edb4c35874a2020f0edc5633d11e1",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "87bef7cf22d128e99784aaebb074b182aa9b01a1f289f46008aeacb18f03fe4d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tthen,else,condition,child,observe"
+   }
+  },
+  {
+   "control": "eager_unselected_arm",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "060f07ad4e5c664fc90b908a7bfa1abaad5edb4c35874a2020f0edc5633d11e1",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "87bef7cf22d128e99784aaebb074b182aa9b01a1f289f46008aeacb18f03fe4d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tthen,else,condition,child,observe"
+   }
+  },
+  {
+   "control": "eager_unselected_arm",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "060f07ad4e5c664fc90b908a7bfa1abaad5edb4c35874a2020f0edc5633d11e1",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "87bef7cf22d128e99784aaebb074b182aa9b01a1f289f46008aeacb18f03fe4d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tthen,else,condition,child,observe"
+   }
+  },
+  {
+   "control": "eager_unselected_arm",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "060f07ad4e5c664fc90b908a7bfa1abaad5edb4c35874a2020f0edc5633d11e1",
+   "vectors": 1470,
+   "changed_vectors": 210,
+   "stdout_sha256": "87bef7cf22d128e99784aaebb074b182aa9b01a1f289f46008aeacb18f03fe4d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tthen,else,condition,child,observe"
+   }
+  },
+  {
+   "control": "truncated_result_pack",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "ac463515ed46026a3480924e66f871db90e6aa5f5f6746447d1cc0ad4a38b0dc",
+   "vectors": 1470,
+   "changed_vectors": 54,
+   "stdout_sha256": "a594e28b1b8311d0c6a3fd570f0f277019ac5cd688b9ff8720af1d8bd9b7574d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t2\tPanel\tnil\tnil\tnil\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "truncated_result_pack",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "ac463515ed46026a3480924e66f871db90e6aa5f5f6746447d1cc0ad4a38b0dc",
+   "vectors": 1470,
+   "changed_vectors": 54,
+   "stdout_sha256": "a594e28b1b8311d0c6a3fd570f0f277019ac5cd688b9ff8720af1d8bd9b7574d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t2\tPanel\tnil\tnil\tnil\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "truncated_result_pack",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "ac463515ed46026a3480924e66f871db90e6aa5f5f6746447d1cc0ad4a38b0dc",
+   "vectors": 1470,
+   "changed_vectors": 54,
+   "stdout_sha256": "a594e28b1b8311d0c6a3fd570f0f277019ac5cd688b9ff8720af1d8bd9b7574d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t2\tPanel\tnil\tnil\tnil\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "truncated_result_pack",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "ac463515ed46026a3480924e66f871db90e6aa5f5f6746447d1cc0ad4a38b0dc",
+   "vectors": 1470,
+   "changed_vectors": 54,
+   "stdout_sha256": "a594e28b1b8311d0c6a3fd570f0f277019ac5cd688b9ff8720af1d8bd9b7574d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t2\tPanel\tnil\tnil\tnil\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "truncated_result_pack",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "ac463515ed46026a3480924e66f871db90e6aa5f5f6746447d1cc0ad4a38b0dc",
+   "vectors": 1470,
+   "changed_vectors": 54,
+   "stdout_sha256": "a594e28b1b8311d0c6a3fd570f0f277019ac5cd688b9ff8720af1d8bd9b7574d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t2\tPanel\tnil\tnil\tnil\tnil\tcondition,else,child,observe"
+   }
+  },
+  {
+   "control": "truncated_result_pack",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "ac463515ed46026a3480924e66f871db90e6aa5f5f6746447d1cc0ad4a38b0dc",
+   "vectors": 1470,
+   "changed_vectors": 54,
+   "stdout_sha256": "a594e28b1b8311d0c6a3fd570f0f277019ac5cd688b9ff8720af1d8bd9b7574d",
+   "first_difference": {
+    "vector": 0,
+    "expected": "private\tfalse\tnone\t7\tstring\t6\tPanel\t7\t7\tseed\tnil\tcondition,else,child,observe",
+    "actual": "private\tfalse\tnone\t7\tstring\t2\tPanel\tnil\tnil\tnil\tnil\tcondition,else,child,observe"
+   }
+  }
+ ],
+ "summary": {
+  "passed": 42
+ },
+ "source_sha256": "ce31d4f845f43a9274a1ac8bdf5975181ad753a637c3ff2ee8bb23492367ffcd",
+ "driver_sha256": "56504f2abd48accc48ab01d0ac2de6ea717f0c1e3a79d41856d48b6aa50d7211",
+ "manifest_sha256": "542dfb6badcf0f460bb120096bcd8b05ff24496ac03eaacb032010b6ff6e6855",
+ "tools": {
+  "compiler": {
+   "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+   "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+  },
+  "luau": {
+   "path": "D:\\Medal\\luau-tools-src\\build\\luau.exe",
+   "sha256": "50029806035a3a76f5e8a5c0960fd596fa4a10503d6e35472110b12426fa8b65"
+  }
+ },
+ "contract": "Six original profiles and 36 compiled negative controls; 1470 finite observations per profile. No promotion of whole-chunk unknown/different certificates."
+}

@@ -294,6 +294,9 @@ pub struct ScriptUpvalueAnalysis {
     /// Existing conditional IR lowered to statements, including explicit refusals.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conditional_lowering: Option<serde_json::Value>,
+    /// Private property diamonds reconstructed with explicit selected-value locals.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch_constructors: Option<serde_json::Value>,
 }
 
 pub(crate) fn reconcile_bindings(
@@ -638,6 +641,7 @@ pub(crate) fn reconcile_bindings(
         binding_provenance: None,
         capture_effects: None,
         conditional_lowering: None,
+        branch_constructors: None,
     }
 }
 

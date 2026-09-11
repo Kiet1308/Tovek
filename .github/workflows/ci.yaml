@@ -179,6 +179,14 @@ jobs:
             --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
             --report "$RUNNER_TEMP/roadmap-v2-assignment-order.json"
 
+      - name: V2 private constructor order and observation controls
+        run: |
+          python3 scripts/branch_constructor_controls.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --keep "$RUNNER_TEMP/branch-constructor-controls" \
+            --report "$RUNNER_TEMP/branch-constructor-controls.json"
+
       - name: V2 existing conditional IR lowering and VM controls
         run: |
           cargo +nightly-2024-12-15 run -p luau-lifter --example conditional_lowering -- "$RUNNER_TEMP/conditional-ir"
@@ -318,6 +326,7 @@ jobs:
             ${{ runner.temp }}/roadmap-v2-public-lineage.json
             ${{ runner.temp }}/roadmap-v2-formatter-controls.json
             ${{ runner.temp }}/roadmap-v2-assignment-order.json
+            ${{ runner.temp }}/branch-constructor-controls.json
             ${{ runner.temp }}/roadmap-v2-cache-controls.json
             ${{ runner.temp }}/roadmap-v2-profile.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau

@@ -34,6 +34,9 @@ struct Inventory {
     collect_names: bool,
     names: FxHashSet<String>,
     functions: FxHashSet<usize>,
+    probe: Option<fn(&Block) -> bool>,
+    found: bool,
+    captured: Option<FxHashSet<u64>>,
 }
 
 impl Inventory {
@@ -74,6 +77,16 @@ impl Inventory {
                 }
             }
             RValue::Closure(closure) => {
+                if let Some(captured) = &mut self.captured {
+                    if closure.upvalues.len() > NODE_LIMIT.saturating_sub(self.nodes) {
+                        return Err("tree_budget");
+                    }
+                    self.nodes += closure.upvalues.len();
+                    for upvalue in &closure.upvalues {
+                        let (crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local)) = upvalue;
+                        captured.insert(local.stable_id());
+                    }
+                }
                 let id = (&*closure.function.0 as *const _) as usize;
                 if self.functions.insert(id) {
                     let function = closure.function.lock();
@@ -109,6 +122,10 @@ impl Inventory {
 
     fn block(&mut self, block: &Block, depth: usize) -> Result<(), &'static str> {
         self.tick(depth)?;
+        if block.0.len() > NODE_LIMIT.saturating_sub(self.nodes) { return Err("tree_budget"); }
+        if !self.found && self.probe.is_some_and(|probe| probe(block)) {
+            self.found = true;
+        }
         for statement in &block.0 {
             self.tick(depth)?;
             let width = match statement {
@@ -183,6 +200,9 @@ pub fn lower_existing_conditionals(block: &mut Block) -> Report {
         collect_names: false,
         names: FxHashSet::default(),
         functions: FxHashSet::default(),
+        probe: None,
+        found: false,
+        captured: None,
     };
     if inventory.block(block, 0).is_err() {
         report.budget_exhausted = true;
@@ -212,9 +232,60 @@ pub fn lower_existing_conditionals(block: &mut Block) -> Report {
     state.report
 }
 
-struct Frame {
-    locals: FxHashSet<u64>,
-    headroom: usize,
+pub(crate) struct Frame {
+    pub(crate) locals: FxHashSet<u64>,
+    pub(crate) headroom: usize,
+}
+
+pub(crate) struct RewriteInventory {
+    pub(crate) reserved: FxHashSet<String>,
+    pub(crate) captured: FxHashSet<u64>,
+}
+
+/// Validate the entire tree before a caller performs recursive analysis. Name
+/// reservation only runs when the bounded probe finds a possible rewrite.
+pub(crate) fn prepare_local_rewrite(
+    block: &Block,
+    probe: fn(&Block) -> bool,
+) -> Result<Option<RewriteInventory>, &'static str> {
+    let mut inventory = Inventory {
+        nodes: 0,
+        selects: 0,
+        collect_names: false,
+        names: FxHashSet::default(),
+        functions: FxHashSet::default(),
+        probe: Some(probe),
+        found: false,
+        captured: None,
+    };
+    inventory.block(block, 0)?;
+    if !inventory.found { return Ok(None); }
+    inventory.nodes = 0;
+    inventory.functions.clear();
+    inventory.collect_names = true;
+    inventory.probe = None;
+    inventory.captured = Some(FxHashSet::default());
+    inventory.block(block, 0)?;
+    Ok(Some(RewriteInventory {
+        reserved: inventory.names,
+        captured: inventory.captured.unwrap(),
+    }))
+}
+
+/// Caller must first validate the tree with the bounded inventory. Each added
+/// local consumes one declaration and `extra_scratch` additional expression
+/// registers; declarations in disjoint scopes are counted conservatively.
+pub(crate) fn local_rewrite_frame(block: &Block, parameters: &[RcLocal], extra_scratch: usize) -> Frame {
+    let mut locals = parameters.iter().map(RcLocal::stable_id).collect();
+    let mut declarations = parameters.len();
+    let (mut hidden, mut scratch) = (0, 0);
+    frame_locals(block, &mut locals, &mut declarations, &mut hidden, &mut scratch);
+    Frame {
+        locals,
+        headroom: LOCAL_LIMIT.saturating_sub(declarations).min(
+            240usize.saturating_sub(declarations + hidden + scratch) / (1 + extra_scratch)
+        ),
+    }
 }
 
 fn value_register_bound(value: &RValue) -> usize {
@@ -341,22 +412,7 @@ struct State {
 
 impl State {
     fn function(&mut self, block: &mut Block, parameters: &[RcLocal]) {
-        let mut locals = parameters.iter().map(RcLocal::stable_id).collect();
-        let mut declarations = parameters.len();
-        let (mut hidden, mut scratch) = (0, 0);
-        frame_locals(
-            block,
-            &mut locals,
-            &mut declarations,
-            &mut hidden,
-            &mut scratch,
-        );
-        let mut frame = Frame {
-            locals,
-            headroom: LOCAL_LIMIT
-                .saturating_sub(declarations)
-                .min(240usize.saturating_sub(declarations + hidden + scratch)),
-        };
+        let mut frame = local_rewrite_frame(block, parameters, 0);
         self.block(block, &mut frame);
     }
 

@@ -1,0 +1,327 @@
+{
+ "schema_version": 1,
+ "parent_commit": "f59f886",
+ "binary_sha256": "e868505e8287dc54c10e5f4c725881dbc452b3a4764b09ab14c467fe6069c535",
+ "before_binary_sha256": "9881d5024971a75f1196f7f1fdede1e36fc3edad0ab74496355965821efe0e4b",
+ "primary_rust_tests": 971,
+ "rust_child_repeat": 1,
+ "python_tests": 93,
+ "legacy_semantic_configurations": 45,
+ "size_gates": 52,
+ "new_fixture_vectors_per_profile": 1470,
+ "new_fixture_profiles": 6,
+ "runtime_summary": {
+  "total": 180,
+  "status": {
+   "passed": 180
+  },
+  "dataflow": {
+   "unknown": 34,
+   "different": 23,
+   "proved": 123
+  },
+  "controls": {
+   "passed": 9
+  },
+  "groups": {
+   "UI": {
+    "passed": 18
+   },
+   "buffer/math": {
+    "passed": 24
+   },
+   "conditional": {
+    "passed": 12
+   },
+   "effect/capture": {
+    "passed": 18
+   },
+   "effect/order": {
+    "passed": 36
+   },
+   "formatter": {
+    "passed": 12
+   },
+   "loop/capture": {
+    "passed": 24
+   },
+   "naming/capture": {
+    "passed": 36
+   }
+  }
+ },
+ "public_summary": {
+  "development": {
+   "total": 468,
+   "status": {
+    "passed": 468
+   },
+   "dataflow": {
+    "unknown": 280,
+    "different": 70,
+    "proved": 118
+   },
+   "ast": {
+    "measured": 363,
+    "unknown": 105
+   }
+  },
+  "holdout": {
+   "total": 45,
+   "status": {
+    "passed": 45
+   },
+   "dataflow": {
+    "unknown": 17,
+    "different": 16,
+    "proved": 12
+   },
+   "ast": {
+    "measured": 42,
+    "unknown": 3
+   }
+  }
+ },
+ "controls": {
+  "passed": 42
+ },
+ "conditional_ir": {
+  "passed": 240
+ },
+ "conditional_ir_controls": {
+  "passed": 18
+ },
+ "prior_runtime_source_dataflow_fidelity_equal": 171,
+ "prior_runtime_changed": [
+  {
+   "case": "branch_ui",
+   "opt": 0,
+   "debug": 1,
+   "dataflow_before": "proved",
+   "dataflow_after": "different"
+  },
+  {
+   "case": "branch_ui",
+   "opt": 1,
+   "debug": 1,
+   "dataflow_before": "proved",
+   "dataflow_after": "different"
+  },
+  {
+   "case": "branch_ui",
+   "opt": 2,
+   "debug": 1,
+   "dataflow_before": "proved",
+   "dataflow_after": "different"
+  }
+ ],
+ "public_source_dataflow_fidelity_equal": 513,
+ "prior_recorded_capture_contracts_equal": 687,
+ "source_unchanged_sidecars_equal_excluding_new_report": 684,
+ "private_source_files_equal": 3978,
+ "private_recorded_capture_contracts_equal": 3936,
+ "private_source_tree": "0147732a789ec9c6766fb37c97799e8be75adf2781e95cbc9f7f0f94fdf881ec",
+ "private_constructor_inventory": {
+  "schema_version": 1,
+  "binary_sha256": "e868505e8287dc54c10e5f4c725881dbc452b3a4764b09ab14c467fe6069c535",
+  "script_count": 3936,
+  "totals": {
+   "candidate_regions": 165,
+   "rebuilt_regions": 0,
+   "introduced_locals": 0,
+   "initializer_snapshots": 0,
+   "folded_following_fields": 0,
+   "budget_exhausted": 0
+  },
+  "refusals": {
+   "captured_table": 42,
+   "branch_shape": 121,
+   "local_or_register_budget": 1,
+   "callback_property_layout": 1
+  }
+ },
+ "ui_setlist_inventory": {
+  "sites": 23,
+  "files": 22,
+  "shapes": {
+   "interleaved_constructor_and_call": 10,
+   "selected_value_statement": 7,
+   "ordered_call_prefix": 6
+  }
+ },
+ "benchmark_summary": [
+  {
+   "label": "before",
+   "threads": 1,
+   "samples": 7,
+   "median_seconds": 23.4779267000049,
+   "p95_nearest_rank_seconds": 24.918976500004646,
+   "min_seconds": 19.178787100005138,
+   "max_seconds": 24.918976500004646,
+   "median_peak_rss_bytes": 33132544,
+   "max_peak_rss_bytes": 33828864
+  },
+  {
+   "label": "before",
+   "threads": 16,
+   "samples": 7,
+   "median_seconds": 1.8183680000001914,
+   "p95_nearest_rank_seconds": 1.9202045999991242,
+   "min_seconds": 1.7041735000020708,
+   "max_seconds": 1.9202045999991242,
+   "median_peak_rss_bytes": 118071296,
+   "max_peak_rss_bytes": 127496192
+  },
+  {
+   "label": "after",
+   "threads": 1,
+   "samples": 7,
+   "median_seconds": 23.612686100001156,
+   "p95_nearest_rank_seconds": 24.02309629999945,
+   "min_seconds": 23.467659899994032,
+   "max_seconds": 24.02309629999945,
+   "median_peak_rss_bytes": 33153024,
+   "max_peak_rss_bytes": 33665024
+  },
+  {
+   "label": "after",
+   "threads": 16,
+   "samples": 7,
+   "median_seconds": 1.718691599999147,
+   "p95_nearest_rank_seconds": 1.9697479999958887,
+   "min_seconds": 1.6992178000000422,
+   "max_seconds": 1.9697479999958887,
+   "median_peak_rss_bytes": 116449280,
+   "max_peak_rss_bytes": 124043264
+  }
+ ],
+ "verification_logs": {
+  "out/v2-branch-accepted-rust-tests.log": "d66bcaf4ae88d5904012d2784bcf36cb73cf445cfc51c4d1795d11a01a188751",
+  "out/v2-branch-accepted-python-tests.log": "58559522a353d97d46795f481cac2f1b96d67a66273914bcb05707a2c664b1ec",
+  "out/v2-branch-accepted-semantic.log": "b3491c741a26d7dc2bf1b0e93271ae99bd552a2764170946cf298c32a8ae061b",
+  "out/v2-branch-accepted-residual.log": "ab6e15b38c3defa198e50f98ab6a526ad84f69d2a0abb8351a4a406438421661"
+ },
+ "artifacts": [
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_runtime.json",
+   "sha256": "0398585eec9fb81e746ab5f2ea934a66ba87099c0d603077652e37dcdb93b01a",
+   "bytes": 2334491,
+   "original_path": "out/v2-branch-accepted-runtime.json",
+   "original_sha256": "0398585eec9fb81e746ab5f2ea934a66ba87099c0d603077652e37dcdb93b01a",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_public.json",
+   "sha256": "49482474154b66252f24e81c7a465b526ae03da1fad4b64df582a7112196f341",
+   "bytes": 2090176,
+   "original_path": "out/v2-branch-accepted-public.json",
+   "original_sha256": "49482474154b66252f24e81c7a465b526ae03da1fad4b64df582a7112196f341",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_traces.json",
+   "sha256": "f1c73eb9ba8b1d1ee893f74721f27fbda2d86bbb84b43d0fbcb16e9a67eda5bb",
+   "bytes": 302887,
+   "original_path": "out/v2-branch-accepted-traces.json",
+   "original_sha256": "f1c73eb9ba8b1d1ee893f74721f27fbda2d86bbb84b43d0fbcb16e9a67eda5bb",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_public_traces.json",
+   "sha256": "f16ea407c3eba96cc7eb3bfa42adf8c46bb75eaf0d35aef216664cd9f8ab9e8c",
+   "bytes": 736419,
+   "original_path": "out/v2-branch-accepted-public-traces.json",
+   "original_sha256": "f16ea407c3eba96cc7eb3bfa42adf8c46bb75eaf0d35aef216664cd9f8ab9e8c",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_private_contracts.json",
+   "sha256": "fcbc220a55aba9728d3005682de7ad8e0c96f876422d5d3cbe90ffca97a4618f",
+   "bytes": 2125398,
+   "original_path": "out/v2-branch-accepted-private-contracts.json",
+   "original_sha256": "fcbc220a55aba9728d3005682de7ad8e0c96f876422d5d3cbe90ffca97a4618f",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_private_inventory.json",
+   "sha256": "bf97fa7c75f8c72aaa83dd230fe44125bf4151924999fe1c548d637a43276de7",
+   "bytes": 50779,
+   "original_path": "out/v2-branch-accepted-private-inventory.json",
+   "original_sha256": "bf97fa7c75f8c72aaa83dd230fe44125bf4151924999fe1c548d637a43276de7",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_runtime_contracts.json",
+   "sha256": "a2511a286f40fe4d11c2dc90f940e13124f2673790ff96994b9a9404484eda12",
+   "bytes": 33949,
+   "original_path": "out/v2-branch-accepted-runtime-contracts.json",
+   "original_sha256": "a2511a286f40fe4d11c2dc90f940e13124f2673790ff96994b9a9404484eda12",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_public_contracts.json",
+   "sha256": "c71713012791f222c269db015dcfe8772b520c3b0ba156df01087de79f1045ef",
+   "bytes": 103309,
+   "original_path": "out/v2-branch-accepted-public-contracts.json",
+   "original_sha256": "c71713012791f222c269db015dcfe8772b520c3b0ba156df01087de79f1045ef",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_comparison.json",
+   "sha256": "097c82f4443e53c534ba32a4c670be62f88808444666c45261432c977e38d560",
+   "bytes": 135721,
+   "original_path": "out/v2-branch-accepted-comparison.json",
+   "original_sha256": "097c82f4443e53c534ba32a4c670be62f88808444666c45261432c977e38d560",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_conditional_ir.json",
+   "sha256": "daf5d8e3cb6db602f3415a0c044d1828f09e1df5ea9c74abf1f48078ba90e749",
+   "bytes": 1697391,
+   "original_path": "out/v2-branch-accepted-conditional-ir.json",
+   "original_sha256": "daf5d8e3cb6db602f3415a0c044d1828f09e1df5ea9c74abf1f48078ba90e749",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_size.json",
+   "sha256": "8fe87bf84069e8ff4f9c6ebf9d3df19049204bad8c0fa3722b87dd6702247103",
+   "bytes": 5008,
+   "original_path": "out/v2-branch-accepted-size.json",
+   "original_sha256": "08f4dfbab0986e5efe142d35f6e9b05b95a09c3dfdb408a52f2375b690d5865d",
+   "transform": "CRLF-to-LF"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_benchmark.json",
+   "sha256": "6f7bf631ec7b24f0664d91829e6b7df5a564db4d401b22f316b9975b0f37f651",
+   "bytes": 23521,
+   "original_path": "out/v2-branch-accepted-benchmark.json",
+   "original_sha256": "6f7bf631ec7b24f0664d91829e6b7df5a564db4d401b22f316b9975b0f37f651",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_ui_fallbacks.json",
+   "sha256": "231b6cadc576f5a3c276a4d1211984e9bb8016c4f4df1d22f2820b995c83a808",
+   "bytes": 8631,
+   "original_path": "out/v2-branch-accepted-ui-fallbacks.json",
+   "original_sha256": "231b6cadc576f5a3c276a4d1211984e9bb8016c4f4df1d22f2820b995c83a808",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_controls.json",
+   "sha256": "5990829d5b605c7fd9da7f3318d82675e679353739579f46ddf8addaf831ca19",
+   "bytes": 24574,
+   "original_path": "out/v2-branch-controls.json",
+   "original_sha256": "5990829d5b605c7fd9da7f3318d82675e679353739579f46ddf8addaf831ca19",
+   "transform": "none"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/branch_before.json",
+   "sha256": "16d4b71b7c86f544a6b042fe9d1f9d20192a13e1e0df6862523210af992cd112",
+   "bytes": 1543016,
+   "original_path": "out/v2-branch-final-before.json",
+   "original_sha256": "16d4b71b7c86f544a6b042fe9d1f9d20192a13e1e0df6862523210af992cd112",
+   "transform": "none"
+  }
+ ],
+ "contract": "Bounded private property diamonds; no unknown/different whole-chunk promotion. Runtime and controls are finite observations. No public/private output improvement; all 23 current SETLIST fallback sites already exist in the accepted baseline. AI remains disabled and R9 remains paused."
+}

@@ -1,0 +1,1067 @@
+{
+ "schema_version": 1,
+ "rows": [
+  {
+   "script_path": "arithmetic_capture_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_capture_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_capture_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_capture_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_capture_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_capture_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_effects_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_effects_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_effects_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_effects_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_effects_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "arithmetic_effects_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "binding_scopes_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "binding_scopes_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "binding_scopes_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "binding_scopes_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "binding_scopes_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "binding_scopes_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "branch_ui_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": false
+  },
+  {
+   "script_path": "branch_ui_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "branch_ui_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": false
+  },
+  {
+   "script_path": "branch_ui_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "branch_ui_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": false
+  },
+  {
+   "script_path": "branch_ui_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "buffer_role_slots_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "buffer_role_slots_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "buffer_role_slots_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "buffer_role_slots_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "buffer_role_slots_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "buffer_role_slots_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "capture_forwarding_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "capture_forwarding_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "capture_forwarding_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "capture_forwarding_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "capture_forwarding_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "capture_forwarding_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_callee_order_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_callee_order_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_callee_order_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_callee_order_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_callee_order_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_callee_order_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_prefix_order_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_prefix_order_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_prefix_order_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_prefix_order_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_prefix_order_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "captured_prefix_order_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "cell_after_join_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "cell_after_join_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "cell_after_join_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "cell_after_join_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "cell_after_join_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "cell_after_join_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "compound_effects_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "compound_effects_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "compound_effects_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "compound_effects_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "compound_effects_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "compound_effects_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_contexts_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_contexts_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_contexts_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_contexts_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_contexts_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "conditional_contexts_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_identifier_safety_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_identifier_safety_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_identifier_safety_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_identifier_safety_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_identifier_safety_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_identifier_safety_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_names_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_names_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_names_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_names_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_names_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "debug_names_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "equality_order_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "equality_order_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "equality_order_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "equality_order_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "equality_order_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "equality_order_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "global_evaluation_order_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "global_evaluation_order_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "global_evaluation_order_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "global_evaluation_order_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "global_evaluation_order_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "global_evaluation_order_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "helper_loop_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "helper_loop_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "helper_loop_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "helper_loop_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "helper_loop_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "helper_loop_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "literal_bytes_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "literal_bytes_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "literal_bytes_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "literal_bytes_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "literal_bytes_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "literal_bytes_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "method_evaluation_order_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "method_evaluation_order_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "method_evaluation_order_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "method_evaluation_order_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "method_evaluation_order_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "method_evaluation_order_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "nested_assignment_order_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "nested_assignment_order_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "nested_assignment_order_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "nested_assignment_order_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "nested_assignment_order_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "nested_assignment_order_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "parameter_write_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "parameter_write_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "parameter_write_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "parameter_write_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "parameter_write_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "parameter_write_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "role_results_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "role_results_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "role_results_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "role_results_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "role_results_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "role_results_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "scope_names_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "scope_names_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "scope_names_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "scope_names_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "scope_names_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "scope_names_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "shadow_capture_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "shadow_capture_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "shadow_capture_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "shadow_capture_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "shadow_capture_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "shadow_capture_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "sum_helper_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "sum_helper_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "sum_helper_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "sum_helper_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "sum_helper_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "sum_helper_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "ui_builder_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "ui_builder_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "ui_builder_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "ui_builder_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "ui_builder_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "ui_builder_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_capture_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_capture_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_capture_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_capture_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_capture_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_capture_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_effects_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_effects_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_effects_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_effects_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_effects_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "unrolled_effects_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "wide_layout_O0_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "wide_layout_O0_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "wide_layout_O1_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "wide_layout_O1_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "wide_layout_O2_g1.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  },
+  {
+   "script_path": "wide_layout_O2_g2.lua",
+   "recorded_contracts_equal": true,
+   "capture_certificates_equal": true,
+   "prior_sidecar_equal_excluding_constructor_report": true
+  }
+ ],
+ "constructor_counts": {
+  "candidate_regions": 51,
+  "rebuilt_regions": 18,
+  "introduced_locals": 24,
+  "initializer_snapshots": 6,
+  "folded_following_fields": 15,
+  "budget_exhausted": 0
+ },
+ "constructor_refusals": {
+  "branch_key": 3,
+  "captured_table": 3,
+  "table_observed_in_branch": 3,
+  "recorded_table_binding": 24
+ },
+ "summary": {
+  "unchanged": 171,
+  "changed": 3
+ }
+}

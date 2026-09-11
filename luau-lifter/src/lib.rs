@@ -851,10 +851,19 @@ fn try_decompile_bytecode_internal(
             }
             // The final naming graph must not keep RcLocal references alive
             // during earlier cleanup (some passes inspect reference counts).
-            // Lower any remaining scalar select at its actual evaluation
-            // point. This pass only introduces literal `not` break guards;
-            // it never reduces/complements comparisons. No expression cleanup
-            // may run afterwards and erase its ordered snapshots.
+            // Rebuild private property diamonds after expression cleanup, so
+            // later inlining cannot erase their ordered initializer snapshots.
+            let branch_constructors = if chunk.version == 9 {
+                let _span = ast::telemetry::Span::new("S_BRANCH_CONSTRUCTORS");
+                let report = ast::branch_constructors::rebuild_branch_constructors(&mut body);
+                ast::telemetry::count("constructor_candidates", report.candidate_regions as u64);
+                ast::telemetry::count("constructor_rebuilt", report.rebuilt_regions as u64);
+                ast::telemetry::count("constructor_refused", report.refused_regions.values().sum::<usize>() as u64);
+                emit_upvalue_analysis.then(|| serde_json::to_value(report).expect("finite constructor report"))
+            } else { None };
+            // Lower remaining scalar selects at their evaluation point. Only
+            // literal `not` break guards are introduced; comparisons are never
+            // complemented. No expression cleanup may erase these snapshots.
             let conditional_lowering = if chunk.version == 9 {
                 let _span = ast::telemetry::Span::new("S_LOWER_SELECTS");
                 let report = ast::lower_conditionals::lower_existing_conditionals(&mut body);
@@ -894,6 +903,7 @@ fn try_decompile_bytecode_internal(
                 analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
                 analysis.capture_effects = Some(capture_effects.report());
                 analysis.conditional_lowering = conditional_lowering;
+                analysis.branch_constructors = branch_constructors;
                 if options.emit_binding_provenance {
                     analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map));
                 }

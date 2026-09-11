@@ -31,6 +31,7 @@ mod literal;
 mod local;
 //mod name_gen;
 pub mod canonicalize_branches;
+pub mod branch_constructors;
 pub mod cleanup_final;
 pub mod cleanup_returns;
 pub mod coalesce_locals;

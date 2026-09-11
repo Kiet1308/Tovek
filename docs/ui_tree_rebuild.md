@@ -44,3 +44,33 @@ dynamic nil/NaN keys, mutable captures, placeholder order, numeric-key overlap,
 multret/nil tails and skipped call sites. AST/CFG tests exercise refused motion,
 observable captured initialization and helper-name collisions. Final guard
 flattening has an expression budget and refuses to duplicate tables/closures.
+
+## R4 constructor review, 2026-09-11
+
+The later [private property-diamond pass](branch_constructors.md) groups the
+stripped `branch_ui` props and children after precomputing its conditional value.
+It protects recorded table declarations and callback layouts and does not rerun
+UI inlining after ordered initializer snapshots.
+
+The full current scan finds 23 SETLIST sites in 22 files, with unchanged source
+bytes. The historical list above contains 22 sites; DragonSecondaryButton was
+already present in the accepted baseline but absent from that list. Their
+[current locations, hashes and manual shape classification](roadmap_v2_acceptance/branch_ui_fallbacks.json)
+separate seven selected-value/branch regions, six ordered call-prefix regions and
+ten interleaved constructor/call regions. These labels describe the observed
+source shape; they are not automated effect proofs or per-site optimizer refusal
+certificates. The diamond pass's per-script refusal counts are recorded
+separately.
+
+The selected-value sites are Shine, DamageIndicator, Trait, CollapsedStatLabel,
+StatLabel, UtilityFunctions and DragonSecondaryButton. Their conditionals are separated from the table
+declaration, select a local used later, or have a missing arm. Two BuildingResources
+sites, SelectRecipePrompt, Entry, PayloadSelection and Viewport preserve computed
+values before later callee/property lookup. The remaining sites contain
+interleaved field construction and calls: SplitTextLabel, QuestBoardMilestones,
+both GameUnitView files, SandboxControls/Units, NodeMapButton, Battlepass,
+Calendar, Profile and RewardCalendar.
+
+None is made safe merely by recognizing Fusion, Roact or a factory API. General
+dependencies across these statements and the SETLIST result boundary remain R4
+work; the explicit packing fallback retains nil overwrite and multret behavior.

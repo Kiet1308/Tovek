@@ -1,0 +1,7968 @@
+{
+ "schema_version": 1,
+ "rows": [
+  {
+   "dataset": "runtime",
+   "key": [
+    "nested_assignment_order",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "nested_assignment_order",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "nested_assignment_order",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "nested_assignment_order",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "nested_assignment_order",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "nested_assignment_order",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "sum_helper",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "sum_helper",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "sum_helper",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "sum_helper",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "sum_helper",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "sum_helper",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_capture",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_capture",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_capture",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_capture",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_capture",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_capture",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_effects",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_effects",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_effects",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_effects",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_effects",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_effects",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_capture",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_capture",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_capture",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_capture",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_capture",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "arithmetic_capture",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "global_evaluation_order",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "global_evaluation_order",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "global_evaluation_order",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "global_evaluation_order",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "global_evaluation_order",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "global_evaluation_order",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_names",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_names",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_names",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_names",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_names",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_names",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "scope_names",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "scope_names",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "scope_names",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "scope_names",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "scope_names",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "scope_names",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "ui_builder",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "ui_builder",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "ui_builder",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "ui_builder",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "ui_builder",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "ui_builder",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "branch_ui",
+    0,
+    1
+   ],
+   "source_unchanged": false,
+   "dataflow_equal": false,
+   "fidelity_equal": false,
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "bcdc40984caf2ff73143cb573718ebb69fd89a1173c5bbc12d5b132903be3620",
+     "bcdc40984caf2ff73143cb573718ebb69fd89a1173c5bbc12d5b132903be3620"
+    ]
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "bcdc40984caf2ff73143cb573718ebb69fd89a1173c5bbc12d5b132903be3620",
+     "8bfcc48f19035d00a4bcd27babd9fcedd50976435d66aa27a0250427e5126b05"
+    ]
+   },
+   "before_fidelity": {
+    "model": "luau-ast-binding-v2",
+    "status": "measured",
+    "raw_structural_ratio": 1.0,
+    "statement_initializer_normalized_ratio": 1.0,
+    "style_normalization": "single-local-if-initializer-v1",
+    "source_conditional_expressions": 0,
+    "output_conditional_expressions": 0,
+    "source_bindings": 6,
+    "output_bindings": 6,
+    "aligned_bindings": 6,
+    "exact_names": 1,
+    "alignment_coverage": 1.0,
+    "exact_name_precision_on_aligned": 0.16666666666666666,
+    "exact_name_recovery_lower_bound": 0.16666666666666666,
+    "bindings": [
+     {
+      "source_binding": 0,
+      "output_binding": 0,
+      "source_name": "scope",
+      "output_name": "scope",
+      "exact_name": true,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 1,
+      "output_binding": 1,
+      "source_name": "Children",
+      "output_name": "p",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 2,
+      "output_binding": 2,
+      "source_name": "Label",
+      "output_name": "callback",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 3,
+      "output_binding": 3,
+      "source_name": "title",
+      "output_name": "text",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 4,
+      "output_binding": 4,
+      "source_name": "enabled",
+      "output_name": "p3",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 5,
+      "output_binding": 5,
+      "source_name": "props",
+      "output_name": "v",
+      "exact_name": false,
+      "occurrences": 5
+     }
+    ],
+    "type_syntax_equal": true
+   },
+   "after_fidelity": {
+    "model": "luau-ast-binding-v2",
+    "status": "measured",
+    "raw_structural_ratio": 0.7928730512249443,
+    "statement_initializer_normalized_ratio": 0.7928730512249443,
+    "style_normalization": "single-local-if-initializer-v1",
+    "source_conditional_expressions": 0,
+    "output_conditional_expressions": 0,
+    "source_bindings": 6,
+    "output_bindings": 7,
+    "aligned_bindings": 4,
+    "exact_names": 1,
+    "alignment_coverage": 0.6666666666666666,
+    "exact_name_precision_on_aligned": 0.25,
+    "exact_name_recovery_lower_bound": 0.16666666666666666,
+    "bindings": [
+     {
+      "source_binding": 0,
+      "output_binding": 0,
+      "source_name": "scope",
+      "output_name": "scope",
+      "exact_name": true,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 2,
+      "output_binding": 2,
+      "source_name": "Label",
+      "output_name": "callback",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 3,
+      "output_binding": 3,
+      "source_name": "title",
+      "output_name": "text",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 4,
+      "output_binding": 4,
+      "source_name": "enabled",
+      "output_name": "p3",
+      "exact_name": false,
+      "occurrences": 2
+     }
+    ],
+    "type_syntax_equal": true
+   }
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "branch_ui",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "branch_ui",
+    1,
+    1
+   ],
+   "source_unchanged": false,
+   "dataflow_equal": false,
+   "fidelity_equal": false,
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "1c439311173f16282d51e7ebb7e52497d92b87b352dfef6c9a1732b912ce7aea",
+     "1c439311173f16282d51e7ebb7e52497d92b87b352dfef6c9a1732b912ce7aea"
+    ]
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "1c439311173f16282d51e7ebb7e52497d92b87b352dfef6c9a1732b912ce7aea",
+     "1360b89dadd4ffff2c80a9606c61056bad88a93de50f593ffb8693a4c18d178d"
+    ]
+   },
+   "before_fidelity": {
+    "model": "luau-ast-binding-v2",
+    "status": "measured",
+    "raw_structural_ratio": 1.0,
+    "statement_initializer_normalized_ratio": 1.0,
+    "style_normalization": "single-local-if-initializer-v1",
+    "source_conditional_expressions": 0,
+    "output_conditional_expressions": 0,
+    "source_bindings": 6,
+    "output_bindings": 6,
+    "aligned_bindings": 6,
+    "exact_names": 1,
+    "alignment_coverage": 1.0,
+    "exact_name_precision_on_aligned": 0.16666666666666666,
+    "exact_name_recovery_lower_bound": 0.16666666666666666,
+    "bindings": [
+     {
+      "source_binding": 0,
+      "output_binding": 0,
+      "source_name": "scope",
+      "output_name": "scope",
+      "exact_name": true,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 1,
+      "output_binding": 1,
+      "source_name": "Children",
+      "output_name": "p",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 2,
+      "output_binding": 2,
+      "source_name": "Label",
+      "output_name": "callback",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 3,
+      "output_binding": 3,
+      "source_name": "title",
+      "output_name": "text",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 4,
+      "output_binding": 4,
+      "source_name": "enabled",
+      "output_name": "p3",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 5,
+      "output_binding": 5,
+      "source_name": "props",
+      "output_name": "v",
+      "exact_name": false,
+      "occurrences": 5
+     }
+    ],
+    "type_syntax_equal": true
+   },
+   "after_fidelity": {
+    "model": "luau-ast-binding-v2",
+    "status": "measured",
+    "raw_structural_ratio": 0.7928730512249443,
+    "statement_initializer_normalized_ratio": 0.7928730512249443,
+    "style_normalization": "single-local-if-initializer-v1",
+    "source_conditional_expressions": 0,
+    "output_conditional_expressions": 0,
+    "source_bindings": 6,
+    "output_bindings": 7,
+    "aligned_bindings": 4,
+    "exact_names": 1,
+    "alignment_coverage": 0.6666666666666666,
+    "exact_name_precision_on_aligned": 0.25,
+    "exact_name_recovery_lower_bound": 0.16666666666666666,
+    "bindings": [
+     {
+      "source_binding": 0,
+      "output_binding": 0,
+      "source_name": "scope",
+      "output_name": "scope",
+      "exact_name": true,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 2,
+      "output_binding": 2,
+      "source_name": "Label",
+      "output_name": "callback",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 3,
+      "output_binding": 3,
+      "source_name": "title",
+      "output_name": "text",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 4,
+      "output_binding": 4,
+      "source_name": "enabled",
+      "output_name": "p3",
+      "exact_name": false,
+      "occurrences": 2
+     }
+    ],
+    "type_syntax_equal": true
+   }
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "branch_ui",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "branch_ui",
+    2,
+    1
+   ],
+   "source_unchanged": false,
+   "dataflow_equal": false,
+   "fidelity_equal": false,
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "1c439311173f16282d51e7ebb7e52497d92b87b352dfef6c9a1732b912ce7aea",
+     "1c439311173f16282d51e7ebb7e52497d92b87b352dfef6c9a1732b912ce7aea"
+    ]
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "1c439311173f16282d51e7ebb7e52497d92b87b352dfef6c9a1732b912ce7aea",
+     "1360b89dadd4ffff2c80a9606c61056bad88a93de50f593ffb8693a4c18d178d"
+    ]
+   },
+   "before_fidelity": {
+    "model": "luau-ast-binding-v2",
+    "status": "measured",
+    "raw_structural_ratio": 1.0,
+    "statement_initializer_normalized_ratio": 1.0,
+    "style_normalization": "single-local-if-initializer-v1",
+    "source_conditional_expressions": 0,
+    "output_conditional_expressions": 0,
+    "source_bindings": 6,
+    "output_bindings": 6,
+    "aligned_bindings": 6,
+    "exact_names": 1,
+    "alignment_coverage": 1.0,
+    "exact_name_precision_on_aligned": 0.16666666666666666,
+    "exact_name_recovery_lower_bound": 0.16666666666666666,
+    "bindings": [
+     {
+      "source_binding": 0,
+      "output_binding": 0,
+      "source_name": "scope",
+      "output_name": "scope",
+      "exact_name": true,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 1,
+      "output_binding": 1,
+      "source_name": "Children",
+      "output_name": "p",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 2,
+      "output_binding": 2,
+      "source_name": "Label",
+      "output_name": "callback",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 3,
+      "output_binding": 3,
+      "source_name": "title",
+      "output_name": "text",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 4,
+      "output_binding": 4,
+      "source_name": "enabled",
+      "output_name": "p3",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 5,
+      "output_binding": 5,
+      "source_name": "props",
+      "output_name": "v",
+      "exact_name": false,
+      "occurrences": 5
+     }
+    ],
+    "type_syntax_equal": true
+   },
+   "after_fidelity": {
+    "model": "luau-ast-binding-v2",
+    "status": "measured",
+    "raw_structural_ratio": 0.7928730512249443,
+    "statement_initializer_normalized_ratio": 0.7928730512249443,
+    "style_normalization": "single-local-if-initializer-v1",
+    "source_conditional_expressions": 0,
+    "output_conditional_expressions": 0,
+    "source_bindings": 6,
+    "output_bindings": 7,
+    "aligned_bindings": 4,
+    "exact_names": 1,
+    "alignment_coverage": 0.6666666666666666,
+    "exact_name_precision_on_aligned": 0.25,
+    "exact_name_recovery_lower_bound": 0.16666666666666666,
+    "bindings": [
+     {
+      "source_binding": 0,
+      "output_binding": 0,
+      "source_name": "scope",
+      "output_name": "scope",
+      "exact_name": true,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 2,
+      "output_binding": 2,
+      "source_name": "Label",
+      "output_name": "callback",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 3,
+      "output_binding": 3,
+      "source_name": "title",
+      "output_name": "text",
+      "exact_name": false,
+      "occurrences": 2
+     },
+     {
+      "source_binding": 4,
+      "output_binding": 4,
+      "source_name": "enabled",
+      "output_name": "p3",
+      "exact_name": false,
+      "occurrences": 2
+     }
+    ],
+    "type_syntax_equal": true
+   }
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "branch_ui",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "helper_loop",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "helper_loop",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "helper_loop",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "helper_loop",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "helper_loop",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "helper_loop",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_effects",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_effects",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_effects",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_effects",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_effects",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "unrolled_effects",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "binding_scopes",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "binding_scopes",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "binding_scopes",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "binding_scopes",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "binding_scopes",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "binding_scopes",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "parameter_write",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "parameter_write",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "parameter_write",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "parameter_write",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "parameter_write",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "parameter_write",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "shadow_capture",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "shadow_capture",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "shadow_capture",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "shadow_capture",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "shadow_capture",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "shadow_capture",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_identifier_safety",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_identifier_safety",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_identifier_safety",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_identifier_safety",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_identifier_safety",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "debug_identifier_safety",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "literal_bytes",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "literal_bytes",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "literal_bytes",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "literal_bytes",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "literal_bytes",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "literal_bytes",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional_contexts",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional_contexts",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional_contexts",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional_contexts",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional_contexts",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "conditional_contexts",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "cell_after_join",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "cell_after_join",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "cell_after_join",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "cell_after_join",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "cell_after_join",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "cell_after_join",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "wide_layout",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "wide_layout",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "wide_layout",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "wide_layout",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "wide_layout",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "wide_layout",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "role_results",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "role_results",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "role_results",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "role_results",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "role_results",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "role_results",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "buffer_role_slots",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "buffer_role_slots",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "buffer_role_slots",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "buffer_role_slots",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "buffer_role_slots",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "buffer_role_slots",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "compound_effects",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "compound_effects",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "compound_effects",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "compound_effects",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "compound_effects",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "compound_effects",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "equality_order",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "equality_order",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "equality_order",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "equality_order",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "equality_order",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "equality_order",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "method_evaluation_order",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "method_evaluation_order",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "method_evaluation_order",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "method_evaluation_order",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "method_evaluation_order",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "method_evaluation_order",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_callee_order",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_callee_order",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_callee_order",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_callee_order",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_callee_order",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_callee_order",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_prefix_order",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_prefix_order",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_prefix_order",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_prefix_order",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_prefix_order",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "captured_prefix_order",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "capture_forwarding",
+    0,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "capture_forwarding",
+    0,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "capture_forwarding",
+    1,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "capture_forwarding",
+    1,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "capture_forwarding",
+    2,
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "runtime",
+   "key": [
+    "capture_forwarding",
+    2,
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/ExternalTime.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/ExternalTime.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/ExternalTime.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/getTweenDuration.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/getTweenDuration.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/getTweenDuration.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/getTweenRatio.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/getTweenRatio.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/getTweenRatio.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/lerpType.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/lerpType.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/lerpType.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/packType.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/packType.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/packType.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/Spring.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/Spring.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/Spring.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/springCoefficients.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/springCoefficients.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/springCoefficients.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/Stopwatch.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/Stopwatch.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/Stopwatch.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/Tween.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/Tween.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/Tween.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/unpackType.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/unpackType.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Animation/unpackType.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Colour/Oklab.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Colour/Oklab.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Colour/Oklab.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Colour/sRGB.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Colour/sRGB.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Colour/sRGB.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/External.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/External.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/External.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/ExternalDebug.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/ExternalDebug.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/ExternalDebug.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/castToGraph.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/castToGraph.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/castToGraph.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/change.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/change.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/change.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/depend.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/depend.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/depend.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/evaluate.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/evaluate.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/evaluate.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/Observer.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/Observer.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Graph/Observer.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/applyInstanceProps.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/applyInstanceProps.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/applyInstanceProps.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Attribute.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Attribute.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Attribute.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/AttributeChange.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/AttributeChange.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/AttributeChange.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/AttributeOut.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/AttributeOut.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/AttributeOut.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Child.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Child.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Child.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Children.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Children.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Children.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/defaultProps.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/defaultProps.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/defaultProps.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Hydrate.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Hydrate.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Hydrate.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/New.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/New.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/New.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/OnChange.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/OnChange.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/OnChange.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/OnEvent.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/OnEvent.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/OnEvent.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Out.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Out.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Out.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Tag.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Tag.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Instances/Tag.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Logging/formatError.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Logging/formatError.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Logging/formatError.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Logging/messages.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Logging/messages.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Logging/messages.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Logging/parseError.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Logging/parseError.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Logging/parseError.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/checkLifetime.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/checkLifetime.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/checkLifetime.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/deriveScope.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/deriveScope.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/deriveScope.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/deriveScopeImpl.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/deriveScopeImpl.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/deriveScopeImpl.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/doCleanup.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/doCleanup.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/doCleanup.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/innerScope.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/innerScope.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/innerScope.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/insert.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/insert.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/insert.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/needsDestruction.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/needsDestruction.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/needsDestruction.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/scoped.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/scoped.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Memory/scoped.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/RobloxExternal.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/RobloxExternal.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/RobloxExternal.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/castToState.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/castToState.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/castToState.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/Computed.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/Computed.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/Computed.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/For/Disassembly.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/For/Disassembly.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/For/Disassembly.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/For/ForTypes.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/For/ForTypes.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/For/ForTypes.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/For/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/For/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/For/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/ForKeys.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/ForKeys.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/ForKeys.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/ForPairs.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/ForPairs.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/ForPairs.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/ForValues.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/ForValues.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/ForValues.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/peek.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/peek.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/peek.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/updateAll.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/updateAll.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/updateAll.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/Value.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/Value.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/State/Value.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Types.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Types.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Types.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/Contextual.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/Contextual.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/Contextual.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/isSimilar.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/isSimilar.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/isSimilar.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/merge.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/merge.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/merge.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/nameOf.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/nameOf.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/nameOf.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/never.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/never.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/never.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/nicknames.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/nicknames.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/nicknames.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/Safe.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/Safe.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/Safe.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/xtypeof.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/xtypeof.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Fusion",
+    "src/Utility/xtypeof.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/assertDeepEqual.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/assertDeepEqual.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/assertDeepEqual.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/assign.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/assign.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/assign.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Binding.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Binding.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Binding.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Component.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Component.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Component.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/ComponentLifecyclePhase.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/ComponentLifecyclePhase.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/ComponentLifecyclePhase.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Config.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Config.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Config.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createContext.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createContext.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createContext.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createElement.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createElement.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createElement.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createFragment.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createFragment.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createFragment.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createReconciler.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createReconciler.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createReconciler.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createReconcilerCompat.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createReconcilerCompat.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createReconcilerCompat.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createRef.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createRef.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createRef.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createSignal.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createSignal.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createSignal.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createSpy.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createSpy.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/createSpy.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/ElementKind.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/ElementKind.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/ElementKind.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/ElementUtils.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/ElementUtils.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/ElementUtils.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/forwardRef.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/forwardRef.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/forwardRef.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/getDefaultInstanceProperty.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/getDefaultInstanceProperty.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/getDefaultInstanceProperty.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/GlobalConfig.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/GlobalConfig.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/GlobalConfig.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/init.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/init.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/init.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/internalAssert.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/internalAssert.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/internalAssert.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/invalidSetStateMessages.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/invalidSetStateMessages.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/invalidSetStateMessages.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Logging.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Logging.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Logging.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/None.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/None.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/None.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/NoopRenderer.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/NoopRenderer.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/NoopRenderer.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/oneChild.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/oneChild.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/oneChild.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Portal.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Portal.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Portal.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Change.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Change.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Change.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Children.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Children.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Children.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Event.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Event.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Event.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Ref.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Ref.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PropMarkers/Ref.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PureComponent.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PureComponent.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/PureComponent.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/RobloxRenderer.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/RobloxRenderer.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/RobloxRenderer.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/SingleEventManager.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/SingleEventManager.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/SingleEventManager.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/strict.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/strict.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/strict.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Symbol.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Symbol.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Symbol.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Type.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Type.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "roact",
+    "src/Type.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "promise",
+    "lib/init.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "promise",
+    "lib/init.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "promise",
+    "lib/init.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/BufferReader.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/BufferReader.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/BufferReader.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/BufferWriter.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/BufferWriter.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/BufferWriter.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/DataTypeBuffer.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/DataTypeBuffer.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/DataTypeBuffer.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/Types.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/Types.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/buffer-util/Types.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/ClientComm.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/ClientComm.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/ClientComm.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/ClientRemoteProperty.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/ClientRemoteProperty.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/ClientRemoteProperty.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/ClientRemoteSignal.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/ClientRemoteSignal.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/ClientRemoteSignal.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Client/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/RemoteProperty.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/RemoteProperty.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/RemoteProperty.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/RemoteSignal.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/RemoteSignal.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/RemoteSignal.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/ServerComm.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/ServerComm.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Server/ServerComm.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Types.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Types.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Types.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Util.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Util.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/comm/Util.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/component/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/component/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/component/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/concur/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/concur/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/concur/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/enum-list/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/enum-list/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/enum-list/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/find/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/find/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/find/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Gamepad.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Gamepad.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Gamepad.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Keyboard.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Keyboard.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Keyboard.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Mouse.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Mouse.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Mouse.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/PreferredInput.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/PreferredInput.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/PreferredInput.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Touch.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Touch.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/input/Touch.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/loader/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/loader/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/loader/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/log/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/log/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/log/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/net/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/net/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/net/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/option/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/option/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/option/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/pid/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/pid/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/pid/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/quaternion/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/quaternion/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/quaternion/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/query/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/query/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/query/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/sequent/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/sequent/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/sequent/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/ser/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/ser/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/ser/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/shake/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/shake/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/shake/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/signal/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/signal/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/signal/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/silo/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/silo/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/silo/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/silo/TableWatcher.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/silo/TableWatcher.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/silo/TableWatcher.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/silo/Util.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/silo/Util.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/silo/Util.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/spring/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/spring/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/spring/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/stream/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/stream/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/stream/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/streamable/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/streamable/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/streamable/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/streamable/Streamable.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/streamable/Streamable.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/streamable/Streamable.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/streamable/StreamableUtil.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/streamable/StreamableUtil.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/streamable/StreamableUtil.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/symbol/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/symbol/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/symbol/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/table-util/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/table-util/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/table-util/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/task-queue/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/task-queue/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/task-queue/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/timer/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/timer/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/timer/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/tree/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/tree/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/tree/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/trove/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/trove/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/trove/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/typed-remote/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/typed-remote/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/typed-remote/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/wait-for/init.luau",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/wait-for/init.luau",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "RbxUtil",
+    "modules/wait-for/init.luau",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/combineReducers.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/combineReducers.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/combineReducers.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/createReducer.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/createReducer.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/createReducer.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/init.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/init.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/init.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/loggerMiddleware.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/loggerMiddleware.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/loggerMiddleware.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/makeActionCreator.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/makeActionCreator.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/makeActionCreator.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/makeThunkMiddleware.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/makeThunkMiddleware.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/makeThunkMiddleware.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/NoYield.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/NoYield.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/NoYield.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/prettyPrint.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/prettyPrint.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/prettyPrint.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/Signal.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/Signal.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/Signal.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/Store.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/Store.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/Store.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/thunkMiddleware.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/thunkMiddleware.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/thunkMiddleware.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/actions.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/actions.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/actions.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/reducers.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/reducers.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/reducers.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/store.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/store.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/store.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/thunks.lua",
+    0
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/thunks.lua",
+    1
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  },
+  {
+   "dataset": "public",
+   "key": [
+    "Rodux",
+    "src/types/thunks.lua",
+    2
+   ],
+   "source_unchanged": true,
+   "dataflow_equal": true,
+   "fidelity_equal": true
+  }
+ ],
+ "summary": {
+  "source_unchanged": 684,
+  "source_changed": 3
+ }
+}
