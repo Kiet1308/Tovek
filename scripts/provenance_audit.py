@@ -16,6 +16,8 @@ from emission_map_audit import validate_emission_map
 
 def validate_trace(trace, metadata=None):
     errors = []
+    from call_reconstruction import validate as validate_call_reconstruction
+    errors.extend(validate_call_reconstruction(trace))
     def require(ok, reason):
         if not ok and len(errors) < 20:
             errors.append(reason)

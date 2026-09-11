@@ -12,7 +12,7 @@ use crate::{
 const MIN_ITERATIONS: usize = 4;
 const MAX_ITERATIONS: usize = 8;
 const MAX_LOOPS: usize = 64;
-const MARKER: &str = "equivalent fixed-count loop synthesized; original loop unknown";
+pub(crate) const MARKER: &str = "equivalent fixed-count loop synthesized; original loop unknown";
 
 #[derive(Clone)]
 struct Term {

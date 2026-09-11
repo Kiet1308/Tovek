@@ -577,7 +577,8 @@ fn replace_suffix_vec(
     if suffix_matches(stmts, template, localizable, scope_declared, captured) {
         stmts.truncate(stmts.len() - template.len());
         stmts.push(Statement::Return(Return::new(vec![RValue::Call(
-            Call::new(RValue::Local(helper.clone()), Vec::new()),
+            Call::new(RValue::Local(helper.clone()), Vec::new())
+                .reconstructed(crate::call_origins::Kind::TerminalSynthesis),
         )])));
         return 1;
     }
@@ -960,6 +961,7 @@ mod tests {
 
     #[test]
     fn synthesizes_large_strict_terminal_duplicates() {
+        let origins = crate::call_origins::enter(true);
         let frames = local("frames");
         let result = local("result");
         let mut arms = Vec::new();
@@ -1009,6 +1011,16 @@ mod tests {
             panic!("expected one localized result")
         };
         assert_ne!(helper_result, &result);
+        drop(helper);
+        let (_, _, emitted) = crate::formatter::format_with_emission_map(&body, Default::default(), true).unwrap();
+        let report = origins.take_report();
+        assert_eq!(report.events.len(), 4);
+        assert_eq!(emitted.reconstructed_calls.len(), 4);
+        for event in &report.events {
+            assert_eq!(event.producer, crate::call_origins::Kind::TerminalSynthesis);
+            assert!(event.callee_prototype.is_none());
+            assert_eq!(emitted.reconstructed_calls.iter().filter(|call| call.event_id == event.event_id).count(), 1);
+        }
     }
 
     #[test]

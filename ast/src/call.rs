@@ -4,10 +4,25 @@ use crate::{LocalRw, RcLocal, Traverse, formatter::Formatter, has_side_effects};
 
 use super::RValue;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Call {
     pub value: Box<RValue>,
     pub arguments: Vec<RValue>,
+    /// Creation event only. Copies retain the event; a newly built Call starts
+    /// unattributed. Zero means no retained diagnostic record, not original code.
+    pub reconstruction_event: u32,
+}
+
+impl PartialEq for Call {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value && self.arguments == other.arguments
+    }
+}
+impl fmt::Debug for Call {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Preserve semantic debug fingerprints used by existing diagnostics.
+        f.debug_struct("Call").field("value", &self.value).field("arguments", &self.arguments).finish()
+    }
 }
 
 impl Call {
@@ -15,7 +30,15 @@ impl Call {
         Self {
             value: Box::new(value),
             arguments,
+            reconstruction_event: 0,
         }
+    }
+
+    pub(crate) fn reconstructed(mut self, producer: crate::call_origins::Kind) -> Self {
+        if let RValue::Local(local) = &*self.value {
+            self.reconstruction_event = crate::call_origins::record(producer, local.stable_id());
+        }
+        self
     }
 }
 
@@ -72,6 +95,7 @@ impl fmt::Display for Call {
             closure_observer: None,
             emission_map: None,
             layout_budget: None,
+            compact_annotations: false,
         }
         .format_call(self)
     }
@@ -141,6 +165,7 @@ impl fmt::Display for MethodCall {
             closure_observer: None,
             emission_map: None,
             layout_budget: None,
+            compact_annotations: false,
         }
         .format_method_call(self)
     }

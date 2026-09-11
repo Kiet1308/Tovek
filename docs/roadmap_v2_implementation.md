@@ -1,5 +1,13 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R6/R5: call reconstruction locations and compiler witness families
+
+Optional call-creation events now connect statement/expression/arithmetic de-inline and terminal synthesis to actual emitted call spans. Parser checks resolve the direct callee by binding identity. Original caller PCs remain unknown, clones retain creation IDs, and rebuilt/opaque/omitted calls gain no invented provenance. `--compact-annotations` retains complete annotation text in detailed sidecars and shortens only recognized source comments; defaults preserve existing source. [Contract and coverage](call_reconstruction_annotations.md).
+
+All 180 runtime and 513 public profiles retain full source/dataflow/fidelity results. Every previous field in 4,629 nonempty corpus sidecars is preserved. Private source is unchanged across 3,978 files, including 42 empty inputs. The corpora record 855 call events and 843 emitted occurrences; 12 missing private occurrences remain unclassified. All 1,091 compact comment edits preserve other source bytes and metadata facts, with parser and one/four-thread/cache checks. The validation includes 980 primary Rust tests plus one child repeat, 106 Python tests, 45 legacy semantic profiles and 52 size gates. [Acceptance inventory](roadmap_v2_acceptance/call_origin_validation.json).
+
+R5 now has pinned examples for all seven requested compiler families, with source/driver and 42 bytecode hashes locked before decompiler evaluation. Each profile runs 162 observation vectors, and all 42 deliberately incorrect variants compile and are detected. Existing statement and expression reconstruction recover both helper calls at O2; specialization, result aliases and early returns retain their lowered forms. Dataflow remains 28 proved, 13 different and one unknown. This development suite does not establish original-callsite uniqueness or holdout precision/recall. [Compiler witnesses and remaining work](compiler_transformation_witnesses.md).
+
 ## R6: fidelity review and rehoist register pressure
 
 Rehoist now includes expression/call scratch and hidden loop registers in its conservative introduction budget. A real 180-parameter, 73-argument witness previously decompiled to source that failed O0 recompilation after two constants were introduced; the corrected output compiles. The review retains R1's named-return protection and explicitly treats role-based constant names as synthesis. [Conditions, review and tradeoff](source_fidelity_rewrite_review.md).

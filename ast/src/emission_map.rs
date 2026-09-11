@@ -4,6 +4,14 @@ use crate::formatter::SourceSpan;
 
 pub const OCCURRENCE_LIMIT: usize = 100_000;
 pub const ANNOTATION_BYTE_LIMIT: usize = 4096;
+pub const CALL_OCCURRENCE_LIMIT: usize = 100_000;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CallOccurrence {
+    pub event_id: u32,
+    pub current_callee_binding: Option<u64>,
+    pub span: SourceSpan,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BindingOccurrence {
@@ -17,6 +25,7 @@ pub struct AnnotationOccurrence {
     pub text: String,
     pub truncated: bool,
     pub span: SourceSpan,
+    pub displayed_text: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -33,11 +42,23 @@ pub struct EmissionMap {
     pub annotations: Vec<AnnotationOccurrence>,
     pub opaque_regions: Vec<OpaqueOccurrence>,
     pub omitted_occurrences: usize,
+    pub reconstructed_calls: Vec<CallOccurrence>,
+    pub omitted_reconstructed_calls: usize,
 }
 
 impl EmissionMap {
+    pub(crate) fn can_record(&self) -> bool {
+        self.bindings.len() + self.annotations.len() + self.opaque_regions.len() < OCCURRENCE_LIMIT
+    }
+    pub fn reconstructed_call(&mut self, event_id: u32, current_callee_binding: Option<u64>, span: SourceSpan) {
+        if self.reconstructed_calls.len() < CALL_OCCURRENCE_LIMIT {
+            self.reconstructed_calls.push(CallOccurrence { event_id, current_callee_binding, span });
+        } else {
+            self.omitted_reconstructed_calls += 1;
+        }
+    }
     fn room(&mut self) -> bool {
-        if self.bindings.len() + self.annotations.len() + self.opaque_regions.len() < OCCURRENCE_LIMIT {
+        if self.can_record() {
             true
         } else {
             self.omitted_occurrences += 1;
@@ -56,7 +77,7 @@ impl EmissionMap {
         let mut end = text.len().min(ANNOTATION_BYTE_LIMIT);
         while !text.is_char_boundary(end) { end -= 1; }
         self.annotations.push(AnnotationOccurrence {
-            text: text[..end].to_owned(), truncated: end != text.len(), span,
+            text: text[..end].to_owned(), truncated: end != text.len(), span, displayed_text: None,
         });
     }
 
@@ -68,6 +89,7 @@ impl EmissionMap {
         self.bindings.sort_by_key(|item| (item.span.start.byte_offset, item.span.end.byte_offset, item.binding_id));
         self.annotations.sort_by_key(|item| item.span.start.byte_offset);
         self.opaque_regions.sort_by_key(|item| item.span.start.byte_offset);
+        self.reconstructed_calls.sort_by_key(|item| (item.span.start.byte_offset, item.span.end.byte_offset, item.event_id));
     }
 }
 

@@ -84,6 +84,7 @@ impl fmt::Display for Assign {
             closure_observer: None,
             emission_map: None,
             layout_budget: None,
+            compact_annotations: false,
         }
         .format_assign(self)
     }

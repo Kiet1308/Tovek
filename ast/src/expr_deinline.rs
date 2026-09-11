@@ -223,6 +223,7 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
             if arithmetic_targets > arithmetic::MAX_TARGETS {
                 return;
             }
+            crate::call_origins::register_callee(l.stable_id(), g.bytecode_proto_id);
             targets.push(ExprTarget {
                 f_local: l.clone(),
                 func_ptr: Arc::as_ptr(fa),
@@ -268,6 +269,7 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
         }
         let params: FxHashSet<RcLocal> = g.parameters.iter().cloned().collect();
         let param_order = g.parameters.clone();
+        crate::call_origins::register_callee(l.stable_id(), g.bytecode_proto_id);
         targets.push(ExprTarget {
             f_local: l.clone(),
             func_ptr: Arc::as_ptr(fa),
@@ -554,7 +556,9 @@ fn try_rewrite(
         if !ambiguous {
             if let Some((idx, args)) = hit {
                 let t = &targets[idx];
-                let call = Call::new(RValue::Local(t.f_local.clone()), args);
+                let call = Call::new(RValue::Local(t.f_local.clone()), args).reconstructed(
+                    if t.arithmetic.is_some() { crate::call_origins::Kind::ArithmeticDeinline }
+                    else { crate::call_origins::Kind::ExpressionDeinline });
                 *rv = RValue::Call(call);
                 converted.insert(t.f_local.clone());
                 // Do NOT descend into the freshly-emitted args (idempotence +

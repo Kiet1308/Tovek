@@ -2010,7 +2010,8 @@ fn deinline_block(
             &mut last_occ,
             &mut canon_cache,
         ) {
-            let call = Call::new(RValue::Local(hit.f_local.clone()), hit.args);
+            let call = Call::new(RValue::Local(hit.f_local.clone()), hit.args)
+                .reconstructed(crate::call_origins::Kind::StatementDeinline);
             let stmt = match &hit.result {
                 None => Statement::Call(call),
                 Some(r) => Statement::Assign(Assign {
@@ -4053,6 +4054,7 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
                 None,
             )
         };
+        crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
         drop(g);
         targets.push(Target {
             f_local,

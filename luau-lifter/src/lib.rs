@@ -49,6 +49,7 @@ pub const STRICT_NO_SYNTHETIC_CONTROL: u32 = 1 << 3;
 pub const EMIT_BINDING_PROVENANCE: u32 = 1 << 4;
 /// Opt-in arithmetic loop synthesis; does not establish original source structure.
 pub const SYNTHESIZE_ARITHMETIC_LOOPS: u32 = 1 << 5;
+pub const COMPACT_ANNOTATIONS: u32 = 1 << 6;
 
 // ---- TEMPORARY PROFILING (env-gated, remove before ship) ----
 #[doc(hidden)]
@@ -143,6 +144,8 @@ pub struct DecompileOptions {
     pub emit_binding_provenance: bool,
     /// Experimental equivalent loop presentation; disabled by default.
     pub synthesize_arithmetic_loops: bool,
+    /// Short source labels; full emitter annotation text stays in provenance.
+    pub compact_annotations: bool,
 }
 
 /// Controls whether the certified CFG dispatcher is an acceptable output
@@ -158,7 +161,7 @@ pub enum ControlFlowOutputPolicy {
 
 impl DecompileOptions {
     pub fn from_flag_bits(bits: u32) -> Option<Self> {
-        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL | EMIT_BINDING_PROVENANCE | SYNTHESIZE_ARITHMETIC_LOOPS)
+        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL | EMIT_BINDING_PROVENANCE | SYNTHESIZE_ARITHMETIC_LOOPS | COMPACT_ANNOTATIONS)
             != 0
         {
             return None;
@@ -169,6 +172,7 @@ impl DecompileOptions {
             assume_no_nan: bits & ASSUME_NO_NAN != 0,
             emit_binding_provenance: bits & EMIT_BINDING_PROVENANCE != 0,
             synthesize_arithmetic_loops: bits & SYNTHESIZE_ARITHMETIC_LOOPS != 0,
+            compact_annotations: bits & COMPACT_ANNOTATIONS != 0,
             control_flow_policy: if bits & STRICT_NO_SYNTHETIC_CONTROL != 0 {
                 ControlFlowOutputPolicy::StrictNoSyntheticControl
             } else {
@@ -183,6 +187,7 @@ impl DecompileOptions {
             | u32::from(self.assume_no_nan) * ASSUME_NO_NAN
             | u32::from(self.emit_binding_provenance) * EMIT_BINDING_PROVENANCE
             | u32::from(self.synthesize_arithmetic_loops) * SYNTHESIZE_ARITHMETIC_LOOPS
+            | u32::from(self.compact_annotations) * COMPACT_ANNOTATIONS
             | u32::from(
                 self.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl,
             ) * STRICT_NO_SYNTHETIC_CONTROL
@@ -195,6 +200,7 @@ impl DecompileOptions {
             assume_no_nan: self.assume_no_nan || other.assume_no_nan,
             emit_binding_provenance: self.emit_binding_provenance || other.emit_binding_provenance,
             synthesize_arithmetic_loops: self.synthesize_arithmetic_loops || other.synthesize_arithmetic_loops,
+            compact_annotations: self.compact_annotations || other.compact_annotations,
             control_flow_policy: if self.control_flow_policy
                 == ControlFlowOutputPolicy::StrictNoSyntheticControl
                 || other.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
@@ -391,7 +397,11 @@ fn try_decompile_bytecode_internal(
     // generated local names) are independent of any earlier work this thread
     // did. Without this, parallel `decompile-folder` runs are nondeterministic
     // even though each file is processed on a single thread. See ast::RcLocal.
+    if options.compact_annotations && !(emit_upvalue_analysis && options.emit_binding_provenance) {
+        return Err(DecompileFailure::message("compact annotations require an artifact API with binding provenance"));
+    }
     ast::reset_local_ids();
+    let call_origins = ast::call_origins::enter(emit_upvalue_analysis && options.emit_binding_provenance);
     let profile_context = profile::context(script_name, bytecode);
     let _profile_context = ast::telemetry::enter(profile_context.clone());
     let _profile_file = ast::telemetry::Span::new("DECOMPILE");
@@ -896,7 +906,7 @@ fn try_decompile_bytecode_internal(
             let (out, source_occurrences, emission_map) = {
                 ptime!(S_FORMAT);
                 if emit_upvalue_analysis {
-                    ast::formatter::format_with_emission_map(&body, Default::default(), options.emit_binding_provenance)
+                    ast::formatter::format_with_emission_map_options(&body, Default::default(), options.emit_binding_provenance, options.compact_annotations)
                         .map_err(|_| DecompileFailure::message("formatting failed"))?
                 } else {
                     (body.to_string(), Vec::new(), Default::default())
@@ -918,7 +928,7 @@ fn try_decompile_bytecode_internal(
                 analysis.conditional_lowering = conditional_lowering;
                 analysis.branch_constructors = branch_constructors;
                 if options.emit_binding_provenance {
-                    analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map, local_producers));
+                    analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map, local_producers, call_origins.take_report()));
                 }
                 analysis
             });
@@ -1774,6 +1784,17 @@ mod option_tests {
         assert_eq!(enabled.bits(), super::EMIT_BINDING_PROVENANCE);
         assert_eq!(DecompileOptions::default().union(enabled), enabled);
         assert_eq!(enabled.union(DecompileOptions::default()), enabled);
+    }
+
+    #[test]
+    fn compact_annotations_require_artifact_provenance_and_separate_cache_options() {
+        let compact = DecompileOptions { compact_annotations: true, ..Default::default() };
+        assert_eq!(DecompileOptions::from_flag_bits(compact.bits()), Some(compact));
+        assert_eq!(DecompileOptions::default().union(compact), compact);
+        assert!(super::try_decompile_bytecode_with_options(&[], 1, None, compact)
+            .unwrap_err().contains("compact annotations require"));
+        assert!(!DecompileOptions::default().compact_annotations);
+        assert_ne!(compact.bits(), 0);
     }
 
     #[test]

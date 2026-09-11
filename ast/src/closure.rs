@@ -87,6 +87,7 @@ impl fmt::Display for Closure {
             closure_observer: None,
             emission_map: None,
             layout_budget: None,
+            compact_annotations: false,
         }
         .format_closure(self)
     }

@@ -1,0 +1,689 @@
+{
+  "schema_version": 1,
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "compiler_flags": [
+    "--fflags=false"
+  ],
+  "driver_sha256": "0c62806cf6c437c5633955f1d1ba32f452702ad63e72ba452beb22b1cdf93718",
+  "cases": [
+    {
+      "family": "constant_specialization",
+      "source": "constant_specialization.luau",
+      "source_sha256": "8d2fb532da28284b0942802d3ded4197e42e85791f8982bdf546201821c0b4c1",
+      "expected_observation_sha256": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+      "vectors": 162,
+      "mutant": {
+        "from": "mode == \"double\"",
+        "to": "mode == \"add\""
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "6aea294a244fe012b0e5fc4bc4e540aa2d0c1fff2e63b4b2ad81b661bd45a700",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "a55cf78bc1c4dcb419e09938be306562ce0df10ecc10c956cddd859e6757450b",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "a5c039349a7793c8ed42eab67f8a804b9ae34ff7ea83c49fb38de163e02e29ca",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "a2b3cbff522dbbee6ea1b7d632cff056be0a99a0595f43e77ce11d92eec19594",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "c65cb7b0e95edf69aac6ddc59cb62bb4d843468da44d5022a35f697d839da71e",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "31cfdf8faaf8a39c0f207f49acbc069cbf86e37876cf68c8d28991571f7fd505",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        }
+      ]
+    },
+    {
+      "family": "early_return",
+      "source": "early_return.luau",
+      "source_sha256": "6186adc0eb7d425e67e229ad1edf917632e04c4ddaa1aefc60bab4edac6f2427",
+      "expected_observation_sha256": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+      "vectors": 162,
+      "mutant": {
+        "from": "return nil",
+        "to": "return false"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "2fc2c636a7baf5bc37212cf40ffa651f31922360cb666ee491fc67cfb6068559",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "72b548c4116796c4ea0fb062c9bf8924a9399a1d1f1d2da9f5ac8675bf6fb1a6",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "a7f9c1200e6f8400cff557e8a81bac0cec4d317d082d12fc4602b220136a84b0",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "a9a3356b80890a35517fd7145a2013035ebe85cbbeb6daffb0274f556eb20a71",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "e5661894b68ca4218dbcb68ad033872e32fa075007f53ef82f83e70f70ea469d",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 2
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "59aba3ed31aaa30417f171a19d469461b3621630b4141dabe4fb7701ef638dbe",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 2
+          }
+        }
+      ]
+    },
+    {
+      "family": "expression_inline",
+      "source": "expression_inline.luau",
+      "source_sha256": "550a14615bdc03d2f477249622783d8d4ae6f8ec59a28ce6e3eb4de987abc3ad",
+      "expected_observation_sha256": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+      "vectors": 162,
+      "mutant": {
+        "from": "(value * 2 + 3) * 4",
+        "to": "4 * (3 + value * 2)"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "b662e5cf44c0beda8441b3326ba904e346e483079e4433379ec1ad3bb5efa088",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "020a1d4dab651589e039a57acab0441680ddf4cca16f01bba82dcc451f73df25",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "f7e20d20093a787ec5138ce6d4fe2b0fb5288c22297517607fbc072048b72273",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "2f4326cfba3dc4a4ea8d58176335ef4cb0e39e183c3359890ff1bd830776d4d6",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "51ac215584ea9839b6432a19bd64f1919bd9ed79b8d60025adebe7e079a11036",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "3675b35864a2c69de843a53eb98e74269eefad0231b5d2adcd912fd779f5213f",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        }
+      ]
+    },
+    {
+      "family": "fixed_count_loop",
+      "source": "fixed_count_loop.luau",
+      "source_sha256": "67ab97b6afb20bb254ffaf5da800ae87b6bf4a558358ba2ebf83dd076fcb700b",
+      "expected_observation_sha256": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+      "vectors": 162,
+      "mutant": {
+        "from": "index = 1, 4",
+        "to": "index = 4, 1, -1"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "e01214390e2b6b030c91b57525fcdb4f442611ea419e73adc0c151a6f3257a74",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 1,
+            "FORNLOOP": 1,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "f08c207c7bfb02b741305a5b64e4538e0fc0ed4185f93d9197a165400129ecb6",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 1,
+            "FORNLOOP": 1,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "ba8f7d52e4ec5e92720d77158c918f80f1133da78063f0598bff557efcbb75c8",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 1,
+            "FORNLOOP": 1,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "3dee40fceb8cf70e3a194d67415cba59a3d1222b1da58adb9e905c26f0b27e07",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 1,
+            "FORNLOOP": 1,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "e8e2f01892e6d0c2274aa3bddbd376a29d1ca208c5dc0d162f5b42f7b93a1b6b",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "e940983d706477b008396e1de2eab93b1b87cc8f663a51808c659fa1cdd39672",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        }
+      ]
+    },
+    {
+      "family": "result_alias",
+      "source": "result_alias.luau",
+      "source_sha256": "0bd5d2c18f72a9f76122fe79422bc7f8a2b18b6b17dd7723857aa572449a29b3",
+      "expected_observation_sha256": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+      "vectors": 162,
+      "mutant": {
+        "from": "return second, value",
+        "to": "return second"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "8e1427229e3e4d1b4c5ee5d32726de0db4fd5f3d92d6e1f902732e8957259360",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "646b8ff2cae60ce846af1c7b3d8ea45d280752f680a323325df7d9dbba295120",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "0eb7c912546e16c46b9d324779aaede55883f003e1bd38d48f9eba5af586c902",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "acb36d67d581fcf5bfa8913f9ba591be36097e0ec5d7d4c206772810148cbcc3",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "5cf492eee4cee5f2b1dd60a9009a3228617a798c0fb12e814f8ba78bcf5b4b20",
+          "inlines": 1,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "563717b173141555abf00e17c8c07770f6cf6bce6b0ee1c2a130e3ec85228aa4",
+          "inlines": 1,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 0,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        }
+      ]
+    },
+    {
+      "family": "statement_inline",
+      "source": "statement_inline.luau",
+      "source_sha256": "394759bb41db9acd4a312f7196fea52c97e7671e8599954ffe4e92c97a3922b6",
+      "expected_observation_sha256": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+      "vectors": 162,
+      "mutant": {
+        "from": "sink(\"begin\", value)",
+        "to": "sink(\"end\", value)"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "630352e42f3cc30587a9df48319b1f47d9dee5c785acb04b3b920d709cdeb852",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "7304b488fba706a4b822ed5bd1a39ca28e1d6d2a8007047dbeb4099834a43a93",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "cec46024888581ad74f90d65cda980582f7a4c8bed26a1ac48e2594acd00057d",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "e86a54e6b2a457ce8711ffc6da458b0925e91563c6a74adcf1f1bf6bb8acac4d",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "271ea346e62ef9d3dba75c9c201257bd8487f784243c1518d30e4d197c10c3b9",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 4,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "7279fd6a9ec3671d8bbcfa9f33b90ed4ff75ea2580f7d7ad0b259051748fba4f",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 4,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 0,
+            "RETURN": 1
+          }
+        }
+      ]
+    },
+    {
+      "family": "table_lowering",
+      "source": "table_lowering.luau",
+      "source_sha256": "e591e5e7669157891ecacda74636d90f53acb168b9dccb4e3d15d213ae067406",
+      "expected_observation_sha256": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+      "vectors": 162,
+      "mutant": {
+        "from": "value, tail()",
+        "to": "value, (tail())"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "aafe7c8c140bbe0edc16c1856003d2fccf917904fee910093925679bea8e79b4",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "6eb4bcdf1f62fb8dcfab6178672b01a18dd7f32038a5ea475d1d446134a54a53",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "f4cdc352a01318eca32cdce36ba5412973532304617c45c6f08c7bc56b328e60",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "7f083b4573dd7042d6073cb38cfb58dae359661a8198eaf9bb066106c300e588",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "f4cdc352a01318eca32cdce36ba5412973532304617c45c6f08c7bc56b328e60",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "7f083b4573dd7042d6073cb38cfb58dae359661a8198eaf9bb066106c300e588",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNPREP": 0,
+            "FORNLOOP": 0,
+            "SETLIST": 1,
+            "RETURN": 1
+          }
+        }
+      ]
+    }
+  ]
+}

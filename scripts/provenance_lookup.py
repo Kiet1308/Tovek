@@ -7,6 +7,7 @@ import pathlib
 from provenance_audit import manifest, sidecar, validate_trace
 from emission_map_audit import validate_emission_map
 from roadmap_v2 import sha256
+from call_reconstruction import occurrences_at
 
 
 def lookup(trace, offset):
@@ -35,6 +36,7 @@ def lookup(trace, offset):
                          origins=[dict(origin_id=origin, **origin_sites.get(origin, dict(status='unknown_origin', instruction_pcs=[])))
                                   for origin in binding['lineage']]))
     return dict(schema_version=1, byte_offset=offset, identifiers=rows,
+                reconstructed_calls=occurrences_at(trace, offset),
                 annotations=[item for item in output['annotations'] if contains(item['span'])],
                 opaque_regions=[item for item in output['opaque_regions'] if contains(item['span'])],
                 omitted_occurrences=output['omitted_occurrences'],

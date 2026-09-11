@@ -58,6 +58,7 @@ pub(crate) fn provenance_report(
     body: &mut ast::Block,
     emission_map: ast::emission_map::EmissionMap,
     local_producers: Vec<ast::local_producers::Pass>,
+    call_origins: ast::call_origins::Report,
 ) -> Value {
     let id = |id| format!("b{id}");
     let ids = |items: &[u64]| items.iter().map(|&item| id(item)).collect::<Vec<_>>();
@@ -85,6 +86,21 @@ pub(crate) fn provenance_report(
         });
         json!({"start": position(span.start), "end": position(span.end)})
     };
+    let reconstructed_calls = json!({
+        "schema_version": 1, "model": "committed-call-reconstruction-events-v1",
+        "event_limit": ast::call_origins::EVENT_LIMIT,
+        "occurrence_limit": ast::emission_map::CALL_OCCURRENCE_LIMIT,
+        "callees_limit": ast::call_origins::CALLEE_LIMIT,
+        "events": call_origins.events,
+        "omitted_events": call_origins.omitted_events,
+        "omitted_callee_registrations": call_origins.omitted_callee_registrations,
+        "omitted_occurrences": emission_map.omitted_reconstructed_calls,
+        "occurrences": emission_map.reconstructed_calls.into_iter().map(|item| json!({
+            "event_id": item.event_id, "span": span(item.span),
+            "current_callee_binding": item.current_callee_binding.map(id),
+        })).collect::<Vec<_>>(),
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    });
     let output_map = json!({
         "schema_version": 1, "model": "final-emission-binding-spans-v1",
         "contract": "Exact final identifier spans reference stable final binding IDs. Follow a binding's lineage to SSA definitions and their lifted statement PC sets for storage ancestry only; those sets are not precise producer PCs for an individual use. No value, close, purity or source-equality proof is inferred.",
@@ -94,10 +110,14 @@ pub(crate) fn provenance_report(
         "bindings": emission_map.bindings.into_iter().map(|item| json!({
             "binding_id": id(item.binding_id), "role": item.role, "span": span(item.span),
         })).collect::<Vec<_>>(),
-        "annotations": emission_map.annotations.into_iter().map(|item| json!({
-            "classification": "emitter_annotation", "text": item.text, "text_truncated": item.truncated,
-            "span": span(item.span), "instruction_origin": "unknown",
-        })).collect::<Vec<_>>(),
+        "annotations": emission_map.annotations.into_iter().map(|item| {
+            let mut row = json!({
+                "classification": "emitter_annotation", "text": item.text, "text_truncated": item.truncated,
+                "span": span(item.span), "instruction_origin": "unknown",
+            });
+            if let Some(text) = item.displayed_text { row["displayed_text"] = json!(text); }
+            row
+        }).collect::<Vec<_>>(),
         "opaque_regions": emission_map.opaque_regions.into_iter().map(|item| json!({
             "reason": item.reason, "span": span(item.span),
         })).collect::<Vec<_>>(),
@@ -201,6 +221,7 @@ pub(crate) fn provenance_report(
         },
         "functions": functions, "final_bindings": emitted,
         "output_map": output_map,
+        "call_reconstruction": reconstructed_calls,
         "limitations": "An absent direct mapping does not distinguish inlining, dead code, cloning or synthesis. Conditional results are retained as statements; the trace does not authorize eager evaluation or change source naming. Arbitrary value-producer provenance and pass-complete invalidation remain open.",
     })
 }

@@ -1352,6 +1352,7 @@ pub struct Formatter<'a, W: fmt::Write> {
     /// Some only in a bounded, non-emitting layout preview. Normal formatting
     /// uses None; previews never recursively ask for another width preview.
     pub(crate) layout_budget: Option<usize>,
+    pub(crate) compact_annotations: bool,
 }
 
 const PREFERRED_LINE_WIDTH: usize = 120;
@@ -1474,6 +1475,15 @@ pub fn format_with_emission_map(
     indentation_mode: IndentationMode,
     detailed: bool,
 ) -> Result<(String, Vec<ClosureSourceOccurrence>, crate::emission_map::EmissionMap), fmt::Error> {
+    format_with_emission_map_options(main, indentation_mode, detailed, false)
+}
+
+pub fn format_with_emission_map_options(
+    main: &Block,
+    indentation_mode: IndentationMode,
+    detailed: bool,
+    compact_annotations: bool,
+) -> Result<(String, Vec<ClosureSourceOccurrence>, crate::emission_map::EmissionMap), fmt::Error> {
     let mut output = String::new();
     let mut tracked = PositionTrackingWriter::new(&mut output);
     let mut occurrences = Vec::new();
@@ -1489,6 +1499,7 @@ pub fn format_with_emission_map(
             closure_observer: Some(&mut observer),
             emission_map: detailed.then_some(&mut emission_map),
             layout_budget: None,
+            compact_annotations,
         };
         formatter.format_block_no_indent(main)?;
     }
@@ -1579,6 +1590,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             closure_observer: None,
             emission_map: None,
             layout_budget: None,
+            compact_annotations: false,
         };
         formatter.format_block_no_indent(main)
     }
@@ -1610,6 +1622,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             closure_observer: None,
             emission_map: None,
             layout_budget: Some(256),
+            compact_annotations: self.compact_annotations,
         };
         let fits = render(&mut preview).is_ok();
         // Existing constructor/callback layouts already break the group. Keep
@@ -1799,11 +1812,25 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     fn format_comment(&mut self, comment: &crate::Comment) -> fmt::Result {
         let start = self.current_position();
-        write!(self.output, "{}", comment)?;
+        // Only shorten text when the complete original can be retained. Opaque
+        // subrenders and exhausted maps keep the full source diagnostic.
+        let retainable = comment.text.len() <= crate::emission_map::ANNOTATION_BYTE_LIMIT
+            && self.emission_map.as_ref().is_some_and(|map| map.can_record());
+        let compact = (self.compact_annotations && retainable)
+            .then(|| crate::annotations::compact_text(&comment.text)).flatten();
+        if let Some(text) = compact {
+            write!(self.output, "-- {}", text)?;
+        } else {
+            write!(self.output, "{}", comment)?;
+        }
         if let (Some(start), Some(end), Some(map)) =
             (start, self.current_position(), self.emission_map.as_deref_mut())
         {
+            let before = map.annotations.len();
             map.annotation(&comment.text, SourceSpan { start, end });
+            if map.annotations.len() > before {
+                map.annotations.last_mut().unwrap().displayed_text = compact.map(str::to_owned);
+            }
         }
         Ok(())
     }
@@ -2558,6 +2585,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     pub(crate) fn format_call(&mut self, call: &Call) -> fmt::Result {
         let multiline = self.layout_budget.is_none() && call.arguments.len() > 1
             && !self.fits_flat(|preview| preview.format_call(call));
+        let start = self.current_position();
         let wrap = Self::should_wrap_left_rvalue(&call.value);
         if wrap {
             write!(self.output, "(")?;
@@ -2569,7 +2597,15 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
         write!(self.output, "(")?;
         self.format_arg_list(&call.arguments, multiline)?;
-        write!(self.output, ")")
+        write!(self.output, ")")?;
+        if call.reconstruction_event != 0 {
+            if let (Some(start), Some(end), Some(map)) =
+                (start, self.current_position(), self.emission_map.as_deref_mut())
+            {
+                map.reconstructed_call(call.reconstruction_event, call.value.as_local().map(RcLocal::stable_id), SourceSpan { start, end });
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn format_method_call(&mut self, method_call: &MethodCall) -> fmt::Result {
@@ -2624,6 +2660,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             closure_observer: None,
             emission_map: None,
             layout_budget: self.layout_budget,
+            compact_annotations: self.compact_annotations,
         };
         sub.format_rvalue(rvalue).ok()?;
         Some(buffer)

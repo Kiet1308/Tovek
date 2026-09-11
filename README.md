@@ -175,6 +175,12 @@ it rebuilds path-specific metadata on each run. Keep the cache outside the input
 and output trees. `--cache-max-mib` defaults to 512. See the
 [cache contract and measurements](docs/artifact_cache.md).
 
+Add `--emit-binding-provenance --compact-annotations` to use short reconstruction
+comments while retaining their complete diagnostics and reconstructed-call
+locations in sidecars. Default comments remain unchanged. These locations
+identify emitted calls; they do not prove original source call sites. See the
+[annotation and call-event contract](docs/call_reconstruction_annotations.md).
+
 Volt/static-analysis mode writes clean `.lua` source directly and keeps all
 upvalue metadata in hidden sidecars. The Volt export manifest is authoritative,
 so source fallbacks are copied cleanly and never interpreted as bytecode:

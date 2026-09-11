@@ -60,6 +60,7 @@ impl fmt::Display for Index {
             closure_observer: None,
             emission_map: None,
             layout_budget: None,
+            compact_annotations: false,
         }
         .format_index(self)
     }

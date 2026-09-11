@@ -44,7 +44,8 @@ def parser_occurrences(root, source):
 def validate_parser_identity(trace, source, root):
     expected = parser_occurrences(root, source)
     mapping, covered, storage = {}, set(), {}
-    errors = []
+    from call_reconstruction import validate_parser_calls
+    errors = validate_parser_calls(trace, source, root)
     for occurrence in trace['output_map']['bindings']:
         span = occurrence['span']
         bounds = span['start']['byte_offset'], span['end']['byte_offset']
@@ -71,7 +72,8 @@ def validate_parser_identity(trace, source, root):
 
 
 def validate_emission_map(trace, source):
-    errors = []
+    from call_reconstruction import validate as validate_calls
+    errors = validate_calls(trace, source)
     def require(ok, message):
         if not ok and len(errors) < 20:
             errors.append(message)
@@ -134,6 +136,12 @@ def validate_emission_map(trace, source):
         require(source[start:end].startswith(b'--'), 'annotation span is not a comment')
         text = item['text'].encode('utf-8')
         require(len(text) <= output['limits']['annotation_text_bytes'], 'annotation text budget exceeded')
+        displayed = item.get('displayed_text')
+        if displayed is not None:
+            from call_reconstruction import compact_annotation
+            require(not item['text_truncated'] and compact_annotation(item['text']) == displayed,
+                    'unknown or truncated compact annotation')
+            text = displayed.encode('utf-8')
         payload = source[start + 3:end]
         require(source[start:start + 3] == b'-- ' and
                 (payload.startswith(text) and len(payload) > len(text) if item['text_truncated'] else payload == text),

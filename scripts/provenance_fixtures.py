@@ -18,9 +18,12 @@ def main():
     inputs_group.add_argument('--public-report', type=pathlib.Path)
     parser.add_argument('--ast', type=pathlib.Path, help='also check emitted token binding identity with the pinned parser')
     parser.add_argument('--cache', action='store_true', help='also compare cold/warm artifact cache against uncached source and sidecars')
+    parser.add_argument('--compact-annotations', action='store_true', help='also verify comment-only compact display, call spans and cache option isolation')
     for name in ('lifter', 'report', 'keep'):
         parser.add_argument('--' + name, type=pathlib.Path, required=True)
     args = parser.parse_args()
+    if args.compact_annotations and not args.ast:
+        parser.error('compact annotation checks require --ast')
     args.lifter = args.lifter.resolve(strict=True)
     input_report = args.fixtures_report or args.public_report
     fixtures = json.loads(input_report.read_text(encoding='utf-8'))
@@ -121,6 +124,33 @@ def main():
     report['capture_effects_audit'] = capture_audit
     if args.cache:
         report['cache_checks'] = cache_checks
+    if args.compact_annotations:
+        compact_checks = []
+        for label, threads, cached in [('compact1', 1, False), ('compact4', 4, True), ('compact_warm', 1, True)]:
+            output = work / label
+            result, elapsed = run([args.lifter, 'decompile-folder', inputs, output, '--key', 1,
+                '--threads', threads, '--strict-no-synthetic-control', '--emit-binding-provenance',
+                '--compact-annotations', *(['--cache-dir', work / 'cache'] if cached else []),
+                *fixtures.get('lifter_args', [])], timeout=180)
+            (work / (label + '.log')).write_bytes(result.stdout + result.stderr)
+            if result.returncode:
+                raise RuntimeError('compact folder run failed: ' + label)
+            _, current = manifest(output)
+            _, reference = manifest(work / 'compact1')
+            if current != reference or any(sidecar(output, current[k]) != sidecar(work / 'compact1', reference[k])
+                or sha256(output / current[k]['source_path']) != sha256(work / 'compact1' / reference[k]['source_path']) for k in current):
+                raise RuntimeError('compact source/metadata changed across threads/cache')
+            stats = [json.loads(line.removeprefix('TOVEK_CACHE ')) for line in result.stderr.decode().splitlines()
+                     if line.startswith('TOVEK_CACHE ')]
+            if cached and (len(stats) != 1 or stats[0]['io_errors'] or stats[0]['corrupt']
+                           or label == 'compact_warm' and not stats[0]['hits']):
+                raise RuntimeError('compact cache diagnostics differ')
+            compact_checks.append(dict(mode=label, seconds=elapsed, threads=threads, statistics=stats))
+        compact_path = work / 'call-annotations.json'
+        checked([sys.executable, ROOT / 'scripts/call_reconstruction_audit.py', '--root', work / 'trace1',
+                 '--compact-root', work / 'compact1', '--ast', args.ast, '--report', compact_path], timeout=180)
+        report['call_annotations'] = json.loads(compact_path.read_text(encoding='utf-8'))
+        report['compact_checks'] = compact_checks
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(json.dumps(audit['summary'], indent=2))

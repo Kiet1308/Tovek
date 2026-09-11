@@ -1,0 +1,6 @@
+{
+ "status": "passed",
+ "exit": 2,
+ "stderr": "error: the following required arguments were not provided:\n  --emit-binding-provenance\n\nUsage: v2-call-origin-lifter.exe decompile-folder --emit-binding-provenance --compact-annotations <SRC> <OUT>\n\nFor more information, try '--help'.\n",
+ "contract": "Clap requires detailed provenance before compact mode can access input/output paths."
+}

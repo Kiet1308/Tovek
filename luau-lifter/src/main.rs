@@ -97,6 +97,9 @@ struct FolderArgs {
     /// Implies --emit-upvalue-analysis.
     #[arg(long)]
     emit_binding_provenance: bool,
+    /// Short source labels while retaining full annotation text in metadata.
+    #[arg(long, requires = "emit_binding_provenance")]
+    compact_annotations: bool,
     /// Source extension written by the folder decompiler.
     #[arg(long, default_value = "luau", value_parser = ["lua", "luau"])]
     output_extension: String,
@@ -181,6 +184,7 @@ fn main() {
                     assume_no_nan: a.assume_no_nan,
                     synthesize_arithmetic_loops: a.synthesize_arithmetic_loops,
                     emit_binding_provenance: a.emit_binding_provenance,
+                    compact_annotations: a.compact_annotations,
                     control_flow_policy: folder_control_flow_policy(
                         a.strict_no_synthetic_control,
                         a.allow_certified_dispatcher,
