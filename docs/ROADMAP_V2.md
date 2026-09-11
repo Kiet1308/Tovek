@@ -346,7 +346,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 **Nghiệm thu:** báo cáo exact identifier recovery theo binding trên source biết trước; báo cáo riêng precision/coverage của tên suy luận và đánh giá vai trò bởi người đọc. Các tên thay `pN/vN` phải có nguồn evidence; đổi tất cả thành `value1/value2` không được tính là cải thiện fidelity. Case Roact `createElement`, buffer, spring và UI phải có đối chiếu trước/sau cụ thể.
 
-Đã nghiệm thu các cơ chế có giới hạn ở trên; [đánh giá vai trò bởi người đọc](role_naming_review.md) đang chờ phản hồi, không được suy ra từ điểm exact-name. Summary project là công cụ phân tích tùy chọn, chưa tự áp dụng rename xuyên module.
+Đã nghiệm thu các cơ chế có giới hạn ở trên; [đánh giá vai trò bởi người đọc](role_naming_review.md) đã nhận phản hồi “Rõ hơn” cho ba ví dụ được hỏi; đây là nhận xét định tính, không phải độ chính xác trên toàn corpus. Summary project là công cụ phân tích tùy chọn, chưa tự áp dụng rename xuyên module.
 
 **Thứ tự:** làm propagation trong một function/module trước; chỉ mở inter-module khi đã đo phần còn thiếu. Không mặc định rằng phân tích xuyên toàn project sẽ có lợi ở mọi file.
 
@@ -360,6 +360,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 - [ ] Hạ result dùng nhiều lần thành phép gán trong nhánh, hoặc local riêng được gán bằng `if/else` khi cần. Giữ `return` theo nhánh khi rõ ràng; không tạo initializer `if` expression hay nhân đôi expression có effect để loại local.
 - [ ] Phân tích effect tinh hơn: pure và total, may-throw, table read/write, allocation, call, yield và access tới captured cell. Unknown vẫn là rào cản.
 - [x] Chặn SSA inline đổi thứ tự qua phép đọc global chưa có proof; khóa trace, mutation, lỗi và result arity của environment `__index` ở O0/O1/O2, `-g1/-g2`. — Đây là một điều kiện bảo thủ trong phân tích thứ tự, chưa phải toàn bộ effect dependency graph.
+- [x] Giữ số lần đánh giá base/key khi formatter tạo compound assignment; chỉ gộp index có base/key là local/literal. Fixture khóa nested `__index`, unary/binary metamethod và lỗi ở lần đọc thứ hai, kể cả khi có type hint. [Bằng chứng và phạm vi](formatter_effects.md).
 - [ ] Gắn effect dependency theo vị trí đánh giá callee, argument, LHS base/key, RHS và store. Quyết định inline phải dựa trên quan hệ này.
 - [ ] Dựng một vùng constructor cho bảng còn private, có chuỗi field write hoặc nhánh chọn giá trị. Emit nhóm field ổn định và children rõ ràng, giữ conditional property ở statement; chỉ precompute giá trị ngoài constructor khi giữ được thứ tự. Thử `branch_ui` trước rồi phân loại từng fallback còn lại.
 - [ ] Khôi phục cây curried UI/callback theo các rule cấu trúc và ownership đã có; thư viện như Fusion/Roact cung cấp ngữ cảnh, không tự tạo ngoại lệ về semantics.

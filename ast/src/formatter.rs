@@ -54,31 +54,13 @@ fn compound_assign_target_matches(target: &LValue, binary_left: &RValue) -> bool
     }
 }
 
-/// True when `rvalue` can be evaluated more than once with no observable
-/// difference (no side effects, no environment dependence): a local, a literal,
-/// or an index/unary/binary built entirely out of such pure subterms.
-///
-/// Deliberately rejects `Global` (reads the mutable environment), `Call` /
-/// `MethodCall` / `Select` / `VarArg` (side effects / arity), `Closure`, `Table`
-/// (allocates a fresh table — re-evaluation yields a different identity), and
-/// `IfExpression` (its branches may contain impure terms). This must NOT be
-/// replaced with `has_side_effects`: `Index::has_side_effects` is always `true`,
-/// which would defeat the safe `t.k` case this helper exists to enable.
+/// Whether an index base/key can be repeated without observing any operation
+/// between its evaluations. A field read can invoke __index; arithmetic, length
+/// and unary operators can invoke metamethods or throw. Bytecode type hints are
+/// not proofs that either evaluation is pure, so only local/literal leaves are
+/// accepted here. This predicate does not classify general expression purity.
 fn pure_repeatable(rvalue: &RValue) -> bool {
-    match rvalue {
-        RValue::Local(_) | RValue::Literal(_) => true,
-        RValue::Index(index) => pure_repeatable(&index.left) && pure_repeatable(&index.right),
-        RValue::Unary(unary) => pure_repeatable(&unary.value),
-        RValue::Binary(binary) => pure_repeatable(&binary.left) && pure_repeatable(&binary.right),
-        RValue::Global(_)
-        | RValue::Call(_)
-        | RValue::MethodCall(_)
-        | RValue::VarArg(_)
-        | RValue::Table(_)
-        | RValue::Closure(_)
-        | RValue::IfExpression(_)
-        | RValue::Select(_) => false,
-    }
+    matches!(rvalue, RValue::Local(_) | RValue::Literal(_))
 }
 
 pub enum IndentationMode {
@@ -344,8 +326,8 @@ mod tests {
     }
 
     #[test]
-    fn compound_assignment_for_nested_pure_index() {
-        // `a.b.c = a.b.c + 1` -> `a.b.c += 1` (base is itself a pure index).
+    fn no_compound_assignment_for_nested_observable_index() {
+        // Reading a.b twice can invoke __index twice or return different tables.
         let a = local("a");
         let abc = || {
             RValue::Index(Index::new(
@@ -361,7 +343,7 @@ mod tests {
             .into(),
         ]);
 
-        assert_eq!(block.to_string(), "a.b.c += 1");
+        assert_eq!(block.to_string(), "a.b.c = a.b.c + 1");
     }
 
     #[test]
@@ -407,8 +389,7 @@ mod tests {
 
     #[test]
     fn no_compound_assignment_for_nested_impure_base() {
-        // `t[g()].k = t[g()].k + 1` stays — `pure_repeatable` must RECURSE into
-        // the base index and reject the nested `g()` call.
+        // `t[g()].k = t[g()].k + 1` keeps both index/call evaluations.
         let t = local("t");
         let lhs = || {
             Index::new(
@@ -432,6 +413,29 @@ mod tests {
         ]);
 
         assert_eq!(block.to_string(), "t[g()].k = t[g()].k + 1");
+    }
+
+    #[test]
+    fn computed_index_keys_keep_operator_count_even_with_type_hints() {
+        let t = local("t");
+        let key = local("key");
+        key.0.lock().1 = Some("number".into());
+        let index = || {
+            Index::new(
+                local_value(&t),
+                binary(local_value(&key), number(1.0), BinaryOperation::Add),
+            )
+        };
+        let block = Block(vec![Assign::new(
+            vec![LValue::Index(index())],
+            vec![binary(
+                RValue::Index(index()),
+                number(1.0),
+                BinaryOperation::Add,
+            )],
+        )
+        .into()]);
+        assert_eq!(block.to_string(), "t[key + 1] = t[key + 1] + 1");
     }
 
     #[test]

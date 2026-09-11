@@ -168,6 +168,12 @@ jobs:
             --report "$RUNNER_TEMP/roadmap-v2-lineage.json" \
             --keep "$RUNNER_TEMP/roadmap-v2-lineage"
 
+      - name: V2 formatter observable evaluation counterexamples
+        run: |
+          python3 scripts/formatter_effect_controls.py \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --report "$RUNNER_TEMP/roadmap-v2-formatter-controls.json"
+
       - name: V2 pass profile context and counter determinism
         run: |
           input_dir=$(python3 -c 'import json,pathlib,sys; print(pathlib.Path(json.load(open(sys.argv[1]))["work"])/"input")' "$RUNNER_TEMP/roadmap-v2-lineage.json")
@@ -245,6 +251,7 @@ jobs:
             ${{ runner.temp }}/output-size.json
             ${{ runner.temp }}/roadmap-v2.json
             ${{ runner.temp }}/roadmap-v2-lineage.json
+            ${{ runner.temp }}/roadmap-v2-formatter-controls.json
             ${{ runner.temp }}/roadmap-v2-profile.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau
             ${{ runner.temp }}/roadmap-v2-generated.json

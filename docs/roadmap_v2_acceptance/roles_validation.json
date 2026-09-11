@@ -104,5 +104,15 @@
    }
   }
  },
- "limitations": "Automated alpha equivalence, finite runtime observations and source metrics do not replace human role-quality assessment. Human review requested and pending. Module summaries are separately optional and do not rename output."
+ "limitations": "Automated alpha equivalence, finite runtime observations and source metrics do not replace human role-quality assessment. User feedback is recorded separately for three examples. Module summaries are separately optional and do not rename output.",
+ "human_review": {
+  "response": "R\u00f5 h\u01a1n",
+  "meaning": "clearer",
+  "examples": [
+   "width/height from returned fields",
+   "callback to processor",
+   "numeric parameter to size in buffer growth"
+  ],
+  "scope": "One reader, three qualitative examples; not an accuracy estimate."
+ }
 }

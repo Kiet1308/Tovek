@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "luau_sha256": "50029806035a3a76f5e8a5c0960fd596fa4a10503d6e35472110b12426fa8b65",
+ "source_sha256": "40291aa2f3276e8729941b3488c15099bd90488533a5580c30bda796a70c91a5",
+ "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+ "flags": [
+  "--fflags=false"
+ ],
+ "contract": "Expanded assignment and the compound-assignment mutant intentionally differ. Formatter unit tests require the expanded form when the base/key has observable evaluation.",
+ "rows": [
+  {
+   "opt": 0,
+   "debug": 1,
+   "seconds": 0.01457279999885941,
+   "status": "passed",
+   "stdout": "base\t1\t2\t101\t100\nbase\t2\t1\t11\t100\nkey\t1\t2\t21\t20\nkey\t2\t1\t11\t20\n",
+   "stderr": ""
+  },
+  {
+   "opt": 0,
+   "debug": 2,
+   "seconds": 0.013720799997827271,
+   "status": "passed",
+   "stdout": "base\t1\t2\t101\t100\nbase\t2\t1\t11\t100\nkey\t1\t2\t21\t20\nkey\t2\t1\t11\t20\n",
+   "stderr": ""
+  },
+  {
+   "opt": 1,
+   "debug": 1,
+   "seconds": 0.014137499998469139,
+   "status": "passed",
+   "stdout": "base\t1\t2\t101\t100\nbase\t2\t1\t11\t100\nkey\t1\t2\t21\t20\nkey\t2\t1\t11\t20\n",
+   "stderr": ""
+  },
+  {
+   "opt": 1,
+   "debug": 2,
+   "seconds": 0.014345699997647898,
+   "status": "passed",
+   "stdout": "base\t1\t2\t101\t100\nbase\t2\t1\t11\t100\nkey\t1\t2\t21\t20\nkey\t2\t1\t11\t20\n",
+   "stderr": ""
+  },
+  {
+   "opt": 2,
+   "debug": 1,
+   "seconds": 0.01486500000100932,
+   "status": "passed",
+   "stdout": "base\t1\t2\t101\t100\nbase\t2\t1\t11\t100\nkey\t1\t2\t21\t20\nkey\t2\t1\t11\t20\n",
+   "stderr": ""
+  },
+  {
+   "opt": 2,
+   "debug": 2,
+   "seconds": 0.014640699999290518,
+   "status": "passed",
+   "stdout": "base\t1\t2\t101\t100\nbase\t2\t1\t11\t100\nkey\t1\t2\t21\t20\nkey\t2\t1\t11\t20\n",
+   "stderr": ""
+  }
+ ]
+}

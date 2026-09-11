@@ -1,0 +1,117 @@
+{
+ "schema_version": 1,
+ "binary_sha256": "0e035990176a72acdfd3ba8a40aabf1d48cac55f2dce30e40256fd03d7042115",
+ "before_binary_sha256": "e5d185eeb6adacb76b9073558173f21747a1fe729d3d784c54c9dc44a585eda3",
+ "primary_rust_tests": 927,
+ "rust_child_repeat": 1,
+ "python_tests": 67,
+ "legacy_semantic_configurations": 45,
+ "output_size_files": 52,
+ "diagnostics": {
+  "traces": {
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 0.8528086999976949
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 0.8192466000000422
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 0.383692899999005
+    }
+   ],
+   "metadata_deterministic_threads_1_4": true,
+   "summary": {
+    "scripts": 138,
+    "source_files": 138,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 138
+    },
+    "conditional_result_records": 145,
+    "definitions": 4304,
+    "definitions_with_final_binding_ancestry": 2306,
+    "dropped_records": 0,
+    "final_bindings": 793,
+    "functions": 428,
+    "incomplete_lineages": 0,
+    "lifted_statements": 3564,
+    "statements_with_pc": 3564,
+    "unlocated_final_bindings": 0
+   }
+  },
+  "public-traces": {
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 3.66898460000084
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 4.553305699999328
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 1.4341562000008707
+    }
+   ],
+   "metadata_deterministic_threads_1_4": true,
+   "summary": {
+    "scripts": 513,
+    "source_files": 513,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 513
+    },
+    "conditional_result_records": 3542,
+    "definitions": 97176,
+    "definitions_with_final_binding_ancestry": 47092,
+    "dropped_records": 0,
+    "final_bindings": 13270,
+    "functions": 3961,
+    "incomplete_lineages": 0,
+    "lifted_statements": 77329,
+    "statements_with_pc": 77329,
+    "unlocated_final_bindings": 66
+   }
+  }
+ },
+ "private_corpus_trees": {
+  "before": "b0105d675729470b51e94d79c6effce06cd45e95a2a911f6e9f14180e862e0b6",
+  "after": "68cae39414eb8a45d762f976137873a75aa55b925c8180d8f0d4103594c08c69"
+ },
+ "public_identical_sources": 513,
+ "changed_private_files": 28,
+ "changed_read_count_witnesses": 32,
+ "all_changed_read_count_witnesses_match_input": true,
+ "limitations": [
+  "Whole-chunk dataflow remains unknown for all 28 changed private files. AST compound expansion and read counts are diagnostic audits, not semantic equivalence certificates.",
+  "The public corpus is compile/recompile checked, not run inside Roblox.",
+  "Type hints are not runtime purity proofs. General effect/dependency analysis remains open."
+ ],
+ "rust_log_sha256": "cbc95e75a8a8afd50edfbc85fbdcd037df5f927e81b5147521814c1e19758408",
+ "python_log_sha256": "a965f70844e03a30439ea01bc0b39a1dd4d190c383935ae7339f5fd56db4709c",
+ "semantic_log_sha256": "b3491c741a26d7dc2bf1b0e93271ae99bd552a2764170946cf298c32a8ae061b",
+ "reports": {
+  "docs/roadmap_v2_acceptance/compound_before.json": "fef3f3a6f70d9f1a6bee8c496e0a06e027e39cb36a27c2136560762814c715ae",
+  "docs/roadmap_v2_acceptance/compound_benchmark.json": "93468b36e03d85a7abcf359dfb272eb1bc097dedb99ef4520cdd426de9f88b06",
+  "docs/roadmap_v2_acceptance/compound_controls.json": "a8cbdc242c59fc755757f7cbca045513876897da6c8869c68e38a9a2773485b0",
+  "docs/roadmap_v2_acceptance/compound_corpus.json": "78fd44b17e8700de92a5692b5d76f99ea49fec20748f594d8ba1d88958a092a7",
+  "docs/roadmap_v2_acceptance/compound_metadata_public.json": "3365e54d5510fe1d58011868d6ac938519c8912265f030f8bdfa76ac3cc3714b",
+  "docs/roadmap_v2_acceptance/compound_metadata_runtime.json": "7db58a6a415c7cf4a5a43c3d026969cdb107aedc0f8cbf3ebe2ef51f111a2086",
+  "docs/roadmap_v2_acceptance/compound_public.json": "929b4b5a4f2447e9660673a94fe1660e10b9da58d8a80bd0ccab5dd5c15cf910",
+  "docs/roadmap_v2_acceptance/compound_runtime.json": "38d68f153f1059e6c39c3edcb5d5429a34ec3a8d0cbeaa06f5233993834a610e",
+  "docs/roadmap_v2_acceptance/compound_size.json": "18a6f7fefeefa2075a8c49ca6e2bc61be1d627f70357b2250f3858df01a4eefb"
+ }
+}

@@ -1,5 +1,13 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R4: preserve repeated index and operator evaluation in compound assignment
+
+The formatter no longer collapses nested index or computed-key evaluations into compound assignment without proof. Only local/literal base and key leaves qualify. The new runtime fixture fails all six configurations on the previous release and passes all six on the corrected release, with bounded dataflow moving from `different` to `proved`. All 138 runtime configurations and nine negative controls pass; six separate VM mutant controls demonstrate the observable difference. [Contract and counterexamples](formatter_effects.md).
+
+All 513 public outputs are identical to the previous release. The private corpus changes 28 of 3,978 outputs solely by expanding compound assignments; all 32 changed table-read counts in uniquely named prototypes match the original input. Whole-chunk dataflow remains unknown for those files and is not promoted by the shape/count audit. Recorded naming mappings pass for 138 runtime and 513 public configurations, with source and metadata deterministic at one/four threads. All 927 primary Rust tests, one child repeat, 67 Python tests, 45 legacy semantic configurations and 52 size gates pass. [Validation inventory](roadmap_v2_acceptance/compound_validation.json).
+
+Seven interleaved warm CLI rounds: one-thread median 24.002 -> 23.758 s (-1.02%), 16-thread median 1.849 -> 1.866 s (+0.91%). Median peak RSS 33,619,968 -> 33,075,200 bytes and 117,596,160 -> 119,447,552 bytes. All samples are deterministic within each release. These finite samples record cost, not a speedup claim; p95 is the maximum of seven samples. [Paired benchmark](roadmap_v2_acceptance/compound_benchmark.json).
+
 ## R3: tuple/diamond roles, exact API slots and type-evidence separation
 
 The final graph now propagates bounded helper result roles and private-diamond consensus, resolves single-write captured helpers without treating capture cells as value aliases, and reports bytecode type evidence separately from inferred names. Buffer API argument roles use an exact, versioned table. [Contract](graph_naming.md).
@@ -10,7 +18,7 @@ The pinned parser verifies alpha-equivalent binding graphs and unchanged type sy
 
 On the locked source-aligned metric, development exact names rise from 1,039/3,583 to 1,048/3,583. Of 36 changed aligned names, nine match source and none lose an exact match. Those nine represent `processor` in three Fusion files at O0/O1/O2, not nine independent sources. Rodux holdout remains 85/200 aligned exact names; 108 configurations across both splits remain unknown alignment. The three changed buffer modules are in that unknown-alignment group and receive no invented exact-name score. The buffer fixture improves from 1 to 7 exact parameter names in each g1 optimization configuration.
 
-The helper fixture now emits `width, height` and `width2, height2` for fixed returned `.Width, .Height` slots. These roles differ from the author's `leftWidth/rightWidth` spelling. BufferWriter emits `size`, `str`, `count`; source distinguishes `desiredSize/newSize` and calls byte count `length`. [Reader review](role_naming_review.md) was requested and remains pending; automated tests do not establish human role quality.
+The helper fixture now emits `width, height` and `width2, height2` for fixed returned `.Width, .Height` slots. These roles differ from the author's `leftWidth/rightWidth` spelling. BufferWriter emits `size`, `str`, `count`; source distinguishes `desiredSize/newSize` and calls byte count `length`. The user subsequently reviewed the width/height, processor and size examples and answered “Rõ hơn” (clearer). This [reader review](role_naming_review.md) is qualitative feedback on three examples, not a corpus-wide role-precision score.
 
 Seven warm interleaved CLI rounds: one-thread median 19.018 → 19.510 s (+2.58%), 16-thread median 1.686 → 1.706 s (+1.16%). Median peak RSS 33,435,648 → 33,443,840 bytes and 114,909,184 → 113,086,464 bytes respectively. All samples are deterministic. These are cost observations, not a performance improvement; p95 is the maximum of seven samples. Per-file reports and binary hashes are in the [validation inventory](roadmap_v2_acceptance/roles_validation.json).
 

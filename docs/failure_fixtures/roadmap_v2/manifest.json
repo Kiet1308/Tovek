@@ -170,6 +170,13 @@
       "source": "buffer_role_slots.luau",
       "driver": "buffer_role_slots.driver.luau",
       "expected_stdout": "7\t7\t65\t66\t0\nerror\tfalse\ttrue\n"
+    },
+    {
+      "name": "compound_effects",
+      "group": "effect/order",
+      "source": "compound_effects.luau",
+      "driver": "compound_effects.driver.luau",
+      "expected_stdout": "base\t2\t101\t100\nkey\t2\t21\t20\nunary\t2\t21\t20\nerror\t2\tfalse\ttrue\n"
     }
   ],
   "negative_controls": [
