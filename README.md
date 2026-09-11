@@ -12,6 +12,12 @@ source a human would have written — without sacrificing correctness.
 
 It also happens to be a lot faster.
 
+AI features are disabled. The current decompiler uses deterministic rules and
+does not load or download models or call AI services. Roadmap R9 is paused;
+enabling AI requires an explicit future decision. Model weights and model caches
+stay local and must not be committed or uploaded to GitHub, including release
+assets, workflow artifacts or Git LFS.
+
 ---
 
 ## Why Tovek over medal?

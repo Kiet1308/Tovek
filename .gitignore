@@ -36,6 +36,21 @@ result.lua
 # Local agent / tooling state
 .claude/
 
+# AI experiments remain local and disabled by default. Never publish weights
+# or model caches to GitHub (including through Git LFS).
+*.gguf
+*.ggml
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.tflite
+/ai-models/
+/model-cache/
+**/.cache/huggingface/
+**/.ollama/
+
 # OS cruft
 .DS_Store
 Thumbs.db

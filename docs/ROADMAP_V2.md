@@ -476,6 +476,8 @@ Thí nghiệm so fingerprint toàn chunk, giữ opcode đã decode, mọi regist
 
 ### R9. AI naming và tìm candidate nâng cao
 
+**Tạm dừng theo yêu cầu người dùng (2026-09-11).** AI giữ tắt mặc định; source hiện tại không tải/chạy model hoặc gọi dịch vụ AI. Chỉ tiếp tục R9 hay bật AI khi người dùng yêu cầu rõ ràng. Model weights và cache chỉ giữ cục bộ, không commit/push lên GitHub, Git LFS, release assets hay workflow artifacts. Tiếp tục các mục roadmap khác độc lập với R9.
+
 **Vấn đề:** tên của thuật toán hoặc domain custom thường cần hiểu ngữ cảnh rộng hơn rule cục bộ. Tuy nhiên một tên nghe hợp lý có thể khác tên gốc, và một lần viết lại code tự do có thể đổi hành vi.
 
 **Công việc thử nghiệm:**
