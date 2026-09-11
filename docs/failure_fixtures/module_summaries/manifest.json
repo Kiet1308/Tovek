@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "context": "Explicit fixture script tree. Modules are analyzed, never required or executed.",
+  "modules": [
+    {
+      "id": "Measures",
+      "file": "Measures.luau",
+      "script_path": [
+        "Package",
+        "Measures"
+      ],
+      "source_sha256": "c5a789afedd141d97923ff1e6e9a2cbb3190abd94032b2ba5dc30dcec7849e5c"
+    },
+    {
+      "id": "Main",
+      "file": "Main.luau",
+      "script_path": [
+        "Package",
+        "Main"
+      ],
+      "source_sha256": "c8e8a6b8a15fbd04dfbfffec3ab9df74062fb87de429c6601c2104da28cf7099"
+    },
+    {
+      "id": "CycleA",
+      "file": "CycleA.luau",
+      "script_path": [
+        "Package",
+        "CycleA"
+      ],
+      "source_sha256": "52d02a8a915db33ac5b81148fdd5e4e7fe6a68cb71535aad898eb3ab43e395a4"
+    },
+    {
+      "id": "CycleB",
+      "file": "CycleB.luau",
+      "script_path": [
+        "Package",
+        "CycleB"
+      ],
+      "source_sha256": "51c5013468afa2c3385bc0b5d478b851508bb123ac6452b1a0b38f4f701c71ed"
+    },
+    {
+      "id": "Dynamic",
+      "file": "Dynamic.luau",
+      "script_path": [
+        "Package",
+        "Dynamic"
+      ],
+      "source_sha256": "ff076808d94b5a0d2287a208445e7bb16f8d3bbb60ebd02da3f841ed28ab8407"
+    },
+    {
+      "id": "Mutable",
+      "file": "Mutable.luau",
+      "script_path": [
+        "Package",
+        "Mutable"
+      ],
+      "source_sha256": "fd6f3328a4e5a2d3dd30522b6918b160eb865c4801b863ad20eddad908fe3865"
+    },
+    {
+      "id": "Escaped",
+      "file": "Escaped.luau",
+      "script_path": [
+        "Package",
+        "Escaped"
+      ],
+      "source_sha256": "5c73d60ea78a177a8bb13a8daef075121c2cf4c64e66e4c7310614794176e830"
+    },
+    {
+      "id": "Shadowed",
+      "file": "Shadowed.luau",
+      "script_path": [
+        "Package",
+        "Shadowed"
+      ],
+      "source_sha256": "94908530b9c5ea403100d6f75286f1eea7b21122461c7a9e9f9bbc82096127c1"
+    },
+    {
+      "id": "Consumer",
+      "file": "Consumer.luau",
+      "script_path": [
+        "Package",
+        "Consumer"
+      ],
+      "source_sha256": "19c67e64bfb247750ba7a1a7307e59c7241d53252650822fa2c1c7422709019f"
+    }
+  ],
+  "expected": {
+    "Consumer": {
+      "return_origin": "Measures:f0",
+      "return_arity": 2
+    },
+    "Main": {
+      "return_origin": "Measures:f0",
+      "return_arity": 2,
+      "export_status": "private_literal_exports"
+    },
+    "CycleA": {
+      "unknown_returns": true
+    },
+    "CycleB": {
+      "unknown_returns": true
+    },
+    "Dynamic": {
+      "require_status": [
+        "unknown_path"
+      ],
+      "unknown_returns": true
+    },
+    "Mutable": {
+      "require_status": [
+        "mutable_import_binding"
+      ],
+      "unknown_returns": true
+    },
+    "Escaped": {
+      "export_status": "export_table_observed_or_mutated"
+    },
+    "Shadowed": {
+      "require_status": [],
+      "unknown_returns": true
+    }
+  }
+}

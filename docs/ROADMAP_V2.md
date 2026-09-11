@@ -337,7 +337,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 - [ ] Xử lý các ca đã quan sát: table field `component = p`, `props = v`; assertion chứa tên tham số; result nhận từ cùng một helper; tên callback theo event/caller.
 - [ ] Kết hợp type evidence với role: buffer/offset/size, state/scope/props, result/index/item. Type tag `number` đơn độc không đủ để đặt tên `damage`, `duration` hay `price`.
 - [x] Chọn tên nhất quán trong scope bằng một tập ràng buộc: cùng binding phải cùng tên, binding khác không bị capture nhầm, mutable alias không được coi là đồng nhất, source name mạnh được ưu tiên.
-- [ ] Resolve `require` có đường dẫn tĩnh và exports có hình dạng rõ ràng; xây summary call/return theo module và xử lý SCC cho dependency cycle. Dynamic require/call chưa rõ phải giữ unknown.
+- [x] Resolve `require` có đường dẫn tĩnh và exports có hình dạng rõ ràng; xây summary call/return theo module và xử lý SCC cho dependency cycle. Dynamic require/call chưa rõ phải giữ unknown. — Tool phân tích tùy chọn dùng manifest script-path tường minh, private literal exports, fixed-arity summaries và SCC/fixed point có budget. Chưa dùng để tự đổi source hay chứng minh effect. [Hợp đồng, coverage và giới hạn](module_summaries.md).
 - [ ] Có thể bổ sung tên parameter/return từ API metadata có version; metadata về tên/type không được dùng như chứng minh API không có effect hoặc không thể throw.
 - [ ] Phân biệt kiểu source được ghi lại với kiểu được suy luận. Không phát sinh `export type`, generic alias hoặc annotation phức tạp như thể đã đọc được từ bytecode.
 - [x] Chạy naming trên binding graph ổn định; bảo đảm các cleanup về sau không làm mất tên gốc hoặc tạo shadow mới.

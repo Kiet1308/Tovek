@@ -1,5 +1,20 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R3: explicit module context, exports and cyclic summaries
+
+An optional analysis tool now resolves static script paths through a versioned manifest and summarizes bounded function/table exports, fixed call positions and scalar/forwarded returns. It builds dependency SCCs and retains unknown for unresolved recursive summaries. It produces naming metadata without executing modules or changing source. [Contract](module_summaries.md).
+
+The 67 Python tests include eight module-analysis controls; nine actual-parser fixture modules pass locked expectations for result-origin forwarding, dependency cycles, dynamic requires, shadowing, import rebinding and observed exports. The public run includes all 171 pinned source files:
+
+| Split | Modules / functions | Resolved / unknown require paths | Resolved call targets | Unknown return summaries |
+|---|---:|---:|---:|---:|
+| Development | 156 / 1,102 | 162 / 221 | 226 | 993 |
+| Rodux holdout | 15 / 39 | 24 / 0 | 7 | 35 |
+
+The public dependency graph has 171 SCCs and no static cycles under the declared filesystem-mirror context; cycles are exercised by the independent fixtures. Seventy-five public modules expose a supported function/forwarding or private-literal export shape; all other export shapes are reported unknown. Both repeat runs are byte-identical for the nine fixtures and 171 public inputs. Diagnostic process measurements are 0.323/0.316 s for fixtures and 3.659/3.713 s for public analysis; they ran alongside release-build work and are not a throughput benchmark. Input totals are 632,781 source bytes and 72,271 AST dictionary nodes. No project budget is exhausted.
+
+The [validation record](roadmap_v2_acceptance/module_validation.json) pins the tests and report hashes. CI runs these fixtures and the public manifest. This closes bounded module-summary infrastructure; automatic inter-module rename application and human assessment of inferred-role quality are not claimed.
+
 ## R3: bounded legacy naming candidate evidence
 
 The namer now retains accepted proposals, losing alternatives, selected base hints and invalidation events in optional analysis metadata. It stores stable binding IDs and no local owners; ordinary naming, cleanup and final binding choices remain unchanged. See [the contract](naming_evidence.md).

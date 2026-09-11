@@ -196,6 +196,19 @@ jobs:
             --keep "$RUNNER_TEMP/roadmap-v2-public" \
             --report "$RUNNER_TEMP/roadmap-v2-public.json"
 
+      - name: V2 static module summaries and require cycles
+        run: |
+          python3 scripts/module_summaries.py \
+            --manifest docs/failure_fixtures/module_summaries/manifest.json \
+            --root docs/failure_fixtures/module_summaries \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --report "$RUNNER_TEMP/roadmap-v2-module-fixtures.json"
+          python3 scripts/module_summaries.py \
+            --manifest docs/module_source_corpus_v2.json \
+            --root "$RUNNER_TEMP/roadmap-v2-vendor" \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --report "$RUNNER_TEMP/roadmap-v2-module-public.json"
+
       # Bytecode round-trip oracle: decompile -> recompile with the pinned
       # compiler -> compare normalised prototypes with the original bytecode.
       # Gated against the committed baselines: no fixture may regress in
@@ -237,4 +250,5 @@ jobs:
             ${{ runner.temp }}/roadmap-v2-generated.json
             ${{ runner.temp }}/roadmap-v2-generated/**/*.luau
             ${{ runner.temp }}/roadmap-v2-public.json
+            ${{ runner.temp }}/roadmap-v2-module-*.json
           if-no-files-found: warn

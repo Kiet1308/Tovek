@@ -1,0 +1,803 @@
+{
+ "schema_version": 1,
+ "model": "static-module-naming-v1",
+ "limits": {
+  "modules": 2000,
+  "source_bytes": 524288,
+  "nodes": 100000,
+  "depth": 128,
+  "rounds": 8,
+  "results": 32,
+  "project_source_bytes": 67108864,
+  "project_nodes": 2000000
+ },
+ "rounds": 3,
+ "propagation_round_limit_hit": false,
+ "context": "Script paths are supplied by the operator. Resolutions are syntactic naming candidates under that layout; no runtime require/callee identity, load order, effect, alias or totality proof.",
+ "sccs": [
+  {
+   "modules": [
+    "Consumer"
+   ],
+   "cyclic": false
+  },
+  {
+   "modules": [
+    "CycleA",
+    "CycleB"
+   ],
+   "cyclic": true
+  },
+  {
+   "modules": [
+    "Dynamic"
+   ],
+   "cyclic": false
+  },
+  {
+   "modules": [
+    "Escaped"
+   ],
+   "cyclic": false
+  },
+  {
+   "modules": [
+    "Main"
+   ],
+   "cyclic": false
+  },
+  {
+   "modules": [
+    "Measures"
+   ],
+   "cyclic": false
+  },
+  {
+   "modules": [
+    "Mutable"
+   ],
+   "cyclic": false
+  },
+  {
+   "modules": [
+    "Shadowed"
+   ],
+   "cyclic": false
+  }
+ ],
+ "summary": {
+  "modules": 9,
+  "analyzed": 9,
+  "errors": 0,
+  "functions": 10,
+  "require_status": {
+   "resolved_static_path": 4,
+   "unknown_path": 1,
+   "mutable_import_binding": 1
+  },
+  "export_status": {
+   "static_function_or_forward": 7,
+   "export_table_observed_or_mutated": 1,
+   "private_literal_exports": 1
+  },
+  "resolved_calls": 4,
+  "unknown_returns": 6
+ },
+ "rows": [
+  {
+   "module": "Consumer",
+   "requires": [
+    {
+     "binding": [
+      "Main",
+      "0,6 - 0,10"
+     ],
+     "location": "0,13 - 0,40",
+     "status": "resolved_static_path",
+     "script_path": [
+      "Package",
+      "Main"
+     ],
+     "candidates": [
+      "Main"
+     ]
+    }
+   ],
+   "exports": {
+    "default": {
+     "function": "Consumer:f0"
+    }
+   },
+   "export_status": "static_function_or_forward",
+   "functions": [
+    {
+     "id": "Consumer:f0",
+     "location": "1,7 - 1,51",
+     "parameters": [
+      {
+       "position": 0,
+       "observed_name": "record",
+       "declaration": "1,16 - 1,22"
+      }
+     ],
+     "variadic": false,
+     "returns": [
+      {
+       "kind": "local_read",
+       "observed_name": "width",
+       "declaration": "1,7 - 1,12",
+       "origin_function": "Measures:f0",
+       "forwarded": true
+      },
+      {
+       "kind": "local_read",
+       "observed_name": "height",
+       "declaration": "2,7 - 2,13",
+       "origin_function": "Measures:f0",
+       "forwarded": true
+      }
+     ],
+     "forward": {
+      "reference": {
+       "module": "Main",
+       "export": "run"
+      },
+      "arity": 1
+     }
+    }
+   ],
+   "calls": [
+    {
+     "function": "Consumer:f0",
+     "location": "1,31 - 1,47",
+     "reference": {
+      "module": "Main",
+      "export": "run"
+     },
+     "arguments": 1,
+     "self_call": false,
+     "argument_bindings": [
+      [
+       "record",
+       "1,16 - 1,22"
+      ]
+     ],
+     "tail_open": false,
+     "resolved_function": "Main:f0",
+     "argument_roles": [
+      {
+       "position": 0,
+       "argument_binding": [
+        "record",
+        "1,16 - 1,22"
+       ],
+       "parameter": {
+        "position": 0,
+        "observed_name": "record",
+        "declaration": "3,16 - 3,22"
+       },
+       "origin_function": "Main:f0"
+      }
+     ],
+     "arity_status": "fixed_exact"
+    }
+   ]
+  },
+  {
+   "module": "CycleA",
+   "requires": [
+    {
+     "binding": [
+      "B",
+      "0,6 - 0,7"
+     ],
+     "location": "0,10 - 0,39",
+     "status": "resolved_static_path",
+     "script_path": [
+      "Package",
+      "CycleB"
+     ],
+     "candidates": [
+      "CycleB"
+     ]
+    }
+   ],
+   "exports": {
+    "default": {
+     "function": "CycleA:f0"
+    }
+   },
+   "export_status": "static_function_or_forward",
+   "functions": [
+    {
+     "id": "CycleA:f0",
+     "location": "1,7 - 1,42",
+     "parameters": [
+      {
+       "position": 0,
+       "observed_name": "value",
+       "declaration": "1,16 - 1,21"
+      }
+     ],
+     "variadic": false,
+     "returns": null,
+     "forward": {
+      "reference": {
+       "module": "CycleB",
+       "export": "default"
+      },
+      "arity": 1
+     }
+    }
+   ],
+   "calls": [
+    {
+     "function": "CycleA:f0",
+     "location": "1,30 - 1,38",
+     "reference": {
+      "module": "CycleB",
+      "export": "default"
+     },
+     "arguments": 1,
+     "self_call": false,
+     "argument_bindings": [
+      [
+       "value",
+       "1,16 - 1,21"
+      ]
+     ],
+     "tail_open": false,
+     "resolved_function": "CycleB:f0",
+     "argument_roles": [
+      {
+       "position": 0,
+       "argument_binding": [
+        "value",
+        "1,16 - 1,21"
+       ],
+       "parameter": {
+        "position": 0,
+        "observed_name": "value",
+        "declaration": "1,16 - 1,21"
+       },
+       "origin_function": "CycleB:f0"
+      }
+     ],
+     "arity_status": "fixed_exact"
+    }
+   ]
+  },
+  {
+   "module": "CycleB",
+   "requires": [
+    {
+     "binding": [
+      "A",
+      "0,6 - 0,7"
+     ],
+     "location": "0,10 - 0,39",
+     "status": "resolved_static_path",
+     "script_path": [
+      "Package",
+      "CycleA"
+     ],
+     "candidates": [
+      "CycleA"
+     ]
+    }
+   ],
+   "exports": {
+    "default": {
+     "function": "CycleB:f0"
+    }
+   },
+   "export_status": "static_function_or_forward",
+   "functions": [
+    {
+     "id": "CycleB:f0",
+     "location": "1,7 - 1,42",
+     "parameters": [
+      {
+       "position": 0,
+       "observed_name": "value",
+       "declaration": "1,16 - 1,21"
+      }
+     ],
+     "variadic": false,
+     "returns": null,
+     "forward": {
+      "reference": {
+       "module": "CycleA",
+       "export": "default"
+      },
+      "arity": 1
+     }
+    }
+   ],
+   "calls": [
+    {
+     "function": "CycleB:f0",
+     "location": "1,30 - 1,38",
+     "reference": {
+      "module": "CycleA",
+      "export": "default"
+     },
+     "arguments": 1,
+     "self_call": false,
+     "argument_bindings": [
+      [
+       "value",
+       "1,16 - 1,21"
+      ]
+     ],
+     "tail_open": false,
+     "resolved_function": "CycleA:f0",
+     "argument_roles": [
+      {
+       "position": 0,
+       "argument_binding": [
+        "value",
+        "1,16 - 1,21"
+       ],
+       "parameter": {
+        "position": 0,
+        "observed_name": "value",
+        "declaration": "1,16 - 1,21"
+       },
+       "origin_function": "CycleA:f0"
+      }
+     ],
+     "arity_status": "fixed_exact"
+    }
+   ]
+  },
+  {
+   "module": "Dynamic",
+   "requires": [
+    {
+     "binding": [
+      "other",
+      "1,7 - 1,12"
+     ],
+     "location": "1,15 - 1,43",
+     "status": "unknown_path",
+     "script_path": null,
+     "candidates": []
+    }
+   ],
+   "exports": {
+    "default": {
+     "function": "Dynamic:f0"
+    }
+   },
+   "export_status": "static_function_or_forward",
+   "functions": [
+    {
+     "id": "Dynamic:f0",
+     "location": "0,7 - 3,3",
+     "parameters": [
+      {
+       "position": 0,
+       "observed_name": "name",
+       "declaration": "0,16 - 0,20"
+      }
+     ],
+     "variadic": false,
+     "returns": null,
+     "forward": {
+      "reference": null,
+      "arity": 0
+     }
+    }
+   ],
+   "calls": [
+    {
+     "function": "Dynamic:f0",
+     "location": "1,15 - 1,43",
+     "reference": null,
+     "arguments": 1,
+     "self_call": false,
+     "argument_bindings": [
+      null
+     ],
+     "tail_open": false,
+     "resolved_function": null,
+     "argument_roles": [],
+     "arity_status": "unknown"
+    },
+    {
+     "function": "Dynamic:f0",
+     "location": "2,8 - 2,15",
+     "reference": null,
+     "arguments": 0,
+     "self_call": false,
+     "argument_bindings": [],
+     "tail_open": false,
+     "resolved_function": null,
+     "argument_roles": [],
+     "arity_status": "unknown"
+    }
+   ]
+  },
+  {
+   "module": "Escaped",
+   "requires": [],
+   "exports": {},
+   "export_status": "export_table_observed_or_mutated",
+   "functions": [
+    {
+     "id": "Escaped:f0",
+     "location": "0,24 - 0,47",
+     "parameters": [],
+     "variadic": false,
+     "returns": [
+      {
+       "kind": "AstExprConstantNumber",
+       "origin_function": "Escaped:f0"
+      }
+     ],
+     "forward": null
+    }
+   ],
+   "calls": []
+  },
+  {
+   "module": "Main",
+   "requires": [
+    {
+     "binding": [
+      "Measures",
+      "0,6 - 0,14"
+     ],
+     "location": "0,17 - 0,48",
+     "status": "resolved_static_path",
+     "script_path": [
+      "Package",
+      "Measures"
+     ],
+     "candidates": [
+      "Measures"
+     ]
+    }
+   ],
+   "exports": {
+    "measures": {
+     "module": "Measures",
+     "export": "default"
+    },
+    "run": {
+     "function": "Main:f0"
+    }
+   },
+   "export_status": "private_literal_exports",
+   "functions": [
+    {
+     "id": "Main:f0",
+     "location": "3,7 - 5,4",
+     "parameters": [
+      {
+       "position": 0,
+       "observed_name": "record",
+       "declaration": "3,16 - 3,22"
+      }
+     ],
+     "variadic": false,
+     "returns": [
+      {
+       "kind": "local_read",
+       "observed_name": "width",
+       "declaration": "1,7 - 1,12",
+       "origin_function": "Measures:f0",
+       "forwarded": true
+      },
+      {
+       "kind": "local_read",
+       "observed_name": "height",
+       "declaration": "2,7 - 2,13",
+       "origin_function": "Measures:f0",
+       "forwarded": true
+      }
+     ],
+     "forward": {
+      "reference": {
+       "module": "Measures",
+       "export": "default"
+      },
+      "arity": 1
+     }
+    }
+   ],
+   "calls": [
+    {
+     "function": "Main:f0",
+     "location": "4,9 - 4,25",
+     "reference": {
+      "module": "Measures",
+      "export": "default"
+     },
+     "arguments": 1,
+     "self_call": false,
+     "argument_bindings": [
+      [
+       "record",
+       "3,16 - 3,22"
+      ]
+     ],
+     "tail_open": false,
+     "resolved_function": "Measures:f0",
+     "argument_roles": [
+      {
+       "position": 0,
+       "argument_binding": [
+        "record",
+        "3,16 - 3,22"
+       ],
+       "parameter": {
+        "position": 0,
+        "observed_name": "record",
+        "declaration": "0,16 - 0,22"
+       },
+       "origin_function": "Measures:f0"
+      }
+     ],
+     "arity_status": "fixed_exact"
+    }
+   ]
+  },
+  {
+   "module": "Measures",
+   "requires": [],
+   "exports": {
+    "default": {
+     "function": "Measures:f0"
+    }
+   },
+   "export_status": "static_function_or_forward",
+   "functions": [
+    {
+     "id": "Measures:f0",
+     "location": "0,7 - 4,3",
+     "parameters": [
+      {
+       "position": 0,
+       "observed_name": "record",
+       "declaration": "0,16 - 0,22"
+      }
+     ],
+     "variadic": false,
+     "returns": [
+      {
+       "kind": "local_read",
+       "observed_name": "width",
+       "declaration": "1,7 - 1,12",
+       "origin_function": "Measures:f0"
+      },
+      {
+       "kind": "local_read",
+       "observed_name": "height",
+       "declaration": "2,7 - 2,13",
+       "origin_function": "Measures:f0"
+      }
+     ],
+     "forward": null
+    }
+   ],
+   "calls": []
+  },
+  {
+   "module": "Mutable",
+   "requires": [
+    {
+     "binding": [
+      "Measures",
+      "0,6 - 0,14"
+     ],
+     "location": "0,17 - 0,48",
+     "status": "mutable_import_binding",
+     "script_path": [
+      "Package",
+      "Measures"
+     ],
+     "candidates": [
+      "Measures"
+     ]
+    }
+   ],
+   "exports": {
+    "default": {
+     "function": "Mutable:f0"
+    }
+   },
+   "export_status": "static_function_or_forward",
+   "functions": [
+    {
+     "id": "Mutable:f0",
+     "location": "2,7 - 2,49",
+     "parameters": [
+      {
+       "position": 0,
+       "observed_name": "value",
+       "declaration": "2,16 - 2,21"
+      }
+     ],
+     "variadic": false,
+     "returns": null,
+     "forward": {
+      "reference": null,
+      "arity": 1
+     }
+    }
+   ],
+   "calls": [
+    {
+     "function": "Mutable:f0",
+     "location": "2,30 - 2,45",
+     "reference": null,
+     "arguments": 1,
+     "self_call": false,
+     "argument_bindings": [
+      [
+       "value",
+       "2,16 - 2,21"
+      ]
+     ],
+     "tail_open": false,
+     "resolved_function": null,
+     "argument_roles": [],
+     "arity_status": "unknown"
+    }
+   ]
+  },
+  {
+   "module": "Shadowed",
+   "requires": [],
+   "exports": {
+    "default": {
+     "function": "Shadowed:f1"
+    }
+   },
+   "export_status": "static_function_or_forward",
+   "functions": [
+    {
+     "id": "Shadowed:f0",
+     "location": "0,16 - 0,45",
+     "parameters": [
+      {
+       "position": 0,
+       "observed_name": "_",
+       "declaration": "0,25 - 0,26"
+      }
+     ],
+     "variadic": false,
+     "returns": null,
+     "forward": null
+    },
+    {
+     "id": "Shadowed:f1",
+     "location": "2,7 - 2,46",
+     "parameters": [
+      {
+       "position": 0,
+       "observed_name": "value",
+       "declaration": "2,16 - 2,21"
+      }
+     ],
+     "variadic": false,
+     "returns": null,
+     "forward": {
+      "reference": null,
+      "arity": 1
+     }
+    }
+   ],
+   "calls": [
+    {
+     "function": "Shadowed:f1",
+     "location": "2,30 - 2,42",
+     "reference": null,
+     "arguments": 1,
+     "self_call": false,
+     "argument_bindings": [
+      [
+       "value",
+       "2,16 - 2,21"
+      ]
+     ],
+     "tail_open": false,
+     "resolved_function": null,
+     "argument_roles": [],
+     "arity_status": "unknown"
+    }
+   ]
+  }
+ ],
+ "errors": {},
+ "fixture_expectations_passed": true,
+ "manifest_sha256": "b3cfede51369c44f29b3650df8f9dc5826267927e3093c4ad15fbaa5c1ee3c10",
+ "ast_sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3",
+ "inputs": [
+  {
+   "id": "Measures",
+   "file": "Measures.luau",
+   "script_path": [
+    "Package",
+    "Measures"
+   ],
+   "source_sha256": "c5a789afedd141d97923ff1e6e9a2cbb3190abd94032b2ba5dc30dcec7849e5c"
+  },
+  {
+   "id": "Main",
+   "file": "Main.luau",
+   "script_path": [
+    "Package",
+    "Main"
+   ],
+   "source_sha256": "c8e8a6b8a15fbd04dfbfffec3ab9df74062fb87de429c6601c2104da28cf7099"
+  },
+  {
+   "id": "CycleA",
+   "file": "CycleA.luau",
+   "script_path": [
+    "Package",
+    "CycleA"
+   ],
+   "source_sha256": "52d02a8a915db33ac5b81148fdd5e4e7fe6a68cb71535aad898eb3ab43e395a4"
+  },
+  {
+   "id": "CycleB",
+   "file": "CycleB.luau",
+   "script_path": [
+    "Package",
+    "CycleB"
+   ],
+   "source_sha256": "51c5013468afa2c3385bc0b5d478b851508bb123ac6452b1a0b38f4f701c71ed"
+  },
+  {
+   "id": "Dynamic",
+   "file": "Dynamic.luau",
+   "script_path": [
+    "Package",
+    "Dynamic"
+   ],
+   "source_sha256": "ff076808d94b5a0d2287a208445e7bb16f8d3bbb60ebd02da3f841ed28ab8407"
+  },
+  {
+   "id": "Mutable",
+   "file": "Mutable.luau",
+   "script_path": [
+    "Package",
+    "Mutable"
+   ],
+   "source_sha256": "fd6f3328a4e5a2d3dd30522b6918b160eb865c4801b863ad20eddad908fe3865"
+  },
+  {
+   "id": "Escaped",
+   "file": "Escaped.luau",
+   "script_path": [
+    "Package",
+    "Escaped"
+   ],
+   "source_sha256": "5c73d60ea78a177a8bb13a8daef075121c2cf4c64e66e4c7310614794176e830"
+  },
+  {
+   "id": "Shadowed",
+   "file": "Shadowed.luau",
+   "script_path": [
+    "Package",
+    "Shadowed"
+   ],
+   "source_sha256": "94908530b9c5ea403100d6f75286f1eea7b21122461c7a9e9f9bbc82096127c1"
+  },
+  {
+   "id": "Consumer",
+   "file": "Consumer.luau",
+   "script_path": [
+    "Package",
+    "Consumer"
+   ],
+   "source_sha256": "19c67e64bfb247750ba7a1a7307e59c7241d53252650822fa2c1c7422709019f"
+  }
+ ],
+ "project_source_bytes": 929,
+ "project_ast_nodes": 184
+}
