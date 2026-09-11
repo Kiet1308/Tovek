@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "status": "evaluated",
+ "policy_sha256": "b8e123a6f682b150f0db35f44ca6943d1c290264eb268ae79e10dd4179a8c4fb",
+ "benchmark_sha256": "d8d58f147e44b61e40050e8c09c718ca0d81af9d85c057c0e88069461f46fc05",
+ "cost_gates_passed": true,
+ "rows": [
+  {
+   "threads": 1,
+   "before": {
+    "median_seconds": 24.687991399994644,
+    "p95_nearest_rank_seconds": 25.26781689999916,
+    "median_peak_rss_bytes": 34672640,
+    "max_peak_rss_bytes": 34902016
+   },
+   "after": {
+    "median_seconds": 24.722491199994693,
+    "p95_nearest_rank_seconds": 25.288373300005333,
+    "median_peak_rss_bytes": 33939456,
+    "max_peak_rss_bytes": 34222080
+   },
+   "change_percent": {
+    "median_seconds": 0.13974324375394254,
+    "p95_nearest_rank_seconds": 0.08135408012304168,
+    "median_peak_rss_bytes": -2.1145894861193115,
+    "max_peak_rss_bytes": -1.9481281539725392
+   },
+   "gates": {
+    "median_seconds": true,
+    "p95_nearest_rank_seconds": true,
+    "median_peak_rss_bytes": true
+   },
+   "passed": true
+  },
+  {
+   "threads": 16,
+   "before": {
+    "median_seconds": 1.8897605000020121,
+    "p95_nearest_rank_seconds": 1.9809467999948538,
+    "median_peak_rss_bytes": 118947840,
+    "max_peak_rss_bytes": 120463360
+   },
+   "after": {
+    "median_seconds": 1.8778330999994068,
+    "p95_nearest_rank_seconds": 1.9073331000035978,
+    "median_peak_rss_bytes": 119455744,
+    "max_peak_rss_bytes": 122040320
+   },
+   "change_percent": {
+    "median_seconds": -0.6311593454616404,
+    "p95_nearest_rank_seconds": -3.7160866708508933,
+    "median_peak_rss_bytes": 0.42699724517907267,
+    "max_peak_rss_bytes": 1.3090785447126718
+   },
+   "gates": {
+    "median_seconds": true,
+    "p95_nearest_rank_seconds": true,
+    "median_peak_rss_bytes": true
+   },
+   "passed": true
+  }
+ ],
+ "source_tree_sha256": "755ee3c15f31f7174da3551eb301bae12ec8ed7597ab6abd5a2ea5ab014ac706",
+ "contract": "Seven measured samples at each build/thread count; p95 is the maximum. Exact before/after source identity is required. Frozen 5% median/p95/median-RSS regression limits are evaluated separately; maximum RSS is retained as an additional statistic. Reduced child traversal is established by deterministic counters, not inferred wall-time savings."
+}

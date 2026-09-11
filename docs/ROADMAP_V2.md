@@ -426,6 +426,8 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 ### R7. Performance: tập trung vào chi phí đã đo
 
+**Hạ ưu tiên theo yêu cầu người dùng (2026-09-11).** Chốt các thay đổi đã kiểm tra; các mục performance còn mở để sau. Tiếp tục R2/R4/R5 nhằm nâng chất lượng output trước. Worklist hiện chưa cho tăng tốc thời gian rõ rệt; PGO vẫn là thử nghiệm, chưa áp dụng vào build mặc định.
+
 **Vấn đề:** những cơ chế lớn như mimalloc, Rayon, LTO, release optimization và stable ID đã có. Cần tìm phần công việc lặp/clone/analysis có thể loại bỏ, đồng thời giữ output và proof.
 
 **R7a — Đo đủ trước khi thay thuật toán:**
@@ -441,7 +443,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 - [x] Cache facts read/write/captured-cell/effect trong một lượt SSA inline của từng block; vô hiệu hóa theo mutation, kiểm tra lại mọi cache hit ở debug, giữ nguyên output và đo tốc độ/RSS. [Phạm vi và hợp đồng](ssa_inline_cache.md).
 - [ ] Memoize summary bất biến trong một AST/CFG epoch: read/write/capture/effect, anchor và fingerprint. Vô hiệu hóa đúng khi mutation liên quan xảy ra.
-- [ ] Dùng worklist cho vùng vừa thay đổi thay vì quét lại toàn function/tree sau mỗi rewrite, khi có thể chứng minh không bỏ lỡ candidate.
+- [x] Dùng worklist cho vùng vừa thay đổi thay vì quét lại toàn function/tree sau mỗi rewrite, khi có thể chứng minh không bỏ lỡ candidate. — Common-tail factoring chỉ quét lại nhánh vừa đổi và tail vừa đưa lên; vẫn tìm candidate trên toàn block cha. 10.800 đối chiếu với thuật toán cũ và toàn corpus giữ nguyên output/sidecar; giảm 1.706 lượt thăm statement con sau biến đổi, chưa có tăng tốc thời gian rõ rệt. [Phạm vi, proof và chi phí](tail_worklist.md).
 - [ ] Profile và giảm deep clone/canonicalization tạm trong common-tail/de-inline; giữ ownership của block/closure khi chia sẻ dữ liệu.
 - [ ] Đo cấu trúc dữ liệu của SSA construct/inline/destruct: tập local, dominance/liveness, local maps và các lần phân tích lại. Chỉ cache analysis khi CFG mutation có cơ chế invalidation rõ ràng.
 - [ ] Nếu allocation/locking thực sự chiếm ưu thế, thử arena/ID hoặc immutable snapshots ở phạm vi một function trước. Không tháo `Arc/Mutex` xuyên pipeline khi chưa làm rõ ownership của closure và parallel workers.

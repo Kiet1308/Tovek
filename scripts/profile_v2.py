@@ -47,6 +47,18 @@ def validate(profile, expected_scripts):
             errors.append('invalid sample count')
         if row['node_samples_incomplete']:
             errors.append('incomplete node census')
+        tails = {k.removeprefix('tail_'): v for k, v in row['counters'].items() if k.startswith('tail_')}
+        if tails:
+            if row['pass'] not in ('TAIL_SCAN', 'TAIL_SCAN_FUNCTION'):
+                errors.append('tail traversal counter context mismatch')
+            if 'initial_child_visits' not in tails or any(type(v) is not int or v < 0 for v in tails.values()):
+                errors.append('invalid tail traversal counters')
+            actions = tails.get('actions', 0)
+            if actions and (not {'revisited_children', 'skipped_children'} <= tails.keys()
+                            or tails.get('revisited_children', 0) < actions):
+                errors.append('tail dirty-range accounting mismatch')
+            if not actions and (tails.get('revisited_children', 0) or tails.get('skipped_children', 0)):
+                errors.append('tail dirty-range accounting mismatch')
         cache = {k.removeprefix('ssa_fact_cache_'): v for k, v in row['counters'].items()
                  if k.startswith('ssa_fact_cache_')}
         if cache:

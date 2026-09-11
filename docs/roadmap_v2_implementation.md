@@ -1,5 +1,13 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R7b: common-tail traversal over the changed interval
+
+Factoring now revisits only the changed `if` and its inserted tail, while retaining the entire parent candidate search, original action order and all ownership/equality/scope gates. The old full rescan remains a differential-test specialization. All 10,800 generated IR comparisons and focused adjacency/closure tests agree; 983 primary Rust tests plus one child repeat and 112 Python tests pass. [Mutation boundary and reproduction](tail_worklist.md).
+
+All 180 runtime, 513 public and 42 compiler-witness profiles preserve their complete source, oracle/fidelity, observations and reconstruction metadata. Every prior field in 4,629 nonempty corpus sidecars is byte-identical; all 3,978 private source files agree at 1/16 threads. Default/compact output, parser/capture/emission and cold/warm artifact-cache checks pass, alongside 45 legacy semantic profiles and 52 size gates.
+
+Both thread counts produce identical counters across 539,837 complete profile rows: 577 actions skip 1,706 immediate post-action child visits, with 1,214 revisited. Initial walks still count 746,104 visits. Seven interleaved rounds keep the frozen 5% median/p95/median-RSS cost limits: median changes +0.14% at one thread and -0.63% at 16 threads. No wall-time speedup is established. The worklist row is complete within common-tail factoring; broader pass/representation work stays open. [Acceptance inventory](roadmap_v2_acceptance/tail_worklist_validation.json).
+
 ## R7c: isolated PGO on Windows and Linux
 
 The reviewed `9b7d1a1` source now has a reproducible PGO experiment with 648 development training profiles, 42 repository-holdout profiles and 3,922 external private inputs. Exact execution-image leakage is excluded before training. Each native target retains unwind, uses isolated build/profile directories, and trains through the existing API example. Full source and detailed sidecar bytes agree across builds; real panic isolation passes at 1/16 threads on both platforms. All 111 Python tests and both RSS controls pass. [Data, reproduction and limits](pgo_experiment.md).

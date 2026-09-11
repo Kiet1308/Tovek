@@ -58,6 +58,22 @@ class ProfileChecks(unittest.TestCase):
         del row['counters']['ssa_fact_cache_misses']
         self.assertIn('invalid SSA cache counters', validate(profile, {'input.lua'}))
 
+    def test_tail_worklist_rejects_unexplained_visits_and_wrong_context(self):
+        profile = valid_profile()
+        row = dict(profile['rows'][0], prototype=None, **{'pass': 'TAIL_SCAN'})
+        row['counters'] = dict(tail_initial_child_visits=20, tail_actions=3,
+                               tail_revisited_children=7, tail_skipped_children=21)
+        profile['rows'].append(row)
+        profile['rows_count'] += 1
+        self.assertEqual(validate(profile, {'input.lua'}), [])
+        row['counters']['tail_actions'] = 0
+        self.assertIn('tail dirty-range accounting mismatch', validate(profile, {'input.lua'}))
+        row['counters']['tail_actions'] = 8
+        self.assertIn('tail dirty-range accounting mismatch', validate(profile, {'input.lua'}))
+        row['counters']['tail_actions'] = 3
+        row['pass'] = 'S_DEINLINE'
+        self.assertIn('tail traversal counter context mismatch', validate(profile, {'input.lua'}))
+
 
 if __name__ == '__main__':
     unittest.main()

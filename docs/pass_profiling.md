@@ -60,6 +60,13 @@ including other timed passes; zero node sums there do not mean an empty AST.
 Broader node/effect/cache accounting and allocation instrumentation remain
 open work in R7.
 
+Common-tail factoring also records `tail_initial_child_visits`, `tail_actions`,
+`tail_revisited_children` and `tail_skipped_children` within `TAIL_SCAN` and its
+function-only counterpart. These count immediate statement visits, not unique
+nodes, allocations or saved time. Parent candidate scans remain complete.
+The [worklist contract and measurements](tail_worklist.md) explain which child
+interval is revisited and why other child trees stay at a fixed point.
+
 There are limits of one million aggregate rows, 256 nested spans, one million
 nodes per census and census depth 256. Overflow or an unavailable AST lock is
 reported explicitly. Existing aggregate keys continue collecting after the
