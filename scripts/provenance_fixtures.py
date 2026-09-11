@@ -16,6 +16,7 @@ def main():
     inputs_group = parser.add_mutually_exclusive_group(required=True)
     inputs_group.add_argument('--fixtures-report', type=pathlib.Path)
     inputs_group.add_argument('--public-report', type=pathlib.Path)
+    parser.add_argument('--ast', type=pathlib.Path, help='also check emitted token binding identity with the pinned parser')
     for name in ('lifter', 'report', 'keep'):
         parser.add_argument('--' + name, type=pathlib.Path, required=True)
     args = parser.parse_args()
@@ -76,11 +77,19 @@ def main():
                 raise RuntimeError('conditional debug result binding lost')
     if args.fixtures_report and len(audit['examples']) != 2:
         raise RuntimeError('expected O2 g1/g2 conditional examples')
+    emission_audit = None
+    if args.ast:
+        emission_path = work / 'emission-audit.json'
+        checked([sys.executable, ROOT / 'scripts/emission_map_source_audit.py', '--root', work / 'trace1',
+                 '--ast', args.ast, '--report', emission_path], timeout=180)
+        emission_audit = json.loads(emission_path.read_text(encoding='utf-8'))
     report = {'schema_version': 1, 'lifter_sha256': sha256(args.lifter),
               'input_report_sha256': sha256(input_report), 'work': str(work),
               'dataset': 'runtime_fixtures' if args.fixtures_report else 'pinned_public_sources',
               'input_summary': fixtures['summary'], 'lifter_args': fixtures.get('lifter_args', []),
               'mode_timings': measurements, 'metadata_deterministic_threads_1_4': identical, 'audit': audit}
+    if emission_audit is not None:
+        report['emission_audit'] = emission_audit
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(json.dumps(audit['summary'], indent=2))

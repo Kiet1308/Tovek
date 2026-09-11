@@ -317,6 +317,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 - [ ] Tạo phân loại local có bằng chứng: parameter, source local đã biết, result của select, iteration binding, capture cell, compiler temporary và synthesized local.
 - [ ] Tách quyết định tái sử dụng storage khỏi quyết định dùng cùng một tên/khai báo nguồn. Áp lực local của Luau vẫn là ràng buộc, nhưng không phải tiêu chí duy nhất.
 - [ ] Bảo toàn source binding mạnh trước các phép inline/coalescing; với input strip, dùng role/liveness/effect facts để đề xuất split và kiểm chứng từng ca. Không tự tách một parameter đang được gán rõ ràng chỉ để tăng số local hoặc ép một initializer.
+- [x] Ghi vị trí identifier cuối cùng theo binding ID, nối tới ancestry SSA/statement PC set và vị trí annotation; kiểm tra bằng parser độc lập. Interpolation có vùng opaque rõ ràng, storage ID dùng cho nhiều khai báo được đếm riêng. [Phạm vi và nghiệm thu](emission_map.md).
 - [ ] Mở rộng source map hiện có từ closure occurrence tới vùng output/PC khi mapping có nghĩa; ghi rõ vùng inlined, cloned hoặc synthesized.
 - [ ] Quy định mỗi pass phải giữ, hợp nhất hay vô hiệu hóa loại provenance/proof nào. Không chuyển một close/ownership certificate sang local mới chỉ vì tên giống nhau.
 

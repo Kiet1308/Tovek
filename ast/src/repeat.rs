@@ -58,6 +58,7 @@ impl fmt::Display for Repeat {
             colon_method_calls: Vec::new(),
             position_query: None,
             closure_observer: None,
+            emission_map: None,
             layout_budget: None,
         }
         .format_repeat(self)

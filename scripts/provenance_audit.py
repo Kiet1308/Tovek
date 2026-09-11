@@ -11,6 +11,7 @@ import pathlib
 import re
 
 from roadmap_v2 import sha256
+from emission_map_audit import validate_emission_map
 
 
 def validate_trace(trace):
@@ -124,6 +125,12 @@ def main():
             row['status'] = 'missing_trace'
         else:
             errors = validate_trace(trace)
+            if 'output_map' in trace:
+                source_path = (args.after / right['source_path']).resolve()
+                if not source_path.is_relative_to(args.after.resolve()) or sha256(source_path) != right['source_sha256']:
+                    errors.append('invalid mapped source path or hash')
+                else:
+                    errors.extend(validate_emission_map(trace, source_path.read_bytes()))
             if errors:
                 row.update(status='invalid_trace', errors=errors)
             row['summary'] = trace['summary']

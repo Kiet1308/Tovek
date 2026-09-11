@@ -54,7 +54,7 @@ result in its storage ancestry without becoming a newly recovered source local.
 | SSA local map and destruction | Merge lineage through existing source-metadata transfer points. Close and capture compatibility are governed by their existing proofs, independently of lineage. |
 | CFG structuring | Freeze the function trace before speculative CFG clones. Cloned local metadata retains ID ancestry; the trace does not keep a mutable CFG alive. |
 | AST replacement and cloning | Existing metadata-preserving local replacements and local clones carry ancestry. Inlining a local into an arbitrary nested value does not yet attach provenance to that value. |
-| Final naming and formatting | Read the remaining local ancestry after formatting and report forward/reverse binding maps. No new source identity or value-level output span is inferred. |
+| Final naming and formatting | Read remaining ancestry and record exact identifier token spans keyed by final IDs in the optional [emission map](emission_map.md). PC sets retain storage-ancestry meaning; no unique value producer or new source identity is inferred. |
 
 There is a combined limit of 50,000 records per lifted function and 256
 ancestors per final binding. Overflow retains the lowest sorted IDs, making
@@ -68,10 +68,12 @@ compiler temporary. `unknown_origins` and `incomplete` remain visible.
 `incomplete_lineages` counts partial nonempty ancestry; unlocated final
 bindings are a separate summary category.
 
-Arbitrary nested-value provenance, clone/synthesis event attribution, output
-text spans beyond existing closure/name mapping and a complete per-pass
-preserve/merge/invalidate ledger remain R2 work. Consumers must keep these
-unknown cases rather than interpreting absence as proof of optimization.
+Arbitrary nested-value provenance, clone/synthesis event attribution and a
+complete per-pass preserve/merge/invalidate ledger remain R2 work. Exact final
+identifier and annotation locations are available through `output_map`, with
+explicit opaque regions for interpolation sub-rendering and display fallbacks.
+Consumers must retain unknown cases rather than interpreting absence as proof
+of optimization.
 
 ## Validation
 

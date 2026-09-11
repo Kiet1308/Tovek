@@ -1152,6 +1152,70 @@ mod tests {
     }
 
     #[test]
+    fn emission_map_preserves_shadow_identity_parameters_loops_and_unicode_offsets() {
+        let outer = local("item");
+        let parameter = local("item");
+        let counter = local("i");
+        let helper = local("helper");
+        let function = Function {
+            parameters: vec![parameter.clone()],
+            parameter_annotations: vec![Some("number".into())],
+            is_variadic: true,
+            body: Block(vec![
+                NumericFor::new(number(1.0), number(3.0), number(1.0), counter.clone(),
+                    Block(vec![Call::new(global("observe"), vec![local_value(&parameter), local_value(&counter)]).into()])).into(),
+                Return::new(vec![local_value(&parameter)]).into(),
+            ]),
+            ..Default::default()
+        };
+        let mut assignment = Assign::new(vec![outer.clone().into()], vec![number(1.0)]);
+        assignment.prefix = true;
+        let mut declaration = Assign::new(vec![helper.clone().into()], vec![RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(function))), upvalues: vec![],
+        })]);
+        declaration.prefix = true;
+        let block = Block(vec![assignment.into(), crate::Comment::trailing("界 annotation".into()).into(),
+            declaration.into(), Return::new(vec![local_value(&outer), local_value(&helper)]).into()]);
+        let (source, _, map) = format_with_emission_map(&block, IndentationMode::Tab, true).unwrap();
+        assert_eq!(source, block.to_string());
+        assert_eq!(map.omitted_occurrences, 0);
+        assert!(map.opaque_regions.is_empty());
+        assert_eq!(map.annotations.len(), 1);
+        assert!(source.contains("function helper(item: number, ...)"));
+        let names = [(outer.stable_id(), "item"), (parameter.stable_id(), "item"),
+            (counter.stable_id(), "i"), (helper.stable_id(), "helper")];
+        for occurrence in &map.bindings {
+            let name = names.iter().find(|(id, _)| *id == occurrence.binding_id).unwrap().1;
+            assert_eq!(&source[occurrence.span.start.byte_offset..occurrence.span.end.byte_offset], name);
+            for position in [occurrence.span.start, occurrence.span.end] {
+                let prefix = &source[..position.byte_offset];
+                assert_eq!(position.line_one_based, prefix.bytes().filter(|b| *b == b'\n').count() + 1);
+                assert_eq!(position.column_one_based, prefix.rsplit('\n').next().unwrap().chars().count() + 1);
+            }
+        }
+        assert!(map.bindings.iter().any(|b| b.binding_id == parameter.stable_id() && b.role == "parameter"));
+        assert!(map.bindings.iter().any(|b| b.binding_id == outer.stable_id() && b.role == "declaration"));
+        assert!(map.bindings.iter().any(|b| b.binding_id == counter.stable_id() && b.role == "iteration_binding"));
+        let (_, _, disabled) = format_with_emission_map(&block, IndentationMode::Tab, false).unwrap();
+        assert!(disabled.bindings.is_empty() && disabled.annotations.is_empty());
+    }
+
+    #[test]
+    fn emission_map_marks_interpolation_subrendering_opaque() {
+        let item = local("item");
+        let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall {
+            value: Box::new(string("%*")), method: "format".into(), arguments: vec![local_value(&item)],
+        })]).into()]);
+        let (source, _, map) = format_with_emission_map(&block, IndentationMode::Tab, true).unwrap();
+        assert_eq!(source, "return `{item}`");
+        assert_eq!(source, block.to_string());
+        assert!(map.bindings.is_empty());
+        assert_eq!(map.opaque_regions.len(), 1);
+        let region = &map.opaque_regions[0];
+        assert_eq!(&source[region.span.start.byte_offset..region.span.end.byte_offset], "`{item}`");
+    }
+
+    #[test]
     fn generic_for_preserves_explicit_trailing_nil_iterator_argument() {
         // The final nil is an explicit second iterator expression, not an
         // implicit protocol placeholder.  Dropping it changes how a
@@ -1284,6 +1348,7 @@ pub struct Formatter<'a, W: fmt::Write> {
     pub(crate) colon_method_calls: Vec<(RValue, String)>,
     pub(crate) position_query: Option<fn(&W) -> SourcePosition>,
     pub(crate) closure_observer: Option<&'a mut dyn ClosureObserver>,
+    pub(crate) emission_map: Option<&'a mut crate::emission_map::EmissionMap>,
     /// Some only in a bounded, non-emitting layout preview. Normal formatting
     /// uses None; previews never recursively ask for another width preview.
     pub(crate) layout_budget: Option<usize>,
@@ -1400,9 +1465,19 @@ pub fn format_with_source_map(
     main: &Block,
     indentation_mode: IndentationMode,
 ) -> Result<(String, Vec<ClosureSourceOccurrence>), fmt::Error> {
+    let (source, closures, _) = format_with_emission_map(main, indentation_mode, false)?;
+    Ok((source, closures))
+}
+
+pub fn format_with_emission_map(
+    main: &Block,
+    indentation_mode: IndentationMode,
+    detailed: bool,
+) -> Result<(String, Vec<ClosureSourceOccurrence>, crate::emission_map::EmissionMap), fmt::Error> {
     let mut output = String::new();
     let mut tracked = PositionTrackingWriter::new(&mut output);
     let mut occurrences = Vec::new();
+    let mut emission_map = crate::emission_map::EmissionMap::default();
     {
         let mut observer = VecClosureObserver(&mut occurrences);
         let mut formatter = Formatter {
@@ -1412,12 +1487,14 @@ pub fn format_with_source_map(
             colon_method_calls: collect_colon_method_calls(main),
             position_query: Some(tracked_position::<String>),
             closure_observer: Some(&mut observer),
+            emission_map: detailed.then_some(&mut emission_map),
             layout_budget: None,
         };
         formatter.format_block_no_indent(main)?;
     }
     occurrences.sort_by_key(|occurrence| occurrence.span.start.byte_offset);
-    Ok((output, occurrences))
+    emission_map.sort();
+    Ok((output, occurrences, emission_map))
 }
 
 fn collect_colon_method_calls(block: &Block) -> Vec<(RValue, String)> {
@@ -1500,6 +1577,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             colon_method_calls: collect_colon_method_calls(main),
             position_query: Some(tracked_position::<W>),
             closure_observer: None,
+            emission_map: None,
             layout_budget: None,
         };
         formatter.format_block_no_indent(main)
@@ -1530,6 +1608,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             colon_method_calls: Vec::new(),
             position_query: None,
             closure_observer: None,
+            emission_map: None,
             layout_budget: Some(256),
         };
         let fits = render(&mut preview).is_ok();
@@ -1627,7 +1706,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 && let Statement::Comment(comment) = statement
                 && comment.trailing
             {
-                write!(self.output, " {}", comment)?;
+                write!(self.output, " ")?;
+                self.format_comment(comment)?;
                 continue;
             }
             if i != 0 {
@@ -1701,7 +1781,38 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     fn format_lvalue(&mut self, lvalue: &LValue) -> fmt::Result {
         match lvalue {
             LValue::Index(index) => self.format_index(index),
+            LValue::Local(local) => self.format_local(local, "assignment_target"),
             _ => write!(self.output, "{}", lvalue),
+        }
+    }
+
+    fn format_local(&mut self, local: &RcLocal, role: &'static str) -> fmt::Result {
+        let start = self.current_position();
+        write!(self.output, "{}", local)?;
+        if let (Some(start), Some(end), Some(map)) =
+            (start, self.current_position(), self.emission_map.as_deref_mut())
+        {
+            map.binding(local.stable_id(), role, SourceSpan { start, end });
+        }
+        Ok(())
+    }
+
+    fn format_comment(&mut self, comment: &crate::Comment) -> fmt::Result {
+        let start = self.current_position();
+        write!(self.output, "{}", comment)?;
+        if let (Some(start), Some(end), Some(map)) =
+            (start, self.current_position(), self.emission_map.as_deref_mut())
+        {
+            map.annotation(&comment.text, SourceSpan { start, end });
+        }
+        Ok(())
+    }
+
+    fn record_opaque(&mut self, start: Option<SourcePosition>, reason: &'static str) {
+        if let (Some(start), Some(end), Some(map)) =
+            (start, self.current_position(), self.emission_map.as_deref_mut())
+        {
+            map.opaque(reason, SourceSpan { start, end });
         }
     }
 
@@ -1890,32 +2001,18 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     fn format_closure_parameters_from(&mut self, closure: &Closure, skip: usize) -> fmt::Result {
         let function = closure.function.lock();
-        let mut parameters = function
-            .parameters
-            .iter()
-            .enumerate()
-            .skip(skip)
-            .map(|(index, parameter)| {
-                match function
-                    .parameter_annotations
-                    .get(index)
-                    .and_then(|annotation| annotation.as_deref())
-                {
-                    Some(annotation) => format!("{parameter}: {annotation}"),
-                    None => parameter.to_string(),
-                }
-            });
-        write!(
-            self.output,
-            "{}",
-            if function.is_variadic {
-                parameters
-                    .chain(std::iter::once("...".into()))
-                    .join(", ")
-            } else {
-                parameters.join(", ")
+        for (index, parameter) in function.parameters.iter().enumerate().skip(skip) {
+            if index != skip { write!(self.output, ", ")?; }
+            self.format_local(parameter, "parameter")?;
+            if let Some(annotation) = function.parameter_annotations.get(index).and_then(|a| a.as_deref()) {
+                write!(self.output, ": {annotation}")?;
             }
-        )
+        }
+        if function.is_variadic {
+            if function.parameters.len() > skip { write!(self.output, ", ")?; }
+            write!(self.output, "...")?;
+        }
+        Ok(())
     }
 
     fn format_closure_parameters(&mut self, closure: &Closure) -> fmt::Result {
@@ -2008,7 +2105,13 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
 
         let display_name = self.closure_observer.is_some().then(|| name.to_string());
-        write!(self.output, "function {}(", name)?;
+        write!(self.output, "function ")?;
+        if local_declaration && let LValue::Local(local) = name {
+            self.format_local(local, "function_declaration")?;
+        } else {
+            self.format_lvalue(name)?;
+        }
+        write!(self.output, "(")?;
         self.format_closure_parameters(closure)?;
         write!(self.output, ")")?;
         self.format_closure_body(closure)?;
@@ -2257,6 +2360,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             *budget -= 1;
         }
         match rvalue {
+            RValue::Local(local) => self.format_local(local, "read"),
             RValue::Select(Select::Call(call)) | RValue::Call(call) => self.format_call(call),
             RValue::Select(Select::MethodCall(method_call)) | RValue::MethodCall(method_call) => {
                 self.format_method_call(method_call)
@@ -2478,7 +2582,12 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             && let RValue::Literal(Literal::String(bytes)) = method_call.value.as_ref()
             && let Some(interpolated) = self.try_format_interpolation(bytes, &method_call.arguments)
         {
-            return write!(self.output, "{}", interpolated);
+            let start = self.current_position();
+            write!(self.output, "{}", interpolated)?;
+            // Arguments are rendered into an intermediate string, so recording
+            // their temporary offsets as final identifier spans would be wrong.
+            self.record_opaque(start, "interpolated_string_argument_rendering");
+            return Ok(());
         }
 
         let multiline = self.layout_budget.is_none() && method_call.arguments.len() > 1
@@ -2513,6 +2622,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             colon_method_calls: self.colon_method_calls.clone(),
             position_query: None,
             closure_observer: None,
+            emission_map: None,
             layout_budget: self.layout_budget,
         };
         sub.format_rvalue(rvalue).ok()?;
@@ -2691,7 +2801,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             if i != 0 {
                 write!(self.output, ", ")?;
             }
-            self.format_lvalue(lvalue)?;
+            if assign.prefix && let LValue::Local(local) = lvalue {
+                self.format_local(local, "declaration")?;
+            } else {
+                self.format_lvalue(lvalue)?;
+            }
         }
 
         if !assign.right.is_empty() {
@@ -2758,7 +2872,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_numeric_for(&mut self, numeric_for: &NumericFor) -> fmt::Result {
-        write!(self.output, "for {} = ", numeric_for.counter)?;
+        write!(self.output, "for ")?;
+        self.format_local(&numeric_for.counter, "iteration_binding")?;
+        write!(self.output, " = ")?;
         self.format_rvalue(&numeric_for.initial)?;
         write!(self.output, ", ")?;
         self.format_rvalue(&numeric_for.limit)?;
@@ -2779,11 +2895,12 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_generic_for(&mut self, generic_for: &GenericFor) -> fmt::Result {
-        write!(
-            self.output,
-            "for {} in ",
-            generic_for.res_locals.iter().join(", ")
-        )?;
+        write!(self.output, "for ")?;
+        for (index, local) in generic_for.res_locals.iter().enumerate() {
+            if index != 0 { write!(self.output, ", ")?; }
+            self.format_local(local, "iteration_binding")?;
+        }
+        write!(self.output, " in ")?;
         for (i, rvalue) in generic_for.right.iter().enumerate() {
             if i != 0 {
                 write!(self.output, ", ")?;
@@ -2861,7 +2978,15 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             Statement::Call(call) => self.format_call(call),
             Statement::MethodCall(method_call) => self.format_method_call(method_call),
             Statement::Return(r#return) => self.format_return(r#return),
-            _ => write!(self.output, "{}", statement),
+            Statement::Comment(comment) => self.format_comment(comment),
+            _ => {
+                let start = self.current_position();
+                write!(self.output, "{}", statement)?;
+                if !statement.values().is_empty() {
+                    self.record_opaque(start, "statement_display_fallback");
+                }
+                Ok(())
+            }
         }
     }
 }

@@ -1,5 +1,15 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R2/R6: emitted identifier and annotation locations
+
+Optional binding provenance now records exact final identifier positions and annotation spans. A token links to its final IR binding ID, then to the existing bounded storage lineage and original lifted-statement PC sets. This does not claim a unique value-producing PC. Interpolation sub-rendering and display fallbacks retain explicit opaque regions. [Contract and lookup command](emission_map.md).
+
+The pinned parser independently checks 2,271 runtime, 45,617 public and 495,224 private mapped local tokens. There are 0/251/2,306 respective opaque tokens, with zero unexplained missing tokens. Public source has three cases of one storage ID serving multiple lexical declarations (one Fusion file at three optimization levels); the private corpus has 11. These are reported separately from parser binding identity. No output-map budget is exhausted on runtime or public matrices.
+
+All 3,978 private outputs, 513 public outputs and 138 runtime outputs are byte-identical to the preceding formatter release. Private detailed-trace source has the same tree hash as ordinary source. Prior non-lineage metadata is unchanged on runtime/public, and detailed sidecars are deterministic at one/four threads. All 930 primary Rust tests, one child repeat, 72 Python tests, 138 runtime configurations, nine controls, 45 legacy semantic configurations and 52 size gates pass. CI checks token identity on both runtime and public matrices. [Validation inventory](roadmap_v2_acceptance/emission_validation.json).
+
+Seven interleaved warm CLI rounds preserve the same output tree across both releases and thread counts. One-thread median 24.576 -> 24.111 s (-1.89%); 16-thread median 1.838 -> 1.871 s (+1.76%). Median peak RSS 33,091,584 -> 33,288,192 bytes and 119,984,128 -> 118,710,272 bytes. This records source-only cost, not a speedup claim; metadata mode timings are separate diagnostics, and seven-sample p95 equals the maximum. [Benchmark](roadmap_v2_acceptance/emission_benchmark.json).
+
 ## R4: preserve repeated index and operator evaluation in compound assignment
 
 The formatter no longer collapses nested index or computed-key evaluations into compound assignment without proof. Only local/literal base and key leaves qualify. The new runtime fixture fails all six configurations on the previous release and passes all six on the corrected release, with bounded dataflow moving from `different` to `proved`. All 138 runtime configurations and nine negative controls pass; six separate VM mutant controls demonstrate the observable difference. [Contract and counterexamples](formatter_effects.md).

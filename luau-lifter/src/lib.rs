@@ -849,13 +849,13 @@ fn try_decompile_bytecode_internal(
                 emit_report: emit_upvalue_analysis,
                 ..Default::default()
             });
-            let (out, source_occurrences) = {
+            let (out, source_occurrences, emission_map) = {
                 ptime!(S_FORMAT);
                 if emit_upvalue_analysis {
-                    ast::formatter::format_with_source_map(&body, Default::default())
+                    ast::formatter::format_with_emission_map(&body, Default::default(), options.emit_binding_provenance)
                         .map_err(|_| DecompileFailure::message("formatting failed"))?
                 } else {
-                    (body.to_string(), Vec::new())
+                    (body.to_string(), Vec::new(), Default::default())
                 }
             };
             if prof::on() {
@@ -871,7 +871,7 @@ fn try_decompile_bytecode_internal(
                 analysis.source_recovery = Some(source_recovery::audit(&chunk, &mut body, &analysis.functions));
                 analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
                 if options.emit_binding_provenance {
-                    analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body));
+                    analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map));
                 }
                 analysis
             });

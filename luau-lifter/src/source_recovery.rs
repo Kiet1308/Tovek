@@ -53,7 +53,11 @@ pub(crate) fn naming_report(report: ast::refine_names::Report, legacy: ast::nami
     })
 }
 
-pub(crate) fn provenance_report(traces: Vec<Box<cfg::provenance::FunctionTrace>>, body: &mut ast::Block) -> Value {
+pub(crate) fn provenance_report(
+    traces: Vec<Box<cfg::provenance::FunctionTrace>>,
+    body: &mut ast::Block,
+    emission_map: ast::emission_map::EmissionMap,
+) -> Value {
     let id = |id| format!("b{id}");
     let ids = |items: &[u64]| items.iter().map(|&item| id(item)).collect::<Vec<_>>();
     let mut locals = BTreeMap::new();
@@ -69,6 +73,36 @@ pub(crate) fn provenance_report(traces: Vec<Box<cfg::provenance::FunctionTrace>>
     }
     let mut unlocated = 0;
     let mut incomplete = 0;
+    let emitted_ids: BTreeSet<_> = emission_map.bindings.iter().map(|item| item.binding_id).collect();
+    let token_count = emission_map.bindings.len();
+    let annotation_count = emission_map.annotations.len();
+    let opaque_count = emission_map.opaque_regions.len();
+    let omitted_count = emission_map.omitted_occurrences;
+    let span = |span: ast::formatter::SourceSpan| {
+        let position = |p: ast::formatter::SourcePosition| json!({
+            "byte_offset": p.byte_offset, "line_one_based": p.line_one_based, "column_one_based": p.column_one_based,
+        });
+        json!({"start": position(span.start), "end": position(span.end)})
+    };
+    let output_map = json!({
+        "schema_version": 1, "model": "final-emission-binding-spans-v1",
+        "contract": "Exact final identifier spans reference stable final binding IDs. Follow a binding's lineage to SSA definitions and their lifted statement PC sets for storage ancestry only; those sets are not precise producer PCs for an individual use. No value, close, purity or source-equality proof is inferred.",
+        "positions": "Half-open UTF-8 byte offsets; lines and Unicode-scalar columns are one-based; tabs count as one column.",
+        "limits": {"occurrences": ast::emission_map::OCCURRENCE_LIMIT, "annotation_text_bytes": ast::emission_map::ANNOTATION_BYTE_LIMIT},
+        "omitted_occurrences": omitted_count,
+        "bindings": emission_map.bindings.into_iter().map(|item| json!({
+            "binding_id": id(item.binding_id), "role": item.role, "span": span(item.span),
+        })).collect::<Vec<_>>(),
+        "annotations": emission_map.annotations.into_iter().map(|item| json!({
+            "classification": "emitter_annotation", "text": item.text, "text_truncated": item.truncated,
+            "span": span(item.span), "instruction_origin": "unknown",
+        })).collect::<Vec<_>>(),
+        "opaque_regions": emission_map.opaque_regions.into_iter().map(|item| json!({
+            "reason": item.reason, "span": span(item.span),
+        })).collect::<Vec<_>>(),
+        "limitations": "Implicit method receiver declarations have no identifier token. Interpolation sub-rendering and display fallbacks are explicit opaque regions. An absent token is not evidence of dead code, inlining or synthesis. An annotation's text is not promoted to a verified source/proof claim.",
+    });
+    let bindings_without_tokens = locals.keys().filter(|id| !emitted_ids.contains(id)).count();
     for (binding, local) in locals {
         let local = local.0.lock();
         if let Some(lineage) = &local.3 {
@@ -132,14 +166,18 @@ pub(crate) fn provenance_report(traces: Vec<Box<cfg::provenance::FunctionTrace>>
     }).collect::<Vec<_>>();
     json!({"schema_version": 1, "model": "ssa-storage-lineage-v1",
         "limits": {"records_per_function": cfg::provenance::RECORD_LIMIT, "ancestry_per_binding": ast::BindingLineage::LIMIT},
-        "origin_granularity": "input instruction clusters per lifted statement and SSA definition write slot; nested value locations and final text spans are not inferred",
+        "origin_granularity": "input instruction clusters per lifted statement and SSA definition write slot; exact final identifier spans link to binding storage ancestry, not nested value producer PCs",
         "contract": "Diagnostic ancestry only. Storage coalescing is not value/source-binding equality. No close, ownership, purity or totality certificate is created or transferred by this trace.",
         "summary": {"functions": functions.len(), "lifted_statements": source_sites, "statements_with_pc": source_sites_with_pc,
             "definitions": definition_count, "definitions_with_final_binding_ancestry": mapped_definitions,
             "final_bindings": emitted.len(), "unlocated_final_bindings": unlocated, "incomplete_lineages": incomplete,
-            "conditional_result_records": select_count, "dropped_records": dropped_records},
+            "conditional_result_records": select_count, "dropped_records": dropped_records,
+            "identifier_spans": token_count, "annotation_spans": annotation_count,
+            "opaque_output_regions": opaque_count, "omitted_output_occurrences": omitted_count,
+            "bindings_without_identifier_tokens": bindings_without_tokens},
         "functions": functions, "final_bindings": emitted,
-        "limitations": "An absent direct mapping does not distinguish inlining, dead code, cloning or synthesis. Conditional results are retained as statements; the trace does not authorize eager evaluation or change source naming. Arbitrary value/output-span provenance and pass-complete invalidation remain open.",
+        "output_map": output_map,
+        "limitations": "An absent direct mapping does not distinguish inlining, dead code, cloning or synthesis. Conditional results are retained as statements; the trace does not authorize eager evaluation or change source naming. Arbitrary value-producer provenance and pass-complete invalidation remain open.",
     })
 }
 

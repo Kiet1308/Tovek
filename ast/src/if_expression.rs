@@ -90,6 +90,7 @@ impl fmt::Display for IfExpression {
             colon_method_calls: Vec::new(),
             position_query: None,
             closure_observer: None,
+            emission_map: None,
             layout_budget: None,
         }
         .format_if_expression(self)

@@ -1,0 +1,2229 @@
+{
+ "schema_version": 1,
+ "ast_sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3",
+ "manifest_sha256": "0d06f94121cdc055dd547eea9bb1f610aa9e41fd8c2d50c5b9ae85638acc74cb",
+ "summary": {
+  "scripts": 138,
+  "status": {
+   "passed": 138
+  },
+  "parser_local_tokens": 2271,
+  "mapped_local_tokens": 2271,
+  "opaque_local_tokens": 0,
+  "unexplained_local_tokens": 0,
+  "parser_bindings": 793,
+  "mapped_parser_bindings": 793,
+  "storage_ids_with_multiple_parser_bindings": 0
+ },
+ "rows": [
+  {
+   "script_path": "arithmetic_capture_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 9,
+    "mapped_parser_bindings": 9,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "4ebc6936fc1e346e1f619a5b7720e1452d7aab95eb54c416b24d560663bee563",
+   "sidecar_sha256": "02360c025e1bb0b14b25c228bddf2f990f15ad2d86312ed9ac0ec7bdaf49162e"
+  },
+  {
+   "script_path": "arithmetic_capture_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 9,
+    "mapped_parser_bindings": 9,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "27860026b3d283cb3a14a6367271783c4c927bc06beffdb6eafd03c673022ebc",
+   "sidecar_sha256": "e70553efd31e4e694bebf5370ed4ee5474095055df8c53f9cce67b42c8f9afab"
+  },
+  {
+   "script_path": "arithmetic_capture_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 9,
+    "mapped_parser_bindings": 9,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "4ebc6936fc1e346e1f619a5b7720e1452d7aab95eb54c416b24d560663bee563",
+   "sidecar_sha256": "532a4bbe688aa672e38d59704a23a8de621a307e2e78ed64639bff57480089d9"
+  },
+  {
+   "script_path": "arithmetic_capture_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 9,
+    "mapped_parser_bindings": 9,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "27860026b3d283cb3a14a6367271783c4c927bc06beffdb6eafd03c673022ebc",
+   "sidecar_sha256": "1e111cb48cd8de952f2d56443c4ce42d8854efd037f52c7fa179ed7eac668f46"
+  },
+  {
+   "script_path": "arithmetic_capture_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 9,
+    "mapped_parser_bindings": 9,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "4ebc6936fc1e346e1f619a5b7720e1452d7aab95eb54c416b24d560663bee563",
+   "sidecar_sha256": "4ffdda48a2b0fb51b43d84a35d5701eaa1e8652ec329891fb269cff03136c7e9"
+  },
+  {
+   "script_path": "arithmetic_capture_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 9,
+    "mapped_parser_bindings": 9,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "27860026b3d283cb3a14a6367271783c4c927bc06beffdb6eafd03c673022ebc",
+   "sidecar_sha256": "0d1e91848158b9a55ca4fcd0edb60dfd2fff94b9bfd776ca81f29e3888134ed5"
+  },
+  {
+   "script_path": "arithmetic_effects_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "682f95f40ec51765a27d611c82973b0942230e7c0d86446454dfea896f533cbe",
+   "sidecar_sha256": "9db5c6be4dc2188d3ce2481df7659778bcafb6cb0a5ac4287dfee21856845923"
+  },
+  {
+   "script_path": "arithmetic_effects_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "e1ecd50fde293032a6b315db3bde46b9127542cb96040b8bb1171497f96fce46",
+   "sidecar_sha256": "23c31378a9fd099d65b31b0448f8a8253a9d523ba4eade17f3c934557c3a600c"
+  },
+  {
+   "script_path": "arithmetic_effects_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "682f95f40ec51765a27d611c82973b0942230e7c0d86446454dfea896f533cbe",
+   "sidecar_sha256": "f1b65dc17e50c2873299c0b3f88907d171a13392e6718f48337ae1b9e9ecc2fc"
+  },
+  {
+   "script_path": "arithmetic_effects_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "e1ecd50fde293032a6b315db3bde46b9127542cb96040b8bb1171497f96fce46",
+   "sidecar_sha256": "bd8b33cda6b39ba28e3c25988fb8a5749a418eae3c6902fd6a6ec9c7b595a0be"
+  },
+  {
+   "script_path": "arithmetic_effects_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 20,
+    "mapped_local_tokens": 20,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "00455674235634b2ddad13f65de778ae2a838301f5ff61ebab73d1afe2deb4ca",
+   "sidecar_sha256": "085c275d60775d8b8f04def2e4f43aca31d71ff636e6182722e65e5683b37e13"
+  },
+  {
+   "script_path": "arithmetic_effects_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "8adaf4a290f121665620138cd9a4a98242dc2b706f48f73484973561a9fb9f14",
+   "sidecar_sha256": "1cc36ffbaa7a020db4743cc4350416d9b0785300616b941c41c4389f5c521809"
+  },
+  {
+   "script_path": "binding_scopes_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "604822083a1140fa1fbdf6d95fbc8e96c21ece6f2178e2680d03bbec92c21aae",
+   "sidecar_sha256": "36ed91a8250c603dd5cba43282ab7cce11a3700acd534dfceec2a9a7246787d3"
+  },
+  {
+   "script_path": "binding_scopes_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 25,
+    "mapped_local_tokens": 25,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 9,
+    "mapped_parser_bindings": 9,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "c8f9d37cc98f59aa4a538230d03cb78e8f1bc34dcf432d3d779a13e8989948a6",
+   "sidecar_sha256": "5337bb2b3e470dd027528cd7b9abf7081af145fbd0553f4adb0d82406254b7cf"
+  },
+  {
+   "script_path": "binding_scopes_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "604822083a1140fa1fbdf6d95fbc8e96c21ece6f2178e2680d03bbec92c21aae",
+   "sidecar_sha256": "d531542fa8ba9b82e77426a00ee03ace598ad24c3f036f1c938b42817fb200c8"
+  },
+  {
+   "script_path": "binding_scopes_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 23,
+    "mapped_local_tokens": 23,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2312d8d89df7053c493e647f2b8b644cf94bd37d9d4d0b98096900113ba7915d",
+   "sidecar_sha256": "c6fb1ed23016b7c371355d644454d48761d8f9ce0afb3893dd175653cbc52761"
+  },
+  {
+   "script_path": "binding_scopes_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "604822083a1140fa1fbdf6d95fbc8e96c21ece6f2178e2680d03bbec92c21aae",
+   "sidecar_sha256": "59e8a925b1ec75847d11f4e0d77b69b86b77dea4ac203dbec5724c82a18929c3"
+  },
+  {
+   "script_path": "binding_scopes_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 23,
+    "mapped_local_tokens": 23,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2312d8d89df7053c493e647f2b8b644cf94bd37d9d4d0b98096900113ba7915d",
+   "sidecar_sha256": "762ad70c9b634d234132ac63187ea159983b85e4e32e7573216d10e668d7c57e"
+  },
+  {
+   "script_path": "branch_ui_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "695d043b55f8e07ddd99dba1ba5a142c5e0609846c4a756a7f3dbc977a81a65c",
+   "sidecar_sha256": "de95396017a0ab2724e6059bf8e93b4817b3ac8c66fdfb0405951109fa503862"
+  },
+  {
+   "script_path": "branch_ui_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "fb1d4eed4aac7c145abd9574fb4de3ee9d96460395139c31d0618055ed21267b",
+   "sidecar_sha256": "2d043486a8589d50d859f8c30c2249a6ef330475ed6939ed957f6a86cc48f4c6"
+  },
+  {
+   "script_path": "branch_ui_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "695d043b55f8e07ddd99dba1ba5a142c5e0609846c4a756a7f3dbc977a81a65c",
+   "sidecar_sha256": "16283052cd8ad44be5ff7884e8eb61e5b569de1646f4cfcf6081f16913c66aeb"
+  },
+  {
+   "script_path": "branch_ui_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "fb1d4eed4aac7c145abd9574fb4de3ee9d96460395139c31d0618055ed21267b",
+   "sidecar_sha256": "e3837b2e18d730c13a661d49be9b232a85d7a4a63934ba44781462d7680da959"
+  },
+  {
+   "script_path": "branch_ui_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "695d043b55f8e07ddd99dba1ba5a142c5e0609846c4a756a7f3dbc977a81a65c",
+   "sidecar_sha256": "48adf40028c436b63f481d3609859b94be9f69e5bb2183586312170504cd315c"
+  },
+  {
+   "script_path": "branch_ui_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "fb1d4eed4aac7c145abd9574fb4de3ee9d96460395139c31d0618055ed21267b",
+   "sidecar_sha256": "0b7b6c686f5eaecb03c1ba69abb61c4b9c973dacc3d670dd646f0eedc2c3fdbf"
+  },
+  {
+   "script_path": "buffer_role_slots_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2ebd3b1c9e3f28e4015b3ee1696bd3fe0ae29cdcf9d12a5888f8119c40b90dd7",
+   "sidecar_sha256": "d63ea072a9dd820e000b50b92389659a5f12d3e4d7e8a9a2f405b3148df8378f"
+  },
+  {
+   "script_path": "buffer_role_slots_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2c5031e98de0a4f8afbbf638f1fe5f5a970351cc85b1cfe2376bf781e6531e28",
+   "sidecar_sha256": "16db049f9f38eff08ae13c44ee967ef2bdff1361f3210ccfb1f71b1bfd92eafa"
+  },
+  {
+   "script_path": "buffer_role_slots_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2ebd3b1c9e3f28e4015b3ee1696bd3fe0ae29cdcf9d12a5888f8119c40b90dd7",
+   "sidecar_sha256": "6a5a76fa7c8b4b45cbacb60483ce92c00c8d529ff81bbbc87810f1d0e290ccc7"
+  },
+  {
+   "script_path": "buffer_role_slots_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2c5031e98de0a4f8afbbf638f1fe5f5a970351cc85b1cfe2376bf781e6531e28",
+   "sidecar_sha256": "4d08f41942390692bfeabeaa286cc295c8341f3cb6ef78c99d8c0aa60b3e1525"
+  },
+  {
+   "script_path": "buffer_role_slots_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2ebd3b1c9e3f28e4015b3ee1696bd3fe0ae29cdcf9d12a5888f8119c40b90dd7",
+   "sidecar_sha256": "b1bc99fb348976731d74810ce2f4d0e0a412cf6ced5d0a007484000e822a8df7"
+  },
+  {
+   "script_path": "buffer_role_slots_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 21,
+    "mapped_local_tokens": 21,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2c5031e98de0a4f8afbbf638f1fe5f5a970351cc85b1cfe2376bf781e6531e28",
+   "sidecar_sha256": "49d651e6ff7b248a83eb410095a55b520c26950b182ba6fb725af24be964a52c"
+  },
+  {
+   "script_path": "cell_after_join_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "cdc2169e16c1014d4de5aa7850e60d401f8f86d2fbaae10677ad9261b2646c67",
+   "sidecar_sha256": "7e046bc6508075ce154a0abaab9c17796f0a41571f00c6c10636041bf9bbd7a0"
+  },
+  {
+   "script_path": "cell_after_join_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "26950b0c2728a054e65fbc10cbf5b15cc85dbb501f7150d84310851812cf56b2",
+   "sidecar_sha256": "c353e973977b1d16c8e9df9c93853477e54744a51ee3bdba8dbe356d28f8dc9b"
+  },
+  {
+   "script_path": "cell_after_join_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "cdc2169e16c1014d4de5aa7850e60d401f8f86d2fbaae10677ad9261b2646c67",
+   "sidecar_sha256": "ef00bab836dbcae70af21a2c96e92e104f0786a6eb57aa1b8de9fb0b19c32517"
+  },
+  {
+   "script_path": "cell_after_join_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "26950b0c2728a054e65fbc10cbf5b15cc85dbb501f7150d84310851812cf56b2",
+   "sidecar_sha256": "405a8f1147c5e14c1fdde64a110e71b03e143ea41e0dace74c55e3fa18d39a26"
+  },
+  {
+   "script_path": "cell_after_join_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 26,
+    "mapped_local_tokens": 26,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "617250c067cebfa96f025ab0fec81bc6229f7126715e184e6ecf7cf54d4cca8c",
+   "sidecar_sha256": "9f848e09b24c9a65be725e298241bf8a81eed53f20ee724354b4e0b3ec97f7ff"
+  },
+  {
+   "script_path": "cell_after_join_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 28,
+    "mapped_local_tokens": 28,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9d62c003e3d7a5b9225f8d42f03bb74343c35ae87e336ef114442400b7f6863e",
+   "sidecar_sha256": "7370011727daff4b6847fd39374c5b10c2b87029c1f7bdf3d7d9ebc08fb74d8f"
+  },
+  {
+   "script_path": "compound_effects_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9c313b54bffa6eeb84ea2318202167c7911fec6642bb25855960f76e6e36aa50",
+   "sidecar_sha256": "a20b818126d457fc9a7bfadd5f61a7f27f2f30294c1a9995678feb435b79322c"
+  },
+  {
+   "script_path": "compound_effects_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "6ad44752c23ef0d026fec8ecf1645ef3bed119a2e27cc27c7aa1a190d6ca74da",
+   "sidecar_sha256": "d418a8dc386bbed7e7fc4e2bc32b501b01611bea688308aa1246ac1bcd08f707"
+  },
+  {
+   "script_path": "compound_effects_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "74c196f92b82a8d7f4ed6ebce78795a70dd7491f591c8cf174f36534c41cf435",
+   "sidecar_sha256": "164dcd5cd28d1a3132c80d19a509eb1c6d5ba85a657325833677f741decdb731"
+  },
+  {
+   "script_path": "compound_effects_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "87aa14aea6e06cb70f48352904716658783dc0d8edde55a8600ad1bfc999acc0",
+   "sidecar_sha256": "5a7cfcb83c3365c48c402ae696290a7e80cb7558a0af94f9d021d447d7e1835e"
+  },
+  {
+   "script_path": "compound_effects_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9a720e66b86dcd702d7f5e46ae396eae746aa9a2c587184a5f5c6f30dbeee8a5",
+   "sidecar_sha256": "fa2f52c4fbfe7f98de4a3f965a399fd4e5bdf754cc1775ea24407d1cdf9b5641"
+  },
+  {
+   "script_path": "compound_effects_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "8cdb07d5e76d259454f4562dd3d10cad1df88681fa88416ad77eabc67c463045",
+   "sidecar_sha256": "274344ae39357e64f4b768b3fdca7036cae5a69b2d4d1566a6506affe86fcc61"
+  },
+  {
+   "script_path": "conditional_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 8,
+    "mapped_local_tokens": 8,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "50dd329afae18c6f911e816195f86499f7b35f243c950483a3bdfd974c5c5758",
+   "sidecar_sha256": "edb69cddc13e6d7b67202efbf88a9fdd682190e73c738f0f5182ddd0dbae72a0"
+  },
+  {
+   "script_path": "conditional_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "0e43c7cbaebb56da8f5107774a91e1945560acea9f616555357d2aeab8c3013e",
+   "sidecar_sha256": "92ec1da3da073e5e748f27a26c3882cea718aded1214fcb9f492a0ac55074365"
+  },
+  {
+   "script_path": "conditional_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 9,
+    "mapped_local_tokens": 9,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "e7d20ab799eb77e29d052cdb7ba5b98e2c6b787fcb2dedd9e2aaa4fda53688cb",
+   "sidecar_sha256": "f1ed1bb0d803845e6bd316bf9ca044bdb1a241e71dee7ef9f3059f715b8d9e83"
+  },
+  {
+   "script_path": "conditional_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 12,
+    "mapped_local_tokens": 12,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "b1bcbb86683ff56f06bfd2434b7f3af0913224f978b8b3ea295d6389ac25cdbb",
+   "sidecar_sha256": "6478b09824814b4b66527154e6969c4d4c8f747a8abffcf8638d5170601c109f"
+  },
+  {
+   "script_path": "conditional_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 9,
+    "mapped_local_tokens": 9,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "e7d20ab799eb77e29d052cdb7ba5b98e2c6b787fcb2dedd9e2aaa4fda53688cb",
+   "sidecar_sha256": "7b4122012cb10800eb79cda32cb1692d434ffac024a93543834abee09d32e069"
+  },
+  {
+   "script_path": "conditional_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 12,
+    "mapped_local_tokens": 12,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "b1bcbb86683ff56f06bfd2434b7f3af0913224f978b8b3ea295d6389ac25cdbb",
+   "sidecar_sha256": "c816c42ac47aad60f0a41382815ce992625ace1d57a9316ae9e24d2c61bbdb8e"
+  },
+  {
+   "script_path": "conditional_contexts_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 20,
+    "mapped_local_tokens": 20,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "b0a2201ee47ac64b4dbe40214d8dffdd1130a2127f9c508f23bdeb5588e131e7",
+   "sidecar_sha256": "ca9fe3af682214d451c2a1fed4fff1d096aabb4183c8942775671f128b1941f1"
+  },
+  {
+   "script_path": "conditional_contexts_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 20,
+    "mapped_local_tokens": 20,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "7c1819c80c740f87919117ab4b51f3bd2b40428444e2ccef427e0b8a850abe8b",
+   "sidecar_sha256": "dcbe2e964b819858375c4a3636238af069a5863656ecb0c3b3dc7f5264828ca4"
+  },
+  {
+   "script_path": "conditional_contexts_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "cd676f1ec5c8a2edcfcf4f368afb21f6d4b0f604ac2b4f79c53f1dcda3a7b8e2",
+   "sidecar_sha256": "36533720c09ce6876cb0875b030db47d38d1e0851349a2b65828bcd9cafab43c"
+  },
+  {
+   "script_path": "conditional_contexts_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9dfcc2a83b66ba9b30063938528a7b002ca3b065da1ecaf6de29768dbe9a2798",
+   "sidecar_sha256": "3a0a82c93e4daa17750d7c3b0500a87c8ab6b10fc03e4c4a6eee169a3e417aa6"
+  },
+  {
+   "script_path": "conditional_contexts_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "cd676f1ec5c8a2edcfcf4f368afb21f6d4b0f604ac2b4f79c53f1dcda3a7b8e2",
+   "sidecar_sha256": "8ffdee493a60103f527accf52d5edfdf77faa2b78ce3ae7479fb2e422ff2aa7c"
+  },
+  {
+   "script_path": "conditional_contexts_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9dfcc2a83b66ba9b30063938528a7b002ca3b065da1ecaf6de29768dbe9a2798",
+   "sidecar_sha256": "b0a6d6b3c919d67ba367466a9657c1c5a6acce257f6299f5671157e3d22d28a6"
+  },
+  {
+   "script_path": "debug_identifier_safety_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 12,
+    "mapped_local_tokens": 12,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "d84c1b53c4f868f79a6f9e11f0f2354ceacae059aceba872dd3964da72eca3cf",
+   "sidecar_sha256": "c05263a5cb938b5b23e4d5bdd52fa456898c31d692a01cbe32d4b603daeee3ba"
+  },
+  {
+   "script_path": "debug_identifier_safety_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 12,
+    "mapped_local_tokens": 12,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "19305453ca336c18109ab9dcbc53d3ca1362082f628f17fc94778ccb38cedd1b",
+   "sidecar_sha256": "e32bbc99bef38f7e4ebfc7e1dc18406a469363945cc61e7a44592847d2a1367d"
+  },
+  {
+   "script_path": "debug_identifier_safety_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 12,
+    "mapped_local_tokens": 12,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "d84c1b53c4f868f79a6f9e11f0f2354ceacae059aceba872dd3964da72eca3cf",
+   "sidecar_sha256": "844dd69d1098d4275920c69ce4048db4f5aa0c108bb7a321d729abfd606fa328"
+  },
+  {
+   "script_path": "debug_identifier_safety_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 12,
+    "mapped_local_tokens": 12,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "19305453ca336c18109ab9dcbc53d3ca1362082f628f17fc94778ccb38cedd1b",
+   "sidecar_sha256": "54b6a79a4d245bf9c7d44169dfb0489e89cbcd9b65a2acffb1a92294300968c5"
+  },
+  {
+   "script_path": "debug_identifier_safety_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 14,
+    "mapped_local_tokens": 14,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9a97f481b907c2359a541cca59daafc0e58803a308b9029f5c2e379c859ea92b",
+   "sidecar_sha256": "756272b6c797e7ea04a06079346d539e4484f57a31aafc3ddf87065abc1fff6d"
+  },
+  {
+   "script_path": "debug_identifier_safety_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 14,
+    "mapped_local_tokens": 14,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "716c2531b5b16b2c8cce90796fbe1ad0e96619c8a0b7e5891868da87541684f0",
+   "sidecar_sha256": "426e99c44843bf14d9ec6b391c4919585e6a32f8634c361c5e2d74255f699f95"
+  },
+  {
+   "script_path": "debug_names_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "61405276a11757f07902b0e01d805856fa9559cc6f22b94e3207b74b6191858f",
+   "sidecar_sha256": "de6b1fe95c87d6540f78382362c806460e1cd3f04655f87ea5a4951ab20341f7"
+  },
+  {
+   "script_path": "debug_names_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2bfcba6d6e51810271f45bff3cd34fcb4c90e03e9c7fe696264e2c7abcb49020",
+   "sidecar_sha256": "71fa1cadbf849913951cad5cb4f931fbc678a3e424bc90aae3252b3a9d3a7d81"
+  },
+  {
+   "script_path": "debug_names_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "61405276a11757f07902b0e01d805856fa9559cc6f22b94e3207b74b6191858f",
+   "sidecar_sha256": "b4a31a1b253092b7d999e9cc2d209319d8a86c8be06f07a5ca4ca2d76a8cf6a9"
+  },
+  {
+   "script_path": "debug_names_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2bfcba6d6e51810271f45bff3cd34fcb4c90e03e9c7fe696264e2c7abcb49020",
+   "sidecar_sha256": "d4b2cee52a6bfc17af21f5e1f4f87d4d40f0934a8eefa98fcd20c32d15b8d96e"
+  },
+  {
+   "script_path": "debug_names_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "c1cf737c39307733f2a435dccefc988d00a6bc919fd0c91b40d69ca6fe52d9bf",
+   "sidecar_sha256": "9262dd168a145645b79f2b454415eb38f2135243be1a7b470f9a4e8f8e2412a9"
+  },
+  {
+   "script_path": "debug_names_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "03c7e0e4938e9048a821bbe430a0373826e1cdd3eeee46df39d44a2a153c1b5c",
+   "sidecar_sha256": "cf921a5ae566f5fadaa61cb06bb2bdfa06ad45d921e2d6f0798959bcc957c68c"
+  },
+  {
+   "script_path": "global_evaluation_order_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 39,
+    "mapped_local_tokens": 39,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 9,
+    "mapped_parser_bindings": 9,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "604deb2f9d5a1d00ae7d27a579fc33876243678c7e331224c52b34366c46758b",
+   "sidecar_sha256": "4c372751244ceb85d020aac3d5e148ae828f7f0994ea7c4e06c695f84ca68e41"
+  },
+  {
+   "script_path": "global_evaluation_order_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 39,
+    "mapped_local_tokens": 39,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 9,
+    "mapped_parser_bindings": 9,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "6c2316b85520e3bda75c7d6449b9ac7603463f9b9477dcce2264761824182976",
+   "sidecar_sha256": "8454e7df6b298a915979510f7db6ea02da0776a760f0aa7e466b32d1a5c9a718"
+  },
+  {
+   "script_path": "global_evaluation_order_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 49,
+    "mapped_local_tokens": 49,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 14,
+    "mapped_parser_bindings": 14,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "a64e52fdb4d325f5e0afb90dd91c19c3117d72b83948c832207ab718e9184cc2",
+   "sidecar_sha256": "5ca97887f182e82550c7db1c96deefb3433bba64f5269bb98e2aa927ea47314f"
+  },
+  {
+   "script_path": "global_evaluation_order_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 49,
+    "mapped_local_tokens": 49,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 14,
+    "mapped_parser_bindings": 14,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "a5681bc1278c724ac7de770dbac75338af85698afa265ce7397f76f1ffa8e0ee",
+   "sidecar_sha256": "998bf2f1b612575b3391ebe70a49c2e24dc99e3d70ea02d4f7e7a34329230e10"
+  },
+  {
+   "script_path": "global_evaluation_order_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 49,
+    "mapped_local_tokens": 49,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 14,
+    "mapped_parser_bindings": 14,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "a64e52fdb4d325f5e0afb90dd91c19c3117d72b83948c832207ab718e9184cc2",
+   "sidecar_sha256": "8582a81a20b79136d8c504e288ff7a060a1d4720eb95b2b3fd8ef50feff57753"
+  },
+  {
+   "script_path": "global_evaluation_order_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 49,
+    "mapped_local_tokens": 49,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 14,
+    "mapped_parser_bindings": 14,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "a5681bc1278c724ac7de770dbac75338af85698afa265ce7397f76f1ffa8e0ee",
+   "sidecar_sha256": "e4b7d53c1d713b86e9c89e496b00093a4dbcf6f0f55997be6c67acaaf51aa70a"
+  },
+  {
+   "script_path": "helper_loop_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "7a8e1054d01307bf5bf2fcba53f14adc1ccf170c4053a61e477dbf87feeb3371",
+   "sidecar_sha256": "c1e29379027691e64b509b01b2175ef7c79956dfc28725616067ab89c849e528"
+  },
+  {
+   "script_path": "helper_loop_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9e371a3c958abc0568fb36dfef076cdd29b848e1b16dcb29fb6ca0ebece48b9e",
+   "sidecar_sha256": "101f7954fd93c4f519cec49134cc5eb2f289ecdfb210b25ff939257081117671"
+  },
+  {
+   "script_path": "helper_loop_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "7a8e1054d01307bf5bf2fcba53f14adc1ccf170c4053a61e477dbf87feeb3371",
+   "sidecar_sha256": "bc6d2b08be051055334077822ec8ba87b7173a18fac2a1f7f8a540ffb3ef2772"
+  },
+  {
+   "script_path": "helper_loop_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9e371a3c958abc0568fb36dfef076cdd29b848e1b16dcb29fb6ca0ebece48b9e",
+   "sidecar_sha256": "40bba685a7a5d616caa41ee5f951b29e254c2dcd8a00a53386ee77e2f5aaf5cb"
+  },
+  {
+   "script_path": "helper_loop_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 24,
+    "mapped_local_tokens": 24,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "227c0d4857e140863b82746c87a32a5174d8e10e549203d7c9a85da714997fa7",
+   "sidecar_sha256": "3adb369abe4ccc94d72e0307b3ac214502952af3ad4abeac46033dbce24f6141"
+  },
+  {
+   "script_path": "helper_loop_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 32,
+    "mapped_local_tokens": 32,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 12,
+    "mapped_parser_bindings": 12,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "732c8532795872501ad2b4f2b0b9349f9eed594c42767765a60d78d5a6f3e3e9",
+   "sidecar_sha256": "f45bf26bb70ccdc4f1df13cdb8e73fc9ee7c8a9ec47f36c5149851afae2ab817"
+  },
+  {
+   "script_path": "literal_bytes_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 0,
+    "mapped_local_tokens": 0,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 0,
+    "mapped_parser_bindings": 0,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3f69f6aa0e9c0d5147cee3f31df0d89fdf54cfb1b9860e66bab6dc33ea2e063b",
+   "sidecar_sha256": "8a442925f59dd3b29441da93c42e9b09b2eaff995124f59f0de30f0f580cc514"
+  },
+  {
+   "script_path": "literal_bytes_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 0,
+    "mapped_local_tokens": 0,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 0,
+    "mapped_parser_bindings": 0,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3f69f6aa0e9c0d5147cee3f31df0d89fdf54cfb1b9860e66bab6dc33ea2e063b",
+   "sidecar_sha256": "9df86cfdcee3c4f08ced9729bd5873f21fe7170b60246fe5b0790697b62d858d"
+  },
+  {
+   "script_path": "literal_bytes_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 0,
+    "mapped_local_tokens": 0,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 0,
+    "mapped_parser_bindings": 0,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3f69f6aa0e9c0d5147cee3f31df0d89fdf54cfb1b9860e66bab6dc33ea2e063b",
+   "sidecar_sha256": "e25a32da22f69e0728804f63575890b67beea2930b6f0a3ede118ad5dfa789b3"
+  },
+  {
+   "script_path": "literal_bytes_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 0,
+    "mapped_local_tokens": 0,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 0,
+    "mapped_parser_bindings": 0,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3f69f6aa0e9c0d5147cee3f31df0d89fdf54cfb1b9860e66bab6dc33ea2e063b",
+   "sidecar_sha256": "a2fe029b4617e9ab7606a4f44b1a839c29d0de46c4c22005a899f0742568e499"
+  },
+  {
+   "script_path": "literal_bytes_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 0,
+    "mapped_local_tokens": 0,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 0,
+    "mapped_parser_bindings": 0,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3f69f6aa0e9c0d5147cee3f31df0d89fdf54cfb1b9860e66bab6dc33ea2e063b",
+   "sidecar_sha256": "7dcba82bef560092d226dbfdb396bee3497bf605b864c66207495081183ed5c8"
+  },
+  {
+   "script_path": "literal_bytes_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 0,
+    "mapped_local_tokens": 0,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 0,
+    "mapped_parser_bindings": 0,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3f69f6aa0e9c0d5147cee3f31df0d89fdf54cfb1b9860e66bab6dc33ea2e063b",
+   "sidecar_sha256": "7aba14b58701d7cdd1a5dca72927f240ad179bcabf3f8d4b8916834892ee26f0"
+  },
+  {
+   "script_path": "parameter_write_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 9,
+    "mapped_local_tokens": 9,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "1604bfd152cb9e02bd5375772c6f3ee3c6063e4ca869a4f12f183f9d08017a6d",
+   "sidecar_sha256": "8efa7e52851be495ccfeda519bdaa0106a346842f253e34be48c1a60580090b7"
+  },
+  {
+   "script_path": "parameter_write_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3bf1db47725df31334bbcf956e164c17d99ec16ce3e37ed041e6e2ab1e1998d4",
+   "sidecar_sha256": "02add248cbf0de500ddf0469a2ffe6cae33575ae343de278bcd9925efd2b0cb7"
+  },
+  {
+   "script_path": "parameter_write_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 9,
+    "mapped_local_tokens": 9,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "1604bfd152cb9e02bd5375772c6f3ee3c6063e4ca869a4f12f183f9d08017a6d",
+   "sidecar_sha256": "9ac3355154be093e256a8891ddf67c70d9a141726df065e159aae9f365fd324f"
+  },
+  {
+   "script_path": "parameter_write_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3bf1db47725df31334bbcf956e164c17d99ec16ce3e37ed041e6e2ab1e1998d4",
+   "sidecar_sha256": "e0427f12e03958b70c4b254511c5128297cf5d383613e189ac8b5a4385b4d18c"
+  },
+  {
+   "script_path": "parameter_write_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 7,
+    "mapped_local_tokens": 7,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 2,
+    "mapped_parser_bindings": 2,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "80a8a0ed3cc95f54351511de8a5b191c7559a6a2e22bda78ff41c0a22411ed32",
+   "sidecar_sha256": "b856834ed79b4f8185bb61a347da1ae53c716bec99827131083b785de6fcf49f"
+  },
+  {
+   "script_path": "parameter_write_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 9,
+    "mapped_local_tokens": 9,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "dd02a1e9825bec38f5488cdf36404b70fe6df917f2dd03e18a3a2b10929bd242",
+   "sidecar_sha256": "2241efca337d599793a7b50d22c9cd08134b56925e5ec82ae3b4db57ca320830"
+  },
+  {
+   "script_path": "role_results_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 18,
+    "mapped_local_tokens": 18,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "add9cfa146c2b1337bbc97405e58afc4e17ead87c6938808ee323f4477492aa3",
+   "sidecar_sha256": "8858c551ace3d01dd29f71a7c91b84751f168f5f4dd20dbe4493d9edc98bb42c"
+  },
+  {
+   "script_path": "role_results_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 10,
+    "mapped_parser_bindings": 10,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "6fc6fd318b2b352eb77b6e56fe7b1e8ac041e26330f49e4a17f06ad9925ac1af",
+   "sidecar_sha256": "bb4cedc778b8365a0a003104762280f70e79788f4c25d7662b2c58b0f482132c"
+  },
+  {
+   "script_path": "role_results_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 18,
+    "mapped_local_tokens": 18,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 8,
+    "mapped_parser_bindings": 8,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "add9cfa146c2b1337bbc97405e58afc4e17ead87c6938808ee323f4477492aa3",
+   "sidecar_sha256": "eef06b9055567f5f4383446151fc7dd3780d9e04a3a0ef596a5811bb6d69c052"
+  },
+  {
+   "script_path": "role_results_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 22,
+    "mapped_local_tokens": 22,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 10,
+    "mapped_parser_bindings": 10,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "6fc6fd318b2b352eb77b6e56fe7b1e8ac041e26330f49e4a17f06ad9925ac1af",
+   "sidecar_sha256": "c8b542cf7400c066e3ea2676a6856687ea3ce8fca22737353b519f1419169b98"
+  },
+  {
+   "script_path": "role_results_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 10,
+    "mapped_local_tokens": 10,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "303b586ee4f6c9db63a697901df4d3c4f33a0432f3ca9df014028f2b45cd3662",
+   "sidecar_sha256": "623a591f4088bc0adf9276bfbd691d1328495615dd35cceb1aef5efc11fb0d35"
+  },
+  {
+   "script_path": "role_results_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 30,
+    "mapped_local_tokens": 30,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 14,
+    "mapped_parser_bindings": 14,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "bca6f8e325cdc98b95368839f6855c774e99a548883ab90c803f5762240be57d",
+   "sidecar_sha256": "37840e487aca8153a5baf6f1984842061a6b5760db4c13dd1b22d6e8f665160b"
+  },
+  {
+   "script_path": "scope_names_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "ecae2bb0f04879509f7d77d42b30eafd7e18c2ba7679c30ec1a8f394034516a9",
+   "sidecar_sha256": "16f6bdd32727d92f0def63b8d18c6a6c262a117d4695fc4e9510d515867efb36"
+  },
+  {
+   "script_path": "scope_names_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "73d0bfa7228ba9d309fe12977e93171526d851f2e13244b55fc426bb13a3f71f",
+   "sidecar_sha256": "0f7a163cf810ff192d6cf20ce9619ec3add2c6efc49842807048aa81f70757a1"
+  },
+  {
+   "script_path": "scope_names_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "ecae2bb0f04879509f7d77d42b30eafd7e18c2ba7679c30ec1a8f394034516a9",
+   "sidecar_sha256": "d2a386e262e944e42144099a2cd2b3e9ef43dfe278a2a24407a253b717c342ad"
+  },
+  {
+   "script_path": "scope_names_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "73d0bfa7228ba9d309fe12977e93171526d851f2e13244b55fc426bb13a3f71f",
+   "sidecar_sha256": "d0954634cea21bc082b3c0e5efe31f829b0b848ed80f69a47803aee5cc2d64d0"
+  },
+  {
+   "script_path": "scope_names_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "ecae2bb0f04879509f7d77d42b30eafd7e18c2ba7679c30ec1a8f394034516a9",
+   "sidecar_sha256": "fda64327e72b46871a104f94954263f8f3c431e4e8e6753997fc4a9932ba4f9d"
+  },
+  {
+   "script_path": "scope_names_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 7,
+    "mapped_parser_bindings": 7,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "73d0bfa7228ba9d309fe12977e93171526d851f2e13244b55fc426bb13a3f71f",
+   "sidecar_sha256": "2ddf9ae4643a8f0fd80070356f2f24d0d0c9a8ccc83cf4dc8909e117b3f7b66c"
+  },
+  {
+   "script_path": "shadow_capture_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2d7154cdb35f740844af992f7fb761f3bc8f80b988f17d9aef1db9170f682532",
+   "sidecar_sha256": "cf1a58cc99664c1fb73aae0038615882ca502adae107983c23701235f09dee12"
+  },
+  {
+   "script_path": "shadow_capture_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "c4aad39e830379bdb3b2a6b5e4f2663d62c00443e5803edc545aa32423b23e3e",
+   "sidecar_sha256": "5078eef605a70a345b3f365c438bb2e3da9f7e9b3801761b83f366a4cfaf330d"
+  },
+  {
+   "script_path": "shadow_capture_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2d7154cdb35f740844af992f7fb761f3bc8f80b988f17d9aef1db9170f682532",
+   "sidecar_sha256": "d0ab186e7ecdb32c773634c7c8b3fbb55bc6502e3146cb78102d25058484b554"
+  },
+  {
+   "script_path": "shadow_capture_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "c4aad39e830379bdb3b2a6b5e4f2663d62c00443e5803edc545aa32423b23e3e",
+   "sidecar_sha256": "3a5373dab14eca47e9ce5a832092b4e995f43632b10a0d36d8470d085549d390"
+  },
+  {
+   "script_path": "shadow_capture_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2d7154cdb35f740844af992f7fb761f3bc8f80b988f17d9aef1db9170f682532",
+   "sidecar_sha256": "9216e6e5927e23b30273be1bcc29df788ba1fc29acdf6809d2a4b6e1bc650846"
+  },
+  {
+   "script_path": "shadow_capture_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "c4aad39e830379bdb3b2a6b5e4f2663d62c00443e5803edc545aa32423b23e3e",
+   "sidecar_sha256": "b0c7456265369a7e070c10241be1cd0d91026590054a568d1cfaf6c9abb62cac"
+  },
+  {
+   "script_path": "sum_helper_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "045aaffeea5a4a613d8632a361235b09ebf17c86626b818e017a00734042d587",
+   "sidecar_sha256": "735c4fc8ed87222165f9c86542fe04f14b257957ee44442b9defc0c0252816b2"
+  },
+  {
+   "script_path": "sum_helper_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2ec5a3f22c7009f1efb35f8726a49c71d86a4ee711dc49ec4ee65b1ecc677379",
+   "sidecar_sha256": "9d4eeec620fcb0f7664d553dec0c48ddfd75e7b3e57c16ffad238d118ce7add2"
+  },
+  {
+   "script_path": "sum_helper_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "045aaffeea5a4a613d8632a361235b09ebf17c86626b818e017a00734042d587",
+   "sidecar_sha256": "11b5424dcee647681e99dc52743842dfa235a815f35afa381cd2309c80b46d6e"
+  },
+  {
+   "script_path": "sum_helper_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "2ec5a3f22c7009f1efb35f8726a49c71d86a4ee711dc49ec4ee65b1ecc677379",
+   "sidecar_sha256": "6eaf755f6450c7e44b62d7f9dbb40b0c18ae3a44ab3dfa9552a051156a332476"
+  },
+  {
+   "script_path": "sum_helper_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 11,
+    "mapped_local_tokens": 11,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3921a8dbe2aadb8fbbc43a5d688da765bb2b3c831363596af439ccdbb1da7853",
+   "sidecar_sha256": "adcc1cb37f7669aa57bced026f0ef717f2df0de2071157e3005dd9ee471b77db"
+  },
+  {
+   "script_path": "sum_helper_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 5,
+    "mapped_parser_bindings": 5,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "c7a7f4ced0142184b33d95012bfb5f75af6e0e3d2888f609a02c4bb118f8e68c",
+   "sidecar_sha256": "e335c445d28709c13f44b7fbe700eda0083baa80ebad36ba23b0bb83fc6b0041"
+  },
+  {
+   "script_path": "ui_builder_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "fb35141eb28f5f0b49bf07de503b99c3efa86ff87bf24b988fb5432eb06825bb",
+   "sidecar_sha256": "1e5d1b0da5288c57e4a92d9bf7bc338933eefd4e06f9b73db7530dd8e32c3f52"
+  },
+  {
+   "script_path": "ui_builder_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "c7cd177f9dc060988aff92a9f7b5d4af95aa2e9d24759df713e9c598c8f53332",
+   "sidecar_sha256": "f5aa573d8333d347bca39843a860ea1c9aa8ac721130028f77a7603472038caa"
+  },
+  {
+   "script_path": "ui_builder_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "fb35141eb28f5f0b49bf07de503b99c3efa86ff87bf24b988fb5432eb06825bb",
+   "sidecar_sha256": "43adbae4b279be875205718627dc54b12faaf75dfccdbc2e70f3a4118e228fd6"
+  },
+  {
+   "script_path": "ui_builder_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "c7cd177f9dc060988aff92a9f7b5d4af95aa2e9d24759df713e9c598c8f53332",
+   "sidecar_sha256": "acad0b8bfe439cea8997774aaf583c3e34c1acfaed5896b72deb38ad3f41f5f5"
+  },
+  {
+   "script_path": "ui_builder_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "fb35141eb28f5f0b49bf07de503b99c3efa86ff87bf24b988fb5432eb06825bb",
+   "sidecar_sha256": "a33103ff001aa84ba3a2cd3fa5411d0b0abee60cf78910baea794d8d54ed2bf1"
+  },
+  {
+   "script_path": "ui_builder_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "c7cd177f9dc060988aff92a9f7b5d4af95aa2e9d24759df713e9c598c8f53332",
+   "sidecar_sha256": "2de73ec66d6d9960325e1616408af35f6483f4ae6d79124c854342bcfca9185a"
+  },
+  {
+   "script_path": "unrolled_capture_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9d7f808e637df8604cb0945454362497644dbcdda3768d4961d6bb2b54b2d6cb",
+   "sidecar_sha256": "4e46c33c3ef2c74effecd3c207334caf418151f99f23bafb8da08967c3139cfd"
+  },
+  {
+   "script_path": "unrolled_capture_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "959408ea97617900230617af4c5d2dcc3506d0fc32478b68b43075313ebe515a",
+   "sidecar_sha256": "8c3381638847b4b66c25a22969b56ac653c79ef8c59308dc6cdadbdbe20054e9"
+  },
+  {
+   "script_path": "unrolled_capture_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9d7f808e637df8604cb0945454362497644dbcdda3768d4961d6bb2b54b2d6cb",
+   "sidecar_sha256": "4e2a49525f1af707be64be3bba98df2fca28999c29aa7c29f9972a7d1518aa76"
+  },
+  {
+   "script_path": "unrolled_capture_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "959408ea97617900230617af4c5d2dcc3506d0fc32478b68b43075313ebe515a",
+   "sidecar_sha256": "0f1cf0ac26700223a7a5315c28d6f9c3843b77a11bf486bad5c599f506d9fb68"
+  },
+  {
+   "script_path": "unrolled_capture_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "9d7f808e637df8604cb0945454362497644dbcdda3768d4961d6bb2b54b2d6cb",
+   "sidecar_sha256": "3aa6894564dc0a49f39872b078e938bc1f53b0cd0c6c75910f497a7b1092c258"
+  },
+  {
+   "script_path": "unrolled_capture_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 13,
+    "mapped_local_tokens": 13,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 4,
+    "mapped_parser_bindings": 4,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "959408ea97617900230617af4c5d2dcc3506d0fc32478b68b43075313ebe515a",
+   "sidecar_sha256": "bda6edd53a1f2b4509ee5ec4f6816bb13a4f5de2ef596a8b2eebdcd3a726bb77"
+  },
+  {
+   "script_path": "unrolled_effects_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 7,
+    "mapped_local_tokens": 7,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "512766b8524b154587c7a397c3541f162cd5a46d47e9eaa9afb2b1c5cec02bf2",
+   "sidecar_sha256": "2568995dbe2679476a2392d90578e0076b2733e59a83cbbd5748039a4bf4784c"
+  },
+  {
+   "script_path": "unrolled_effects_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 7,
+    "mapped_local_tokens": 7,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "7ffd067f59773a848312077cd020d5d217e4b38028309d26cd5741fc9ca625ce",
+   "sidecar_sha256": "b52d191e0edb8e8c35d658ca54421eac8c5a7d2c7b0ba88a20a38a72616471aa"
+  },
+  {
+   "script_path": "unrolled_effects_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 7,
+    "mapped_local_tokens": 7,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "512766b8524b154587c7a397c3541f162cd5a46d47e9eaa9afb2b1c5cec02bf2",
+   "sidecar_sha256": "951a3b52161754dffd3712e76b70b1f0700a28edad5786dcb14235e262eb827c"
+  },
+  {
+   "script_path": "unrolled_effects_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 7,
+    "mapped_local_tokens": 7,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 3,
+    "mapped_parser_bindings": 3,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "7ffd067f59773a848312077cd020d5d217e4b38028309d26cd5741fc9ca625ce",
+   "sidecar_sha256": "bb7891826900be16d37f0d75c43498e60b85aa23533ff0c2fcc011c99f112e7e"
+  },
+  {
+   "script_path": "unrolled_effects_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 5,
+    "mapped_local_tokens": 5,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 1,
+    "mapped_parser_bindings": 1,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "cb2b1df59b2cb5339bab08c39c74ab067eaf1dfa59d985a135577889ed24084f",
+   "sidecar_sha256": "a6b2dd949487ab588762de924340b0128ec8b7f00e3e33f98208f3a7c590d72e"
+  },
+  {
+   "script_path": "unrolled_effects_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 15,
+    "mapped_local_tokens": 15,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "3428400f7c130be25c3b120eb0ff58ac0b735eb2e9204e56ac1d2e7a2361eafd",
+   "sidecar_sha256": "f2961c3922f0cbfd4793ce9a05b5b04ae1456c62d64cfa3b8f2c5fd1429182fa"
+  },
+  {
+   "script_path": "wide_layout_O0_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 9,
+    "mapped_local_tokens": 9,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 2,
+    "mapped_parser_bindings": 2,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "e61c3218e1aef2dfa1d89562c37c8c2c620a93d862be015e52debf6d90c43a85",
+   "sidecar_sha256": "e1c2f9a419ad3e8c602da70dad8926e6d11b3cd67d3e05d1d38316d7ff817d96"
+  },
+  {
+   "script_path": "wide_layout_O0_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "ec56fb8227e1dc57a848992c66cadac2a95ec2e08005c4f3a4e3ac157dda0dc9",
+   "sidecar_sha256": "636af6b1203faa63cc14651ead0f7199dbe26314d73f1750fe77cad27b1e4631"
+  },
+  {
+   "script_path": "wide_layout_O1_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 9,
+    "mapped_local_tokens": 9,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 2,
+    "mapped_parser_bindings": 2,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "e61c3218e1aef2dfa1d89562c37c8c2c620a93d862be015e52debf6d90c43a85",
+   "sidecar_sha256": "fdfc7ccde51668f889d86de2ccdf704bade3b599cfeb6124735595146719419d"
+  },
+  {
+   "script_path": "wide_layout_O1_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "ec56fb8227e1dc57a848992c66cadac2a95ec2e08005c4f3a4e3ac157dda0dc9",
+   "sidecar_sha256": "1254d63488508b036ae518827393dc20f8d60d4773804237377f7d2a240ebb58"
+  },
+  {
+   "script_path": "wide_layout_O2_g1.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 9,
+    "mapped_local_tokens": 9,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 2,
+    "mapped_parser_bindings": 2,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "e61c3218e1aef2dfa1d89562c37c8c2c620a93d862be015e52debf6d90c43a85",
+   "sidecar_sha256": "f4d8f2b5527a8677caa14be1d8c683b9e3706c2149ba5439940726829faeaa35"
+  },
+  {
+   "script_path": "wide_layout_O2_g2.lua",
+   "status": "passed",
+   "errors": [],
+   "summary": {
+    "parser_local_tokens": 17,
+    "mapped_local_tokens": 17,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 6,
+    "mapped_parser_bindings": 6,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "source_sha256": "ec56fb8227e1dc57a848992c66cadac2a95ec2e08005c4f3a4e3ac157dda0dc9",
+   "sidecar_sha256": "5f29d1d08fa452bb5ac725e86d0fc059059d42effcf3c0edad46a351fe8c6626"
+  }
+ ],
+ "contract": "Exact source token locations are resolved by the pinned parser to declaration identities. All mapped occurrences of a parser binding must have the same final IR ID. Separate lexical declarations may reuse an IR storage ID and are counted explicitly. Missing occurrences require an opaque region or an exhausted output-map budget. This is not a value/PC equivalence proof."
+}

@@ -165,6 +165,7 @@ jobs:
           python3 scripts/provenance_fixtures.py \
             --fixtures-report "$RUNNER_TEMP/roadmap-v2.json" \
             --lifter target/release/luau-lifter \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --report "$RUNNER_TEMP/roadmap-v2-lineage.json" \
             --keep "$RUNNER_TEMP/roadmap-v2-lineage"
 
@@ -215,6 +216,15 @@ jobs:
             --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --report "$RUNNER_TEMP/roadmap-v2-module-public.json"
 
+      - name: V2 public binding locations and lineage determinism
+        run: |
+          python3 scripts/provenance_fixtures.py \
+            --public-report "$RUNNER_TEMP/roadmap-v2-public.json" \
+            --lifter target/release/luau-lifter \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --report "$RUNNER_TEMP/roadmap-v2-public-lineage.json" \
+            --keep "$RUNNER_TEMP/roadmap-v2-public-lineage"
+
       # Bytecode round-trip oracle: decompile -> recompile with the pinned
       # compiler -> compare normalised prototypes with the original bytecode.
       # Gated against the committed baselines: no fixture may regress in
@@ -251,6 +261,7 @@ jobs:
             ${{ runner.temp }}/output-size.json
             ${{ runner.temp }}/roadmap-v2.json
             ${{ runner.temp }}/roadmap-v2-lineage.json
+            ${{ runner.temp }}/roadmap-v2-public-lineage.json
             ${{ runner.temp }}/roadmap-v2-formatter-controls.json
             ${{ runner.temp }}/roadmap-v2-profile.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau

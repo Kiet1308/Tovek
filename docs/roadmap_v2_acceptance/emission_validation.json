@@ -1,0 +1,153 @@
+{
+ "schema_version": 1,
+ "binary_sha256": "57cd061ca06689f09875ae9cf6ba2b852256f45e6044b4d613938da811dadeb5",
+ "before_binary_sha256": "0e035990176a72acdfd3ba8a40aabf1d48cac55f2dce30e40256fd03d7042115",
+ "primary_rust_tests": 930,
+ "rust_child_repeat": 1,
+ "python_tests": 72,
+ "diagnostics": {
+  "runtime": {
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 0.6967579999982263
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 0.9398182000004454
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 0.5255257999997411
+    }
+   ],
+   "metadata_deterministic_threads_1_4": true,
+   "trace_summary": {
+    "scripts": 138,
+    "source_files": 138,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 138
+    },
+    "annotation_spans": 6,
+    "bindings_without_identifier_tokens": 0,
+    "conditional_result_records": 145,
+    "definitions": 4304,
+    "definitions_with_final_binding_ancestry": 2306,
+    "dropped_records": 0,
+    "final_bindings": 793,
+    "functions": 428,
+    "identifier_spans": 2271,
+    "incomplete_lineages": 0,
+    "lifted_statements": 3564,
+    "omitted_output_occurrences": 0,
+    "opaque_output_regions": 0,
+    "statements_with_pc": 3564,
+    "unlocated_final_bindings": 0
+   },
+   "parser_summary": {
+    "scripts": 138,
+    "status": {
+     "passed": 138
+    },
+    "parser_local_tokens": 2271,
+    "mapped_local_tokens": 2271,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 793,
+    "mapped_parser_bindings": 793,
+    "storage_ids_with_multiple_parser_bindings": 0
+   }
+  },
+  "public": {
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 5.346943500000634
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 13.413184199998796
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 1.5450748000002932
+    }
+   ],
+   "metadata_deterministic_threads_1_4": true,
+   "trace_summary": {
+    "scripts": 513,
+    "source_files": 513,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 513
+    },
+    "annotation_spans": 36,
+    "bindings_without_identifier_tokens": 21,
+    "conditional_result_records": 3542,
+    "definitions": 97176,
+    "definitions_with_final_binding_ancestry": 47092,
+    "dropped_records": 0,
+    "final_bindings": 13270,
+    "functions": 3961,
+    "identifier_spans": 45617,
+    "incomplete_lineages": 0,
+    "lifted_statements": 77329,
+    "omitted_output_occurrences": 0,
+    "opaque_output_regions": 150,
+    "statements_with_pc": 77329,
+    "unlocated_final_bindings": 66
+   },
+   "parser_summary": {
+    "scripts": 513,
+    "status": {
+     "passed": 513
+    },
+    "parser_local_tokens": 45868,
+    "mapped_local_tokens": 45617,
+    "opaque_local_tokens": 251,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 13252,
+    "mapped_parser_bindings": 13252,
+    "storage_ids_with_multiple_parser_bindings": 3
+   }
+  }
+ },
+ "unchanged_sources": {
+  "private": 3978,
+  "public": 513,
+  "runtime": 138
+ },
+ "private_source_only_and_trace_tree": "68cae39414eb8a45d762f976137873a75aa55b925c8180d4103594c08c69",
+ "legacy_semantic_configurations": 45,
+ "size_gates": 52,
+ "limitations": [
+  "Binding token positions are exact; PC sets describe storage ancestors, not unique value-producing instructions.",
+  "Interpolation sub-rendering and display fallbacks retain explicit opaque regions; no lost token is silently claimed mapped.",
+  "One final IR storage ID may map to multiple lexical declarations. These are counted separately.",
+  "Annotation text is emitter metadata with unknown instruction origin, not independently proved source reconstruction."
+ ],
+ "rust_log_sha256": "a706b0c900498d3f89c22c7e47eaf255bd84eecdafcac8e12668bf07d93e34e0",
+ "python_log_sha256": "52040b958f372c057ed9196cff37d0aed0bd8718920997153d5b4cde1ea9f1a5",
+ "semantic_log_sha256": "b3491c741a26d7dc2bf1b0e93271ae99bd552a2764170946cf298c32a8ae061b",
+ "reports": {
+  "docs/roadmap_v2_acceptance/emission_benchmark.json": "7b227186a0492adc0c35fa04e33219b378f5d6730c031a6c7c95c591d19941a4",
+  "docs/roadmap_v2_acceptance/emission_corpus_map.json": "4ba81ed1628beb24ea9d1145b26b7c5b1cde3470475744c4b62fe9d0e4e1d8f1",
+  "docs/roadmap_v2_acceptance/emission_example.json": "161dffb694b8826b85fb49c84b9b9e09d79ba2736e40a996119e05da966ccee2",
+  "docs/roadmap_v2_acceptance/emission_prior_public.json": "868a0a8832c963012fdf7401e6ed2e64ed4d516ec3994ccca4733b19a641d16d",
+  "docs/roadmap_v2_acceptance/emission_prior_runtime.json": "ef8cf39350611b1baf59154399a7648c4e8e087409e01c09ab9ee2cbe9492f81",
+  "docs/roadmap_v2_acceptance/emission_public.json": "ad8eef52cc5f230ce63261adc8f992cc3b9bb386be217a37d063abe660d2bf87",
+  "docs/roadmap_v2_acceptance/emission_public_map.json": "d3b32e62b7101f33a389226af09562b9dcc66dd50ea0cbdb7c31896e4b2e72b9",
+  "docs/roadmap_v2_acceptance/emission_runtime.json": "bfbabc0103fdaa5956f2aa8f0b2d97d814bd4c848e78ac29a3406ce05d89e9a4",
+  "docs/roadmap_v2_acceptance/emission_runtime_map.json": "8bafde2bb02fa0232639f155cd4b6365f33bba11e25881175336f88ed9f86b1a",
+  "docs/roadmap_v2_acceptance/emission_size.json": "18a6f7fefeefa2075a8c49ca6e2bc61be1d627f70357b2250f3858df01a4eefb"
+ }
+}

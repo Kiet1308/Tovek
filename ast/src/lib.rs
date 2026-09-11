@@ -21,6 +21,7 @@ mod closure;
 mod r#continue;
 mod r#for;
 pub mod formatter;
+pub mod emission_map;
 mod global;
 mod goto;
 mod r#if;

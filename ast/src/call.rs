@@ -70,6 +70,7 @@ impl fmt::Display for Call {
             colon_method_calls: Vec::new(),
             position_query: None,
             closure_observer: None,
+            emission_map: None,
             layout_budget: None,
         }
         .format_call(self)
@@ -138,6 +139,7 @@ impl fmt::Display for MethodCall {
             colon_method_calls: Vec::new(),
             position_query: None,
             closure_observer: None,
+            emission_map: None,
             layout_budget: None,
         }
         .format_method_call(self)
