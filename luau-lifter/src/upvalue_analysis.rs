@@ -4,7 +4,8 @@
 //! merge, materialize, or synthesize locals and closures, but they must never be
 //! asked to reconstruct the ordered VM slots or raw VAL/REF/UPVAL capture chain.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashSet};
 
 use crate::{
@@ -13,16 +14,16 @@ use crate::{
     op_code::OpCode,
 };
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AnalysisStatus {
     Complete,
     Partial,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AnalysisDiagnostic {
-    pub code: &'static str,
+    pub code: Cow<'static, str>,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proto_id: Option<usize>,
@@ -30,14 +31,14 @@ pub struct AnalysisDiagnostic {
     pub pc: Option<usize>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UpvalueAccessKind {
     Read,
     Write,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct UpvalueAccess {
     pub slot_zero_based: usize,
     pub pc_zero_based: usize,
@@ -46,7 +47,7 @@ pub struct UpvalueAccess {
     pub kind: UpvalueAccessKind,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ClosureConstructor {
     #[serde(rename = "NEWCLOSURE")]
     NewClosure,
@@ -54,7 +55,7 @@ pub enum ClosureConstructor {
     DupClosure,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum CaptureKind {
     #[serde(rename = "VAL")]
     Value,
@@ -66,7 +67,7 @@ pub enum CaptureKind {
     Unknown,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RawCapture {
     pub target_slot_zero_based: usize,
     pub ordinal_one_based: usize,
@@ -80,13 +81,13 @@ pub struct RawCapture {
     pub source_local_lifetime: Option<PcRange>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PcRange {
     pub start_pc_inclusive: usize,
     pub end_pc_exclusive: usize,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ClosureSiteAnalysis {
     pub site_id: String,
     pub parent_proto_id: usize,
@@ -99,7 +100,7 @@ pub struct ClosureSiteAnalysis {
     pub diagnostics: Vec<AnalysisDiagnostic>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PrototypeAnalysis {
     pub proto_id: usize,
     pub line_defined: usize,
@@ -113,7 +114,7 @@ pub struct PrototypeAnalysis {
     pub diagnostics: Vec<AnalysisDiagnostic>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RawUpvalueAnalysis {
     pub bytecode_version: u8,
     pub main_proto_id: usize,
@@ -123,7 +124,7 @@ pub struct RawUpvalueAnalysis {
     pub diagnostics: Vec<AnalysisDiagnostic>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct StaticFunctionOccurrence {
     pub function_id: String,
     pub proto_id: usize,
@@ -137,7 +138,7 @@ pub struct StaticFunctionOccurrence {
     pub child_function_ids: Vec<String>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NameProvenance {
     DebugUpvalue,
@@ -146,7 +147,7 @@ pub enum NameProvenance {
     Fallback,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NameConfidence {
     Exact,
@@ -155,14 +156,14 @@ pub enum NameConfidence {
     Low,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ResolvedName {
     pub text: String,
     pub provenance: NameProvenance,
     pub confidence: NameConfidence,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct UpvalueSlotAnalysis {
     pub slot_binding_id: String,
     pub slot_zero_based: usize,
@@ -186,20 +187,20 @@ pub struct UpvalueSlotAnalysis {
     pub diagnostics: Vec<AnalysisDiagnostic>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct BindingReference {
     pub binding_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EmittedBindingReference {
     pub occurrence_id: String,
     pub binding: BindingReference,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CaptureChainStep {
     pub function_id: String,
     pub slot_zero_based: usize,
@@ -211,7 +212,7 @@ pub struct CaptureChainStep {
     pub source_binding: Option<BindingReference>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FunctionUpvalueAnalysis {
     pub function_id: String,
     pub proto_id: usize,
@@ -233,20 +234,20 @@ pub struct FunctionUpvalueAnalysis {
     pub diagnostics: Vec<AnalysisDiagnostic>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct DecompiledPosition {
     pub byte_offset: usize,
     pub line_one_based: usize,
     pub column_one_based: usize,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct DecompiledSpan {
     pub start: DecompiledPosition,
     pub end: DecompiledPosition,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EmittedOccurrence {
     pub occurrence_id: String,
     pub syntax_kind: EmittedSyntaxKind,
@@ -258,7 +259,7 @@ pub struct EmittedOccurrence {
     pub span: DecompiledSpan,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EmittedSyntaxKind {
     ScriptRoot,
@@ -269,7 +270,7 @@ pub enum EmittedSyntaxKind {
     MethodFunction,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ScriptUpvalueAnalysis {
     pub schema_version: u32,
     pub bytecode_version: u8,
@@ -413,7 +414,7 @@ pub(crate) fn reconcile_bindings(
             }
             if linked_sets.is_some_and(|sets| !binding_sets_equivalent(sets)) {
                 function_diagnostics.push(AnalysisDiagnostic {
-                    code: "inconsistent_linked_bindings",
+                    code: "inconsistent_linked_bindings".into(),
                     message: "multiple AST instances of this static closure resolved to different source bindings"
                         .to_string(),
                     proto_id: Some(function.proto_id),
@@ -425,7 +426,7 @@ pub(crate) fn reconcile_bindings(
                     .any(|bindings| bindings.len() != prototype.upvalue_count)
             }) {
                 function_diagnostics.push(AnalysisDiagnostic {
-                    code: "linked_binding_count_mismatch",
+                    code: "linked_binding_count_mismatch".into(),
                     message: format!(
                         "one or more linked AST instances have a binding count different from the prototype's {} upvalue slots",
                         prototype.upvalue_count
@@ -438,7 +439,7 @@ pub(crate) fn reconcile_bindings(
                 && emitted.is_some_and(|bindings| bindings.len() != occurrences.len())
             {
                 function_diagnostics.push(AnalysisDiagnostic {
-                    code: "emitted_binding_occurrence_mismatch",
+                    code: "emitted_binding_occurrence_mismatch".into(),
                     message: format!(
                         "recorded {} emitted binding sets for {} source occurrences",
                         emitted.map_or(0, Vec::len),
@@ -453,7 +454,7 @@ pub(crate) fn reconcile_bindings(
                     .any(|bindings| bindings.len() != prototype.upvalue_count)
             }) {
                 function_diagnostics.push(AnalysisDiagnostic {
-                    code: "emitted_binding_count_mismatch",
+                    code: "emitted_binding_count_mismatch".into(),
                     message: format!(
                         "one or more emitted occurrences have a binding count different from the prototype's {} upvalue slots",
                         prototype.upvalue_count
@@ -528,7 +529,7 @@ pub(crate) fn reconcile_bindings(
                     }
                     if function.parent_function_id.is_some() && capture.is_none() {
                         diagnostics.push(AnalysisDiagnostic {
-                            code: "missing_capture_for_slot",
+                            code: "missing_capture_for_slot".into(),
                             message: format!(
                                 "no valid capture maps child upvalue slot {slot} at this closure site"
                             ),
@@ -540,7 +541,7 @@ pub(crate) fn reconcile_bindings(
                         sets.iter().any(|bindings| bindings.get(slot).is_none())
                     }) {
                         diagnostics.push(AnalysisDiagnostic {
-                            code: "missing_emitted_binding_for_slot",
+                            code: "missing_emitted_binding_for_slot".into(),
                             message: format!(
                                 "at least one emitted occurrence has no final binding for upvalue slot {slot}"
                             ),
@@ -962,7 +963,7 @@ impl RawUpvalueAnalysis {
 
         if chunk.main >= chunk.functions.len() {
             diagnostics.push(AnalysisDiagnostic {
-                code: "invalid_main_proto",
+                code: "invalid_main_proto".into(),
                 message: format!(
                     "main prototype {} is outside the {}-prototype chunk",
                     chunk.main,
@@ -1085,7 +1086,7 @@ fn analyze_prototype(chunk: &Chunk, proto_id: usize, function: &Function) -> Pro
         ) && !claimed_captures[pc]
         {
             diagnostics.push(AnalysisDiagnostic {
-                code: "orphan_capture",
+                code: "orphan_capture".into(),
                 message: "CAPTURE is not claimed by a preceding closure constructor".to_string(),
                 proto_id: Some(proto_id),
                 pc: Some(pc),
@@ -1127,7 +1128,7 @@ fn record_access(
 ) {
     if slot >= function.num_upvalues as usize {
         diagnostics.push(AnalysisDiagnostic {
-            code: "invalid_upvalue_slot",
+            code: "invalid_upvalue_slot".into(),
             message: format!(
                 "{kind:?} references upvalue slot {slot}, but the prototype has {} slots",
                 function.num_upvalues
@@ -1160,7 +1161,7 @@ fn analyze_closure_site(
         Some(child_proto_id) if child_proto_id < chunk.functions.len() => Some(child_proto_id),
         _ => {
             diagnostics.push(AnalysisDiagnostic {
-                code: "invalid_child_proto",
+                code: "invalid_child_proto".into(),
                 message: format!(
                     "{constructor:?} operand {operand} does not resolve to a valid child prototype"
                 ),
@@ -1180,7 +1181,7 @@ fn analyze_closure_site(
         let capture_pc = pc + 1 + target_slot;
         let Some(instruction) = parent.instructions.get(capture_pc) else {
             diagnostics.push(AnalysisDiagnostic {
-                code: "missing_capture",
+                code: "missing_capture".into(),
                 message: format!(
                     "closure for proto {:?} expects {expected} captures, but slot {target_slot} is missing",
                     child_proto_id
@@ -1198,7 +1199,7 @@ fn analyze_closure_site(
         } = *instruction
         else {
             diagnostics.push(AnalysisDiagnostic {
-                code: "missing_capture",
+                code: "missing_capture".into(),
                 message: format!(
                     "closure for proto {:?} expected CAPTURE for slot {target_slot}, found {instruction:?}",
                     child_proto_id
@@ -1216,7 +1217,7 @@ fn analyze_closure_site(
             2 => CaptureKind::ParentUpvalue,
             _ => {
                 diagnostics.push(AnalysisDiagnostic {
-                    code: "unknown_capture_kind",
+                    code: "unknown_capture_kind".into(),
                     message: format!("CAPTURE kind {a} is not supported"),
                     proto_id: Some(parent_proto_id),
                     pc: Some(capture_pc),
@@ -1226,7 +1227,7 @@ fn analyze_closure_site(
         };
         if constructor == ClosureConstructor::DupClosure && kind == CaptureKind::Reference {
             diagnostics.push(AnalysisDiagnostic {
-                code: "invalid_dupclosure_ref_capture",
+                code: "invalid_dupclosure_ref_capture".into(),
                 message: "DUPCLOSURE cannot use a REF capture; only VAL and UPVAL are valid"
                     .to_string(),
                 proto_id: Some(parent_proto_id),
@@ -1239,7 +1240,7 @@ fn analyze_closure_site(
                 if source >= parent.max_stack_size as usize =>
             {
                 diagnostics.push(AnalysisDiagnostic {
-                    code: "invalid_capture_register",
+                    code: "invalid_capture_register".into(),
                     message: format!(
                         "CAPTURE {kind:?} uses register {source}, but max stack size is {}",
                         parent.max_stack_size
@@ -1250,7 +1251,7 @@ fn analyze_closure_site(
             }
             CaptureKind::ParentUpvalue if source >= parent.num_upvalues as usize => {
                 diagnostics.push(AnalysisDiagnostic {
-                    code: "invalid_parent_upvalue_slot",
+                    code: "invalid_parent_upvalue_slot".into(),
                     message: format!(
                         "CAPTURE UPVAL forwards parent slot {source}, but the parent has {} slots",
                         parent.num_upvalues
@@ -1285,7 +1286,7 @@ fn analyze_closure_site(
     ) {
         claimed_captures[extra_pc] = true;
         diagnostics.push(AnalysisDiagnostic {
-            code: "extra_capture",
+            code: "extra_capture".into(),
             message: format!(
                 "closure for proto {:?} has an unexpected CAPTURE after its {expected} slots",
                 child_proto_id
@@ -1322,7 +1323,7 @@ fn validate_debug_metadata(
         && function.debug_upvalue_name_indices.len() != function.num_upvalues as usize
     {
         diagnostics.push(AnalysisDiagnostic {
-            code: "debug_upvalue_count_mismatch",
+            code: "debug_upvalue_count_mismatch".into(),
             message: format!(
                 "debug metadata has {} upvalue names, but the prototype has {} slots",
                 function.debug_upvalue_name_indices.len(),
@@ -1336,7 +1337,7 @@ fn validate_debug_metadata(
     let valid_name_index = |index: usize| index == 0 || index <= chunk.string_table.len();
     if !valid_name_index(function.function_name) {
         diagnostics.push(AnalysisDiagnostic {
-            code: "invalid_debug_function_name",
+            code: "invalid_debug_function_name".into(),
             message: format!(
                 "function name index {} is outside the {}-entry string table",
                 function.function_name,
@@ -1350,7 +1351,7 @@ fn validate_debug_metadata(
     for (slot, &name_index) in function.debug_upvalue_name_indices.iter().enumerate() {
         if !valid_name_index(name_index) {
             diagnostics.push(AnalysisDiagnostic {
-                code: "invalid_debug_upvalue_name",
+                code: "invalid_debug_upvalue_name".into(),
                 message: format!(
                     "debug name index {name_index} for upvalue slot {slot} is outside the {}-entry string table",
                     chunk.string_table.len()
@@ -1364,7 +1365,7 @@ fn validate_debug_metadata(
     for local in &function.debug_locals {
         if !valid_name_index(local.name_index) {
             diagnostics.push(AnalysisDiagnostic {
-                code: "invalid_debug_local_name",
+                code: "invalid_debug_local_name".into(),
                 message: format!(
                     "debug local name index {} is outside the {}-entry string table",
                     local.name_index,
@@ -1376,7 +1377,7 @@ fn validate_debug_metadata(
         }
         if local.register >= function.max_stack_size {
             diagnostics.push(AnalysisDiagnostic {
-                code: "invalid_debug_local_register",
+                code: "invalid_debug_local_register".into(),
                 message: format!(
                     "debug local uses register {}, but max stack size is {}",
                     local.register, function.max_stack_size
@@ -1390,7 +1391,7 @@ fn validate_debug_metadata(
             || (local.start_pc == local.end_pc && local.start_pc >= function.instructions.len())
         {
             diagnostics.push(AnalysisDiagnostic {
-                code: "invalid_debug_local_lifetime",
+                code: "invalid_debug_local_lifetime".into(),
                 message: format!(
                     "debug local lifetime {}..{} is outside the {}-word prototype",
                     local.start_pc,
@@ -1520,7 +1521,7 @@ fn build_occurrences(
 
                 if cyclic {
                     diagnostics.push(AnalysisDiagnostic {
-                        code: "cyclic_proto_graph",
+                        code: "cyclic_proto_graph".into(),
                         message: format!("prototype {proto_id} recursively reaches itself"),
                         proto_id: Some(proto_id),
                         pc: None,
@@ -1999,7 +2000,7 @@ mod tests {
         let codes = prototype
             .diagnostics
             .iter()
-            .map(|diagnostic| diagnostic.code)
+            .map(|diagnostic| diagnostic.code.as_ref())
             .collect::<HashSet<_>>();
         assert!(codes.contains("debug_upvalue_count_mismatch"));
         assert!(codes.contains("invalid_debug_local_name"));

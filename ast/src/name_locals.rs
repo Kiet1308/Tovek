@@ -1105,7 +1105,8 @@ fn strip_script_suffixes(mut name: &str) -> &str {
     }
 }
 
-pub(crate) fn script_module_hint(script_name: &str) -> Option<String> {
+/// Complete script-name input to source naming; cache keys must use this same projection.
+pub fn script_module_hint(script_name: &str) -> Option<String> {
     let trimmed = script_name.trim();
     if trimmed.is_empty() {
         return None;

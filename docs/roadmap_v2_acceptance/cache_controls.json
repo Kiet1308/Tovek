@@ -1,0 +1,288 @@
+{
+ "schema_version": 1,
+ "lifter_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+ "compiler_sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d",
+ "fixture_sha256": "158082a8eeb1de2b20e5e3284cc5d2676fe36f04c8d9c21a0240f94925181229",
+ "compiler_flags": [
+  "--binary",
+  "-O2",
+  "-g1",
+  "--fflags=false"
+ ],
+ "work": "D:\\Medal\\medal-decompiler\\out\\v2-cache-accepted-controls\\cache-controls-_5_80ga4",
+ "summary": {
+  "total": 14,
+  "passed": 14
+ },
+ "rows": [
+  {
+   "case": "baseline",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": null
+  },
+  {
+   "case": "cold",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 1206,
+    "corrupt": 0,
+    "entries": 2,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 1,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 2,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 2
+   }
+  },
+  {
+   "case": "warm",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 1206,
+    "corrupt": 0,
+    "entries": 2,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "case": "changed_options",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "0159409ceef5b193bb9bad9705357c534ab721c7cfcbcfe6685edc53946ee7b6",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 2416,
+    "corrupt": 0,
+    "entries": 4,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 1,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 2,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 2
+   }
+  },
+  {
+   "case": "option_baseline",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "0159409ceef5b193bb9bad9705357c534ab721c7cfcbcfe6685edc53946ee7b6",
+   "cache": null
+  },
+  {
+   "case": "old_options_again",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 2416,
+    "corrupt": 0,
+    "entries": 4,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "case": "wrapper_comment",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 2416,
+    "corrupt": 0,
+    "entries": 4,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "case": "edited_bytecode",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "e2e58dafde07afc7c071b64e4fbc113d64587d92309754d9dba4cf8b60e19590",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 3008,
+    "corrupt": 0,
+    "entries": 5,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 2,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 1,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 1
+   }
+  },
+  {
+   "case": "edited_baseline",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "e2e58dafde07afc7c071b64e4fbc113d64587d92309754d9dba4cf8b60e19590",
+   "cache": null
+  },
+  {
+   "case": "corrupt_payload",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 3008,
+    "corrupt": 2,
+    "entries": 5,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 2,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 1,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 1
+   }
+  },
+  {
+   "case": "repaired_warm",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 3008,
+    "corrupt": 0,
+    "entries": 5,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "case": "failure_first",
+   "status": "passed",
+   "exit_code": 1,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 3008,
+    "corrupt": 0,
+    "entries": 5,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 1,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "case": "failure_again",
+   "status": "passed",
+   "exit_code": 1,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": {
+    "bypasses": 0,
+    "bytes": 3008,
+    "corrupt": 0,
+    "entries": 5,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 1,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "case": "diagnostic_bypass",
+   "status": "passed",
+   "exit_code": 0,
+   "source_tree_hash": "341ace216de379374f9efebc85689915068ff5994c624fa994e02a690ecb71cf",
+   "cache": null
+  }
+ ],
+ "contract": "Actual CLI counterexamples and invalidation checks. Artifact checksums detect accidental corruption; cache files are trusted local build products, not signed semantic certificates."
+}

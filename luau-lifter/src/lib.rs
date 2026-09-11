@@ -295,7 +295,7 @@ pub fn try_decompile_bytecode_with_options(
         .map_err(|error| error.message)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DecompileArtifact {
     pub source: String,
     pub upvalue_analysis: Option<upvalue_analysis::ScriptUpvalueAnalysis>,

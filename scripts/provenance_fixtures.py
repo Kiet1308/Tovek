@@ -8,7 +8,7 @@ import sys
 import tempfile
 
 from provenance_audit import manifest, sidecar
-from roadmap_v2 import ROOT, checked, sha256
+from roadmap_v2 import ROOT, checked, run, sha256
 
 
 def main():
@@ -17,6 +17,7 @@ def main():
     inputs_group.add_argument('--fixtures-report', type=pathlib.Path)
     inputs_group.add_argument('--public-report', type=pathlib.Path)
     parser.add_argument('--ast', type=pathlib.Path, help='also check emitted token binding identity with the pinned parser')
+    parser.add_argument('--cache', action='store_true', help='also compare cold/warm artifact cache against uncached source and sidecars')
     for name in ('lifter', 'report', 'keep'):
         parser.add_argument('--' + name, type=pathlib.Path, required=True)
     args = parser.parse_args()
@@ -62,6 +63,29 @@ def main():
     identical = a.keys() == b.keys() and all(sidecar(work / 'trace1', a[k]) == sidecar(work / 'trace4', b[k]) for k in a)
     if not identical:
         raise RuntimeError('thread counts changed source or sidecar content')
+    cache_checks = []
+    if args.cache:
+        for label, threads in [('cache_cold', 1), ('cache_warm', 4)]:
+            output = work / label
+            result, elapsed = run([args.lifter, 'decompile-folder', inputs, output, '--key', 1,
+                '--threads', threads, '--strict-no-synthetic-control', '--emit-binding-provenance',
+                '--cache-dir', work / 'cache', *fixtures.get('lifter_args', [])], timeout=180)
+            (work / (label + '.log')).write_bytes(result.stdout + result.stderr)
+            if result.returncode:
+                raise RuntimeError(f'cached folder run failed: {label}')
+            stats = [json.loads(line.removeprefix('TOVEK_CACHE ')) for line in result.stderr.decode().splitlines()
+                     if line.startswith('TOVEK_CACHE ')]
+            if len(stats) != 1 or stats[0]['io_errors'] or stats[0]['corrupt']:
+                raise RuntimeError('cache diagnostics missing or contain errors')
+            _, cached = manifest(output)
+            if a != cached or any(sidecar(work / 'trace1', a[k]) != sidecar(output, cached[k]) for k in a):
+                raise RuntimeError('cache changed source, sidecar hash or script identity')
+            if any(sha256(work / 'trace1' / a[k]['source_path']) != sha256(output / cached[k]['source_path']) for k in a):
+                raise RuntimeError('cache changed emitted source bytes')
+            if label == 'cache_warm' and not stats[0]['hits']:
+                raise RuntimeError('warm cache did not reuse any artifact')
+            cache_checks.append(dict(mode=label, threads=threads, seconds=elapsed,
+                                     identical_source_and_metadata=True, statistics=stats[0]))
     if any(sidecar(work / 'analysis', e).get('binding_provenance') is not None
            for e in manifest(work / 'analysis')[1].values()):
         raise RuntimeError('detailed lineage was enabled without opt-in')
@@ -90,6 +114,8 @@ def main():
               'mode_timings': measurements, 'metadata_deterministic_threads_1_4': identical, 'audit': audit}
     if emission_audit is not None:
         report['emission_audit'] = emission_audit
+    if args.cache:
+        report['cache_checks'] = cache_checks
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(json.dumps(audit['summary'], indent=2))

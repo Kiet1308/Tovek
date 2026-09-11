@@ -163,6 +163,12 @@ renaming `.lua` → `.luau`):
 luau-lifter decompile-folder ./dump ./out          # -e/--key 203 is the default for this mode
 ```
 
+For repeated folder runs, add `--cache-dir ./tovek-cache`. The optional cache
+keys artifacts by the exact binary, bytecode, options and module naming context;
+it rebuilds path-specific metadata on each run. Keep the cache outside the input
+and output trees. `--cache-max-mib` defaults to 512. See the
+[cache contract and measurements](docs/artifact_cache.md).
+
 Volt/static-analysis mode writes clean `.lua` source directly and keeps all
 upvalue metadata in hidden sidecars. The Volt export manifest is authoritative,
 so source fallbacks are copied cleanly and never interpreted as bytecode:

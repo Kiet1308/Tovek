@@ -1,0 +1,815 @@
+{
+ "schema_version": 1,
+ "binary_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+ "before_binary_sha256": "df9682d10eff59a43489f9e3038e63b2415b8cbb39713fa77fbe5c7545ae17f4",
+ "primary_rust_tests": 942,
+ "rust_child_repeat": 1,
+ "python_tests": 80,
+ "legacy_semantic_configurations": 45,
+ "size_gates": 52,
+ "source_matrices": {
+  "runtime": {
+   "total": 144,
+   "status": {
+    "passed": 144
+   },
+   "dataflow": {
+    "proved": 112,
+    "unknown": 18,
+    "different": 14
+   },
+   "controls": {
+    "passed": 9
+   },
+   "groups": {
+    "UI": {
+     "passed": 12
+    },
+    "buffer/math": {
+     "passed": 24
+    },
+    "conditional": {
+     "passed": 12
+    },
+    "effect/order": {
+     "passed": 24
+    },
+    "formatter": {
+     "passed": 12
+    },
+    "loop/capture": {
+     "passed": 24
+    },
+    "naming/capture": {
+     "passed": 36
+    }
+   }
+  },
+  "public": {
+   "development": {
+    "total": 468,
+    "status": {
+     "passed": 468
+    },
+    "dataflow": {
+     "unknown": 280,
+     "different": 70,
+     "proved": 118
+    },
+    "ast": {
+     "measured": 363,
+     "unknown": 105
+    }
+   },
+   "holdout": {
+    "total": 45,
+    "status": {
+     "passed": 45
+    },
+    "dataflow": {
+     "unknown": 17,
+     "different": 16,
+     "proved": 12
+    },
+    "ast": {
+     "measured": 42,
+     "unknown": 3
+    }
+   }
+  }
+ },
+ "metadata": {
+  "traces": {
+   "scripts": 144,
+   "rust_rule_site_line_updates": 116,
+   "all_other_prior_fields_equal": true,
+   "cache_checks": [
+    {
+     "mode": "cache_cold",
+     "threads": 1,
+     "seconds": 0.9857613999993191,
+     "identical_source_and_metadata": true,
+     "statistics": {
+      "bypasses": 0,
+      "bytes": 5061636,
+      "corrupt": 0,
+      "entries": 144,
+      "entry_byte_limit": 16777216,
+      "entry_count_limit": 20000,
+      "evictions": 0,
+      "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+      "hits": 0,
+      "io_errors": 0,
+      "max_bytes": 536870912,
+      "misses": 144,
+      "model": "executable-context-artifact-cache-v1",
+      "raced_hits": 0,
+      "schema_version": 1,
+      "writes": 144
+     }
+    },
+    {
+     "mode": "cache_warm",
+     "threads": 4,
+     "seconds": 0.3390170999991824,
+     "identical_source_and_metadata": true,
+     "statistics": {
+      "bypasses": 0,
+      "bytes": 5061636,
+      "corrupt": 0,
+      "entries": 144,
+      "entry_byte_limit": 16777216,
+      "entry_count_limit": 20000,
+      "evictions": 0,
+      "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+      "hits": 144,
+      "io_errors": 0,
+      "max_bytes": 536870912,
+      "misses": 0,
+      "model": "executable-context-artifact-cache-v1",
+      "raced_hits": 0,
+      "schema_version": 1,
+      "writes": 0
+     }
+    }
+   ],
+   "trace_summary": {
+    "scripts": 144,
+    "source_files": 144,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 144
+    },
+    "annotation_spans": 6,
+    "bindings_without_identifier_tokens": 0,
+    "conditional_result_records": 157,
+    "definitions": 4448,
+    "definitions_with_final_binding_ancestry": 2372,
+    "dropped_records": 0,
+    "final_bindings": 817,
+    "functions": 440,
+    "identifier_spans": 2337,
+    "incomplete_lineages": 0,
+    "lifted_statements": 3702,
+    "omitted_output_occurrences": 0,
+    "opaque_output_regions": 0,
+    "statements_with_pc": 3702,
+    "unlocated_final_bindings": 0
+   },
+   "parser_summary": {
+    "scripts": 144,
+    "status": {
+     "passed": 144
+    },
+    "parser_local_tokens": 2337,
+    "mapped_local_tokens": 2337,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 817,
+    "mapped_parser_bindings": 817,
+    "storage_ids_with_multiple_parser_bindings": 0
+   },
+   "deterministic_threads_1_4": true
+  },
+  "public-traces": {
+   "scripts": 513,
+   "rust_rule_site_line_updates": 474,
+   "all_other_prior_fields_equal": true,
+   "cache_checks": [
+    {
+     "mode": "cache_cold",
+     "threads": 1,
+     "seconds": 5.745399300001736,
+     "identical_source_and_metadata": true,
+     "statistics": {
+      "bypasses": 0,
+      "bytes": 73330059,
+      "corrupt": 0,
+      "entries": 433,
+      "entry_byte_limit": 16777216,
+      "entry_count_limit": 20000,
+      "evictions": 0,
+      "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+      "hits": 80,
+      "io_errors": 0,
+      "max_bytes": 536870912,
+      "misses": 433,
+      "model": "executable-context-artifact-cache-v1",
+      "raced_hits": 0,
+      "schema_version": 1,
+      "writes": 433
+     }
+    },
+    {
+     "mode": "cache_warm",
+     "threads": 4,
+     "seconds": 1.0888029000016104,
+     "identical_source_and_metadata": true,
+     "statistics": {
+      "bypasses": 0,
+      "bytes": 73330059,
+      "corrupt": 0,
+      "entries": 433,
+      "entry_byte_limit": 16777216,
+      "entry_count_limit": 20000,
+      "evictions": 0,
+      "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+      "hits": 513,
+      "io_errors": 0,
+      "max_bytes": 536870912,
+      "misses": 0,
+      "model": "executable-context-artifact-cache-v1",
+      "raced_hits": 0,
+      "schema_version": 1,
+      "writes": 0
+     }
+    }
+   ],
+   "trace_summary": {
+    "scripts": 513,
+    "source_files": 513,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 513
+    },
+    "annotation_spans": 36,
+    "bindings_without_identifier_tokens": 21,
+    "conditional_result_records": 3542,
+    "definitions": 97176,
+    "definitions_with_final_binding_ancestry": 47094,
+    "dropped_records": 0,
+    "final_bindings": 13272,
+    "functions": 3961,
+    "identifier_spans": 45621,
+    "incomplete_lineages": 0,
+    "lifted_statements": 77329,
+    "omitted_output_occurrences": 0,
+    "opaque_output_regions": 150,
+    "statements_with_pc": 77329,
+    "unlocated_final_bindings": 66
+   },
+   "parser_summary": {
+    "scripts": 513,
+    "status": {
+     "passed": 513
+    },
+    "parser_local_tokens": 45872,
+    "mapped_local_tokens": 45621,
+    "opaque_local_tokens": 251,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 13254,
+    "mapped_parser_bindings": 13254,
+    "storage_ids_with_multiple_parser_bindings": 3
+   },
+   "deterministic_threads_1_4": true
+  }
+ },
+ "private": [
+  {
+   "mode": "corpus",
+   "files": 3978,
+   "tree_hash": "4e4045872df9810f86fee6034f4ad6c3c2f03bb2f37d8b64f8e318921adf1a18",
+   "unchanged": true,
+   "cache": null
+  },
+  {
+   "mode": "corpus-cold",
+   "files": 3978,
+   "tree_hash": "4e4045872df9810f86fee6034f4ad6c3c2f03bb2f37d8b64f8e318921adf1a18",
+   "unchanged": true,
+   "cache": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 187,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 3749,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 43,
+    "schema_version": 1,
+    "writes": 3706
+   }
+  },
+  {
+   "mode": "corpus-warm",
+   "files": 3978,
+   "tree_hash": "4e4045872df9810f86fee6034f4ad6c3c2f03bb2f37d8b64f8e318921adf1a18",
+   "unchanged": true,
+   "cache": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  }
+ ],
+ "context": {
+  "distinct_bytecode": 3350,
+  "entries": 3706,
+  "bytecode_groups_with_multiple_contexts": 42,
+  "bytecode_groups_with_different_source": 2,
+  "counterexamples": [
+   {
+    "bytecode_sha256": "1c833f8c148babd4e3ea0c97a15975ba7394b1d385eb4f4e7415dc99c50c493f",
+    "contexts": [
+     {
+      "module_hint": "MockItems",
+      "source_sha256": "4e466eee3061b285c49ef10ec0ae087b32130afa82e50f47c8150b4ba613c0b8"
+     },
+     {
+      "module_hint": "MockUnits",
+      "source_sha256": "9c6e69b06053175035174f32c8c497e436fc5227d4fb2c562f3e8b80a6a8c79c"
+     },
+     {
+      "module_hint": "MockSkins",
+      "source_sha256": "5c6db92a9e966082d84665681061e2d50c0bdf72c01881795a49c36f30149f99"
+     }
+    ]
+   },
+   {
+    "bytecode_sha256": "c408c3911e3727fd53a801d7f78511c2746716436f109c7361443582226e8c91",
+    "contexts": [
+     {
+      "module_hint": "TowerOfGodTraitlessTitle",
+      "source_sha256": "d5e9ca6a50a236bb7a3ae865064b360b34f9f393f11e20a534110516faab8e52"
+     },
+     {
+      "module_hint": "TowerOfGodTitle",
+      "source_sha256": "24bafecacaefc02c08f5082a11b3c7cc11a7508a31a7071eb2d66ff40ed7dc55"
+     }
+    ]
+   }
+  ]
+ },
+ "controls": {
+  "total": 14,
+  "passed": 14
+ },
+ "metadata_limitations": "Only actual Rust rule-site line numbers change by +1 in name_locals.rs after exposing and documenting the shared context projection. All input/source identities, candidates, emitted binding maps, SSA ancestry, PC data and other fields remain equal. Cold and warm cache sidecar hashes are exactly equal to the current uncached release.",
+ "benchmark_summary": [
+  {
+   "label": "before",
+   "threads": 1,
+   "samples": 7,
+   "median_seconds": 18.214811400001054,
+   "p95_nearest_rank_seconds": 20.214904199998273,
+   "min_seconds": 17.742624999998952,
+   "max_seconds": 20.214904199998273,
+   "median_peak_rss_bytes": 33714176,
+   "max_peak_rss_bytes": 34050048
+  },
+  {
+   "label": "before",
+   "threads": 16,
+   "samples": 7,
+   "median_seconds": 1.6859702999972797,
+   "p95_nearest_rank_seconds": 1.7495048999990104,
+   "min_seconds": 1.651486400001886,
+   "max_seconds": 1.7495048999990104,
+   "median_peak_rss_bytes": 114601984,
+   "max_peak_rss_bytes": 122261504
+  },
+  {
+   "label": "after",
+   "threads": 1,
+   "samples": 7,
+   "median_seconds": 18.615225500001543,
+   "p95_nearest_rank_seconds": 19.96453829999882,
+   "min_seconds": 17.987253799998143,
+   "max_seconds": 19.96453829999882,
+   "median_peak_rss_bytes": 33394688,
+   "max_peak_rss_bytes": 33398784
+  },
+  {
+   "label": "after",
+   "threads": 16,
+   "samples": 7,
+   "median_seconds": 1.6851695999976073,
+   "p95_nearest_rank_seconds": 1.7057697999989614,
+   "min_seconds": 1.6447947999986354,
+   "max_seconds": 1.7057697999989614,
+   "median_peak_rss_bytes": 113754112,
+   "max_peak_rss_bytes": 119201792
+  },
+  {
+   "label": "cached",
+   "threads": 1,
+   "samples": 7,
+   "median_seconds": 1.371327699998801,
+   "p95_nearest_rank_seconds": 1.410551700002543,
+   "min_seconds": 1.3564847000016016,
+   "max_seconds": 1.410551700002543,
+   "median_peak_rss_bytes": 22675456,
+   "max_peak_rss_bytes": 22683648
+  },
+  {
+   "label": "cached",
+   "threads": 16,
+   "samples": 7,
+   "median_seconds": 0.7270501000020886,
+   "p95_nearest_rank_seconds": 0.765164200001891,
+   "min_seconds": 0.7092358999980206,
+   "max_seconds": 0.765164200001891,
+   "median_peak_rss_bytes": 43225088,
+   "max_peak_rss_bytes": 44335104
+  }
+ ],
+ "cache_population_sample": {
+  "label": "cached",
+  "threads": 16,
+  "round": 0,
+  "warmup": true,
+  "seconds": 6.473622299999988,
+  "peak_rss_bytes": 94760960,
+  "output_hash": "4e4045872df9810f86fee6034f4ad6c3c2f03bb2f37d8b64f8e318921adf1a18",
+  "output_count": 3978,
+  "deterministic": true,
+  "command": [
+   "D:\\Medal\\medal-decompiler\\out\\v2-cache-accepted-lifter.exe",
+   "decompile-folder",
+   "D:\\Medal\\examplebytecode\\RobloxProject",
+   "D:\\Medal\\medal-decompiler\\out\\v2-cache-accepted-benchmark\\bench-4xolunrr\\cached",
+   "--key",
+   "203",
+   "--threads",
+   "16",
+   "--strict-no-synthetic-control",
+   "--cache-dir=out/v2-cache-accepted-benchmark-store"
+  ]
+ },
+ "cache_benchmark_checks": [
+  {
+   "threads": 16,
+   "round": 0,
+   "warmup": true,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 230,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 3706,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 3706
+   }
+  },
+  {
+   "threads": 1,
+   "round": 0,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 16,
+   "round": 0,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 16,
+   "round": 1,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 1,
+   "round": 1,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 1,
+   "round": 2,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 16,
+   "round": 2,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 16,
+   "round": 3,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 1,
+   "round": 3,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 1,
+   "round": 4,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 16,
+   "round": 4,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 16,
+   "round": 5,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 1,
+   "round": 5,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 1,
+   "round": 6,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  },
+  {
+   "threads": 16,
+   "round": 6,
+   "warmup": false,
+   "statistics": {
+    "bypasses": 0,
+    "bytes": 16047452,
+    "corrupt": 0,
+    "entries": 3706,
+    "entry_byte_limit": 16777216,
+    "entry_count_limit": 20000,
+    "evictions": 0,
+    "executable_sha256": "0bbe7b61233697b27a6cb3c62bee8ce752e444c105d938997de8f04152bc1c23",
+    "hits": 3936,
+    "io_errors": 0,
+    "max_bytes": 536870912,
+    "misses": 0,
+    "model": "executable-context-artifact-cache-v1",
+    "raced_hits": 0,
+    "schema_version": 1,
+    "writes": 0
+   }
+  }
+ ],
+ "reports": {
+  "runtime": "cache_runtime.json",
+  "public": "cache_public.json",
+  "controls": "cache_controls.json",
+  "benchmark": "cache_benchmark.json",
+  "size": "cache_size.json",
+  "private": "cache_private.json"
+ }
+}

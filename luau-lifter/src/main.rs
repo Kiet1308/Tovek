@@ -1,5 +1,6 @@
 mod batch;
 mod decompile_core;
+mod decompile_cache;
 mod validate;
 
 use clap::{Parser, Subcommand};
@@ -102,6 +103,12 @@ struct FolderArgs {
     /// Volt exporter manifest used to exclude source fallbacks from bytecode analysis.
     #[arg(long)]
     export_manifest: Option<PathBuf>,
+    /// Reuse verified artifacts from an executable/options/context keyed cache.
+    #[arg(long)]
+    cache_dir: Option<PathBuf>,
+    /// Maximum cache contents in MiB; least recently used entries are evicted.
+    #[arg(long, default_value_t = 512, requires = "cache_dir")]
+    cache_max_mib: u64,
 }
 
 #[derive(clap::Args, Debug)]
@@ -180,7 +187,7 @@ fn main() {
                     ),
                     ..luau_lifter::DecompileOptions::default()
                 };
-                let code = batch::run(
+                let code = batch::run_with_cache(
                     &a.src,
                     &a.out,
                     key,
@@ -190,6 +197,8 @@ fn main() {
                     a.emit_upvalue_analysis || a.emit_binding_provenance,
                     &a.output_extension,
                     a.export_manifest.as_deref(),
+                    a.cache_dir.as_deref(),
+                    a.cache_max_mib,
                 );
                 finish(code);
             }

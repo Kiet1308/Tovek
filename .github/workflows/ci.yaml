@@ -167,13 +167,21 @@ jobs:
             --lifter target/release/luau-lifter \
             --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --report "$RUNNER_TEMP/roadmap-v2-lineage.json" \
-            --keep "$RUNNER_TEMP/roadmap-v2-lineage"
+            --keep "$RUNNER_TEMP/roadmap-v2-lineage" --cache
 
       - name: V2 formatter observable evaluation counterexamples
         run: |
           python3 scripts/formatter_effect_controls.py \
             --luau "$RUNNER_TEMP/luau-build/luau" \
             --report "$RUNNER_TEMP/roadmap-v2-formatter-controls.json"
+
+      - name: V2 artifact cache context and corruption controls
+        run: |
+          python3 scripts/cache_controls.py \
+            --lifter target/release/luau-lifter \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --keep "$RUNNER_TEMP/roadmap-v2-cache-controls" \
+            --report "$RUNNER_TEMP/roadmap-v2-cache-controls.json"
 
       - name: V2 pass profile context and counter determinism
         run: |
@@ -223,7 +231,7 @@ jobs:
             --lifter target/release/luau-lifter \
             --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --report "$RUNNER_TEMP/roadmap-v2-public-lineage.json" \
-            --keep "$RUNNER_TEMP/roadmap-v2-public-lineage"
+            --keep "$RUNNER_TEMP/roadmap-v2-public-lineage" --cache
 
       - name: V2 exact source registry and ambiguity controls
         run: |
@@ -278,6 +286,7 @@ jobs:
             ${{ runner.temp }}/roadmap-v2-lineage.json
             ${{ runner.temp }}/roadmap-v2-public-lineage.json
             ${{ runner.temp }}/roadmap-v2-formatter-controls.json
+            ${{ runner.temp }}/roadmap-v2-cache-controls.json
             ${{ runner.temp }}/roadmap-v2-profile.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau
             ${{ runner.temp }}/roadmap-v2-generated.json

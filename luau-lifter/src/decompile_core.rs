@@ -1083,6 +1083,7 @@ pub(crate) fn size_pool(threads: usize) {
 /// Decode + decompile + write one file. Never panics out: a panic anywhere in
 /// the decompile pipeline is caught and reported as a `Fail`. Thin wrapper used
 /// by `decompile-folder`, which discards the source string.
+#[cfg(test)]
 pub(crate) fn process_one(
     w: &Work,
     key: u8,
@@ -1090,9 +1091,17 @@ pub(crate) fn process_one(
     verbose: bool,
     options: DecompileOptions,
 ) -> Outcome {
-    decode_and_decompile(w, key, b64, true, false, verbose, options, None).0
+    decode_and_decompile(w, key, b64, true, false, verbose, options, None, None).0
 }
 
+pub(crate) fn process_one_cached(
+    w: &Work, key: u8, b64: &mut Vec<u8>, verbose: bool,
+    options: DecompileOptions, cache: Option<&crate::decompile_cache::Cache>,
+) -> Outcome {
+    decode_and_decompile(w, key, b64, true, false, verbose, options, None, cache).0
+}
+
+#[cfg(test)]
 pub(crate) fn process_one_with_analysis(
     w: &Work,
     key: u8,
@@ -1100,6 +1109,23 @@ pub(crate) fn process_one_with_analysis(
     verbose: bool,
     options: DecompileOptions,
     analysis_root: &Path,
+) -> (
+    Outcome,
+    Option<AnalysisManifestEntry>,
+    Option<AnalysisUnavailable>,
+    Option<GeneratedSourceRecord>,
+) {
+    process_one_with_analysis_cached(w, key, b64, verbose, options, analysis_root, None)
+}
+
+pub(crate) fn process_one_with_analysis_cached(
+    w: &Work,
+    key: u8,
+    b64: &mut Vec<u8>,
+    verbose: bool,
+    options: DecompileOptions,
+    analysis_root: &Path,
+    cache: Option<&crate::decompile_cache::Cache>,
 ) -> (
     Outcome,
     Option<AnalysisManifestEntry>,
@@ -1115,6 +1141,7 @@ pub(crate) fn process_one_with_analysis(
         verbose,
         options,
         Some(analysis_root),
+        cache,
     );
     let unavailable = if matches!(outcome, Outcome::Ok) && entry.is_none() {
         Some(match w.kind {
@@ -1150,7 +1177,7 @@ pub(crate) fn process_one_capture(
     options: DecompileOptions,
 ) -> (Outcome, Option<String>) {
     let (outcome, source, _, _) =
-        decode_and_decompile(w, key, b64, write_skipped, true, false, options, None);
+        decode_and_decompile(w, key, b64, write_skipped, true, false, options, None, None);
     (outcome, source)
 }
 
@@ -1171,6 +1198,7 @@ fn decode_and_decompile(
     verbose: bool,
     options: DecompileOptions,
     analysis_root: Option<&Path>,
+    cache: Option<&crate::decompile_cache::Cache>,
 ) -> (
     Outcome,
     Option<String>,
@@ -1285,36 +1313,26 @@ fn decode_and_decompile(
 
     // catch_unwind is the backstop for deep panics in the lifter/ssa/restructure
     // passes. The common deserialize-failure path already comes back as Err.
-    let (source, upvalue_analysis) = if analysis_root.is_some() {
-        let result = catch_unwind(AssertUnwindSafe(|| {
+    let compute = || -> Result<luau_lifter::DecompileArtifact, String> {
+        if analysis_root.is_some() {
             luau_lifter::try_decompile_bytecode_artifact_with_diagnostics(
-                &bytecode,
-                key,
-                Some(&w.rel),
-                options,
-            )
-        }));
-        let artifact = match result {
-            Ok(Ok(artifact)) => artifact,
-            Ok(Err(reason)) => return (Outcome::Fail(reason.to_string()), None, None, None),
-            Err(payload) => {
-                return (Outcome::Fail(panic_message(payload)), None, None, None);
-            }
-        };
-        (artifact.source, artifact.upvalue_analysis)
-    } else {
-        let result = catch_unwind(AssertUnwindSafe(|| {
+                &bytecode, key, Some(&w.rel), options,
+            ).map_err(|reason| reason.to_string())
+        } else {
             luau_lifter::try_decompile_bytecode_with_options(&bytecode, key, Some(&w.rel), options)
-        }));
-        let source = match result {
-            Ok(Ok(source)) => source,
-            Ok(Err(reason)) => return (Outcome::Fail(reason), None, None, None),
-            Err(payload) => {
-                return (Outcome::Fail(panic_message(payload)), None, None, None);
-            }
-        };
-        (source, None)
+                .map(|source| luau_lifter::DecompileArtifact { source, upvalue_analysis: None })
+        }
     };
+    let result = catch_unwind(AssertUnwindSafe(|| match cache {
+        Some(cache) => cache.get_or_compute(&bytecode, key, &w.rel, options, analysis_root.is_some(), compute),
+        None => compute(),
+    }));
+    let artifact = match result {
+        Ok(Ok(artifact)) => artifact,
+        Ok(Err(reason)) => return (Outcome::Fail(reason), None, None, None),
+        Err(payload) => return (Outcome::Fail(panic_message(payload)), None, None, None),
+    };
+    let luau_lifter::DecompileArtifact { source, upvalue_analysis } = artifact;
 
     // Append a trailing newline so output is byte-identical to the single-file
     // mode (which prints via `println!`). When `capture` is set we keep the

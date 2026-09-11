@@ -13,7 +13,7 @@ use crate::decompile_core::{
     AnalysisManifestEntry, AnalysisUnavailable, ExportManifestInventory, GeneratedSourceRecord,
     Outcome, acquire_output_generation_lock, atomic_write_contained,
     build_work_from_export_manifest, build_work_with_extension, invalidate_analysis_manifest,
-    precreate_dirs, prepare_analysis_root, process_one, process_one_with_analysis, sha256_hex,
+    precreate_dirs, prepare_analysis_root, sha256_hex,
     size_pool, validate_analysis_root_for_write,
 };
 use luau_lifter::{DecompileDiagnostic, DecompileOptions};
@@ -22,7 +22,8 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-/// Run the folder decompiler. Returns a process exit code (0 = no failures).
+/// Uncached entry used by existing folder regression tests.
+#[cfg(test)]
 pub fn run(
     src: &Path,
     out: &Path,
@@ -33,6 +34,23 @@ pub fn run(
     emit_upvalue_analysis: bool,
     output_extension: &str,
     export_manifest: Option<&Path>,
+) -> i32 {
+    run_with_cache(src, out, key, threads, verbose, options, emit_upvalue_analysis,
+                   output_extension, export_manifest, None, 512)
+}
+
+pub fn run_with_cache(
+    src: &Path,
+    out: &Path,
+    key: u8,
+    threads: usize,
+    verbose: bool,
+    options: DecompileOptions,
+    emit_upvalue_analysis: bool,
+    output_extension: &str,
+    export_manifest: Option<&Path>,
+    cache_dir: Option<&Path>,
+    cache_max_mib: u64,
 ) -> i32 {
     let start = Instant::now();
 
@@ -93,6 +111,24 @@ pub fn run(
         return code;
     }
 
+    let cache = match cache_dir {
+        Some(_) if crate::decompile_cache::diagnostic_environment() => {
+            eprintln!("cache bypassed: diagnostic environment requires fresh execution");
+            None
+        }
+        Some(path) => {
+            let Some(max_bytes) = cache_max_mib.checked_mul(1024 * 1024).filter(|&n| n > 0) else {
+                eprintln!("error: invalid cache byte limit");
+                return 2;
+            };
+            match crate::decompile_cache::Cache::open(path, max_bytes, &_src_root, &out_root) {
+                Ok(cache) => Some(cache),
+                Err(error) => { eprintln!("error: cache: {error}"); return 2; }
+            }
+        }
+        None => None,
+    };
+
     size_pool(threads);
 
     // Hash the exact sorted input set (relative path + bytes) once per run so
@@ -117,12 +153,16 @@ pub fn run(
         .par_iter()
         .map_init(Vec::<u8>::new, |b64, w| {
             if emit_upvalue_analysis {
-                process_one_with_analysis(w, key, b64, verbose, options, &analysis_root)
+                crate::decompile_core::process_one_with_analysis_cached(w, key, b64, verbose, options, &analysis_root, cache.as_ref())
             } else {
-                (process_one(w, key, b64, verbose, options), None, None, None)
+                (crate::decompile_core::process_one_cached(w, key, b64, verbose, options, cache.as_ref()), None, None, None)
             }
         })
         .collect();
+
+    if let Some(cache) = &cache {
+        eprintln!("TOVEK_CACHE {}", cache.report());
+    }
 
     // Tally on the main thread (collect() preserves input order, so the FAIL
     // list is deterministic).
