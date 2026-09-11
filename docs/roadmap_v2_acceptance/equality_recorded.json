@@ -1,0 +1,23 @@
+[
+ {
+  "group": "traces",
+  "prior_scripts": 138,
+  "current_scripts": 144,
+  "all_recorded_contracts_preserved": true,
+  "new_script_keys": [
+   "equality_order_O0_g1.lua",
+   "equality_order_O0_g2.lua",
+   "equality_order_O1_g1.lua",
+   "equality_order_O1_g2.lua",
+   "equality_order_O2_g1.lua",
+   "equality_order_O2_g2.lua"
+  ]
+ },
+ {
+  "group": "public-traces",
+  "prior_scripts": 513,
+  "current_scripts": 513,
+  "all_recorded_contracts_preserved": true,
+  "new_script_keys": []
+ }
+]

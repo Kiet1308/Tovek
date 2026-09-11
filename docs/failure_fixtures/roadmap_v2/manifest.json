@@ -177,6 +177,13 @@
       "source": "compound_effects.luau",
       "driver": "compound_effects.driver.luau",
       "expected_stdout": "base\t2\t101\t100\nkey\t2\t21\t20\nunary\t2\t21\t20\nerror\t2\tfalse\ttrue\n"
+    },
+    {
+      "name": "equality_order",
+      "group": "effect/order",
+      "source": "equality_order.luau",
+      "driver": "equality_order.driver.luau",
+      "expected_stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n"
     }
   ],
   "negative_controls": [

@@ -1,0 +1,274 @@
+{
+ "schema_version": 1,
+ "binary_sha256": "df9682d10eff59a43489f9e3038e63b2415b8cbb39713fa77fbe5c7545ae17f4",
+ "before_binary_sha256": "57cd061ca06689f09875ae9cf6ba2b852256f45e6044b4d613938da811dadeb5",
+ "primary_rust_tests": 932,
+ "rust_child_repeat": 1,
+ "python_tests": 80,
+ "legacy_semantic_configurations": 45,
+ "size_gates": 52,
+ "diagnostics": {
+  "traces": {
+   "metadata_deterministic_threads_1_4": true,
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 0.66707260000112
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 0.7583432999999786
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 0.3968936000019312
+    }
+   ],
+   "trace_summary": {
+    "scripts": 144,
+    "source_files": 144,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 144
+    },
+    "annotation_spans": 6,
+    "bindings_without_identifier_tokens": 0,
+    "conditional_result_records": 157,
+    "definitions": 4448,
+    "definitions_with_final_binding_ancestry": 2372,
+    "dropped_records": 0,
+    "final_bindings": 817,
+    "functions": 440,
+    "identifier_spans": 2337,
+    "incomplete_lineages": 0,
+    "lifted_statements": 3702,
+    "omitted_output_occurrences": 0,
+    "opaque_output_regions": 0,
+    "statements_with_pc": 3702,
+    "unlocated_final_bindings": 0
+   },
+   "parser_summary": {
+    "scripts": 144,
+    "status": {
+     "passed": 144
+    },
+    "parser_local_tokens": 2337,
+    "mapped_local_tokens": 2337,
+    "opaque_local_tokens": 0,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 817,
+    "mapped_parser_bindings": 817,
+    "storage_ids_with_multiple_parser_bindings": 0
+   }
+  },
+  "public-traces": {
+   "metadata_deterministic_threads_1_4": true,
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 3.5861724999995204
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 7.592636900000798
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 1.315499100001034
+    }
+   ],
+   "trace_summary": {
+    "scripts": 513,
+    "source_files": 513,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 513
+    },
+    "annotation_spans": 36,
+    "bindings_without_identifier_tokens": 21,
+    "conditional_result_records": 3542,
+    "definitions": 97176,
+    "definitions_with_final_binding_ancestry": 47094,
+    "dropped_records": 0,
+    "final_bindings": 13272,
+    "functions": 3961,
+    "identifier_spans": 45621,
+    "incomplete_lineages": 0,
+    "lifted_statements": 77329,
+    "omitted_output_occurrences": 0,
+    "opaque_output_regions": 150,
+    "statements_with_pc": 77329,
+    "unlocated_final_bindings": 66
+   },
+   "parser_summary": {
+    "scripts": 513,
+    "status": {
+     "passed": 513
+    },
+    "parser_local_tokens": 45872,
+    "mapped_local_tokens": 45621,
+    "opaque_local_tokens": 251,
+    "unexplained_local_tokens": 0,
+    "parser_bindings": 13254,
+    "mapped_parser_bindings": 13254,
+    "storage_ids_with_multiple_parser_bindings": 3
+   }
+  }
+ },
+ "runtime_summary": {
+  "total": 144,
+  "status": {
+   "passed": 144
+  },
+  "dataflow": {
+   "proved": 112,
+   "unknown": 18,
+   "different": 14
+  },
+  "controls": {
+   "passed": 9
+  },
+  "groups": {
+   "UI": {
+    "passed": 12
+   },
+   "buffer/math": {
+    "passed": 24
+   },
+   "conditional": {
+    "passed": 12
+   },
+   "effect/order": {
+    "passed": 24
+   },
+   "formatter": {
+    "passed": 12
+   },
+   "loop/capture": {
+    "passed": 24
+   },
+   "naming/capture": {
+    "passed": 36
+   }
+  }
+ },
+ "public_summary": {
+  "development": {
+   "total": 468,
+   "status": {
+    "passed": 468
+   },
+   "dataflow": {
+    "unknown": 280,
+    "different": 70,
+    "proved": 118
+   },
+   "ast": {
+    "measured": 363,
+    "unknown": 105
+   }
+  },
+  "holdout": {
+   "total": 45,
+   "status": {
+    "passed": 45
+   },
+   "dataflow": {
+    "unknown": 17,
+    "different": 16,
+    "proved": 12
+   },
+   "ast": {
+    "measured": 42,
+    "unknown": 3
+   }
+  }
+ },
+ "private_tree_hash": "4e4045872df9810f86fee6034f4ad6c3c2f03bb2f37d8b64f8e318921adf1a18",
+ "recorded_mappings": [
+  {
+   "group": "traces",
+   "prior_scripts": 138,
+   "current_scripts": 144,
+   "all_recorded_contracts_preserved": true,
+   "new_script_keys": [
+    "equality_order_O0_g1.lua",
+    "equality_order_O0_g2.lua",
+    "equality_order_O1_g1.lua",
+    "equality_order_O1_g2.lua",
+    "equality_order_O2_g1.lua",
+    "equality_order_O2_g2.lua"
+   ]
+  },
+  {
+   "group": "public-traces",
+   "prior_scripts": 513,
+   "current_scripts": 513,
+   "all_recorded_contracts_preserved": true,
+   "new_script_keys": []
+  }
+ ],
+ "benchmark_summary": [
+  {
+   "label": "before",
+   "threads": 1,
+   "samples": 7,
+   "median_seconds": 18.131359899998643,
+   "p95_nearest_rank_seconds": 20.26254400000107,
+   "min_seconds": 17.714541299999837,
+   "max_seconds": 20.26254400000107,
+   "median_peak_rss_bytes": 33284096,
+   "max_peak_rss_bytes": 33837056
+  },
+  {
+   "label": "before",
+   "threads": 16,
+   "samples": 7,
+   "median_seconds": 1.6733509000005142,
+   "p95_nearest_rank_seconds": 1.6966867000010097,
+   "min_seconds": 1.63089790000231,
+   "max_seconds": 1.6966867000010097,
+   "median_peak_rss_bytes": 114163712,
+   "max_peak_rss_bytes": 124522496
+  },
+  {
+   "label": "after",
+   "threads": 1,
+   "samples": 7,
+   "median_seconds": 18.328845300002286,
+   "p95_nearest_rank_seconds": 19.11036050000257,
+   "min_seconds": 18.012691200001427,
+   "max_seconds": 19.11036050000257,
+   "median_peak_rss_bytes": 33280000,
+   "max_peak_rss_bytes": 34873344
+  },
+  {
+   "label": "after",
+   "threads": 16,
+   "samples": 7,
+   "median_seconds": 1.661684900002001,
+   "p95_nearest_rank_seconds": 1.6986632000007376,
+   "min_seconds": 1.6198789000009128,
+   "max_seconds": 1.6986632000007376,
+   "median_peak_rss_bytes": 114057216,
+   "max_peak_rss_bytes": 119439360
+  }
+ ],
+ "reports": {
+  "runtime": "equality_runtime.json",
+  "public": "equality_public.json",
+  "corpus": "equality_corpus.json",
+  "before": "equality_before.json",
+  "benchmark": "equality_benchmark.json",
+  "size": "equality_size.json",
+  "recorded": "equality_recorded.json"
+ }
+}

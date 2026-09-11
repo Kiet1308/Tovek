@@ -1,5 +1,15 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R4: preserve ordered equality metamethod arguments
+
+SSA inline no longer swaps unknown equality operands to move an earlier definition into a comparison. Primitive nil/boolean/number/string literals remain eligible; relational inversion is unchanged and type hints are insufficient. The old release fails the three stripped-debug configurations of the new fixture, while the corrected release passes all six with bounded dataflow certificates. [Contract and examples](equality_order.md).
+
+All 144 runtime configurations, nine controls, 513 public compile/decompile/recompile configurations, 45 legacy semantic configurations and 52 size gates pass. There are 932 primary Rust tests, one child repeat and 80 Python tests. Source/provenance maps pass independent parser checks and remain deterministic at one/four threads. All recorded mappings from the previous 138 runtime and 513 public cases are preserved.
+
+Only two public outputs change: Roact createSpy at O1/O2. Executing its exact source/output bodies with an unused dependency stub confirms that both old outputs reverse __eq arguments; source and corrected output agree on results, trace and caught errors. Of 3,978 private outputs, 3,977 are identical. The single Summon/init change restores the comparison operand order observed in original prototype 20, PC 21. These three complete chunks remain unknown to the bounded validator; none is promoted by the focused runtime/instruction witnesses. [Per-case audit](roadmap_v2_acceptance/equality_corpus.json), [validation inventory](roadmap_v2_acceptance/equality_validation.json).
+
+Seven interleaved warm CLI rounds are deterministic within each release. One-thread median 18.131 -> 18.329 s (+1.09%); 16-thread median 1.673 -> 1.662 s (-0.70%). Median peak RSS 33,284,096 -> 33,280,000 bytes and 114,163,712 -> 114,057,216 bytes. This is a correctness fix with measured cost, not an R7 speedup. Seven-sample p95 equals the maximum. [Benchmark](roadmap_v2_acceptance/equality_benchmark.json).
+
 ## R8: exact, license-bearing upstream source registry
 
 The optional offline registry pins source/commit/license/compiler profiles and retains full v9 execution images, including registers, AUX bits, constant bytes, native flags and type payloads. Source-text ambiguity and low-information chunks refuse selection; other versions have no flexible fallback. Accepted source is freshly recompiled. Labelled materialization preserves license artifacts and passes another full-image recompile gate. [Contract and commands](source_registry.md).

@@ -1,0 +1,507 @@
+{
+  "schema_version": 1,
+  "manifest_sha256": "950f5f5ec95d9d4de7c3c39c3505008e1a5ab7048f465affcc913cbe8bc95ecd",
+  "compiler_commit_expected": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "tools": {
+    "compiler": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+      "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+    },
+    "luau": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau.exe",
+      "sha256": "50029806035a3a76f5e8a5c0960fd596fa4a10503d6e35472110b12426fa8b65"
+    },
+    "lifter": {
+      "path": "D:\\Medal\\medal-decompiler\\out\\v2-emission-lifter.exe",
+      "sha256": "57cd061ca06689f09875ae9cf6ba2b852256f45e6044b4d613938da811dadeb5"
+    },
+    "ast": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau-ast.exe",
+      "sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3"
+    }
+  },
+  "compiler_flags": [
+    "--binary",
+    "--fflags=false"
+  ],
+  "lifter_args": [],
+  "work": "D:\\Medal\\medal-decompiler\\out\\v2-equality-before\\v2-uqoblnb_",
+  "split": "development",
+  "cases": [
+    {
+      "case": "equality_order",
+      "group": "effect/order",
+      "opt": 0,
+      "debug": 1,
+      "status": "failed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "6823814f7377ab7964866e8c0655564486333f2b3b7639e59dd7e1c4ba634cff",
+          "5233e4f7c35aa061c9e9382062c981478fbe34c8c4f9ded2202824b8dd10d254"
+        ]
+      },
+      "source_sha256": "5ddbbdc734955cc08a1eace93116d71f1b28e84452d7d6d36cbfacbaa8b8aa8a",
+      "decompile_seconds": 0.019959799999924144,
+      "output_sha256": "879b73545449cd62b12ced853c9ba5541861597b7439ceaa748fe806aabfb560",
+      "output_bytes": 149,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "exact": 2,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.7762237762237763,
+        "statement_initializer_normalized_ratio": 0.7762237762237763,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 4,
+        "output_bindings": 2,
+        "aligned_bindings": 2,
+        "exact_names": 0,
+        "alignment_coverage": 0.5,
+        "exact_name_precision_on_aligned": 0.0,
+        "exact_name_recovery_lower_bound": 0.0,
+        "bindings": [
+          {
+            "source_binding": 0,
+            "output_binding": 0,
+            "source_name": "fetch",
+            "output_name": "callback",
+            "exact_name": false,
+            "occurrences": 5
+          },
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "different",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n",
+          "stderr": "",
+          "seconds": 0.01572659999874304
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:right:left\nfalse\ttrue\ttrue\tfalse\nfetch:right,fetch:left,eq:right:left\ntrue\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:right:left\ntrue\ttrue\ttrue\ttrue\nfetch:right,fetch:left,eq:right:left\n",
+          "stderr": "",
+          "seconds": 0.014501100002235034
+        }
+      },
+      "error": "output observation differs from locked expectation"
+    },
+    {
+      "case": "equality_order",
+      "group": "effect/order",
+      "opt": 0,
+      "debug": 2,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "6823814f7377ab7964866e8c0655564486333f2b3b7639e59dd7e1c4ba634cff",
+          "6823814f7377ab7964866e8c0655564486333f2b3b7639e59dd7e1c4ba634cff"
+        ]
+      },
+      "source_sha256": "5ddbbdc734955cc08a1eace93116d71f1b28e84452d7d6d36cbfacbaa8b8aa8a",
+      "decompile_seconds": 0.015376899998955196,
+      "output_sha256": "7e0fd3a8af9b2b78d539b89274509dd7d42aff763957e96b70c2e44c57fd1a50",
+      "output_bytes": 194,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "exact": 2,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.6217948717948718,
+        "statement_initializer_normalized_ratio": 0.6217948717948718,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 4,
+        "output_bindings": 4,
+        "aligned_bindings": 2,
+        "exact_names": 2,
+        "alignment_coverage": 0.5,
+        "exact_name_precision_on_aligned": 1.0,
+        "exact_name_recovery_lower_bound": 0.5,
+        "bindings": [
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "different",
+            "output_name": "different",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 2,
+            "output_binding": 2,
+            "source_name": "right",
+            "output_name": "right",
+            "exact_name": true,
+            "occurrences": 2
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n",
+          "stderr": "",
+          "seconds": 0.014977099999669008
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n",
+          "stderr": "",
+          "seconds": 0.015764700001454912
+        }
+      },
+      "deterministic_threads_1_4": true
+    },
+    {
+      "case": "equality_order",
+      "group": "effect/order",
+      "opt": 1,
+      "debug": 1,
+      "status": "failed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "7711634355e23a9172fbba20073a739cccae27caab9846b0ca221d54f23bf97c",
+          "1338d83ecd47c03dfd7a596706a01a951039efe8d8297cd41b233b5de89e3ef3"
+        ]
+      },
+      "source_sha256": "5ddbbdc734955cc08a1eace93116d71f1b28e84452d7d6d36cbfacbaa8b8aa8a",
+      "decompile_seconds": 0.014559800001734402,
+      "output_sha256": "879b73545449cd62b12ced853c9ba5541861597b7439ceaa748fe806aabfb560",
+      "output_bytes": 149,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "exact": 2,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.7762237762237763,
+        "statement_initializer_normalized_ratio": 0.7762237762237763,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 4,
+        "output_bindings": 2,
+        "aligned_bindings": 2,
+        "exact_names": 0,
+        "alignment_coverage": 0.5,
+        "exact_name_precision_on_aligned": 0.0,
+        "exact_name_recovery_lower_bound": 0.0,
+        "bindings": [
+          {
+            "source_binding": 0,
+            "output_binding": 0,
+            "source_name": "fetch",
+            "output_name": "callback",
+            "exact_name": false,
+            "occurrences": 5
+          },
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "different",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n",
+          "stderr": "",
+          "seconds": 0.014740200000233017
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:right:left\nfalse\ttrue\ttrue\tfalse\nfetch:right,fetch:left,eq:right:left\ntrue\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:right:left\ntrue\ttrue\ttrue\ttrue\nfetch:right,fetch:left,eq:right:left\n",
+          "stderr": "",
+          "seconds": 0.01495000000068103
+        }
+      },
+      "error": "output observation differs from locked expectation"
+    },
+    {
+      "case": "equality_order",
+      "group": "effect/order",
+      "opt": 1,
+      "debug": 2,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "7711634355e23a9172fbba20073a739cccae27caab9846b0ca221d54f23bf97c",
+          "7711634355e23a9172fbba20073a739cccae27caab9846b0ca221d54f23bf97c"
+        ]
+      },
+      "source_sha256": "5ddbbdc734955cc08a1eace93116d71f1b28e84452d7d6d36cbfacbaa8b8aa8a",
+      "decompile_seconds": 0.015696400001615984,
+      "output_sha256": "7e0fd3a8af9b2b78d539b89274509dd7d42aff763957e96b70c2e44c57fd1a50",
+      "output_bytes": 194,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "exact": 2,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.6217948717948718,
+        "statement_initializer_normalized_ratio": 0.6217948717948718,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 4,
+        "output_bindings": 4,
+        "aligned_bindings": 2,
+        "exact_names": 2,
+        "alignment_coverage": 0.5,
+        "exact_name_precision_on_aligned": 1.0,
+        "exact_name_recovery_lower_bound": 0.5,
+        "bindings": [
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "different",
+            "output_name": "different",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 2,
+            "output_binding": 2,
+            "source_name": "right",
+            "output_name": "right",
+            "exact_name": true,
+            "occurrences": 2
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n",
+          "stderr": "",
+          "seconds": 0.014846599999145838
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n",
+          "stderr": "",
+          "seconds": 0.014743300002010074
+        }
+      },
+      "deterministic_threads_1_4": true
+    },
+    {
+      "case": "equality_order",
+      "group": "effect/order",
+      "opt": 2,
+      "debug": 1,
+      "status": "failed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "7711634355e23a9172fbba20073a739cccae27caab9846b0ca221d54f23bf97c",
+          "1338d83ecd47c03dfd7a596706a01a951039efe8d8297cd41b233b5de89e3ef3"
+        ]
+      },
+      "source_sha256": "5ddbbdc734955cc08a1eace93116d71f1b28e84452d7d6d36cbfacbaa8b8aa8a",
+      "decompile_seconds": 0.015393300000141608,
+      "output_sha256": "879b73545449cd62b12ced853c9ba5541861597b7439ceaa748fe806aabfb560",
+      "output_bytes": 149,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "exact": 2,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.7762237762237763,
+        "statement_initializer_normalized_ratio": 0.7762237762237763,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 4,
+        "output_bindings": 2,
+        "aligned_bindings": 2,
+        "exact_names": 0,
+        "alignment_coverage": 0.5,
+        "exact_name_precision_on_aligned": 0.0,
+        "exact_name_recovery_lower_bound": 0.0,
+        "bindings": [
+          {
+            "source_binding": 0,
+            "output_binding": 0,
+            "source_name": "fetch",
+            "output_name": "callback",
+            "exact_name": false,
+            "occurrences": 5
+          },
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "different",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n",
+          "stderr": "",
+          "seconds": 0.014753100000234554
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:right:left\nfalse\ttrue\ttrue\tfalse\nfetch:right,fetch:left,eq:right:left\ntrue\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:right:left\ntrue\ttrue\ttrue\ttrue\nfetch:right,fetch:left,eq:right:left\n",
+          "stderr": "",
+          "seconds": 0.015154400000028545
+        }
+      },
+      "error": "output observation differs from locked expectation"
+    },
+    {
+      "case": "equality_order",
+      "group": "effect/order",
+      "opt": 2,
+      "debug": 2,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "7711634355e23a9172fbba20073a739cccae27caab9846b0ca221d54f23bf97c",
+          "7711634355e23a9172fbba20073a739cccae27caab9846b0ca221d54f23bf97c"
+        ]
+      },
+      "source_sha256": "5ddbbdc734955cc08a1eace93116d71f1b28e84452d7d6d36cbfacbaa8b8aa8a",
+      "decompile_seconds": 0.01707650000025751,
+      "output_sha256": "7e0fd3a8af9b2b78d539b89274509dd7d42aff763957e96b70c2e44c57fd1a50",
+      "output_bytes": 194,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "exact": 2,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.6217948717948718,
+        "statement_initializer_normalized_ratio": 0.6217948717948718,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 4,
+        "output_bindings": 4,
+        "aligned_bindings": 2,
+        "exact_names": 2,
+        "alignment_coverage": 0.5,
+        "exact_name_precision_on_aligned": 1.0,
+        "exact_name_recovery_lower_bound": 0.5,
+        "bindings": [
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "different",
+            "output_name": "different",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 2,
+            "output_binding": 2,
+            "source_name": "right",
+            "output_name": "right",
+            "exact_name": true,
+            "occurrences": 2
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n",
+          "stderr": "",
+          "seconds": 0.014066100000491133
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n",
+          "stderr": "",
+          "seconds": 0.01357320000170148
+        }
+      },
+      "deterministic_threads_1_4": true
+    }
+  ],
+  "controls": [],
+  "summary": {
+    "total": 6,
+    "status": {
+      "failed": 3,
+      "passed": 3
+    },
+    "dataflow": {
+      "different": 3,
+      "proved": 3
+    },
+    "controls": {},
+    "groups": {
+      "effect/order": {
+        "failed": 3,
+        "passed": 3
+      }
+    }
+  }
+}

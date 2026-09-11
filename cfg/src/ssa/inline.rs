@@ -7,6 +7,25 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 mod facts;
 
+/// Relational reversal changes both operand positions and the operator, leaving
+/// the VM's ordered comparison intact. Equality has no reversed operator: its
+/// __eq call must retain the original argument order. A primitive literal on
+/// either side rules out an equality metamethod; type hints do not.
+fn can_reverse_comparison(operation: ast::BinaryOperation, candidate: &ast::RValue) -> bool {
+    match operation {
+        ast::BinaryOperation::LessThan
+        | ast::BinaryOperation::LessThanOrEqual
+        | ast::BinaryOperation::GreaterThan
+        | ast::BinaryOperation::GreaterThanOrEqual => true,
+        ast::BinaryOperation::Equal | ast::BinaryOperation::NotEqual => matches!(
+            candidate,
+            ast::RValue::Literal(ast::Literal::Nil | ast::Literal::Boolean(_)
+                | ast::Literal::Number(_) | ast::Literal::String(_))
+        ),
+        _ => false,
+    }
+}
+
 /// Whether moving an inline candidate *past* this already-visited rvalue could
 /// reorder an observable event. This includes runtime errors (for example a
 /// dynamic table key evaluating to nil), not only explicit side effects.
@@ -172,7 +191,7 @@ impl<'a> Inliner<'a> {
                                     left,
                                     right,
                                     operation,
-                                }) if operation.is_comparator()
+                                }) if can_reverse_comparison(*operation, new_rvalue.as_ref().unwrap())
                                     && left.has_side_effects()
                                     && let ast::RValue::Local(local) = right.as_ref()
                                     && local == read =>
@@ -182,7 +201,8 @@ impl<'a> Inliner<'a> {
                                         Box::new(new_rvalue.take().unwrap()),
                                     );
                                     *operation = match *operation {
-                                        // TODO: __eq metamethod?
+                                        // Equality reaches this path only with a
+                                        // primitive literal, excluding __eq.
                                         ast::BinaryOperation::Equal => ast::BinaryOperation::Equal,
                                         ast::BinaryOperation::NotEqual => {
                                             ast::BinaryOperation::NotEqual
@@ -1238,6 +1258,46 @@ mod tests {
         assert!(matches!(&block[0], Statement::Assign(_)), "{block}");
         assert!(matches!(&block[1], Statement::Call(call)
             if call.arguments == vec![local_value(&value)]), "{block}");
+    }
+
+    #[test]
+    fn equality_inlining_preserves_metamethod_operand_order_despite_type_hints() {
+        for operation in [ast::BinaryOperation::Equal, ast::BinaryOperation::NotEqual] {
+            let right = local("right_value");
+            right.0.lock().1 = Some("number".into());
+            let lhs: RValue = ast::Call::new(global("left"), vec![]).into();
+            let mut block = inline_block(Block(vec![
+                Assign::new(vec![right.clone().into()], vec![ast::Call::new(global("right"), vec![]).into()]).into(),
+                Return::new(vec![Binary::new(lhs.clone(), local_value(&right), operation).into()]).into(),
+            ]));
+            remove_empty(&mut block);
+            assert_eq!(block.len(), 2, "{block}");
+            let comparison = block[1].as_return().unwrap().values[0].as_binary().unwrap();
+            assert_eq!(*comparison.left, lhs);
+            assert_eq!(*comparison.right, local_value(&right));
+            assert_eq!(comparison.operation, operation);
+        }
+    }
+
+    #[test]
+    fn comparison_reversal_retains_relational_and_primitive_equality_cases() {
+        for (operation, candidate, reversed) in [
+            (ast::BinaryOperation::LessThan, ast::Call::new(global("right"), vec![]).into(), ast::BinaryOperation::GreaterThan),
+            (ast::BinaryOperation::Equal, number(7.0), ast::BinaryOperation::Equal),
+        ] {
+            let right = local("right_value");
+            let lhs: RValue = ast::Call::new(global("left"), vec![]).into();
+            let mut block = inline_block(Block(vec![
+                Assign::new(vec![right.clone().into()], vec![candidate.clone()]).into(),
+                Return::new(vec![Binary::new(lhs.clone(), local_value(&right), operation).into()]).into(),
+            ]));
+            remove_empty(&mut block);
+            assert_eq!(block.len(), 1, "{block}");
+            let comparison = block[0].as_return().unwrap().values[0].as_binary().unwrap();
+            assert_eq!(*comparison.left, candidate);
+            assert_eq!(*comparison.right, lhs);
+            assert_eq!(comparison.operation, reversed);
+        }
     }
 
     #[test]
