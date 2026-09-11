@@ -1,0 +1,174 @@
+{
+ "schema_version": 1,
+ "binary_sha256": "643e05250d8cc527f3287f521042701f9c8ea36a38afb49cc3f88c5ff149791d",
+ "baseline_binary_sha256": "b829eed89a09d02bfeb260c8e88434500ded4e76541621d3d4e2b3ba3147b755",
+ "rust_tests": 920,
+ "rust_child_repeat": 1,
+ "python_tests": 59,
+ "rust_log_sha256": "c167bd6afabbfa09110a2cd62a5ef82be3d30420587e55153f174f1272213c9d",
+ "python_log_sha256": "7377b4a87a3efc9b5dbb92d34bda04e83eea36eeae3b61ebcf03c9fcb6af6081",
+ "default_source_identity": {
+  "runtime": 120,
+  "public": 513,
+  "private_corpus": 3978,
+  "corpus_tree_sha256": "10ae04fbed5296f57e93a45a5821704a5101a3bf9bd771cc0fbb7a2e55a6b844"
+ },
+ "reports": {
+  "docs\\roadmap_v2_acceptance\\candidates_evidence_runtime.json": "177588a3ad2dbe306e644a2c1a4da8fe4e4778525fd6becaf717dcfb9439ebcc",
+  "docs\\roadmap_v2_acceptance\\candidates_evidence_public.json": "05ebc9f60b4073671e8e3479976dacc723fc3e1fe0cdd271d7a2503371eaf3f0",
+  "docs\\roadmap_v2_acceptance\\candidates_metadata_runtime.json": "44714e3d541feb237645714d6f61f361fce4259b050d75cec73e88c087ce8738",
+  "docs\\roadmap_v2_acceptance\\candidates_metadata_public.json": "b75c746b73db07923b5f07115dee5e6de1b790a901da4c28ae8bacc7e1e4a47b",
+  "docs\\roadmap_v2_acceptance\\candidates_benchmark.json": "4540bafdb871ca5795890e68feb2d3b8b06efc00cccd07778e08799262681a39",
+  "docs\\roadmap_v2_acceptance\\candidates_examples.json": "e8586fb08c7588dd16080ed7a0fac5d262277d21eae97132d47fed9c92d58679"
+ },
+ "runtime": {
+  "total": 120,
+  "status": {
+   "passed": 120
+  },
+  "dataflow": {
+   "proved": 88,
+   "unknown": 18,
+   "different": 14
+  },
+  "controls": {
+   "passed": 9
+  },
+  "groups": {
+   "UI": {
+    "passed": 12
+   },
+   "buffer/math": {
+    "passed": 18
+   },
+   "conditional": {
+    "passed": 12
+   },
+   "effect/order": {
+    "passed": 12
+   },
+   "formatter": {
+    "passed": 12
+   },
+   "loop/capture": {
+    "passed": 24
+   },
+   "naming/capture": {
+    "passed": 30
+   }
+  }
+ },
+ "public": {
+  "development": {
+   "total": 468,
+   "status": {
+    "passed": 468
+   },
+   "dataflow": {
+    "unknown": 280,
+    "different": 70,
+    "proved": 118
+   },
+   "ast": {
+    "measured": 363,
+    "unknown": 105
+   }
+  },
+  "holdout": {
+   "total": 45,
+   "status": {
+    "passed": 45
+   },
+   "dataflow": {
+    "unknown": 17,
+    "different": 16,
+    "proved": 12
+   },
+   "ast": {
+    "measured": 42,
+    "unknown": 3
+   }
+  }
+ },
+ "diagnostic_modes": {
+  "traces": {
+   "metadata_deterministic_threads_1_4": true,
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 0.5395505999986199
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 0.5880251999988104
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 0.30555359999925713
+    }
+   ],
+   "summary": {
+    "scripts": 120,
+    "source_files": 120,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 120
+    },
+    "conditional_result_records": 145,
+    "definitions": 3822,
+    "definitions_with_final_binding_ancestry": 1988,
+    "dropped_records": 0,
+    "final_bindings": 673,
+    "functions": 386,
+    "incomplete_lineages": 0,
+    "lifted_statements": 3194,
+    "statements_with_pc": 3194,
+    "unlocated_final_bindings": 0
+   }
+  },
+  "public-traces": {
+   "metadata_deterministic_threads_1_4": true,
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 3.296855799999321
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 4.465517999997246
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 1.2958720000024186
+    }
+   ],
+   "summary": {
+    "scripts": 513,
+    "source_files": 513,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 513
+    },
+    "conditional_result_records": 3542,
+    "definitions": 97176,
+    "definitions_with_final_binding_ancestry": 47092,
+    "dropped_records": 0,
+    "final_bindings": 13270,
+    "functions": 3961,
+    "incomplete_lineages": 0,
+    "lifted_statements": 77329,
+    "statements_with_pc": 77329,
+    "unlocated_final_bindings": 66
+   }
+  }
+ },
+ "limitations": "This collects evidence without changing naming decisions. Finite CLI timings are cost observations, not a performance gain. No new name-quality claim."
+}

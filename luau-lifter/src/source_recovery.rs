@@ -4,12 +4,31 @@ use std::collections::{BTreeMap, BTreeSet};
 use ast::{BindingOrigin, LocalRw, RcLocal, SourceBinding, Traverse};
 use serde_json::{json, Value};
 
-pub(crate) fn naming_report(report: ast::refine_names::Report) -> Value {
+pub(crate) fn naming_report(report: ast::refine_names::Report, legacy: ast::naming_evidence::Report) -> Value {
+    let final_ids: BTreeSet<_> = report.bindings.iter().map(|binding| binding.id).collect();
+    let legacy_candidates = json!({
+        "enabled": legacy.enabled,
+        "contract": "Hint proposals accepted by legacy rules, including losing and subsequently invalidated hints. Evidence does not change selection or transfer between bindings. Pre-candidate conflicting facts may be refused by the rule.",
+        "limits": {"bindings": ast::naming_evidence::BINDING_LIMIT, "candidates_per_binding": ast::naming_evidence::CANDIDATE_LIMIT, "name_bytes": ast::naming_evidence::NAME_BYTE_LIMIT},
+        "candidate_attempts": legacy.candidate_attempts, "omitted_attempts": legacy.omitted_attempts,
+        "binding_budget_exhausted": legacy.binding_budget_exhausted,
+        "rows": legacy.bindings.into_iter().map(|binding| json!({
+            "binding_id": format!("b{}", binding.id),
+            "final_binding_present": final_ids.contains(&binding.id),
+            "selected_hint": binding.selected_hint.map(|(name, priority)| json!({"name": name, "priority": priority})),
+            "invalidations": binding.invalidations, "truncated": binding.truncated,
+            "candidates": binding.candidates.into_iter().map(|candidate| json!({
+                "name": candidate.name, "priority": candidate.priority, "reason": candidate.rule,
+                "rule_site": {"file": candidate.file, "line": candidate.line, "column": candidate.column},
+            })).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+    });
     json!({
-        "schema_version": 1, "phase": "final_binding_graph",
+        "schema_version": 2, "phase": "final_binding_graph",
         "evidence": "inferred roles, except explicitly recorded_source_binding candidates",
         "priority": "ordinal rule priority, not a probability or effect proof",
-        "legacy_coverage": "selected legacy names only; legacy alternatives are not yet collected",
+        "legacy_coverage": "bounded proposals and invalidations, keyed by pre-cleanup stable binding identity",
+        "legacy_candidates": legacy_candidates,
         "limits": {"nodes": 100000, "bindings": 50000, "depth": 256, "candidates_per_binding": 24, "propagation_rounds": 4},
         "visited_nodes": report.visited_nodes, "bindings": report.binding_count,
         "scopes": report.scope_count, "renamed": report.renamed, "conflicts": report.conflicts,

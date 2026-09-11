@@ -10,7 +10,7 @@ use ast::{
     LocalRw, Traverse,
     flatten_guards::flatten_guards,
     local_declarations::LocalDeclarer,
-    name_locals::{NameLocalOptions, name_locals_with_options},
+    name_locals::{NameLocalOptions, name_locals_with_evidence},
     replace_locals::replace_locals,
     simplify_gotos::{hoist_locals_for_gotos, simplify_gotos},
 };
@@ -685,17 +685,18 @@ fn try_decompile_bytecode_internal(
                 ptime!(S_REROLL_ARITHMETIC);
                 ast::reroll_arithmetic::reroll_arithmetic(&mut body);
             }
-            {
+            let legacy_naming = {
                 ptime!(S_NAME_LOCALS);
-                name_locals_with_options(
+                name_locals_with_evidence(
                     &mut body,
                     true,
                     script_name,
                     NameLocalOptions {
                         dont_reuse_var: options.dont_reuse_var,
                     },
-                );
-            }
+                    emit_upvalue_analysis,
+                )
+            };
             // §2.8: recover OOP colon-method definitions. Runs after name_locals
             // (so first params are named `p`/`pN`) and before inline_temps (whose
             // receiver-deref shapes — `p:sibling()`, `p._field`, `p.field = ..` —
@@ -868,7 +869,7 @@ fn try_decompile_bytecode_internal(
                     &source_occurrences,
                 );
                 analysis.source_recovery = Some(source_recovery::audit(&chunk, &mut body, &analysis.functions));
-                analysis.name_inference = Some(source_recovery::naming_report(name_inference));
+                analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
                 if options.emit_binding_provenance {
                     analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body));
                 }

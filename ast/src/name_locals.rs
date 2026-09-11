@@ -2758,6 +2758,8 @@ struct Namer {
     next_file_suffix: FxHashMap<String, usize>,
     /// Preferred base name for a local, keyed by `local_ptr`.
     hints: FxHashMap<usize, Hint>,
+    evidence: Option<crate::naming_evidence::Collector>,
+    evidence_rule: &'static str,
     /// Broader context names that are safer than a narrow type name when usage
     /// proves the same local may hold several unrelated Instance classes.
     context_hints: FxHashMap<usize, String>,
@@ -2851,7 +2853,11 @@ impl Namer {
                 .is_some_and(|u| u.reads == 1 && u.writes == 3 && !u.captured)
     }
 
+    #[track_caller]
     fn set_hint_ptr(&mut self, ptr: usize, name: String, score: u8) {
+        if let Some(evidence) = &mut self.evidence {
+            evidence.record(ptr, &name, score, self.evidence_rule, std::panic::Location::caller());
+        }
         let replace = match self.hints.get(&ptr) {
             Some(existing) => score > existing.score,
             None => true,
@@ -2861,20 +2867,27 @@ impl Namer {
         }
     }
 
+    #[track_caller]
     fn set_hint(&mut self, local: &RcLocal, name: String, score: u8) {
+        if let Some(evidence) = &mut self.evidence {
+            evidence.register(local_ptr(local), local.stable_id());
+        }
         self.set_hint_ptr(local_ptr(local), name, score);
     }
 
+    #[track_caller]
     fn set_hint_str(&mut self, local: &RcLocal, name: &'static str, score: u8) {
         self.set_hint(local, name.to_string(), score);
     }
 
+    #[track_caller]
     fn set_context_hint_str(&mut self, local: &RcLocal, name: &'static str, score: u8) {
         self.context_hints
             .insert(local_ptr(local), name.to_string());
         self.set_hint_str(local, name, score);
     }
 
+    #[track_caller]
     fn set_isa_derived_hint(&mut self, local: &RcLocal, name: String, score: u8) {
         let ptr = local_ptr(local);
         self.set_hint_ptr(ptr, name.clone(), score);
@@ -2920,6 +2933,9 @@ impl Namer {
                         .is_some_and(|hint| hint.score <= 56 && hint.name == derived)
                 {
                     self.hints.remove(&ptr);
+                    if let Some(evidence) = &mut self.evidence {
+                        evidence.invalidate(ptr, "conflicting_IsA_families");
+                    }
                 }
                 if let Some(fallback) = self.context_hints.get(&ptr).cloned() {
                     self.set_hint(local, fallback, 56);
@@ -3003,6 +3019,9 @@ impl Namer {
             // traversal order choose either concrete class.
             if self.hints.get(&ptr).is_some_and(|hint| hint.score <= 60) {
                 self.hints.remove(&ptr);
+                if let Some(evidence) = &mut self.evidence {
+                    evidence.invalidate(ptr, "conflicting_Instance_constructors");
+                }
             }
         }
         for (&ptr, name) in &self.instance_assignment_hints {
@@ -3014,7 +3033,7 @@ impl Namer {
                     .get(&ptr)
                     .is_some_and(|usage| usage.unknown_value_write)
             {
-                candidates.push((ptr, name.clone(), 65));
+                candidates.push((ptr, name.clone(), 65, "instance_constructor_consensus"));
             }
         }
         for (&ptr, usage) in &self.usage {
@@ -3036,25 +3055,26 @@ impl Namer {
                     _ => (values, 52),
                 };
                 if let Some(name) = sanitize_preserve(&name) {
-                    candidates.push((ptr, name, score));
+                    candidates.push((ptr, name, score, "collection_content_consensus"));
                 }
             }
             if usage.counter_updates > 0 && !usage.counter_invalid_write {
-                candidates.push((ptr, "count".to_string(), 46));
+                candidates.push((ptr, "count".to_string(), 46, "counter_updates"));
             }
             // A numeric cell that only ever accumulates (`v = v + dt`) is a
             // running sum; a unit-step-only cell stays `count` (above).
             if usage.accumulator_updates > 0 && !usage.accumulator_invalid_write {
-                candidates.push((ptr, "total".to_string(), 40));
+                candidates.push((ptr, "total".to_string(), 40, "accumulator_updates"));
             }
             if usage.boolean_writes > 0 && usage.boolean_guarded && !usage.boolean_invalid_write {
-                candidates.push((ptr, "flag".to_string(), 38));
+                candidates.push((ptr, "flag".to_string(), 38, "boolean_guard"));
             }
             if usage.elapsed_clock_base && usage.clock_writes > 0 && !usage.clock_invalid_write {
-                candidates.push((ptr, "lastTime".to_string(), 61));
+                candidates.push((ptr, "lastTime".to_string(), 61, "clock_delta"));
             }
         }
-        for (ptr, name, score) in candidates {
+        for (ptr, name, score, reason) in candidates {
+            self.evidence_rule = reason;
             self.set_hint_ptr(ptr, name, score);
         }
     }
@@ -4308,6 +4328,11 @@ impl Namer {
                         .get(index)
                         .and_then(|hint| hint.clone())
                     {
+                        if let Some(evidence) = &mut self.evidence {
+                            evidence.register(local_ptr(param), param.stable_id());
+                            evidence.record(local_ptr(param), &hint, TYPE_HINT_SCORE,
+                                "bytecode_parameter_type_fallback", std::panic::Location::caller());
+                        }
                         self.hints.entry(local_ptr(param)).or_insert(Hint {
                             name: hint,
                             score: TYPE_HINT_SCORE,
@@ -4687,6 +4712,19 @@ pub fn name_locals_with_options(
     script_name: Option<&str>,
     options: NameLocalOptions,
 ) {
+    name_locals_with_evidence(block, rename, script_name, options, false);
+}
+
+/// Collect all accepted hint proposals, including losers, without retaining any
+/// local ownership or changing the winner/scope/cleanup decisions.
+pub fn name_locals_with_evidence(
+    block: &mut Block,
+    rename: bool,
+    script_name: Option<&str>,
+    options: NameLocalOptions,
+    collect_evidence: bool,
+) -> crate::naming_evidence::Report {
+    let mut evidence = collect_evidence.then(crate::naming_evidence::Collector::default);
     // Gather, before naming, the whole-tree facts the scoring heuristics need:
     // which locals alias `createElement`, then per-local usage.
     let mut create_element_aliases = FxHashSet::default();
@@ -4700,7 +4738,12 @@ pub fn name_locals_with_options(
     // inflated and `name_one`'s unused-local `_` detection would break.
     let counts: FxHashMap<usize, Usage> = collect_usage(block)
         .into_iter()
-        .map(|(local, usage)| (local_ptr(&local), usage))
+        .map(|(local, usage)| {
+            if let Some(evidence) = &mut evidence {
+                evidence.register(local_ptr(&local), local.stable_id());
+            }
+            (local_ptr(&local), usage)
+        })
         .collect();
     let mut collapse_candidates = FxHashSet::default();
     collect_collapse_candidates(block, &mut collapse_candidates);
@@ -4715,6 +4758,8 @@ pub fn name_locals_with_options(
         used_file_names: FxHashSet::default(),
         next_file_suffix: FxHashMap::default(),
         hints: FxHashMap::default(),
+        evidence,
+        evidence_rule: "expression_and_usage_hint",
         context_hints: FxHashMap::default(),
         isa_families: FxHashMap::default(),
         isa_conflicts: FxHashSet::default(),
@@ -4735,11 +4780,16 @@ pub fn name_locals_with_options(
     };
     namer.collect(block, true);
     namer.usage_based_hints();
+    namer.evidence_rule = "resolved_call_consensus";
     namer.interprocedural_param_hints(block);
+    namer.evidence_rule = "declaration_and_type_hint";
     namer.apply(block);
     if rename {
         avoid_shadowing(block, FxHashMap::default());
     }
+    namer.evidence.take().map(|evidence| evidence.finish(|ptr| {
+        namer.hints.get(&ptr).map(|hint| (hint.name.clone(), hint.score))
+    })).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -4769,6 +4819,41 @@ mod tests {
 
     fn number(value: f64) -> RValue {
         RValue::Literal(Literal::Number(value))
+    }
+
+    #[test]
+    fn evidence_preserves_unused_detection_type_fallback_and_cleanup() {
+        let build = || {
+            let parameter = RcLocal::default();
+            let unused = RcLocal::default();
+            let function = Function {
+                parameters: vec![parameter.clone()],
+                parameter_name_hints: vec![Some("number".into())],
+                body: Block(vec![
+                    declare(&unused, number(0.0)),
+                    Assign::new(vec![LValue::Index(Index::new(global("record"), string("Width")))],
+                        vec![parameter.clone().into()]).into(),
+                ]),
+                ..Default::default()
+            };
+            Block(vec![Return::new(vec![Closure {
+                function: ByAddress(Arc::new(Mutex::new(function))),
+                upvalues: vec![],
+            }.into()]).into()])
+        };
+        let (mut plain, mut audited) = (build(), build());
+        super::name_locals_with_evidence(&mut plain, true, None, Default::default(), false);
+        let report = super::name_locals_with_evidence(&mut audited, true, None, Default::default(), true);
+        assert_eq!(plain.to_string(), audited.to_string());
+        assert!(audited.to_string().contains("local _ = 0"));
+        let row = report.bindings.iter().find(|b| b.candidates.iter()
+            .any(|c| c.rule == "bytecode_parameter_type_fallback")).unwrap();
+        assert!(row.candidates.iter().any(|c| c.name == "number"));
+        assert!(row.candidates.iter().any(|c| c.name == "width"));
+        assert_ne!(row.selected_hint.as_ref().unwrap().0, "number");
+        crate::inline_temps::inline_single_use_temps(&mut plain);
+        crate::inline_temps::inline_single_use_temps(&mut audited);
+        assert_eq!(plain.to_string(), audited.to_string());
     }
 
     #[test]

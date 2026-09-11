@@ -332,7 +332,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 **Công việc:**
 
-- [ ] Dùng các heuristic hiện có làm bộ tạo candidate; bổ sung lý do và độ tin cậy, thay vì chỉ giữ một string/score đã chọn.
+- [x] Dùng các heuristic hiện có làm bộ tạo candidate; bổ sung lý do và độ tin cậy, thay vì chỉ giữ một string/score đã chọn. — Lưu proposal/priority theo binding ID, rule site và invalidation; priority là thứ tự evidence, không phải xác suất. Có giới hạn và kiểm tra không đổi output. [Hợp đồng và bằng chứng](naming_evidence.md).
 - [ ] Lan truyền role qua copy/phi đã chứng minh, field read/write, table record, result tuple và call argument của function resolve được.
 - [ ] Xử lý các ca đã quan sát: table field `component = p`, `props = v`; assertion chứa tên tham số; result nhận từ cùng một helper; tên callback theo event/caller.
 - [ ] Kết hợp type evidence với role: buffer/offset/size, state/scope/props, result/index/item. Type tag `number` đơn độc không đủ để đặt tên `damage`, `duration` hay `price`.

@@ -1,5 +1,17 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R3: bounded legacy naming candidate evidence
+
+The namer now retains accepted proposals, losing alternatives, selected base hints and invalidation events in optional analysis metadata. It stores stable binding IDs and no local owners; ordinary naming, cleanup and final binding choices remain unchanged. See [the contract](naming_evidence.md).
+
+- 920 primary Rust tests plus one child-process repeat, and 59 Python tests pass. New tests cover reference-count-sensitive cleanup, fill-only parameter type hints, losing candidates, invalidations, bounded deterministic retention and audit mutants.
+- All 120 runtime configurations and nine negative controls pass; all 513 public configurations compile/decompile/recompile. Source is byte-identical to the prior release in all 633 configurations and all 3,978 private corpus files. Corpus tree SHA-256 remains `10ae04fbed5296f57e93a45a5821704a5101a3bf9bd771cc0fbb7a2e55a6b844`.
+- Runtime evidence records 263 retained candidates over 667 pre-cleanup bindings, with 14 bindings containing alternatives. Public evidence records 9,226 candidates over 13,226 pre-cleanup bindings; 968 have alternatives and 18 have invalidations. No evidence budget overflows. Of the public pre-cleanup identities, 12,934 remain in the final graph; the 292 others are explicitly unmapped.
+- All 633 recorded-binding metadata audits pass. Analysis and provenance modes preserve source; provenance sidecars are identical at one and four threads for every fixture/public input. Diagnostic public runs take 3.297 s (analysis, one thread), 4.466 s (provenance, one thread), and 1.296 s (provenance, four threads). These are single diagnostic measurements.
+- Seven interleaved warm CLI rounds: one-thread median 19.191 → 19.532 s (+1.78%); 16-thread median 1.686 → 1.706 s (+1.18%). Median peak RSS 33,718,272 → 33,603,584 bytes (one thread) and 114,524,160 → 113,156,096 bytes (16 threads). All samples are deterministic. This adds diagnostics and does not claim a throughput improvement; nearest-rank p95 is a seven-sample maximum.
+
+The [validation inventory](roadmap_v2_acceptance/candidates_validation.json) links per-file coverage, metadata audits, benchmark samples and [public candidate examples](roadmap_v2_acceptance/candidates_examples.json). This closes candidate retention only. Broader role propagation, module summaries and human role-quality acceptance are separate R3 work.
+
 This record distinguishes implemented gates from the research roadmap's wider
 acceptance criteria. The baseline is not an overall source-recovery percentage.
 
