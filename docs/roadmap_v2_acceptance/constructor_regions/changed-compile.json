@@ -1,0 +1,1035 @@
+{
+ "rows": [
+  {
+   "path": "out\\v2-constructor-regions\\private1\\StarterPlayer\\StarterPlayerScripts\\MountRangeIndicator.client.luau",
+   "source_sha256": "a519e7cd45a55f3d065b20be3b48dd6f644633fa45e8a09460a79734c662b55c",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "367602f88b7f47eb4b9c7b9d30b76a02e60bcee9a7b90f624509a10ac0b26cb1"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "94a18a5ec2b5d92593945c21f301bb9bb5170bacc03afb1d16587eb2e23ed9c2"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "d7276be4e044570a97702ceda04fe58f8aa5b2931a6166ce1f84a73ba1e92087"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\DivergentVFX\\LightningCore.luau",
+   "source_sha256": "ec67f9383a7866c9c7418bb1342db9b5e157fbe9af0f9febfeee9be44632c20e",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "e1f7015f7b53e2e053f6ab5c5a3dd95751f21e6f5abccb4bef6d2a1966f17ad8"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "ced397f0968728621bf4a1e4377b44caa64d7be16f262f2f8414968966fef111"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "5663ac729c311e2234bc9c8f0f22544bc6546fcb278f823c14a7b0bea56d9261"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\Part_Icles\\Events.luau",
+   "source_sha256": "f7b5f916f0a69d9a985cac7f29f150383fb2a11c6f1afc567128a359d811dc67",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "8fd40c8f390b6cdf745033d3201343777577ea3605a2e88762165cb19e074ecb"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "b21ad02ba84ba4df27709734f1a1e12e6076220698455fd17b7d598deab36b00"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "724c70855cd1ec43f9520bb5ad44c3f22094489d653af09e6d0310a996388d16"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\Part_Icles\\GetData.luau",
+   "source_sha256": "1b8398eb5c2dafafe1793b2d51f8a3724b618afb7a52aa68784cc51f949eed39",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "ef0e727a871f802b3a9de34c256f022806e089b2286740d7435029a36b3bc27b"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "4dae5e2f36784c622d7e7c44accd2be121f18ed7ab30cf1e539a79bc164905e1"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "8838ec7196695322b024b9b18d3246dc56126797a71c56ce1c252530f392a92d"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\Shared\\VFXManager\\init.luau",
+   "source_sha256": "f19ec28e2cbc05d6cb6dc3d0eb02654a52c8305640e3c428bff94ab8c8f0e00c",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "277c6d66eb5fe7995cdf4c5794ccdc05ecc734d7909e74cc0f3af7a3eedd2b8a"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "81e4a892c6c8b6f44be9d2599825976ccae75630a73b433b477a63a60eb7acb6"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "8002da0bd527471682e77d61e3b04ead282a20146dc967b85bdecc58758cc172"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\Shared\\Zone\\SimpleZone\\Utility\\UtilityFunctions.luau",
+   "source_sha256": "9061f7fdcba4bd361d1c6d576719499f2576756bab77fbf21c1d3dab72bf688b",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "48edafc0f24be7f641a5abfb75f95c8e71ab1b9b231192dc105dcfc553ff5961"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "938c3b4507602e1a3f8b4c1103f4134458a6f5519d1301f69149eacab4154f73"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "d1f55ad459d9b3ecf46910ace69a3a5bbebbb6b42323d4b1c70725ee921776ae"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\Shared\\TimeManager\\MeshEmitterV2\\GetData.luau",
+   "source_sha256": "2f780eb2710d8ba15399acc677a972c3ca265e22768f42fb0970e69d7a120b2e",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "9900925743703aba842f27e0c7e4244e6e48fb62086a4918a0d4097979fbec1a"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "c2e694f090d923f3581e25080ce51fdf924006981f119a8fc0a2dcda0dddf023"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "277895e6742555f730d802c1d90edcef4264abd54005552de63d58268b87be72"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\Shared\\TimeManager\\Part_Icles\\Events.luau",
+   "source_sha256": "f7b5f916f0a69d9a985cac7f29f150383fb2a11c6f1afc567128a359d811dc67",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "8fd40c8f390b6cdf745033d3201343777577ea3605a2e88762165cb19e074ecb"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "b21ad02ba84ba4df27709734f1a1e12e6076220698455fd17b7d598deab36b00"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "724c70855cd1ec43f9520bb5ad44c3f22094489d653af09e6d0310a996388d16"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\Shared\\TimeManager\\Part_Icles\\GetData.luau",
+   "source_sha256": "1b8398eb5c2dafafe1793b2d51f8a3724b618afb7a52aa68784cc51f949eed39",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "ef0e727a871f802b3a9de34c256f022806e089b2286740d7435029a36b3bc27b"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "4dae5e2f36784c622d7e7c44accd2be121f18ed7ab30cf1e539a79bc164905e1"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "8838ec7196695322b024b9b18d3246dc56126797a71c56ce1c252530f392a92d"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\Shared\\Information\\Expeditions\\Buildings\\init.luau",
+   "source_sha256": "f01d3cd960696ce2d8b4c68014def956fbda18e313e76e7fc603df7450c699dd",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "a21cd15aa7f6d668ffbc7b9128514a7925a8777ceecfe2bebde5dbf875210ff4"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "ea13e4f7f68d95688b9cd5eceb079c27947515eaf1ecb30f9e6a7df334d0e81c"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "56333e231aa6b13e42ae64e904f3faf306da31098f1d5f9525561c0ba6b17aa3"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Base\\UICorner.luau",
+   "source_sha256": "2127cd4f219c72ba3f08aa03d0386422d90e254dbd5ecaef03da512819ff0ed2",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "fad1ee6b5bb3007aad381cb100d4b33ecf2e5e2855465fa71e48e26519a4701d"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "3db97664a980f9e8fc8a2a3af2a73013d7180f99f749143ae09b31f84b5899b8"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "9c7f24d6b89028a1ff86fcb49538cb80b7827a67943d4cd522b6b48351b9b81a"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Decals\\Water.luau",
+   "source_sha256": "c8757d0f78f265c43ee54930f2100f8233c96499598d840a3ec3083ac5a60b27",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "25a9adb3dfee1eb6a2522218f0d935fe8649efe2ab7348ca3f37dcb7b63d106b"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "f748a57feb20dbb1e2b89776cb78c90c2b4492b7e5cc6a36d347bb8d20d7da76"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "bd9144daeac33f2b28e0f0bd3b9e8a2ce95db9770811f2458b39ba16e12164aa"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\HUD\\LeftHUD.luau",
+   "source_sha256": "29751003719cbc158c98bfe99c1cfac11c3df3d68ba3f2433d48c90022c42ec8",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "cddc6da5e8866f81953caf6452334d63a3da84b703c2503c08f2e08d21f6fb12"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "f69ca1c60a199d7522aa7cb66a0b4cf1923020f32d6adfb030bf45a54a73a585"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "4e1f0e75ae7c282da3033e6395dd74788a60be512397ebb8f68c22b14d8dd4d2"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Icons\\Trait.luau",
+   "source_sha256": "30ed645f6887a983faa2ee70215948074d8d5fe4f1bdb9918397c17aa4a90654",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "99f5069d54ddbbf1e9fb49498b08b19bb7f1edfbab2e88c511b0f35ed5e7157a"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "bbb7c764382c74157b674d13f800225483e1eda49e0387b86e01f23df58c5e6a"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "691d14a0591023e2d1a00f839a96d9f75a542b9978da8347556381fb9d8c9628"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\AFKChamber.luau",
+   "source_sha256": "0e9d9a59ac8b9c888cc7445ceb70a8078e71aa799acaba66a86ca4423c5958b5",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "3dc5b8546892a3ff44be19f90ae8563fbf4d4027823a93c94355b7b6d9b97263"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "e7f47ee9c5456ecdcfd200f08276595a8be2070b9ada154a7e6b54eff74e3c4c"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "5a52b0d54cf86af743ff8ee2cca163de8d0bf6e58a2949f1052bfc70418ca11d"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Prompts\\DropdownWindow\\GameUnitTargeting.luau",
+   "source_sha256": "c554084fd732cb29e53461946b2f76266bc3bd0a4165dc2484376ee4fe82c0c4",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "6e41301deedd7d9a649350614dfc7f4b2b482a55be3d3466a3e4a54c49c7160b"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "5f64362268a55d8f0a4c7bd965c9223a7ccd08360021132ca171f5ac01d51985"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "1c09fd2f959068bdc7f66a5283d4e13e5255e2a42ed369cd7df699f8a8071cb9"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Prompts\\RewardCalendar\\CalendarReward.luau",
+   "source_sha256": "38263c485e233a553a4b602596a956181bd0fa405ff76a81b323aaf903bf2e48",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "3a7a4d73b72e50ef20d699f833d1a4b5840ffc7cfa8ab09d2305d1c8ca959543"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "80c651fcfa1595cde57fa01fd98825159881b4b687e4a605fc37dc85d19f6de0"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "ed66579b87e18db8926629298d2217ac1ccc6771e5386ac50f34de7e6a5edff0"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Prompts\\UnitTeams\\init.luau",
+   "source_sha256": "ea92bb620570b1a68d5503052fa0c89c58a6e8355b31b6ba2096ee1f25a412b0",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "f0a9932c9847614a6d9620972ac568e132f8588f58e1ec904dec6dbf4d04bc19"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "6cdac6f593bbaffd06f27922fd51147bf35ee070e1c6830d5335279ba7e5ca5c"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "ec8af5a1bb318f58bedb94f64ce56c358765184b63e60af6b07837ad409ce759"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Prompts\\UnitTeams\\New.luau",
+   "source_sha256": "68b92d2453ca89e109ba44d856c5fa282eb1deba5aef0f269e08715d4e5ba296",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "8c84ea57835934dfc414760d56de227464ca239c5f57de0bb030e33b5058ed4e"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "4184f6d972bfccccf6f301f1ff4e846bfe4f536b5ee8edfd3f3bd8b11f0db2ec"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "8a97600472868a3272a448c9f864b8437c1c43dcb31f04e185f7926a9b8a68e1"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\Battlepass\\init.luau",
+   "source_sha256": "491cc02e36f095e5287eb0f371aba060679de4aaa335ba69da7e47ac541a6b35",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "66942f9c1d9648a443f84adbe15093758782aa328e276b4fa46886b5644cf4dd"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "9da8c3701aeecc3104f534b72ae747aa86c96fdba8c4e0ad462c108d4bff4f87"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "aba10b9f021642c9ff007881f18e4f269fd6505c447e6370867654ab5725ae20"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\EventView\\EventNavigation.luau",
+   "source_sha256": "0982764d4ae2a0ca7ce4453bbc5887fd44363b069ee4e384a4eecc2848ab7a14",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "8eabb8f119aa0dce2c5439c6227bdd70749a3738def35e31ae430427551b5f18"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "a869dfcee0fcfc46bcbd8209a5497b6549fd9257189088f293d607bb0f91c8ca"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "2955aa4d5337f4bf1699dbc6386239c0fb6eb0daf1e1fd3e8d38dcbe52de3864"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\EventView\\SingleMenu.luau",
+   "source_sha256": "862dfdbcb59ccff4baad9f343cb8236340ca67538b9923b9230a24eb22f5fe4d",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "fcf5ae8893cdbc9ffc95b98eaf90c8378eb32570da21decf5bf9993b4765d5a9"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "8c4009de0fd7b2887abfb5687e0e8a3cdb59739766d6d25bb7443ff8ff7acd95"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "b8e72fd46d92b4188e3e4fd432c9c410412da6f7d6ff47e44c07ca52c5a3af2a"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\Expedition\\Entry.luau",
+   "source_sha256": "d71edf817ab5e42eab020689745da06963279075b1b74cb27595d25fbfa83768",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "fa5a8883aa4b21e8aa4cb90bc6b4c09f714ff172d8b2fc0b4878a7bd7c2b5c24"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "bd9572c4b8f7d97aff32b889a9b67dcd45dff4f63c2caf2acca27436ef7e9690"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "419f342335fd51d9936205aa7a21913a80bd91f9b92fc3f4705edb67b91b4908"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\Expedition\\PayloadSelection.luau",
+   "source_sha256": "b72db8079e8c32b3818404208516ade21c46576505ff97779f59462c5ee3d119",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "6d82134caf165eb87ec131aaab05aac5a9d6b73128c37b9e634ef08bfb30287e"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "124b1bf002b7e89d23323b0cc31e78fc86cea35235cd574414fa17cf703c87c3"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "9d434ac19a0b0b07d5f84dc0496eda24dd051fc32d69729e4b6a7215f2f26345"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\PartyView\\init.luau",
+   "source_sha256": "79be20a6d3335fe4e1ef44df49812baaa3ca1754cd59152a6f84f50c853d9f94",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "e3157eb7c4ff0f15692266e706edf60c553b6decc77beacadebc006cea5299ef"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "68ddbc8f906dfdaa0d49c3a91bb0d83f75479191f666433d4174bfb99340a888"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "2c028ee921ca3d4a6db17d4cc0a7ec310eee3eb707e8436f1dd7232e2e2ab6af"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\PreRelease\\RewardButton.luau",
+   "source_sha256": "efef83d131f9b8900868bd002a9b80d56f8fc1e9e429b7e10a2435bddbf2d595",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "ffa270ff0e04f82acf459b9cd436dafbc509c3cf78091a5ff8b352e9a7c7b4e2"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "0f99aaeb36a9229d1329b9e229c76047507fccbfb83296a49386317667993bb3"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "b53617ff0f3f3cf9c0ebc1fb792856183236c82fd5949f7d60eb602fb7a345d8"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\TowerOfGod\\init.luau",
+   "source_sha256": "711a00af2dd296ce68f4a459ee4609d77086e87fff70213301b55883658af508",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "9a6c1dd2bf857eccc8c0b5a8de8e12ef120ee5f451f1cbb661211bc945880d65"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "9acbaf73c4efd04406e4de44eae56e5f1e620f53009712ae9460862d3c8eafb8"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "295704a1916dcdc2ef4831cc0d01849ef106f92339ccc3ddab2c3b3a1b7a3150"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\UnitInventory\\CollapsedStatLabel.luau",
+   "source_sha256": "8eb9c89ec3e4c97cce96b5893164f254dd71e0e14814f6e41fcc5ff592b9dbb8",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "d094ed54340d7bd3871b71cd960c1918f707ed7ccb0baa77cab035f1ec347a91"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "14b1635ab5cbeda353bf8788b7b20bc403a2d6534ec104fd5235c11e0137e44c"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "8ab1c831da13e9eacb0a5a10c1bc6b5c8cc061794f820f98d0785a0d47ed5439"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\UnitInventory\\MinorStatLabel.luau",
+   "source_sha256": "e55f2a36dbe626fffff851d4ff4c2f59cf9a242c386b0599f5fb39bd8036f8de",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "03a1b162cf50ce060bd38563f15359f3cc17439f2659ad780789d59466dd48a2"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "ae2e7961fbd9ed72834d8362c7e1608bcfff8cfc0b97117b6e44fd573116c90d"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "ede0e710d92c374856de1342faa99b9c0ccb0c197fe6679ccceefa6a9b73bf62"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\UnitManager\\UnitButton.luau",
+   "source_sha256": "6246d19eb5012555d330bd17e722bc934f05f61a509340fb10a868f85f6245b7",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "9b2291f0aa7ca569a859013e3c43e5b91168f06f934621280bd81c2312652de6"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "25684c6c4bb1484483a5c86b71b9f1756e5f44a0c9f3df803a1a3f597c0bc85e"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "19ff53c300eb2272b7c7953ab9f15581c9128e867229cab5a702247d123543cb"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\UnitInventory\\StatLabel\\init.luau",
+   "source_sha256": "a7bfc49ddce71b084c6f9f2fbcd9f664a9fca24dcfad2c16ec6170359bc51bff",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "e413d703ca8fec0e9d388a41a33278467f453b0a10f83bb8a922fe84a4a08a86"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "94fa71952b464d5702b362c4cf17b7d5f586ec9fac65cb45092e641eac904e32"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "1f2cf08fc5f8fce1051d38565fbeca4eb7bdf255b69528272839038aa5ea62cf"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\Index\\Pages\\Enemy.luau",
+   "source_sha256": "8c3e495ce8dfbad819a257569e97a92238ec50ceec057e4cb1cb3749ff0c71b3",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "3edcc477629ad1efb7a07ff7c1da8bcb686bc5e67f72fff33a04bcf133b5d366"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "e1f10f9fae591e089d9c473d3468e84078c16e5c451f47e17ea82796c644c4fa"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "2dbae57d6a894ff3199aae87c6265cc024feeb94d9b75456afc19c7248f72a0d"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\Index\\Pages\\Equipment.luau",
+   "source_sha256": "9e8a69d1c467a518edc91433c3c5821248d70e742ac71962504d581d038eedb9",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "b603e11c260278f8a83827613f67ec652e6f8383afd5fa987e26c72c422a3e17"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "da402371d51041bf9700e022c53f299e9a898ca9749254cb7205629ad7c34c7f"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "3c049d7b606492a22da071aebf760f1d2908d3f548a90f3f0c6bd175de74a17d"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\Index\\Pages\\Unit.luau",
+   "source_sha256": "3d9462f5f5d65315946549c9fe1f46a6789033dc9ed914f5578d6bd38aaca22e",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "f83be4b6ad8fb9d340f5134e2a37892a780696ae6130c04476e284af6159bdb1"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "a8d4391d052c99a141122bcfc04e406918161162f4fb3d4a399cfbd0471b8b25"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "d549460d0d4467439314a1d60b0b671a5d0d3f9f4d2c27985f5a0fbe6cc788f7"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\EventView\\Layouts\\GuessUnitEvent\\GuessUnitDifficultyButton.luau",
+   "source_sha256": "f0c8e03ae1f43b88a08b01b45dde8be5e55841bb75052f65c5f9f05932806bab",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "aa3c5c589a3d4bb6c066d4b6bff651c38ddc1bb09c8eb9d8912993e6d0ca1642"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "583b6cef2c145c9625ecc16980fd6d64e0b5b574e4ad729849e463cd4b2540bb"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "8ccd857ac76b12254bcd5eefd646599e1bb312445324d62b49af64a46c139d37"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\EventView\\Layouts\\ShenronEvent\\DragonOutlinedLabel.luau",
+   "source_sha256": "ffef1b9410ba8461d0dc151249c6d6af9a0cee2b9df646133df57ff2ee0c4d23",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "01a339edc3ce7e924e3dd9371ffca7de70b6199ba67ceb45fc20e46395835a3e"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "cf5f7a2048b5a96a52f6388a7303083d2a36227ca45dd1da7bb5c6f625e855dd"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "931df3850b010092efcb9923eda7c5f6e5e42caf3eecc323da9d5ae0210becc0"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\EventView\\Layouts\\ShenronEvent\\DragonSecondaryButton.luau",
+   "source_sha256": "0b9ca91efc68604c7b1a35464df59965ca5e566e8f26d35cb2e94cefa5530ab4",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "2f91d8e525475ccf27c91bc0041322814f78afe93cf190087132b67f5659c8ff"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "12ffd620313e5b97c378e5d7126356250662afa1a2a2072d3fa5d5d6d42c187c"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "e7645d05e5f04a82a3b424152ce0818b2b64afc6e2c03f45d158e282aac4b48d"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\EventView\\Layouts\\ShenronEvent\\WishUnitPrompt.luau",
+   "source_sha256": "2a8861553da10368b3e3ea32a0b220df22e2eeecad8f0ace8870b691409135c8",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "06b025e44a4f962f10e559e1f5d524a074f351eea5daed168552a49939e7cd60"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "ec996e62bcea663dbcd336adff9c5aac73aef34124b5402c6c9013da0ac93ecf"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "8e0bef5de8b0e5a524a16df02524cfedcc689b7c404ce75d84f96e148d0617fa"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\EventView\\Layouts\\Summer2026Event\\ModeButton.luau",
+   "source_sha256": "8ba067647c0730e7ad1f9733baa821d83bfb9f5a2c294252edad6b4e4d05da5b",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "23a1e0fbcd8ede1a1b1b6bc3e0f56d12b37c738fe90863336ad502f07f08fb87"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "59eb90c69002c67b623bb249c13bf0024a22afcb00429ae05facefd242df8763"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "3b9b3bb6edaa88484e090da235e9ec8d0b5e4c498223d2013d7a573b82c0c481"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Menu\\EventView\\Layouts\\Summer2026Event\\Pages\\Home.luau",
+   "source_sha256": "014287eb44239af5acd337db444729593aa940aa6904d440befe8f837a0f08e1",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "ba0e8489f905907403ae67644b7bf41f5644bff8d7f9c52d8c5d6e5536b8472e"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "9718531ee47a4168dd0d85c386d68c5a71b64e73ad179b449bbe575f766cf7ee"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "d6ad1a94146e9d0aa48a86c09f1f06f49edff84b4ee706568cfa9c5d67e2595b"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\HUD\\BottomHUD\\init.luau",
+   "source_sha256": "a8c864e213c1ae293308083a6320ad61446ed1c36a6334f85a7bf5050bcab951",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "09aeb3ec97a0562ff17e27001984a00b381765cff6b4c1c7716af6dfc5228a96"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "c00133b92c5bd510e5a1cb68e2f311a3ab5ca3b08eafd2b59f49c8545ca23a1c"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "a232b4201fbf0e136ec4c9b211fd7b8096785a46bd9608e1b1a173cb2e4dfdec"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Game\\DamageIndicator\\init.luau",
+   "source_sha256": "011ffab0765f1384b1eb01d06476c3908153a39428abcadd5bedea14c425275e",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "76c27fba99d12426fcbe033dc4468b1a9240f8d107f6717fac38f56350c835d7"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "586cc68877f415ee1b484fb748f82bd092ad02f1202e8a955392bb71b19e62e4"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "ece7967f79ec7c181c08b3831ab79a863c0db0b4558ca9ffcde28b0fe66f0feb"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Game\\GameUnitView\\AutoUpgradeButton.luau",
+   "source_sha256": "02b3454f7b23e34512df1bc191a5cf2a4e83c6ccaac015571b1bf30012ab6d60",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "5f996a3540131f660f81067019ff2b542aba5e4a12683e2deca36c5968588677"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "192a1827de9be38ba144edd4aef74a0d58016c4757ef9e7997ee5f112a5d56e3"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "32d56212eb9515589726536ba6c4ebadb4a125882eaf33fb9ad527d0b4af1cf3"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Game\\SandboxControls\\Modifiers.luau",
+   "source_sha256": "3bf40d570f634510799de1954b43223897c0fd73555a5d148420a2486f0a0351",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "df3a687aca547a1ac4639072bab2b197a5761fd9fa8d4f03e3693f7c3519898c"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "06782c5044a9092f03de24d6f6e32b5b158d5a544c5891727760bf65bea9274f"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "3162a83010f4811b13714e2305ba2d4779da5747c12155cd550595034ee18d92"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Game\\SandboxControls\\Enemies\\SandboxSpawnEnemy.luau",
+   "source_sha256": "e2a3538cc6bca287cfdb24e44387f4acf76be294f04260e93b8a8afba185f4ad",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "e0a65bc8cf66065d728f882cad332409198b81b3454e8ff83fcc08f8f7a29847"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "a8a54c18909e5f9232827acf62e4effe007cab748e1fa5c0d7be3a6232ecee12"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "5011efb92e71e1b8cf03232458d8b3b8e33dc61ab5b66040128987f7142890a5"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Expeditions\\ExpeditionUpgrades\\init.luau",
+   "source_sha256": "85c244f86e3e65dda35aba504ffd4288b6a32667a9648c531e12083b6750e49f",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "3a4f595fecae37a4c686500a8aabc484bc284ded592bf25c9e657c25c63eb4d4"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "24f986b93a4003df2ec4f9ac3caca173549514eee938f0895af78200499d56f0"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "585925890112fd4438315d3ccd1c8381cb2838ed608c1703f88d6d4d05b36be5"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Effects\\Shine\\init.luau",
+   "source_sha256": "f7db745396e2e1b9b0c388e404978d03d143cf930d63b3f6759a733b370743e1",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "f619f72fd69a60944d96ffe9593f1f27b6e9572d4cca0ed9e5dd59437e2ce81f"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "a5ca5b20dcd1b7cc4a8bfd0ff78a8cbbbe651fa1a40b01166ea01dd88c5aba85"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "d0b3109a09634197b4ed87786eee4d78841a142dc3dbead655b9ed44518ed63e"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Base\\AssetGrid\\SellActions.luau",
+   "source_sha256": "7ad1158d2bf2ba9668cc038392bf91d5e0fcf68618e447f065970751b4ab52d1",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "8edafd0325604061a533c2da963bc0c1a38ec6a62c797de65490f838a12ba69e"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "4b2e611671d372e64306c0a489a84f8c447389a0c02ec6474846475e89f66d30"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "a00b724e9501d14bb393497f5defa4ad17b14a0ea4ae19abf7e943997daadce4"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Base\\Button\\CheckBox.luau",
+   "source_sha256": "c9f737a618e6485f1c31eea915f36d9f4bb53b7263732f569d4b6619b501b9eb",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "5851e919538e7e35b51b5055fbf01140d772684ccaa1968c225f7bd68d629a26"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "44241a382dbd401d9254a359fd8828c470c47f54b573eacc175e5c5c7bc398ce"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "5cad2a8d21a9d183d84fa95a4673c73c8458a24c7bb3a5aba89253e0e4ea2e66"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\private1\\ReplicatedStorage\\FusionPackage\\Components\\Base\\SplitTextLabel\\init.luau",
+   "source_sha256": "0b78281f3494b91b5093a5e75e45c606b0b761c40d3249ae27fd8629e592ab95",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "542ad42671b5735d95eb2f534121345b57fd4a924a2123ca9c4dd1a3062421cf"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "3ec14f2fc201bbb491ea3930c93c9e0954826da2b5cb6e1ef32850c0c667dba1"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "023b38fdcbbd792bd6fdd966a0c32d09d39aa91ae43af05bf2fb2625a952115a"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\residual\\StarterPlayer\\StarterCharacterScripts\\Animate.client.luau",
+   "source_sha256": "f99d4e9e1f6add9228b75f83690616961fcbbfc459d86599abca94134390f667",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "4251728900582b4bde7aded49afe1cfd0fadfe5029b151bf0388507785cbcac4"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "b755974693c1daaecaaf04550af63ae449d7e61b621c4911d1e86576c5235213"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "3b60b4cb31e94a629fe2d82de9b98d30da859b49f2f0211e064ef37ea6df2f33"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\residual\\StarterPlayer\\StarterPlayerScripts\\PlayerModule\\ControlModule\\ClickToMoveController.luau",
+   "source_sha256": "32de6e8e270c4396f059c10b6c99e92f3a28ed864c5b6660602f173eb65f1e92",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "41c192a7962f22f002c727a55281fd68ea93df9ee1e39d9a6430bb351c64bff9"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "c6a63438e891aeb2bc28827d320f5af087dfe251f3233b58b5e5ffb910d6bd09"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "7759694a0c07e632aa2e38bb8d16006856a7505857848b2a023c32cf6c1bfb44"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\residual\\ReplicatedStorage\\Part_Icles\\Emit.luau",
+   "source_sha256": "1c8c349f4b7e2ce34d96ef564ed5b40fba644fa81134fd25bd0e6c01a4898b4a",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "c7a15c7631cc9076718374a626094a289ea29b33a0ead53a480a1c8addf6a980"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "f2873a307f03d9ecd29e17ce82d22be2a257fcc30d87caaf266f9c7c3743d7f4"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "b46e84c783c74c32fc0dbd523234aa60bb5f2da86fea3a46bc3e28cd9e937b76"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\residual\\ReplicatedStorage\\Shared\\Information\\Abilities.luau",
+   "source_sha256": "96695d31ee1a75e3422fa1738f538ebdf5e08019aed990e8c6e593b0533accc8",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "be667fdeaa65a4e1fe3d8c21d7ad8884b405cb2b2bf7a64c0a2e38dac1cc3a60"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "725c2a4c4e878af3e7893c82d8123933ee45e720da40111b2eed13873989eec8"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "58ec386117670309a74c5fc5379a3eda512648681d7562972a2f0a004ca2d9da"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\residual\\ReplicatedStorage\\Shared\\TimeManager\\MeshEmitter\\init.luau",
+   "source_sha256": "e7aed54ab4f48342a4227a16595c512be7e370b1eb3024bf8b6ba98a59ac3432",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "b4f2277140c68c542448bf64c569fdb0bdf7c121e0c3873a39964e42ee00208d"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "38f8c34b3bcf420e54dd495b0ea05c4f2a833c4770fab73363ff8681f1a21594"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "c4d96abd899480ca90d5e76ee15cddd87f0d66ed0ff7180c1e16503e4bdfc420"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\residual\\ReplicatedStorage\\FusionPackage\\Components\\Base\\Container.luau",
+   "source_sha256": "13c085ab49cb6013eeca3602b4263959527c44f61afd3b9430370e13d6a33407",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "4ac08c0a3316ea329853af2ee07962a0de0aa2fd6c36e719d1cc4db64627d371"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "06695ccc0225a3d4bd68891fca01f4aa371c1d6d414f5cd73c0bb0e787489444"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "7b61fbbf2b2ef8b43fd365e3c822a8713b62e6b71375c01ee2c9c30f1e5ba5a2"
+    }
+   }
+  },
+  {
+   "path": "out\\v2-constructor-regions\\residual\\ReplicatedStorage\\Cmdr\\Server commands\\Admin\\teleportServer.luau",
+   "source_sha256": "8dad8f7d81ccfb0275cc3f39084f81d41a2875aa839f2bc1204393c7a84c3613",
+   "checks": {
+    "parse": {
+     "exit": 0,
+     "output_sha256": "ac2f61ff8c701295a3aa3d6c9330d2f4a405e59dbb83d7ff3df458af9daf6127"
+    },
+    "O0": {
+     "exit": 0,
+     "output_sha256": "241c76e9dd881d36cf741a3c378e6b87a3d99ebeb62f215dcc26fe4b1310688a"
+    },
+    "O2": {
+     "exit": 0,
+     "output_sha256": "309a186261b51ec0309a350e5f6680fb22d872205669217b3fefe7db982eb1da"
+    }
+   }
+  }
+ ],
+ "summary": {
+  "files": 57,
+  "checks": 171,
+  "failed": 0
+ }
+}

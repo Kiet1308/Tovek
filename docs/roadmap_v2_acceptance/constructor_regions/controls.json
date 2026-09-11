@@ -1,0 +1,713 @@
+{
+ "schema_version": 1,
+ "rows": [
+  {
+   "control": "original",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "4e936323e53cd4e6955eec556b3d8118eebb668e03a6a9f6c1b6f0b211e40117",
+   "vectors": 1386,
+   "changed_vectors": 0,
+   "stdout_sha256": "3a5a7a3bbf0616f9bc02088a0c9f933cf9d8eff2f0b119e649d19bd5183aabcd"
+  },
+  {
+   "control": "original",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "4e936323e53cd4e6955eec556b3d8118eebb668e03a6a9f6c1b6f0b211e40117",
+   "vectors": 1386,
+   "changed_vectors": 0,
+   "stdout_sha256": "3a5a7a3bbf0616f9bc02088a0c9f933cf9d8eff2f0b119e649d19bd5183aabcd"
+  },
+  {
+   "control": "original",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "4e936323e53cd4e6955eec556b3d8118eebb668e03a6a9f6c1b6f0b211e40117",
+   "vectors": 1386,
+   "changed_vectors": 0,
+   "stdout_sha256": "3a5a7a3bbf0616f9bc02088a0c9f933cf9d8eff2f0b119e649d19bd5183aabcd"
+  },
+  {
+   "control": "original",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "4e936323e53cd4e6955eec556b3d8118eebb668e03a6a9f6c1b6f0b211e40117",
+   "vectors": 1386,
+   "changed_vectors": 0,
+   "stdout_sha256": "3a5a7a3bbf0616f9bc02088a0c9f933cf9d8eff2f0b119e649d19bd5183aabcd"
+  },
+  {
+   "control": "original",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "4e936323e53cd4e6955eec556b3d8118eebb668e03a6a9f6c1b6f0b211e40117",
+   "vectors": 1386,
+   "changed_vectors": 0,
+   "stdout_sha256": "3a5a7a3bbf0616f9bc02088a0c9f933cf9d8eff2f0b119e649d19bd5183aabcd"
+  },
+  {
+   "control": "original",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "4e936323e53cd4e6955eec556b3d8118eebb668e03a6a9f6c1b6f0b211e40117",
+   "vectors": 1386,
+   "changed_vectors": 0,
+   "stdout_sha256": "3a5a7a3bbf0616f9bc02088a0c9f933cf9d8eff2f0b119e649d19bd5183aabcd"
+  },
+  {
+   "control": "eager_arms",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "25de496094a63bbcfeacc6f4a28d1acdb7542d90a7496209f16aaee441ab297c",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "ab22b5fb9ef1998009e4539875e0e2832adea3ed87e51818ff225f0aafc5a4cf",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:make,then,lookup:make,else,lookup:condition,condition,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "eager_arms",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "25de496094a63bbcfeacc6f4a28d1acdb7542d90a7496209f16aaee441ab297c",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "ab22b5fb9ef1998009e4539875e0e2832adea3ed87e51818ff225f0aafc5a4cf",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:make,then,lookup:make,else,lookup:condition,condition,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "eager_arms",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "25de496094a63bbcfeacc6f4a28d1acdb7542d90a7496209f16aaee441ab297c",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "ab22b5fb9ef1998009e4539875e0e2832adea3ed87e51818ff225f0aafc5a4cf",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:make,then,lookup:make,else,lookup:condition,condition,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "eager_arms",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "25de496094a63bbcfeacc6f4a28d1acdb7542d90a7496209f16aaee441ab297c",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "ab22b5fb9ef1998009e4539875e0e2832adea3ed87e51818ff225f0aafc5a4cf",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:make,then,lookup:make,else,lookup:condition,condition,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "eager_arms",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "25de496094a63bbcfeacc6f4a28d1acdb7542d90a7496209f16aaee441ab297c",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "ab22b5fb9ef1998009e4539875e0e2832adea3ed87e51818ff225f0aafc5a4cf",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:make,then,lookup:make,else,lookup:condition,condition,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "eager_arms",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "25de496094a63bbcfeacc6f4a28d1acdb7542d90a7496209f16aaee441ab297c",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "ab22b5fb9ef1998009e4539875e0e2832adea3ed87e51818ff225f0aafc5a4cf",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:make,then,lookup:make,else,lookup:condition,condition,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "truncated_tail",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "525ea9689d75f736d10cf4d960d45a76f14ed6d0cd01e70271f49eca995dfa52",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "5ec033deb27801ce8a33e94d9b8fbda72f4855cfb9598178966d7f3ca4dbbbd4",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "truncated_tail",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "525ea9689d75f736d10cf4d960d45a76f14ed6d0cd01e70271f49eca995dfa52",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "5ec033deb27801ce8a33e94d9b8fbda72f4855cfb9598178966d7f3ca4dbbbd4",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "truncated_tail",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "525ea9689d75f736d10cf4d960d45a76f14ed6d0cd01e70271f49eca995dfa52",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "5ec033deb27801ce8a33e94d9b8fbda72f4855cfb9598178966d7f3ca4dbbbd4",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "truncated_tail",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "525ea9689d75f736d10cf4d960d45a76f14ed6d0cd01e70271f49eca995dfa52",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "5ec033deb27801ce8a33e94d9b8fbda72f4855cfb9598178966d7f3ca4dbbbd4",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "truncated_tail",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "525ea9689d75f736d10cf4d960d45a76f14ed6d0cd01e70271f49eca995dfa52",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "5ec033deb27801ce8a33e94d9b8fbda72f4855cfb9598178966d7f3ca4dbbbd4",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "truncated_tail",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "525ea9689d75f736d10cf4d960d45a76f14ed6d0cd01e70271f49eca995dfa52",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "5ec033deb27801ce8a33e94d9b8fbda72f4855cfb9598178966d7f3ca4dbbbd4",
+   "first_difference": {
+    "vector": 0,
+    "expected": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "lost_nil_overwrite",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "10fb331e5b16e61e38cf5106a5010578725fc6848fa24ef312aee051df646db0",
+   "vectors": 1386,
+   "changed_vectors": 72,
+   "stdout_sha256": "c2b65b5ff58b7a0ff762664bfe6f740cd1b7af45177499b575fb2231c6a483ff",
+   "first_difference": {
+    "vector": 3,
+    "expected": "selected\tfalse\tnone\tfalse\tstring\t11\tfalse\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\tfalse\tstring\t11\told\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "lost_nil_overwrite",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "10fb331e5b16e61e38cf5106a5010578725fc6848fa24ef312aee051df646db0",
+   "vectors": 1386,
+   "changed_vectors": 72,
+   "stdout_sha256": "c2b65b5ff58b7a0ff762664bfe6f740cd1b7af45177499b575fb2231c6a483ff",
+   "first_difference": {
+    "vector": 3,
+    "expected": "selected\tfalse\tnone\tfalse\tstring\t11\tfalse\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\tfalse\tstring\t11\told\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "lost_nil_overwrite",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "10fb331e5b16e61e38cf5106a5010578725fc6848fa24ef312aee051df646db0",
+   "vectors": 1386,
+   "changed_vectors": 72,
+   "stdout_sha256": "c2b65b5ff58b7a0ff762664bfe6f740cd1b7af45177499b575fb2231c6a483ff",
+   "first_difference": {
+    "vector": 3,
+    "expected": "selected\tfalse\tnone\tfalse\tstring\t11\tfalse\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\tfalse\tstring\t11\told\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "lost_nil_overwrite",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "10fb331e5b16e61e38cf5106a5010578725fc6848fa24ef312aee051df646db0",
+   "vectors": 1386,
+   "changed_vectors": 72,
+   "stdout_sha256": "c2b65b5ff58b7a0ff762664bfe6f740cd1b7af45177499b575fb2231c6a483ff",
+   "first_difference": {
+    "vector": 3,
+    "expected": "selected\tfalse\tnone\tfalse\tstring\t11\tfalse\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\tfalse\tstring\t11\told\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "lost_nil_overwrite",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "10fb331e5b16e61e38cf5106a5010578725fc6848fa24ef312aee051df646db0",
+   "vectors": 1386,
+   "changed_vectors": 72,
+   "stdout_sha256": "c2b65b5ff58b7a0ff762664bfe6f740cd1b7af45177499b575fb2231c6a483ff",
+   "first_difference": {
+    "vector": 3,
+    "expected": "selected\tfalse\tnone\tfalse\tstring\t11\tfalse\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\tfalse\tstring\t11\told\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "lost_nil_overwrite",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "10fb331e5b16e61e38cf5106a5010578725fc6848fa24ef312aee051df646db0",
+   "vectors": 1386,
+   "changed_vectors": 72,
+   "stdout_sha256": "c2b65b5ff58b7a0ff762664bfe6f740cd1b7af45177499b575fb2231c6a483ff",
+   "first_difference": {
+    "vector": 3,
+    "expected": "selected\tfalse\tnone\tfalse\tstring\t11\tfalse\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "selected\tfalse\tnone\tfalse\tstring\t11\told\tfalse\tnil\t99\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "e08bbd3ca251717a5d6e5edb1125e6c026398042065f287279c6250f7240c868",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "c8bbcafbd20ad83bcd660728174ee5e4f6ceecd56081c33beacd7b7ba5db36a2",
+   "first_difference": {
+    "vector": 990,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:make,initial,lookup:key,key,lookup:make,key-value,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:key,key,lookup:make,key-value,lookup:make,initial,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "e08bbd3ca251717a5d6e5edb1125e6c026398042065f287279c6250f7240c868",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "c8bbcafbd20ad83bcd660728174ee5e4f6ceecd56081c33beacd7b7ba5db36a2",
+   "first_difference": {
+    "vector": 990,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:make,initial,lookup:key,key,lookup:make,key-value,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:key,key,lookup:make,key-value,lookup:make,initial,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "e08bbd3ca251717a5d6e5edb1125e6c026398042065f287279c6250f7240c868",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "c8bbcafbd20ad83bcd660728174ee5e4f6ceecd56081c33beacd7b7ba5db36a2",
+   "first_difference": {
+    "vector": 990,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:make,initial,lookup:key,key,lookup:make,key-value,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:key,key,lookup:make,key-value,lookup:make,initial,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "e08bbd3ca251717a5d6e5edb1125e6c026398042065f287279c6250f7240c868",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "c8bbcafbd20ad83bcd660728174ee5e4f6ceecd56081c33beacd7b7ba5db36a2",
+   "first_difference": {
+    "vector": 990,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:make,initial,lookup:key,key,lookup:make,key-value,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:key,key,lookup:make,key-value,lookup:make,initial,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "e08bbd3ca251717a5d6e5edb1125e6c026398042065f287279c6250f7240c868",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "c8bbcafbd20ad83bcd660728174ee5e4f6ceecd56081c33beacd7b7ba5db36a2",
+   "first_difference": {
+    "vector": 990,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:make,initial,lookup:key,key,lookup:make,key-value,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:key,key,lookup:make,key-value,lookup:make,initial,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_initializer",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "e08bbd3ca251717a5d6e5edb1125e6c026398042065f287279c6250f7240c868",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "c8bbcafbd20ad83bcd660728174ee5e4f6ceecd56081c33beacd7b7ba5db36a2",
+   "first_difference": {
+    "vector": 990,
+    "expected": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:make,initial,lookup:key,key,lookup:make,key-value,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "initializer\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\t7\tnil\tnil\tnil\tlookup:consume,lookup:key,key,lookup:make,key-value,lookup:make,initial,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_captured_snapshot",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "a200deb2b526379e5d19779164dd09e5815936a52c4b48739cdc17c7e0fb664c",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "904e4c63046b3d0d590788e8b53ea4267bc7005c9d4d04104f8555580d85dadd",
+   "first_difference": {
+    "vector": 396,
+    "expected": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tinitial\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tchanged\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_captured_snapshot",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "a200deb2b526379e5d19779164dd09e5815936a52c4b48739cdc17c7e0fb664c",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "904e4c63046b3d0d590788e8b53ea4267bc7005c9d4d04104f8555580d85dadd",
+   "first_difference": {
+    "vector": 396,
+    "expected": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tinitial\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tchanged\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_captured_snapshot",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "a200deb2b526379e5d19779164dd09e5815936a52c4b48739cdc17c7e0fb664c",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "904e4c63046b3d0d590788e8b53ea4267bc7005c9d4d04104f8555580d85dadd",
+   "first_difference": {
+    "vector": 396,
+    "expected": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tinitial\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tchanged\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_captured_snapshot",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "a200deb2b526379e5d19779164dd09e5815936a52c4b48739cdc17c7e0fb664c",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "904e4c63046b3d0d590788e8b53ea4267bc7005c9d4d04104f8555580d85dadd",
+   "first_difference": {
+    "vector": 396,
+    "expected": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tinitial\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tchanged\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_captured_snapshot",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "a200deb2b526379e5d19779164dd09e5815936a52c4b48739cdc17c7e0fb664c",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "904e4c63046b3d0d590788e8b53ea4267bc7005c9d4d04104f8555580d85dadd",
+   "first_difference": {
+    "vector": 396,
+    "expected": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tinitial\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tchanged\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_captured_snapshot",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "a200deb2b526379e5d19779164dd09e5815936a52c4b48739cdc17c7e0fb664c",
+   "vectors": 1386,
+   "changed_vectors": 108,
+   "stdout_sha256": "904e4c63046b3d0d590788e8b53ea4267bc7005c9d4d04104f8555580d85dadd",
+   "first_difference": {
+    "vector": 396,
+    "expected": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tinitial\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume",
+    "actual": "snapshot\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\t99\tnil\tnil\tchanged\tnil\tnil\tnil\tlookup:consume,lookup:condition,condition,lookup:make,else,lookup:tail,tail,consume"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "4c940992ea110a27575b36429843c4e99b6a7e3b4ca1130ed93d2fff2bdfdb82",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "34ee6c8524073895d66e46d5f7b8bf3f4345594fb3b90428a0b191882a41e961",
+   "first_difference": {
+    "vector": 594,
+    "expected": "observed\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:inspect,inspect:old,lookup:make,else,lookup:make,property,lookup:consume,consume",
+    "actual": "observed\tfalse\tnone\t7\tstring\terror\tlookup:inspect"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "4c940992ea110a27575b36429843c4e99b6a7e3b4ca1130ed93d2fff2bdfdb82",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "34ee6c8524073895d66e46d5f7b8bf3f4345594fb3b90428a0b191882a41e961",
+   "first_difference": {
+    "vector": 594,
+    "expected": "observed\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:inspect,inspect:old,lookup:make,else,lookup:make,property,lookup:consume,consume",
+    "actual": "observed\tfalse\tnone\t7\tstring\terror\tlookup:inspect"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "4c940992ea110a27575b36429843c4e99b6a7e3b4ca1130ed93d2fff2bdfdb82",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "34ee6c8524073895d66e46d5f7b8bf3f4345594fb3b90428a0b191882a41e961",
+   "first_difference": {
+    "vector": 594,
+    "expected": "observed\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:inspect,inspect:old,lookup:make,else,lookup:make,property,lookup:consume,consume",
+    "actual": "observed\tfalse\tnone\t7\tstring\terror\tlookup:inspect"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "4c940992ea110a27575b36429843c4e99b6a7e3b4ca1130ed93d2fff2bdfdb82",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "34ee6c8524073895d66e46d5f7b8bf3f4345594fb3b90428a0b191882a41e961",
+   "first_difference": {
+    "vector": 594,
+    "expected": "observed\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:inspect,inspect:old,lookup:make,else,lookup:make,property,lookup:consume,consume",
+    "actual": "observed\tfalse\tnone\t7\tstring\terror\tlookup:inspect"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "4c940992ea110a27575b36429843c4e99b6a7e3b4ca1130ed93d2fff2bdfdb82",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "34ee6c8524073895d66e46d5f7b8bf3f4345594fb3b90428a0b191882a41e961",
+   "first_difference": {
+    "vector": 594,
+    "expected": "observed\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:inspect,inspect:old,lookup:make,else,lookup:make,property,lookup:consume,consume",
+    "actual": "observed\tfalse\tnone\t7\tstring\terror\tlookup:inspect"
+   }
+  },
+  {
+   "control": "late_observed_table",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "4c940992ea110a27575b36429843c4e99b6a7e3b4ca1130ed93d2fff2bdfdb82",
+   "vectors": 1386,
+   "changed_vectors": 198,
+   "stdout_sha256": "34ee6c8524073895d66e46d5f7b8bf3f4345594fb3b90428a0b191882a41e961",
+   "first_difference": {
+    "vector": 594,
+    "expected": "observed\tfalse\tnone\t7\tstring\t11\t7\t7\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tlookup:inspect,inspect:old,lookup:make,else,lookup:make,property,lookup:consume,consume",
+    "actual": "observed\tfalse\tnone\t7\tstring\terror\tlookup:inspect"
+   }
+  },
+  {
+   "control": "rhs_before_address",
+   "opt": 0,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "19910d83bb3e5842028fc08e7d9802c8f3f3f3df59e7387baf47380abc5da624",
+   "vectors": 1386,
+   "changed_vectors": 90,
+   "stdout_sha256": "9508370e9d5f6985d8047d70a934df5adfdb5734dbf48c8e5a22abf84b2752d7",
+   "first_difference": {
+    "vector": 1287,
+    "expected": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:receiver,receiver,lookup:key,key,lookup:make,then,store,lookup:make,property,lookup:consume,consume",
+    "actual": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:make,then,lookup:receiver,receiver,lookup:key,key,store,lookup:make,property,lookup:consume,consume"
+   }
+  },
+  {
+   "control": "rhs_before_address",
+   "opt": 0,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "19910d83bb3e5842028fc08e7d9802c8f3f3f3df59e7387baf47380abc5da624",
+   "vectors": 1386,
+   "changed_vectors": 90,
+   "stdout_sha256": "9508370e9d5f6985d8047d70a934df5adfdb5734dbf48c8e5a22abf84b2752d7",
+   "first_difference": {
+    "vector": 1287,
+    "expected": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:receiver,receiver,lookup:key,key,lookup:make,then,store,lookup:make,property,lookup:consume,consume",
+    "actual": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:make,then,lookup:receiver,receiver,lookup:key,key,store,lookup:make,property,lookup:consume,consume"
+   }
+  },
+  {
+   "control": "rhs_before_address",
+   "opt": 1,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "19910d83bb3e5842028fc08e7d9802c8f3f3f3df59e7387baf47380abc5da624",
+   "vectors": 1386,
+   "changed_vectors": 90,
+   "stdout_sha256": "9508370e9d5f6985d8047d70a934df5adfdb5734dbf48c8e5a22abf84b2752d7",
+   "first_difference": {
+    "vector": 1287,
+    "expected": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:receiver,receiver,lookup:key,key,lookup:make,then,store,lookup:make,property,lookup:consume,consume",
+    "actual": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:make,then,lookup:receiver,receiver,lookup:key,key,store,lookup:make,property,lookup:consume,consume"
+   }
+  },
+  {
+   "control": "rhs_before_address",
+   "opt": 1,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "19910d83bb3e5842028fc08e7d9802c8f3f3f3df59e7387baf47380abc5da624",
+   "vectors": 1386,
+   "changed_vectors": 90,
+   "stdout_sha256": "9508370e9d5f6985d8047d70a934df5adfdb5734dbf48c8e5a22abf84b2752d7",
+   "first_difference": {
+    "vector": 1287,
+    "expected": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:receiver,receiver,lookup:key,key,lookup:make,then,store,lookup:make,property,lookup:consume,consume",
+    "actual": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:make,then,lookup:receiver,receiver,lookup:key,key,store,lookup:make,property,lookup:consume,consume"
+   }
+  },
+  {
+   "control": "rhs_before_address",
+   "opt": 2,
+   "debug": 1,
+   "status": "passed",
+   "source_sha256": "19910d83bb3e5842028fc08e7d9802c8f3f3f3df59e7387baf47380abc5da624",
+   "vectors": 1386,
+   "changed_vectors": 90,
+   "stdout_sha256": "9508370e9d5f6985d8047d70a934df5adfdb5734dbf48c8e5a22abf84b2752d7",
+   "first_difference": {
+    "vector": 1287,
+    "expected": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:receiver,receiver,lookup:key,key,lookup:make,then,store,lookup:make,property,lookup:consume,consume",
+    "actual": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:make,then,lookup:receiver,receiver,lookup:key,key,store,lookup:make,property,lookup:consume,consume"
+   }
+  },
+  {
+   "control": "rhs_before_address",
+   "opt": 2,
+   "debug": 2,
+   "status": "passed",
+   "source_sha256": "19910d83bb3e5842028fc08e7d9802c8f3f3f3df59e7387baf47380abc5da624",
+   "vectors": 1386,
+   "changed_vectors": 90,
+   "stdout_sha256": "9508370e9d5f6985d8047d70a934df5adfdb5734dbf48c8e5a22abf84b2752d7",
+   "first_difference": {
+    "vector": 1287,
+    "expected": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:receiver,receiver,lookup:key,key,lookup:make,then,store,lookup:make,property,lookup:consume,consume",
+    "actual": "interleaved\ttrue\tnone\t7\tstring\t11\tnil\tnil\tnil\tnil\tnil\tnil\tnil\tfixed\t7\tnil\tlookup:condition,condition,lookup:make,then,lookup:receiver,receiver,lookup:key,key,store,lookup:make,property,lookup:consume,consume"
+   }
+  }
+ ],
+ "summary": {
+  "passed": 48
+ },
+ "source_sha256": "4e936323e53cd4e6955eec556b3d8118eebb668e03a6a9f6c1b6f0b211e40117",
+ "driver_sha256": "74fd73282d116b1708b7c8cf8d6e6e074e222ec815ad5241de3669683ce7677e",
+ "manifest_sha256": "58b36ac28f7e2c8cdde0b5be8731b5690b391173bc34d62d10eb208c47f97a8c",
+ "tools": {
+  "compiler": {
+   "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+   "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+  },
+  "luau": {
+   "path": "D:\\Medal\\luau-tools-src\\build\\luau.exe",
+   "sha256": "50029806035a3a76f5e8a5c0960fd596fa4a10503d6e35472110b12426fa8b65"
+  }
+ },
+ "contract": "Six original profiles and 42 compiled negative controls; 1386 finite observations per profile. No promotion of whole-chunk unknown/different certificates.",
+ "manifest_note": "Expected stdout normalized from CRLF to LF to match the shared observation harness. All control comparisons use splitlines and are unchanged."
+}

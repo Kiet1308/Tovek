@@ -1,5 +1,13 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R4: private constructors across selected locals and ordered statements
+
+The table/UI fixed point now delays an unobserved private allocation to its first foldable field or SETLIST write. Stable initializer dependencies are checked through both arms of crossed `if` regions, calls and unrelated stores, including nested LHS base/key reads. Captures, recorded bindings, effectful initializers, control/close boundaries and exceeded budgets retain their original output. Direct closure properties preserve statement module-function definitions at the new region boundary. [Contract and examples](constructor_regions.md).
+
+All 988 primary Rust tests plus one child repeat, 112 Python tests, 186 runtime profiles, 513 public profiles, 42 compiler-witness profiles, 45 legacy semantic profiles and 52 size checks pass. The new fixture locks 1,386 observations/profile and detects all 42 compiled mutants. All 180 previous runtime rows are unchanged apart from timing, and all 45 public holdout outputs are unchanged. Five public development outputs change: three Spring constructor profiles and two table-util declaration placements. Their raw similarity changes, including two decreases, remain reported.
+
+Private output changes in 50 of 3,978 files and removes eight SETLIST packing loops, leaving 15 sites in 14 files. All changed files and seven residual fixtures parse/recompile at O0/O2. Full source and detailed sidecars agree at 1/16 threads; all 3,936 nonempty private scripts pass independent parser binding checks. All 4,574 unaffected prior runtime/public/private sidecars are byte-identical. Default/compact, capture/emission and cold/warm artifact-cache checks pass for runtime/public fixtures. This closes the bounded constructor-region row; broader R2/R4/R5 work remains. R7 performance experiments are deferred by user request and R9 remains paused. [Acceptance inventory](roadmap_v2_acceptance/constructor_regions_validation.json).
+
 ## R7b: common-tail traversal over the changed interval
 
 Factoring now revisits only the changed `if` and its inserted tail, while retaining the entire parent candidate search, original action order and all ownership/equality/scope gates. The old full rescan remains a differential-test specialization. All 10,800 generated IR comparisons and focused adjacency/closure tests agree; 983 primary Rust tests plus one child repeat and 112 Python tests pass. [Mutation boundary and reproduction](tail_worklist.md).

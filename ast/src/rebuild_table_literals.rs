@@ -21,8 +21,9 @@ pub(crate) fn rebuild_with_captured(
 ) -> bool {
     let nested_changed = rebuild_nested_blocks(block, captured);
     let sunk_changed = sink_total_table_declarations(block, captured);
+    let regions_changed = sink_private_constructor_regions(block, captured);
     let drained_changed = extract_drained_constructor_fields(block);
-    rebuild_current_block(block, captured) | sunk_changed | drained_changed | nested_changed
+    rebuild_current_block(block, captured) | sunk_changed | regions_changed | drained_changed | nested_changed
 }
 
 fn rebuild_nested_blocks(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>) -> bool {
@@ -253,6 +254,155 @@ fn is_intervening_local_declaration(statement: &Statement) -> bool {
                 && !assign.parallel
                 && assign.left.iter().all(|left| matches!(left, LValue::Local(_)))
     ) || matches!(statement, Statement::Comment(_) | Statement::Empty(_))
+}
+
+/// Delay only an unobserved allocation and stable local/literal reads. Calls,
+/// branch selection and stores to other objects stay at their original sites.
+/// The target's first use must be a field/list write that the existing ordered
+/// constructor builder can consume. This is independent of any UI API name.
+fn sink_private_constructor_regions(
+    block: &mut Block,
+    captured: &rustc_hash::FxHashSet<RcLocal>,
+) -> bool {
+    let mut changed = false;
+    let mut index = 0;
+    while index + 2 < block.0.len() {
+        let Some(object) = table_constructor_local(&block.0[index]) else { index += 1; continue; };
+        if object.has_source_binding() || captured.contains(&object)
+            || matches!(&block.0[index + 1], Statement::Comment(comment) if comment.trailing) {
+            index += 1;
+            continue;
+        }
+        let mut proof = ConstructorMotion { object: object.stable_id(), dependencies: Default::default(), remaining: 4096 };
+        let initializer = &block.0[index].as_assign().unwrap().right[0];
+        if !proof.initializer(initializer, captured, 0) { index += 1; continue; }
+        let table = initializer.as_table().unwrap();
+        let mut destination = None;
+        // Bound every proposal independently; failed proof leaves the region
+        // untouched. No wall-clock or worker-dependent acceptance budget.
+        for next in index + 1..block.0.len().min(index + 65) {
+            let statement = &block.0[next];
+            let endpoint = match statement {
+                Statement::Assign(assign) => field_assignment_parts(assign, &object)
+                    // Preserve statement function definitions and callback
+                    // property layout; motion must improve the output tree.
+                    .is_some_and(|(key, value)| !matches!(value, RValue::Closure(_))
+                        && can_fold_table_field_assignment(key, value, &object)),
+                Statement::SetList(list) => can_append_set_list(table, list, &object),
+                _ => false,
+            };
+            if endpoint {
+                if next > index + 1 { destination = Some(next); }
+                break;
+            }
+            if !proof.statement(statement, 0) { break; }
+        }
+        if let Some(next) = destination {
+            let declaration = block.0.remove(index);
+            block.0.insert(next - 1, declaration);
+            crate::telemetry::count("constructor_regions_sunk", 1);
+            changed = true;
+            index = next;
+        } else {
+            index += 1;
+        }
+    }
+    changed
+}
+
+struct ConstructorMotion {
+    object: u64,
+    dependencies: rustc_hash::FxHashSet<u64>,
+    remaining: usize,
+}
+
+impl ConstructorMotion {
+    fn tick(&mut self, depth: usize, width: usize) -> bool {
+        if depth > 32 || self.remaining == 0 || width >= self.remaining { return false; }
+        self.remaining -= 1;
+        true
+    }
+
+    fn initializer(&mut self, value: &RValue, captured: &rustc_hash::FxHashSet<RcLocal>, depth: usize) -> bool {
+        if !self.tick(depth, 0) { return false; }
+        match value {
+            RValue::Literal(_) => true,
+            RValue::Local(local) => {
+                if local.stable_id() == self.object || captured.contains(local) { return false; }
+                self.dependencies.insert(local.stable_id());
+                true
+            }
+            RValue::Table(table) => table.0.len().saturating_mul(2) < self.remaining
+                && table.0.iter().all(|(key, value)| key.as_ref().is_none_or(|key|
+                    self.tick(depth + 1, 0) && crate::is_total_table_key(key))
+                    && self.initializer(value, captured, depth + 1)),
+            // Keep callback layout, snapshots, dynamic-key errors and open
+            // result tails. Type/API naming evidence is never a motion proof.
+            _ => false,
+        }
+    }
+
+    fn value(&mut self, value: &RValue, depth: usize) -> bool {
+        let width = match value {
+            RValue::Table(table) => table.0.len().saturating_mul(2),
+            RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => call.arguments.len() + 1,
+            RValue::MethodCall(call) | RValue::Select(crate::Select::MethodCall(call)) => call.arguments.len() + 1,
+            RValue::Closure(closure) => closure.upvalues.len(),
+            _ => 3,
+        };
+        if !self.tick(depth, width) { return false; }
+        match value {
+            RValue::Local(local) if local.stable_id() == self.object => return false,
+            RValue::Closure(closure) => {
+                self.remaining -= closure.upvalues.len();
+                return closure.upvalues.iter().all(|upvalue| {
+                    let (crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local)) = upvalue;
+                    local.stable_id() != self.object
+                });
+            }
+            _ => {}
+        }
+        value.rvalues().into_iter().all(|child| self.value(child, depth + 1))
+    }
+
+    fn statement(&mut self, statement: &Statement, depth: usize) -> bool {
+        if !self.tick(depth, 0) { return false; }
+        match statement {
+            Statement::Assign(assign) => {
+                if assign.parallel || assign.left.len().saturating_add(assign.right.len()) >= self.remaining {
+                    return false;
+                }
+                for left in &assign.left {
+                    if !self.tick(depth + 1, 0) { return false; }
+                    match left {
+                        LValue::Local(local) if local.stable_id() == self.object
+                            || self.dependencies.contains(&local.stable_id()) => return false,
+                        LValue::Index(index) if !self.value(&index.left, depth + 1)
+                            || !self.value(&index.right, depth + 1) => return false,
+                        _ => {}
+                    }
+                }
+                assign.right.iter().all(|value| self.value(value, depth + 1))
+            }
+            Statement::If(branch) => self.value(&branch.condition, depth + 1)
+                && self.block(&branch.then_block.lock(), depth + 1)
+                && self.block(&branch.else_block.lock(), depth + 1),
+            Statement::Call(call) => call.arguments.len() < self.remaining
+                && self.value(&call.value, depth + 1)
+                && call.arguments.iter().all(|value| self.value(value, depth + 1)),
+            Statement::MethodCall(call) => call.arguments.len() < self.remaining
+                && self.value(&call.value, depth + 1)
+                && call.arguments.iter().all(|value| self.value(value, depth + 1)),
+            Statement::Empty(_) | Statement::Comment(_) => true,
+            // No control transfer, loop, close boundary or opaque SETLIST is
+            // crossed. Both if arms must satisfy the same dependency proof.
+            _ => false,
+        }
+    }
+
+    fn block(&mut self, block: &Block, depth: usize) -> bool {
+        block.0.len() < self.remaining && block.0.iter().all(|statement| self.statement(statement, depth))
+    }
 }
 
 /// Recover a constructor field that an inlined helper immediately drains:
@@ -769,6 +919,140 @@ mod tests {
             block.to_string(),
             "local modelCenter = getModelCenter(spinModel) -- inlined helper\nreturn {\n\tModel = spinModel,\n\tCenter = modelCenter,\n\tParts = parts\n}"
         );
+    }
+
+    #[test]
+    fn rebuilds_children_after_selected_local_and_interleaved_store() {
+        let children = local("v2");
+        let selected = local("selected");
+        let props = local("props");
+        let mut block = Block(vec![
+            declare(&children, Table::default().into()),
+            declare(&selected, nil()),
+            If::new(global("condition"), Block(vec![
+                Assign::new(vec![selected.clone().into()], vec![Call::new(global("choose"), vec![]).into()]).into(),
+            ]), Block::default()).into(),
+            assign_field(&props, string("Selected"), local_value(&selected)),
+            crate::SetList::new(children.clone(), 1, vec![local_value(&selected)],
+                Some(Call::new(global("tail"), vec![]).into())).into(),
+            Return::new(vec![local_value(&children)]).into(),
+        ]);
+        assert!(rebuild_table_literals(&mut block));
+        let text = block.to_string();
+        assert!(text.find("if condition").unwrap() < text.find("props.Selected").unwrap());
+        assert!(text.find("props.Selected").unwrap() < text.find("local v2 =").unwrap());
+        assert!(text.contains("{ selected, tail() }"), "{text}");
+        assert!(!text.contains("table.pack"));
+        assert!(!rebuild_table_literals(&mut block));
+    }
+
+    #[test]
+    fn constructor_region_refuses_observation_and_dependency_writes_in_either_arm() {
+        for kind in 0..9 {
+            let object = local("v2");
+            let dependency = local("dependency");
+            let receiver = local("receiver");
+            let hazard = match kind {
+                0 => print(local_value(&object)),
+                1 => Assign::new(vec![object.clone().into()], vec![Table::default().into()]).into(),
+                2 => Assign::new(vec![dependency.clone().into()], vec![number(9.0)]).into(),
+                3 => assign_field(&receiver, local_value(&object), number(1.0)),
+                4 => Assign::new(vec![Index::new(Index::new(local_value(&object), string("child")).into(),
+                    string("value")).into()], vec![number(1.0)]).into(),
+                5 => declare(&receiver, closure_capturing(&object)),
+                6 => Return::new(vec![]).into(),
+                7 => crate::Close { locals: vec![dependency.clone()] }.into(),
+                _ => print(closure_capturing(&dependency)),
+            };
+            let mut block = Block(vec![
+                declare(&object, Table(vec![(Some(string("Snapshot")), local_value(&dependency))]).into()),
+                If::new(global("condition"), Block::default(), Block(vec![hazard])).into(),
+                crate::SetList::new(object.clone(), 1, vec![number(4.0)], None).into(),
+                Return::new(vec![local_value(&object)]).into(),
+            ]);
+            let before = block.to_string();
+            rebuild_table_literals(&mut block);
+            assert_eq!(block.to_string(), before, "hazard {kind}");
+        }
+    }
+
+    #[test]
+    fn constructor_region_keeps_recorded_binding_initialization_and_budget_fallback() {
+        for kind in 0..8 {
+            let object = local("children");
+            let dependency = local("dependency");
+            if kind == 0 {
+                object.0.lock().add_source_binding(crate::SourceBinding {
+                    name: "children".into(), origin: crate::BindingOrigin::DebugLocal {
+                        prototype: 0, register: 1, start_pc: 0, end_pc: 20,
+                    },
+                });
+            }
+            let initializer = match kind {
+                1 => Table(vec![(Some(local_value(&dependency)), number(1.0))]),
+                2 => Table(vec![(Some(number(f64::NAN)), number(1.0))]),
+                3 => Table(vec![(Some(string("Value")), Call::new(global("before"), vec![]).into())]),
+                4 => Table(vec![(None, crate::VarArg.into())]),
+                5 => Table(vec![(Some(string("Callback")), closure_capturing(&dependency))]),
+                _ => Table::default(),
+            };
+            let mut region = vec![print(string("work"))];
+            if kind == 6 { region = vec![print(string("work")); 64]; }
+            if kind == 7 {
+                for _ in 0..34 { region = vec![If::new(global("condition"), Block(region), Block::default()).into()]; }
+            }
+            let mut block = Block(vec![declare(&object, initializer.into())]);
+            block.0.extend(region);
+            block.0.extend([
+                crate::SetList::new(object.clone(), 1, vec![number(4.0)], None).into(),
+                Return::new(vec![local_value(&object)]).into(),
+            ]);
+            let before = block.to_string();
+            rebuild_table_literals(&mut block);
+            assert_eq!(block.to_string(), before, "refusal {kind}");
+        }
+    }
+
+    #[test]
+    fn constructor_region_retains_lhs_and_callback_evaluations_before_list() {
+        let object = local("children");
+        let receiver = local("receiver");
+        let field = Assign::new(vec![Index::new(
+            Call::new(global("base"), vec![]).into(),
+            Call::new(global("key"), vec![]).into()).into()],
+            vec![Call::new(global("value"), vec![]).into()]);
+        let mut block = Block(vec![
+            declare(&object, Table(vec![(Some(number(1.0)), number(99.0))]).into()),
+            print(closure_capturing(&receiver)),
+            field.into(),
+            crate::SetList::new(object.clone(), 1, vec![nil()],
+                Some(Call::new(global("tail"), vec![]).into())).into(),
+            Return::new(vec![local_value(&object)]).into(),
+        ]);
+        let prefix = block.0[1..3].iter().map(ToString::to_string).collect::<Vec<_>>();
+        assert!(rebuild_table_literals(&mut block));
+        assert_eq!(block.0[..2].iter().map(ToString::to_string).collect::<Vec<_>>(), prefix);
+        let table = block.0[2].as_assign().unwrap().right[0].as_table().unwrap();
+        assert_eq!(table.0.len(), 3);
+        assert_eq!(table.0[0], (Some(number(1.0)), number(99.0)));
+        assert_eq!(table.0[1], (None, nil()));
+        assert!(matches!(table.0[2].1, RValue::Call(_)));
+    }
+
+    #[test]
+    fn constructor_region_keeps_module_function_definitions_as_statements() {
+        let object = local("Module");
+        let callback = RValue::Closure(Closure {
+            function: ByAddress(Arc::new(Mutex::new(Function::default()))), upvalues: vec![],
+        });
+        let mut block = Block(vec![declare(&object, Table::default().into()),
+            print(string("initialization")),
+            assign_field(&object, string("run"), callback),
+            Return::new(vec![local_value(&object)]).into()]);
+        let before = block.to_string();
+        assert!(before.contains("function Module.run"));
+        rebuild_table_literals(&mut block);
+        assert_eq!(block.to_string(), before);
     }
 
     #[test]

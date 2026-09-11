@@ -208,6 +208,14 @@ jobs:
             --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --report "$RUNNER_TEMP/rehoist-ir.json"
 
+      - name: V2 private constructor region counterexamples
+        run: |
+          python3 scripts/constructor_region_controls.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --keep "$RUNNER_TEMP/constructor-region-controls" \
+            --report "$RUNNER_TEMP/constructor-region-controls.json"
+
       - name: V2 pinned compiler transformation families
         run: |
           python3 scripts/compiler_witnesses.py \
@@ -352,6 +360,7 @@ jobs:
             ${{ runner.temp }}/roadmap-v2-formatter-controls.json
             ${{ runner.temp }}/roadmap-v2-assignment-order.json
             ${{ runner.temp }}/branch-constructor-controls.json
+            ${{ runner.temp }}/constructor-region-controls.json
             ${{ runner.temp }}/local-producer-controls.json
             ${{ runner.temp }}/rehoist-ir.json
             ${{ runner.temp }}/compiler-witnesses.json

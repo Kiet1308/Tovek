@@ -1,0 +1,592 @@
+{
+ "schema_version": 1,
+ "source_files": 3978,
+ "nonempty": 3936,
+ "changed": [
+  {
+   "file": "ReplicatedStorage/DivergentVFX/LightningCore.luau",
+   "before_sha256": "c3205cfbb56a97539bb192ed3277dff8ed85f7d9cd071086411197d051e1a14b",
+   "after_sha256": "ec67f9383a7866c9c7418bb1342db9b5e157fbe9af0f9febfeee9be44632c20e",
+   "before_bytes": 83450,
+   "after_bytes": 83361,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Base/AssetGrid/SellActions.luau",
+   "before_sha256": "9df1ab2f6e4e1d100262987f00d7e1f16882f82e589c476efb4f579955cb2dc8",
+   "after_sha256": "7ad1158d2bf2ba9668cc038392bf91d5e0fcf68618e447f065970751b4ab52d1",
+   "before_bytes": 5830,
+   "after_bytes": 5832,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Base/Button/CheckBox.luau",
+   "before_sha256": "0a721ef00fa9995849926b92e7411aad25e2886c454618b59e2d71246d7d3235",
+   "after_sha256": "c9f737a618e6485f1c31eea915f36d9f4bb53b7263732f569d4b6619b501b9eb",
+   "before_bytes": 5401,
+   "after_bytes": 5398,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Base/SplitTextLabel/init.luau",
+   "before_sha256": "ad21ec80e6d3e68cdc1fcc0f04fb3f56305aefa409cda2096a5e8f4cbcc1527a",
+   "after_sha256": "0b78281f3494b91b5093a5e75e45c606b0b761c40d3249ae27fd8629e592ab95",
+   "before_bytes": 19477,
+   "after_bytes": 19374,
+   "packing_before": 1,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Base/UICorner.luau",
+   "before_sha256": "8599d99dc0557246c1610d2577e25f4302bf3620b822ed58472c4843ea704298",
+   "after_sha256": "2127cd4f219c72ba3f08aa03d0386422d90e254dbd5ecaef03da512819ff0ed2",
+   "before_bytes": 1053,
+   "after_bytes": 1038,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Decals/Water.luau",
+   "before_sha256": "30807d0155c46fb2ca11193769d4b4b3d7cbd33621107c02e0cf6ea0680308d2",
+   "after_sha256": "c8757d0f78f265c43ee54930f2100f8233c96499598d840a3ec3083ac5a60b27",
+   "before_bytes": 2801,
+   "after_bytes": 2789,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Effects/Shine/init.luau",
+   "before_sha256": "b5a07048e0027fbc1975982c48677b8d1b33db62a4e6ef8610055f09ceb2933b",
+   "after_sha256": "f7db745396e2e1b9b0c388e404978d03d143cf930d63b3f6759a733b370743e1",
+   "before_bytes": 3136,
+   "after_bytes": 3025,
+   "packing_before": 1,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionUpgrades/init.luau",
+   "before_sha256": "e9fb6dc87914abf2123215038659f1d5914a7e9d515e7f3d82fc2dff51ff626c",
+   "after_sha256": "85c244f86e3e65dda35aba504ffd4288b6a32667a9648c531e12083b6750e49f",
+   "before_bytes": 10436,
+   "after_bytes": 10421,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Game/DamageIndicator/init.luau",
+   "before_sha256": "b7e748857410aea5f36fc1bd5c3e07fb6d194d52c01cd05c0f68b3e6926f4e63",
+   "after_sha256": "011ffab0765f1384b1eb01d06476c3908153a39428abcadd5bedea14c425275e",
+   "before_bytes": 13107,
+   "after_bytes": 12973,
+   "packing_before": 1,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/AutoUpgradeButton.luau",
+   "before_sha256": "77af74327c2a10380f9d6c69a65234c0092eae40ec39c4439d2605c17957365d",
+   "after_sha256": "02b3454f7b23e34512df1bc191a5cf2a4e83c6ccaac015571b1bf30012ab6d60",
+   "before_bytes": 5350,
+   "after_bytes": 5296,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Enemies/SandboxSpawnEnemy.luau",
+   "before_sha256": "e5a3d7fdcc23ee749aa93df577b8f06dda21e88b62cf1d4ba1ea48e6afee5d71",
+   "after_sha256": "e2a3538cc6bca287cfdb24e44387f4acf76be294f04260e93b8a8afba185f4ad",
+   "before_bytes": 11437,
+   "after_bytes": 11400,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Modifiers.luau",
+   "before_sha256": "696a6da4b0877b8d26f49eb29314b4b1d8b9da023c8cb6d997252250d2a08705",
+   "after_sha256": "3bf40d570f634510799de1954b43223897c0fd73555a5d148420a2486f0a0351",
+   "before_bytes": 6761,
+   "after_bytes": 6747,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/init.luau",
+   "before_sha256": "d0d172f9f04d925cf1b67530a301eed94b8a6cb751229b40c20b2092c4ed431c",
+   "after_sha256": "a8c864e213c1ae293308083a6320ad61446ed1c36a6334f85a7bf5050bcab951",
+   "before_bytes": 22805,
+   "after_bytes": 22790,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/HUD/LeftHUD.luau",
+   "before_sha256": "fd0f66dfaa2e18d67494f5a43d56b176a93fd447a604d4a8fe05ce42e20395c6",
+   "after_sha256": "29751003719cbc158c98bfe99c1cfac11c3df3d68ba3f2433d48c90022c42ec8",
+   "before_bytes": 5319,
+   "after_bytes": 5305,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Icons/Trait.luau",
+   "before_sha256": "40838d1a3560406a9d28c2f6226a7616af971d971fa58e2d6b41dbeed134f331",
+   "after_sha256": "30ed645f6887a983faa2ee70215948074d8d5fe4f1bdb9918397c17aa4a90654",
+   "before_bytes": 3766,
+   "after_bytes": 3685,
+   "packing_before": 1,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/AFKChamber.luau",
+   "before_sha256": "84195ed7cd6d2911b73716515029adba84ab1c143c9948f606c2c39b88548ab9",
+   "after_sha256": "0e9d9a59ac8b9c888cc7445ceb70a8078e71aa799acaba66a86ca4423c5958b5",
+   "before_bytes": 19624,
+   "after_bytes": 19609,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Battlepass/init.luau",
+   "before_sha256": "2af5e9b76620439e7c09fe47200fe4dc365f061e277eb78150951fc51cfed1d7",
+   "after_sha256": "491cc02e36f095e5287eb0f371aba060679de4aaa335ba69da7e47ac541a6b35",
+   "before_bytes": 11714,
+   "after_bytes": 11709,
+   "packing_before": 1,
+   "packing_after": 1,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/EventNavigation.luau",
+   "before_sha256": "fe1988064d14c9a33799e351deaeb9f89e020d008c1846468bdb4c4393ea2cbc",
+   "after_sha256": "0982764d4ae2a0ca7ce4453bbc5887fd44363b069ee4e384a4eecc2848ab7a14",
+   "before_bytes": 9381,
+   "after_bytes": 9367,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/GuessUnitEvent/GuessUnitDifficultyButton.luau",
+   "before_sha256": "b255f7a86a7029c2449c5548076832865eaed0818cc3c797e9c7c02cfafb925e",
+   "after_sha256": "f0c8e03ae1f43b88a08b01b45dde8be5e55841bb75052f65c5f9f05932806bab",
+   "before_bytes": 11782,
+   "after_bytes": 11784,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonOutlinedLabel.luau",
+   "before_sha256": "cd2d38c58addfc3ff7e5c3fe862983ecd179271b3f2bdd015826ff64da4de327",
+   "after_sha256": "ffef1b9410ba8461d0dc151249c6d6af9a0cee2b9df646133df57ff2ee0c4d23",
+   "before_bytes": 3799,
+   "after_bytes": 3769,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonSecondaryButton.luau",
+   "before_sha256": "491fb7c04e38a3052558508dd91ce4b062ca16e887ed02609366245144480577",
+   "after_sha256": "0b9ca91efc68604c7b1a35464df59965ca5e566e8f26d35cb2e94cefa5530ab4",
+   "before_bytes": 7185,
+   "after_bytes": 7069,
+   "packing_before": 1,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/WishUnitPrompt.luau",
+   "before_sha256": "e683b0508fa92a80dd88f34539ded25ec86617f1a153e58c72ac0df81ec508fe",
+   "after_sha256": "2a8861553da10368b3e3ea32a0b220df22e2eeecad8f0ace8870b691409135c8",
+   "before_bytes": 11623,
+   "after_bytes": 11625,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/ModeButton.luau",
+   "before_sha256": "8ff1f07f476911dfcd0eaccb6cfd369849e45dd08e3cf397351a1a63f5bfd111",
+   "after_sha256": "8ba067647c0730e7ad1f9733baa821d83bfb9f5a2c294252edad6b4e4d05da5b",
+   "before_bytes": 8830,
+   "after_bytes": 8815,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/Pages/Home.luau",
+   "before_sha256": "d6d927722a8957bbc1ad48344cc3b2ff0dbf8f33328fa662bf90feab21de55c7",
+   "after_sha256": "014287eb44239af5acd337db444729593aa940aa6904d440befe8f837a0f08e1",
+   "before_bytes": 11060,
+   "after_bytes": 11110,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/SingleMenu.luau",
+   "before_sha256": "934814289e746dfaad10f4879cb55029c440cf10fb70c17736fb2f00ace76953",
+   "after_sha256": "862dfdbcb59ccff4baad9f343cb8236340ca67538b9923b9230a24eb22f5fe4d",
+   "before_bytes": 3113,
+   "after_bytes": 3099,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Expedition/Entry.luau",
+   "before_sha256": "5168146def2a7f1b3bdc6c182e01d06fc4757890ed3ba0bb0e96dbc5fe48620a",
+   "after_sha256": "d71edf817ab5e42eab020689745da06963279075b1b74cb27595d25fbfa83768",
+   "before_bytes": 24795,
+   "after_bytes": 24777,
+   "packing_before": 1,
+   "packing_after": 1,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Expedition/PayloadSelection.luau",
+   "before_sha256": "e3694a314a47974e1a4e49ab710764e28336fea105e26edec348bee9fce69afd",
+   "after_sha256": "b72db8079e8c32b3818404208516ade21c46576505ff97779f59462c5ee3d119",
+   "before_bytes": 18820,
+   "after_bytes": 18802,
+   "packing_before": 1,
+   "packing_after": 1,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Index/Pages/Enemy.luau",
+   "before_sha256": "eb7f4d5a5ae4fb877b8476c545b722c4c6d777a55e3607d20644a26a3e91b199",
+   "after_sha256": "8c3e495ce8dfbad819a257569e97a92238ec50ceec057e4cb1cb3749ff0c71b3",
+   "before_bytes": 11812,
+   "after_bytes": 11798,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Index/Pages/Equipment.luau",
+   "before_sha256": "774e331c92880f3617b8c2b65e8850118e0a59621c31ff431f64faff89972824",
+   "after_sha256": "9e8a69d1c467a518edc91433c3c5821248d70e742ac71962504d581d038eedb9",
+   "before_bytes": 11515,
+   "after_bytes": 11501,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Index/Pages/Unit.luau",
+   "before_sha256": "5850f33a84256ab6de92592a6d89a8aaee110c6f283006bc872d8a7ea48b6ddd",
+   "after_sha256": "3d9462f5f5d65315946549c9fe1f46a6789033dc9ed914f5578d6bd38aaca22e",
+   "before_bytes": 11988,
+   "after_bytes": 11974,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/init.luau",
+   "before_sha256": "318f6c73755765bc2fa3344a791a4834ec149f87b08efebcff2a208e5d582e2c",
+   "after_sha256": "79be20a6d3335fe4e1ef44df49812baaa3ca1754cd59152a6f84f50c853d9f94",
+   "before_bytes": 22908,
+   "after_bytes": 22861,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/PreRelease/RewardButton.luau",
+   "before_sha256": "372bfed4d7915eeff6b15016b3d2c5a96017e9f6abfd936c5978f266ee16efbd",
+   "after_sha256": "efef83d131f9b8900868bd002a9b80d56f8fc1e9e429b7e10a2435bddbf2d595",
+   "before_bytes": 9923,
+   "after_bytes": 9908,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/init.luau",
+   "before_sha256": "27d16c783b4919d2bd77e80b88993f519a811a7483e4c24fdbd21405bc7e1168",
+   "after_sha256": "711a00af2dd296ce68f4a459ee4609d77086e87fff70213301b55883658af508",
+   "before_bytes": 13534,
+   "after_bytes": 13520,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/CollapsedStatLabel.luau",
+   "before_sha256": "94008c3523b803861cb821bef103ad704569a3916fbfd37f1e75f412a3516bd2",
+   "after_sha256": "8eb9c89ec3e4c97cce96b5893164f254dd71e0e14814f6e41fcc5ff592b9dbb8",
+   "before_bytes": 6799,
+   "after_bytes": 6698,
+   "packing_before": 1,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/MinorStatLabel.luau",
+   "before_sha256": "7edbeff6d786749bfcdef7ce3565d02fe9517c902837daf0827f444fb8b7e1cb",
+   "after_sha256": "e55f2a36dbe626fffff851d4ff4c2f59cf9a242c386b0599f5fb39bd8036f8de",
+   "before_bytes": 4339,
+   "after_bytes": 4393,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/StatLabel/init.luau",
+   "before_sha256": "7fc432e1090a87ea19c953e79a2d5dfe3ae84b1346eca5fa0d6efd9e8d86878c",
+   "after_sha256": "a7bfc49ddce71b084c6f9f2fbcd9f664a9fca24dcfad2c16ec6170359bc51bff",
+   "before_bytes": 10218,
+   "after_bytes": 10114,
+   "packing_before": 1,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/UnitManager/UnitButton.luau",
+   "before_sha256": "016bf7acf869fedb24baf2daa956832b6a8c22797132e5912e67a340f03784bd",
+   "after_sha256": "6246d19eb5012555d330bd17e722bc934f05f61a509340fb10a868f85f6245b7",
+   "before_bytes": 15784,
+   "after_bytes": 15959,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Prompts/DropdownWindow/GameUnitTargeting.luau",
+   "before_sha256": "ce2326f121718cdbb077907ed830caec80c9b82169596b38dbc732ad3778422a",
+   "after_sha256": "c554084fd732cb29e53461946b2f76266bc3bd0a4165dc2484376ee4fe82c0c4",
+   "before_bytes": 1284,
+   "after_bytes": 1268,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Prompts/RewardCalendar/CalendarReward.luau",
+   "before_sha256": "0b8f8fea0ab25b9c56728ed2f42dc10abefbbc196e09ba7c7af448331f71a490",
+   "after_sha256": "38263c485e233a553a4b602596a956181bd0fa405ff76a81b323aaf903bf2e48",
+   "before_bytes": 13310,
+   "after_bytes": 13448,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitTeams/New.luau",
+   "before_sha256": "801c0e27977bae76de4c8a1a68a80cc2c8c7c884485c192990b5e5622ca86c82",
+   "after_sha256": "68b92d2453ca89e109ba44d856c5fa282eb1deba5aef0f269e08715d4e5ba296",
+   "before_bytes": 14201,
+   "after_bytes": 14311,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitTeams/init.luau",
+   "before_sha256": "58a1bffca0dccf86c919e5dcf08f6bfccce2e04c70421dfdfd17b8f9e451ca95",
+   "after_sha256": "ea92bb620570b1a68d5503052fa0c89c58a6e8355b31b6ba2096ee1f25a412b0",
+   "before_bytes": 13876,
+   "after_bytes": 13985,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/Part_Icles/Events.luau",
+   "before_sha256": "cd83cc0706d1e92d0abced5d8b5c38d7bf955ac177a1df6340b4f3a8e07ee686",
+   "after_sha256": "f7b5f916f0a69d9a985cac7f29f150383fb2a11c6f1afc567128a359d811dc67",
+   "before_bytes": 25722,
+   "after_bytes": 25689,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/Part_Icles/GetData.luau",
+   "before_sha256": "947dbed2760365f68ee29c56eaafda224ffeae070a4ec136cb4d71764d4867b4",
+   "after_sha256": "1b8398eb5c2dafafe1793b2d51f8a3724b618afb7a52aa68784cc51f949eed39",
+   "before_bytes": 34271,
+   "after_bytes": 34169,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/Shared/Information/Expeditions/Buildings/init.luau",
+   "before_sha256": "f15d29386c5f30c227433124aa4d7aeff64858c36aee158e6982106ee39baf74",
+   "after_sha256": "f01d3cd960696ce2d8b4c68014def956fbda18e313e76e7fc603df7450c699dd",
+   "before_bytes": 3720,
+   "after_bytes": 3684,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitterV2/GetData.luau",
+   "before_sha256": "e73669803879ec20fb64b27a0d641e1ef3b1573a266d5c5dc4f3ff5c7bbc04c2",
+   "after_sha256": "2f780eb2710d8ba15399acc677a972c3ca265e22768f42fb0970e69d7a120b2e",
+   "before_bytes": 7638,
+   "after_bytes": 7551,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Events.luau",
+   "before_sha256": "cd83cc0706d1e92d0abced5d8b5c38d7bf955ac177a1df6340b4f3a8e07ee686",
+   "after_sha256": "f7b5f916f0a69d9a985cac7f29f150383fb2a11c6f1afc567128a359d811dc67",
+   "before_bytes": 25722,
+   "after_bytes": 25689,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/Shared/TimeManager/Part_Icles/GetData.luau",
+   "before_sha256": "947dbed2760365f68ee29c56eaafda224ffeae070a4ec136cb4d71764d4867b4",
+   "after_sha256": "1b8398eb5c2dafafe1793b2d51f8a3724b618afb7a52aa68784cc51f949eed39",
+   "before_bytes": 34271,
+   "after_bytes": 34169,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/Shared/VFXManager/init.luau",
+   "before_sha256": "60f4f6a6cafb7caa491810ccfecc7d837a71daa374595c32dad5e79137a4e0c7",
+   "after_sha256": "f19ec28e2cbc05d6cb6dc3d0eb02654a52c8305640e3c428bff94ab8c8f0e00c",
+   "before_bytes": 4294,
+   "after_bytes": 4294,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "ReplicatedStorage/Shared/Zone/SimpleZone/Utility/UtilityFunctions.luau",
+   "before_sha256": "8689590eea2e38b25527bdd00f1d8205eddde8d0331c20ff5beafe8f7e16c6de",
+   "after_sha256": "9061f7fdcba4bd361d1c6d576719499f2576756bab77fbf21c1d3dab72bf688b",
+   "before_bytes": 6848,
+   "after_bytes": 6766,
+   "packing_before": 1,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/MountRangeIndicator.client.luau",
+   "before_sha256": "adbf64d15dd57b90f15fb6c04c9f644a363a8073d55815115c80a5b2c42d8b2d",
+   "after_sha256": "a519e7cd45a55f3d065b20be3b48dd6f644633fa45e8a09460a79734c662b55c",
+   "before_bytes": 3217,
+   "after_bytes": 3200,
+   "packing_before": 0,
+   "packing_after": 0,
+   "review": "Constructor grouping/placement with original branch, call, key and callback order; compared full diff with accepted preview."
+  }
+ ],
+ "remaining_packing": [
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/BuildingResources/init.luau",
+   "sites": 2,
+   "source_sha256": "ab3cda5a4bf55e13b3e22abe1c64b70b34c46b1364f4bc4da004b96df3790378"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/QuestBoardMilestones.luau",
+   "sites": 1,
+   "source_sha256": "f4e85f9573d6bb7c58485c69e117861c1d2f4ddb8e4412c1ab1f0173ad1e733c"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/GameUnitView.luau",
+   "sites": 1,
+   "source_sha256": "25e080dd4bce958fd531affca02f61efd4c8f5d6acf9aad62e5770ef1b91253a"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/init.luau",
+   "sites": 1,
+   "source_sha256": "0df282d6a5c71ef5e3ec5b1e9e7a37fb962487a23583db8207fcc4e9e188f23f"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Units.luau",
+   "sites": 1,
+   "source_sha256": "f3fbfdc9e61b61b08bbfe4ae8713deedf553de00c90743098457c809cc28e97c"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/NodeMapMenu/NodeMapButton.luau",
+   "sites": 1,
+   "source_sha256": "cdae32249527e2dcd6a89a898838dbe721d672bae06ec1463bbc842a83a7fef3"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Battlepass/init.luau",
+   "sites": 1,
+   "source_sha256": "491cc02e36f095e5287eb0f371aba060679de4aaa335ba69da7e47ac541a6b35"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Crafting/SelectRecipePrompt.luau",
+   "sites": 1,
+   "source_sha256": "2c85bb15bbfd859130ee185a435613fb62c51c1183acf7e0c703ea02ca4cc2ab"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Content/Calendar.luau",
+   "sites": 1,
+   "source_sha256": "333cc16d1fd5b817292ebd82b437b12fdc671bb0cc92f6a87165f925248085a6"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Expedition/Entry.luau",
+   "sites": 1,
+   "source_sha256": "d71edf817ab5e42eab020689745da06963279075b1b74cb27595d25fbfa83768"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Expedition/PayloadSelection.luau",
+   "sites": 1,
+   "source_sha256": "b72db8079e8c32b3818404208516ade21c46576505ff97779f59462c5ee3d119"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/Profile/Pages/Profile.luau",
+   "sites": 1,
+   "source_sha256": "afdc3e5e227f5fe30a72bb202bc261c33e518b19a5c55cc2d494e04ebd2cd172"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Menu/WikiTools/Viewport.luau",
+   "sites": 1,
+   "source_sha256": "ab226b864fa7104f586f401ea6789678cdb03dc93a9f6c43ed9c135c5b49d64b"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Prompts/RewardCalendar/init.luau",
+   "sites": 1,
+   "source_sha256": "e1eca78e0e2da8227347a432c5448bfda54ef5771ed19462f676ea052cad226b"
+  }
+ ],
+ "summary": {
+  "changed_files": 50,
+  "unchanged_files": 3928,
+  "packing_before": 23,
+  "packing_after": 15,
+  "remaining_files": 14,
+  "unchanged_sidecars": 3886
+ },
+ "binary_sha256": "df14bf09e324b029a709310dbefc655c771e35b3c3d12df7bd55e8182f8ed7f1",
+ "source_tree_sha256": "7726b21dc807cf6b421ac7dda1e8e556551cd1198145d5e6a2f866d1f5727475",
+ "portable_source_tree_sha256": "4c8cb9fa1f94c351d69a673839bf314d64ce07b2f4f52bb409eea2d95dabc7e7",
+ "default_and_detailed_source_identical": true,
+ "limitations": "Private files have no source-family holdout or Roblox runtime claim. Remaining packing locations are observed outputs, not per-site optimizer refusal certificates. Native Windows and portable path ordering are distinct hash models."
+}

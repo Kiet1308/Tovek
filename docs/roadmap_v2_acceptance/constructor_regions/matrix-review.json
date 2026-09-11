@@ -1,0 +1,107 @@
+{
+ "schema_version": 1,
+ "old_runtime_rows_identical": 180,
+ "public_changed": [
+  {
+   "repo": "RbxUtil",
+   "file": "modules/spring/init.luau",
+   "opt": 0,
+   "split": "development",
+   "before_sha256": "e01c6b243fe07fb69767a1d5c19833b7b9d705d7c5f84707842d7e6b643166a0",
+   "after_sha256": "79dea3600152eca30b37c88a250bd59a942967c80b801b487bc4c1b680758372",
+   "before_bytes": 1024,
+   "after_bytes": 1010,
+   "dataflow_before": "different",
+   "dataflow_after": "different",
+   "raw_structural_ratio_before": 0.6304347826086957,
+   "raw_structural_ratio_after": 0.7309711286089239,
+   "review": "Spring constructor groups state fields after explicit branch computation; table-util places its empty module declaration nearer first export assignment. Structural similarity changes retained, not treated as proof or a new naming result."
+  },
+  {
+   "repo": "RbxUtil",
+   "file": "modules/spring/init.luau",
+   "opt": 1,
+   "split": "development",
+   "before_sha256": "742011bd3af0c11c6f854b9e3abe37e477821d7e37b672bbbd753a6346685915",
+   "after_sha256": "9ec188549136d2c8b59104f2e7efdc88c576682a635f2457845b6bf6d4a0675b",
+   "before_bytes": 1012,
+   "after_bytes": 998,
+   "dataflow_before": "unknown",
+   "dataflow_after": "unknown",
+   "raw_structural_ratio_before": 0.7672634271099744,
+   "raw_structural_ratio_after": 0.7388451443569554,
+   "review": "Spring constructor groups state fields after explicit branch computation; table-util places its empty module declaration nearer first export assignment. Structural similarity changes retained, not treated as proof or a new naming result."
+  },
+  {
+   "repo": "RbxUtil",
+   "file": "modules/spring/init.luau",
+   "opt": 2,
+   "split": "development",
+   "before_sha256": "abac2b4ae218652fefec4b03186d80d94f8bf05d0f2589865182a35f62027288",
+   "after_sha256": "e7fc3b31d580ac070b422cf3e74c1a42991e74cb257fd189c19a001d44c8de40",
+   "before_bytes": 1013,
+   "after_bytes": 1013,
+   "dataflow_before": "unknown",
+   "dataflow_after": "unknown",
+   "raw_structural_ratio_before": 0.7704180064308682,
+   "raw_structural_ratio_after": 0.7539267015706806,
+   "review": "Spring constructor groups state fields after explicit branch computation; table-util places its empty module declaration nearer first export assignment. Structural similarity changes retained, not treated as proof or a new naming result."
+  },
+  {
+   "repo": "RbxUtil",
+   "file": "modules/table-util/init.luau",
+   "opt": 0,
+   "split": "development",
+   "before_sha256": "6f68350610019878b1395552a05dd7aa1a8a2c25d928d659bc575327dcff9b5c",
+   "after_sha256": "3e7298f770760d3dd286cb6a275136fca26ac513382f8c7dd98ea2cda0a7f0c9",
+   "before_bytes": 7332,
+   "after_bytes": 7332,
+   "dataflow_before": "unknown",
+   "dataflow_after": "unknown",
+   "raw_structural_ratio_before": null,
+   "raw_structural_ratio_after": null,
+   "review": "Spring constructor groups state fields after explicit branch computation; table-util places its empty module declaration nearer first export assignment. Structural similarity changes retained, not treated as proof or a new naming result."
+  },
+  {
+   "repo": "RbxUtil",
+   "file": "modules/table-util/init.luau",
+   "opt": 1,
+   "split": "development",
+   "before_sha256": "884805e404f68b725c9794f3777479d7f4c41291a125bc10ec32ce15381f6cfe",
+   "after_sha256": "c18e8251df152b92268b562866d3dd3898d1f8dd6bd67d5d24413399ca15e8b6",
+   "before_bytes": 7571,
+   "after_bytes": 7571,
+   "dataflow_before": "unknown",
+   "dataflow_after": "unknown",
+   "raw_structural_ratio_before": null,
+   "raw_structural_ratio_after": null,
+   "review": "Spring constructor groups state fields after explicit branch computation; table-util places its empty module declaration nearer first export assignment. Structural similarity changes retained, not treated as proof or a new naming result."
+  }
+ ],
+ "public_holdout_unchanged": 45,
+ "sidecar_comparisons": [
+  {
+   "dataset": "runtime",
+   "prior_sidecars": 180,
+   "new_sidecars": 186,
+   "prior_identical_sidecars": 180,
+   "prior_changed_sidecars": []
+  },
+  {
+   "dataset": "public",
+   "prior_sidecars": 513,
+   "new_sidecars": 513,
+   "prior_identical_sidecars": 508,
+   "prior_changed_sidecars": [
+    "RbxUtil/O0/modules/spring/init.lua",
+    "RbxUtil/O0/modules/table-util/init.lua",
+    "RbxUtil/O1/modules/spring/init.lua",
+    "RbxUtil/O1/modules/table-util/init.lua",
+    "RbxUtil/O2/modules/spring/init.lua"
+   ]
+  }
+ ],
+ "new_runtime_profiles": 6,
+ "new_runtime_vectors_per_profile": 1386,
+ "limitations": "Only timing and temporary output paths are removed for row comparison. Public and private runtime semantics remain unexecuted. Existing unknown/different dataflow results are not promoted."
+}

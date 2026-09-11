@@ -74,3 +74,19 @@ Calendar, Profile and RewardCalendar.
 None is made safe merely by recognizing Fusion, Roact or a factory API. General
 dependencies across these statements and the SETLIST result boundary remain R4
 work; the explicit packing fallback retains nil overwrite and multret behavior.
+
+## R4 bounded constructor regions, 2026-09-11
+
+The later [private constructor-region rule](constructor_regions.md) removes eight
+of those 23 packing sites: Shine, DamageIndicator, Trait, CollapsedStatLabel,
+StatLabel, UtilityFunctions, DragonSecondaryButton and SplitTextLabel. Their
+first unobserved allocation can move past selected local computation and
+unrelated stores after checking all local dependencies and both branch arms.
+Effectful props initializers and factory handles remain at their evaluation
+points. The total is now 15 remaining packing sites in 14 files.
+
+The rule also groups private props/child dictionaries outside these list sites.
+It changes 50 private files, with complete thread/mode identity, parser binding
+checks, known-source VM observations and per-file review. This does not certify
+the remaining sites or provide a general alias/effect dependency graph. Current
+locations and exact source hashes are in the [acceptance inventory](roadmap_v2_acceptance/constructor_regions_validation.json).
