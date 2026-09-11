@@ -197,6 +197,17 @@ jobs:
             --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --report "$RUNNER_TEMP/conditional-ir.json"
 
+      - name: V2 rehoist register budget and literal fidelity
+        run: |
+          cargo +nightly-2024-12-15 run -p luau-lifter --example rehoist_constants -- "$RUNNER_TEMP/rehoist-ir"
+          python3 scripts/rehoist_audit.py \
+            --fixtures "$RUNNER_TEMP/rehoist-ir" \
+            --lifter target/release/luau-lifter \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --report "$RUNNER_TEMP/rehoist-ir.json"
+
       - name: V2 lexical binding graph and scope controls
         run: |
           python3 scripts/binding_graph_controls.py \
@@ -332,6 +343,7 @@ jobs:
             ${{ runner.temp }}/roadmap-v2-assignment-order.json
             ${{ runner.temp }}/branch-constructor-controls.json
             ${{ runner.temp }}/local-producer-controls.json
+            ${{ runner.temp }}/rehoist-ir.json
             ${{ runner.temp }}/roadmap-v2-cache-controls.json
             ${{ runner.temp }}/roadmap-v2-profile.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau

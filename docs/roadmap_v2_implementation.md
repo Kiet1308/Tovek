@@ -1,5 +1,11 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R6: fidelity review and rehoist register pressure
+
+Rehoist now includes expression/call scratch and hidden loop registers in its conservative introduction budget. A real 180-parameter, 73-argument witness previously decompiled to source that failed O0 recompilation after two constants were introduced; the corrected output compiles. The review retains R1's named-return protection and explicitly treats role-based constant names as synthesis. [Conditions, review and tradeoff](source_fidelity_rewrite_review.md).
+
+All 60 native IR configurations, 20 negative controls and six full-pipeline register-witness configurations pass. The latter also preserve VM observations, bounded dataflow certificates and one/four-thread source/metadata identity. All 974 primary Rust tests, one child repeat, 102 Python tests, 180 existing runtime configurations with nine controls and 513 public configurations pass. Runtime/public full source, dataflow, fidelity and sidecars are unchanged. The private corpus has one reviewed change: five reads of an inferred threshold in LightningCore become the original literal. All 3,936 private recorded-name/capture contracts are preserved; the changed file remains `unknown` in the whole-chunk input checker. [Validation inventory](roadmap_v2_acceptance/rehoist_validation.json).
+
 ## R4: nested assignment address reads before RHS inlining
 
 Late AST/UI inline now treats every nested index in an assignment's base or key as an observable read before the RHS. It preserves earlier factory calls and mutable-capture snapshots; the terminal store remains after the RHS, so ordinary local/literal leaf addresses still permit valid call-chain inlining. The previous release fails 162 nested-address vectors at each g1 profile; all six new profiles now pass 216 vectors each, including failures, scalar/multret values and nil/NaN keys. [Contract and examples](assignment_evaluation_order.md).

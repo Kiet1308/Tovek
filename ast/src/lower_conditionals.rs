@@ -244,6 +244,21 @@ pub(crate) struct RewriteInventory {
     pub(crate) captured: FxHashSet<u64>,
 }
 
+/// Bound recursive analysis before a pass inspects expression/register costs.
+/// This does not reserve names, collect captures, or authorize any rewrite.
+pub(crate) fn validate_local_rewrite_tree(block: &Block) -> Result<(), &'static str> {
+    Inventory {
+        nodes: 0,
+        selects: 0,
+        collect_names: false,
+        names: FxHashSet::default(),
+        functions: FxHashSet::default(),
+        probe: None,
+        found: false,
+        captured: None,
+    }.block(block, 0)
+}
+
 /// Validate the entire tree before a caller performs recursive analysis. Name
 /// reservation only runs when the bounded probe finds a possible rewrite.
 pub(crate) fn prepare_local_rewrite(

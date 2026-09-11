@@ -1,9 +1,10 @@
-//! Recreate a small set of role-proven constants folded away by Luau `-O2`.
+//! Introduce names for a small set of repeated literals with syntactic roles.
 //!
 //! The pass is intentionally conservative. A literal is hoisted only when it
 //! occurs at least three times in one function scope and every counted use has
-//! the same explicit API role (wait duration, magnitude threshold, or asset-id
-//! property). It never guesses from raw frequency alone.
+//! the same syntactic role (wait duration, magnitude threshold, or asset-id
+//! property). This is synthesis, not evidence of an original source constant
+//! or API purity. Only the literal moves; lookups, calls and stores stay put.
 
 use itertools::Either;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -14,7 +15,6 @@ use crate::{
 };
 
 const MIN_OCCURRENCES: usize = 3;
-const MAX_ACTIVE_LOCALS: usize = 200;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 enum Role {
@@ -78,30 +78,29 @@ impl CandidateKey {
     }
 }
 
-/// Hoist role-proven repeated literals in the module and every closure scope.
+/// Hoist repeated literals with matching roles in the module and closure scopes.
 /// Returns the number of declarations inserted.
 pub fn rehoist_constants(body: &mut Block) -> usize {
+    // Register estimation recursively examines values. Refuse an oversized
+    // tree before either analysis or mutation, using the shared emitter budget.
+    if crate::lower_conditionals::validate_local_rewrite_tree(body).is_err() {
+        return 0;
+    }
     crate::factor_common_tails::unshare_blocks(body);
-    rehoist_scope_tree(body, 0, &[])
+    rehoist_scope_tree(body, &[])
 }
 
 fn rehoist_scope_tree(
     body: &mut Block,
-    parameter_count: usize,
-    parameter_names: &[String],
+    parameters: &[RcLocal],
 ) -> usize {
-    let mut count = rehoist_one_scope(body, parameter_count, parameter_names);
+    let mut count = rehoist_one_scope(body, parameters);
     let mut functions = Vec::new();
     collect_nested_functions(&mut body.0, &mut functions);
     for function in functions {
         let mut function = function.0.lock();
-        let parameter_count = function.parameters.len();
-        let parameter_names = function
-            .parameters
-            .iter()
-            .filter_map(local_name)
-            .collect::<Vec<_>>();
-        count += rehoist_scope_tree(&mut function.body, parameter_count, &parameter_names);
+        let parameters = function.parameters.clone();
+        count += rehoist_scope_tree(&mut function.body, &parameters);
     }
     count
 }
@@ -170,36 +169,6 @@ pub(crate) fn collect_reserved_identifiers(body: &mut Block, reserved: &mut FxHa
     }
 }
 
-fn max_active_locals(stmts: &[Statement]) -> usize {
-    let mut active = 0;
-    let mut maximum = 0;
-    for statement in stmts {
-        if let Statement::Assign(assign) = statement
-            && assign.prefix
-        {
-            active += assign
-                .left
-                .iter()
-                .filter(|left| matches!(left, LValue::Local(_)))
-                .count();
-            maximum = maximum.max(active);
-        }
-        let nested = match statement {
-            Statement::If(node) => max_active_locals(&node.then_block.lock().0)
-                .max(max_active_locals(&node.else_block.lock().0)),
-            Statement::While(node) => max_active_locals(&node.block.lock().0),
-            Statement::Repeat(node) => max_active_locals(&node.block.lock().0),
-            Statement::NumericFor(node) => 1 + max_active_locals(&node.block.lock().0),
-            Statement::GenericFor(node) => {
-                node.res_locals.len() + max_active_locals(&node.block.lock().0)
-            }
-            _ => 0,
-        };
-        maximum = maximum.max(active + nested);
-    }
-    maximum
-}
-
 fn collect_nested_functions(
     stmts: &mut [Statement],
     functions: &mut Vec<by_address::ByAddress<triomphe::Arc<parking_lot::Mutex<crate::Function>>>>,
@@ -243,8 +212,7 @@ fn collect_functions_in_rvalue(
 
 fn rehoist_one_scope(
     body: &mut Block,
-    parameter_count: usize,
-    parameter_names: &[String],
+    parameters: &[RcLocal],
 ) -> usize {
     let mut counts = FxHashMap::default();
     count_block(&body.0, &mut counts);
@@ -253,13 +221,19 @@ fn rehoist_one_scope(
         .filter_map(|(candidate, count)| (count >= MIN_OCCURRENCES).then_some(candidate))
         .collect();
     selected.sort_by_key(CandidateKey::order_key);
-    let active = parameter_count.saturating_add(max_active_locals(&body.0));
-    selected.truncate(MAX_ACTIVE_LOCALS.saturating_sub(active));
+    if selected.is_empty() {
+        return 0;
+    }
+    // Local count alone is insufficient: a 180-parameter function with a
+    // 73-argument call compiles at O0, but two extra constants overflow the
+    // compiler's 255 registers. Include hidden loop registers and expression
+    // scratch, and retain the shared margin for later emitter rewrites.
+    selected.truncate(crate::lower_conditionals::local_rewrite_frame(body, parameters, 0).headroom);
     if selected.is_empty() {
         return 0;
     }
 
-    let mut used_names: FxHashSet<String> = parameter_names.iter().cloned().collect();
+    let mut used_names: FxHashSet<String> = parameters.iter().filter_map(local_name).collect();
     collect_reserved_identifiers(body, &mut used_names);
 
     let mut replacements = FxHashMap::default();
@@ -565,7 +539,7 @@ mod tests {
     #[test]
     fn refuses_hoist_without_local_register_headroom() {
         let mut statements = Vec::new();
-        for index in 0..MAX_ACTIVE_LOCALS {
+        for index in 0..200 {
             statements.push(Statement::Assign(Assign {
                 left: vec![LValue::Local(RcLocal::new(Local::new(Some(format!(
                     "local{index}"
@@ -584,7 +558,7 @@ mod tests {
     #[test]
     fn unnamed_parameters_still_consume_local_headroom() {
         let function = triomphe::Arc::new(parking_lot::Mutex::new(crate::Function {
-            parameters: (0..MAX_ACTIVE_LOCALS).map(|_| RcLocal::default()).collect(),
+            parameters: (0..200).map(|_| RcLocal::default()).collect(),
             body: Block(vec![wait(10.0), wait(10.0), wait(10.0)]),
             ..crate::Function::default()
         }));
@@ -595,6 +569,30 @@ mod tests {
         let mut body = Block(vec![Statement::Return(Return::new(vec![closure]))]);
         assert_eq!(rehoist_constants(&mut body), 0);
         assert!(!function.lock().body.to_string().contains("WAIT_INTERVAL"));
+    }
+
+    #[test]
+    fn call_arguments_consume_register_headroom_even_below_local_limit() {
+        let mut body = Block(vec![wait(1.0); 3]);
+        body.0.extend([delay(2.0), delay(2.0), delay(2.0)]);
+        body.0.push(Call::new(global("sink"), vec![global("argument"); 73]).into());
+        let before = body.to_string();
+        let parameters = (0..180).map(|_| RcLocal::default()).collect::<Vec<_>>();
+        assert_eq!(rehoist_one_scope(&mut body, &parameters), 0);
+        assert_eq!(body.to_string(), before);
+    }
+
+    #[test]
+    fn over_depth_budget_refuses_before_mutation() {
+        let mut value = number(1.0);
+        for _ in 0..140 {
+            value = Index::new(value, string("field")).into();
+        }
+        let mut body = Block(vec![wait(1.0), wait(1.0), wait(1.0),
+            Return::new(vec![value]).into()]);
+        let before = body.to_string();
+        assert_eq!(rehoist_constants(&mut body), 0);
+        assert_eq!(body.to_string(), before);
     }
 
     #[test]

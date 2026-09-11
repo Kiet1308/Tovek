@@ -418,7 +418,7 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 - [ ] Đưa annotation của de-inline/proof/synthesis ra metadata có vị trí; hỗ trợ cách hiển thị gọn trong source. Giữ khả năng truy vết provenance của từng call-site.
 - [x] Giữ tên function và source/debug local có ý nghĩa theo R1/R2; dùng cost model coi việc làm mất thông tin này là một chi phí, ngay cả khi giảm số dòng. — Binding nguồn có bằng chứng được bảo vệ bằng điều kiện cứng; vùng chưa map vẫn báo unknown.
 - [x] Phân biệt nguyên nhân của dòng dài: literal, expression, UI structure hay control flow. Mỗi nhóm có cách xử lý và test riêng. — Inventory phân loại cú pháp; literal byte, group/arity và control flow dùng gate riêng, không ép mọi dòng xuống dưới ngưỡng.
-- [ ] Đánh giá một số rule đang ưu tiên rút gọn, như anonymous-return và rehoist chỉ dựa trên số lần lặp, dưới mục tiêu fidelity mới. Không mở rộng hoisting nếu chưa giữ được thứ tự và scope.
+- [x] Đánh giá anonymous-return và rehoist dưới mục tiêu fidelity mới. Giữ chốt bảo vệ tên nguồn của R1; hằng rehoist là synthesis theo role cú pháp và literal, không phải tên nguồn đã khôi phục. Sửa giới hạn local-only gây output vượt 255 thanh ghi ở O0; tính thêm expression/call scratch và hidden loop registers. 60 cấu hình IR, 20 control và 6 cấu hình qua pipeline; một hằng suy luận trong LightningCore bị giữ inline, đã kiểm tra theo binding lexical. [Đánh giá, đánh đổi và nghiệm thu](source_fidelity_rewrite_review.md).
 
 **Vị trí:** [formatter.rs](../ast/src/formatter.rs), [rehoist_constants.rs](../ast/src/rehoist_constants.rs), [rebalance_expressions.rs](../ast/src/rebalance_expressions.rs), [cleanup_final.rs](../ast/src/cleanup_final.rs), [name_locals.rs](../ast/src/name_locals.rs).
 
