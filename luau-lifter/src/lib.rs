@@ -46,6 +46,8 @@ pub const ASSUME_NO_NAN: u32 = 1 << 2;
 pub const STRICT_NO_SYNTHETIC_CONTROL: u32 = 1 << 3;
 /// Detailed SSA/storage lineage in artifact APIs; no effect on emitted source.
 pub const EMIT_BINDING_PROVENANCE: u32 = 1 << 4;
+/// Opt-in arithmetic loop synthesis; does not establish original source structure.
+pub const SYNTHESIZE_ARITHMETIC_LOOPS: u32 = 1 << 5;
 
 // ---- TEMPORARY PROFILING (env-gated, remove before ship) ----
 #[doc(hidden)]
@@ -89,6 +91,7 @@ pub mod prof {
         S_FACTOR_FIXEDPOINT,
         S_CLEANUP_RETURNS,
         S_MATERIALIZE,
+        S_REROLL_ARITHMETIC,
         S_REHOIST_CONSTANTS,
         S_NAME_LOCALS,
         S_RECOVER_METHODS,
@@ -137,6 +140,8 @@ pub struct DecompileOptions {
     pub control_flow_policy: ControlFlowOutputPolicy,
     /// Opt-in detailed lineage, produced only by artifact/analysis APIs.
     pub emit_binding_provenance: bool,
+    /// Experimental equivalent loop presentation; disabled by default.
+    pub synthesize_arithmetic_loops: bool,
 }
 
 /// Controls whether the certified CFG dispatcher is an acceptable output
@@ -152,7 +157,7 @@ pub enum ControlFlowOutputPolicy {
 
 impl DecompileOptions {
     pub fn from_flag_bits(bits: u32) -> Option<Self> {
-        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL | EMIT_BINDING_PROVENANCE)
+        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL | EMIT_BINDING_PROVENANCE | SYNTHESIZE_ARITHMETIC_LOOPS)
             != 0
         {
             return None;
@@ -162,6 +167,7 @@ impl DecompileOptions {
             no_synth_helpers: bits & NO_SYNTH_HELPERS != 0,
             assume_no_nan: bits & ASSUME_NO_NAN != 0,
             emit_binding_provenance: bits & EMIT_BINDING_PROVENANCE != 0,
+            synthesize_arithmetic_loops: bits & SYNTHESIZE_ARITHMETIC_LOOPS != 0,
             control_flow_policy: if bits & STRICT_NO_SYNTHETIC_CONTROL != 0 {
                 ControlFlowOutputPolicy::StrictNoSyntheticControl
             } else {
@@ -175,6 +181,7 @@ impl DecompileOptions {
             | u32::from(self.no_synth_helpers) * NO_SYNTH_HELPERS
             | u32::from(self.assume_no_nan) * ASSUME_NO_NAN
             | u32::from(self.emit_binding_provenance) * EMIT_BINDING_PROVENANCE
+            | u32::from(self.synthesize_arithmetic_loops) * SYNTHESIZE_ARITHMETIC_LOOPS
             | u32::from(
                 self.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl,
             ) * STRICT_NO_SYNTHETIC_CONTROL
@@ -186,6 +193,7 @@ impl DecompileOptions {
             no_synth_helpers: self.no_synth_helpers || other.no_synth_helpers,
             assume_no_nan: self.assume_no_nan || other.assume_no_nan,
             emit_binding_provenance: self.emit_binding_provenance || other.emit_binding_provenance,
+            synthesize_arithmetic_loops: self.synthesize_arithmetic_loops || other.synthesize_arithmetic_loops,
             control_flow_policy: if self.control_flow_policy
                 == ControlFlowOutputPolicy::StrictNoSyntheticControl
                 || other.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
@@ -672,6 +680,10 @@ fn try_decompile_bytecode_internal(
             {
                 ptime!(S_REHOIST_CONSTANTS);
                 ast::rehoist_constants::rehoist_constants(&mut body);
+            }
+            if options.synthesize_arithmetic_loops {
+                ptime!(S_REROLL_ARITHMETIC);
+                ast::reroll_arithmetic::reroll_arithmetic(&mut body);
             }
             {
                 ptime!(S_NAME_LOCALS);
@@ -1678,6 +1690,19 @@ mod option_tests {
                 .control_flow_policy,
             ControlFlowOutputPolicy::StrictNoSyntheticControl
         );
+    }
+
+    #[test]
+    fn loop_synthesis_requires_opt_in_and_survives_option_transport() {
+        assert!(!DecompileOptions::default().synthesize_arithmetic_loops);
+        let enabled = DecompileOptions {
+            synthesize_arithmetic_loops: true,
+            ..DecompileOptions::default()
+        };
+        assert_eq!(enabled.bits(), super::SYNTHESIZE_ARITHMETIC_LOOPS);
+        assert_eq!(DecompileOptions::from_flag_bits(enabled.bits()), Some(enabled));
+        assert_eq!(DecompileOptions::default().union(enabled), enabled);
+        assert_eq!(enabled.union(DecompileOptions::default()), enabled);
     }
 
     #[test]

@@ -49,7 +49,7 @@ def main():
                                  ('trace4', 4, '--emit-binding-provenance')]:
         output = work / label
         stdout, elapsed = checked([args.lifter, 'decompile-folder', inputs, output, '--key', 1,
-                                   '--threads', threads, '--strict-no-synthetic-control', flag], timeout=120)
+                                   '--threads', threads, '--strict-no-synthetic-control', flag, *fixtures.get('lifter_args', [])], timeout=120)
         measurements.append({'mode': label, 'threads': threads, 'seconds': elapsed})
         (work / (label + '.log')).write_bytes(stdout)
     audit_path = work / 'audit.json'
@@ -79,7 +79,7 @@ def main():
     report = {'schema_version': 1, 'lifter_sha256': sha256(args.lifter),
               'input_report_sha256': sha256(input_report), 'work': str(work),
               'dataset': 'runtime_fixtures' if args.fixtures_report else 'pinned_public_sources',
-              'input_summary': fixtures['summary'],
+              'input_summary': fixtures['summary'], 'lifter_args': fixtures.get('lifter_args', []),
               'mode_timings': measurements, 'metadata_deterministic_threads_1_4': identical, 'audit': audit}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8', newline='\n')

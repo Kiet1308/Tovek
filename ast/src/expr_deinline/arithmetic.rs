@@ -82,7 +82,7 @@ fn captures_in_value(value: &RValue, out: &mut FxHashSet<RcLocal>) {
     }
 }
 
-pub(super) fn pattern(function: &Function) -> Option<RValue> {
+pub(crate) fn pattern(function: &Function) -> Option<RValue> {
     if function.bytecode_proto_id.is_none()
         || !function
             .name

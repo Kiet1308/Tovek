@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--ast", type=pathlib.Path)
     parser.add_argument("--report", type=pathlib.Path, required=True)
     parser.add_argument("--keep", type=pathlib.Path, required=True)
+    parser.add_argument("--lifter-arg", action="append", default=[])
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=30)
     args = parser.parse_args()
@@ -70,7 +71,7 @@ def main():
             bytecode = directory / (source.name + ".luaubc")
             bytecode.write_bytes(raw)
             output, elapsed = checked([args.lifter, bytecode, "--strict-no-synthetic-control",
-                                       "--script-name", entry["file"]], timeout=args.timeout)
+                                       "--script-name", entry["file"], *args.lifter_arg], timeout=args.timeout)
             if not output.strip():
                 raise ValueError("empty decompiler output")
             emitted = directory / (source.name + ".out.luau")
@@ -106,6 +107,7 @@ def main():
                          "dataflow": dict(collections.Counter(r["dataflow"]["status"] for r in subset)),
                          "ast": dict(collections.Counter(r["source_fidelity"]["status"] for r in subset))}
     report = {"schema_version": 1, "manifest_sha256": sha256(args.manifest), "summary": groups,
+              "lifter_args": args.lifter_arg,
               "tools": {name: {"path": str(getattr(args, name)), "sha256": sha256(getattr(args, name))}
                         for name in ("compiler", "lifter", "ast") if getattr(args, name)},
               "compiler_commit_expected": manifest["compiler_commit"], "rows": rows,

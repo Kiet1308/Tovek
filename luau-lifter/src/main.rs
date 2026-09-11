@@ -75,6 +75,9 @@ struct FolderArgs {
     /// Faster/cleaner output, but changes behavior when either operand is NaN.
     #[arg(long)]
     assume_no_nan: bool,
+    /// Synthesize equivalent fixed-count arithmetic loops (experimental; source loop unknown).
+    #[arg(long)]
+    synthesize_arithmetic_loops: bool,
     /// Fail closed when source-like structuring cannot avoid synthetic control
     /// (the folder driver is already strict by default).
     #[arg(long)]
@@ -131,6 +134,9 @@ struct ValidateArgs {
     /// Default is off to preserve exact NaN semantics.
     #[arg(long)]
     assume_no_nan: bool,
+    /// Synthesize equivalent fixed-count arithmetic loops (experimental; source loop unknown).
+    #[arg(long)]
+    synthesize_arithmetic_loops: bool,
     /// Fail closed when source-like structuring cannot avoid synthetic control
     /// (the folder driver is already strict by default).
     #[arg(long)]
@@ -166,6 +172,7 @@ fn main() {
                     dont_reuse_var: a.dont_reuse_var,
                     no_synth_helpers: a.no_synth_helpers,
                     assume_no_nan: a.assume_no_nan,
+                    synthesize_arithmetic_loops: a.synthesize_arithmetic_loops,
                     emit_binding_provenance: a.emit_binding_provenance,
                     control_flow_policy: folder_control_flow_policy(
                         a.strict_no_synthetic_control,
@@ -209,6 +216,7 @@ fn main() {
                         dont_reuse_var: a.dont_reuse_var,
                         no_synth_helpers: a.no_synth_helpers,
                         assume_no_nan: a.assume_no_nan,
+                    synthesize_arithmetic_loops: a.synthesize_arithmetic_loops,
                         control_flow_policy: folder_control_flow_policy(
                             a.strict_no_synthetic_control,
                             a.allow_certified_dispatcher,
@@ -252,6 +260,24 @@ mod policy_tests {
     use super::{Cli, Command, folder_control_flow_policy};
     use clap::Parser;
     use luau_lifter::ControlFlowOutputPolicy;
+
+    #[test]
+    fn loop_synthesis_is_explicit_in_folder_and_validation_cli() {
+        for command in ["decompile-folder", "validate-folder"] {
+            for enabled in [false, true] {
+                let mut argv = vec!["luau-lifter", command, "src", "out"];
+                if enabled {
+                    argv.push("--synthesize-arithmetic-loops");
+                }
+                let parsed = Cli::try_parse_from(argv).unwrap();
+                let actual = match parsed.command {
+                    Command::DecompileFolder(args) => args.synthesize_arithmetic_loops,
+                    Command::ValidateFolder(args) => args.synthesize_arithmetic_loops,
+                };
+                assert_eq!(actual, enabled);
+            }
+        }
+    }
 
     #[test]
     fn ordinary_folder_defaults_to_strict_no_synthetic_control() {
@@ -317,6 +343,7 @@ fn run_single_file() {
             "--dont-reuse-var" => options.dont_reuse_var = true,
             "--no-synth-helpers" => options.no_synth_helpers = true,
             "--assume-no-nan" => options.assume_no_nan = true,
+            "--synthesize-arithmetic-loops" => options.synthesize_arithmetic_loops = true,
             "--allow-certified-dispatcher" => {
                 options.control_flow_policy =
                     luau_lifter::ControlFlowOutputPolicy::AllowCertifiedDispatcher;

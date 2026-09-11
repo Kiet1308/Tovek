@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "binary": {
+    "path": "D:\\Medal\\medal-decompiler\\out\\v2-reroll-optin-lifter.exe",
+    "sha256": "b829eed89a09d02bfeb260c8e88434500ded4e76541621d3d4e2b3ba3147b755"
+  },
+  "before_binary": {
+    "path": "D:\\Medal\\medal-decompiler\\out\\v2-arithmetic-lifter.exe",
+    "sha256": "97f8a13c980fb849b7e194c371626960b51d9b7bf12dd5a9a58f6c805df7e3cc"
+  },
+  "checks": {
+    "rust_primary_tests": 916,
+    "rust_child_process_repeat": 1,
+    "python_tests": 42,
+    "runtime_configurations_per_mode": 120,
+    "oracle_controls_per_mode": 9,
+    "default_runtime_identical_to_prior": 120,
+    "enabled_runtime_identical_to_default": 110,
+    "changed_runtime_configurations": [
+      {
+        "case": "unrolled_capture",
+        "opt": 0,
+        "debug": 1,
+        "dataflow": "unknown"
+      },
+      {
+        "case": "unrolled_capture",
+        "opt": 0,
+        "debug": 2,
+        "dataflow": "unknown"
+      },
+      {
+        "case": "unrolled_capture",
+        "opt": 1,
+        "debug": 1,
+        "dataflow": "unknown"
+      },
+      {
+        "case": "unrolled_capture",
+        "opt": 1,
+        "debug": 2,
+        "dataflow": "unknown"
+      },
+      {
+        "case": "unrolled_capture",
+        "opt": 2,
+        "debug": 1,
+        "dataflow": "unknown"
+      },
+      {
+        "case": "unrolled_capture",
+        "opt": 2,
+        "debug": 2,
+        "dataflow": "unknown"
+      },
+      {
+        "case": "helper_loop",
+        "opt": 2,
+        "debug": 1,
+        "dataflow": "proved"
+      },
+      {
+        "case": "helper_loop",
+        "opt": 2,
+        "debug": 2,
+        "dataflow": "proved"
+      },
+      {
+        "case": "unrolled_effects",
+        "opt": 2,
+        "debug": 1,
+        "dataflow": "proved"
+      },
+      {
+        "case": "unrolled_effects",
+        "opt": 2,
+        "debug": 2,
+        "dataflow": "proved"
+      }
+    ],
+    "compiler_witnesses": 12,
+    "public_configurations_per_mode": 513,
+    "holdout_configurations_per_mode": 45,
+    "legacy_semantic_cases": 45,
+    "size_gate_files": 52,
+    "size_regressions": 0,
+    "trace_configurations": 120,
+    "trace_modes": 3,
+    "unlocated_synthetic_bindings": 17
+  },
+  "source_identities": {
+    "corpus": {
+      "files": 3978,
+      "output_tree_sha256": "10ae04fbed5296f57e93a45a5821704a5101a3bf9bd771cc0fbb7a2e55a6b844",
+      "changed": 0
+    },
+    "enabled_corpus": {
+      "files": 3978,
+      "output_tree_sha256": "10ae04fbed5296f57e93a45a5821704a5101a3bf9bd771cc0fbb7a2e55a6b844",
+      "changed": 0
+    },
+    "semantic": {
+      "files": 45,
+      "output_tree_sha256": "ab6ac5da55319871a1ca9bff4a7fca0b0e0336d6c3a60502c296bcf9bd4d727f",
+      "changed": 0
+    },
+    "residual": {
+      "files": 7,
+      "output_tree_sha256": "76ad15f32c9c0bc3a96368b8cea7626ae8135e9467c9d8a0d8a8fdd76f6cf17a",
+      "changed": 0
+    },
+    "enabled_semantic": {
+      "files": 45,
+      "output_tree_sha256": "ab6ac5da55319871a1ca9bff4a7fca0b0e0336d6c3a60502c296bcf9bd4d727f",
+      "changed": 0
+    },
+    "enabled_residual": {
+      "files": 7,
+      "output_tree_sha256": "76ad15f32c9c0bc3a96368b8cea7626ae8135e9467c9d8a0d8a8fdd76f6cf17a",
+      "changed": 0
+    }
+  },
+  "before_runtime_report_sha256": "ad2298f290ffedd339831b7dddd2062631ddf88087d28c044a3ef9d714a8293a",
+  "before_runtime_summary": {
+    "total": 120,
+    "status": {
+      "passed": 120
+    },
+    "dataflow": {
+      "proved": 56,
+      "unknown": 50,
+      "different": 14
+    },
+    "controls": {
+      "passed": 9
+    },
+    "groups": {
+      "UI": {
+        "passed": 12
+      },
+      "buffer/math": {
+        "passed": 18
+      },
+      "conditional": {
+        "passed": 12
+      },
+      "effect/order": {
+        "passed": 12
+      },
+      "formatter": {
+        "passed": 12
+      },
+      "loop/capture": {
+        "passed": 24
+      },
+      "naming/capture": {
+        "passed": 30
+      }
+    }
+  },
+  "benchmark_summary": [
+    {
+      "label": "default",
+      "threads": 1,
+      "samples": 7,
+      "median_seconds": 17.60438609999983,
+      "p95_nearest_rank_seconds": 20.42330360000051,
+      "min_seconds": 17.483167799999137,
+      "max_seconds": 20.42330360000051,
+      "median_peak_rss_bytes": 33492992,
+      "max_peak_rss_bytes": 34324480
+    },
+    {
+      "label": "default",
+      "threads": 16,
+      "samples": 7,
+      "median_seconds": 1.6548934000002191,
+      "p95_nearest_rank_seconds": 1.697087599999577,
+      "min_seconds": 1.6433001999994303,
+      "max_seconds": 1.697087599999577,
+      "median_peak_rss_bytes": 116006912,
+      "max_peak_rss_bytes": 122601472
+    },
+    {
+      "label": "enabled",
+      "threads": 1,
+      "samples": 7,
+      "median_seconds": 18.194120799998927,
+      "p95_nearest_rank_seconds": 19.83881349999865,
+      "min_seconds": 17.441965699999855,
+      "max_seconds": 19.83881349999865,
+      "median_peak_rss_bytes": 33558528,
+      "max_peak_rss_bytes": 34369536
+    },
+    {
+      "label": "enabled",
+      "threads": 16,
+      "samples": 7,
+      "median_seconds": 1.6759707000001072,
+      "p95_nearest_rank_seconds": 1.716530600000624,
+      "min_seconds": 1.6644532000009349,
+      "max_seconds": 1.716530600000624,
+      "median_peak_rss_bytes": 112267264,
+      "max_peak_rss_bytes": 115904512
+    }
+  ],
+  "logs": [
+    {
+      "path": "out\\v2-reroll-optin-rust.log",
+      "sha256": "175ad756963ce3e4ae9a670a8ec62fac3a962e328833bbecb5d46f56d649ebf9"
+    },
+    {
+      "path": "out\\v2-reroll-optin-python.log",
+      "sha256": "ea914d144410401ada8fc682cd1a307ad3d15a4ed95d79301be4de64d1753044"
+    },
+    {
+      "path": "out\\v2-reroll-optin-semantic.log",
+      "sha256": "b3491c741a26d7dc2bf1b0e93271ae99bd552a2764170946cf298c32a8ae061b"
+    },
+    {
+      "path": "out\\v2-reroll-optin-release.log",
+      "sha256": "eb4af5fa6d4b6fba58848d1719517cd1df10bb67b71b41ffae297a9121d9f9f7"
+    }
+  ],
+  "legacy_oracle_gates": "Inherited through byte-identical residual/semantic sources; no baseline updates.",
+  "limitations": "Experimental opt-in synthesis, not original-source recovery. Manual expansion loses source fidelity; default unchanged. No independent loop precision/recall, Roblox runtime, cold-cache, allocations or in-memory performance claim."
+}

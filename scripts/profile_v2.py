@@ -107,6 +107,7 @@ def main():
     for name in ('before', 'after', 'corpus', 'keep', 'report'):
         parser.add_argument('--' + name, required=True, type=pathlib.Path)
     parser.add_argument('--key', type=int, default=203)
+    parser.add_argument('--lifter-arg', action='append', default=[])
     parser.add_argument('--threads', nargs='+', type=int, default=[1, 16])
     parser.add_argument('--timeout', type=float, default=600)
     args = parser.parse_args()
@@ -128,7 +129,7 @@ def main():
         if profiling:
             current_env['MEDAL_PROFILE_JSON'] = str(raw_path)
         command = [str(binary), 'decompile-folder', str(args.corpus), str(output), '--key', str(args.key),
-                   '--threads', str(threads), '--strict-no-synthetic-control']
+                   '--threads', str(threads), '--strict-no-synthetic-control', *args.lifter_arg]
         start = time.perf_counter()
         with (work / (name + '.log')).open('wb') as log:
             proc = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, env=current_env, timeout=args.timeout)
@@ -166,7 +167,7 @@ def main():
         raise RuntimeError('thread scheduling changed context, counters or node census')
     report = {'schema_version': 1, 'source_byte_identical': True, 'counters_deterministic': True,
               'input_hash': tree_hash(args.corpus, '*.lua')[0], 'scripts': len(expected_scripts),
-              'binaries': {name: {'path': str(getattr(args, name)), 'sha256': sha256(getattr(args, name))}
+              'lifter_args': args.lifter_arg, 'binaries': {name: {'path': str(getattr(args, name)), 'sha256': sha256(getattr(args, name))}
                            for name in ('before', 'after')}, 'samples': samples, 'profiles': profiles,
               'limitations': 'Single diagnostic runs include profiling and JSON export overhead. Counters/node census are compared without timing fields. These timings do not establish a performance improvement.'}
     args.report.parent.mkdir(parents=True, exist_ok=True)

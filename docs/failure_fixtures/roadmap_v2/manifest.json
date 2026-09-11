@@ -16,6 +16,20 @@
   "split": "development",
   "cases": [
     {
+      "name": "sum_helper",
+      "group": "buffer/math",
+      "source": "sum_helper.luau",
+      "driver": "sum_helper.driver.luau",
+      "expected_stdout": "zero\tinf\tinf\nnan\ttrue\ttrue\nordinary\t3\t3\narity\t2\n"
+    },
+    {
+      "name": "unrolled_capture",
+      "group": "loop/capture",
+      "source": "unrolled_capture.luau",
+      "driver": "unrolled_capture.driver.luau",
+      "expected_stdout": "scalar\t-zero\t+zero\nscalar\t+zero\t+zero\nscalar\t0.29999999999999999\t3\nscalar\t9.9999999999999694e-311\t9.9999999999999694e-310\nscalar\t1e+20\t1e+21\nscalar\tinf\tinf\nscalar\t-inf\t-inf\nscalar\tnan\tnan\nboxed\t30\tmul:1:1,add:0:1,mul:2:2,add:1:4,mul:3:3,add:5:9,mul:4:4,add:14:16\nerror\tfalse\ttrue\tmul:1:1,add:0:1,mul:2:2,add:1:4,mul:error:3\n"
+    },
+    {
       "name": "arithmetic_effects",
       "group": "buffer/math",
       "source": "arithmetic_effects.luau",

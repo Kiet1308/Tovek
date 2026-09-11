@@ -201,6 +201,12 @@ Condition normalization is NaN-safe by default. `--assume-no-nan` permits the
 more aggressive rewrite `not (a < b)` → `a >= b` when static proof is unavailable;
 use it only when inputs cannot be NaN, because the two forms differ for NaN.
 
+`--synthesize-arithmetic-loops` enables an experimental presentation of exact
+4-8-term arithmetic accumulations as finite loops. It is off by default and
+labels generated loops as synthesis: the original source may have contained
+a written-out expression. Available in single-file and folder modes; see the
+[eligibility, evidence and limits](docs/arithmetic_reroll.md).
+
 ### Web server + executor
 
 Build and start the decompiler server (binds `http://127.0.0.1:3000/decompile`):

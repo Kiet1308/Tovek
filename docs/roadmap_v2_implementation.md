@@ -3,6 +3,110 @@
 This record distinguishes implemented gates from the research roadmap's wider
 acceptance criteria. The baseline is not an overall source-recovery percentage.
 
+## R5: opt-in bounded arithmetic loop synthesis
+
+The new pass recognizes exactly ordered `+0 + x*1 + ... + x*N` accumulations
+for N=4..8, including private chains of scalar declarations. It preserves
+each multiplication/addition and re-reads a reference-captured multiplicand
+on every iteration. Observed intermediates, captured destinations, conflicting
+debug names, gaps and reassociation refuse. Existing named arithmetic helpers
+take priority. Each site and the module rewrite count are bounded; see the
+[eligibility and equivalence contract](arithmetic_reroll.md).
+
+**The experiment is disabled by default.** The explicit
+`--synthesize-arithmetic-loops` option enables it in the CLI, with a matching
+Rust API option and transported flag bit. Emitted comments say
+`equivalent fixed-count loop synthesized; original loop unknown`. The manually
+expanded `unrolled_capture` source is a counterexample to inferring an original
+loop from this pattern alone: its behavior is preserved but source similarity
+falls. This closes only a bounded experiment, not automatic loop recovery or
+the broader R5 precision/recall acceptance criterion.
+
+Both [default](roadmap_v2_acceptance/reroll_default_runtime.json) and
+[enabled](roadmap_v2_acceptance/reroll_runtime.json) modes pass all 120 runtime
+configurations and nine negative controls, with deterministic source at one
+and four threads. Default output, full dataflow and source-fidelity metrics
+remain identical to the arithmetic-helper baseline on all 120 cases. Enabling
+the option changes ten outputs: `helper_loop` and `unrolled_effects` at O2/g1
+and O2/g2 retain `proved`; `unrolled_capture` at all six configurations retains
+`unknown` because reference capture is outside the ordered-dataflow checker's
+supported model. The other 110 outputs remain byte-identical.
+
+The capture fixture uses `__mul` to replace its captured multiplicand after
+each product, checks ordered `__add`, and throws on the third product in a
+second run. The successful result is 30 with trace
+`mul:1:1,add:0:1,mul:2:2,add:1:4,mul:3:3,add:5:9,mul:4:4,add:14:16`.
+An unsafe snapshot would repeat the old operand. The fixture also checks
+positive/negative zero, subnormal/large numbers, NaN and infinity. The
+`sum_helper` fixture prevents loop synthesis from hiding an existing
+`weightedSum` helper or its two recovered calls.
+
+[Twelve compiler witnesses](roadmap_v2_acceptance/reroll_witness.json) preserve
+source/output hashes, AST loop/call counts and original/recompiled disassembly.
+The pinned O2 compiler confirms the source loops in `helper_loop` and
+`unrolled_effects` were unrolled, and the emitted loops unroll again. The manual
+expansion has no original source loop; that fact remains explicit in each row.
+Source metrics at O2/g2 are reported separately from runtime equivalence:
+
+| Fixture | Raw structural ratio, default → enabled | Aligned / exact names, default → enabled |
+|---|---:|---:|
+| `helper_loop` | 0.6970 → 0.8816 | 4 / 4 → 7 / 7 |
+| `unrolled_effects` | 0.5693 → 1.0000 | 0 / 0 → 3 / 2 |
+| `unrolled_capture` (manual expansion) | 1.0000 → 0.7242 | 4 / 4 → 3 / 3 |
+| `sum_helper` | 1.0000 → 1.0000 | 5 / 5 → 5 / 5 |
+
+Structural ratio ignores identifier spelling. The generated `i` is inferred
+even when it happens to match source; in `unrolled_effects` the source counter
+was `index`. The capture fixture still prints `current`, but changing its
+occurrence structure affects binding alignment. None of these numbers is
+original-loop recovery precision.
+
+All 3,978 private corpus outputs (3,936 nonempty plus 42 empty inputs) remain
+byte-identical to the arithmetic baseline in both modes. Both modes also pass
+all [513 public configurations](roadmap_v2_acceptance/reroll_public_identity.json),
+with identical full dataflow/source-fidelity results, including the 45 Rodux
+holdout configurations. There are no eligible loop sites in this holdout; it
+provides regression evidence only. The 45 legacy runtime cases pass; all 52
+legacy/residual sources remain byte-identical with either option setting, so
+their prior oracle gates are inherited without baseline updates. The
+[size gate](roadmap_v2_acceptance/reroll_size.json) has zero regressions.
+
+[Provenance validation](roadmap_v2_acceptance/reroll_traces.json) passes for
+120 enabled configurations across ordinary analysis and detailed traces at
+one/four threads. The 17 unlocated final bindings are the ten fresh counters
+and seven fresh accumulators; they receive no fabricated bytecode ancestry.
+The [profile audit](roadmap_v2_acceptance/reroll_fixture_profiles.json) checks
+plain/profiled output and deterministic counters within the same enabled
+version: 120 pass invocations and ten synthesized loops at both thread counts.
+Node census is unmeasured for this pass. Compressed raw profiles are archived.
+
+Workspace checks pass: 916 primary Rust tests plus one child-process repeat,
+and 42 Python tests. The [validation record](roadmap_v2_acceptance/reroll_validation.json)
+retains final binary, report and log hashes and all source tree identities.
+
+The final [seven-round release benchmark](roadmap_v2_acceptance/reroll_benchmark.json)
+compares default and enabled settings of the **same binary**, with interleaved
+warm-cache CLI runs, profiling off and no concurrent build/test workload:
+
+| Threads | Default median | Enabled median | Default / enabled nearest-rank p95 |
+|---:|---:|---:|---:|
+| 1 | 17.604 s | 18.194 s | 20.423 / 19.839 s |
+| 16 | 1.655 s | 1.676 s | 1.697 / 1.717 s |
+
+Enabling the pass adds 3.35% to the one-thread median and 1.27% at 16
+threads on this corpus. The default skips its traversal and usage census.
+This is a reconstruction experiment, not a speed improvement. Median peak RSS
+is 33,492,992 → 33,558,528 bytes at one thread and
+116,006,912 → 112,267,264 bytes at 16 threads. All output hashes are identical
+across settings and samples. Nearest-rank p95 is the maximum of seven samples;
+timing variation prevents interpreting these finite samples as an isolated
+measurement of the pass's cost.
+
+No Roblox runtime, general induction/body reconstruction, independent loop
+precision/recall, allocation-count, cold-cache or in-memory performance result
+is claimed. Source-origin discovery from line/PC evidence and automatic loop
+recovery remain open.
+
 ## R5: bounded reconstruction of named arithmetic helpers
 
 The expression de-inliner now has a separate arithmetic family requiring a
@@ -80,7 +184,8 @@ or identify the cause of all CLI timing variation. No cold-cache, allocation
 count or in-memory API claim is made.
 
 This completes the scoped arithmetic-helper checkbox, not all R5 acceptance.
-The four-iteration loop stays unrolled. The second `arithmetic_effects` result
+At this stage the four-iteration loop stayed unrolled; the later opt-in
+experiment above handles its bounded shape. The second `arithmetic_effects` result
 has become statement-level control flow and is deliberately retained. General
 specialization, line/PC candidate discovery, missing-prototype synthesis and
 independent arithmetic precision/recall remain open. No Roblox runtime result

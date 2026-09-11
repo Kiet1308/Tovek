@@ -71,7 +71,7 @@
 
 use std::mem::Discriminant;
 
-mod arithmetic;
+pub(crate) mod arithmetic;
 
 use parking_lot::Mutex;
 use rustc_hash::{FxHashMap, FxHashSet};

@@ -1,0 +1,6 @@
+local a, b = f(-0.0)
+print("zero", 1 / a, 1 / b)
+local a, b = f(0 / 0)
+print("nan", a ~= a, b ~= b)
+print("ordinary", f(0.3))
+print("arity", select("#", f(2)))
