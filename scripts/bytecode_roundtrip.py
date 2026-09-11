@@ -271,7 +271,10 @@ def _parse_constant(r: Reader, version: int):
     if tag == 9:
         neg = r.u8()
         mag = r.varint()
-        return ("num", float(-mag if neg else mag))
+        if mag >= 1 << 64:
+            raise BytecodeError("integer magnitude exceeds 64 bits")
+        bits = (-mag if neg else mag) & ((1 << 64) - 1)
+        return ("int", bits - (1 << 64) if bits >= 1 << 63 else bits)
     if tag == 10:
         r.varint(); np_ = r.varint(); nm = r.varint()
         for _ in range(np_ + nm):
@@ -306,6 +309,8 @@ def const_repr(ch: Chunk, p: Proto, idx: int, proto_map=None) -> str:
         return "nil"
     if tag == "bool":
         return "true" if k[1] else "false"
+    if tag == "int":
+        return str(k[1])
     if tag == "num":
         return _fmt_num(k[1])
     if tag == "str":

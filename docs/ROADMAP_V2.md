@@ -272,8 +272,8 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 
 - [x] Đưa ba negative control đã chứng minh vào test của oracle; thêm positive control cho renumber register, reorder constant pool có sửa reference và thay metadata thuần túy. — 12 unit tests và 9 compiler controls qua; xem implementation record.
 - [x] Làm rõ tên/status của `exact` hiện tại: đó là equality sau normalization. Giữ raw delta và gate cũ để triage trong giai đoạn chuyển tiếp. — Report thêm tầng `dataflow` độc lập, không đổi baseline/gate cũ.
-- [ ] Thêm biểu diễn so sánh giữ thứ tự operand và use–def: parameter/upvalue là input phân biệt; register tạm được alpha-rename; phi, call target, argument/result arity và capture mode vẫn có nghĩa.
-- [ ] Giữ CFG successor/condition, thứ tự effect và vòng đời closure trong tầng kiểm tra. Bắt đầu với vùng không loop rồi mở rộng theo từng loại proof; trả `unknown` khi chưa chứng minh được.
+- [x] Thêm biểu diễn so sánh giữ thứ tự operand và use–def: parameter/upvalue là input phân biệt; register tạm được alpha-rename; phi, call target, argument/result arity và capture mode vẫn có nghĩa.
+- [x] Giữ CFG successor/condition, thứ tự effect và vòng đời closure trong tầng kiểm tra. Bắt đầu với vùng không loop rồi mở rộng theo từng loại proof; trả `unknown` khi chưa chứng minh được. — Đã có ordered acyclic tree và chứng nhận CFG/register bisimulation cho v9, gồm loop/capture/CLOSE/FASTCALL; mismatch vẫn unknown. [Phạm vi và bằng chứng](dataflow_graph.md).
 - [x] Thêm mutant cho đổi nhánh, trả nhầm binding, store nhầm value, call nhầm function, cắt multret, đảo effect, đổi copy/ref capture, mất CLOSE và sai iterator edge.
 - [x] Dùng Luau parser để tạo AST có binding identity cho source và output. Tách type-only syntax/trivia khỏi structural score; vẫn đo tên/type source ở trục riêng. Báo cả khoảng cách với source nguyên bản và mức tuân thủ style statement; chỉ loại khác biệt style khỏi metric bổ sung khi có quy tắc normalization rõ ràng.
 - [x] Đóng gói 156 source công khai thành manifest có commit/license/hash; thêm họ source giữ riêng để đánh giá. Khử duplicate/lineage trước khi chia tập.

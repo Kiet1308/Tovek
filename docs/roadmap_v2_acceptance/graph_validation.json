@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "python_tests": 57,
+  "changes": "Validator and independent parser only; no Rust/decompiler output change.",
+  "artifacts": {
+    "runtime": "6c67780099a30a39359df2d30ccad14ab472932a325a94d1c9e897dc58ffd2f4",
+    "public": "d6b180a596381690d029ff9b445bdb6910ff0a1e46b2f29057e1ff981d4f0788",
+    "reroll": "175731b42fb63a6c80ec1d9b672c107931bf0d40a6cc71b5fe36860d75368e7e"
+  },
+  "code": {
+    "bytecode_graph": "1300da9e0a5a89d2171b0e6d59cd30d50de2239143dfac54b58f58ce973837b6",
+    "bytecode_dataflow": "d593a3d68b861ccead821a4f0a3c99c27cb15bbf3fbea1602a0db23f1683a2f3",
+    "bytecode_roundtrip": "9e612a821972026c3b18350d050feb316d47c4bf2c1c0cc27a1d4a25a9c9fed0",
+    "dataflow_replay": "7a325e09c7e249109fdff9fc0860f4e190f77f099113ebe6a7da0b0d1bcd2117",
+    "test_bytecode_graph": "fbc92b8242afe1f8fffe5a1f02b74d178f330ee0608ff64970bb08e52478c9c1",
+    "test_bytecode_dataflow": "13ea6c569ae3b9b66b765acb8a0781e935c7de9b73e674423164ea1971a50384"
+  },
+  "test_log_sha256": "f5321a99eb5477433568537e92cfb274434424fb10f636fbed667249906548b0",
+  "baseline_lifter_sha256": "b829eed89a09d02bfeb260c8e88434500ded4e76541621d3d4e2b3ba3147b755",
+  "summaries": {
+    "runtime": {
+      "files": 120,
+      "transitions": {
+        "proved->proved": 56,
+        "unknown->proved": 32,
+        "unknown->unknown": 18,
+        "different->different": 14
+      },
+      "certificates": {
+        "luau-acyclic-use-def-v1": 56,
+        "luau-register-cfg-bisimulation-v1": 32
+      },
+      "graph_self_controls": {
+        "proved": 120
+      }
+    },
+    "public": {
+      "files": 513,
+      "transitions": {
+        "unknown->unknown": 297,
+        "different->different": 86,
+        "proved->proved": 88,
+        "unknown->proved": 42
+      },
+      "certificates": {
+        "luau-acyclic-use-def-v1": 88,
+        "luau-register-cfg-bisimulation-v1": 42
+      },
+      "graph_self_controls": {
+        "proved": 513
+      }
+    },
+    "reroll": {
+      "files": 120,
+      "transitions": {
+        "proved->proved": 56,
+        "unknown->unknown": 24,
+        "unknown->proved": 26,
+        "different->different": 14
+      },
+      "certificates": {
+        "luau-acyclic-use-def-v1": 56,
+        "luau-register-cfg-bisimulation-v1": 26
+      },
+      "graph_self_controls": {
+        "proved": 120
+      }
+    }
+  },
+  "limitations": "Re-scoring existing passing runtime/public pairs, not new runtime observations or general CFG equivalence. All unknowns retained."
+}

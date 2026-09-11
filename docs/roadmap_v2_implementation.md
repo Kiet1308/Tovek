@@ -3,6 +3,55 @@
 This record distinguishes implemented gates from the research roadmap's wider
 acceptance criteria. The baseline is not an overall source-recovery percentage.
 
+## R0: ordered CFG/register validation and capture lifetime
+
+The oracle now falls back from acyclic symbolic execution to a bounded v9
+transition-graph certificate. It retains branch successors/polarity, operand
+identity, loop register groups, iterator arity, call/multret state, closure
+constant sharing, capture mode and CLOSE partitions. FASTCALL success and
+fallback paths are both explicit. A must-definition worklist checks joins and
+loops. Ref-capture chunks retain physical register/frame layout throughout;
+other eligible finite register groups can alpha-rename. Graph mismatch or
+budget exhaustion remains `unknown`. See the [model contract](dataflow_graph.md).
+
+The independent parser no longer rounds signed 64-bit integer constants into
+floats. The acyclic checker now distinguishes separate closure constant entries
+for one prototype, consumes SETLIST's open result state and validates the full
+comparison-register AUX operand. Fifteen added tests cover valid graph proofs
+and mutants for operands, branch/back edges, missing definitions, capture mode,
+CLOSE, closure sharing, integer precision, call/iterator arity, FASTCALL,
+malformed targets and budget/version refusal. All 57 Python tests pass.
+
+Immutable re-scoring checks the original report/tool/source/output hashes and
+recompiles both sides with the pinned compiler. It produces no new source and
+claims no new runtime observations:
+
+| Dataset | Prior proved retained | Unknown now proved | Still unknown | Existing different retained |
+|---|---:|---:|---:|---:|
+| [120 default runtime configurations](roadmap_v2_acceptance/graph_runtime.json) | 56 | 32 | 18 | 14 |
+| [513 public configurations](roadmap_v2_acceptance/graph_public.json) | 88 | 42 | 297 | 86 |
+| [120 opt-in loop configurations](roadmap_v2_acceptance/graph_reroll.json) | 56 | 26 | 24 | 14 |
+
+The public holdout contributes five new graph proofs, seven retained acyclic
+proofs, 17 unknown and 16 different results across all 45 configurations.
+Graph self-controls prove all 120 runtime and 513 public inputs. New proofs
+include actual numeric/generic loops and mutable capture fixtures; no prior
+proof is lost relative to the recorded checker. The six manually expanded
+`unrolled_capture` configurations now prove in default mode, while their
+synthesized-loop counterparts remain unknown under the stricter graph shape
+criterion. Runtime observations still pass; the synthesis experiment does not
+receive a stronger source-origin or graph-equivalence claim from this change.
+
+With four replay workers, summed validator timings are about 0.104 s for the
+120 default configurations and 4.630 s for the 513 public configurations; the
+largest individual public comparison is about 0.148 s. These are diagnostic
+measurements under thread contention, not an end-to-end speedup benchmark.
+There is no Rust pipeline/output change. [Validation and code/report hashes](roadmap_v2_acceptance/graph_validation.json).
+The original acceptance artifacts and legacy normalization gates remain
+historical records; unknown is never counted as equivalence. This completes
+R0's stated bounded foundation, not a universal Luau equivalence decision
+procedure.
+
 ## R5: opt-in bounded arithmetic loop synthesis
 
 The new pass recognizes exactly ordered `+0 + x*1 + ... + x*N` accumulations

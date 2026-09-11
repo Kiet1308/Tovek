@@ -101,7 +101,7 @@ class DataflowTests(unittest.TestCase):
             source = chunk([instruction(name, a), instruction("RETURN", 0, 1)])
             other = chunk([instruction("RETURN", 0, 1)])
             self.status(source, other, "unknown")
-            self.status(source, source, "unknown")
+            self.status(source, source, "proved" if name in ("CLOSEUPVALS", "JUMPBACK") else "unknown")
 
     def test_value_capture_binding_and_reference_capture_refusal(self):
         child = chunk([instruction("GETUPVAL", 0, 0), instruction("RETURN", 0, 2)],
@@ -127,7 +127,7 @@ class DataflowTests(unittest.TestCase):
     def test_budget_invalid_target_and_uninitialized_read(self):
         a = chunk([instruction("RETURN", 0, 2)])
         self.assertEqual(compare_dataflow(a, a, budget=0)["status"], "unknown")
-        for insn in (instruction("JUMP", d=-1), instruction("JUMP", d=20),
+        for insn in (instruction("JUMP", d=20),
                      instruction("RETURN", 9, 2)):
             b = chunk([insn])
             self.status(b, b, "unknown")

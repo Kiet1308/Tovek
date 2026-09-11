@@ -176,6 +176,8 @@ def symbolic_tree(chunk, proto, *, budget=20000, depth=0, _remaining=None, _temp
                 write(a, event(name, constant(d)))
             elif name == "SETLIST":
                 event(name, read(a), aux, pack(b, c))
+                if c == 0:
+                    top = None
             elif name in ("CALL", "GETVARARGS"):
                 if name == "CALL":
                     result = event(name, read(a), pack(a + 1, b), c)
@@ -215,7 +217,7 @@ def symbolic_tree(chunk, proto, *, budget=20000, depth=0, _remaining=None, _temp
                 body = symbolic_tree(chunk, child, depth=depth + 1,
                                      _remaining=remaining, _templates=templates)
                 # Preserve sharing of DUPCLOSURE templates even for identical bodies.
-                template = templates.setdefault(child_id, len(templates)) if name == "DUPCLOSURE" else None
+                template = templates.setdefault((id(proto), d), len(templates)) if name == "DUPCLOSURE" else None
                 write(a, event(name, template, body, tuple(captures)))
             elif name in ("JUMP", "JUMPX"):
                 next_pc = pc + 1 + (e if name == "JUMPX" else d)
@@ -233,7 +235,7 @@ def symbolic_tree(chunk, proto, *, budget=20000, depth=0, _remaining=None, _temp
                     condition = ("EQ", read(a), rhs)
                 else:
                     condition = (name.removeprefix("JUMPIF").removeprefix("NOT"),
-                                 read(a), read(aux & 0xff))
+                                 read(a), read(aux))
                 yes, no = pc + 1 + d, next_pc
                 if invert:
                     yes, no = no, yes
@@ -252,7 +254,7 @@ def symbolic_tree(chunk, proto, *, budget=20000, depth=0, _remaining=None, _temp
             execute(0, registers, None, frozenset(), 0))
 
 
-def compare_dataflow(original, rebuilt, *, budget=20000):
+def compare_acyclic(original, rebuilt, *, budget=20000):
     """Compare the reachable chunk, refusing unsupported semantics on either side."""
     trees, reasons = [], {}
     for label, chunk in (("original", original), ("rebuilt", rebuilt)):
@@ -268,3 +270,19 @@ def compare_dataflow(original, rebuilt, *, budget=20000):
         result.update(status="proved" if trees[0] == trees[1] else "different",
                       fingerprints=[hashlib.sha256(repr(t).encode()).hexdigest() for t in trees])
     return result
+
+
+def compare_dataflow(original, rebuilt, *, budget=20000):
+    """Try symbolic execution, then bounded register/CFG bisimulation.
+
+    The second certificate preserves storage and capture lifetimes exactly;
+    its mismatch stays unknown. It never overrides a differing symbolic tree.
+    """
+    result = compare_acyclic(original, rebuilt, budget=budget)
+    if result['status'] != 'unknown':
+        return result
+    from bytecode_graph import compare_graph
+    graph = compare_graph(original, rebuilt, budget=budget)
+    if graph['status'] == 'proved':
+        return {**graph, 'acyclic_unknown': result['reasons']}
+    return {**result, 'graph': graph}
