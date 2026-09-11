@@ -182,6 +182,17 @@ jobs:
             --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --report "$RUNNER_TEMP/conditional-ir.json"
 
+      - name: V2 lexical binding graph and scope controls
+        run: |
+          python3 scripts/binding_graph_controls.py \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --report "$RUNNER_TEMP/binding-graph-controls.json"
+          trace_dir=$(python3 -c 'import json,pathlib,sys; print(pathlib.Path(json.load(open(sys.argv[1]))["work"])/"trace1")' "$RUNNER_TEMP/roadmap-v2-lineage.json")
+          python3 scripts/binding_graph.py \
+            --root "$trace_dir" \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --report "$RUNNER_TEMP/binding-graph.json"
+
       - name: V2 formatter observable evaluation counterexamples
         run: |
           python3 scripts/formatter_effect_controls.py \

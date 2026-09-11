@@ -1,0 +1,25 @@
+{
+ "rows": [
+  {
+   "dataset": "runtime",
+   "graphs": 168,
+   "same": true,
+   "threads1_seconds": 9.249699100000726,
+   "threads4_diagnostic_seconds": 4.157633299997542
+  },
+  {
+   "dataset": "public",
+   "graphs": 513,
+   "same": true,
+   "threads1_seconds": 34.62032139999792,
+   "threads4_diagnostic_seconds": 14.343811799997638
+  },
+  {
+   "dataset": "private",
+   "graphs": 3936,
+   "same": true,
+   "threads1_seconds": 309.92998100000113,
+   "threads4_diagnostic_seconds": 160.89270229999966
+  }
+ ]
+}

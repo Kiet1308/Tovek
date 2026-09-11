@@ -1,5 +1,11 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R2: lexical declaration graph, independent of storage ancestry
+
+The optional parser-backed exporter creates source-hash-scoped declaration/function IDs and exact reference spans, including implicit self, type-only references and captures. It joins validated emission spans to IR storage without merging distinct lexical declarations. Recorded origins on shared storage remain ambiguous. Unrecorded locals are not labelled compiler temporaries or synthesis. This is a diagnostic layer; it does not change core coalescing or infer value/effect/ownership proof. [Contract and commands](lexical_binding_graph.md).
+
+All 168 runtime, 513 public and 3,936 nonempty private scripts pass: 1,037/13,281/130,780 declarations, 2,885/45,633/495,344 mapped tokens, 0/251/2,306 explicitly opaque tokens and no unexplained omissions. The private source tree remains byte-identical for all 3,978 files, including 42 empty inputs. Three public and 11 private storage IDs serve multiple lexical declarations. Fifteen real-parser/process controls and eight unit tests cover scope, shadow/capture identity, type references, ambiguity, hashes and budgets. No core executable was changed. [Validation inventory](roadmap_v2_acceptance/lexical_validation.json).
+
 ## R4/R6: lower existing scalar conditional IR into statements
 
 The final v9 pass now lowers existing scalar conditional values into branch assignments at their evaluation point. Earlier ordinary callee/argument/tuple values are saved when needed; skipped arms, scalar adjustment and open call/vararg tails retain their behavior. While preparation executes on every iteration, including after continue. Declaration/register budgets, constructor/store cases, repeat continues and captured register reuse after O2 inlining have explicit refusals. Fresh locals receive no copied source or ownership certificate. [Contract and examples](conditional_ir_lowering.md).

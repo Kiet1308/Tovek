@@ -1,0 +1,5432 @@
+{
+ "examples": [
+  {
+   "dataset": "runtime",
+   "script_path": "conditional_O2_g2.lua",
+   "graph": {
+    "ast_sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3",
+    "contract": "Lexical IDs identify declarations in these exact output bytes, independently of IR storage. Current syntax/capture roles and historical storage ancestry are separate. Recorded origins on shared storage remain ambiguous. No unique original source identity, compiler-temporary, synthesis, precise nested value/PC, REF/VAL, CLOSE, ownership or effect proof is inferred.",
+    "declarations": [
+     {
+      "anchor_span": [
+       16,
+       25
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d0",
+      "declaration_span": [
+       16,
+       25
+      ],
+      "kind": "parameter",
+      "name": "condition",
+      "owner_function": "f1",
+      "parser_location": "0,16 - 0,25",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 0,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627784",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         16,
+         25
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         67,
+         76
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       27,
+       34
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d1",
+      "declaration_span": [
+       27,
+       34
+      ],
+      "kind": "parameter",
+      "name": "primary",
+      "owner_function": "f1",
+      "parser_location": "0,27 - 0,34",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 1,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627787",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         27,
+         34
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         95,
+         102
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       36,
+       44
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d2",
+      "declaration_span": [
+       36,
+       44
+      ],
+      "kind": "parameter",
+      "name": "fallback",
+      "owner_function": "f1",
+      "parser_location": "0,36 - 0,44",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 2,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627796",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         36,
+         44
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         122,
+         130
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       53,
+       61
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d3",
+      "declaration_span": [
+       53,
+       61
+      ],
+      "kind": "local",
+      "name": "selected",
+      "owner_function": "f1",
+      "parser_location": "1,7 - 1,15",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 3,
+        "start_pc": 4
+       }
+      ],
+      "storage_id": "b1099511627795",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         53,
+         61
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f1",
+        "role": "write",
+        "span": [
+         84,
+         92
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f1",
+        "role": "write",
+        "span": [
+         111,
+         119
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         141,
+         149
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         171,
+         179
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         206,
+         214
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": true
+     }
+    ],
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       235
+      ]
+     },
+     {
+      "function_id": "f1",
+      "parent": "f0",
+      "span": [
+       7,
+       234
+      ]
+     }
+    ],
+    "limits": {
+     "declarations": 50000,
+     "depth": 256,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "parser_seconds": 30,
+     "source_bytes": 4194304,
+     "stderr_bytes": 1048576,
+     "tokens": 100000
+    },
+    "model": "luau-lexical-declarations-v1",
+    "schema_version": 1,
+    "sidecar_sha256": "955bc8cf918705b8090467e894050131963a3b631c44fd8b30e2fe167380b87c",
+    "source_sha256": "b1bcbb86683ff56f06bfd2434b7f3af0913224f978b8b3ea295d6389ac25cdbb",
+    "storage": [
+     {
+      "declarations": [
+       "d0"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p1/p1@pc1:p0",
+        "kind": "parameter",
+        "origin_id": "b1",
+        "prototype": 0,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b1",
+       "b1099511627783",
+       "b1099511627784"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 0,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627784"
+     },
+     {
+      "declarations": [
+       "d1"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p1/p1@pc1:p0",
+        "kind": "parameter",
+        "origin_id": "b2",
+        "prototype": 0,
+        "slot": 1
+       }
+      ],
+      "lineage": [
+       "b2",
+       "b1099511627785",
+       "b1099511627786",
+       "b1099511627787"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 1,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627787"
+     },
+     {
+      "declarations": [
+       "d3"
+      ],
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627788",
+       "b1099511627789",
+       "b1099511627791",
+       "b1099511627793",
+       "b1099511627795"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 3,
+        "start_pc": 4
+       }
+      ],
+      "storage_id": "b1099511627795"
+     },
+     {
+      "declarations": [
+       "d2"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p1/p1@pc1:p0",
+        "kind": "parameter",
+        "origin_id": "b3",
+        "prototype": 0,
+        "slot": 2
+       }
+      ],
+      "lineage": [
+       "b3",
+       "b1099511627794",
+       "b1099511627796"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 2,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627796"
+     }
+    ],
+    "visited_nodes": 50
+   }
+  },
+  {
+   "dataset": "runtime",
+   "script_path": "debug_names_O2_g2.lua",
+   "graph": {
+    "ast_sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3",
+    "contract": "Lexical IDs identify declarations in these exact output bytes, independently of IR storage. Current syntax/capture roles and historical storage ancestry are separate. Recorded origins on shared storage remain ambiguous. No unique original source identity, compiler-temporary, synthesis, precise nested value/PC, REF/VAL, CLOSE, ownership or effect proof is inferred.",
+    "declarations": [
+     {
+      "anchor_span": [
+       15,
+       27
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d0",
+      "declaration_span": [
+       15,
+       27
+      ],
+      "kind": "local_function",
+      "name": "invoiceTotal",
+      "owner_function": "f0",
+      "parser_location": "0,15 - 0,27",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 3,
+        "kind": "debug_local",
+        "prototype": 2,
+        "register": 0,
+        "start_pc": 2
+       },
+       {
+        "kind": "function_name",
+        "prototype": 1
+       }
+      ],
+      "storage_id": "b13",
+      "tokens": [
+       {
+        "emitter_role": "function_declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         15,
+         27
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         301,
+         313
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       28,
+       37
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d1",
+      "declaration_span": [
+       28,
+       37
+      ],
+      "kind": "parameter",
+      "name": "unitPrice",
+      "owner_function": "f1",
+      "parser_location": "0,28 - 0,37",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 0,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627797",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         28,
+         37
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         105,
+         114
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       47,
+       55
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d2",
+      "declaration_span": [
+       47,
+       55
+      ],
+      "kind": "parameter",
+      "name": "quantity",
+      "owner_function": "f1",
+      "parser_location": "0,47 - 0,55",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 1,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627798",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         47,
+         55
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         117,
+         125
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       65,
+       77
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d3",
+      "declaration_span": [
+       65,
+       77
+      ],
+      "kind": "parameter",
+      "name": "discountRate",
+      "owner_function": "f1",
+      "parser_location": "0,65 - 0,77",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 2,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627799",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         65,
+         77
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         161,
+         173
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       94,
+       102
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d4",
+      "declaration_span": [
+       94,
+       102
+      ],
+      "kind": "local",
+      "name": "subtotal",
+      "owner_function": "f1",
+      "parser_location": "1,7 - 1,15",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 3,
+        "start_pc": 1
+       }
+      ],
+      "storage_id": "b1099511627791",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         94,
+         102
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         150,
+         158
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         193,
+         201
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       133,
+       147
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d5",
+      "declaration_span": [
+       133,
+       147
+      ],
+      "kind": "local",
+      "name": "discountAmount",
+      "owner_function": "f1",
+      "parser_location": "2,7 - 2,21",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 4,
+        "start_pc": 2
+       },
+       {
+        "kind": "debug_upvalue",
+        "prototype": 0,
+        "slot": 0
+       }
+      ],
+      "storage_id": "b1099511627793",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         133,
+         147
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         204,
+         218
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         258,
+         272
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       181,
+       190
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d6",
+      "declaration_span": [
+       181,
+       190
+      ],
+      "kind": "local",
+      "name": "totalCost",
+      "owner_function": "f1",
+      "parser_location": "3,7 - 3,16",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 5,
+        "start_pc": 3
+       },
+       {
+        "kind": "debug_upvalue",
+        "prototype": 0,
+        "slot": 1
+       }
+      ],
+      "storage_id": "b1099511627794",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         181,
+         190
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         227,
+         236
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         274,
+         283
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     }
+    ],
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       314
+      ]
+     },
+     {
+      "function_id": "f1",
+      "parent": "f0",
+      "span": [
+       0,
+       292
+      ]
+     },
+     {
+      "function_id": "f2",
+      "parent": "f1",
+      "span": [
+       238,
+       288
+      ]
+     }
+    ],
+    "limits": {
+     "declarations": 50000,
+     "depth": 256,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "parser_seconds": 30,
+     "source_bytes": 4194304,
+     "stderr_bytes": 1048576,
+     "tokens": 100000
+    },
+    "model": "luau-lexical-declarations-v1",
+    "schema_version": 1,
+    "sidecar_sha256": "16120cd794ed7ac82a06496337d8629494b3e15e84c72de4e6014caf97d636cd",
+    "source_sha256": "03c7e0e4938e9048a821bbe430a0373826e1cdd3eeee46df39d44a2a153c1b5c",
+    "storage": [
+     {
+      "declarations": [
+       "d0"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b13"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 3,
+        "kind": "debug_local",
+        "prototype": 2,
+        "register": 0,
+        "start_pc": 2
+       },
+       {
+        "kind": "function_name",
+        "prototype": 1
+       }
+      ],
+      "storage_id": "b13"
+     },
+     {
+      "declarations": [
+       "d4"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627791"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 3,
+        "start_pc": 1
+       }
+      ],
+      "storage_id": "b1099511627791"
+     },
+     {
+      "declarations": [
+       "d5"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p2/p2@pc1:p1/p1@pc4:p0",
+        "kind": "incoming_upvalue",
+        "origin_id": "b9",
+        "prototype": 0,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b9",
+       "b1099511627793",
+       "b2199023255565"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 4,
+        "start_pc": 2
+       },
+       {
+        "kind": "debug_upvalue",
+        "prototype": 0,
+        "slot": 0
+       }
+      ],
+      "storage_id": "b1099511627793"
+     },
+     {
+      "declarations": [
+       "d6"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p2/p2@pc1:p1/p1@pc4:p0",
+        "kind": "incoming_upvalue",
+        "origin_id": "b10",
+        "prototype": 0,
+        "slot": 1
+       }
+      ],
+      "lineage": [
+       "b10",
+       "b1099511627794",
+       "b1099511627795",
+       "b2199023255567"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 5,
+        "start_pc": 3
+       },
+       {
+        "kind": "debug_upvalue",
+        "prototype": 0,
+        "slot": 1
+       }
+      ],
+      "storage_id": "b1099511627794"
+     },
+     {
+      "declarations": [
+       "d1"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p2/p2@pc1:p1",
+        "kind": "parameter",
+        "origin_id": "b1",
+        "prototype": 1,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b1",
+       "b1099511627789",
+       "b1099511627797"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 0,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627797"
+     },
+     {
+      "declarations": [
+       "d2"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p2/p2@pc1:p1",
+        "kind": "parameter",
+        "origin_id": "b2",
+        "prototype": 1,
+        "slot": 1
+       }
+      ],
+      "lineage": [
+       "b2",
+       "b1099511627790",
+       "b1099511627798"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 1,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627798"
+     },
+     {
+      "declarations": [
+       "d3"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p2/p2@pc1:p1",
+        "kind": "parameter",
+        "origin_id": "b3",
+        "prototype": 1,
+        "slot": 2
+       }
+      ],
+      "lineage": [
+       "b3",
+       "b1099511627792",
+       "b1099511627799"
+      ],
+      "recorded_origins": [
+       {
+        "end_pc": 8,
+        "kind": "debug_local",
+        "prototype": 1,
+        "register": 2,
+        "start_pc": 0
+       }
+      ],
+      "storage_id": "b1099511627799"
+     }
+    ],
+    "visited_nodes": 58
+   }
+  },
+  {
+   "dataset": "public",
+   "script_path": "Fusion/O2/src/State/For/Disassembly.lua",
+   "graph": {
+    "ast_sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3",
+    "contract": "Lexical IDs identify declarations in these exact output bytes, independently of IR storage. Current syntax/capture roles and historical storage ancestry are separate. Recorded origins on shared storage remain ambiguous. No unique original source identity, compiler-temporary, synthesis, precise nested value/PC, REF/VAL, CLOSE, ownership or effect proof is inferred.",
+    "declarations": [
+     {
+      "anchor_span": [
+       6,
+       12
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d0",
+      "declaration_span": [
+       6,
+       12
+      ],
+      "kind": "local",
+      "name": "parent",
+      "owner_function": "f0",
+      "parser_location": "0,6 - 0,12",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b84",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         6,
+         12
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         51,
+         57
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         90,
+         96
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         130,
+         136
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         172,
+         178
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         219,
+         225
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         253,
+         259
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         306,
+         312
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         359,
+         365
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         409,
+         415
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         458,
+         464
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       71,
+       79
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d1",
+      "declaration_span": [
+       71,
+       79
+      ],
+      "kind": "local",
+      "name": "external",
+      "owner_function": "f0",
+      "parser_location": "2,6 - 2,14",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b90",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         71,
+         79
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1675,
+         1683
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2063,
+         2071
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       113,
+       119
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d2",
+      "declaration_span": [
+       113,
+       119
+      ],
+      "kind": "local",
+      "name": "depend",
+      "owner_function": "f0",
+      "parser_location": "3,6 - 3,12",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b94",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         113,
+         119
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2208,
+         2214
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       157,
+       161
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d3",
+      "declaration_span": [
+       157,
+       161
+      ],
+      "kind": "local",
+      "name": "peek",
+      "owner_function": "f0",
+      "parser_location": "4,6 - 4,10",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b98",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         157,
+         161
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2261,
+         2265
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       197,
+       208
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d4",
+      "declaration_span": [
+       197,
+       208
+      ],
+      "kind": "local",
+      "name": "castToState",
+      "owner_function": "f0",
+      "parser_location": "5,6 - 5,17",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b102",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         197,
+         208
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         1984,
+         1995
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       286,
+       295
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d5",
+      "declaration_span": [
+       286,
+       295
+      ],
+      "kind": "local",
+      "name": "doCleanup",
+      "owner_function": "f0",
+      "parser_location": "7,6 - 7,15",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b111",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         286,
+         295
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         1127,
+         1136
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3171,
+         3180
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       337,
+       348
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d6",
+      "declaration_span": [
+       337,
+       348
+      ],
+      "kind": "local",
+      "name": "deriveScope",
+      "owner_function": "f0",
+      "parser_location": "8,6 - 8,17",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b115",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         337,
+         348
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3280,
+         3291
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       392,
+       398
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d7",
+      "declaration_span": [
+       392,
+       398
+      ],
+      "kind": "local",
+      "name": "nameOf",
+      "owner_function": "f0",
+      "parser_location": "9,6 - 9,12",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b119",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         392,
+         398
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2130,
+         2136
+        ],
+        "storage_mapping": "opaque",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       438,
+       447
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d8",
+      "declaration_span": [
+       438,
+       447
+      ],
+      "kind": "local",
+      "name": "nicknames",
+      "owner_function": "f0",
+      "parser_location": "10,6 - 10,15",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b123",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         438,
+         447
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         1210,
+         1219
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       490,
+       491
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d9",
+      "declaration_span": [
+       490,
+       491
+      ],
+      "kind": "local",
+      "name": "v",
+      "owner_function": "f0",
+      "parser_location": "11,6 - 11,7",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b124",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         490,
+         491
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         604,
+         605
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         1325,
+         1326
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         1932,
+         1933
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         3383,
+         3384
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       569,
+       575
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d10",
+      "declaration_span": [
+       569,
+       575
+      ],
+      "kind": "local",
+      "name": "frozen",
+      "owner_function": "f0",
+      "parser_location": "16,6 - 16,12",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b130",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         569,
+         575
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         906,
+         912
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       625,
+       636
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d11",
+      "declaration_span": [
+       625,
+       636
+      ],
+      "kind": "local_function",
+      "name": "Disassembly",
+      "owner_function": "f0",
+      "parser_location": "20,15 - 20,26",
+      "protect_recorded_name": true,
+      "recorded_identity_status": "recorded_on_unique_output_binding",
+      "recorded_origins": [
+       {
+        "kind": "function_name",
+        "prototype": 1
+       }
+      ],
+      "storage_id": "b131",
+      "tokens": [
+       {
+        "emitter_role": "function_declaration",
+        "owner_function": "f0",
+        "role": "declaration",
+        "span": [
+         625,
+         636
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f0",
+        "role": "read",
+        "span": [
+         3393,
+         3404
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       637,
+       642
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d12",
+      "declaration_span": [
+       637,
+       642
+      ],
+      "kind": "parameter",
+      "name": "scope",
+      "owner_function": "f1",
+      "parser_location": "20,27 - 20,32",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b3298534883434",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         637,
+         642
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         762,
+         767
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         1285,
+         1290
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       644,
+       654
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d13",
+      "declaration_span": [
+       644,
+       654
+      ],
+      "kind": "parameter",
+      "name": "inputTable",
+      "owner_function": "f1",
+      "parser_location": "20,34 - 20,44",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b3298534883433",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         644,
+         654
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         809,
+         819
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       656,
+       667
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d14",
+      "declaration_span": [
+       656,
+       667
+      ],
+      "kind": "parameter",
+      "name": "constructor",
+      "owner_function": "f1",
+      "parser_location": "20,46 - 20,57",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b3298534883435",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         656,
+         667
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         838,
+         849
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       676,
+       678
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d15",
+      "declaration_span": [
+       676,
+       678
+      ],
+      "kind": "local",
+      "name": "v2",
+      "owner_function": "f1",
+      "parser_location": "21,7 - 21,9",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b3298534883413",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         676,
+         678
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         902,
+         904
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       880,
+       886
+      ],
+      "captured_in_output": true,
+      "declaration_id": "d16",
+      "declaration_span": [
+       880,
+       886
+      ],
+      "kind": "local",
+      "name": "object",
+      "owner_function": "f1",
+      "parser_location": "31,7 - 31,13",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b3298534883423",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         880,
+         886
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         938,
+         944
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         975,
+         981
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         1018,
+         1024
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         1050,
+         1056
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         1186,
+         1192
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         1220,
+         1226
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         1304,
+         1310
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       931,
+       933
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d17",
+      "declaration_span": [
+       931,
+       933
+      ],
+      "kind": "local_function",
+      "name": "fn",
+      "owner_function": "f1",
+      "parser_location": "33,16 - 33,18",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b3298534883424",
+      "tokens": [
+       {
+        "emitter_role": "function_declaration",
+        "owner_function": "f1",
+        "role": "declaration",
+        "span": [
+         931,
+         933
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         1206,
+         1208
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f1",
+        "role": "read",
+        "span": [
+         1292,
+         1294
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       964,
+       965
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d18",
+      "declaration_span": [
+       964,
+       965
+      ],
+      "kind": "iteration",
+      "name": "k",
+      "owner_function": "f2",
+      "parser_location": "36,6 - 36,7",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b4398046511202",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f2",
+        "role": "declaration",
+        "span": [
+         964,
+         965
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         1003,
+         1004
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1045,
+       1046
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d19",
+      "declaration_span": [
+       1045,
+       1046
+      ],
+      "kind": "iteration",
+      "name": "k",
+      "owner_function": "f2",
+      "parser_location": "40,6 - 40,7",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b4398046511222",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f2",
+        "role": "declaration",
+        "span": [
+         1045,
+         1046
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         1078,
+         1079
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         1137,
+         1138
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f2",
+        "role": "read",
+        "span": [
+         1154,
+         1155
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1316,
+       1324
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d20",
+      "declaration_span": null,
+      "kind": "implicit_self",
+      "name": "self",
+      "owner_function": "f3",
+      "parser_location": "56,0 - 56,8",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255645",
+      "tokens": [
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1420,
+         1424
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1336,
+       1338
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d21",
+      "declaration_span": [
+       1336,
+       1338
+      ],
+      "kind": "parameter",
+      "name": "p2",
+      "owner_function": "f3",
+      "parser_location": "56,20 - 56,22",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255694",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1336,
+         1338
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1473,
+         1475
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1340,
+       1344
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d22",
+      "declaration_span": [
+       1340,
+       1344
+      ],
+      "kind": "parameter",
+      "name": "list",
+      "owner_function": "f3",
+      "parser_location": "56,24 - 56,28",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255703",
+      "tokens": [
+       {
+        "emitter_role": "parameter",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1340,
+         1344
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1533,
+         1537
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1557,
+         1561
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1811,
+         1815
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1865,
+         1869
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1882,
+         1886
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1353,
+       1355
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d23",
+      "declaration_span": [
+       1353,
+       1355
+      ],
+      "kind": "local",
+      "name": "v2",
+      "owner_function": "f3",
+      "parser_location": "57,7 - 57,9",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255748",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1353,
+         1355
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f3",
+        "role": "write",
+        "span": [
+         1610,
+         1612
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1624,
+         1626
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1764,
+         1766
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1787,
+         1789
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1887,
+         1889
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f3",
+        "role": "read_write",
+        "span": [
+         1899,
+         1901
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": true
+     },
+     {
+      "anchor_span": [
+       1375,
+       1377
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d24",
+      "declaration_span": [
+       1375,
+       1377
+      ],
+      "kind": "local",
+      "name": "v3",
+      "owner_function": "f3",
+      "parser_location": "58,7 - 58,9",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255752",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1375,
+         1377
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f3",
+        "role": "write",
+        "span": [
+         1636,
+         1638
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1650,
+         1652
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1769,
+         1771
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1791,
+         1793
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": true
+     },
+     {
+      "anchor_span": [
+       1398,
+       1400
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d25",
+      "declaration_span": [
+       1398,
+       1400
+      ],
+      "kind": "local",
+      "name": "v4",
+      "owner_function": "f3",
+      "parser_location": "59,7 - 59,9",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255753",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1398,
+         1400
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f3",
+        "role": "write",
+        "span": [
+         1514,
+         1516
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1757,
+         1759
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": true
+     },
+     {
+      "anchor_span": [
+       1415,
+       1416
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d26",
+      "declaration_span": [
+       1415,
+       1416
+      ],
+      "kind": "iteration",
+      "name": "k",
+      "owner_function": "f3",
+      "parser_location": "61,5 - 61,6",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255649",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1415,
+         1416
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1457,
+         1458
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1448,
+       1450
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d27",
+      "declaration_span": [
+       1448,
+       1450
+      ],
+      "kind": "local",
+      "name": "v5",
+      "owner_function": "f3",
+      "parser_location": "62,8 - 62,10",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255653",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1448,
+         1450
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1483,
+         1485
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1538,
+         1540
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1562,
+         1564
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1585,
+         1587
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1628,
+         1630
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1654,
+         1656
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1735,
+         1737
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1452,
+       1454
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d28",
+      "declaration_span": [
+       1452,
+       1454
+      ],
+      "kind": "local",
+      "name": "v6",
+      "owner_function": "f3",
+      "parser_location": "62,12 - 62,14",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255654",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1452,
+         1454
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1496,
+         1498
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1568,
+         1570
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1783,
+       1784
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d29",
+      "declaration_span": [
+       1783,
+       1784
+      ],
+      "kind": "iteration",
+      "name": "i",
+      "owner_function": "f3",
+      "parser_location": "79,6 - 79,7",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255718",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1783,
+         1784
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1816,
+         1817
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1870,
+         1871
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1806,
+       1808
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d30",
+      "declaration_span": [
+       1806,
+       1808
+      ],
+      "kind": "local",
+      "name": "v5",
+      "owner_function": "f3",
+      "parser_location": "80,9 - 80,11",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b2199023255727",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f3",
+        "role": "declaration",
+        "span": [
+         1806,
+         1808
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1826,
+         1828
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f3",
+        "role": "read",
+        "span": [
+         1893,
+         1895
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1923,
+       1931
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d31",
+      "declaration_span": null,
+      "kind": "implicit_self",
+      "name": "self",
+      "owner_function": "f4",
+      "parser_location": "93,0 - 93,8",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627865",
+      "tokens": [
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         1961,
+         1965
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         1996,
+         2000
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2215,
+         2219
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2266,
+         2270
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2340,
+         2344
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3262,
+         3266
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3322,
+         3326
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1953,
+       1958
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d32",
+      "declaration_span": [
+       1953,
+       1958
+      ],
+      "kind": "local",
+      "name": "scope",
+      "owner_function": "f4",
+      "parser_location": "94,7 - 94,12",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627860",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         1953,
+         1958
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3292,
+         3297
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       1979,
+       1981
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d33",
+      "declaration_span": [
+       1979,
+       1981
+      ],
+      "kind": "local",
+      "name": "v2",
+      "owner_function": "f4",
+      "parser_location": "95,7 - 95,9",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627864",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         1979,
+         1981
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2019,
+         2021
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2039,
+         2041
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2137,
+         2139
+        ],
+        "storage_mapping": "opaque",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2221,
+         2223
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2238,
+       2240
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d34",
+      "declaration_span": [
+       2238,
+       2240
+      ],
+      "kind": "local",
+      "name": "v3",
+      "owner_function": "f4",
+      "parser_location": "110,7 - 110,9",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511628103",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2238,
+         2240
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2289,
+         2291
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2500,
+         2502
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2565,
+         2567
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2872,
+         2874
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3114,
+         3116
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3243,
+         3245
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2252,
+       2253
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d35",
+      "declaration_span": [
+       2252,
+       2253
+      ],
+      "kind": "iteration",
+      "name": "k",
+      "owner_function": "f4",
+      "parser_location": "112,5 - 112,6",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627880",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2252,
+         2253
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2292,
+         2293
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2255,
+       2257
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d36",
+      "declaration_span": [
+       2255,
+       2257
+      ],
+      "kind": "iteration",
+      "name": "v4",
+      "owner_function": "f4",
+      "parser_location": "112,8 - 112,10",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627881",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2255,
+         2257
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2297,
+         2299
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2313,
+       2323
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d37",
+      "declaration_span": [
+       2313,
+       2323
+      ],
+      "kind": "local",
+      "name": "subObjects",
+      "owner_function": "f4",
+      "parser_location": "116,7 - 116,17",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511628123",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2313,
+         2323
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2889,
+         2899
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3251,
+         3261
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3341,
+         3351
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2335,
+       2336
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d38",
+      "declaration_span": [
+       2335,
+       2336
+      ],
+      "kind": "iteration",
+      "name": "k",
+      "owner_function": "f4",
+      "parser_location": "118,5 - 118,6",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627901",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2335,
+         2336
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2400,
+         2401
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2432,
+         2433
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2486,
+         2487
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2595,
+         2596
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2900,
+         2901
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2948,
+         2949
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2975,
+         2976
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3047,
+         3048
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3078,
+         3079
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3143,
+         3144
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3181,
+         3182
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3198,
+         3199
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2368,
+       2372
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d39",
+      "declaration_span": [
+       2368,
+       2372
+      ],
+      "kind": "local",
+      "name": "flag",
+      "owner_function": "f4",
+      "parser_location": "119,8 - 119,12",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627902",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2368,
+         2372
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f4",
+        "role": "write",
+        "span": [
+         2575,
+         2579
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f4",
+        "role": "write",
+        "span": [
+         2797,
+         2801
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2839,
+         2843
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": true
+     },
+     {
+      "anchor_span": [
+       2389,
+       2397
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d40",
+      "declaration_span": [
+       2389,
+       2397
+      ],
+      "kind": "local",
+      "name": "inputKey",
+      "owner_function": "f4",
+      "parser_location": "120,8 - 120,16",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627904",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2389,
+         2397
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2503,
+         2511
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2785,
+         2793
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2930,
+         2938
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2419,
+       2429
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d41",
+      "declaration_span": [
+       2419,
+       2429
+      ],
+      "kind": "local",
+      "name": "inputValue",
+      "owner_function": "f4",
+      "parser_location": "121,8 - 121,18",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627905",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2419,
+         2429
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2617,
+         2627
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3027,
+         3037
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2453,
+       2455
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d42",
+      "declaration_span": [
+       2453,
+       2455
+      ],
+      "kind": "local",
+      "name": "v5",
+      "owner_function": "f4",
+      "parser_location": "122,8 - 122,10",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627906",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2453,
+         2455
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f4",
+        "role": "write",
+        "span": [
+         2697,
+         2699
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2754,
+         2756
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": true
+     },
+     {
+      "anchor_span": [
+       2470,
+       2479
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d43",
+      "declaration_span": [
+       2470,
+       2479
+      ],
+      "kind": "local",
+      "name": "inputKey2",
+      "owner_function": "f4",
+      "parser_location": "123,8 - 123,17",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511628258",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2470,
+         2479
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f4",
+        "role": "write",
+        "span": [
+         2638,
+         2647
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f4",
+        "role": "write",
+        "span": [
+         2742,
+         2751
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f4",
+        "role": "write",
+        "span": [
+         2812,
+         2821
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2875,
+         2884
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2917,
+         2926
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2961,
+         2970
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3117,
+         3126
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": true
+     },
+     {
+      "anchor_span": [
+       2534,
+       2539
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d44",
+      "declaration_span": [
+       2534,
+       2539
+      ],
+      "kind": "local",
+      "name": "flag2",
+      "owner_function": "f4",
+      "parser_location": "126,9 - 126,14",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511628259",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2534,
+         2539
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "assignment_target",
+        "owner_function": "f4",
+        "role": "write",
+        "span": [
+         2658,
+         2663
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2727,
+         2732
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": true
+     },
+     {
+      "anchor_span": [
+       2555,
+       2557
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d45",
+      "declaration_span": [
+       2555,
+       2557
+      ],
+      "kind": "iteration",
+      "name": "k2",
+      "owner_function": "f4",
+      "parser_location": "128,7 - 128,9",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "ambiguous_shared_storage",
+      "recorded_origins": [],
+      "storage_id": "b1099511627918",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2555,
+         2557
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2650,
+         2652
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2702,
+         2704
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2559,
+       2561
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d46",
+      "declaration_span": [
+       2559,
+       2561
+      ],
+      "kind": "iteration",
+      "name": "v7",
+      "owner_function": "f4",
+      "parser_location": "128,11 - 128,13",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627919",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2559,
+         2561
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2611,
+         2613
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2780,
+       2782
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d47",
+      "declaration_span": [
+       2780,
+       2782
+      ],
+      "kind": "local",
+      "name": "k2",
+      "owner_function": "f4",
+      "parser_location": "144,9 - 144,11",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "ambiguous_shared_storage",
+      "recorded_origins": [],
+      "storage_id": "b1099511627918",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2780,
+         2782
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         2824,
+         2826
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       2858,
+       2869
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d48",
+      "declaration_span": [
+       2858,
+       2869
+      ],
+      "kind": "local",
+      "name": "inputValue2",
+      "owner_function": "f4",
+      "parser_location": "150,9 - 150,20",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511627929",
+      "tokens": [
+       {
+        "emitter_role": "declaration",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         2858,
+         2869
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3012,
+         3023
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3062,
+         3073
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       3234,
+       3235
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d49",
+      "declaration_span": [
+       3234,
+       3235
+      ],
+      "kind": "iteration",
+      "name": "k",
+      "owner_function": "f4",
+      "parser_location": "170,5 - 170,6",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511628029",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         3234,
+         3235
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3300,
+         3301
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     },
+     {
+      "anchor_span": [
+       3237,
+       3239
+      ],
+      "captured_in_output": false,
+      "declaration_id": "d50",
+      "declaration_span": [
+       3237,
+       3239
+      ],
+      "kind": "iteration",
+      "name": "v5",
+      "owner_function": "f4",
+      "parser_location": "170,8 - 170,10",
+      "protect_recorded_name": false,
+      "recorded_identity_status": "unrecorded",
+      "recorded_origins": [],
+      "storage_id": "b1099511628030",
+      "tokens": [
+       {
+        "emitter_role": "iteration_binding",
+        "owner_function": "f4",
+        "role": "declaration",
+        "span": [
+         3237,
+         3239
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       },
+       {
+        "emitter_role": "read",
+        "owner_function": "f4",
+        "role": "read",
+        "span": [
+         3303,
+         3305
+        ],
+        "storage_mapping": "mapped",
+        "type_only": false
+       }
+      ],
+      "written_in_output": false
+     }
+    ],
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       3405
+      ]
+     },
+     {
+      "function_id": "f1",
+      "parent": "f0",
+      "span": [
+       610,
+       1314
+      ]
+     },
+     {
+      "function_id": "f2",
+      "parent": "f1",
+      "span": [
+       916,
+       1183
+      ]
+     },
+     {
+      "function_id": "f3",
+      "parent": "f0",
+      "span": [
+       1316,
+       1921
+      ]
+     },
+     {
+      "function_id": "f4",
+      "parent": "f0",
+      "span": [
+       1923,
+       3368
+      ]
+     }
+    ],
+    "limits": {
+     "declarations": 50000,
+     "depth": 256,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "parser_seconds": 30,
+     "source_bytes": 4194304,
+     "stderr_bytes": 1048576,
+     "tokens": 100000
+    },
+    "model": "luau-lexical-declarations-v1",
+    "schema_version": 1,
+    "sidecar_sha256": "b7fbcd82e19b7d7f7541ab675ac721426c1d88892d68ec92a57ea07cee63ba46",
+    "source_sha256": "7241b373c86cd10e6ab036fecce8abaf2cd57ff1393485f18fa7e78d8062b876",
+    "storage": [
+     {
+      "declarations": [
+       "d0"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b84"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b84"
+     },
+     {
+      "declarations": [
+       "d1"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc98:p3",
+        "kind": "incoming_upvalue",
+        "origin_id": "b17",
+        "prototype": 3,
+        "slot": 1
+       },
+       {
+        "function_id": "root:p4/p4@pc94:p2",
+        "kind": "incoming_upvalue",
+        "origin_id": "b43",
+        "prototype": 2,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b17",
+       "b43",
+       "b90",
+       "b1099511628077",
+       "b2199023255683"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b90"
+     },
+     {
+      "declarations": [
+       "d2"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc98:p3",
+        "kind": "incoming_upvalue",
+        "origin_id": "b19",
+        "prototype": 3,
+        "slot": 3
+       }
+      ],
+      "lineage": [
+       "b19",
+       "b94",
+       "b1099511628070"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b94"
+     },
+     {
+      "declarations": [
+       "d3"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc98:p3",
+        "kind": "incoming_upvalue",
+        "origin_id": "b20",
+        "prototype": 3,
+        "slot": 4
+       }
+      ],
+      "lineage": [
+       "b20",
+       "b98",
+       "b1099511627867"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b98"
+     },
+     {
+      "declarations": [
+       "d4"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc98:p3",
+        "kind": "incoming_upvalue",
+        "origin_id": "b16",
+        "prototype": 3,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b16",
+       "b102",
+       "b1099511627861"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b102"
+     },
+     {
+      "declarations": [
+       "d5"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc98:p3",
+        "kind": "incoming_upvalue",
+        "origin_id": "b21",
+        "prototype": 3,
+        "slot": 5
+       },
+       {
+        "function_id": "root:p4/p4@pc90:p1",
+        "kind": "incoming_upvalue",
+        "origin_id": "b63",
+        "prototype": 1,
+        "slot": 1
+       },
+       {
+        "function_id": "root:p4/p4@pc90:p1/p1@pc30:p0",
+        "kind": "incoming_upvalue",
+        "origin_id": "b75",
+        "prototype": 0,
+        "slot": 1
+       }
+      ],
+      "lineage": [
+       "b21",
+       "b63",
+       "b75",
+       "b111",
+       "b1099511627959",
+       "b3298534883425",
+       "b4398046511225"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b111"
+     },
+     {
+      "declarations": [
+       "d6"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc98:p3",
+        "kind": "incoming_upvalue",
+        "origin_id": "b22",
+        "prototype": 3,
+        "slot": 6
+       }
+      ],
+      "lineage": [
+       "b22",
+       "b115",
+       "b1099511628033"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b115"
+     },
+     {
+      "declarations": [
+       "d7"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc98:p3",
+        "kind": "incoming_upvalue",
+        "origin_id": "b18",
+        "prototype": 3,
+        "slot": 2
+       }
+      ],
+      "lineage": [
+       "b18",
+       "b119",
+       "b1099511628083"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b119"
+     },
+     {
+      "declarations": [
+       "d8"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc90:p1",
+        "kind": "incoming_upvalue",
+        "origin_id": "b64",
+        "prototype": 1,
+        "slot": 2
+       }
+      ],
+      "lineage": [
+       "b64",
+       "b123",
+       "b3298534883426"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b123"
+     },
+     {
+      "declarations": [
+       "d9"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b124",
+       "b135"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b124"
+     },
+     {
+      "declarations": [
+       "d10"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc90:p1",
+        "kind": "incoming_upvalue",
+        "origin_id": "b62",
+        "prototype": 1,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b62",
+       "b130",
+       "b3298534883420"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b130"
+     },
+     {
+      "declarations": [
+       "d11"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b131"
+      ],
+      "recorded_origins": [
+       {
+        "kind": "function_name",
+        "prototype": 1
+       }
+      ],
+      "storage_id": "b131"
+     },
+     {
+      "declarations": [
+       "d32"
+      ],
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627860",
+       "b1099511628035",
+       "b1099511628036",
+       "b1099511628055",
+       "b1099511628056",
+       "b1099511628057",
+       "b1099511628058",
+       "b1099511628059",
+       "b1099511628060",
+       "b1099511628061",
+       "b1099511628062",
+       "b1099511628063",
+       "b1099511628076",
+       "b1099511628093"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627860"
+     },
+     {
+      "declarations": [
+       "d33"
+      ],
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627864",
+       "b1099511628068",
+       "b1099511628074",
+       "b1099511628075",
+       "b1099511628085",
+       "b1099511628086"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627864"
+     },
+     {
+      "declarations": [
+       "d31"
+      ],
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc98:p3",
+        "kind": "parameter",
+        "origin_id": "b23",
+        "prototype": 3,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b23",
+       "b1099511627859",
+       "b1099511627865",
+       "b1099511627869",
+       "b1099511627890",
+       "b1099511627897",
+       "b1099511628031",
+       "b1099511628048",
+       "b1099511628049",
+       "b1099511628050",
+       "b1099511628051",
+       "b1099511628052",
+       "b1099511628053",
+       "b1099511628054",
+       "b1099511628065",
+       "b1099511628072",
+       "b1099511628073",
+       "b1099511628092"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627865"
+     },
+     {
+      "declarations": [
+       "d35"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627880",
+       "b1099511627883"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627880"
+     },
+     {
+      "declarations": [
+       "d36"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627881",
+       "b1099511627884"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627881"
+     },
+     {
+      "declarations": [
+       "d38"
+      ],
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627901",
+       "b1099511627903",
+       "b1099511627923",
+       "b1099511627925",
+       "b1099511627932",
+       "b1099511627935",
+       "b1099511627944",
+       "b1099511627950",
+       "b1099511627951",
+       "b1099511627957",
+       "b1099511627961",
+       "b1099511627981",
+       "b1099511627982",
+       "b1099511627988",
+       "b1099511628003"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627901"
+     },
+     {
+      "declarations": [
+       "d39"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627902",
+       "b1099511627920",
+       "b1099511627926",
+       "b1099511628001",
+       "b1099511628002"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627902"
+     },
+     {
+      "declarations": [
+       "d40"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627904",
+       "b1099511627933",
+       "b1099511627937",
+       "b1099511627986",
+       "b1099511627992",
+       "b1099511627993",
+       "b1099511628012",
+       "b1099511628013"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627904"
+     },
+     {
+      "declarations": [
+       "d41"
+      ],
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627905",
+       "b1099511627940",
+       "b1099511627953",
+       "b1099511627954",
+       "b1099511627977",
+       "b1099511627983",
+       "b1099511627984",
+       "b1099511627989",
+       "b1099511627994"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627905"
+     },
+     {
+      "declarations": [
+       "d42"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627906",
+       "b1099511628010",
+       "b1099511628011"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627906"
+     },
+     {
+      "declarations": [
+       "d45",
+       "d47"
+      ],
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627918",
+       "b1099511627921",
+       "b1099511627922",
+       "b1099511627928",
+       "b1099511627936",
+       "b1099511627943",
+       "b1099511627946",
+       "b1099511627947",
+       "b1099511627952"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627918"
+     },
+     {
+      "declarations": [
+       "d46"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627919",
+       "b1099511627976"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627919"
+     },
+     {
+      "declarations": [
+       "d48"
+      ],
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627929",
+       "b1099511627939",
+       "b1099511627945",
+       "b1099511627955"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511627929"
+     },
+     {
+      "declarations": [
+       "d49"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511628029",
+       "b1099511628038",
+       "b1099511628039"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511628029"
+     },
+     {
+      "declarations": [
+       "d50"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511628030",
+       "b1099511628040",
+       "b1099511628041"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511628030"
+     },
+     {
+      "declarations": [
+       "d34"
+      ],
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627882",
+       "b1099511627888",
+       "b1099511627908",
+       "b1099511627909",
+       "b1099511627927",
+       "b1099511627938",
+       "b1099511627942",
+       "b1099511627948",
+       "b1099511627949",
+       "b1099511627956",
+       "b1099511627985",
+       "b1099511627990",
+       "b1099511628017",
+       "b1099511628018",
+       "b1099511628019",
+       "b1099511628020"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511628103"
+     },
+     {
+      "declarations": [
+       "d37"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b1099511627931",
+       "b1099511627934",
+       "b1099511628004",
+       "b1099511628005",
+       "b1099511628006",
+       "b1099511628007",
+       "b1099511628008",
+       "b1099511628009",
+       "b1099511628044",
+       "b1099511628064",
+       "b1099511628066"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b1099511628123"
+     },
+     {
+      "declarations": [
+       "d43"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": true,
+      "input_slots": [],
+      "lineage": [],
+      "recorded_origins": [],
+      "storage_id": "b1099511628258"
+     },
+     {
+      "declarations": [
+       "d44"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": true,
+      "input_slots": [],
+      "lineage": [],
+      "recorded_origins": [],
+      "storage_id": "b1099511628259"
+     },
+     {
+      "declarations": [
+       "d20"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc94:p2",
+        "kind": "parameter",
+        "origin_id": "b44",
+        "prototype": 2,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b44",
+       "b2199023255638",
+       "b2199023255645"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255645"
+     },
+     {
+      "declarations": [
+       "d26"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b2199023255649",
+       "b2199023255652"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255649"
+     },
+     {
+      "declarations": [
+       "d27"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b2199023255653",
+       "b2199023255659",
+       "b2199023255663",
+       "b2199023255665",
+       "b2199023255670",
+       "b2199023255671",
+       "b2199023255677",
+       "b2199023255688",
+       "b2199023255689"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255653"
+     },
+     {
+      "declarations": [
+       "d28"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b2199023255654",
+       "b2199023255657",
+       "b2199023255664"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255654"
+     },
+     {
+      "declarations": [
+       "d21"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc94:p2",
+        "kind": "parameter",
+        "origin_id": "b45",
+        "prototype": 2,
+        "slot": 1
+       }
+      ],
+      "lineage": [
+       "b45",
+       "b2199023255650",
+       "b2199023255651",
+       "b2199023255655",
+       "b2199023255694",
+       "b2199023255695",
+       "b2199023255696"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255694"
+     },
+     {
+      "declarations": [
+       "d22"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc94:p2",
+        "kind": "parameter",
+        "origin_id": "b46",
+        "prototype": 2,
+        "slot": 2
+       }
+      ],
+      "lineage": [
+       "b46",
+       "b2199023255658",
+       "b2199023255661",
+       "b2199023255662",
+       "b2199023255703",
+       "b2199023255704",
+       "b2199023255705",
+       "b2199023255725",
+       "b2199023255728",
+       "b2199023255730"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255703"
+     },
+     {
+      "declarations": [
+       "d29"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b2199023255718",
+       "b2199023255721",
+       "b2199023255724",
+       "b2199023255726",
+       "b2199023255731"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255718"
+     },
+     {
+      "declarations": [
+       "d30"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b2199023255727",
+       "b2199023255733"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255727"
+     },
+     {
+      "declarations": [
+       "d23"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b2199023255668",
+       "b2199023255669",
+       "b2199023255673",
+       "b2199023255674",
+       "b2199023255681",
+       "b2199023255697",
+       "b2199023255698",
+       "b2199023255710",
+       "b2199023255712",
+       "b2199023255713",
+       "b2199023255714",
+       "b2199023255732",
+       "b2199023255734",
+       "b2199023255737"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255748"
+     },
+     {
+      "declarations": [
+       "d24"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b2199023255675",
+       "b2199023255676",
+       "b2199023255679",
+       "b2199023255680",
+       "b2199023255682",
+       "b2199023255706",
+       "b2199023255707",
+       "b2199023255711",
+       "b2199023255715",
+       "b2199023255716"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255752"
+     },
+     {
+      "declarations": [
+       "d25"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b2199023255708",
+       "b2199023255709"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b2199023255753"
+     },
+     {
+      "declarations": [
+       "d15"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b3298534883413"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b3298534883413"
+     },
+     {
+      "declarations": [
+       "d16"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc90:p1/p1@pc30:p0",
+        "kind": "incoming_upvalue",
+        "origin_id": "b74",
+        "prototype": 0,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b74",
+       "b3298534883423",
+       "b4398046511187",
+       "b4398046511205",
+       "b4398046511211"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b3298534883423"
+     },
+     {
+      "declarations": [
+       "d17"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b3298534883424",
+       "b3298534883431"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b3298534883424"
+     },
+     {
+      "declarations": [
+       "d13"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc90:p1",
+        "kind": "parameter",
+        "origin_id": "b66",
+        "prototype": 1,
+        "slot": 1
+       }
+      ],
+      "lineage": [
+       "b66",
+       "b3298534883417",
+       "b3298534883433"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b3298534883433"
+     },
+     {
+      "declarations": [
+       "d12"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc90:p1",
+        "kind": "parameter",
+        "origin_id": "b65",
+        "prototype": 1,
+        "slot": 0
+       }
+      ],
+      "lineage": [
+       "b65",
+       "b3298534883416",
+       "b3298534883430",
+       "b3298534883434"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b3298534883434"
+     },
+     {
+      "declarations": [
+       "d14"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [
+       {
+        "function_id": "root:p4/p4@pc90:p1",
+        "kind": "parameter",
+        "origin_id": "b67",
+        "prototype": 1,
+        "slot": 2
+       }
+      ],
+      "lineage": [
+       "b67",
+       "b3298534883418",
+       "b3298534883435"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b3298534883435"
+     },
+     {
+      "declarations": [
+       "d18"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b4398046511202",
+       "b4398046511203"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b4398046511202"
+     },
+     {
+      "declarations": [
+       "d19"
+      ],
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "input_slots": [],
+      "lineage": [
+       "b4398046511222",
+       "b4398046511223",
+       "b4398046511227"
+      ],
+      "recorded_origins": [],
+      "storage_id": "b4398046511222"
+     }
+    ],
+    "visited_nodes": 771
+   }
+  }
+ ]
+}

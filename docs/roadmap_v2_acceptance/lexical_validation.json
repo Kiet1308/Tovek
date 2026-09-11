@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "baseline_commit": "9b51e30e65e5837022efb6a1efbbfa67190a52e9",
+ "lifter_sha256": "1d3b9fcfe7f1d2fcad1921be27a133183f78f9a79bbf767c9ab55ce379841f9f",
+ "private_source_tree_sha256": "0147732a789ec9c6766fb37c97799e8be75adf2781e95cbc9f7f0f94fdf881ec",
+ "private_source_files": 3978,
+ "private_empty_files": 42,
+ "python_tests": 93,
+ "python_log_sha256": "9a018f178aa78b268d46b79c24689b6163193cdb5444b892361643bed62f53b7",
+ "real_parser_process_controls": 15,
+ "unit_graph_controls": 8,
+ "graph_determinism_scripts": 4617,
+ "changed_core_executable": false,
+ "artifacts": [
+  {
+   "path": "docs/roadmap_v2_acceptance/lexical_runtime.json",
+   "sha256": "0e9bc28a0f46bdc8a5ab81e1041695621d19d54f3d1b8c431f11c99b2bad9c69"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/lexical_public.json",
+   "sha256": "b63fb5bd684d8b06d3183ac507310bb425be3c9df80a74b6e0fd209fc30de616"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/lexical_private.json",
+   "sha256": "de12cfc6512156253710a69a98fe484067d22e824a0bed99fe8fcac33b7233a5"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/lexical_controls.json",
+   "sha256": "a659e7a3e5cc5b9395699576c333d15803f95e42756cdfacf9056e0e066058bc"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/lexical_determinism.json",
+   "sha256": "09dafc077a45e664b2541e1558f882ad582cd0f72f2d71a9a9bb6d7324ae114b"
+  },
+  {
+   "path": "docs/roadmap_v2_acceptance/lexical_examples.json",
+   "sha256": "ba5ab2d1c60fb769c265cda3e0f463f34bd5213ee6efb305aca062f7a1480939"
+  }
+ ],
+ "limits": "Diagnostic current lexical identity and separately labelled historical storage evidence. No source rewrite or arbitrary value provenance. Wall times are diagnostic samples, not a speedup benchmark; four-thread matrices initially overlapped, and the one-thread private run overlapped a later model download.",
+ "tools": {
+  "scripts/binding_graph.py": "dac482ad45d1459060556dc9f1a9d5e7e2ceaef4f262a4bba7e5243f4547a98d",
+  "scripts/binding_graph_controls.py": "86e4539363c9263d640b90fcf48e4804b746540581338b6b1847c9aaf019732f",
+  "scripts/test_binding_graph.py": "781ce8db5bfe9e0807f73cee0027ab26582d40ac868c4bde2c4bdd31ffeb0615"
+ }
+}

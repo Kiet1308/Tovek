@@ -14,6 +14,11 @@ capture-cell merge, an eager evaluation or a close-certificate transfer.
 Compiler-recorded `SourceBinding` evidence remains separate and retains its
 existing compatibility rules.
 
+The optional [lexical declaration graph](lexical_binding_graph.md) joins these
+storage IDs to parser-resolved declarations in the exact emitted source. One
+storage ID may serve several declarations; graph consumers must preserve that
+distinction and the explicit ambiguous/unknown attribution.
+
 ## Records and interpretation
 
 | Record | Meaning |

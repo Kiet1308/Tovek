@@ -1,0 +1,2162 @@
+{
+ "schema_version": 1,
+ "ast_sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3",
+ "summary": {
+  "controls": 15,
+  "passed": 15
+ },
+ "rows": [
+  {
+   "case": "shadow",
+   "source": "local x = 1\ndo local x = x; print(x) end\nreturn x",
+   "expected": [
+    [
+     "x",
+     "local",
+     3,
+     false,
+     false
+    ],
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "x",
+     "local",
+     3,
+     false,
+     false
+    ],
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "fad61deceec8a9b8df84bbfbe4ddbc2a38e8a4265093b8f3021b4eeb9b56146d",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 22,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       49
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "x",
+      "parser_location": "0,6 - 0,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       7
+      ],
+      "anchor_span": [
+       6,
+       7
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         7
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         25,
+         26
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         48,
+         49
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "x",
+      "parser_location": "1,9 - 1,10",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       21,
+       22
+      ],
+      "anchor_span": [
+       21,
+       22
+      ],
+      "tokens": [
+       {
+        "span": [
+         21,
+         22
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         34,
+         35
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "for_header_outer_scope",
+   "source": "local i = 3\nfor i = i, i do print(i) end\nfor i, value in next, {i} do print(i, value) end\nreturn i",
+   "expected": [
+    [
+     "i",
+     "local",
+     5,
+     false,
+     false
+    ],
+    [
+     "i",
+     "iteration",
+     2,
+     false,
+     false
+    ],
+    [
+     "i",
+     "iteration",
+     2,
+     false,
+     false
+    ],
+    [
+     "value",
+     "iteration",
+     2,
+     false,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "i",
+     "local",
+     5,
+     false,
+     false
+    ],
+    [
+     "i",
+     "iteration",
+     2,
+     false,
+     false
+    ],
+    [
+     "i",
+     "iteration",
+     2,
+     false,
+     false
+    ],
+    [
+     "value",
+     "iteration",
+     2,
+     false,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "1073ddb6a138568ccb2ced2314dfa2027d690118d882e5a0e21270669e582335",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 39,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       98
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "i",
+      "parser_location": "0,6 - 0,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       7
+      ],
+      "anchor_span": [
+       6,
+       7
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         7
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         20,
+         21
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         23,
+         24
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         64,
+         65
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         97,
+         98
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "i",
+      "parser_location": "1,4 - 1,5",
+      "owner_function": "f0",
+      "kind": "iteration",
+      "declaration_span": [
+       16,
+       17
+      ],
+      "anchor_span": [
+       16,
+       17
+      ],
+      "tokens": [
+       {
+        "span": [
+         16,
+         17
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         34,
+         35
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d2",
+      "name": "i",
+      "parser_location": "2,4 - 2,5",
+      "owner_function": "f0",
+      "kind": "iteration",
+      "declaration_span": [
+       45,
+       46
+      ],
+      "anchor_span": [
+       45,
+       46
+      ],
+      "tokens": [
+       {
+        "span": [
+         45,
+         46
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         76,
+         77
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d3",
+      "name": "value",
+      "parser_location": "2,7 - 2,12",
+      "owner_function": "f0",
+      "kind": "iteration",
+      "declaration_span": [
+       48,
+       53
+      ],
+      "anchor_span": [
+       48,
+       53
+      ],
+      "tokens": [
+       {
+        "span": [
+         48,
+         53
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         79,
+         84
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "repeat_until_inner_scope",
+   "source": "local x = 4\nrepeat local x = x - 1 until x == 0\nreturn x",
+   "expected": [
+    [
+     "x",
+     "local",
+     3,
+     false,
+     false
+    ],
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "x",
+     "local",
+     3,
+     false,
+     false
+    ],
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "9199adeecd188ab572e1498533f42f747d9e920c38d9b4a85f4a750034fc550f",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 23,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       56
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "x",
+      "parser_location": "0,6 - 0,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       7
+      ],
+      "anchor_span": [
+       6,
+       7
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         7
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         29,
+         30
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         55,
+         56
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "x",
+      "parser_location": "1,13 - 1,14",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       25,
+       26
+      ],
+      "anchor_span": [
+       25,
+       26
+      ],
+      "tokens": [
+       {
+        "span": [
+         25,
+         26
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         41,
+         42
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "recursive_capture",
+   "source": "local function f(x) return function() x += 1; return f(x) end end\nreturn f",
+   "expected": [
+    [
+     "f",
+     "local_function",
+     3,
+     true,
+     false
+    ],
+    [
+     "x",
+     "parameter",
+     3,
+     true,
+     true
+    ]
+   ],
+   "actual": [
+    [
+     "f",
+     "local_function",
+     3,
+     true,
+     false
+    ],
+    [
+     "x",
+     "parameter",
+     3,
+     true,
+     true
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "22aa2fc8656648f0d772ff968a24e287b731c3e26df1d20c8f61cc1e49bdbf03",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 33,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       74
+      ]
+     },
+     {
+      "function_id": "f1",
+      "parent": "f0",
+      "span": [
+       0,
+       65
+      ]
+     },
+     {
+      "function_id": "f2",
+      "parent": "f1",
+      "span": [
+       27,
+       61
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "f",
+      "parser_location": "0,15 - 0,16",
+      "owner_function": "f0",
+      "kind": "local_function",
+      "declaration_span": [
+       15,
+       16
+      ],
+      "anchor_span": [
+       15,
+       16
+      ],
+      "tokens": [
+       {
+        "span": [
+         15,
+         16
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         53,
+         54
+        ],
+        "owner_function": "f2",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         73,
+         74
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": true,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "x",
+      "parser_location": "0,17 - 0,18",
+      "owner_function": "f1",
+      "kind": "parameter",
+      "declaration_span": [
+       17,
+       18
+      ],
+      "anchor_span": [
+       17,
+       18
+      ],
+      "tokens": [
+       {
+        "span": [
+         17,
+         18
+        ],
+        "owner_function": "f1",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         38,
+         39
+        ],
+        "owner_function": "f2",
+        "type_only": false,
+        "role": "read_write"
+       },
+       {
+        "span": [
+         55,
+         56
+        ],
+        "owner_function": "f2",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": true,
+      "written_in_output": true,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "colon_capture",
+   "source": "local t = {}\nfunction t:m(x) return function() return self, x end end\nreturn t",
+   "expected": [
+    [
+     "t",
+     "local",
+     3,
+     false,
+     false
+    ],
+    [
+     "self",
+     "implicit_self",
+     1,
+     true,
+     false
+    ],
+    [
+     "x",
+     "parameter",
+     2,
+     true,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "t",
+     "local",
+     3,
+     false,
+     false
+    ],
+    [
+     "self",
+     "implicit_self",
+     1,
+     true,
+     false
+    ],
+    [
+     "x",
+     "parameter",
+     2,
+     true,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "1dd9eb161efbdaacda8ce692ed5d9ffd738848c64e61a05d03446004744d744f",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 36,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       78
+      ]
+     },
+     {
+      "function_id": "f1",
+      "parent": "f0",
+      "span": [
+       13,
+       69
+      ]
+     },
+     {
+      "function_id": "f2",
+      "parent": "f1",
+      "span": [
+       36,
+       65
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "t",
+      "parser_location": "0,6 - 0,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       7
+      ],
+      "anchor_span": [
+       6,
+       7
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         7
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         22,
+         23
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         77,
+         78
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "self",
+      "parser_location": "1,0 - 1,8",
+      "owner_function": "f1",
+      "kind": "implicit_self",
+      "declaration_span": null,
+      "anchor_span": [
+       13,
+       21
+      ],
+      "tokens": [
+       {
+        "span": [
+         54,
+         58
+        ],
+        "owner_function": "f2",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": true,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d2",
+      "name": "x",
+      "parser_location": "1,13 - 1,14",
+      "owner_function": "f1",
+      "kind": "parameter",
+      "declaration_span": [
+       26,
+       27
+      ],
+      "anchor_span": [
+       26,
+       27
+      ],
+      "tokens": [
+       {
+        "span": [
+         26,
+         27
+        ],
+        "owner_function": "f1",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         60,
+         61
+        ],
+        "owner_function": "f2",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": true,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "initializer_outer_scope",
+   "source": "local x = 2\nlocal x = function() return x end\nreturn x",
+   "expected": [
+    [
+     "x",
+     "local",
+     2,
+     true,
+     false
+    ],
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "x",
+     "local",
+     2,
+     true,
+     false
+    ],
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "1ab50e9013cff5a59101d8a3cf06a347d96a7e39e1d760850be0116f657cbf9c",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 24,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       54
+      ]
+     },
+     {
+      "function_id": "f1",
+      "parent": "f0",
+      "span": [
+       22,
+       45
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "x",
+      "parser_location": "0,6 - 0,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       7
+      ],
+      "anchor_span": [
+       6,
+       7
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         7
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         40,
+         41
+        ],
+        "owner_function": "f1",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": true,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "x",
+      "parser_location": "1,6 - 1,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       18,
+       19
+      ],
+      "anchor_span": [
+       18,
+       19
+      ],
+      "tokens": [
+       {
+        "span": [
+         18,
+         19
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         53,
+         54
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "interpolation",
+   "source": "local x = 2\nreturn `hello {x}`",
+   "expected": [
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "071634ac24c7ef967eec58d86137a98cfcf8905382701b739c31a0cc7c33776a",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 15,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       30
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "x",
+      "parser_location": "0,6 - 0,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       7
+      ],
+      "anchor_span": [
+       6,
+       7
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         7
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         27,
+         28
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "utf8_crlf",
+   "source": "-- \u754c\r\nlocal x = \"\u754c\"; x = x .. \"!\"\r\nreturn x",
+   "expected": [
+    [
+     "x",
+     "local",
+     4,
+     false,
+     true
+    ]
+   ],
+   "actual": [
+    [
+     "x",
+     "local",
+     4,
+     false,
+     true
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "64eae48b6ea2fb7bf28ad37adb383db7bc3f19641bd49825d0c91e89401c168c",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 17,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       47
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "x",
+      "parser_location": "1,6 - 1,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       14,
+       15
+      ],
+      "anchor_span": [
+       14,
+       15
+      ],
+      "tokens": [
+       {
+        "span": [
+         14,
+         15
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         25,
+         26
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "write"
+       },
+       {
+        "span": [
+         29,
+         30
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         46,
+         47
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": true,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "typeof_is_not_runtime_capture",
+   "source": "local x = 1\nlocal function f() type T = typeof(x); return nil end\nreturn f",
+   "expected": [
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ],
+    [
+     "f",
+     "local_function",
+     2,
+     false,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "x",
+     "local",
+     2,
+     false,
+     false
+    ],
+    [
+     "f",
+     "local_function",
+     2,
+     false,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "ba58ea41778ac96d789ccc003d8ff10dd1bf6a104a1e27b888b7cd6860601c49",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 27,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       74
+      ]
+     },
+     {
+      "function_id": "f1",
+      "parent": "f0",
+      "span": [
+       12,
+       65
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "x",
+      "parser_location": "0,6 - 0,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       7
+      ],
+      "anchor_span": [
+       6,
+       7
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         7
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         47,
+         48
+        ],
+        "owner_function": "f1",
+        "type_only": true,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "f",
+      "parser_location": "1,15 - 1,16",
+      "owner_function": "f0",
+      "kind": "local_function",
+      "declaration_span": [
+       27,
+       28
+      ],
+      "anchor_span": [
+       27,
+       28
+      ],
+      "tokens": [
+       {
+        "span": [
+         27,
+         28
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         73,
+         74
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "shadow_implicit_self",
+   "source": "local self = 1\nlocal t = {}\nfunction t:m() local self = self; return self end\nreturn self",
+   "expected": [
+    [
+     "self",
+     "local",
+     2,
+     false,
+     false
+    ],
+    [
+     "t",
+     "local",
+     2,
+     false,
+     false
+    ],
+    [
+     "self",
+     "implicit_self",
+     1,
+     false,
+     false
+    ],
+    [
+     "self",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "self",
+     "local",
+     2,
+     false,
+     false
+    ],
+    [
+     "t",
+     "local",
+     2,
+     false,
+     false
+    ],
+    [
+     "self",
+     "implicit_self",
+     1,
+     false,
+     false
+    ],
+    [
+     "self",
+     "local",
+     2,
+     false,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "e3cc0f833270da369d8a4fffebb9c0f5ff84e3e4773fb9329c2bcbfee2ccb609",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 35,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       89
+      ]
+     },
+     {
+      "function_id": "f1",
+      "parent": "f0",
+      "span": [
+       28,
+       77
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "self",
+      "parser_location": "0,6 - 0,10",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       10
+      ],
+      "anchor_span": [
+       6,
+       10
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         10
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         85,
+         89
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "t",
+      "parser_location": "1,6 - 1,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       21,
+       22
+      ],
+      "anchor_span": [
+       21,
+       22
+      ],
+      "tokens": [
+       {
+        "span": [
+         21,
+         22
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         37,
+         38
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d2",
+      "name": "self",
+      "parser_location": "2,0 - 2,8",
+      "owner_function": "f1",
+      "kind": "implicit_self",
+      "declaration_span": null,
+      "anchor_span": [
+       28,
+       36
+      ],
+      "tokens": [
+       {
+        "span": [
+         56,
+         60
+        ],
+        "owner_function": "f1",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d3",
+      "name": "self",
+      "parser_location": "2,21 - 2,25",
+      "owner_function": "f1",
+      "kind": "local",
+      "declaration_span": [
+       49,
+       53
+      ],
+      "anchor_span": [
+       49,
+       53
+      ],
+      "tokens": [
+       {
+        "span": [
+         49,
+         53
+        ],
+        "owner_function": "f1",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         69,
+         73
+        ],
+        "owner_function": "f1",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "index_stores_read_base_and_key",
+   "source": "local t = {}; local k = 1; t[k] = 2; t[k] += 3; return t",
+   "expected": [
+    [
+     "t",
+     "local",
+     4,
+     false,
+     false
+    ],
+    [
+     "k",
+     "local",
+     3,
+     false,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "t",
+     "local",
+     4,
+     false,
+     false
+    ],
+    [
+     "k",
+     "local",
+     3,
+     false,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "8e3b21aa457c676f3a96663be294d67d15049e876b062e8f3653f518edc0c90a",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 28,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       56
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "t",
+      "parser_location": "0,6 - 0,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       7
+      ],
+      "anchor_span": [
+       6,
+       7
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         7
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         27,
+         28
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         37,
+         38
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         55,
+         56
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "k",
+      "parser_location": "0,20 - 0,21",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       20,
+       21
+      ],
+      "anchor_span": [
+       20,
+       21
+      ],
+      "tokens": [
+       {
+        "span": [
+         20,
+         21
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         29,
+         30
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       },
+       {
+        "span": [
+         39,
+         40
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "annotation_typeof_references",
+   "source": "local x = 1\nlocal f: (typeof(x)) -> typeof(x) = function(y) return y end\nreturn f",
+   "expected": [
+    [
+     "x",
+     "local",
+     3,
+     false,
+     false
+    ],
+    [
+     "f",
+     "local",
+     2,
+     false,
+     false
+    ],
+    [
+     "y",
+     "parameter",
+     2,
+     false,
+     false
+    ]
+   ],
+   "actual": [
+    [
+     "x",
+     "local",
+     3,
+     false,
+     false
+    ],
+    [
+     "f",
+     "local",
+     2,
+     false,
+     false
+    ],
+    [
+     "y",
+     "parameter",
+     2,
+     false,
+     false
+    ]
+   ],
+   "graph": {
+    "schema_version": 1,
+    "model": "luau-lexical-declarations-v1",
+    "source_sha256": "2829537a68bdc0a965843b92f89d7fc29b74cc0230800c7e358026734c067474",
+    "limits": {
+     "source_bytes": 4194304,
+     "json_bytes": 67108864,
+     "nodes": 200000,
+     "depth": 256,
+     "declarations": 50000,
+     "tokens": 100000,
+     "parser_seconds": 30,
+     "stderr_bytes": 1048576
+    },
+    "visited_nodes": 39,
+    "functions": [
+     {
+      "function_id": "f0",
+      "parent": null,
+      "span": [
+       0,
+       81
+      ]
+     },
+     {
+      "function_id": "f1",
+      "parent": "f0",
+      "span": [
+       48,
+       72
+      ]
+     }
+    ],
+    "declarations": [
+     {
+      "declaration_id": "d0",
+      "name": "x",
+      "parser_location": "0,6 - 0,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       6,
+       7
+      ],
+      "anchor_span": [
+       6,
+       7
+      ],
+      "tokens": [
+       {
+        "span": [
+         6,
+         7
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         29,
+         30
+        ],
+        "owner_function": "f0",
+        "type_only": true,
+        "role": "read"
+       },
+       {
+        "span": [
+         43,
+         44
+        ],
+        "owner_function": "f0",
+        "type_only": true,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d1",
+      "name": "f",
+      "parser_location": "1,6 - 1,7",
+      "owner_function": "f0",
+      "kind": "local",
+      "declaration_span": [
+       18,
+       19
+      ],
+      "anchor_span": [
+       18,
+       19
+      ],
+      "tokens": [
+       {
+        "span": [
+         18,
+         19
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         80,
+         81
+        ],
+        "owner_function": "f0",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     },
+     {
+      "declaration_id": "d2",
+      "name": "y",
+      "parser_location": "1,45 - 1,46",
+      "owner_function": "f1",
+      "kind": "parameter",
+      "declaration_span": [
+       57,
+       58
+      ],
+      "anchor_span": [
+       57,
+       58
+      ],
+      "tokens": [
+       {
+        "span": [
+         57,
+         58
+        ],
+        "owner_function": "f1",
+        "type_only": false,
+        "role": "declaration"
+       },
+       {
+        "span": [
+         67,
+         68
+        ],
+        "owner_function": "f1",
+        "type_only": false,
+        "role": "read"
+       }
+      ],
+      "captured_in_output": false,
+      "written_in_output": false,
+      "storage_id": null,
+      "recorded_identity_status": "no_storage_mapping",
+      "recorded_origins": []
+     }
+    ],
+    "storage": []
+   },
+   "status": "passed"
+  },
+  {
+   "case": "parser_stdout_cap",
+   "expected": "parser_output_budget",
+   "actual": "parser_output_budget",
+   "status": "passed"
+  },
+  {
+   "case": "parser_stderr_cap",
+   "expected": "parser_output_budget",
+   "actual": "parser_output_budget",
+   "status": "passed"
+  },
+  {
+   "case": "parser_timeout",
+   "expected": "parser_time_budget",
+   "actual": "parser_time_budget",
+   "status": "passed"
+  }
+ ]
+}
