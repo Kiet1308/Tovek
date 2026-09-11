@@ -1,0 +1,20 @@
+{
+ "schema_version": 1,
+ "source_manifest": "source_corpus_v2.json",
+ "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+ "fingerprint_model": "luau-v9-exact-image-v1",
+ "admission": {
+  "minimum_instructions": 8,
+  "minimum_substantive_instructions": 4,
+  "ambiguity": "Refuse when full image matches more than one distinct source SHA-256; optimization profiles of the same source are grouped.",
+  "cross_version": "Refuse; no fuzzy, register-normalized or opcode-multiset lookup.",
+  "metadata_scope": "Function names, type payloads, native flags and string pool remain exact. Debug line/local tables may differ and are reported. Debug line/stack reflection is outside source compatibility. Explicit opaque container trailers are not authenticated."
+ },
+ "profiles": [
+  {"id": "o0", "opt": 0, "debug": 1, "type_info": 0, "source_preamble": "", "flags": ["--fflags=false"]},
+  {"id": "o1", "opt": 1, "debug": 1, "type_info": 0, "source_preamble": "", "flags": ["--fflags=false"]},
+  {"id": "o2", "opt": 2, "debug": 1, "type_info": 0, "source_preamble": "", "flags": ["--fflags=false"]},
+  {"id": "native_o2", "opt": 2, "debug": 1, "type_info": 1, "source_preamble": "--!native\n", "flags": ["--fflags=false"]},
+  {"id": "native_o2_vector3", "opt": 2, "debug": 1, "type_info": 1, "source_preamble": "--!native\n", "flags": ["--fflags=false", "--vector-lib=Vector3", "--vector-ctor=new", "--vector-type=Vector3"]}
+ ]
+}

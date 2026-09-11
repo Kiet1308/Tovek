@@ -225,6 +225,21 @@ jobs:
             --report "$RUNNER_TEMP/roadmap-v2-public-lineage.json" \
             --keep "$RUNNER_TEMP/roadmap-v2-public-lineage"
 
+      - name: V2 exact source registry and ambiguity controls
+        run: |
+          python3 scripts/source_registry_controls.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --keep "$RUNNER_TEMP/roadmap-v2-registry-controls" \
+            --report "$RUNNER_TEMP/roadmap-v2-registry-controls.json"
+          python3 scripts/source_registry.py build \
+            --vendor "$RUNNER_TEMP/roadmap-v2-vendor" \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --registry "$RUNNER_TEMP/roadmap-v2-registry"
+          python3 scripts/source_registry_audit.py \
+            --registry "$RUNNER_TEMP/roadmap-v2-registry" \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --report "$RUNNER_TEMP/roadmap-v2-registry-public.json"
+
       # Bytecode round-trip oracle: decompile -> recompile with the pinned
       # compiler -> compare normalised prototypes with the original bytecode.
       # Gated against the committed baselines: no fixture may regress in
@@ -269,4 +284,6 @@ jobs:
             ${{ runner.temp }}/roadmap-v2-generated/**/*.luau
             ${{ runner.temp }}/roadmap-v2-public.json
             ${{ runner.temp }}/roadmap-v2-module-*.json
+            ${{ runner.temp }}/roadmap-v2-registry-*.json
+            ${{ runner.temp }}/roadmap-v2-registry/index.json
           if-no-files-found: warn

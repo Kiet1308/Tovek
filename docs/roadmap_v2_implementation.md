@@ -1,5 +1,13 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R8: exact, license-bearing upstream source registry
+
+The optional offline registry pins source/commit/license/compiler profiles and retains full v9 execution images, including registers, AUX bits, constant bytes, native flags and type payloads. Source-text ambiguity and low-information chunks refuse selection; other versions have no flexible fallback. Accepted source is freshly recompiled. Labelled materialization preserves license artifacts and passes another full-image recompile gate. [Contract and commands](source_registry.md).
+
+Two fresh builds of 171 sources at five profiles yield the same registry index. All 855 independent public recompile/lookup configurations and 28 real-compiler controls pass; 80 Python tests pass. The two nontrivial Rodux source-text collisions correctly refuse selection. These public checks are registry self-consistency, not holdout generalization. Private lookup verifies seven distinct Fusion sources among 3,936 nonempty files (0.18%); 3,633 have no match and 296 fail the low-information threshold. All six historical return-nil collisions refuse selection. Of eleven previous nontrivial candidates, seven verify, two fail the stronger image comparison, and two are too small for admission.
+
+All seven matched outputs were exported separately with commit/license/profile metadata, input hashes rechecked, and the labelled source recompiled. Default decompiler output and the Rust core are unchanged. The observed sum of private per-file lookup time is 45.772 seconds excluding registry startup; the public recompile audit plus materialization took 38.121 seconds. These are single-run costs, not benchmark improvements. This coverage supports retaining the registry as an optional extension. [Validation inventory](roadmap_v2_acceptance/registry_validation.json).
+
 ## R2/R6: emitted identifier and annotation locations
 
 Optional binding provenance now records exact final identifier positions and annotation spans. A token links to its final IR binding ID, then to the existing bounded storage lineage and original lifted-statement PC sets. This does not claim a unique value-producing PC. Interpolation sub-rendering and display fallbacks retain explicit opaque regions. [Contract and lookup command](emission_map.md).

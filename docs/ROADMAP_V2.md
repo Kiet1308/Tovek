@@ -460,11 +460,13 @@ Thí nghiệm so fingerprint toàn chunk, giữ opcode đã decode, mọi regist
 
 **Công việc:**
 
-- [ ] Tạo registry source có commit, license, compiler/version/options và fingerprint; giữ source lookup tách biệt với decompiler core.
-- [ ] Chấp nhận source tương thích chỉ sau kiểm tra đầy đủ; loại các match entropy thấp hoặc có nhiều source không phân biệt được. Module fork có thay đổi phải tiếp tục decompile bình thường nếu không xác minh được.
-- [ ] Với compiler/version khác, chỉ mở so sánh linh hoạt sau khi tầng use–def/CFG/arity đủ mạnh; không dùng fuzzy text hoặc opcode multiset để thay source.
-- [ ] Ghi output là “matched upstream source”, cùng nguồn/commit và khác biệt đã biết; không nói comment/type alias đó đã được khôi phục từ bytecode.
-- [ ] Đo coverage thực trên từng họ thư viện và phần custom code còn lại trước khi đầu tư mở registry lớn.
+- [x] Tạo registry source có commit, license, compiler/version/options và fingerprint; giữ source lookup tách biệt với decompiler core.
+- [x] Chấp nhận source tương thích chỉ sau kiểm tra đầy đủ; loại các match entropy thấp hoặc có nhiều source không phân biệt được. Module fork có thay đổi phải tiếp tục decompile bình thường nếu không xác minh được.
+- [x] Với compiler/version khác, chỉ mở so sánh linh hoạt sau khi tầng use–def/CFG/arity đủ mạnh; không dùng fuzzy text hoặc opcode multiset để thay source.
+- [x] Ghi output là “matched upstream source”, cùng nguồn/commit và khác biệt đã biết; không nói comment/type alias đó đã được khôi phục từ bytecode.
+- [x] Đo coverage thực trên từng họ thư viện và phần custom code còn lại trước khi đầu tư mở registry lớn.
+
+Đã triển khai registry tùy chọn cho v9/type-info v3, 171 source ở năm profile compiler. Fingerprint giữ cả native flag/type payload; khác version bị từ chối, chưa mở so sánh linh hoạt. Kiểm tra 855 cấu hình public và 28 đối chứng đều qua; corpus private xác minh 7/3.936 file có bytecode, sáu ca return-nil cũ đều bị từ chối. Output được xuất riêng có nhãn, commit/license và recompile gate. [Phạm vi, coverage và giới hạn](source_registry.md).
 
 **Nghiệm thu:** sáu ca return-nil không được tự chọn một source để thay; cùng bytecode nhưng source text khác được báo ambiguous. Match hợp lệ truy được license/commit và kiểm chứng; không thay nhầm một module đã sửa. Với coverage ban đầu hiện có, đây là nhánh bổ sung, chưa thay thế R1–R5.
 
