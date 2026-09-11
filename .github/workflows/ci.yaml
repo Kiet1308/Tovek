@@ -46,6 +46,9 @@ jobs:
       - name: Check lifter
         run: cargo +nightly-2024-12-15 check -p luau-lifter
 
+      - name: Check instrumented API benchmark
+        run: cargo +nightly-2024-12-15 check -p luau-lifter --example benchmark_api --features allocation-counts
+
       - name: Build release lifter
         run: cargo +nightly-2024-12-15 build --release -p luau-lifter
 

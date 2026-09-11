@@ -1,5 +1,13 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R7a: separate API, CLI and allocation workloads
+
+The native measurement example preloads pinned inputs, runs an explicit Rayon pool and checks every source hash outside the measured API interval. A separate executable wraps the same mimalloc allocator with requested-payload counters; instrumented timings are excluded from speed summaries. The harness fixes small/large thresholds and four representative files before timing, preserves relative module context and reports each process, first call and repeated sample. [Contract and results](api_benchmark.md).
+
+All 112 API calls, 112 CLI processes (98 measured, 14 warm-ups) and 14 instrumented calls match the accepted CLI output, including all 3,978 private files. Seven samples give whole-corpus API medians 16.283 s / 1.276 s at 1/16 threads, versus CLI 18.086 s / 1.667 s. API whole-process peak RSS is 64,835,584 / 164,122,624 bytes; median CLI peak RSS is 33,345,536 / 117,129,216 bytes. API retains all batch results; the CLI writes/releases individual results. This is not a before/after speedup claim.
+
+The repeated one-thread whole-corpus call records 253,686,740 allocations, 9,632,072 reallocations and 12,466,967,133 cumulative requested bytes. Peak live requested payload is 41,084,060 bytes, including preloaded input and retained results; there are no allocation failures. These counts do not establish an allocation bottleneck. Eighty Python tests and six executable input/output-hash, path, diagnostic and budget controls pass; both example builds and instrumented checks pass. OS cold-cache and per-pass allocation attribution remain open. [Validation inventory](roadmap_v2_acceptance/api_validation.json).
+
 ## R7: executable/context cache and safe cross-path reuse
 
 The optional folder cache keys decoded bytes, decode key, exact executable, every option, analysis mode, module naming context and the output-affecting shared-tail environment. Per-file path/export metadata is regenerated. It validates complete keys and payload checksums, bounds entry/serialization/disk usage, refuses unknown cache ownership, and applies smaller quotas at startup. Profiling/dump environments bypass it. Nested Rayon computations never hold cache locks; concurrent duplicate misses may recompute, with one checked publication. [Contract and command](artifact_cache.md).

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "threshold_bytes": {
+    "small_at_most": 1616,
+    "large_at_least": 8556
+  },
+  "counts": {
+    "all": 3978,
+    "small": 1968,
+    "large": 395,
+    "write": 1,
+    "lightning": 1,
+    "promise": 1,
+    "ui": 1
+  },
+  "named": {
+    "write": "ReplicatedStorage/Shared/Network/BufferEncoder/Write.lua",
+    "lightning": "ReplicatedStorage/DivergentVFX/LightningCore.lua",
+    "promise": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/pkg/Promise.lua",
+    "ui": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/init.lua"
+  },
+  "selection": "Fixed before timing; small/large use lower-sample p50/p90 nonempty decoded sizes at index floor((n-1)*q); UI is the largest decoded input within FusionPackage/Components."
+}

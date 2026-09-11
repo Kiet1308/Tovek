@@ -428,8 +428,9 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 - [x] Nền tảng profiler JSON theo file/prototype/pass: context riêng cho worker, inclusive/exclusive thread-wall timing, counter deterministic, giới hạn record và báo phần chưa đo. [Hợp đồng và cách chạy](pass_profiling.md).
 - [ ] Thêm report JSON theo file/prototype/pass, gồm thời gian, số iteration, số node trước/sau, số candidate/refusal và cache hit. Tách exclusive/inclusive timing. — Đã có timing, counter/census cho de-inline/factoring và counter cache của SSA inline; census của mọi pass và allocation accounting còn mở.
 - [x] Tách common-tail factoring khỏi `S_DEINLINE`; đo cả lần factoring đầu, số lần fixed point và các summary được tính lại. Counter hiện tại chưa đủ để quy toàn bộ 5,923 s cho matching. — Đã đo riêng initial/fixed-point factoring, write census, target collection và match/canonicalization counts; xem implementation record.
-- [ ] Thêm benchmark in-memory API, CLI I/O, cold/warm cache và nhóm file nhỏ/lớn; ghi build hash, options, CPU, thread count, phân bố và số mẫu.
-- [ ] Đo allocation count/bytes và peak RSS trên ít nhất `Write`, `LightningCore`, `Promise`, một UI lớn và toàn corpus. Những nhận định allocation-bound cũ cần được kiểm chứng lại trên pipeline V2.
+- [ ] Thêm benchmark in-memory API, CLI I/O, cold/warm cache và nhóm file nhỏ/lớn; ghi build hash, options, CPU, thread count, phân bố và số mẫu. — API/CLI warm-cache và artifact cache đã đo; OS cold-cache còn mở.
+- [x] Benchmark API trong bộ nhớ và CLI warm-cache trên toàn corpus, nhóm nhỏ/lớn và bốn file đại diện; khóa input/output/build/options, chạy 1/16 thread, giữ từng mẫu và ownership/RSS contract. [Số đo và cách tái lập](api_benchmark.md).
+- [x] Đo allocation count/bytes và peak RSS trên ít nhất `Write`, `LightningCore`, `Promise`, một UI lớn và toàn corpus. — Bản đếm mimalloc riêng, 1 thread, first/repeated call, mọi output khớp hash. Số đếm chưa chứng minh allocation-bound; requested bytes không phải RAM hay bytes copied. [Phạm vi và kết quả](api_benchmark.md).
 
 **R7b — Tối ưu pass và representation:**
 

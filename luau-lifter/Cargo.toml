@@ -43,3 +43,5 @@ fs2 = "0.4.3"
 [features]
 dhat-heap = []
 panic-handled = []
+# Optional counters in the benchmark_api example; ordinary binaries are unchanged.
+allocation-counts = []
