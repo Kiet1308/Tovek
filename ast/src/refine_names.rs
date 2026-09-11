@@ -44,6 +44,13 @@ pub struct BindingReport {
     pub scope: Option<usize>,
     pub status: &'static str,
     pub candidates: Vec<Candidate>,
+    pub type_evidence: Vec<TypeEvidence>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeEvidence {
+    pub representation: String,
+    pub origin: &'static str,
 }
 
 #[derive(Debug, Default)]
@@ -71,7 +78,28 @@ struct Node {
     key_use: bool,
     module_leaf: Option<String>,
     candidates: Vec<Candidate>,
+    type_evidence: Vec<TypeEvidence>,
     overflow: bool,
+}
+
+enum ReturnRole {
+    Binding(u64),
+    Field(String),
+}
+
+struct FunctionRoles {
+    parameters: Vec<u64>,
+    // Only a straight-line body with a fixed tuple of scalar local/field
+    // reads. Field names describe result roles, not effect-free value aliases.
+    // Never a guessed open pack, implicit nil, branch or nested-function return.
+    returns: Option<Vec<ReturnRole>>,
+    variadic: bool,
+}
+
+struct ResultUse {
+    callee: Option<u64>,
+    arguments: Option<usize>,
+    destinations: Vec<Option<u64>>,
 }
 
 struct Graph {
@@ -81,7 +109,10 @@ struct Graph {
     scopes: Vec<Option<usize>>,
     globals: BTreeSet<String>,
     copies: Vec<(u64, u64)>,
-    functions: BTreeMap<u64, Vec<u64>>,
+    functions: BTreeMap<u64, FunctionRoles>,
+    results: Vec<ResultUse>,
+    reads: Vec<(u64, String)>,
+    joins: Vec<(u64, u64, u64)>,
     calls: Vec<(Option<u64>, Vec<Option<u64>>)>,
     report: Report,
 }
@@ -244,6 +275,9 @@ impl Graph {
                     from_binding: None,
                 });
             }
+            let type_evidence = data.1.as_ref().map(|hint| TypeEvidence {
+                representation: hint.clone(), origin: "recorded_bytecode_local_type_naming_hint",
+            }).into_iter().collect();
             drop(data);
             self.nodes.insert(
                 id,
@@ -259,6 +293,7 @@ impl Graph {
                     key_use: false,
                     module_leaf: None,
                     candidates,
+                    type_evidence,
                     overflow: false,
                 },
             );
@@ -376,8 +411,18 @@ impl Graph {
                 }
                 let child = self.child_scope(scope);
                 let function = closure.function.lock();
-                for parameter in &function.parameters {
+                for (index, parameter) in function.parameters.iter().enumerate() {
                     self.declare(parameter, child, "parameter");
+                    if let Some(node) = self.nodes.get_mut(&parameter.stable_id()) {
+                        if let Some(annotation) = function.parameter_annotations.get(index).and_then(Option::as_ref) {
+                            node.type_evidence.push(TypeEvidence { representation: annotation.clone(),
+                                origin: "recorded_bytecode_parameter_annotation" });
+                        }
+                        if let Some(hint) = function.parameter_name_hints.get(index).and_then(Option::as_ref) {
+                            node.type_evidence.push(TypeEvidence { representation: hint.clone(),
+                                origin: "recorded_bytecode_parameter_type_naming_hint" });
+                        }
+                    }
                 }
                 self.block(&function.body, child, depth + 1);
                 return;
@@ -414,9 +459,29 @@ impl Graph {
     }
 
     fn block(&mut self, block: &Block, scope: usize, depth: usize) {
-        for statement in block.iter() {
+        for (index, statement) in block.iter().enumerate() {
             if !self.visit(depth) {
                 return;
+            }
+            if let Statement::If(branch) = statement {
+                let arm = |body: &Block| -> Option<(u64, u64)> {
+                    if body.len() != 1 { return None; }
+                    let Statement::Assign(a) = &body[0] else { return None; };
+                    if a.prefix || a.left.len() != 1 || a.right.len() != 1 { return None; }
+                    Some((a.left[0].as_local()?.stable_id(), local_id(&a.right[0])?))
+                };
+                let (a, b) = (arm(&branch.then_block.lock()), arm(&branch.else_block.lock()));
+                if let (Some((dest, left)), Some((other, right))) = (a, b) {
+                    if dest == other && index > 0 {
+                        if let Statement::Assign(declaration) = &block[index - 1] {
+                            if declaration.prefix && declaration.left.len() == 1
+                                && declaration.left[0].as_local().is_some_and(|l| l.stable_id() == dest)
+                                && (declaration.right.is_empty() || matches!(declaration.right.as_slice(), [RValue::Literal(Literal::Nil)])) {
+                                self.joins.push((dest, left, right));
+                            }
+                        }
+                    }
+                }
             }
             match statement {
                 Statement::Assign(assign) => {
@@ -441,6 +506,16 @@ impl Graph {
                             }
                         }
                     }
+                    if assign.right.len() == 1 {
+                        if let Some(call) = as_call(&assign.right[0]) {
+                            // In assignment position the lifter also uses
+                            // Select::Call for a fixed multi-result CALL. The
+                            // formatter emits it bare; the LHS fixes its arity.
+                            self.results.push(ResultUse { callee: local_id(&call.value),
+                                arguments: call.arguments.last().is_none_or(|arg| !matches!(arg, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))).then_some(call.arguments.len()),
+                                destinations: assign.left.iter().map(|v| v.as_local().map(RcLocal::stable_id)).collect() });
+                        }
+                    }
                     for (left, right) in assign.left.iter().zip(&assign.right) {
                         match left {
                             LValue::Index(index) => self.role(&index.right, right),
@@ -451,17 +526,29 @@ impl Graph {
                                 if let Some(node) = self.nodes.get_mut(&local.stable_id()) {
                                     node.module_leaf = module_leaf(right);
                                 }
+                                if let RValue::Index(index) = right {
+                                    if let Some(role) = string(&index.right).and_then(field_role) {
+                                        self.reads.push((local.stable_id(), role));
+                                    }
+                                }
                                 if let RValue::Closure(closure) = right {
-                                    self.functions.insert(
-                                        local.stable_id(),
-                                        closure
-                                            .function
-                                            .lock()
-                                            .parameters
-                                            .iter()
-                                            .map(RcLocal::stable_id)
-                                            .collect(),
-                                    );
+                                    let function = closure.function.lock();
+                                    let returns = (function.body.len() <= self.options.node_budget && function.parameters.len() <= self.options.binding_budget).then(|| function.body.last()).flatten().and_then(|tail| {
+                                        let Statement::Return(ret) = tail else { return None; };
+                                        if function.body.iter().take(function.body.len() - 1).any(|s| !matches!(s,
+                                            Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_))) {
+                                            return None;
+                                        }
+                                        ret.values.iter().map(|value| match value {
+                                            RValue::Local(local) => Some(ReturnRole::Binding(local.stable_id())),
+                                            RValue::Index(index) => string(&index.right).and_then(field_role).map(ReturnRole::Field),
+                                            _ => None,
+                                        }).collect::<Option<Vec<_>>>()
+                                    });
+                                    self.functions.insert(local.stable_id(), FunctionRoles {
+                                        parameters: function.parameters.iter().map(RcLocal::stable_id).collect(),
+                                        returns, variadic: function.is_variadic,
+                                    });
                                 }
                             }
                             _ => {}
@@ -530,6 +617,15 @@ impl Graph {
         })
     }
 
+    fn resolvable_function(&self, id: u64) -> bool {
+        // A Ref capture alone does not rebind a function. Resolve only a
+        // lexically owned closure declaration with exactly one write in the
+        // entire graph, including nested closures. Value-role copy edges still
+        // use the stricter immutable() gate and never unify capture cells.
+        self.functions.contains_key(&id) && self.nodes.get(&id).is_some_and(|node|
+            node.kind == "local" && node.writes == 1 && node.scope.is_some() && !node.ambiguous_owner)
+    }
+
     fn propagate(&mut self) {
         let mut edges = Vec::new();
         for &(left, right) in &self.copies {
@@ -541,17 +637,18 @@ impl Graph {
             }
         }
         for (callee, arguments) in &self.calls {
-            let Some(id) = callee.filter(|id| self.immutable(*id)) else {
+            let Some(id) = callee.filter(|id| self.resolvable_function(*id)) else {
                 self.report.unresolved_calls += 1;
                 continue;
             };
-            let Some(parameters) = self.functions.get(&id) else {
+            let Some(function) = self.functions.get(&id) else {
                 self.report.unresolved_calls += 1;
                 continue;
             };
             // Only exact-arity local arguments are connected, never guessed tail
             // results, dynamic dispatch, writes or mutable capture cells.
-            if parameters.len() != arguments.len() {
+            let parameters = &function.parameters;
+            if function.variadic || parameters.len() != arguments.len() {
                 self.report.refused_edges += 1;
                 continue;
             }
@@ -566,8 +663,65 @@ impl Graph {
                 }
             }
         }
+        let mut result_fields = Vec::new();
+        for result in &self.results {
+            let function = result.callee.filter(|id| self.resolvable_function(*id))
+                .and_then(|id| self.functions.get(&id));
+            let Some(function) = function else { continue; };
+            let Some(returns) = &function.returns else { self.report.refused_edges += 1; continue; };
+            if function.variadic || Some(function.parameters.len()) != result.arguments || returns.len() != result.destinations.len() {
+                self.report.refused_edges += 1;
+                continue;
+            }
+            for (source, target) in returns.iter().zip(&result.destinations) {
+                let Some(target) = target.filter(|&id| self.immutable(id)) else {
+                    self.report.refused_edges += 1;
+                    continue;
+                };
+                match source {
+                    ReturnRole::Binding(source) if self.immutable(*source) => {
+                        edges.push((*source, target, "resolved_local_call_result"));
+                    }
+                    ReturnRole::Field(name) => result_fields.push((target, name.clone(), result.callee.unwrap())),
+                    _ => self.report.refused_edges += 1,
+                }
+            }
+        }
+        for (id, name, callee) in result_fields {
+            self.candidate(id, Candidate { name, priority: 65, reason: "resolved_local_call_field_result",
+                witness: format!("fixed return field slot in helper b{callee}; role only, field evaluation is unchanged"),
+                from_binding: Some(callee) });
+        }
+        for (id, name) in std::mem::take(&mut self.reads) {
+            if self.immutable(id) {
+                self.candidate(id, Candidate { name, priority: 80, reason: "record_field_read",
+                    witness: "literal field read assigned to an immutable local; role only".into(), from_binding: None });
+            } else { self.report.refused_edges += 1; }
+        }
+        let joins: Vec<_> = std::mem::take(&mut self.joins).into_iter().filter(|&(dest, a, b)| {
+            let valid = self.immutable(a) && self.immutable(b) && self.nodes.get(&dest).is_some_and(|node|
+                node.kind == "local" && node.scope.is_some() && !node.ambiguous_owner && !node.ref_capture && node.writes == 3);
+            if !valid { self.report.refused_edges += 1; }
+            valid
+        }).collect();
         for _ in 0..4 {
             let mut pending = Vec::new();
+            for &(dest, a, b) in &joins {
+                let best = |id| {
+                    let candidates = &self.nodes[&id].candidates;
+                    let priority = candidates.iter().filter(|c| useful(&c.name)).map(|c| c.priority).max()?;
+                    let names: BTreeSet<_> = candidates.iter().filter(|c| c.priority == priority).map(|c| &c.name).collect();
+                    (priority >= 40 && names.len() == 1).then(|| ((*names.first().unwrap()).clone(), priority))
+                };
+                if let (Some((name, x)), Some((other, y))) = (best(a), best(b)) {
+                    if name == other {
+                        pending.push((dest, Candidate { name, priority: x.min(y).min(66) - 1,
+                            reason: "private_diamond_role_consensus",
+                            witness: format!("immutable inputs b{a} and b{b}; complete adjacent assignment diamond; role only"),
+                            from_binding: None }));
+                    }
+                }
+            }
             for &(source, target, reason) in &edges {
                 for candidate in &self.nodes[&source].candidates {
                     if candidate.priority < 40 || !useful(&candidate.name) {
@@ -740,6 +894,7 @@ impl Graph {
                     scope: node.scope,
                     status: statuses[&id],
                     candidates: node.candidates,
+                    type_evidence: node.type_evidence,
                 });
             }
         }
@@ -756,6 +911,9 @@ pub fn refine_final_names(block: &Block, options: Options) -> Report {
         globals: BTreeSet::new(),
         copies: Vec::new(),
         functions: BTreeMap::new(),
+        results: Vec::new(),
+        reads: Vec::new(),
+        joins: Vec::new(),
         calls: Vec::new(),
         report: Report::default(),
     };
@@ -827,6 +985,120 @@ mod tests {
                 ..Default::default()
             },
         )
+    }
+
+    #[test]
+    fn diamond_roles_require_both_immutable_inputs_to_agree() {
+        for conflict in [false, true] {
+            let a = local("p");
+            let b = local("p2");
+            let selected = local("v");
+            let copy = |from: &RcLocal| Block(vec![Assign::new(vec![selected.clone().into()], vec![from.clone().into()]).into()]);
+            let block = function(vec![a.clone(), b.clone()], vec![
+                assertion(a.clone().into(), "Expected `props`"),
+                assertion(b.clone().into(), if conflict { "Expected `state`" } else { "Expected `props`" }),
+                declare(&selected, Literal::Nil.into()),
+                If::new(global("condition"), copy(&a), copy(&b)).into(),
+                Return::new(vec![selected.clone().into()]).into(),
+            ]);
+            let report = run(&block);
+            assert_eq!(selected.to_string(), if conflict { "v" } else { "props3" });
+            if !conflict {
+                assert!(report.bindings.iter().flat_map(|r| &r.candidates).any(|c| c.reason == "private_diamond_role_consensus"));
+            }
+        }
+    }
+
+    #[test]
+    fn fixed_local_return_tuple_propagates_roles_without_merging_identity() {
+        for refuse in 0..5 {
+            let helper = local("helper");
+            let width = local("v");
+            let height = local("v2");
+            let result = local("v3");
+            let second = local("v4");
+            let field = |key| Index::new(global("record"), text(key)).into();
+            let mut body = vec![declare(&width, field("Width")), declare(&height, field("Height"))];
+            if refuse == 1 {
+                body.push(Assign::new(vec![width.clone().into()], vec![Literal::Nil.into()]).into());
+            }
+            if refuse == 2 {
+                body.push(If::new(Literal::Boolean(true).into(), Block::default(), Block::default()).into());
+            }
+            body.push(Return::new(if refuse == 3 { vec![Call::new(global("unknown"), vec![]).into()] }
+                else { vec![width.clone().into(), height.clone().into()] }).into());
+            let mut statements = vec![declare(&helper, closure(vec![], Block(body)))];
+            if refuse == 4 {
+                statements.push(Assign::new(vec![helper.clone().into()], vec![global("unknown")]).into());
+            }
+            statements.push(Assign { left: vec![result.clone().into(), second.clone().into()],
+                right: vec![Call::new(helper.clone().into(), vec![]).into()], prefix: true, parallel: false }.into());
+            let report = run(&Block(statements));
+            assert_eq!(result.to_string(), if refuse == 0 { "width2" } else { "v3" });
+            if refuse == 0 {
+                assert_eq!(second.to_string(), "height2");
+                let row = report.bindings.iter().find(|b| b.id == result.stable_id()).unwrap();
+                assert!(row.candidates.iter().any(|c| c.reason == "resolved_local_call_result" && c.from_binding == Some(width.stable_id())));
+                assert_ne!(width.stable_id(), result.stable_id());
+            }
+        }
+    }
+
+    #[test]
+    fn direct_field_result_slots_survive_prior_temp_inlining() {
+        let helper = local("measures");
+        let width = local("v");
+        let height = local("v2");
+        let reads = vec![Index::new(global("record"), text("Width")).into(),
+            Index::new(global("record"), text("Height")).into()];
+        let block = Block(vec![declare(&helper, closure(vec![], Block(vec![Return::new(reads).into()]))),
+            Assign { left: vec![width.clone().into(), height.clone().into()],
+                right: vec![RValue::Select(Select::Call(Call::new(helper.clone().into(), vec![])))], prefix: true, parallel: false }.into()]);
+        let report = run(&block);
+        assert_eq!(width.to_string(), "width");
+        assert_eq!(height.to_string(), "height");
+        assert_eq!(block.to_string().matches("record.Width").count(), 1);
+        assert_eq!(block.to_string().matches("record.Height").count(), 1);
+        assert_eq!(report.renamed, 2);
+    }
+
+    #[test]
+    fn ref_captured_helper_resolves_only_without_rebinding_in_any_closure() {
+        for rebound in [false, true] {
+            let helper = local("measures");
+            let width = local("v");
+            let height = local("v2");
+            let mut body = vec![Assign { left: vec![width.clone().into(), height.clone().into()],
+                right: vec![Call::new(helper.clone().into(), vec![]).into()], prefix: true, parallel: false }.into()];
+            if rebound {
+                body.push(Assign::new(vec![helper.clone().into()], vec![global("unknown")]).into());
+            }
+            let mut returned = closure(vec![], Block(body));
+            if let RValue::Closure(closure) = &mut returned { closure.upvalues.push(Upvalue::Ref(helper.clone())); }
+            let block = Block(vec![declare(&helper, closure(vec![], Block(vec![Return::new(vec![
+                Index::new(global("record"), text("Width")).into(),
+                Index::new(global("record"), text("Height")).into(),
+            ]).into()]))), Return::new(vec![returned]).into()]);
+            run(&block);
+            assert_eq!(width.to_string(), if rebound { "v" } else { "width" });
+            assert_eq!(height.to_string(), if rebound { "v2" } else { "height" });
+        }
+    }
+
+    #[test]
+    fn recorded_numeric_type_is_reported_without_inventing_a_domain_role() {
+        let parameter = local("p");
+        let mut function = Function { parameters: vec![parameter.clone()],
+            parameter_annotations: vec![Some("number".into())],
+            parameter_name_hints: vec![Some("number".into())],
+            body: Block(vec![Return::new(vec![parameter.clone().into()]).into()]), ..Default::default() };
+        let block = Block(vec![Return::new(vec![Closure {
+            function: ByAddress(Arc::new(Mutex::new(std::mem::take(&mut function)))), upvalues: vec![],
+        }.into()]).into()]);
+        let report = run(&block);
+        assert_eq!(parameter.to_string(), "p");
+        assert_eq!(report.bindings[0].type_evidence.len(), 2);
+        assert!(report.bindings[0].type_evidence.iter().all(|e| e.representation == "number"));
     }
 
     #[test]

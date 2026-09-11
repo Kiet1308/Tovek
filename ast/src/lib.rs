@@ -49,6 +49,7 @@ pub mod materialize_call_receivers;
 pub mod materialize_value_captures;
 pub mod name_locals;
 pub mod naming_evidence;
+pub mod naming_api;
 pub mod refine_names;
 pub mod normalize_conditions;
 pub mod rebalance_expressions;

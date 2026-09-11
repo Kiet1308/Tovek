@@ -156,6 +156,20 @@
       "source": "wide_layout.luau",
       "driver": "wide_layout.driver.luau",
       "expected_stdout": "5\t70\t70\ttail\tnil\t17\n3\t70\t70\ttail\tnil\tnil\ntail\tnil\t17\ttail\tnil\tnil\n3\ttail\tnil\t5\n"
+    },
+    {
+      "name": "role_results",
+      "group": "naming/capture",
+      "source": "role_results.luau",
+      "driver": "role_results.driver.luau",
+      "expected_stdout": "false\tnil\t7\t9\tleft:Width,left:Height,right:Width,right:Height\narity\t4\nerror\tfalse\ttrue\tleft:Width,left:Height,right:Width,right:Height\n"
+    },
+    {
+      "name": "buffer_role_slots",
+      "group": "buffer/math",
+      "source": "buffer_role_slots.luau",
+      "driver": "buffer_role_slots.driver.luau",
+      "expected_stdout": "7\t7\t65\t66\t0\nerror\tfalse\ttrue\n"
     }
   ],
   "negative_controls": [

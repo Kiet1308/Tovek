@@ -1,0 +1,108 @@
+{
+ "schema_version": 1,
+ "binary_sha256": "e5d185eeb6adacb76b9073558173f21747a1fe729d3d784c54c9dc44a585eda3",
+ "before_binary_sha256": "643e05250d8cc527f3287f521042701f9c8ea36a38afb49cc3f88c5ff149791d",
+ "primary_rust_tests": 926,
+ "rust_child_repeat": 1,
+ "python_tests": 67,
+ "rust_log_sha256": "fe82dbdd8b95220f7d587564a99a34ccee0a67065df96943ee224cb65eb8c6ed",
+ "python_log_sha256": "3abe546487f668cae2661f7369c51022759d4fec47ac76758056391f6479996c",
+ "reports": {
+  "docs\\roadmap_v2_acceptance\\roles_runtime.json": "ef1e3a08fe9af499975941cc518d433f2c6f6bc293601a99aea2222b3fea4ff1",
+  "docs\\roadmap_v2_acceptance\\roles_public.json": "23a58d9d65c80d3f2659e95bd12084221be4ed80d9b1f486e937a54b1e6c4308",
+  "docs\\roadmap_v2_acceptance\\roles_names.json": "f9a52701e191d5bff2f235ce2f250316a8668b76b9e1527462ff399f9a5484c0",
+  "docs\\roadmap_v2_acceptance\\roles_alpha_corpus.json": "19699cf072c687d9298482ea43618660d4aa8beecb6c95fca0a74ed9b41e766e",
+  "docs\\roadmap_v2_acceptance\\roles_alpha_public.json": "45364fe9f000ee0e9df01efb0b53bea17f7478e803ed6a223d59bc377a39d4ef",
+  "docs\\roadmap_v2_acceptance\\roles_metadata_runtime.json": "ae3970c4c9dd6b079f486d18a7576e8e972e768875966bb90f7e28ee8e500029",
+  "docs\\roadmap_v2_acceptance\\roles_metadata_public.json": "6e9b78989243e6c67c6595f0551785905d8a5f6be2bb4711e2fe26111540006d",
+  "docs\\roadmap_v2_acceptance\\roles_benchmark.json": "511eac6862648a09b74363a417913b8eb804c5a9ef0010ab87043dc1fc539a97",
+  "docs\\roadmap_v2_acceptance\\roles_size.json": "f495d6fd39f434effec88d978e08d1075ffaac3b3bd2cef7711ffd34217d3295",
+  "docs\\roadmap_v2_acceptance\\roles_examples.json": "d589f8e6e0b96fc705558c9d9b433fe8114b0114b8cf71389ef857d04a8728f3"
+ },
+ "private_corpus_trees": {
+  "before": "10ae04fbed5296f57e93a45a5821704a5101a3bf9bd771cc0fbb7a2e55a6b844",
+  "after": "b0105d675729470b51e94d79c6effce06cd45e95a2a911f6e9f14180e862e0b6"
+ },
+ "runtime_changed_configurations": 5,
+ "diagnostics": {
+  "traces": {
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 0.6881395000018529
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 0.707246900001337
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 0.3768164000030083
+    }
+   ],
+   "metadata_deterministic_threads_1_4": true,
+   "summary": {
+    "scripts": 132,
+    "source_files": 132,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 132
+    },
+    "conditional_result_records": 145,
+    "definitions": 4152,
+    "definitions_with_final_binding_ancestry": 2246,
+    "dropped_records": 0,
+    "final_bindings": 775,
+    "functions": 416,
+    "incomplete_lineages": 0,
+    "lifted_statements": 3422,
+    "statements_with_pc": 3422,
+    "unlocated_final_bindings": 0
+   }
+  },
+  "public-traces": {
+   "mode_timings": [
+    {
+     "mode": "analysis",
+     "threads": 1,
+     "seconds": 3.680101999998442
+    },
+    {
+     "mode": "trace1",
+     "threads": 1,
+     "seconds": 4.779345400002057
+    },
+    {
+     "mode": "trace4",
+     "threads": 4,
+     "seconds": 1.3073115999977745
+    }
+   ],
+   "metadata_deterministic_threads_1_4": true,
+   "summary": {
+    "scripts": 513,
+    "source_files": 513,
+    "source_set_equal": true,
+    "source_files_changed": 0,
+    "status": {
+     "passed": 513
+    },
+    "conditional_result_records": 3542,
+    "definitions": 97176,
+    "definitions_with_final_binding_ancestry": 47092,
+    "dropped_records": 0,
+    "final_bindings": 13270,
+    "functions": 3961,
+    "incomplete_lineages": 0,
+    "lifted_statements": 77329,
+    "statements_with_pc": 77329,
+    "unlocated_final_bindings": 66
+   }
+  }
+ },
+ "limitations": "Automated alpha equivalence, finite runtime observations and source metrics do not replace human role-quality assessment. Human review requested and pending. Module summaries are separately optional and do not rename output."
+}

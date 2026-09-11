@@ -29,6 +29,10 @@ pub(crate) fn naming_report(report: ast::refine_names::Report, legacy: ast::nami
         "priority": "ordinal rule priority, not a probability or effect proof",
         "legacy_coverage": "bounded proposals and invalidations, keyed by pre-cleanup stable binding identity",
         "legacy_candidates": legacy_candidates,
+        "api_naming_metadata": {"version": ast::naming_api::VERSION,
+            "compiler_commit": ast::naming_api::COMPILER_COMMIT, "source_path": ast::naming_api::SOURCE_PATH,
+            "contract": "inferred positional roles for exact syntactic API members; no runtime callee, type, effect or totality proof"},
+        "type_evidence_contract": "Bytecode annotations/tags are compiler-recorded representations, not evidence that an author wrote the same annotation. API and usage names are inferred roles; no complex source aliases or generics are invented.",
         "limits": {"nodes": 100000, "bindings": 50000, "depth": 256, "candidates_per_binding": 24, "propagation_rounds": 4},
         "visited_nodes": report.visited_nodes, "bindings": report.binding_count,
         "scopes": report.scope_count, "renamed": report.renamed, "conflicts": report.conflicts,
@@ -37,7 +41,11 @@ pub(crate) fn naming_report(report: ast::refine_names::Report, legacy: ast::nami
         "rows": report.bindings.into_iter().map(|binding| json!({
             "binding_id": format!("b{}", binding.id), "before": binding.before,
             "after": binding.after, "kind": binding.kind, "scope": binding.scope,
-            "status": binding.status, "candidates": binding.candidates.into_iter().map(|c| json!({
+            "status": binding.status,
+            "type_evidence": binding.type_evidence.into_iter().map(|e| json!({
+                "representation": e.representation, "origin": e.origin, "semantic_proof": false,
+            })).collect::<Vec<_>>(),
+            "candidates": binding.candidates.into_iter().map(|c| json!({
                 "name": c.name, "priority": c.priority, "reason": c.reason, "witness": c.witness,
                 "from_binding": c.from_binding.map(|id| format!("b{id}")),
             })).collect::<Vec<_>>(),

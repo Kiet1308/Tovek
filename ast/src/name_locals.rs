@@ -1981,12 +1981,9 @@ fn note_call_usage(
             (b"Instance", "new") => &["className", "parent"],
             (b"CFrame", "new") if call.arguments.len() == 1 => &["position"],
             (b"TweenInfo", "new") => &["duration"],
-            // Every `buffer.*` operation takes the buffer first and (for the
-            // accessors) a byte offset second.
-            // (`buf`, not `buffer`: the `buffer` library global is in scope.)
-            (b"buffer", "len" | "tostring" | "fill" | "copy") => &["buf"],
-            (b"buffer", member) if member.starts_with("read") => &["buf", "offset"],
-            (b"buffer", member) if member.starts_with("write") => &["buf", "offset", "value"],
+            // Naming metadata only; syntactic globals do not prove runtime
+            // API identity, purity, totality, or author-written annotations.
+            (b"buffer", member) => crate::naming_api::buffer_arguments(member),
             _ => &[],
         };
         for (argument, slot) in call.arguments.iter().zip(slots) {

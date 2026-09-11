@@ -1,5 +1,19 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R3: tuple/diamond roles, exact API slots and type-evidence separation
+
+The final graph now propagates bounded helper result roles and private-diamond consensus, resolves single-write captured helpers without treating capture cells as value aliases, and reports bytecode type evidence separately from inferred names. Buffer API argument roles use an exact, versioned table. [Contract](graph_naming.md).
+
+All 926 primary Rust tests plus one child-process repeat and 67 Python tests pass. The expanded runtime manifest passes 132 configurations and nine negative controls, including field metamethod order/errors, nil/false return arity and buffer bit/count errors. The 513 public configurations still compile/decompile/recompile. Existing 52 semantic/residual outputs pass size gates with zero regressions.
+
+The pinned parser verifies alpha-equivalent binding graphs and unchanged type syntax on all 3,978 private files: 3,887 are text-identical and 91 change only local names (119 renamed bindings). All 513 public outputs pass the same gate: 495 identical, 18 with local renames (90 bindings). Recorded-binding metadata audits pass for all 132 runtime and 513 public cases; analysis/provenance source is unchanged and sidecars are deterministic across one/four threads. No naming graph budget is exhausted.
+
+On the locked source-aligned metric, development exact names rise from 1,039/3,583 to 1,048/3,583. Of 36 changed aligned names, nine match source and none lose an exact match. Those nine represent `processor` in three Fusion files at O0/O1/O2, not nine independent sources. Rodux holdout remains 85/200 aligned exact names; 108 configurations across both splits remain unknown alignment. The three changed buffer modules are in that unknown-alignment group and receive no invented exact-name score. The buffer fixture improves from 1 to 7 exact parameter names in each g1 optimization configuration.
+
+The helper fixture now emits `width, height` and `width2, height2` for fixed returned `.Width, .Height` slots. These roles differ from the author's `leftWidth/rightWidth` spelling. BufferWriter emits `size`, `str`, `count`; source distinguishes `desiredSize/newSize` and calls byte count `length`. [Reader review](role_naming_review.md) was requested and remains pending; automated tests do not establish human role quality.
+
+Seven warm interleaved CLI rounds: one-thread median 19.018 → 19.510 s (+2.58%), 16-thread median 1.686 → 1.706 s (+1.16%). Median peak RSS 33,435,648 → 33,443,840 bytes and 114,909,184 → 113,086,464 bytes respectively. All samples are deterministic. These are cost observations, not a performance improvement; p95 is the maximum of seven samples. Per-file reports and binary hashes are in the [validation inventory](roadmap_v2_acceptance/roles_validation.json).
+
 ## R3: explicit module context, exports and cyclic summaries
 
 An optional analysis tool now resolves static script paths through a versioned manifest and summarizes bounded function/table exports, fixed call positions and scalar/forwarded returns. It builds dependency SCCs and retains unknown for unresolved recursive summaries. It produces naming metadata without executing modules or changing source. [Contract](module_summaries.md).

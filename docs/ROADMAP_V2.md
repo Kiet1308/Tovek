@@ -333,18 +333,20 @@ Line info là tín hiệu cho việc chọn cấu trúc, không phải proof đ�
 **Công việc:**
 
 - [x] Dùng các heuristic hiện có làm bộ tạo candidate; bổ sung lý do và độ tin cậy, thay vì chỉ giữ một string/score đã chọn. — Lưu proposal/priority theo binding ID, rule site và invalidation; priority là thứ tự evidence, không phải xác suất. Có giới hạn và kiểm tra không đổi output. [Hợp đồng và bằng chứng](naming_evidence.md).
-- [ ] Lan truyền role qua copy/phi đã chứng minh, field read/write, table record, result tuple và call argument của function resolve được.
-- [ ] Xử lý các ca đã quan sát: table field `component = p`, `props = v`; assertion chứa tên tham số; result nhận từ cùng một helper; tên callback theo event/caller.
-- [ ] Kết hợp type evidence với role: buffer/offset/size, state/scope/props, result/index/item. Type tag `number` đơn độc không đủ để đặt tên `damage`, `duration` hay `price`.
+- [x] Lan truyền role qua copy/phi đã chứng minh, field read/write, table record, result tuple và call argument của function resolve được. — Phạm vi bounded: immutable copies, private assignment diamond đồng thuận, fixed tuple của helper và đúng vị trí đối số; không dùng làm effect/alias proof. [Hợp đồng và nghiệm thu](graph_naming.md).
+- [x] Xử lý các ca đã quan sát: table field `component = p`, `props = v`; assertion chứa tên tham số; result nhận từ cùng một helper; tên callback theo event/caller.
+- [x] Kết hợp type evidence với role: buffer/offset/size, state/scope/props, result/index/item. Type tag `number` đơn độc không đủ để đặt tên `damage`, `duration` hay `price`.
 - [x] Chọn tên nhất quán trong scope bằng một tập ràng buộc: cùng binding phải cùng tên, binding khác không bị capture nhầm, mutable alias không được coi là đồng nhất, source name mạnh được ưu tiên.
 - [x] Resolve `require` có đường dẫn tĩnh và exports có hình dạng rõ ràng; xây summary call/return theo module và xử lý SCC cho dependency cycle. Dynamic require/call chưa rõ phải giữ unknown. — Tool phân tích tùy chọn dùng manifest script-path tường minh, private literal exports, fixed-arity summaries và SCC/fixed point có budget. Chưa dùng để tự đổi source hay chứng minh effect. [Hợp đồng, coverage và giới hạn](module_summaries.md).
-- [ ] Có thể bổ sung tên parameter/return từ API metadata có version; metadata về tên/type không được dùng như chứng minh API không có effect hoặc không thể throw.
-- [ ] Phân biệt kiểu source được ghi lại với kiểu được suy luận. Không phát sinh `export type`, generic alias hoặc annotation phức tạp như thể đã đọc được từ bytecode.
+- [x] Có thể bổ sung tên parameter/return từ API metadata có version; metadata về tên/type không được dùng như chứng minh API không có effect hoặc không thể throw.
+- [x] Phân biệt kiểu source được ghi lại với kiểu được suy luận. Không phát sinh `export type`, generic alias hoặc annotation phức tạp như thể đã đọc được từ bytecode.
 - [x] Chạy naming trên binding graph ổn định; bảo đảm các cleanup về sau không làm mất tên gốc hoặc tạo shadow mới.
 
 **Vị trí:** [name_locals.rs](../ast/src/name_locals.rs), [local.rs](../ast/src/local.rs), [type_system.rs](../ast/src/type_system.rs), [lifter/type information](../luau-lifter/src/lib.rs), [upvalue_analysis.rs](../luau-lifter/src/upvalue_analysis.rs). Module/call summary và bộ chọn tên theo ràng buộc là phần mới.
 
 **Nghiệm thu:** báo cáo exact identifier recovery theo binding trên source biết trước; báo cáo riêng precision/coverage của tên suy luận và đánh giá vai trò bởi người đọc. Các tên thay `pN/vN` phải có nguồn evidence; đổi tất cả thành `value1/value2` không được tính là cải thiện fidelity. Case Roact `createElement`, buffer, spring và UI phải có đối chiếu trước/sau cụ thể.
+
+Đã nghiệm thu các cơ chế có giới hạn ở trên; [đánh giá vai trò bởi người đọc](role_naming_review.md) đang chờ phản hồi, không được suy ra từ điểm exact-name. Summary project là công cụ phân tích tùy chọn, chưa tự áp dụng rename xuyên module.
 
 **Thứ tự:** làm propagation trong một function/module trước; chỉ mở inter-module khi đã đo phần còn thiếu. Không mặc định rằng phân tích xuyên toàn project sẽ có lợi ở mọi file.
 
