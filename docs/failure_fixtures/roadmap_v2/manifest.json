@@ -184,6 +184,34 @@
       "source": "equality_order.luau",
       "driver": "equality_order.driver.luau",
       "expected_stdout": "false\tfalse\ttrue\ttrue\nfetch:right,fetch:left,eq:left:right\nfalse\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\ntrue\tfalse\ttrue\tfalse\nfetch:right,fetch:left,eq:left:right\ntrue\ttrue\tfalse\ttrue\nfetch:right,fetch:left,eq:left:right\n"
+    },
+    {
+      "name": "method_evaluation_order",
+      "group": "effect/order",
+      "source": "method_evaluation_order.luau",
+      "driver": "method_evaluation_order.driver.luau",
+      "expected_stdout": "false\tnormal\t4\thead\t7\tnil\ttail\nfetch,lookup:consume:true,call:true:7\nfalse\tnil\t4\thead\tnil\tnil\ttail\nfetch,lookup:consume:true,call:true:nil\nfalse\tfalse\t4\thead\tfalse\tnil\ttail\nfetch,lookup:consume:true,call:true:false\nfalse\tfetch-error\ttrue\nfetch\nfalse\tlookup-error\ttrue\nfetch,lookup:consume:true\ntrue\tnormal\t1\tstatement\tnil\tnil\tnil\nfetch,lookup:consume:true,call:true:7\ntrue\tnil\t1\tstatement\tnil\tnil\tnil\nfetch,lookup:consume:true,call:true:nil\ntrue\tfalse\t1\tstatement\tnil\tnil\tnil\nfetch,lookup:consume:true,call:true:false\ntrue\tfetch-error\ttrue\nfetch\ntrue\tlookup-error\ttrue\nfetch,lookup:consume:true\n"
+    },
+    {
+      "name": "captured_callee_order",
+      "group": "effect/capture",
+      "source": "captured_callee_order.luau",
+      "driver": "captured_callee_order.driver.luau",
+      "expected_stdout": "false\t7\t2\told\t7\nfalse\tfalse\t2\told\tfalse\nfalse\tnil\t2\told\tnil\ntrue\t7\t2\tnew\t7\ntrue\tfalse\t2\tnew\tfalse\ntrue\tnil\t2\tnew\tnil\n"
+    },
+    {
+      "name": "captured_prefix_order",
+      "group": "effect/capture",
+      "source": "captured_prefix_order.luau",
+      "driver": "captured_prefix_order.driver.luau",
+      "expected_stdout": "base\tfalse\t7\t1\t7\tnil\nbase\tfalse\tfalse\t1\tfalse\tnil\nbase\tfalse\tnil\t1\tnil\tnil\nbase\ttrue\t7\t1\t7\tnil\nbase\ttrue\tfalse\t1\tfalse\tnil\nbase\ttrue\tnil\t1\tnil\tnil\nkey\tfalse\t7\t2\t7\tnil\nkey\tfalse\tfalse\t2\tfalse\tnil\nkey\tfalse\tnil\t2\tnil\tnil\nkey\ttrue\t7\t2\tnil\t7\nkey\ttrue\tfalse\t2\tnil\tfalse\nkey\ttrue\tnil\t2\tnil\tnil\ntuple\tfalse\t7\t2\told\t7\ntuple\tfalse\tfalse\t2\told\tfalse\ntuple\tfalse\tnil\t2\told\tnil\ntuple\ttrue\t7\t2\tnew\t7\ntuple\ttrue\tfalse\t2\tnew\tfalse\ntuple\ttrue\tnil\t2\tnew\tnil\nargument\tfalse\t7\t2\told\t7\nargument\tfalse\tfalse\t2\told\tfalse\nargument\tfalse\tnil\t2\told\tnil\nargument\ttrue\t7\t2\tnew\t7\nargument\ttrue\tfalse\t2\tnew\tfalse\nargument\ttrue\tnil\t2\tnew\tnil\n"
+    },
+    {
+      "name": "capture_forwarding",
+      "group": "effect/capture",
+      "source": "capture_forwarding.luau",
+      "driver": "capture_forwarding.driver.luau",
+      "expected_stdout": "false\tfalse\t7\t2\tstable\t7\nfalse\tfalse\tfalse\t2\tstable\tfalse\nfalse\tfalse\tnil\t2\tstable\tnil\nfalse\ttrue\t7\t2\tstable\t7\nfalse\ttrue\tfalse\t2\tstable\tfalse\nfalse\ttrue\tnil\t2\tstable\tnil\ntrue\tfalse\t7\t2\told\t7\ntrue\tfalse\tfalse\t2\told\tfalse\ntrue\tfalse\tnil\t2\told\tnil\ntrue\ttrue\t7\t2\tnew\t7\ntrue\ttrue\tfalse\t2\tnew\tfalse\ntrue\ttrue\tnil\t2\tnew\tnil\n"
     }
   ],
   "negative_controls": [

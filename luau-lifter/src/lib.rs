@@ -3,6 +3,7 @@ mod instruction;
 mod lifter;
 mod op_code;
 mod source_recovery;
+mod capture_effects;
 pub mod profile;
 pub mod upvalue_analysis;
 
@@ -412,6 +413,10 @@ fn try_decompile_bytecode_internal(
             }
             let raw_upvalue_analysis =
                 emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
+            let capture_effects = capture_effects::CaptureEffects::build(&chunk);
+            ast::telemetry::count("capture_readonly_slots", capture_effects.readonly.iter()
+                .flatten().filter(|&&readonly| readonly).count() as u64);
+            ast::telemetry::count("capture_readonly_refused", u64::from(capture_effects.refusal.is_some()));
             let mut lifted = Vec::new();
             let root_function_id = emit_upvalue_analysis.then(|| format!("root:p{}", chunk.main));
             let root_function = Arc::<Mutex<ast::Function>>::default();
@@ -507,6 +512,8 @@ fn try_decompile_bytecode_internal(
                     // serial tail into a rayon region without an equivalent re-base.
                     ast::set_local_id_base(id_base + func_idx as u64 * ID_STRIDE);
                     let function_id = function.id;
+                    let readonly_upvalues = capture_effects.readonly.get(function_id)
+                        .map(Vec::as_slice).unwrap_or(&[]);
                     let _profile_context = ast::telemetry::enter(profile_context.as_ref().map(|c| c.prototype(function_id)));
                     let _profile_function = ast::telemetry::Span::new("FUNCTION");
                     let mut args = std::panic::AssertUnwindSafe(Some((
@@ -528,6 +535,7 @@ fn try_decompile_bytecode_internal(
                             function,
                             upvalues_in,
                             options.control_flow_policy,
+                            readonly_upvalues,
                         )
                     });
 
@@ -870,6 +878,7 @@ fn try_decompile_bytecode_internal(
                 );
                 analysis.source_recovery = Some(source_recovery::audit(&chunk, &mut body, &analysis.functions));
                 analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
+                analysis.capture_effects = Some(capture_effects.report());
                 if options.emit_binding_provenance {
                     analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map));
                 }
@@ -1322,6 +1331,7 @@ fn decompile_function(
     mut function: Function,
     upvalues_in: Vec<ast::RcLocal>,
     control_flow_policy: ControlFlowOutputPolicy,
+    readonly_upvalues: &[bool],
 ) -> (
     ByAddress<Arc<Mutex<ast::Function>>>,
     Vec<ast::RcLocal>,
@@ -1345,6 +1355,15 @@ fn decompile_function(
         .iter()
         .map(|_| ast::RcLocal::default())
         .collect::<Vec<_>>();
+    // Only numeric IDs are retained: an effect certificate must not add AST
+    // owners or alter the reference-count based reconstruction decisions.
+    let readonly_roots = upvalues_in.iter().zip(readonly_upvalues)
+        .filter_map(|(local, &readonly)| readonly.then_some(local.stable_id()))
+        .collect::<FxHashSet<_>>();
+    let readonly_capture_ids = upvalue_in_groups.iter()
+        .filter(|(root, _)| readonly_roots.contains(&root.stable_id()))
+        .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
+        .map(ast::RcLocal::stable_id).collect::<FxHashSet<_>>();
     let protected_upvalue_locals = upvalue_in_groups
         .iter()
         .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
@@ -1402,7 +1421,8 @@ fn decompile_function(
 
         {
             ptime!(F_SSA_INLINE);
-            ssa::inline::inline(&mut function, &local_to_group, &upvalue_to_group);
+            ssa::inline::inline_with_readonly_captures(&mut function, &local_to_group,
+                &upvalue_to_group, &readonly_capture_ids);
         }
 
         let sc = {

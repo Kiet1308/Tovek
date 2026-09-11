@@ -1,5 +1,15 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R4: captured destination reads and bounded expression effects
+
+SSA inline now preserves an earlier callback before a later captured read at a callee, argument, return-tuple element or assignment base/key. Two reads commute; unknown calls and metamethods may write capture cells. A bounded input analysis proves incoming VAL/UPVAL slots immutable only when every constructor and every forwarded write supports it. REF roots, external slots, missing constructors, cycles and unsupported/malformed inputs retain the conservative barrier. A separate Python verifier derives the proof from original bytecode. [Contract and examples](captured_evaluation_order.md).
+
+The previous release fails nine stripped-debug runtime configurations; the fix passes all 168 runtime configurations, nine controls, 513 public configurations, 45 legacy semantic configurations and 52 size gates. All 953 primary Rust tests, one child repeat and 85 Python tests pass. Runtime/public sidecars, independent emission maps and cold/warm cache checks pass at one/four threads. Immutable-slot checks cover 158 runtime, 4,597 public and 54,007 private slots; no dataset analysis is refused, while unproven slots remain unknown.
+
+Six public outputs and 35 of 3,978 private outputs change. Every public exact-name count and dataflow classification is preserved. All 657 prior runtime/public recorded contracts match; all 3,936 private contracts match the earlier emission release's detailed metadata. Every private textual diff was reviewed and changed file recompiled; all 35 whole-chunk comparisons remain unknown. Two duplicate texture scripts each lose one reconstructed helper call because the required snapshot breaks the existing pattern, while the helper definition and input function name survive. Some branch/loop cleanups retain more explicit statements. These are recorded fidelity limitations, not claimed improvements.
+
+Seven warm interleaved CLI rounds are deterministic. One-thread median 18.075 -> 18.702 s (+3.47%); 16-thread median 1.666061 -> 1.666092 s (+0.002%). Median peak RSS 33,431,552 -> 33,431,552 bytes and 114,008,064 -> 114,216,960 bytes. This is a correctness fix with measured cost. The bounded expression vocabulary and capture dependency do not complete the broader statement/store/alias graph. [Validation inventory](roadmap_v2_acceptance/capture_validation.json).
+
 ## R7a: separate API, CLI and allocation workloads
 
 The native measurement example preloads pinned inputs, runs an explicit Rayon pool and checks every source hash outside the measured API interval. A separate executable wraps the same mimalloc allocator with requested-payload counters; instrumented timings are excluded from speed summaries. The harness fixes small/large thresholds and four representative files before timing, preserves relative module context and reports each process, first call and repeated sample. [Contract and results](api_benchmark.md).

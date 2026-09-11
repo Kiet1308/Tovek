@@ -1,0 +1,5264 @@
+{
+ "schema_version": 1,
+ "rows": [
+  {
+   "dataset": "runtime",
+   "path": "branch_ui_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "cell_after_join_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_names_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "parameter_write_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "buffer_role_slots_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "global_evaluation_order_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "compound_effects_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "parameter_write_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "parameter_write_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_capture_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_capture_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "role_results_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_capture_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 9
+  },
+  {
+   "dataset": "runtime",
+   "path": "binding_scopes_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "parameter_write_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_identifier_safety_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "compound_effects_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_contexts_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "runtime",
+   "path": "buffer_role_slots_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 8
+  },
+  {
+   "dataset": "runtime",
+   "path": "scope_names_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "helper_loop_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "binding_scopes_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "sum_helper_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "shadow_capture_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_names_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "scope_names_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_names_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "sum_helper_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 5
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_effects_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "helper_loop_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "shadow_capture_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_identifier_safety_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_contexts_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_effects_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_effects_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_names_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_capture_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "compound_effects_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "runtime",
+   "path": "scope_names_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "global_evaluation_order_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 9
+  },
+  {
+   "dataset": "runtime",
+   "path": "helper_loop_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "binding_scopes_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 9
+  },
+  {
+   "dataset": "runtime",
+   "path": "role_results_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 10
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_contexts_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_names_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_capture_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "wide_layout_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "cell_after_join_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "parameter_write_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_effects_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_contexts_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "runtime",
+   "path": "cell_after_join_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "runtime",
+   "path": "branch_ui_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "sum_helper_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_effects_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 8
+  },
+  {
+   "dataset": "runtime",
+   "path": "ui_builder_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "ui_builder_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "scope_names_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_identifier_safety_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "literal_bytes_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_identifier_safety_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "literal_bytes_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "ui_builder_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "global_evaluation_order_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 9
+  },
+  {
+   "dataset": "runtime",
+   "path": "cell_after_join_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "runtime",
+   "path": "helper_loop_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 8
+  },
+  {
+   "dataset": "runtime",
+   "path": "ui_builder_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "literal_bytes_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "binding_scopes_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "wide_layout_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_effects_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "runtime",
+   "path": "role_results_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_capture_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "shadow_capture_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_capture_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 9
+  },
+  {
+   "dataset": "runtime",
+   "path": "role_results_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "global_evaluation_order_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 9
+  },
+  {
+   "dataset": "runtime",
+   "path": "buffer_role_slots_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "equality_order_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "sum_helper_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 5
+  },
+  {
+   "dataset": "runtime",
+   "path": "equality_order_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "buffer_role_slots_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "role_results_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 10
+  },
+  {
+   "dataset": "runtime",
+   "path": "helper_loop_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 8
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_effects_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "global_evaluation_order_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "literal_bytes_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "wide_layout_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "compound_effects_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "branch_ui_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "literal_bytes_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "branch_ui_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "branch_ui_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_effects_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "equality_order_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "equality_order_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "buffer_role_slots_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 8
+  },
+  {
+   "dataset": "runtime",
+   "path": "branch_ui_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_contexts_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "equality_order_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_capture_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 9
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_effects_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "wide_layout_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "shadow_capture_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "cell_after_join_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 8
+  },
+  {
+   "dataset": "runtime",
+   "path": "scope_names_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "scope_names_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "parameter_write_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "wide_layout_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_identifier_safety_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "ui_builder_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_names_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "binding_scopes_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "equality_order_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_contexts_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_effects_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 8
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_effects_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "ui_builder_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "binding_scopes_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "shadow_capture_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "shadow_capture_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_capture_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "compound_effects_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "runtime",
+   "path": "sum_helper_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "role_results_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 13
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_capture_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "global_evaluation_order_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "literal_bytes_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "sum_helper_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "buffer_role_slots_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 8
+  },
+  {
+   "dataset": "runtime",
+   "path": "cell_after_join_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 7
+  },
+  {
+   "dataset": "runtime",
+   "path": "arithmetic_capture_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "runtime",
+   "path": "wide_layout_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_O0_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "debug_identifier_safety_O1_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "conditional_O1_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "helper_loop_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 12
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_effects_O2_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 6
+  },
+  {
+   "dataset": "runtime",
+   "path": "compound_effects_O2_g1.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "runtime",
+   "path": "unrolled_capture_O0_g2.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Memory/checkLifetime.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/getTweenDuration.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Utility/nicknames.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/shake/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/input/PreferredInput.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Utility/xtypeof.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/types/thunks.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/assign.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/input/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/trove/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Server/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/forwardRef.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/External.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Graph/depend.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/input/Touch.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/createSignal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/buffer-util/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Logging/formatError.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Client/ClientRemoteProperty.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Memory/checkLifetime.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Client/ClientComm.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/For/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/types/thunks.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/PropMarkers/Ref.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/combineReducers.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/createReconciler.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 18
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/createContext.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/Children.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/Symbol.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/RobloxExternal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/AttributeChange.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/forwardRef.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/External.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/ComponentLifecyclePhase.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/createReducer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/input/Keyboard.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Graph/evaluate.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/silo/Util.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/makeThunkMiddleware.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Graph/depend.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/types/reducers.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/applyInstanceProps.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 5
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/ser/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/OnEvent.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/Tween.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/Signal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Utility/xtypeof.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/ExternalTime.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/task-queue/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/Signal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/SingleEventManager.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/ElementKind.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/table-util/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 11
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Utility/Safe.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/input/Mouse.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/createSpy.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Memory/deriveScope.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Memory/checkLifetime.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/query/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "promise/O0/lib/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 20
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/OnChange.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/createReconcilerCompat.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/ForPairs.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Graph/Observer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/Symbol.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/trove/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/buffer-util/DataTypeBuffer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/peek.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/silo/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/createFragment.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Server/ServerComm.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/springCoefficients.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/typed-remote/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Logging/formatError.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/input/Keyboard.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/streamable/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/For/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/typed-remote/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Types.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Utility/Contextual.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/Tag.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/makeActionCreator.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Utility/xtypeof.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/defaultProps.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/Out.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/silo/TableWatcher.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Utility/Safe.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/ForValues.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/Tag.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Server/RemoteProperty.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/input/Gamepad.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/castToState.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/castToState.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Util.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/createReducer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/Hydrate.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Logging/messages.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/updateAll.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/PropMarkers/Children.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Memory/insert.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/RobloxExternal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/combineReducers.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/find/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Memory/scoped.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Utility/isSimilar.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/query/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/NoopRenderer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/Portal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/PropMarkers/Event.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/buffer-util/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/createReducer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/loader/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Utility/nameOf.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Graph/castToGraph.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/spring/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/updateAll.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Memory/doCleanup.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Server/ServerComm.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/strict.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Client/ClientComm.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Server/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/AttributeChange.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Server/ServerComm.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "promise/O2/lib/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 20
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/For/ForTypes.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Utility/nameOf.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/stream/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/prettyPrint.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Memory/deriveScopeImpl.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/buffer-util/BufferWriter.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/streamable/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/Component.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/Type.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/wait-for/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/AttributeOut.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/Spring.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/oneChild.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/loggerMiddleware.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Logging/parseError.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/wait-for/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/peek.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/loggerMiddleware.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/Tween.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/concur/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/prettyPrint.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/Out.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/task-queue/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/getTweenDuration.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Memory/deriveScope.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/Portal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/stream/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/thunkMiddleware.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/option/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/timer/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Utility/Contextual.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/GlobalConfig.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/makeActionCreator.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Graph/castToGraph.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/input/PreferredInput.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/Store.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Client/ClientRemoteSignal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Graph/depend.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/OnChange.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/component/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 13
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/makeActionCreator.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Server/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/invalidSetStateMessages.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/component/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 13
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/input/PreferredInput.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/ComponentLifecyclePhase.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/ForValues.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/getTweenRatio.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/Hydrate.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/ComponentLifecyclePhase.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "promise/O1/lib/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 20
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/getTweenRatio.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/peek.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/Portal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/Signal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/ForValues.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/strict.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Utility/nicknames.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Memory/deriveScope.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/find/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/input/Mouse.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/silo/TableWatcher.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/For/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/updateAll.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/unpackType.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/loader/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/invalidSetStateMessages.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Graph/change.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/Stopwatch.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/packType.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/ForPairs.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/buffer-util/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/silo/TableWatcher.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/PropMarkers/Children.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/Child.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/Binding.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/Stopwatch.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/RobloxRenderer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 10
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/Value.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/getTweenDuration.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/castToState.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Colour/sRGB.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/buffer-util/BufferWriter.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/streamable/Streamable.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/PropMarkers/Event.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/Logging.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Memory/innerScope.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/createElement.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/symbol/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/loggerMiddleware.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/assign.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/input/Gamepad.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/signal/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/types/actions.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/None.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/springCoefficients.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Utility/Contextual.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Types.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Graph/castToGraph.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/getDefaultInstanceProperty.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/ElementKind.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/concur/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/option/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/timer/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/createFragment.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/strict.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Utility/nameOf.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/Stopwatch.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/springCoefficients.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/Attribute.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/AttributeOut.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/input/Touch.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/buffer-util/Types.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/createContext.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/createReconciler.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 16
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/assertDeepEqual.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Server/RemoteSignal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/buffer-util/DataTypeBuffer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/Out.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/RobloxRenderer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 10
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Graph/change.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/thunkMiddleware.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/table-util/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 17
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Memory/doCleanup.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Colour/Oklab.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/buffer-util/Types.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/oneChild.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Utility/isSimilar.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/assign.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/makeThunkMiddleware.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/createContext.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Memory/needsDestruction.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/stream/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/input/Keyboard.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/applyInstanceProps.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 5
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Client/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/enum-list/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/PropMarkers/Change.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/PropMarkers/Change.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/New.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/net/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/pid/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/streamable/StreamableUtil.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/defaultProps.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Logging/formatError.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/createReconciler.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 17
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/net/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/buffer-util/Types.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/streamable/Streamable.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/For/Disassembly.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/lerpType.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/tree/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/tree/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Server/RemoteProperty.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Server/RemoteSignal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Logging/parseError.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/Tween.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Types.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/applyInstanceProps.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 5
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Utility/never.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/Computed.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Utility/never.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Utility/isSimilar.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/For/Disassembly.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/log/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/trove/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/Children.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/thunkMiddleware.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Memory/deriveScopeImpl.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/NoopRenderer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/PureComponent.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/silo/Util.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/Computed.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/PropMarkers/Ref.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/Child.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/SingleEventManager.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/createElement.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/unpackType.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/Spring.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Utility/never.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/ser/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/ForKeys.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/concur/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/defaultProps.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/SingleEventManager.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/Store.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/lerpType.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/Spring.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/signal/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Colour/Oklab.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/For/ForTypes.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Graph/change.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/silo/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/Value.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/shake/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/timer/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Utility/merge.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/Tag.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Logging/parseError.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/pid/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/input/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/types/store.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Graph/Observer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/quaternion/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/quaternion/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/input/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/types/reducers.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/types/actions.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/getDefaultInstanceProperty.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/spring/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/assertDeepEqual.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/tree/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/RobloxRenderer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 10
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/buffer-util/BufferReader.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/shake/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/createSignal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/enum-list/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/Logging.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/ElementUtils.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/createRef.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/packType.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Client/ClientRemoteSignal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Memory/insert.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/prettyPrint.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Memory/deriveScopeImpl.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/symbol/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/Type.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/For/Disassembly.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Client/ClientRemoteProperty.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/ExternalDebug.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Logging/messages.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/None.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Graph/Observer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Memory/insert.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/forwardRef.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/buffer-util/BufferWriter.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/Logging.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Utility/merge.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/Config.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/quaternion/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Memory/needsDestruction.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Client/ClientRemoteSignal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/createReconcilerCompat.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/net/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/New.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/buffer-util/BufferReader.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/Attribute.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/component/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 13
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Utility/nicknames.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/Children.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/Component.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/sequent/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/spring/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Colour/Oklab.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Animation/ExternalTime.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/oneChild.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/internalAssert.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/ElementUtils.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/sequent/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Colour/sRGB.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Graph/evaluate.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/makeThunkMiddleware.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/Type.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/invalidSetStateMessages.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/PropMarkers/Ref.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/option/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/internalAssert.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Types.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Memory/innerScope.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/createElement.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/RobloxExternal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/Store.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/createRef.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/createSignal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/ForKeys.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Instances/Attribute.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/types/reducers.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/Binding.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/PropMarkers/Children.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/internalAssert.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Client/ClientRemoteProperty.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/ForPairs.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/createReconcilerCompat.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/signal/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Memory/innerScope.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/input/Touch.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/createRef.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/ElementUtils.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/GlobalConfig.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/silo/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/Config.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/createSpy.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/OnEvent.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/packType.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/typed-remote/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/symbol/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/AttributeChange.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Utility/Safe.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Memory/needsDestruction.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/State/Computed.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/streamable/Streamable.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Graph/evaluate.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/Config.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/PropMarkers/Event.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/ForKeys.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/Symbol.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/Hydrate.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/NoYield.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/PureComponent.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/NoYield.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/query/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/silo/Util.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/NoYield.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/State/Value.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/AttributeOut.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/Child.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/ExternalTime.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/None.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/log/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/OnChange.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Client/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Instances/OnEvent.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/ExternalDebug.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/buffer-util/DataTypeBuffer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Client/ClientComm.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/lerpType.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Memory/doCleanup.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Server/RemoteProperty.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/pid/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/streamable/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/getDefaultInstanceProperty.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/wait-for/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O1/src/assertDeepEqual.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Types.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Logging/messages.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/loader/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/Animation/getTweenRatio.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Memory/scoped.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Instances/New.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Memory/scoped.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Util.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/input/Gamepad.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 4
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/streamable/StreamableUtil.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/streamable/StreamableUtil.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/GlobalConfig.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/ExternalDebug.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/table-util/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 11
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/combineReducers.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Utility/merge.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/find/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/input/Mouse.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/comm/Util.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/log/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 3
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/ElementKind.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/NoopRenderer.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/buffer-util/BufferReader.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O0/src/State/For/ForTypes.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/ser/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/enum-list/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O0/modules/sequent/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/Binding.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O1/src/types/thunks.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/types/actions.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/comm/Client/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/External.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O2/src/types/store.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O2/src/Colour/sRGB.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 2
+  },
+  {
+   "dataset": "public",
+   "path": "Rodux/O0/src/types/store.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/PureComponent.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Types.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O1/modules/comm/Server/RemoteSignal.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "RbxUtil/O2/modules/task-queue/init.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/createSpy.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/PropMarkers/Change.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "Fusion/O1/src/Animation/unpackType.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O2/src/Component.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 0
+  },
+  {
+   "dataset": "public",
+   "path": "roact/O0/src/createFragment.lua",
+   "status": "passed",
+   "records": true,
+   "protected": true,
+   "protected_count": 1
+  }
+ ],
+ "summary": {
+  "passed": 657
+ }
+}

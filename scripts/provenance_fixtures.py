@@ -58,6 +58,10 @@ def main():
     checked([sys.executable, ROOT / 'scripts/provenance_audit.py', '--before', work / 'analysis',
              '--after', work / 'trace1', '--report', audit_path], timeout=120)
     audit = json.loads(audit_path.read_text(encoding='utf-8'))
+    capture_path = work / 'capture-effects-audit.json'
+    checked([sys.executable, ROOT / 'scripts/capture_effects_audit.py', '--root', work / 'trace1',
+             '--input', inputs, '--report', capture_path], timeout=120)
+    capture_audit = json.loads(capture_path.read_text(encoding='utf-8'))
     _, a = manifest(work / 'trace1')
     _, b = manifest(work / 'trace4')
     identical = a.keys() == b.keys() and all(sidecar(work / 'trace1', a[k]) == sidecar(work / 'trace4', b[k]) for k in a)
@@ -114,6 +118,7 @@ def main():
               'mode_timings': measurements, 'metadata_deterministic_threads_1_4': identical, 'audit': audit}
     if emission_audit is not None:
         report['emission_audit'] = emission_audit
+    report['capture_effects_audit'] = capture_audit
     if args.cache:
         report['cache_checks'] = cache_checks
     args.report.parent.mkdir(parents=True, exist_ok=True)

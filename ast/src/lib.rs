@@ -41,6 +41,7 @@ pub mod telemetry;
 pub mod eliminate_nil;
 pub mod expr_deinline;
 pub mod expression_budget;
+pub mod effects;
 pub mod factor_common_tails;
 pub mod flatten_guards;
 pub mod guard_exhaustion_adapters;

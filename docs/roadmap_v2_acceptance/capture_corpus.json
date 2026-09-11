@@ -1,0 +1,3155 @@
+{
+ "schema_version": 1,
+ "total_files": 3978,
+ "changed_files": 35,
+ "rows": [
+  {
+   "file": "ReplicatedStorage/Assets/Cutscenes/ItachiObtainmentCutscene/SceneSpace/Map/VillainInvasion/Map/Model/Moving Lava/Texture/Script.server.luau",
+   "before_sha256": "e102120c93d8fa150b76d6d23913b565aff026b6152cd106e4f60f1bd35ea05b",
+   "after_sha256": "5274868115d3af12b46f6627eec5ac81de0a19e08e8be250a59027c0be9d4b7c",
+   "input_sha256": "1a67e910754c4176c6479bf1a37710d893cdc833ec7f616bd7f01351d82e5ccc",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP_INEXT at pc 6",
+     "rebuilt": "unsupported FORGPREP_INEXT at pc 6"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "2dad4491deeddd3dbb2301edcdfc5e0db10537a146ca54efda8d0db09a2ff633",
+      "db4a057d4aca775ca434f82e2d38e11f236c87ec472fa12b7a6cbb6ea689c8d9"
+     ],
+     "summaries": [
+      {
+       "back_edges": 2,
+       "joins": 2,
+       "instructions": 55,
+       "edges": 54,
+       "prototypes": 4,
+       "fastcall_sites": 1,
+       "reference_captures": 1
+      },
+      {
+       "back_edges": 2,
+       "joins": 2,
+       "instructions": 54,
+       "edges": 53,
+       "prototypes": 4,
+       "fastcall_sites": 1,
+       "reference_captures": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP_INEXT at pc 6",
+     "rebuilt": "unsupported FORGPREP_INEXT at pc 6"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "2dad4491deeddd3dbb2301edcdfc5e0db10537a146ca54efda8d0db09a2ff633",
+      "ef4ef9128194af6511e9dbc519a38b8c027fa2a6f65ffb9330ebe240b4ef0c5a"
+     ],
+     "summaries": [
+      {
+       "back_edges": 2,
+       "joins": 2,
+       "instructions": 55,
+       "edges": 54,
+       "prototypes": 4,
+       "fastcall_sites": 1,
+       "reference_captures": 1
+      },
+      {
+       "back_edges": 2,
+       "joins": 2,
+       "instructions": 54,
+       "edges": 53,
+       "prototypes": 4,
+       "fastcall_sites": 1,
+       "reference_captures": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 630,
+   "after_bytes": 590,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Assets/Cutscenes/ItachiObtainmentCutscene/SceneSpace/Map/VillainInvasion/Map/Model/Moving Lava/Texture/Script__volt-script-002682.server.luau",
+   "before_sha256": "e102120c93d8fa150b76d6d23913b565aff026b6152cd106e4f60f1bd35ea05b",
+   "after_sha256": "5274868115d3af12b46f6627eec5ac81de0a19e08e8be250a59027c0be9d4b7c",
+   "input_sha256": "96caa76bf9bae0c1b9837de211b3209a04b0ce5a23d75f4a70f4e6aedb680fe0",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP_INEXT at pc 6",
+     "rebuilt": "unsupported FORGPREP_INEXT at pc 6"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "2dad4491deeddd3dbb2301edcdfc5e0db10537a146ca54efda8d0db09a2ff633",
+      "db4a057d4aca775ca434f82e2d38e11f236c87ec472fa12b7a6cbb6ea689c8d9"
+     ],
+     "summaries": [
+      {
+       "back_edges": 2,
+       "joins": 2,
+       "instructions": 55,
+       "edges": 54,
+       "prototypes": 4,
+       "fastcall_sites": 1,
+       "reference_captures": 1
+      },
+      {
+       "back_edges": 2,
+       "joins": 2,
+       "instructions": 54,
+       "edges": 53,
+       "prototypes": 4,
+       "fastcall_sites": 1,
+       "reference_captures": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP_INEXT at pc 6",
+     "rebuilt": "unsupported FORGPREP_INEXT at pc 6"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "2dad4491deeddd3dbb2301edcdfc5e0db10537a146ca54efda8d0db09a2ff633",
+      "ef4ef9128194af6511e9dbc519a38b8c027fa2a6f65ffb9330ebe240b4ef0c5a"
+     ],
+     "summaries": [
+      {
+       "back_edges": 2,
+       "joins": 2,
+       "instructions": 55,
+       "edges": 54,
+       "prototypes": 4,
+       "fastcall_sites": 1,
+       "reference_captures": 1
+      },
+      {
+       "back_edges": 2,
+       "joins": 2,
+       "instructions": 54,
+       "edges": 53,
+       "prototypes": 4,
+       "fastcall_sites": 1,
+       "reference_captures": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 630,
+   "after_bytes": 590,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Cmdr/Server commands/Utility/varServer.luau",
+   "before_sha256": "e142f4808e839a8ee7e646d10e7a069304ae847a91c7b991d2245d4f7ce8cf01",
+   "after_sha256": "3f2df77cecf381f5b4c9c54983b736d0432561b4b661b62250384adb2c88f33f",
+   "input_sha256": "85df6ea0b68382df36aa9c95e5dc42e46a8b7688f500014bd2cf9e40026b47d9",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "6057ff1de2e99cb6c9a8018e1e8e9504df8b5d01bfca36daf8b73b475928c9ac",
+      "e7e98da46f0cd670f9a5f058e78c7c5f0eedafbe478a9b5c3cd89e5405c63628"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "reference_captures": 4,
+       "close_sites": 1,
+       "joins": 9,
+       "instructions": 125,
+       "edges": 131,
+       "prototypes": 4,
+       "open_packs": 3,
+       "fastcall_sites": 4
+      },
+      {
+       "back_edges": 1,
+       "reference_captures": 4,
+       "close_sites": 1,
+       "joins": 10,
+       "instructions": 131,
+       "edges": 137,
+       "prototypes": 4,
+       "open_packs": 3,
+       "fastcall_sites": 4
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "6057ff1de2e99cb6c9a8018e1e8e9504df8b5d01bfca36daf8b73b475928c9ac",
+      "048d8a1d5ba9184d949602cf93a212c44b84f05da41f19331c27cd82570f22ad"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "reference_captures": 4,
+       "close_sites": 1,
+       "joins": 9,
+       "instructions": 125,
+       "edges": 131,
+       "prototypes": 4,
+       "open_packs": 3,
+       "fastcall_sites": 4
+      },
+      {
+       "back_edges": 1,
+       "reference_captures": 4,
+       "close_sites": 1,
+       "joins": 10,
+       "instructions": 132,
+       "edges": 138,
+       "prototypes": 4,
+       "open_packs": 3,
+       "fastcall_sites": 4
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 1317,
+   "after_bytes": 1333,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Cmdr/Server commands/Utility/varSetServer.luau",
+   "before_sha256": "7b2aecdf2c3649897ac351444f319cd2b5be7a5a486b6ad685be82309f6b84d0",
+   "after_sha256": "7ef83fbb50de666d5b4cec1f7c50693ac4cda4c2fb7f0cecc5970397b1c25b53",
+   "input_sha256": "296a81742de467746c8e15aadce60608d4efb455c12f5727f2179212440a7fb0",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "685b9657cb8de41a479c0d09731cf9c981c29452807fb08b2a24e4e290cd24cf",
+      "700c2e91bd97c21a6da005e9438a78bb11abd23da57d2fed324a0b7e1c838d52"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "reference_captures": 4,
+       "close_sites": 1,
+       "joins": 9,
+       "instructions": 124,
+       "edges": 130,
+       "prototypes": 4,
+       "open_packs": 3,
+       "fastcall_sites": 4
+      },
+      {
+       "back_edges": 1,
+       "reference_captures": 4,
+       "close_sites": 1,
+       "joins": 10,
+       "instructions": 119,
+       "edges": 125,
+       "prototypes": 4,
+       "open_packs": 3,
+       "fastcall_sites": 3
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "685b9657cb8de41a479c0d09731cf9c981c29452807fb08b2a24e4e290cd24cf",
+      "5a46cbbe3e2de6b5f1c5131173ade7e0030fc91b5fb23724129b5a8ae162e05e"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "reference_captures": 4,
+       "close_sites": 1,
+       "joins": 9,
+       "instructions": 124,
+       "edges": 130,
+       "prototypes": 4,
+       "open_packs": 3,
+       "fastcall_sites": 4
+      },
+      {
+       "back_edges": 1,
+       "reference_captures": 4,
+       "close_sites": 1,
+       "joins": 10,
+       "instructions": 131,
+       "edges": 137,
+       "prototypes": 4,
+       "open_packs": 3,
+       "fastcall_sites": 4
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 1224,
+   "after_bytes": 1346,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Cmdr/init.luau",
+   "before_sha256": "9b7b5b9d25d573026100817a48d49b322f189aa9b6d1dbf0d63f7fe5372caa1c",
+   "after_sha256": "8d7e4c4bf544ecb30b944953129fa098211c3efc6c804250d6ec13077bb4ba19",
+   "input_sha256": "ebd96bcc173d561d348aa21b6e6e7390d4120f13102ef105758ace1f26cd74ae",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL1 at pc 4",
+     "rebuilt": "unsupported FASTCALL1 at pc 4"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "409a98920bce63041792df0b1dcaf11aa7d45c26971aa0ee75984f73b43f9b82",
+      "d5773f6ae34fbc9d56333d291b4a301792c67c8f7380395a9be6ed122186954d"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "open_packs": 4,
+       "fastcall_sites": 2,
+       "reference_captures": 1,
+       "close_sites": 1,
+       "joins": 4,
+       "instructions": 89,
+       "edges": 89,
+       "prototypes": 4
+      },
+      {
+       "back_edges": 0,
+       "open_packs": 4,
+       "fastcall_sites": 2,
+       "joins": 4,
+       "instructions": 80,
+       "edges": 80,
+       "prototypes": 4
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL1 at pc 4",
+     "rebuilt": "unsupported FASTCALL1 at pc 4"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "409a98920bce63041792df0b1dcaf11aa7d45c26971aa0ee75984f73b43f9b82",
+      "3835682c92e9746822d3ed732c399851004d58638dd491cbe9fbc1d517ca0e64"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "open_packs": 4,
+       "fastcall_sites": 2,
+       "reference_captures": 1,
+       "close_sites": 1,
+       "joins": 4,
+       "instructions": 89,
+       "edges": 89,
+       "prototypes": 4
+      },
+      {
+       "back_edges": 0,
+       "open_packs": 4,
+       "fastcall_sites": 2,
+       "joins": 4,
+       "instructions": 80,
+       "edges": 80,
+       "prototypes": 4
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 931,
+   "after_bytes": 987,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Effects/Shine/init.luau",
+   "before_sha256": "b56a90dea00307314dcf18dd4d1779d0d93c64c7ba9bd2870db8804714387230",
+   "after_sha256": "b5a07048e0027fbc1975982c48677b8d1b33db62a4e6ef8610055f09ceb2933b",
+   "input_sha256": "8310b95a499b26f75c005373f15ac440e80fa9794567c22530a37a9d093ac181",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "c30c1f251524dd3e1c93661caf80e4316c7fad6d23b96bc4352dadbec764f964",
+      "92f52de211a5cb4f0807c90cd6acd127127d9068ccea771f41ad2122bf07eb7a"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 259,
+       "edges": 259,
+       "prototypes": 10,
+       "open_packs": 7,
+       "reference_captures": 2,
+       "close_sites": 1,
+       "fastcall_sites": 2
+      },
+      {
+       "back_edges": 1,
+       "joins": 11,
+       "instructions": 269,
+       "edges": 271,
+       "prototypes": 10,
+       "open_packs": 7,
+       "fastcall_sites": 2
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "c30c1f251524dd3e1c93661caf80e4316c7fad6d23b96bc4352dadbec764f964",
+      "528c8cbbe6ba9c4bdb1bf3d8c09d7087cc163474adffb636bfc7a1e96458864e"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 259,
+       "edges": 259,
+       "prototypes": 10,
+       "open_packs": 7,
+       "reference_captures": 2,
+       "close_sites": 1,
+       "fastcall_sites": 2
+      },
+      {
+       "back_edges": 1,
+       "joins": 11,
+       "instructions": 270,
+       "edges": 272,
+       "prototypes": 10,
+       "open_packs": 7,
+       "fastcall_sites": 2
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 3117,
+   "after_bytes": 3136,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Components/Effects/Star.luau",
+   "before_sha256": "d4f90e4955ab479cff5d7e4cde555d40b3677e962b3a53225cb1cfd14d95b0ac",
+   "after_sha256": "81d7f3e01e3ae9308d7de315df6b7f76baca47f8c6cebe7246ec12512d1343af",
+   "input_sha256": "25cd63ca7b152b4af57d1fe57913e0285944ee2da3f089d1f45981a82481954d",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "04c50e3556482f527454175f821dd078a1a712b3ca5efeecb80bd955a21af0cd",
+      "be2e750eb919faa7629072a0c4ee953eb6217967d839788c22c7c2dcc0dea6f6"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 6,
+       "instructions": 240,
+       "edges": 238,
+       "prototypes": 9,
+       "open_packs": 6,
+       "reference_captures": 2,
+       "close_sites": 1,
+       "fastcall_sites": 2
+      },
+      {
+       "back_edges": 0,
+       "joins": 6,
+       "instructions": 236,
+       "edges": 234,
+       "prototypes": 9,
+       "open_packs": 6,
+       "fastcall_sites": 2
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "04c50e3556482f527454175f821dd078a1a712b3ca5efeecb80bd955a21af0cd",
+      "c9bf68fe369f6f62973b37a3093912f6fe62fcfc763503dcaa1e7571d71f6cf9"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 6,
+       "instructions": 240,
+       "edges": 238,
+       "prototypes": 9,
+       "open_packs": 6,
+       "reference_captures": 2,
+       "close_sites": 1,
+       "fastcall_sites": 2
+      },
+      {
+       "back_edges": 0,
+       "joins": 6,
+       "instructions": 237,
+       "edges": 235,
+       "prototypes": 9,
+       "open_packs": 6,
+       "fastcall_sites": 2
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 2590,
+   "after_bytes": 2607,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/Dependencies/Mock/init.luau",
+   "before_sha256": "04afe456e83cf6ab0511e9328d2193860b1f9740a25dfa78ce909d29a605b6d4",
+   "after_sha256": "9e81a84919bc5d2eef36ae6beb5a3c9d8ef9d6dbe68ede0062b6b4c5ac2e2280",
+   "input_sha256": "381bd1f9e5daad72b2fc23da0db27996c24a2b3dbfb22b664d21994fb45dcfc6",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORNPREP at pc 8",
+     "rebuilt": "unsupported FORNPREP at pc 8"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "d92210091fe59cbec0e1e8b043b49110e318cab62c0975df568fe801cf6c6ab4",
+      "46567ece6f578d70f7f0ec6c1919b2dd733f87d42885835e3a66af7a1f18a493"
+     ],
+     "summaries": [
+      {
+       "back_edges": 39,
+       "open_packs": 34,
+       "joins": 136,
+       "instructions": 2290,
+       "edges": 2400,
+       "prototypes": 52,
+       "fastcall_sites": 22,
+       "reference_captures": 19,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 39,
+       "open_packs": 34,
+       "joins": 129,
+       "instructions": 2287,
+       "edges": 2395,
+       "prototypes": 52,
+       "fastcall_sites": 22,
+       "reference_captures": 19,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORNPREP at pc 8",
+     "rebuilt": "unsupported FORNPREP at pc 8"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "d92210091fe59cbec0e1e8b043b49110e318cab62c0975df568fe801cf6c6ab4",
+      "3dce3598bebc7353cba6deee498f2562265812add52bcb629be9c8ead75fad06"
+     ],
+     "summaries": [
+      {
+       "back_edges": 39,
+       "open_packs": 34,
+       "joins": 136,
+       "instructions": 2290,
+       "edges": 2400,
+       "prototypes": 52,
+       "fastcall_sites": 22,
+       "reference_captures": 19,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 39,
+       "open_packs": 34,
+       "joins": 129,
+       "instructions": 2287,
+       "edges": 2395,
+       "prototypes": 52,
+       "fastcall_sites": 22,
+       "reference_captures": 19,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 29787,
+   "after_bytes": 29894,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/State/AttributeOf.luau",
+   "before_sha256": "8169e787124dd0e6a03e891ed875cd6d90d2c28e666c2c376eb3729f89ea1d51",
+   "after_sha256": "9c376a5507ac335ce38060c9ada0d6d79ce25b92ae4dc9725992f57c66863cdf",
+   "input_sha256": "a450906d23573202357a367f7528bb41b4580ddc43deda5e7869157a8e1a84b3",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "3b66fb866aa23499d328a5392d412e8bf7b7cf421337e3e9e15af4f669168660",
+      "2e798464f5c66117cb65973523d7dc72d5e11630a3646b656d79c21e1d4a000e"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 151,
+       "edges": 153,
+       "prototypes": 8,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      },
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 152,
+       "edges": 154,
+       "prototypes": 8,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "3b66fb866aa23499d328a5392d412e8bf7b7cf421337e3e9e15af4f669168660",
+      "7069c8e7a51b837772793eefd9fd6d225688d503109e3b617e90c4cfd0dd1a98"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 151,
+       "edges": 153,
+       "prototypes": 8,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      },
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 152,
+       "edges": 154,
+       "prototypes": 8,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 1610,
+   "after_bytes": 1668,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/State/ChildOf.luau",
+   "before_sha256": "a25eb7e89d7013b1cdb04150ce3f47e69355f6bc9381bcdf79842c5a2dc460b8",
+   "after_sha256": "3d89dc3fd0b5192c0b09bf65ac2c315a8b7662838ff3ab182a3dfb66b2ca7b2f",
+   "input_sha256": "1b390a4303fb106acc7be71b94fb636d4e454e99da430c2190a3920f1cdca594",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "d37109a3f0f7b5a651707aa3e48d3e234cd53da499d505297348b83a4d95fcee",
+      "aa020e3e330d823ad223724a7a440b5cb8e12b8b2613b7a061887550e2b64757"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 155,
+       "edges": 158,
+       "prototypes": 7,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      },
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 157,
+       "edges": 160,
+       "prototypes": 7,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "d37109a3f0f7b5a651707aa3e48d3e234cd53da499d505297348b83a4d95fcee",
+      "3061f077fa2849d15e77a6ed21bb830fe8ff7585c45e266a3fa6b918d3b5232b"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 155,
+       "edges": 158,
+       "prototypes": 7,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      },
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 157,
+       "edges": 160,
+       "prototypes": 7,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 1751,
+   "after_bytes": 1809,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/State/ChildOfClass.luau",
+   "before_sha256": "6554c8d3af4fef5d0a1d3dae37a97d3ac2b89a1b65ab4ead6663b05ba4a37983",
+   "after_sha256": "a91838eaf105d148f608050b4d34520495778a329f9a659dfee5e401ee15effb",
+   "input_sha256": "e3f24280050bdedc3e735a1b78d13a476969a3bce83920c7bc8548226f48725b",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "ab3522a2e27e22f99d0f1088726895d69de81f33602eb6640bbdfe2d8e61d02d",
+      "921d492a863d3be83e0198095480ab759d1cecd141d975c136b5da46f14dbdbb"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 146,
+       "edges": 149,
+       "prototypes": 7,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      },
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 147,
+       "edges": 150,
+       "prototypes": 7,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "ab3522a2e27e22f99d0f1088726895d69de81f33602eb6640bbdfe2d8e61d02d",
+      "9a8724ae73d2ccae51d79c1866868508fbac75e06808566f9729cc06fe35c303"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 146,
+       "edges": 149,
+       "prototypes": 7,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      },
+      {
+       "back_edges": 0,
+       "joins": 9,
+       "instructions": 147,
+       "edges": 150,
+       "prototypes": 7,
+       "reference_captures": 2,
+       "fastcall_sites": 5,
+       "close_sites": 1,
+       "open_packs": 9
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 1653,
+   "after_bytes": 1711,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/State/DescendantsOf.luau",
+   "before_sha256": "4351b29e33f2cd19edcbd158513d5dbd90746a8e9a36408304ced92a5e63e88a",
+   "after_sha256": "c2a87dcc7c7b627b55b8f3c91918cbac0e223ff8861f54a8e36f4ea6f8c00ff2",
+   "input_sha256": "64c4e4277f79c89ad715127816752c8b695754d96ae9cf335b9e6f369743bf8b",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "503d5c35706c68b60ec02a57ad07445b92e51071d5313f37079b1bc584b09b50",
+      "bd5b87b966ece7466617bdc272fb7c0fed42472de32792466cfcb18c894b52f9"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 10,
+       "instructions": 164,
+       "edges": 167,
+       "prototypes": 8,
+       "reference_captures": 2,
+       "fastcall_sites": 4,
+       "close_sites": 1,
+       "open_packs": 6
+      },
+      {
+       "back_edges": 0,
+       "joins": 10,
+       "instructions": 168,
+       "edges": 171,
+       "prototypes": 8,
+       "reference_captures": 2,
+       "fastcall_sites": 4,
+       "close_sites": 1,
+       "open_packs": 6
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "503d5c35706c68b60ec02a57ad07445b92e51071d5313f37079b1bc584b09b50",
+      "8dfa4507008be3e126107d4c359132373f86bbb47f770e38052852c093a038b9"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 10,
+       "instructions": 164,
+       "edges": 167,
+       "prototypes": 8,
+       "reference_captures": 2,
+       "fastcall_sites": 4,
+       "close_sites": 1,
+       "open_packs": 6
+      },
+      {
+       "back_edges": 0,
+       "joins": 10,
+       "instructions": 168,
+       "edges": 171,
+       "prototypes": 8,
+       "reference_captures": 2,
+       "fastcall_sites": 4,
+       "close_sites": 1,
+       "open_packs": 6
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 1841,
+   "after_bytes": 1899,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/State/GetSignal.luau",
+   "before_sha256": "0821b1c906613e7f87a93c8d4485ce39919350bf6fcff612e0ce351c28f66add",
+   "after_sha256": "2fde36dde90f37cb82ba6f74a6b510abfa95697a0045fc4fe5a1ac4b4b8c86ac",
+   "input_sha256": "1d55a06eeb5dc7c63bf7dc8129154d7ac8a0624d1d653b8b92856fcbb4779613",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "88fee0b09a733f0c5c5688451b9add430c4036d44ebd83cf09163148aa1104c1",
+      "55c2262a00a81509851ccae6a70e514410c0f52f3ac9c699d52e364de7ec25c7"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 4,
+       "instructions": 71,
+       "edges": 71,
+       "prototypes": 4,
+       "reference_captures": 1,
+       "fastcall_sites": 2,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 0,
+       "joins": 4,
+       "instructions": 72,
+       "edges": 72,
+       "prototypes": 4,
+       "reference_captures": 1,
+       "fastcall_sites": 2,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "88fee0b09a733f0c5c5688451b9add430c4036d44ebd83cf09163148aa1104c1",
+      "3e716af2961ca0ce9d5b471e596f14adf17af363f26624ca7c5f4981aa1a0549"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 4,
+       "instructions": 71,
+       "edges": 71,
+       "prototypes": 4,
+       "reference_captures": 1,
+       "fastcall_sites": 2,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 0,
+       "joins": 4,
+       "instructions": 72,
+       "edges": 72,
+       "prototypes": 4,
+       "reference_captures": 1,
+       "fastcall_sites": 2,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 724,
+   "after_bytes": 779,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/State/GetState.luau",
+   "before_sha256": "7bbeced800f968bdb063edf9d0a2b9ea594d3a996a3a683bcf980695de33274f",
+   "after_sha256": "fb45ada2d7a3a52f7c1bc3fdfd73a2805b7ff83d2a02df01dad894bdcf0cce82",
+   "input_sha256": "1a7a1b8c4019afb5585f265ed5b273fa9567baa87bd1b0563cd84a207e0821bf",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "64fed12bfaafb175962b06053c1cf505e84fd0955e1f9c967589fb45af9747ee",
+      "1b75eacdecb2d9c85f93faddedfa4c9890b3bf248393f863471a987471cb1d2a"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 3,
+       "instructions": 67,
+       "edges": 66,
+       "prototypes": 4,
+       "reference_captures": 1,
+       "fastcall_sites": 1,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 0,
+       "joins": 3,
+       "instructions": 68,
+       "edges": 67,
+       "prototypes": 4,
+       "reference_captures": 1,
+       "fastcall_sites": 1,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "64fed12bfaafb175962b06053c1cf505e84fd0955e1f9c967589fb45af9747ee",
+      "742dbbeb482b6c605b24943148a38b4d9728c57feca8bbd0844fb2ab08aab1f4"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 3,
+       "instructions": 67,
+       "edges": 66,
+       "prototypes": 4,
+       "reference_captures": 1,
+       "fastcall_sites": 1,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 0,
+       "joins": 3,
+       "instructions": 68,
+       "edges": 67,
+       "prototypes": 4,
+       "reference_captures": 1,
+       "fastcall_sites": 1,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 657,
+   "after_bytes": 712,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/FusionPackage/State/PropertyOf.luau",
+   "before_sha256": "09f6f7b707fe570e891ecced4d6936b24b69edc73fc216ddc92fd9b615a2d02e",
+   "after_sha256": "8f1269ee071fdc7f70ef517284e8f97bf792f6af07a97a3ed84616e1206f52ef",
+   "input_sha256": "762f01e368a4e81bd5831f9ed848ce0f488dbb02fe902bb1d4b2006f84f5b316",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "4cacaf413ff0e54ff5ad5d8f56b4dc62376977454e09315f8dd10a7f747f43a0",
+      "7a50a662ccd01f66f79649ed384d69535803be42bbb01c3413614ccc7829577d"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 12,
+       "instructions": 182,
+       "edges": 187,
+       "prototypes": 9,
+       "reference_captures": 2,
+       "fastcall_sites": 6,
+       "close_sites": 1,
+       "open_packs": 7
+      },
+      {
+       "back_edges": 0,
+       "joins": 12,
+       "instructions": 184,
+       "edges": 189,
+       "prototypes": 9,
+       "reference_captures": 2,
+       "fastcall_sites": 6,
+       "close_sites": 1,
+       "open_packs": 7
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "4cacaf413ff0e54ff5ad5d8f56b4dc62376977454e09315f8dd10a7f747f43a0",
+      "c444b98f99bea4e01ee7e5d39d3cf05f1270bdd22b4a5b6e3b4ec430f313e723"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 12,
+       "instructions": 182,
+       "edges": 187,
+       "prototypes": 9,
+       "reference_captures": 2,
+       "fastcall_sites": 6,
+       "close_sites": 1,
+       "open_packs": 7
+      },
+      {
+       "back_edges": 0,
+       "joins": 12,
+       "instructions": 184,
+       "edges": 189,
+       "prototypes": 9,
+       "reference_captures": 2,
+       "fastcall_sites": 6,
+       "close_sites": 1,
+       "open_packs": 7
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 2005,
+   "after_bytes": 2063,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/init.luau",
+   "before_sha256": "62e8506daa58f3ab62ba629e0ecda404a23e8420c9f49ba455118ce449ac2330",
+   "after_sha256": "8e86879ca79a70fd6a5474ba99842d5c12efe58739f75368e9e5cf7102405677",
+   "input_sha256": "c84844e09969079c4fb5e9aeb715437511ca910040fbc7e9959a952b2f99b30c",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2K at pc 1",
+     "rebuilt": "unsupported FASTCALL2K at pc 1"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "582f0fcce7ade0656c590a9e68323def1a01b02a6fed9c87e279772c797ee661",
+      "a1e78066ca792880755be4d912eff51ed6e71d2c559bb40c7ebf80429f9eb6cb"
+     ],
+     "summaries": [
+      {
+       "back_edges": 5,
+       "joins": 40,
+       "instructions": 700,
+       "edges": 732,
+       "prototypes": 9,
+       "fastcall_sites": 11,
+       "close_sites": 4,
+       "open_packs": 1,
+       "reference_captures": 15
+      },
+      {
+       "back_edges": 5,
+       "joins": 39,
+       "instructions": 702,
+       "edges": 735,
+       "prototypes": 9,
+       "fastcall_sites": 11,
+       "open_packs": 1,
+       "reference_captures": 17,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2K at pc 1",
+     "rebuilt": "unsupported FASTCALL2K at pc 1"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "582f0fcce7ade0656c590a9e68323def1a01b02a6fed9c87e279772c797ee661",
+      "3d7c4d8340f22f73341e5c82fffb5895cf737159c478f441319b41acf287a365"
+     ],
+     "summaries": [
+      {
+       "back_edges": 5,
+       "joins": 40,
+       "instructions": 700,
+       "edges": 732,
+       "prototypes": 9,
+       "fastcall_sites": 11,
+       "close_sites": 4,
+       "open_packs": 1,
+       "reference_captures": 15
+      },
+      {
+       "back_edges": 5,
+       "joins": 39,
+       "instructions": 702,
+       "edges": 735,
+       "prototypes": 9,
+       "fastcall_sites": 11,
+       "open_packs": 1,
+       "reference_captures": 17,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 9393,
+   "after_bytes": 9481,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Nodes/init.luau",
+   "before_sha256": "a37f49a899a20bd1f0caf84afc2367ad450139b912839cb13c665896e111e3cb",
+   "after_sha256": "1d193db8dc10773b7ef5e3bc465aea4f99b073df449bb280bce4fb6a19daccf8",
+   "input_sha256": "5ba9ee9f69fa3cbdfce2d51470c596cde326d377061725c2950366f8050d4835",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORNPREP at pc 4",
+     "rebuilt": "unsupported FORNPREP at pc 4"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "605ce8da7cf53d6451753081af0491cfea4dffbdeb2816191c17c0212a599d35",
+      "7a0b9bb3a98ddcdc2cd3c6c2ad3198634329e6b59d6228cedf47742ed1905626"
+     ],
+     "summaries": [
+      {
+       "back_edges": 19,
+       "open_packs": 96,
+       "fastcall_sites": 59,
+       "joins": 146,
+       "instructions": 2268,
+       "edges": 2336,
+       "prototypes": 88,
+       "reference_captures": 11,
+       "close_sites": 11
+      },
+      {
+       "back_edges": 39,
+       "open_packs": 96,
+       "fastcall_sites": 67,
+       "joins": 198,
+       "instructions": 2653,
+       "edges": 2765,
+       "prototypes": 93,
+       "reference_captures": 10,
+       "close_sites": 10
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORNPREP at pc 4",
+     "rebuilt": "unsupported FORNPREP at pc 4"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "605ce8da7cf53d6451753081af0491cfea4dffbdeb2816191c17c0212a599d35",
+      "91dbdaf3393a632a560acf5925e89d97aba515ff0c54229bc4b763df4c702e72"
+     ],
+     "summaries": [
+      {
+       "back_edges": 19,
+       "open_packs": 96,
+       "fastcall_sites": 59,
+       "joins": 146,
+       "instructions": 2268,
+       "edges": 2336,
+       "prototypes": 88,
+       "reference_captures": 11,
+       "close_sites": 11
+      },
+      {
+       "back_edges": 39,
+       "open_packs": 96,
+       "fastcall_sites": 67,
+       "joins": 198,
+       "instructions": 2653,
+       "edges": 2765,
+       "prototypes": 93,
+       "reference_captures": 10,
+       "close_sites": 10
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 27687,
+   "after_bytes": 27762,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/ForgeVFX/bezier.luau",
+   "before_sha256": "690f19f4ef401ce16012d532ce059b70e8f97fc61ff75f90bffe0f16916fad74",
+   "after_sha256": "bc3e0ffa4969eea6306342c7a71c1ff82ace69443ad03c72db94921cced8d7e6",
+   "input_sha256": "ae4dca1c8367c19b0498a63bd88b5a9481d402f5fbdfd01bbdd966d979dcf0db",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "237eda934a8177ae62e962e515c4e5f91f08a49985a06ebe0ac3cf7068561965",
+      "5ca5473868826f85cb1bf2a985e73362ff6c6f014c3365023c4962927a739446"
+     ],
+     "summaries": [
+      {
+       "back_edges": 4,
+       "reference_captures": 28,
+       "close_sites": 6,
+       "joins": 78,
+       "instructions": 1375,
+       "edges": 1452,
+       "prototypes": 24,
+       "open_packs": 26,
+       "fastcall_sites": 13
+      },
+      {
+       "back_edges": 4,
+       "reference_captures": 29,
+       "close_sites": 7,
+       "joins": 79,
+       "instructions": 1406,
+       "edges": 1480,
+       "prototypes": 24,
+       "open_packs": 26,
+       "fastcall_sites": 13
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "237eda934a8177ae62e962e515c4e5f91f08a49985a06ebe0ac3cf7068561965",
+      "5ca5473868826f85cb1bf2a985e73362ff6c6f014c3365023c4962927a739446"
+     ],
+     "summaries": [
+      {
+       "back_edges": 4,
+       "reference_captures": 28,
+       "close_sites": 6,
+       "joins": 78,
+       "instructions": 1375,
+       "edges": 1452,
+       "prototypes": 24,
+       "open_packs": 26,
+       "fastcall_sites": 13
+      },
+      {
+       "back_edges": 4,
+       "reference_captures": 29,
+       "close_sites": 7,
+       "joins": 79,
+       "instructions": 1406,
+       "edges": 1480,
+       "prototypes": 24,
+       "open_packs": 26,
+       "fastcall_sites": 13
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 16536,
+   "after_bytes": 16555,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/ForgeVFX/spin.luau",
+   "before_sha256": "c8be87aed0ff7c9d8204404a2fcb6a6991be993f14182b36d309e66173e2334a",
+   "after_sha256": "905260687a6ef515a61638cdffab0e763edf4763a7144f8849da677c1a9d90ae",
+   "input_sha256": "02ddc21de381e3a00b4e86eb97a73a9ffee96d673792bf2b864ef4145b7711b5",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported CLOSEUPVALS at pc 35",
+     "rebuilt": "unsupported FASTCALL2 at pc 169"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "437e6da48298c51ff2103586b8978c2b5ec9351adb94af13d19e7ed659e7679d",
+      "9396d629f9e775575c7c57080099409d32e97e9dae25b16c84d5335f94e986dd"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 15,
+       "instructions": 240,
+       "edges": 253,
+       "prototypes": 6,
+       "close_sites": 2,
+       "reference_captures": 4,
+       "fastcall_sites": 4,
+       "open_packs": 3
+      },
+      {
+       "back_edges": 0,
+       "joins": 15,
+       "instructions": 246,
+       "edges": 259,
+       "prototypes": 6,
+       "reference_captures": 3,
+       "fastcall_sites": 4,
+       "open_packs": 3,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported CLOSEUPVALS at pc 35",
+     "rebuilt": "unsupported FASTCALL2 at pc 169"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "437e6da48298c51ff2103586b8978c2b5ec9351adb94af13d19e7ed659e7679d",
+      "9222afb3aaea004bba6e6d059ab5fd85309750969e16da6cc0e6a1977d18f744"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 15,
+       "instructions": 240,
+       "edges": 253,
+       "prototypes": 6,
+       "close_sites": 2,
+       "reference_captures": 4,
+       "fastcall_sites": 4,
+       "open_packs": 3
+      },
+      {
+       "back_edges": 0,
+       "joins": 15,
+       "instructions": 246,
+       "edges": 259,
+       "prototypes": 6,
+       "reference_captures": 3,
+       "fastcall_sites": 4,
+       "open_packs": 3,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 2593,
+   "after_bytes": 2610,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/spin.luau",
+   "before_sha256": "22369677f942761fbdc1d0446e0828eee8e5585453343f8abb29850693cfee0c",
+   "after_sha256": "5f5f66a95c7d962567bc6dacecb57a372688fca652edc9fde49f1534c311ff1d",
+   "input_sha256": "2ebd2e875a6a12f4737f45ffeca6810ef0b5c1b3aa85956cd6979906538597eb",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "7eaedc54bbc1d558b8bec4a147a87bc9a80b1083851c7086815524bba726a331",
+      "c02be6795154d560df2c6add352a8f296a7ab2011aafa374c58d54a838095f32"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 12,
+       "instructions": 244,
+       "edges": 252,
+       "prototypes": 6,
+       "reference_captures": 4,
+       "fastcall_sites": 4,
+       "open_packs": 3,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 0,
+       "joins": 11,
+       "instructions": 252,
+       "edges": 260,
+       "prototypes": 6,
+       "reference_captures": 3,
+       "fastcall_sites": 4,
+       "open_packs": 3,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "7eaedc54bbc1d558b8bec4a147a87bc9a80b1083851c7086815524bba726a331",
+      "c4c3b70f3de3b4a2e5d72ad0b1faff1b0acb28005344f7a19c2b6030383310f8"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 12,
+       "instructions": 244,
+       "edges": 252,
+       "prototypes": 6,
+       "reference_captures": 4,
+       "fastcall_sites": 4,
+       "open_packs": 3,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 0,
+       "joins": 11,
+       "instructions": 252,
+       "edges": 260,
+       "prototypes": 6,
+       "reference_captures": 3,
+       "fastcall_sites": 4,
+       "open_packs": 3,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 2414,
+   "after_bytes": 2433,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/tween.luau",
+   "before_sha256": "10dc1a9833e928700fa40ae7fdda39f050636f40a8234aea829fbfe390ce9406",
+   "after_sha256": "e03ae90e283bbc5215a346f8aca082a41e900c395a98f28eaf5b8e43c943ccda",
+   "input_sha256": "e282d0b8ddb5985663a03f64a2b280ede77a35ea73915206c5f42c517134b041",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "2859b6ac99db74d65612bf741db05a7fb164c8a1dd0e42ab908bc22d99f16a15",
+      "efb11388bad6ffb46a6cf5d65e5daa12e7a50754833a9c19fea04c621eed43cf"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 25,
+       "instructions": 262,
+       "edges": 281,
+       "prototypes": 10,
+       "reference_captures": 8,
+       "close_sites": 4,
+       "fastcall_sites": 8,
+       "open_packs": 1
+      },
+      {
+       "back_edges": 0,
+       "joins": 29,
+       "instructions": 342,
+       "edges": 366,
+       "prototypes": 10,
+       "reference_captures": 7,
+       "close_sites": 4,
+       "fastcall_sites": 12,
+       "open_packs": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "2859b6ac99db74d65612bf741db05a7fb164c8a1dd0e42ab908bc22d99f16a15",
+      "89b9962012e5169302278bcdb22a73b34caaa879132daf8938248a985985ce35"
+     ],
+     "summaries": [
+      {
+       "back_edges": 0,
+       "joins": 25,
+       "instructions": 262,
+       "edges": 281,
+       "prototypes": 10,
+       "reference_captures": 8,
+       "close_sites": 4,
+       "fastcall_sites": 8,
+       "open_packs": 1
+      },
+      {
+       "back_edges": 0,
+       "joins": 29,
+       "instructions": 343,
+       "edges": 367,
+       "prototypes": 10,
+       "reference_captures": 7,
+       "close_sites": 4,
+       "fastcall_sites": 12,
+       "open_packs": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 3155,
+   "after_bytes": 3169,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/HighlightGroup/init.luau",
+   "before_sha256": "084625b3d87c2376b35559576b331d01a0fe9918c5d575b1d5dd97c1a785ec70",
+   "after_sha256": "636555fc9472ef050f97ef0b382a070c2ef86959c144aa91ceeb8e92440ad442",
+   "input_sha256": "366e768719cb9cd6c290890d80e10e7f5b24f0e38f81477b1017d3dd0b0dce74",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 79",
+     "rebuilt": "unsupported FASTCALL2 at pc 80"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "b23ba6916accdc1c5c591529386b31524992fd149d0069afbcdaea3b96560405",
+      "d2f4b20f7a9538016584c4bc94d27fb09ec98a694367ceb52ce54eb42a1694d2"
+     ],
+     "summaries": [
+      {
+       "back_edges": 10,
+       "joins": 19,
+       "instructions": 326,
+       "edges": 327,
+       "prototypes": 19,
+       "fastcall_sites": 4,
+       "reference_captures": 1,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 10,
+       "joins": 18,
+       "instructions": 330,
+       "edges": 331,
+       "prototypes": 19,
+       "fastcall_sites": 4,
+       "reference_captures": 1,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 79",
+     "rebuilt": "unsupported FASTCALL2 at pc 80"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "b23ba6916accdc1c5c591529386b31524992fd149d0069afbcdaea3b96560405",
+      "18a1c0ef23ed84363a4738f20f2ba9e5f1d676cbe126b2c411bb8a1f9695615f"
+     ],
+     "summaries": [
+      {
+       "back_edges": 10,
+       "joins": 19,
+       "instructions": 326,
+       "edges": 327,
+       "prototypes": 19,
+       "fastcall_sites": 4,
+       "reference_captures": 1,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 10,
+       "joins": 18,
+       "instructions": 330,
+       "edges": 331,
+       "prototypes": 19,
+       "fastcall_sites": 4,
+       "reference_captures": 1,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 3602,
+   "after_bytes": 3627,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/Network/BufferEncoder/RbxEnumEncoder.luau",
+   "before_sha256": "6d52a0bc7de9745b50fde6950477d6b9b5ae2af1dda02aa3ecb82325c7cc2fa6",
+   "after_sha256": "a80549a5bd64fc642701751d5c28e051d3677457f8b862630a6320b95e230f27",
+   "input_sha256": "98d3b8a43377fa9817201735a860eac8a4bebb758cb32b4da1f21f74b0d4577e",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 30",
+     "rebuilt": "unsupported FORGPREP at pc 26"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "74007b584e679c630ef5db7e57892c09f898056dde57b9dc7cee5c0eb12f3d80",
+      "b549b89cb6ea3b2495612d216f5e3842106dcfcd595d61336c63c7963540bc3d"
+     ],
+     "summaries": [
+      {
+       "back_edges": 8,
+       "fastcall_sites": 13,
+       "reference_captures": 2,
+       "close_sites": 1,
+       "joins": 30,
+       "instructions": 297,
+       "edges": 318,
+       "prototypes": 11
+      },
+      {
+       "back_edges": 8,
+       "fastcall_sites": 13,
+       "reference_captures": 2,
+       "close_sites": 1,
+       "joins": 30,
+       "instructions": 299,
+       "edges": 320,
+       "prototypes": 11
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 30",
+     "rebuilt": "unsupported FORGPREP at pc 26"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "74007b584e679c630ef5db7e57892c09f898056dde57b9dc7cee5c0eb12f3d80",
+      "b549b89cb6ea3b2495612d216f5e3842106dcfcd595d61336c63c7963540bc3d"
+     ],
+     "summaries": [
+      {
+       "back_edges": 8,
+       "fastcall_sites": 13,
+       "reference_captures": 2,
+       "close_sites": 1,
+       "joins": 30,
+       "instructions": 297,
+       "edges": 318,
+       "prototypes": 11
+      },
+      {
+       "back_edges": 8,
+       "fastcall_sites": 13,
+       "reference_captures": 2,
+       "close_sites": 1,
+       "joins": 30,
+       "instructions": 299,
+       "edges": 320,
+       "prototypes": 11
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 3617,
+   "after_bytes": 3671,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/QuickZone/Core/Scheduler.luau",
+   "before_sha256": "7ed807ce3f5e2bcab27b5f42bc79a6e651786dff944a439cea6ab6e4f1b6a2ae",
+   "after_sha256": "80ffd17382034695ec4a58081aaabe19295172aa79ca7c55a74725d3c4804c9c",
+   "input_sha256": "9b473495ba9fff3caa0aa634a2312b13899ec630abe86b30e6e3c4f87e960f37",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 19",
+     "rebuilt": "unsupported FORGPREP at pc 19"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "8df8e9a4fd2db90989537455a0af10d692c51b7fbe6db50a1d39cbc07a4a2998",
+      "4734de9e53a43c24cccc5f32e3c367698212fe11e6652d9ec737dbec34580881"
+     ],
+     "summaries": [
+      {
+       "back_edges": 13,
+       "reference_captures": 18,
+       "close_sites": 1,
+       "joins": 56,
+       "instructions": 798,
+       "edges": 881,
+       "prototypes": 13,
+       "fastcall_sites": 3
+      },
+      {
+       "back_edges": 13,
+       "reference_captures": 18,
+       "close_sites": 1,
+       "joins": 58,
+       "instructions": 798,
+       "edges": 880,
+       "prototypes": 13,
+       "fastcall_sites": 3
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 19",
+     "rebuilt": "unsupported FORGPREP at pc 19"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "8df8e9a4fd2db90989537455a0af10d692c51b7fbe6db50a1d39cbc07a4a2998",
+      "a9c12e522ccf98b27e63bb2e42f7531446be5ae10394fbc776054ad076847c65"
+     ],
+     "summaries": [
+      {
+       "back_edges": 13,
+       "reference_captures": 18,
+       "close_sites": 1,
+       "joins": 56,
+       "instructions": 798,
+       "edges": 881,
+       "prototypes": 13,
+       "fastcall_sites": 3
+      },
+      {
+       "back_edges": 13,
+       "reference_captures": 18,
+       "close_sites": 1,
+       "joins": 58,
+       "instructions": 798,
+       "edges": 880,
+       "prototypes": 13,
+       "fastcall_sites": 3
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 12413,
+   "after_bytes": 12468,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/ReplicaUtils.luau",
+   "before_sha256": "db6cd4ab2675a462d9f41c9c12c76c9864b1efa73187a74bb6a1d42e2295eed3",
+   "after_sha256": "fc95ec61214b101cee707a5d78490ec09dc1176b537702a6e42acce20c64f83e",
+   "input_sha256": "bdf18f65c8ef82dc508fe9a8b9d1888761e3ad48a316167ccd0fc9a94449afa3",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 5",
+     "rebuilt": "unsupported FORGPREP at pc 5"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "977ef7c6876a09b118a14c50d4efea6ba9a572af145e3ecbbb514f1c10301768",
+      "55678fac94952ccb758b6ed9c4bb22b3356355b6cd694ff0f9ab294c383fc99b"
+     ],
+     "summaries": [
+      {
+       "back_edges": 6,
+       "joins": 17,
+       "instructions": 325,
+       "edges": 330,
+       "prototypes": 16,
+       "fastcall_sites": 3,
+       "close_sites": 2,
+       "reference_captures": 4,
+       "open_packs": 4
+      },
+      {
+       "back_edges": 6,
+       "joins": 18,
+       "instructions": 323,
+       "edges": 329,
+       "prototypes": 16,
+       "fastcall_sites": 3,
+       "close_sites": 2,
+       "reference_captures": 4,
+       "open_packs": 4
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 5",
+     "rebuilt": "unsupported FORGPREP at pc 5"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "977ef7c6876a09b118a14c50d4efea6ba9a572af145e3ecbbb514f1c10301768",
+      "55678fac94952ccb758b6ed9c4bb22b3356355b6cd694ff0f9ab294c383fc99b"
+     ],
+     "summaries": [
+      {
+       "back_edges": 6,
+       "joins": 17,
+       "instructions": 325,
+       "edges": 330,
+       "prototypes": 16,
+       "fastcall_sites": 3,
+       "close_sites": 2,
+       "reference_captures": 4,
+       "open_packs": 4
+      },
+      {
+       "back_edges": 6,
+       "joins": 18,
+       "instructions": 323,
+       "edges": 329,
+       "prototypes": 16,
+       "fastcall_sites": 3,
+       "close_sites": 2,
+       "reference_captures": 4,
+       "open_packs": 4
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 3265,
+   "after_bytes": 3289,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitter/init.luau",
+   "before_sha256": "71fbbe6b990ca88778171127c534d8c46307e23f8105148e85f93717c0038714",
+   "after_sha256": "e7aed54ab4f48342a4227a16595c512be7e370b1eb3024bf8b6ba98a59ac3432",
+   "input_sha256": "8628b6b08e5c3e4bd514f6bf86ce0faba907d69b46aead0c982133dd5e6c3ebf",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 67",
+     "rebuilt": "unsupported FASTCALL2 at pc 55"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "eddb66aa96d091f781293c89f1618a3d67170effa270ff0a6fb69320e56b4b65",
+      "2d03651d42166c92b87833265bcdf7ef89e3cc7ebc6944a6ec8b3a64dae50d13"
+     ],
+     "summaries": [
+      {
+       "back_edges": 15,
+       "open_packs": 3,
+       "fastcall_sites": 44,
+       "joins": 110,
+       "instructions": 1899,
+       "edges": 2002,
+       "prototypes": 32,
+       "close_sites": 7,
+       "reference_captures": 17
+      },
+      {
+       "back_edges": 15,
+       "open_packs": 3,
+       "fastcall_sites": 44,
+       "joins": 110,
+       "instructions": 1873,
+       "edges": 1973,
+       "prototypes": 32,
+       "reference_captures": 15,
+       "close_sites": 5
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 67",
+     "rebuilt": "unsupported FASTCALL2 at pc 55"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "eddb66aa96d091f781293c89f1618a3d67170effa270ff0a6fb69320e56b4b65",
+      "e389dfbe9dcc01209af4b2a00c32054dc8ac70e0eb2c960d348abc0b87624d0a"
+     ],
+     "summaries": [
+      {
+       "back_edges": 15,
+       "open_packs": 3,
+       "fastcall_sites": 44,
+       "joins": 110,
+       "instructions": 1899,
+       "edges": 2002,
+       "prototypes": 32,
+       "close_sites": 7,
+       "reference_captures": 17
+      },
+      {
+       "back_edges": 15,
+       "open_packs": 3,
+       "fastcall_sites": 44,
+       "joins": 110,
+       "instructions": 1873,
+       "edges": 1973,
+       "prototypes": 32,
+       "reference_captures": 15,
+       "close_sites": 5
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 20962,
+   "after_bytes": 21026,
+   "status": "passed"
+  },
+  {
+   "file": "ReplicatedStorage/Shared/Utils/init.luau",
+   "before_sha256": "b1f4251a7c6f4a8d90b64a4103c9e5181bcfb43eef2e3fc47b9a8fdcf799767e",
+   "after_sha256": "14b26b9cb441725fa8e5e6577c0478e7df58e6cb8c13136f19f7679ff55109f2",
+   "input_sha256": "f830034572103f5ee1da6d48352c2d5a095a01220733b66f316062afa8557c9d",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORNPREP at pc 147",
+     "rebuilt": "unsupported FORNPREP at pc 139"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "791b7a855f79d2abccb4c24f5bdedd86639b8ae0a54d749dfadbee16abc13d7f",
+      "d9d368bf3e92aa4d70b1024d6fb23009f08f20e8df0167b89ff442dc55628989"
+     ],
+     "summaries": [
+      {
+       "back_edges": 62,
+       "open_packs": 27,
+       "fastcall_sites": 72,
+       "joins": 283,
+       "instructions": 3593,
+       "edges": 3860,
+       "prototypes": 131,
+       "close_sites": 7,
+       "reference_captures": 10
+      },
+      {
+       "back_edges": 62,
+       "open_packs": 27,
+       "fastcall_sites": 72,
+       "joins": 283,
+       "instructions": 3562,
+       "edges": 3834,
+       "prototypes": 131,
+       "reference_captures": 9,
+       "close_sites": 7
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORNPREP at pc 147",
+     "rebuilt": "unsupported FORNPREP at pc 139"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "791b7a855f79d2abccb4c24f5bdedd86639b8ae0a54d749dfadbee16abc13d7f",
+      "4993bcb1d58ff2ed70cdb702ad061d06fcd4e71295a20fd17a6a8f0e5307e41c"
+     ],
+     "summaries": [
+      {
+       "back_edges": 62,
+       "open_packs": 27,
+       "fastcall_sites": 72,
+       "joins": 283,
+       "instructions": 3593,
+       "edges": 3860,
+       "prototypes": 131,
+       "close_sites": 7,
+       "reference_captures": 10
+      },
+      {
+       "back_edges": 62,
+       "open_packs": 27,
+       "fastcall_sites": 72,
+       "joins": 283,
+       "instructions": 3562,
+       "edges": 3834,
+       "prototypes": 131,
+       "reference_captures": 9,
+       "close_sites": 7
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 43224,
+   "after_bytes": 43306,
+   "status": "passed"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/ClientBuildingHandlers/TrainingGrounds.luau",
+   "before_sha256": "bbbb3f64a5c476cd2fb4a65845e8b2d92739c0a501c3ef8643517d3e9369e9cc",
+   "after_sha256": "dd7d9431c3ad2388b7057dbe378e5d8f294827233c3be52fe4c803a68e5432b7",
+   "input_sha256": "f4758c9622992b2b91e1163631960183cb207537ab9bb62dc208cfeece8cba06",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 8",
+     "rebuilt": "unsupported FASTCALL2 at pc 8"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "c9ab786c26a548a1e2aa00822f9abd129372701df8e5c97c13ea020efce60b3e",
+      "b3c9d5bb987c15cc01f65eb127bb23537178d980eb740e318b987f7063103ddc"
+     ],
+     "summaries": [
+      {
+       "back_edges": 7,
+       "open_packs": 11,
+       "joins": 21,
+       "instructions": 474,
+       "edges": 485,
+       "prototypes": 15,
+       "fastcall_sites": 9,
+       "reference_captures": 3,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 7,
+       "open_packs": 11,
+       "joins": 21,
+       "instructions": 465,
+       "edges": 476,
+       "prototypes": 15,
+       "fastcall_sites": 9,
+       "reference_captures": 2,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 8",
+     "rebuilt": "unsupported FASTCALL2 at pc 8"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "c9ab786c26a548a1e2aa00822f9abd129372701df8e5c97c13ea020efce60b3e",
+      "2ddd60bac4d1f0f55e00e7f9c0449610a68e6acf28b2edf3017021ed68d0e7f4"
+     ],
+     "summaries": [
+      {
+       "back_edges": 7,
+       "open_packs": 11,
+       "joins": 21,
+       "instructions": 474,
+       "edges": 485,
+       "prototypes": 15,
+       "fastcall_sites": 9,
+       "reference_captures": 3,
+       "close_sites": 1
+      },
+      {
+       "back_edges": 7,
+       "open_packs": 11,
+       "joins": 21,
+       "instructions": 466,
+       "edges": 477,
+       "prototypes": 15,
+       "fastcall_sites": 9,
+       "reference_captures": 2,
+       "close_sites": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 4279,
+   "after_bytes": 4295,
+   "status": "passed"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/Rain/RainModule.luau",
+   "before_sha256": "688affe219292a113a7043977511df8346d0ebf117051e9f8efa9194531c808f",
+   "after_sha256": "8907b167af09cb4b1a5023a35ebc10cdf687f8601e64180f4a63b17fdab27b2d",
+   "input_sha256": "9a3c4eff21581fb03f565f4de04a0b6b382a7a700c849361020c31b14942da25",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP_NEXT at pc 182",
+     "rebuilt": "unsupported FORGPREP_NEXT at pc 181"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "07b177af2157cb68c427c687dbf4a130450186d542a60010822ccea9702fe6b7",
+      "d85c6c0ba6e936352f33acdb5fd8039c7132bca64f7f8a17ea870b96f3bae103"
+     ],
+     "summaries": [
+      {
+       "back_edges": 22,
+       "open_packs": 13,
+       "fastcall_sites": 64,
+       "reference_captures": 59,
+       "close_sites": 2,
+       "joins": 143,
+       "instructions": 2029,
+       "edges": 2168,
+       "prototypes": 35
+      },
+      {
+       "back_edges": 22,
+       "open_packs": 13,
+       "fastcall_sites": 89,
+       "reference_captures": 32,
+       "close_sites": 2,
+       "joins": 173,
+       "instructions": 2316,
+       "edges": 2490,
+       "prototypes": 40
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP_NEXT at pc 182",
+     "rebuilt": "unsupported FORGPREP_NEXT at pc 181"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "07b177af2157cb68c427c687dbf4a130450186d542a60010822ccea9702fe6b7",
+      "b56b0d61f2dea721c66edcd4e12f41b671890ab467dd7db2f2980a6fe5cee656"
+     ],
+     "summaries": [
+      {
+       "back_edges": 22,
+       "open_packs": 13,
+       "fastcall_sites": 64,
+       "reference_captures": 59,
+       "close_sites": 2,
+       "joins": 143,
+       "instructions": 2029,
+       "edges": 2168,
+       "prototypes": 35
+      },
+      {
+       "back_edges": 22,
+       "open_packs": 13,
+       "fastcall_sites": 89,
+       "reference_captures": 32,
+       "close_sites": 2,
+       "joins": 173,
+       "instructions": 2316,
+       "edges": 2490,
+       "prototypes": 40
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 25269,
+   "after_bytes": 25346,
+   "status": "passed"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/MountAutoPlayIndicators.client.luau",
+   "before_sha256": "9efe89bf43bfa73e31b449b6cf23064de297a2e926bc5718f649b00ab83feed1",
+   "after_sha256": "74a2b0c75faaa900d1039a0ffabe52f50b53dd70e95feaf85039cbd99885b0fc",
+   "input_sha256": "cbb9ae07bdcab6dce00ed752bb57f77383e0f17fa3d6907cb545b4680070cb72",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 15",
+     "rebuilt": "unsupported FORGPREP at pc 15"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "d0f6709140e4bc8ea642206ce395d931137664b948e83723007f0c55001e138b",
+      "06e504718df16d45dd8f1b97762ed8a30ffa507d27374e67275307a12b73ef0d"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "open_packs": 14,
+       "reference_captures": 3,
+       "close_sites": 1,
+       "joins": 29,
+       "instructions": 573,
+       "edges": 586,
+       "prototypes": 19,
+       "fastcall_sites": 16
+      },
+      {
+       "back_edges": 1,
+       "open_packs": 14,
+       "reference_captures": 3,
+       "close_sites": 1,
+       "joins": 29,
+       "instructions": 579,
+       "edges": 592,
+       "prototypes": 19,
+       "fastcall_sites": 16
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORGPREP at pc 15",
+     "rebuilt": "unsupported FORGPREP at pc 15"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "d0f6709140e4bc8ea642206ce395d931137664b948e83723007f0c55001e138b",
+      "7edb30af4844318984cd59163bf3b5cb77ab1977945fa2ddaf6dae989ebd620c"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "open_packs": 14,
+       "reference_captures": 3,
+       "close_sites": 1,
+       "joins": 29,
+       "instructions": 573,
+       "edges": 586,
+       "prototypes": 19,
+       "fastcall_sites": 16
+      },
+      {
+       "back_edges": 1,
+       "open_packs": 14,
+       "reference_captures": 3,
+       "close_sites": 1,
+       "joins": 29,
+       "instructions": 580,
+       "edges": 593,
+       "prototypes": 19,
+       "fastcall_sites": 16
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 6712,
+   "after_bytes": 6751,
+   "status": "passed"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/Mounts/ShenronDragon/init.luau",
+   "before_sha256": "b3864ef2b6f2e33a8c5c30a57eb3ad151bc4caf78ee464fb10f071e855e6cd4e",
+   "after_sha256": "d01c97f0ea23ea69c09d0cedcedadeefa9db5cbc80d72a4397bd79202227d6d8",
+   "input_sha256": "137a6ded2d183b36568ff3b21141f91152f96484101b9624e601c5b31905b8a6",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 101",
+     "rebuilt": "unsupported FASTCALL2 at pc 91"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "a6ddcfdc126ba358619f74d36e5d72a2954de71a19a78c939356e712d1664d7f",
+      "f017bc29826ea6a759078c95ef05c0d024cd7e32897a34f654c86757ab157d3f"
+     ],
+     "summaries": [
+      {
+       "back_edges": 22,
+       "fastcall_sites": 87,
+       "joins": 154,
+       "instructions": 2150,
+       "edges": 2315,
+       "prototypes": 30,
+       "reference_captures": 17,
+       "open_packs": 5,
+       "close_sites": 3
+      },
+      {
+       "back_edges": 22,
+       "fastcall_sites": 87,
+       "joins": 157,
+       "instructions": 2234,
+       "edges": 2401,
+       "prototypes": 30,
+       "reference_captures": 17,
+       "open_packs": 5,
+       "close_sites": 3
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 101",
+     "rebuilt": "unsupported FASTCALL2 at pc 91"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "a6ddcfdc126ba358619f74d36e5d72a2954de71a19a78c939356e712d1664d7f",
+      "70b8a482581f5216395d7056abf87a6487de192952baf0a2d391483f5cdf6cc7"
+     ],
+     "summaries": [
+      {
+       "back_edges": 22,
+       "fastcall_sites": 87,
+       "joins": 154,
+       "instructions": 2150,
+       "edges": 2315,
+       "prototypes": 30,
+       "reference_captures": 17,
+       "open_packs": 5,
+       "close_sites": 3
+      },
+      {
+       "back_edges": 22,
+       "fastcall_sites": 87,
+       "joins": 157,
+       "instructions": 2234,
+       "edges": 2401,
+       "prototypes": 30,
+       "reference_captures": 17,
+       "open_packs": 5,
+       "close_sites": 3
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 25339,
+   "after_bytes": 25361,
+   "status": "passed"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/VRBaseCamera.luau",
+   "before_sha256": "ca5e076a4a1319de07f9fdfd8f48c091534fd38598f3293310be1324e54f4a63",
+   "after_sha256": "6122dbf205851377b29da7be1d63df0ef7ab7fe60d45c61bd5cb5951a7c836b0",
+   "input_sha256": "9c4f9672ab4abaebf3a8f8ed9505d2bbbc6aab06c64d52520e15c8967195d8dd",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 96",
+     "rebuilt": "unsupported FASTCALL2 at pc 85"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "6abfa4e15b0a553374e106feb18864a6f364748397cde2be34059be42eece166",
+      "af2b0e8d8c132332d864081c324d440bb41dc98961144af277722ed9f740c9ec"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "open_packs": 6,
+       "fastcall_sites": 11,
+       "reference_captures": 3,
+       "close_sites": 2,
+       "joins": 44,
+       "instructions": 751,
+       "edges": 782,
+       "prototypes": 26
+      },
+      {
+       "back_edges": 1,
+       "open_packs": 6,
+       "fastcall_sites": 11,
+       "joins": 42,
+       "instructions": 737,
+       "edges": 762,
+       "prototypes": 26,
+       "close_sites": 1,
+       "reference_captures": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 96",
+     "rebuilt": "unsupported FASTCALL2 at pc 85"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "6abfa4e15b0a553374e106feb18864a6f364748397cde2be34059be42eece166",
+      "cc7aa73402ce40b7f554612e03c7d20b1f7975127b2c5a491ff28a97646b0f60"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "open_packs": 6,
+       "fastcall_sites": 11,
+       "reference_captures": 3,
+       "close_sites": 2,
+       "joins": 44,
+       "instructions": 751,
+       "edges": 782,
+       "prototypes": 26
+      },
+      {
+       "back_edges": 1,
+       "open_packs": 6,
+       "fastcall_sites": 11,
+       "joins": 42,
+       "instructions": 737,
+       "edges": 762,
+       "prototypes": 26,
+       "close_sites": 1,
+       "reference_captures": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 10110,
+   "after_bytes": 10148,
+   "status": "passed"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.luau",
+   "before_sha256": "210fecdd7f257a6fab83b22182aa81316bcec20f64f7621c48f0639f622c17a4",
+   "after_sha256": "32de6e8e270c4396f059c10b6c99e92f3a28ed864c5b6660602f173eb65f1e92",
+   "input_sha256": "8172b90e8c734c077305f87a4a8c45659a999f18faf1c9456dd75b9ba28b760a",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "9b1976b5e49ba5ffac6b7bcf7d118d8033bbd0d9d5668ab935d9d86dbf710c1b",
+      "7a8789566740f8a9e6331087d9f926d1edd895bb073a8399e7f8a7fdf4177a7c"
+     ],
+     "summaries": [
+      {
+       "back_edges": 11,
+       "open_packs": 17,
+       "reference_captures": 45,
+       "fastcall_sites": 50,
+       "close_sites": 1,
+       "joins": 249,
+       "instructions": 2861,
+       "edges": 3086,
+       "prototypes": 88
+      },
+      {
+       "back_edges": 11,
+       "open_packs": 17,
+       "reference_captures": 48,
+       "close_sites": 2,
+       "fastcall_sites": 50,
+       "joins": 245,
+       "instructions": 2940,
+       "edges": 3160,
+       "prototypes": 88
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "9b1976b5e49ba5ffac6b7bcf7d118d8033bbd0d9d5668ab935d9d86dbf710c1b",
+      "4cb0513e1c581418746e87b0be5ac3c0356d3241ff8789e46c343a2e561507b4"
+     ],
+     "summaries": [
+      {
+       "back_edges": 11,
+       "open_packs": 17,
+       "reference_captures": 45,
+       "fastcall_sites": 50,
+       "close_sites": 1,
+       "joins": 249,
+       "instructions": 2861,
+       "edges": 3086,
+       "prototypes": 88
+      },
+      {
+       "back_edges": 11,
+       "open_packs": 17,
+       "reference_captures": 48,
+       "close_sites": 2,
+       "fastcall_sites": 50,
+       "joins": 245,
+       "instructions": 2940,
+       "edges": 3160,
+       "prototypes": 88
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 35791,
+   "after_bytes": 35817,
+   "status": "passed"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/VRBaseCamera.luau",
+   "before_sha256": "4d6b72bb540d519205b408b0e029f0033e6e2d7a8b81d4c6206c162a3720504a",
+   "after_sha256": "fde6c4f131f4129c75efa14068f16391f0d515491915730c1414d8fed4d62209",
+   "input_sha256": "484cfd815aabf818a7ab27f9e73fc04360671619221fc5cfcb13bb2dda5e8c22",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 96",
+     "rebuilt": "unsupported FASTCALL2 at pc 85"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "3231a1803b0197aa39ee946a71e22fb66f814e3d8d5d87ed471722b9c620c8fa",
+      "23e1678008bf90640a75028cc144cda510ab080023f5e36e2b174aa43add2880"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "open_packs": 6,
+       "fastcall_sites": 11,
+       "reference_captures": 2,
+       "close_sites": 2,
+       "joins": 41,
+       "instructions": 740,
+       "edges": 766,
+       "prototypes": 25
+      },
+      {
+       "back_edges": 1,
+       "open_packs": 6,
+       "fastcall_sites": 11,
+       "joins": 39,
+       "instructions": 726,
+       "edges": 746,
+       "prototypes": 25,
+       "close_sites": 1,
+       "reference_captures": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FASTCALL2 at pc 96",
+     "rebuilt": "unsupported FASTCALL2 at pc 85"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "3231a1803b0197aa39ee946a71e22fb66f814e3d8d5d87ed471722b9c620c8fa",
+      "5a795d3a3d1c224db94876f12dcbe0e32995fb8936672d06f76f04cb67bdb6de"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "open_packs": 6,
+       "fastcall_sites": 11,
+       "reference_captures": 2,
+       "close_sites": 2,
+       "joins": 41,
+       "instructions": 740,
+       "edges": 766,
+       "prototypes": 25
+      },
+      {
+       "back_edges": 1,
+       "open_packs": 6,
+       "fastcall_sites": 11,
+       "joins": 39,
+       "instructions": 726,
+       "edges": 746,
+       "prototypes": 25,
+       "close_sites": 1,
+       "reference_captures": 1
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 9951,
+   "after_bytes": 9989,
+   "status": "passed"
+  },
+  {
+   "file": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/ClickToMoveController.luau",
+   "before_sha256": "3dc0001ba0e099d97cdd5609167b010c2951e9fd37a0a25f9c42eac9f13e213e",
+   "after_sha256": "3b993c65fa230d838ceee603c12bcbcecd945c7dfea89309ebc9c01c82240a95",
+   "input_sha256": "68e24ce477e72d11dcf444c61320ce3610eb47e9deb053e23a12784e2bb633a6",
+   "before_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "2a40ec941e9a521c7630c7127e8a28500d9a5fd2cd57422d1b425f53669d7361",
+      "ddc9cd2a848393bea393b7403ae79a4d808837847195f553041b03975e4d0128"
+     ],
+     "summaries": [
+      {
+       "back_edges": 11,
+       "open_packs": 17,
+       "reference_captures": 45,
+       "fastcall_sites": 50,
+       "close_sites": 1,
+       "joins": 256,
+       "instructions": 2896,
+       "edges": 3129,
+       "prototypes": 88
+      },
+      {
+       "back_edges": 11,
+       "open_packs": 17,
+       "reference_captures": 48,
+       "close_sites": 2,
+       "fastcall_sites": 50,
+       "joins": 252,
+       "instructions": 2975,
+       "edges": 3203,
+       "prototypes": 88
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "after_dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "reference/upvalue capture lifetime",
+     "rebuilt": "reference/upvalue capture lifetime"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "2a40ec941e9a521c7630c7127e8a28500d9a5fd2cd57422d1b425f53669d7361",
+      "42e37c487a33f93e6ed11caea8deb2fdc77d1abf63dc635ca302ae1c11fdd1e4"
+     ],
+     "summaries": [
+      {
+       "back_edges": 11,
+       "open_packs": 17,
+       "reference_captures": 45,
+       "fastcall_sites": 50,
+       "close_sites": 1,
+       "joins": 256,
+       "instructions": 2896,
+       "edges": 3129,
+       "prototypes": 88
+      },
+      {
+       "back_edges": 11,
+       "open_packs": 17,
+       "reference_captures": 48,
+       "close_sites": 2,
+       "fastcall_sites": 50,
+       "joins": 252,
+       "instructions": 2975,
+       "edges": 3203,
+       "prototypes": 88
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "before_bytes": 36219,
+   "after_bytes": 36245,
+   "status": "passed"
+  }
+ ],
+ "before_tree_hash": "4e4045872df9810f86fee6034f4ad6c3c2f03bb2f37d8b64f8e318921adf1a18",
+ "after_tree_hash": "0147732a789ec9c6766fb37c97799e8be75adf2781e95cbc9f7f0f94fdf881ec",
+ "compiler_sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d",
+ "review_sha256": "f2a3d67bf3b382bcd72c00f64e4b6d8bd477681ddd97ef290e36ab90914865de",
+ "summary": {
+  "passed": 35
+ },
+ "dataflow_transitions": {
+  "unknown->unknown": 35
+ },
+ "contract": "All changed outputs compile; no existing bounded input certificate may be lost. Unknown/different are retained, not promoted by this inventory. The separate local review patch contains every textual change."
+}

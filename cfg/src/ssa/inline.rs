@@ -150,6 +150,7 @@ struct Inliner<'a> {
     local_to_group: &'a FxHashMap<ast::RcLocal, usize>,
     upvalue_to_group: &'a IndexMap<ast::RcLocal, ast::RcLocal>,
     local_usages: &'a mut FxHashMap<ast::RcLocal, usize>,
+    readonly_capture_ids: &'a FxHashSet<u64>,
 }
 
 impl<'a> Inliner<'a> {
@@ -158,12 +159,14 @@ impl<'a> Inliner<'a> {
         local_to_group: &'a FxHashMap<ast::RcLocal, usize>,
         upvalue_to_group: &'a IndexMap<ast::RcLocal, ast::RcLocal>,
         local_usages: &'a mut FxHashMap<ast::RcLocal, usize>,
+        readonly_capture_ids: &'a FxHashSet<u64>,
     ) -> Self {
         Self {
             function,
             local_to_group,
             upvalue_to_group,
             local_usages,
+            readonly_capture_ids,
         }
     }
 
@@ -172,7 +175,11 @@ impl<'a> Inliner<'a> {
         read: &ast::RcLocal,
         new_rvalue: &mut Option<ast::RValue>,
         new_rvalue_has_side_effects: bool,
+        upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
+        readonly_capture_ids: &FxHashSet<u64>,
     ) -> bool {
+        let candidate_may_write_capture = new_rvalue_has_side_effects
+            && ast::effects::may_write_capture(new_rvalue.as_ref().unwrap());
         if new_rvalue_has_side_effects
             && traversible
                 .rvalues()
@@ -237,7 +244,13 @@ impl<'a> Inliner<'a> {
                                 }
                                 _ => {}
                             }
-                            if new_rvalue_has_side_effects && rvalue_blocks_reorder(rvalue) {
+                            if new_rvalue_has_side_effects
+                                && (rvalue_blocks_reorder(rvalue)
+                                    || (candidate_may_write_capture
+                                        && ast::effects::intrinsic(rvalue, &|local| upvalue_to_group.contains_key(local)
+                                            && !readonly_capture_ids.contains(&local.stable_id()))
+                                            .contains(ast::effects::Effects::CAPTURE_READ)))
+                            {
                                 // failure :(
                                 return Some(false);
                             }
@@ -352,6 +365,8 @@ impl<'a> Inliner<'a> {
                                     read.as_ref().unwrap(),
                                     &mut new_rvalue,
                                     new_rvalue_has_side_effects,
+                                    self.upvalue_to_group,
+                                    self.readonly_capture_ids,
                                 ) {
                                     assert!(new_rvalue.is_none());
 
@@ -552,6 +567,8 @@ impl<'a> Inliner<'a> {
                                     read.as_ref().unwrap(),
                                     &mut new_rvalue,
                                     new_rvalue_has_side_effects,
+                                    self.upvalue_to_group,
+                                    self.readonly_capture_ids,
                                 ) {
                                     assert!(new_rvalue.is_none());
                                     let block = self.function.block_mut(node).unwrap();
@@ -804,6 +821,18 @@ pub fn inline(
     local_to_group: &FxHashMap<ast::RcLocal, usize>,
     upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
 ) {
+    inline_with_readonly_captures(function, local_to_group, upvalue_to_group, &FxHashSet::default());
+}
+
+/// `readonly_capture_ids` must come from immutable input-cell evidence mapped
+/// through this SSA construction's incoming groups. Names/types are not proof;
+/// absent evidence uses `inline` and protects every captured destination read.
+pub fn inline_with_readonly_captures(
+    function: &mut Function,
+    local_to_group: &FxHashMap<ast::RcLocal, usize>,
+    upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
+    readonly_capture_ids: &FxHashSet<u64>,
+) {
     let mut local_usages = FxHashMap::default();
     for node in function.graph().node_indices() {
         for read in function.values_read(node) {
@@ -819,6 +848,7 @@ pub fn inline(
             local_to_group,
             upvalue_to_group,
             &mut local_usages,
+            readonly_capture_ids,
         )
         .inline_rvalues();
 
@@ -980,7 +1010,7 @@ mod tests {
     use crate::function::Function;
     use ast::{
         Assign, Binary, Block, Global, Index, LValue, Literal, Local, RValue, RcLocal, Return,
-        Statement, Table,
+        Statement, Table, LocalRw,
     };
     use indexmap::IndexMap;
     use rustc_hash::FxHashMap;
@@ -1051,6 +1081,88 @@ mod tests {
         inline(&mut function, &FxHashMap::default(), &IndexMap::new());
 
         function.block(entry).unwrap().clone()
+    }
+
+    #[test]
+    fn method_lookup_runs_after_arguments_in_pinned_luau() {
+        for shape in 0..3 {
+            let argument = local("argument");
+            let object = local("object");
+            let method = ast::MethodCall::new(local_value(&object), "consume".into(), vec![local_value(&argument)]);
+            let use_statement = match shape {
+                0 => ast::Statement::MethodCall(method),
+                1 => Return::new(vec![RValue::MethodCall(method)]).into(),
+                _ => Return::new(vec![RValue::Select(ast::Select::MethodCall(method))]).into(),
+            };
+            let block = Block(vec![
+                Assign::new(vec![LValue::Local(argument.clone())],
+                    vec![ast::Call::new(global("fetch"), vec![]).into()]).into(),
+                use_statement,
+            ]);
+            let mut result = inline_block(block);
+            remove_empty(&mut result);
+            // Compiler.cpp emits argument code before NAMECALL. Unlike a dot
+            // call, colon syntax does not fetch the method before arguments.
+            assert_eq!(result.len(), 1, "shape {shape} unnecessarily keeps the argument temporary");
+        }
+    }
+
+    #[test]
+    fn method_lookup_allows_literal_argument_and_effectful_receiver() {
+        for receiver in [false, true] {
+            let temporary = local("temporary");
+            let object = local("object");
+            let value = if receiver { ast::Call::new(global("fetch"), vec![]).into() } else { number(7.0) };
+            let method = ast::MethodCall::new(
+                if receiver { local_value(&temporary) } else { local_value(&object) },
+                "consume".into(), if receiver { vec![] } else { vec![local_value(&temporary)] });
+            let mut result = inline_block(Block(vec![
+                Assign::new(vec![LValue::Local(temporary)], vec![value]).into(),
+                Return::new(vec![RValue::MethodCall(method)]).into(),
+            ]));
+            remove_empty(&mut result);
+            assert_eq!(result.len(), 1, "safe receiver/literal case should still inline");
+        }
+    }
+
+    #[test]
+    fn captured_callee_read_does_not_move_before_argument_callback() {
+        for captured in [false, true] {
+            let argument = local("argument");
+            let callee = local("callee");
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            *function.block_mut(entry).unwrap() = Block(vec![
+                Assign::new(vec![LValue::Local(argument.clone())],
+                    vec![ast::Call::new(global("fetch"), vec![]).into()]).into(),
+                Return::new(vec![ast::Call::new(local_value(&callee), vec![local_value(&argument)]).into()]).into(),
+            ]);
+            function.set_entry(entry);
+            let captures = if captured { IndexMap::from([(callee.clone(), callee)]) } else { IndexMap::new() };
+            inline(&mut function, &FxHashMap::default(), &captures);
+            let result = function.block_mut(entry).unwrap();
+            remove_empty(result);
+            assert_eq!(result.len(), if captured { 2 } else { 1 });
+        }
+    }
+
+    #[test]
+    fn captured_callee_and_argument_reads_can_commute() {
+        let argument = local("argument");
+        let callee = local("callee");
+        let captured_value = local("captured_value");
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        *function.block_mut(entry).unwrap() = Block(vec![
+            Assign::new(vec![LValue::Local(argument.clone())], vec![local_value(&captured_value)]).into(),
+            Return::new(vec![ast::Call::new(local_value(&callee), vec![local_value(&argument)]).into()]).into(),
+        ]);
+        function.set_entry(entry);
+        let captures = IndexMap::from([(callee.clone(), callee), (captured_value.clone(), captured_value)]);
+        inline(&mut function, &FxHashMap::default(), &captures);
+        let result = function.block_mut(entry).unwrap();
+        remove_empty(result);
+        assert_eq!(result.len(), 1);
     }
 
     #[test]
