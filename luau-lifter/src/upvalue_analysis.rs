@@ -291,6 +291,9 @@ pub struct ScriptUpvalueAnalysis {
     /// Bounded input-slot immutability proof, separate from name/ownership facts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capture_effects: Option<serde_json::Value>,
+    /// Existing conditional IR lowered to statements, including explicit refusals.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conditional_lowering: Option<serde_json::Value>,
 }
 
 pub(crate) fn reconcile_bindings(
@@ -634,6 +637,7 @@ pub(crate) fn reconcile_bindings(
         name_inference: None,
         binding_provenance: None,
         capture_effects: None,
+        conditional_lowering: None,
     }
 }
 

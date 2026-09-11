@@ -47,6 +47,7 @@ pub mod flatten_guards;
 pub mod guard_exhaustion_adapters;
 pub mod inline_temps;
 pub mod local_declarations;
+pub mod lower_conditionals;
 pub mod materialize_call_receivers;
 pub mod materialize_value_captures;
 pub mod name_locals;

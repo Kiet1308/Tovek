@@ -1,0 +1,667 @@
+{
+ "cases": [
+  {
+   "case": "vararg_scalar_branch_0",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\treturn if flag then ... else emit(\"no\", nil)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = ...\n\telse\n\t\tselectedValue1 = emit(\"no\", nil)\n\tend\n\n\treturn selectedValue1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "vararg_open_tail_0",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false), ...\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, ...\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "vararg_prefix_0",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\treturn ..., if flag then emit(\"yes\", nil) else emit(\"no\", false)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\tlocal selectedValue1 = ...\n\tlocal selectedValue2\n\n\tif flag then\n\t\tselectedValue2 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue2 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, selectedValue2\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "vararg_single_tail_0",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false), (...)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, (...)\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "vararg_scalar_branch_2",
+   "expected_refusal": null,
+   "extra_arguments": 2,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\treturn if flag then ... else emit(\"no\", nil)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = ...\n\telse\n\t\tselectedValue1 = emit(\"no\", nil)\n\tend\n\n\treturn selectedValue1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "vararg_open_tail_2",
+   "expected_refusal": null,
+   "extra_arguments": 2,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false), ...\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, ...\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "vararg_prefix_2",
+   "expected_refusal": null,
+   "extra_arguments": 2,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\treturn ..., if flag then emit(\"yes\", nil) else emit(\"no\", false)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\tlocal selectedValue1 = ...\n\tlocal selectedValue2\n\n\tif flag then\n\t\tselectedValue2 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue2 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, selectedValue2\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "vararg_single_tail_2",
+   "expected_refusal": null,
+   "extra_arguments": 2,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false), (...)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver, ...)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, (...)\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "scalar_return",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1\nend\n",
+   "mutants": {
+    "eager_unselected_arm.mutant": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal eagerArm = emit(\"no\", false)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = eagerArm\n\tend\n\n\treturn selectedValue1\nend\n"
+   }
+  },
+  {
+   "case": "tuple_prefix",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn emit(\"prefix\", 4), if flag then emit(\"yes\", nil) else emit(\"no\", false)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1 = emit(\"prefix\", 4)\n\tlocal selectedValue2\n\n\tif flag then\n\t\tselectedValue2 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue2 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, selectedValue2\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "tuple_open_tail",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false), emit(\"tail\", 3)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, emit(\"tail\", 3)\nend\n",
+   "mutants": {
+    "truncated_open_tail.mutant": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, (emit(\"tail\", 3))\nend\n"
+   }
+  },
+  {
+   "case": "tuple_single_tail",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false), (emit(\"tail\", 3))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1, (emit(\"tail\", 3))\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "nested_select",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 3,
+    "introduced_locals": 3,
+    "lowered_selects": 3,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn if flag then (if flag then emit(\"yes\", nil) else emit(\"unused\", 9)) else (if flag then emit(\"yes\", nil) else emit(\n\t\t\"no\",\n\t\tfalse\n\t))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tlocal selectedValue2\n\n\t\tif flag then\n\t\t\tselectedValue2 = emit(\"yes\", nil)\n\t\telse\n\t\t\tselectedValue2 = emit(\"unused\", 9)\n\t\tend\n\n\t\tselectedValue1 = selectedValue2\n\telse\n\t\tlocal selectedValue3\n\n\t\tif flag then\n\t\t\tselectedValue3 = emit(\"yes\", nil)\n\t\telse\n\t\t\tselectedValue3 = emit(\"no\", false)\n\t\tend\n\n\t\tselectedValue1 = selectedValue3\n\tend\n\n\treturn selectedValue1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "multiple_result_uses",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal chosen = if flag then emit(\"yes\", nil) else emit(\"no\", false)\n\treturn chosen, chosen\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue1 = emit(\"no\", false)\n\tend\n\n\tlocal chosen = selectedValue1\n\treturn chosen, chosen\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "call_arguments",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 3,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn callback(emit(\"prefix\", 1), if flag then emit(\"yes\", nil) else emit(\"no\", false), emit(\"tail\", 2))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1 = callback\n\tlocal selectedValue2 = emit(\"prefix\", 1)\n\tlocal selectedValue3\n\n\tif flag then\n\t\tselectedValue3 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue3 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1(selectedValue2, selectedValue3, emit(\"tail\", 2))\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "conditional_callee",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (if flag then callback else otherCallback)(emit(\"argument\", 3))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = callback\n\telse\n\t\tselectedValue1 = otherCallback\n\tend\n\n\treturn selectedValue1(emit(\"argument\", 3))\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "callee_frame",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn callback(if flag then emit(\"mutate\", 3, function()\n\t\tcallback = otherCallback\n\tend) else emit(\"no\", 4))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1 = callback\n\tlocal selectedValue2\n\n\tif flag then\n\t\tselectedValue2 = emit(\"mutate\", 3, function()\n\t\t\tcallback = otherCallback\n\t\tend)\n\telse\n\t\tselectedValue2 = emit(\"no\", 4)\n\tend\n\n\treturn selectedValue1(selectedValue2)\nend\n",
+   "mutants": {
+    "late_callee.mutant": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue2\n\n\tif flag then\n\t\tselectedValue2 = emit(\"mutate\", 3, function()\n\t\t\tcallback = otherCallback\n\t\tend)\n\telse\n\t\tselectedValue2 = emit(\"no\", 4)\n\tend\n\n\treturn callback(selectedValue2)\nend\n"
+   }
+  },
+  {
+   "case": "method_frame",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn object:consume(if flag then emit(\"mutate\", 3, function()\n\t\tobject = otherObject\n\tend) else emit(\"no\", 4), emit(\"tail\", 8))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"mutate\", 3, function()\n\t\t\tobject = otherObject\n\t\tend)\n\telse\n\t\tselectedValue1 = emit(\"no\", 4)\n\tend\n\n\treturn object:consume(selectedValue1, emit(\"tail\", 8))\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "index_frame",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn object[if flag then emit(\"mutate\", \"Value\", function()\n\t\tobject = otherObject\n\tend) else emit(\"no\", \"Value\")]\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"mutate\", \"Value\", function()\n\t\t\tobject = otherObject\n\t\tend)\n\telse\n\t\tselectedValue1 = emit(\"no\", \"Value\")\n\tend\n\n\treturn object[selectedValue1]\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "binary_Add_frame",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn value + (if flag then emit(\"mutate\", 3, function()\n\t\tvalue = 99\n\tend) else emit(\"no\", 4))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = emit(\"mutate\", 3, function()\n\t\t\tvalue = 99\n\t\tend)\n\telse\n\t\tselectedValue1 = emit(\"no\", 4)\n\tend\n\n\treturn value + selectedValue1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "binary_Concat_frame",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn value .. (if flag then emit(\"mutate\", 3, function()\n\t\tvalue = 99\n\tend) else emit(\"no\", 4))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1 = value\n\tlocal selectedValue2\n\n\tif flag then\n\t\tselectedValue2 = emit(\"mutate\", 3, function()\n\t\t\tvalue = 99\n\t\tend)\n\telse\n\t\tselectedValue2 = emit(\"no\", 4)\n\tend\n\n\treturn selectedValue1 .. selectedValue2\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "callee_capture",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\treturn callback(if flag then emit(\"mutate\", 3, function()\n\t\t\tcallback = otherCallback\n\t\tend) else emit(\"no\", 4))\n\tend)()\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\tlocal selectedValue1 = callback\n\t\tlocal selectedValue2\n\n\t\tif flag then\n\t\t\tselectedValue2 = emit(\"mutate\", 3, function()\n\t\t\t\tcallback = otherCallback\n\t\t\tend)\n\t\telse\n\t\t\tselectedValue2 = emit(\"no\", 4)\n\t\tend\n\n\t\treturn selectedValue1(selectedValue2)\n\tend)()\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "method_capture",
+   "expected_refusal": "captured_register_reuse",
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 0,
+    "lowered_selects": 0,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {
+     "captured_register_reuse": 1
+    }
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\treturn object:consume(if flag then emit(\"mutate\", 3, function()\n\t\t\tobject = otherObject\n\t\tend) else emit(\"no\", 4), emit(\"tail\", 8))\n\tend)()\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\treturn object:consume(if flag then emit(\"mutate\", 3, function()\n\t\t\tobject = otherObject\n\t\tend) else emit(\"no\", 4), emit(\"tail\", 8))\n\tend)()\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "index_capture",
+   "expected_refusal": "captured_register_reuse",
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 0,
+    "lowered_selects": 0,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {
+     "captured_register_reuse": 1
+    }
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\treturn object[if flag then emit(\"mutate\", \"Value\", function()\n\t\t\tobject = otherObject\n\t\tend) else emit(\"no\", \"Value\")]\n\tend)()\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\treturn object[if flag then emit(\"mutate\", \"Value\", function()\n\t\t\tobject = otherObject\n\t\tend) else emit(\"no\", \"Value\")]\n\tend)()\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "binary_Add_capture",
+   "expected_refusal": "captured_register_reuse",
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 0,
+    "lowered_selects": 0,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {
+     "captured_register_reuse": 1
+    }
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\treturn value + (if flag then emit(\"mutate\", 3, function()\n\t\t\tvalue = 99\n\t\tend) else emit(\"no\", 4))\n\tend)()\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\treturn value + (if flag then emit(\"mutate\", 3, function()\n\t\t\tvalue = 99\n\t\tend) else emit(\"no\", 4))\n\tend)()\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "binary_Concat_capture",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\treturn value .. (if flag then emit(\"mutate\", 3, function()\n\t\t\tvalue = 99\n\t\tend) else emit(\"no\", 4))\n\tend)()\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\tlocal selectedValue1 = value\n\t\tlocal selectedValue2\n\n\t\tif flag then\n\t\t\tselectedValue2 = emit(\"mutate\", 3, function()\n\t\t\t\tvalue = 99\n\t\t\tend)\n\t\telse\n\t\t\tselectedValue2 = emit(\"no\", 4)\n\t\tend\n\n\t\treturn selectedValue1 .. selectedValue2\n\tend)()\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "captured_pure_arms",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\treturn value + (if flag then 3 else 4)\n\tend)()\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (function()\n\t\tlocal selectedValue1 = value\n\t\tlocal selectedValue2\n\n\t\tif flag then\n\t\t\tselectedValue2 = 3\n\t\telse\n\t\t\tselectedValue2 = 4\n\t\tend\n\n\t\treturn selectedValue1 + selectedValue2\n\tend)()\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "method_dynamic_receiver",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn (receiver()):consume(if flag then emit(\"yes\", nil) else emit(\"no\", false))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1 = receiver()\n\tlocal selectedValue2\n\n\tif flag then\n\t\tselectedValue2 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue2 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue1:consume(selectedValue2)\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "short_circuit_And",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn flag and (if flag then emit(\"yes\", nil) else emit(\"no\", false))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1 = flag\n\n\tif selectedValue1 then\n\t\tlocal selectedValue2\n\n\t\tif flag then\n\t\t\tselectedValue2 = emit(\"yes\", nil)\n\t\telse\n\t\t\tselectedValue2 = emit(\"no\", false)\n\t\tend\n\n\t\tselectedValue1 = selectedValue2\n\tend\n\n\treturn selectedValue1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "short_circuit_Or",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn flag or (if flag then emit(\"yes\", nil) else emit(\"no\", false))\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1 = flag\n\n\tif not selectedValue1 then\n\t\tlocal selectedValue2\n\n\t\tif flag then\n\t\t\tselectedValue2 = emit(\"yes\", nil)\n\t\telse\n\t\t\tselectedValue2 = emit(\"no\", false)\n\t\tend\n\n\t\tselectedValue1 = selectedValue2\n\tend\n\n\treturn selectedValue1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "while_continue",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\twhile if flag then emit(\"condition\", true) else emit(\"condition\", false) do\n\t\temit(\"body\", nil)\n\n\t\tif flag then\n\t\t\tcontinue\n\t\tend\n\n\t\temit(\"after-continue\", nil)\n\tend\n\n\treturn 1\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\twhile true do\n\t\tlocal selectedValue1\n\n\t\tif flag then\n\t\t\tselectedValue1 = emit(\"condition\", true)\n\t\telse\n\t\t\tselectedValue1 = emit(\"condition\", false)\n\t\tend\n\n\t\tif not selectedValue1 then\n\t\t\tbreak\n\t\tend\n\n\t\temit(\"body\", nil)\n\n\t\tif flag then\n\t\t\tcontinue\n\t\tend\n\n\t\temit(\"after-continue\", nil)\n\tend\n\n\treturn 1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "repeat_condition",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\trepeat\n\t\temit(\"body\", nil)\n\tuntil if flag then emit(\"done\", true) else emit(\"done\", false)\n\n\treturn 1\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\trepeat\n\t\temit(\"body\", nil)\n\t\tlocal selectedValue1\n\n\t\tif flag then\n\t\t\tselectedValue1 = emit(\"done\", true)\n\t\telse\n\t\t\tselectedValue1 = emit(\"done\", false)\n\t\tend\n\tuntil selectedValue1\n\n\treturn 1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "repeat_continue_refusal",
+   "expected_refusal": "repeat_continue",
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 0,
+    "lowered_selects": 0,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {
+     "repeat_continue": 1
+    }
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\trepeat\n\t\tcontinue\n\tuntil if flag then emit(\"done\", true) else emit(\"done\", false)\n\n\treturn 1\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\trepeat\n\t\tcontinue\n\tuntil if flag then emit(\"done\", true) else emit(\"done\", false)\n\n\treturn 1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "repeat_return_refusal",
+   "expected_refusal": "repeat_terminal_return",
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 0,
+    "lowered_selects": 0,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {
+     "repeat_terminal_return": 1
+    }
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\trepeat\n\t\treturn 2\n\tuntil if flag then emit(\"done\", true) else emit(\"done\", false)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\trepeat\n\t\treturn 2\n\tuntil if flag then emit(\"done\", true) else emit(\"done\", false)\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "numeric_for_bounds",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 2,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tfor index = emit(\"start\", 1), if flag then emit(\"limit\", 2) else emit(\"limit\", 3), emit(\"step\", 1) do\n\t\temit(\"body\", index)\n\tend\n\n\treturn 1\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1 = emit(\"start\", 1)\n\tlocal selectedValue2\n\n\tif flag then\n\t\tselectedValue2 = emit(\"limit\", 2)\n\telse\n\t\tselectedValue2 = emit(\"limit\", 3)\n\tend\n\n\tfor index = selectedValue1, selectedValue2, emit(\"step\", 1) do\n\t\temit(\"body\", index)\n\tend\n\n\treturn 1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "generic_for_iterator",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tfor index in if flag then iterator else iterator do\n\t\temit(\"body\", index)\n\tend\n\n\treturn 1\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue1\n\n\tif flag then\n\t\tselectedValue1 = iterator\n\telse\n\t\tselectedValue1 = iterator\n\tend\n\n\tfor index in selectedValue1 do\n\t\temit(\"body\", index)\n\tend\n\n\treturn 1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "table_refusal",
+   "expected_refusal": "table_constructor_order",
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 0,
+    "lowered_selects": 0,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {
+     "table_constructor_order": 1
+    }
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn { if flag then emit(\"yes\", nil) else emit(\"no\", false) }\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn { if flag then emit(\"yes\", nil) else emit(\"no\", false) }\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "store_refusal",
+   "expected_refusal": "statement_store_or_internal_control",
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 0,
+    "lowered_selects": 0,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {
+     "statement_store_or_internal_control": 1
+    }
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tobject.Value = if flag then emit(\"yes\", nil) else emit(\"no\", false)\n\treturn 1\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tobject.Value = if flag then emit(\"yes\", nil) else emit(\"no\", false)\n\treturn 1\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "local_budget_refusal",
+   "expected_refusal": "local_budget",
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 0,
+    "lowered_selects": 0,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {
+     "local_budget": 1
+    }
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal occupied0 = nil\n\tlocal occupied1 = nil\n\tlocal occupied2 = nil\n\tlocal occupied3 = nil\n\tlocal occupied4 = nil\n\tlocal occupied5 = nil\n\tlocal occupied6 = nil\n\tlocal occupied7 = nil\n\tlocal occupied8 = nil\n\tlocal occupied9 = nil\n\tlocal occupied10 = nil\n\tlocal occupied11 = nil\n\tlocal occupied12 = nil\n\tlocal occupied13 = nil\n\tlocal occupied14 = nil\n\tlocal occupied15 = nil\n\tlocal occupied16 = nil\n\tlocal occupied17 = nil\n\tlocal occupied18 = nil\n\tlocal occupied19 = nil\n\tlocal occupied20 = nil\n\tlocal occupied21 = nil\n\tlocal occupied22 = nil\n\tlocal occupied23 = nil\n\tlocal occupied24 = nil\n\tlocal occupied25 = nil\n\tlocal occupied26 = nil\n\tlocal occupied27 = nil\n\tlocal occupied28 = nil\n\tlocal occupied29 = nil\n\tlocal occupied30 = nil\n\tlocal occupied31 = nil\n\tlocal occupied32 = nil\n\tlocal occupied33 = nil\n\tlocal occupied34 = nil\n\tlocal occupied35 = nil\n\tlocal occupied36 = nil\n\tlocal occupied37 = nil\n\tlocal occupied38 = nil\n\tlocal occupied39 = nil\n\tlocal occupied40 = nil\n\tlocal occupied41 = nil\n\tlocal occupied42 = nil\n\tlocal occupied43 = nil\n\tlocal occupied44 = nil\n\tlocal occupied45 = nil\n\tlocal occupied46 = nil\n\tlocal occupied47 = nil\n\tlocal occupied48 = nil\n\tlocal occupied49 = nil\n\tlocal occupied50 = nil\n\tlocal occupied51 = nil\n\tlocal occupied52 = nil\n\tlocal occupied53 = nil\n\tlocal occupied54 = nil\n\tlocal occupied55 = nil\n\tlocal occupied56 = nil\n\tlocal occupied57 = nil\n\tlocal occupied58 = nil\n\tlocal occupied59 = nil\n\tlocal occupied60 = nil\n\tlocal occupied61 = nil\n\tlocal occupied62 = nil\n\tlocal occupied63 = nil\n\tlocal occupied64 = nil\n\tlocal occupied65 = nil\n\tlocal occupied66 = nil\n\tlocal occupied67 = nil\n\tlocal occupied68 = nil\n\tlocal occupied69 = nil\n\tlocal occupied70 = nil\n\tlocal occupied71 = nil\n\tlocal occupied72 = nil\n\tlocal occupied73 = nil\n\tlocal occupied74 = nil\n\tlocal occupied75 = nil\n\tlocal occupied76 = nil\n\tlocal occupied77 = nil\n\tlocal occupied78 = nil\n\tlocal occupied79 = nil\n\tlocal occupied80 = nil\n\tlocal occupied81 = nil\n\tlocal occupied82 = nil\n\tlocal occupied83 = nil\n\tlocal occupied84 = nil\n\tlocal occupied85 = nil\n\tlocal occupied86 = nil\n\tlocal occupied87 = nil\n\tlocal occupied88 = nil\n\tlocal occupied89 = nil\n\tlocal occupied90 = nil\n\tlocal occupied91 = nil\n\tlocal occupied92 = nil\n\tlocal occupied93 = nil\n\tlocal occupied94 = nil\n\tlocal occupied95 = nil\n\tlocal occupied96 = nil\n\tlocal occupied97 = nil\n\tlocal occupied98 = nil\n\tlocal occupied99 = nil\n\tlocal occupied100 = nil\n\tlocal occupied101 = nil\n\tlocal occupied102 = nil\n\tlocal occupied103 = nil\n\tlocal occupied104 = nil\n\tlocal occupied105 = nil\n\tlocal occupied106 = nil\n\tlocal occupied107 = nil\n\tlocal occupied108 = nil\n\tlocal occupied109 = nil\n\tlocal occupied110 = nil\n\tlocal occupied111 = nil\n\tlocal occupied112 = nil\n\tlocal occupied113 = nil\n\tlocal occupied114 = nil\n\tlocal occupied115 = nil\n\tlocal occupied116 = nil\n\tlocal occupied117 = nil\n\tlocal occupied118 = nil\n\tlocal occupied119 = nil\n\tlocal occupied120 = nil\n\tlocal occupied121 = nil\n\tlocal occupied122 = nil\n\tlocal occupied123 = nil\n\tlocal occupied124 = nil\n\tlocal occupied125 = nil\n\tlocal occupied126 = nil\n\tlocal occupied127 = nil\n\tlocal occupied128 = nil\n\tlocal occupied129 = nil\n\tlocal occupied130 = nil\n\tlocal occupied131 = nil\n\tlocal occupied132 = nil\n\tlocal occupied133 = nil\n\tlocal occupied134 = nil\n\tlocal occupied135 = nil\n\tlocal occupied136 = nil\n\tlocal occupied137 = nil\n\tlocal occupied138 = nil\n\tlocal occupied139 = nil\n\tlocal occupied140 = nil\n\tlocal occupied141 = nil\n\tlocal occupied142 = nil\n\tlocal occupied143 = nil\n\tlocal occupied144 = nil\n\tlocal occupied145 = nil\n\tlocal occupied146 = nil\n\tlocal occupied147 = nil\n\tlocal occupied148 = nil\n\tlocal occupied149 = nil\n\tlocal occupied150 = nil\n\tlocal occupied151 = nil\n\tlocal occupied152 = nil\n\tlocal occupied153 = nil\n\tlocal occupied154 = nil\n\tlocal occupied155 = nil\n\tlocal occupied156 = nil\n\tlocal occupied157 = nil\n\tlocal occupied158 = nil\n\tlocal occupied159 = nil\n\tlocal occupied160 = nil\n\tlocal occupied161 = nil\n\tlocal occupied162 = nil\n\tlocal occupied163 = nil\n\tlocal occupied164 = nil\n\tlocal occupied165 = nil\n\tlocal occupied166 = nil\n\tlocal occupied167 = nil\n\tlocal occupied168 = nil\n\tlocal occupied169 = nil\n\tlocal occupied170 = nil\n\tlocal occupied171 = nil\n\tlocal occupied172 = nil\n\tlocal occupied173 = nil\n\tlocal occupied174 = nil\n\tlocal occupied175 = nil\n\tlocal occupied176 = nil\n\tlocal occupied177 = nil\n\tlocal occupied178 = nil\n\tlocal occupied179 = nil\n\tlocal occupied180 = nil\n\tlocal occupied181 = nil\n\tlocal occupied182 = nil\n\tlocal occupied183 = nil\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal occupied0 = nil\n\tlocal occupied1 = nil\n\tlocal occupied2 = nil\n\tlocal occupied3 = nil\n\tlocal occupied4 = nil\n\tlocal occupied5 = nil\n\tlocal occupied6 = nil\n\tlocal occupied7 = nil\n\tlocal occupied8 = nil\n\tlocal occupied9 = nil\n\tlocal occupied10 = nil\n\tlocal occupied11 = nil\n\tlocal occupied12 = nil\n\tlocal occupied13 = nil\n\tlocal occupied14 = nil\n\tlocal occupied15 = nil\n\tlocal occupied16 = nil\n\tlocal occupied17 = nil\n\tlocal occupied18 = nil\n\tlocal occupied19 = nil\n\tlocal occupied20 = nil\n\tlocal occupied21 = nil\n\tlocal occupied22 = nil\n\tlocal occupied23 = nil\n\tlocal occupied24 = nil\n\tlocal occupied25 = nil\n\tlocal occupied26 = nil\n\tlocal occupied27 = nil\n\tlocal occupied28 = nil\n\tlocal occupied29 = nil\n\tlocal occupied30 = nil\n\tlocal occupied31 = nil\n\tlocal occupied32 = nil\n\tlocal occupied33 = nil\n\tlocal occupied34 = nil\n\tlocal occupied35 = nil\n\tlocal occupied36 = nil\n\tlocal occupied37 = nil\n\tlocal occupied38 = nil\n\tlocal occupied39 = nil\n\tlocal occupied40 = nil\n\tlocal occupied41 = nil\n\tlocal occupied42 = nil\n\tlocal occupied43 = nil\n\tlocal occupied44 = nil\n\tlocal occupied45 = nil\n\tlocal occupied46 = nil\n\tlocal occupied47 = nil\n\tlocal occupied48 = nil\n\tlocal occupied49 = nil\n\tlocal occupied50 = nil\n\tlocal occupied51 = nil\n\tlocal occupied52 = nil\n\tlocal occupied53 = nil\n\tlocal occupied54 = nil\n\tlocal occupied55 = nil\n\tlocal occupied56 = nil\n\tlocal occupied57 = nil\n\tlocal occupied58 = nil\n\tlocal occupied59 = nil\n\tlocal occupied60 = nil\n\tlocal occupied61 = nil\n\tlocal occupied62 = nil\n\tlocal occupied63 = nil\n\tlocal occupied64 = nil\n\tlocal occupied65 = nil\n\tlocal occupied66 = nil\n\tlocal occupied67 = nil\n\tlocal occupied68 = nil\n\tlocal occupied69 = nil\n\tlocal occupied70 = nil\n\tlocal occupied71 = nil\n\tlocal occupied72 = nil\n\tlocal occupied73 = nil\n\tlocal occupied74 = nil\n\tlocal occupied75 = nil\n\tlocal occupied76 = nil\n\tlocal occupied77 = nil\n\tlocal occupied78 = nil\n\tlocal occupied79 = nil\n\tlocal occupied80 = nil\n\tlocal occupied81 = nil\n\tlocal occupied82 = nil\n\tlocal occupied83 = nil\n\tlocal occupied84 = nil\n\tlocal occupied85 = nil\n\tlocal occupied86 = nil\n\tlocal occupied87 = nil\n\tlocal occupied88 = nil\n\tlocal occupied89 = nil\n\tlocal occupied90 = nil\n\tlocal occupied91 = nil\n\tlocal occupied92 = nil\n\tlocal occupied93 = nil\n\tlocal occupied94 = nil\n\tlocal occupied95 = nil\n\tlocal occupied96 = nil\n\tlocal occupied97 = nil\n\tlocal occupied98 = nil\n\tlocal occupied99 = nil\n\tlocal occupied100 = nil\n\tlocal occupied101 = nil\n\tlocal occupied102 = nil\n\tlocal occupied103 = nil\n\tlocal occupied104 = nil\n\tlocal occupied105 = nil\n\tlocal occupied106 = nil\n\tlocal occupied107 = nil\n\tlocal occupied108 = nil\n\tlocal occupied109 = nil\n\tlocal occupied110 = nil\n\tlocal occupied111 = nil\n\tlocal occupied112 = nil\n\tlocal occupied113 = nil\n\tlocal occupied114 = nil\n\tlocal occupied115 = nil\n\tlocal occupied116 = nil\n\tlocal occupied117 = nil\n\tlocal occupied118 = nil\n\tlocal occupied119 = nil\n\tlocal occupied120 = nil\n\tlocal occupied121 = nil\n\tlocal occupied122 = nil\n\tlocal occupied123 = nil\n\tlocal occupied124 = nil\n\tlocal occupied125 = nil\n\tlocal occupied126 = nil\n\tlocal occupied127 = nil\n\tlocal occupied128 = nil\n\tlocal occupied129 = nil\n\tlocal occupied130 = nil\n\tlocal occupied131 = nil\n\tlocal occupied132 = nil\n\tlocal occupied133 = nil\n\tlocal occupied134 = nil\n\tlocal occupied135 = nil\n\tlocal occupied136 = nil\n\tlocal occupied137 = nil\n\tlocal occupied138 = nil\n\tlocal occupied139 = nil\n\tlocal occupied140 = nil\n\tlocal occupied141 = nil\n\tlocal occupied142 = nil\n\tlocal occupied143 = nil\n\tlocal occupied144 = nil\n\tlocal occupied145 = nil\n\tlocal occupied146 = nil\n\tlocal occupied147 = nil\n\tlocal occupied148 = nil\n\tlocal occupied149 = nil\n\tlocal occupied150 = nil\n\tlocal occupied151 = nil\n\tlocal occupied152 = nil\n\tlocal occupied153 = nil\n\tlocal occupied154 = nil\n\tlocal occupied155 = nil\n\tlocal occupied156 = nil\n\tlocal occupied157 = nil\n\tlocal occupied158 = nil\n\tlocal occupied159 = nil\n\tlocal occupied160 = nil\n\tlocal occupied161 = nil\n\tlocal occupied162 = nil\n\tlocal occupied163 = nil\n\tlocal occupied164 = nil\n\tlocal occupied165 = nil\n\tlocal occupied166 = nil\n\tlocal occupied167 = nil\n\tlocal occupied168 = nil\n\tlocal occupied169 = nil\n\tlocal occupied170 = nil\n\tlocal occupied171 = nil\n\tlocal occupied172 = nil\n\tlocal occupied173 = nil\n\tlocal occupied174 = nil\n\tlocal occupied175 = nil\n\tlocal occupied176 = nil\n\tlocal occupied177 = nil\n\tlocal occupied178 = nil\n\tlocal occupied179 = nil\n\tlocal occupied180 = nil\n\tlocal occupied181 = nil\n\tlocal occupied182 = nil\n\tlocal occupied183 = nil\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false)\nend\n",
+   "mutants": {}
+  },
+  {
+   "case": "name_collision",
+   "expected_refusal": null,
+   "extra_arguments": 0,
+   "report": {
+    "budget_exhausted": false,
+    "input_selects": 1,
+    "introduced_locals": 1,
+    "lowered_selects": 1,
+    "model": "luau-v9-scalar-select-statements-v1",
+    "refused_statements": {}
+   },
+   "source": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\treturn if flag then emit(\"yes\", nil) else emit(\"no\", false), (function(selectedValue1)\n\t\treturn selectedValue1, selectedValue2\n\tend)(17)\nend\n",
+   "output": "return function(flag, emit, value, callback, object, otherCallback, otherObject, iterator, receiver)\n\tlocal selectedValue3\n\n\tif flag then\n\t\tselectedValue3 = emit(\"yes\", nil)\n\telse\n\t\tselectedValue3 = emit(\"no\", false)\n\tend\n\n\treturn selectedValue3, (function(selectedValue1)\n\t\treturn selectedValue1, selectedValue2\n\tend)(17)\nend\n",
+   "mutants": {}
+  }
+ ],
+ "schema_version": 1
+}

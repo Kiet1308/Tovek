@@ -1,5 +1,15 @@
 # Roadmap V2 — implementation and acceptance record
 
+## R4/R6: lower existing scalar conditional IR into statements
+
+The final v9 pass now lowers existing scalar conditional values into branch assignments at their evaluation point. Earlier ordinary callee/argument/tuple values are saved when needed; skipped arms, scalar adjustment and open call/vararg tails retain their behavior. While preparation executes on every iteration, including after continue. Declaration/register budgets, constructor/store cases, repeat continues and captured register reuse after O2 inlining have explicit refusals. Fresh locals receive no copied source or ownership certificate. [Contract and examples](conditional_ir_lowering.md).
+
+The native example supplies 40 actual IR cases, including eight cases for empty/two-value vararg packs. Thirty-four of 42 conditional nodes lower, with eight refused examples. All 240 O0/O1/O2 g1/g2 configurations pass 64 VM vectors each; bounded dataflow is 174 proved and 66 unknown. Eighteen compiled mutants detect late callee reads, truncated tails and eager unselected arms. Two source witnesses have optimization-dependent captured reads; refusal preserves each profile's behavior. CI runs the direct IR suite independently from decompiler roundtrips.
+
+All 956 primary Rust tests, one child repeat, 85 Python tests, 168 runtime configurations, nine controls, 513 public configurations, 45 legacy semantic configurations and 52 size gates pass. Every runtime/public source byte, complete dataflow result and fidelity metric equals the captured-read release. All 3,978 private source files remain byte-identical. Recorded binding contracts and capture certificates are preserved on 681 runtime/public and 3,936 private scripts; parser-backed provenance/emission and one/four-thread cold/warm cache checks pass. These corpora contain no remaining conditional IR at this pipeline boundary and exhaust no inventory budget, so this capability does not claim a corpus fidelity gain.
+
+Seven interleaved warm CLI rounds are deterministic with identical source trees. One-thread median 18.202 -> 18.690 s (+2.68%); 16-thread median 1.697 -> 1.664 s (-1.91%). Median peak RSS 33,763,328 -> 33,468,416 bytes and 114,438,144 -> 117,493,760 bytes. This measures the inventory path's cost; actual lowering is covered by the generated IR suite. Seven-sample p95 is the maximum. [Validation inventory](roadmap_v2_acceptance/select_validation.json).
+
 ## R4: captured destination reads and bounded expression effects
 
 SSA inline now preserves an earlier callback before a later captured read at a callee, argument, return-tuple element or assignment base/key. Two reads commute; unknown calls and metamethods may write capture cells. A bounded input analysis proves incoming VAL/UPVAL slots immutable only when every constructor and every forwarded write supports it. REF roots, external slots, missing constructors, cycles and unsupported/malformed inputs retain the conservative barrier. A separate Python verifier derives the proof from original bytecode. [Contract and examples](captured_evaluation_order.md).

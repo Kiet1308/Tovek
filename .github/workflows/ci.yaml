@@ -172,6 +172,16 @@ jobs:
             --report "$RUNNER_TEMP/roadmap-v2-lineage.json" \
             --keep "$RUNNER_TEMP/roadmap-v2-lineage" --cache
 
+      - name: V2 existing conditional IR lowering and VM controls
+        run: |
+          cargo +nightly-2024-12-15 run -p luau-lifter --example conditional_lowering -- "$RUNNER_TEMP/conditional-ir"
+          python3 scripts/conditional_ir_audit.py \
+            --fixtures "$RUNNER_TEMP/conditional-ir" \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --report "$RUNNER_TEMP/conditional-ir.json"
+
       - name: V2 formatter observable evaluation counterexamples
         run: |
           python3 scripts/formatter_effect_controls.py \

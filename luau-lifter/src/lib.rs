@@ -806,8 +806,8 @@ fn try_decompile_bytecode_internal(
                     options.assume_no_nan,
                 );
             }
-            // MUST remain the last condition-changing AST transform. Do not
-            // insert any reduce/reduce_condition/normalize pass after it: the
+            // MUST remain the last pass that reduces/complements conditions.
+            // Later select lowering only wraps values in literal `not`; the
             // manufactured `not (a < b)` would be turned into the NaN-unsafe
             // `a >= b` if any later pass reduced it.
             {
@@ -851,6 +851,20 @@ fn try_decompile_bytecode_internal(
             }
             // The final naming graph must not keep RcLocal references alive
             // during earlier cleanup (some passes inspect reference counts).
+            // Lower any remaining scalar select at its actual evaluation
+            // point. This pass only introduces literal `not` break guards;
+            // it never reduces/complements comparisons. No expression cleanup
+            // may run afterwards and erase its ordered snapshots.
+            let conditional_lowering = if chunk.version == 9 {
+                let _span = ast::telemetry::Span::new("S_LOWER_SELECTS");
+                let report = ast::lower_conditionals::lower_existing_conditionals(&mut body);
+                ast::telemetry::count("select_input", report.input_selects as u64);
+                ast::telemetry::count("select_lowered", report.lowered_selects as u64);
+                ast::telemetry::count("select_locals", report.introduced_locals as u64);
+                ast::telemetry::count("select_refused_statements", report.refused_statements.values().sum::<usize>() as u64);
+                ast::telemetry::count("select_budget_exhausted", u64::from(report.budget_exhausted));
+                emit_upvalue_analysis.then(|| serde_json::to_value(report).expect("finite select report"))
+            } else { None };
             // No expression/condition mutation is permitted after this point.
             let name_inference = ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
                 dont_reuse_var: options.dont_reuse_var,
@@ -879,6 +893,7 @@ fn try_decompile_bytecode_internal(
                 analysis.source_recovery = Some(source_recovery::audit(&chunk, &mut body, &analysis.functions));
                 analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
                 analysis.capture_effects = Some(capture_effects.report());
+                analysis.conditional_lowering = conditional_lowering;
                 if options.emit_binding_provenance {
                     analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map));
                 }
