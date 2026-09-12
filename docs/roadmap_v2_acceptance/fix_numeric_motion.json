@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "scope": "F2 first bounded step: motion of proven numeric arithmetic; remaining F2 cases stay open",
+  "base_commit": "f1059d9",
+  "baseline_binary_sha256": "f582dc87610d866bfb5de78a3f58a216f015839dd4b5b0837386f6af485a9d28",
+  "binary_sha256": "bd59dc2ee5c3f4965d730e51f6e89e446703cd3061567208eadfeaf1fb672f3c",
+  "rust_primary_tests": 1025,
+  "rust_child_repeat": 1,
+  "ast_tests": 736,
+  "runtime_profiles": 204,
+  "numeric_profiles": 6,
+  "numeric_scenarios_per_profile": 210,
+  "numeric_output_profiles_changed": [
+    {
+      "opt": 0,
+      "debug": 1
+    },
+    {
+      "opt": 1,
+      "debug": 1
+    },
+    {
+      "opt": 2,
+      "debug": 1
+    }
+  ],
+  "public_profiles": 513,
+  "public_outputs_changed": 0,
+  "private": {
+    "files": 3978,
+    "changed": 13,
+    "unchanged": 3965,
+    "categories": {
+      "structure_or_types": 13
+    },
+    "delta_bytes": -528,
+    "delta_lines": -32,
+    "delta_generated_bindings": -31,
+    "delta_long_lines": 0,
+    "errors": []
+  },
+  "quality_gate": {
+    "metric": "sole_use_require_field_relays",
+    "status": "passed",
+    "failures": []
+  },
+  "metadata": {
+    "runtime": {
+      "lineage": {
+        "scripts": 204,
+        "source_files": 204,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 204
+        },
+        "annotation_spans": 6,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 573,
+        "definitions": 9982,
+        "definitions_with_final_binding_ancestry": 5716,
+        "dropped_records": 0,
+        "final_bindings": 1913,
+        "functions": 906,
+        "identifier_spans": 5670,
+        "incomplete_lineages": 0,
+        "lifted_statements": 8624,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 12,
+        "statements_with_pc": 8624,
+        "unlocated_final_bindings": 72
+      },
+      "emission": {
+        "scripts": 204,
+        "status": {
+          "passed": 204
+        },
+        "parser_local_tokens": 5778,
+        "mapped_local_tokens": 5670,
+        "opaque_local_tokens": 108,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 1937,
+        "mapped_parser_bindings": 1913,
+        "storage_ids_with_multiple_parser_bindings": 0
+      }
+    },
+    "numeric": {
+      "lineage": {
+        "scripts": 6,
+        "source_files": 6,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 6
+        },
+        "annotation_spans": 0,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 0,
+        "definitions": 578,
+        "definitions_with_final_binding_ancestry": 224,
+        "dropped_records": 0,
+        "final_bindings": 84,
+        "functions": 42,
+        "identifier_spans": 228,
+        "incomplete_lineages": 0,
+        "lifted_statements": 502,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 0,
+        "statements_with_pc": 502,
+        "unlocated_final_bindings": 6
+      },
+      "emission": {
+        "scripts": 6,
+        "status": {
+          "passed": 6
+        },
+        "parser_local_tokens": 228,
+        "mapped_local_tokens": 228,
+        "opaque_local_tokens": 0,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 84,
+        "mapped_parser_bindings": 84,
+        "storage_ids_with_multiple_parser_bindings": 0
+      }
+    },
+    "public": {
+      "lineage": {
+        "scripts": 513,
+        "source_files": 513,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 513
+        },
+        "annotation_spans": 36,
+        "bindings_without_identifier_tokens": 21,
+        "conditional_result_records": 3542,
+        "definitions": 97176,
+        "definitions_with_final_binding_ancestry": 46957,
+        "dropped_records": 0,
+        "final_bindings": 13135,
+        "functions": 3961,
+        "identifier_spans": 45311,
+        "incomplete_lineages": 0,
+        "lifted_statements": 77329,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 150,
+        "statements_with_pc": 77329,
+        "unlocated_final_bindings": 68
+      },
+      "emission": {
+        "scripts": 513,
+        "status": {
+          "passed": 513
+        },
+        "parser_local_tokens": 45562,
+        "mapped_local_tokens": 45311,
+        "opaque_local_tokens": 251,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 13117,
+        "mapped_parser_bindings": 13117,
+        "storage_ids_with_multiple_parser_bindings": 3
+      }
+    }
+  },
+  "source_hashes": {
+    "ast/src/inline_temps.rs": "e648d792aa934b02d8c16974e76e178067233af14ef5cf8e1283d390c7dab2c1",
+    "ast/src/evaluation_order.rs": "1ace73220b7e629a3304e5c7ed582e54644cafac5378f236df2dfe8a1f231131",
+    "ast/src/numeric_facts.rs": "0509ceeeb3c3a913a683d3ce410ea915d7218c6bb4110c65a6d51121a446e33e",
+    "ast/src/lib.rs": "9d5ba9e94ed05556143a99cd8ec77bbe0cdba8a8ec56535d0d0c56c9f31da9b7"
+  },
+  "fixture_hashes": {
+    "docs/failure_fixtures/roadmap_v2/numeric_motion.driver.luau": "64ceed444aefcdd820222b8fc5ddea3180e1f7f91370ad8faf76c73a393dbf0f",
+    "docs/failure_fixtures/roadmap_v2/numeric_motion.luau": "9e68dd915cbb64f8a55190f6a17ff3a41c15b40c7fcb61e0d039cf264cd283d7",
+    "docs/failure_fixtures/roadmap_v2/numeric_motion.manifest.json": "8025a94512f6ec35a91018d9b68955820cbe70aa144be3eb0063dbf1158dbb02"
+  },
+  "evidence_hashes": {
+    "f2-workspace-tests.log": "aa6e838ea03b25ec426e64aac513e1a00810aeaa6d8786e262a7bbd203610d7f",
+    "numeric-runtime.json": "853f8bab44e86b2e8d57919d0e53e7eb6a7188e1ecabc61bd0db4980ad82892d",
+    "numeric-runtime-before.json": "38d227f53204af29f80926c6eb745760d117d1822336f593c6bde320bf5d08e5",
+    "runtime.json": "65bb9d49535fca51e76455fffe9f8c31d501acd1e2709324953dfda052528030",
+    "public.json": "620c599956b93d599a4248ceeaed6914a2535d4bf6a1cbed52dda4e2f9f1cc97",
+    "private-review.json": "111b258017a839aafd6177bfb00e52372a69a31f78d4602b26133bc129f04337",
+    "f2-quality.json": "a1b62331b98a0dfda4228bfd3f8eef4a13554e92d3a5f49674df4368f334be5e",
+    "f2-profile.jsonl": "d07a3b4602d8f6ba77dc42ae347a0c7ac580c9a7bc6dd2646892c499aacbf2bf"
+  },
+  "limitations": [
+    "No assumption from API names, type hints, pi/infinity environment lookups or unknown arithmetic operands.",
+    "Symbolic dataflow for the numeric fixture is unknown; VM observations are bounded.",
+    "Geometry, Billboards, BufferWrite and public math/helper snapshots still need the remaining F2/F3/F5/F6 work.",
+    "No public output changed; the private corpus improvement is limited to 13 files in this step."
+  ]
+}

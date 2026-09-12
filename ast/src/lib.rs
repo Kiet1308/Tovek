@@ -49,6 +49,7 @@ pub mod eliminate_nil;
 pub mod expr_deinline;
 pub mod expression_budget;
 pub mod effects;
+mod numeric_facts;
 pub mod evaluation_order;
 pub mod factor_common_tails;
 pub mod flatten_guards;

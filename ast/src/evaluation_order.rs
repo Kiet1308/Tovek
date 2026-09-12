@@ -154,8 +154,15 @@ pub fn statement(statement: &Statement, capture: &impl Fn(&RcLocal) -> bool) -> 
 /// Can an earlier scalar initializer occupy this local's evaluation position?
 /// The caller separately proves one use, scope, intervening statements and arity.
 pub fn can_sink(statement_: &Statement, local: &RcLocal, replacement: &RValue, capture: &impl Fn(&RcLocal) -> bool) -> bool {
-    let order = statement(statement_, capture);
     let candidate = effects::summarize(replacement, capture);
+    can_sink_with_summary(statement_, local, replacement, capture, candidate)
+}
+
+/// The supplied summary must describe the current candidate under caller-owned
+/// runtime facts. Capture/write/conditional and destination order gates remain.
+pub(crate) fn can_sink_with_summary(statement_: &Statement, local: &RcLocal, replacement: &RValue,
+    capture: &impl Fn(&RcLocal) -> bool, candidate: effects::Summary) -> bool {
+    let order = statement(statement_, capture);
     if order.exhausted || candidate.exhausted { return false; }
     let reads = replacement.values_read();
     let mut found = false;

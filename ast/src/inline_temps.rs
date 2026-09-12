@@ -15,7 +15,25 @@ pub(crate) struct Usage {
 struct MotionFacts {
     captured: FxHashSet<RcLocal>,
     stable_captured: FxHashSet<RcLocal>,
+    numbers: FxHashSet<RcLocal>,
     rebuild_call_chains: bool,
+}
+
+impl MotionFacts {
+    fn total_numeric(&self, value: &RValue) -> bool {
+        self.rebuild_call_chains && crate::numeric_facts::total(value, &self.numbers)
+    }
+
+    fn candidate_effects(&self, value: &RValue) -> crate::effects::Summary {
+        let capture = |local: &RcLocal| self.captured.contains(local) && !self.stable_captured.contains(local);
+        if self.total_numeric(value) {
+            crate::effects::Summary {
+                effects: if value.values_read().into_iter().any(capture) { crate::effects::Effects::CAPTURE_READ }
+                    else { crate::effects::Effects::default() },
+                nodes: 0, exhausted: false,
+            }
+        } else { crate::effects::summarize(value, &capture) }
+    }
 }
 
 /// Inline generated, single-use local temporaries back into their use sites.
@@ -70,6 +88,7 @@ fn collect_motion_facts(block: &Block) -> MotionFacts {
     MotionFacts {
         captured,
         stable_captured,
+        numbers: crate::numeric_facts::collect(block, &usage),
         rebuild_call_chains: false,
     }
 }
@@ -227,20 +246,28 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
             && is_service_or_require_handle(&replacement)
             && is_named_field_store_use(&block.0[use_index], &local);
         let named_function = crate::assignment_preserves_function_name(&block.0[use_index], &local);
-        if local.preserve_binding() && !named_function { continue; }
+        if local.preserve_binding() && !named_function {
+            crate::telemetry::count("inline_refused_source_binding", 1);
+            continue;
+        }
         if !call_callee && !ordered_alias && !ordered_operator && !import_field_store && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
         {
+            crate::telemetry::count("inline_refused_expression_role", 1);
             continue;
         }
         if named_table && !is_declarative_table_use(&block.0[use_index], &local) {
             continue;
         }
         if !can_move_between(&replacement, &block.0[index + 1..use_index], facts) {
+            crate::telemetry::count("inline_refused_intervening_statement", 1);
             continue;
         }
-        if !crate::evaluation_order::can_sink(&block.0[use_index], &local, &replacement, &|l| {
+        if !crate::evaluation_order::can_sink_with_summary(&block.0[use_index], &local, &replacement, &|l| {
             facts.captured.contains(l) && !facts.stable_captured.contains(l)
-        }) { continue; }
+        }, facts.candidate_effects(&replacement)) {
+            crate::telemetry::count("inline_refused_evaluation_position", 1);
+            continue;
+        }
         if facts.rebuild_call_chains
             && matches!(&replacement, RValue::Local(_) | RValue::Literal(_))
             && replace_single_index_key_use(&mut block.0[use_index], &local, &replacement, facts)
@@ -248,10 +275,14 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
             block.0.remove(index);
             return true;
         }
+        let numeric = facts.total_numeric(&replacement);
         if replace_direct_rvalue_use(&mut block.0[use_index], &local, replacement, facts) {
+            crate::telemetry::count("inline_accepted", 1);
+            if numeric { crate::telemetry::count("inline_accepted_numeric_proof", 1); }
             block.0.remove(index);
             return true;
         }
+        crate::telemetry::count("inline_refused_arity_or_context", 1);
     }
     false
 }
@@ -813,7 +844,7 @@ fn can_move_between(replacement: &RValue, statements: &[Statement], facts: &Moti
     // for example, `{[nil] = 1}` raises while evaluating the constructor. Such
     // expressions must not cross another evaluation barrier or their error is
     // reordered (and may be swallowed by a later control-flow path).
-    let has_effects = crate::is_observable(replacement);
+    let has_effects = !facts.total_numeric(replacement) && crate::is_observable(replacement);
     for statement in statements {
         if statement_writes_any_local(statement, &read_locals) {
             return false;
@@ -837,7 +868,7 @@ fn can_replace_after_prior_effects(
     facts: &MotionFacts,
 ) -> bool {
     !before_side_effects
-        || !(crate::is_observable(replacement)
+        || !((!facts.total_numeric(replacement) && crate::is_observable(replacement))
             || contains_global(replacement)
             || reads_motion_sensitive_capture(replacement, facts))
 }
@@ -857,7 +888,7 @@ fn contains_global(rvalue: &RValue) -> bool {
 }
 
 fn rvalue_evaluation_order_barrier(rvalue: &RValue, facts: &MotionFacts) -> bool {
-    crate::is_observable(rvalue)
+    (!facts.total_numeric(rvalue) && crate::is_observable(rvalue))
         || contains_global(rvalue)
         || rvalue
             .values_read()
@@ -1201,6 +1232,46 @@ mod tests {
             let before = block.to_string();
             assert_eq!(super::rebuild_ui_expression_trees(&mut block), barrier == 0);
             if barrier == 0 { assert_eq!(block.to_string(), "return source * 2 + 4"); }
+            else { assert_eq!(block.to_string(), before); }
+        }
+    }
+
+    #[test]
+    fn checked_numeric_counter_arithmetic_crosses_calls_but_not_counter_writes() {
+        for mutate in [false, true] {
+            let counter = local("i");
+            let temp = local("v9");
+            let mut body = Block(vec![
+                declare(&temp, Binary::new(local_value(&counter), number(1.0), BinaryOperation::Add).into()),
+                Call::new(global("between"), vec![]).into(),
+            ]);
+            if mutate { body.0.push(assign(counter.clone().into(), global("replacement"))); }
+            body.0.push(Call::new(global("consume"), vec![local_value(&temp)]).into());
+            let mut block = Block(vec![crate::NumericFor::new(number(1.0), number(3.0), number(1.0), counter, body).into()]);
+            let before = block.to_string();
+            assert_eq!(super::rebuild_ui_expression_trees(&mut block), !mutate);
+            let output = block.to_string();
+            if mutate { assert_eq!(output, before); }
+            else { assert!(!output.contains("local v9"), "{output}"); assert!(output.contains("consume(i + 1)"), "{output}"); }
+        }
+    }
+
+    #[test]
+    fn numeric_motion_requires_runtime_facts_not_type_hints_or_environment_constants() {
+        for kind in 0..4 {
+            let input = local("input");
+            input.0.lock().1 = Some("number".into());
+            let temp = local("v9");
+            let value = if kind == 1 { number(std::f64::consts::PI) }
+                else if kind == 2 { number(f64::INFINITY) }
+                else { local_value(&input) };
+            let mut block = Block(vec![]);
+            if kind == 3 { block.0.push(declare(&input, number(2.0))); }
+            block.0.push(declare(&temp, Binary::new(value, number(1.0), BinaryOperation::Add).into()));
+            block.0.push(Call::new(global("consume"), vec![local_value(&temp)]).into());
+            let before = block.to_string();
+            assert_eq!(super::rebuild_ui_expression_trees(&mut block), kind == 3);
+            if kind == 3 { assert!(block.to_string().contains("consume(input + 1)")); }
             else { assert_eq!(block.to_string(), before); }
         }
     }
