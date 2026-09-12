@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "parent_commit": "fffb4ad",
+  "baseline_binary_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+  "binary_sha256": "4641474882013bcc096c3ba8625abe8271e40ec12a4ceccf2bdc045d5d624872",
+  "source_hashes": {
+    "ast/src/inline_temps.rs": "785fd380ce24a08ce0449c55c1e3273da190bcb4807157723c7c420e7bee1c88",
+    "ast/src/name_locals.rs": "39e23f3e2a650cb2c18f8971c0c03558b421703a8af19ae0477fe0ae181765c8"
+  },
+  "rust_tests_including_child_repeat": 1022,
+  "runtime": {
+    "profiles": 198,
+    "status": {
+      "passed": 198
+    }
+  },
+  "private": {
+    "files": 3978,
+    "changed": 60,
+    "unchanged": 3918,
+    "categories": {
+      "structure_or_types": 48,
+      "names_or_trivia": 12
+    },
+    "delta_bytes": -958,
+    "delta_lines": -57,
+    "delta_generated_bindings": -83,
+    "delta_long_lines": 0,
+    "errors": []
+  },
+  "public": {
+    "profiles": 513,
+    "status": {
+      "passed": 513
+    },
+    "changed": 6,
+    "measured_common": 405,
+    "unmeasured": 108,
+    "raw_mean_before": 0.8499146852270513,
+    "raw_mean_after": 0.8525583269402266,
+    "improved": 6,
+    "regressed": 0,
+    "unchanged": 399,
+    "source_bindings": {
+      "before": 5148,
+      "after": 5148
+    },
+    "aligned_bindings": {
+      "before": 3787,
+      "after": 3793
+    },
+    "exact_names": {
+      "before": 1138,
+      "after": 1144
+    }
+  },
+  "limitations": [
+    "Private unchanged outputs are covered by exact baseline hashes; every changed output was independently parsed and compiled at O0/O2.",
+    "Private game modules were not executed in Roblox; runtime checks cover the owned regression suite.",
+    "Public metrics are replay metrics, including already-inspected Rodux examples, not a newly blind holdout.",
+    "No purity assumptions were added for global math/vector/API lookups; statement-style conditionals remain unchanged."
+  ],
+  "status": "passed",
+  "rust_primary_tests": 1021,
+  "rust_child_repeat": 1,
+  "runtime_metadata": {
+    "profiles": 198,
+    "metadata_deterministic_threads_1_4": true,
+    "lineage_audit": {
+      "scripts": 198,
+      "source_files": 198,
+      "source_set_equal": true,
+      "source_files_changed": 0,
+      "status": {
+        "passed": 198
+      },
+      "annotation_spans": 6,
+      "bindings_without_identifier_tokens": 0,
+      "conditional_result_records": 573,
+      "definitions": 9644,
+      "definitions_with_final_binding_ancestry": 5548,
+      "dropped_records": 0,
+      "final_bindings": 1811,
+      "functions": 852,
+      "identifier_spans": 5388,
+      "incomplete_lineages": 0,
+      "lifted_statements": 8232,
+      "omitted_output_occurrences": 0,
+      "opaque_output_regions": 12,
+      "statements_with_pc": 8232,
+      "unlocated_final_bindings": 66
+    },
+    "emission_audit": {
+      "scripts": 198,
+      "status": {
+        "passed": 198
+      },
+      "parser_local_tokens": 5496,
+      "mapped_local_tokens": 5388,
+      "opaque_local_tokens": 108,
+      "unexplained_local_tokens": 0,
+      "parser_bindings": 1835,
+      "mapped_parser_bindings": 1811,
+      "storage_ids_with_multiple_parser_bindings": 0
+    },
+    "capture_effects_scripts": 198
+  },
+  "reports": {
+    "runtime.json": "718f9f2706f5d17da5c717b31027513e5906294116581113f044152008f0374b",
+    "public.json": "da31cff0a094b6d4a65b5059b5fa53446f54558fe117d02d13e81f41bfd50baa",
+    "runtime-traces.json": "cf8a3897daaa86e2ac5f4d98ce3d3fa5293d451ec399e6dfb2d2b46e8b7155d1",
+    "private-review.json": "0811028a2e10a69804f8b2dd358ae2a297cee108461d55245497923aa0d46a38",
+    "workspace-tests.log": "b5a7eb4146343ada39e157193dfd0bcff86a5368d61ba7a686e66d90a388692b",
+    "build-final.log": "69f6fd4df68016f35d016b7c8cbc3c3f67f8f9fdca32f1609c7507fc1aa1be90"
+  },
+  "baseline_private_hashes_verified": 3978,
+  "private_changed_parser_passed": 60,
+  "private_changed_compile_O0_passed": 60,
+  "private_changed_compile_O2_passed": 60
+}

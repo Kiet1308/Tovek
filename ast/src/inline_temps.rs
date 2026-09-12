@@ -201,6 +201,7 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
         // ordinary motion/order/conditional guards; never inline it into a
         // multret argument or a branch that may not execute.
         let call_callee = facts.rebuild_call_chains
+            && !is_service_or_require_handle(&replacement)
             && matches!(
                 &replacement,
                 RValue::Call(_)
@@ -212,9 +213,22 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
         // proof as curried callees. Recorded bindings stay protected.
         let ordered_alias = facts.rebuild_call_chains && !is_service_or_require_handle(&replacement) && matches!(&replacement,
             RValue::Index(_) | RValue::Select(Select::Call(_) | Select::MethodCall(_)));
+        // Operators may throw or dispatch metamethods. A generated snapshot
+        // can still fold into its original evaluation position, using the same
+        // motion and conditional proofs as call/field aliases below. Meaningful
+        // names and recorded source bindings remain declarations.
+        let ordered_operator = facts.rebuild_call_chains && generated
+            && matches!(&replacement, RValue::Binary(_) | RValue::Unary(_));
+        // A sole-use import forwarded into a named table field gains no
+        // readable role from an extra alias: the destination already names it.
+        // This only admits a candidate; the ordinary source-binding, capture,
+        // motion and evaluation-position checks below still decide legality.
+        let import_field_store = facts.rebuild_call_chains
+            && is_service_or_require_handle(&replacement)
+            && is_named_field_store_use(&block.0[use_index], &local);
         let named_function = crate::assignment_preserves_function_name(&block.0[use_index], &local);
         if local.preserve_binding() && !named_function { continue; }
-        if !call_callee && !ordered_alias && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
+        if !call_callee && !ordered_alias && !ordered_operator && !import_field_store && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
         {
             continue;
         }
@@ -318,6 +332,15 @@ fn candidate_decl(statement: &Statement) -> Option<(RcLocal, RValue)> {
         return None;
     };
     Some((local.clone(), assign.right[0].clone()))
+}
+
+fn is_named_field_store_use(statement: &Statement, local: &RcLocal) -> bool {
+    matches!(statement, Statement::Assign(assign)
+        if !assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1
+            && matches!(&assign.right[0], RValue::Local(read) if read == local)
+            && matches!(&assign.left[0], LValue::Index(index)
+                if matches!(index.right.as_ref(), RValue::Literal(crate::Literal::String(key))
+                    if std::str::from_utf8(key).ok().is_some_and(crate::valid_source_name))))
 }
 
 fn is_call_callee_use(statement: &Statement, local: &RcLocal) -> bool {
@@ -1080,6 +1103,106 @@ mod tests {
         let before = block.to_string();
         assert!(!super::rebuild_ui_expression_trees(&mut block));
         assert_eq!(before, block.to_string());
+    }
+
+    #[test]
+    fn callee_cleanup_retains_import_and_service_headers() {
+        for scalar in [false, true] {
+            for service in [false, true] {
+                for statement_call in [false, true] {
+                    let handle = local("factory");
+                    let initializer = if service {
+                        let call = crate::MethodCall::new(global("game"), "GetService".into(), vec![string("Factory")]);
+                        if scalar { RValue::Select(Select::MethodCall(call)) } else { call.into() }
+                    } else {
+                        let call = Call::new(global("require"), vec![string("Factory")]);
+                        if scalar { RValue::Select(Select::Call(call)) } else { call.into() }
+                    };
+                    let call = Call::new(local_value(&handle), vec![number(1.0)]);
+                    let use_ = if statement_call { call.into() }
+                        else { Return::new(vec![call.into()]).into() };
+                    let mut block = Block(vec![declare(&handle, initializer), use_]);
+                    let before = block.to_string();
+                    assert!(!super::rebuild_ui_expression_trees(&mut block));
+                    assert_eq!(block.to_string(), before);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn named_import_field_store_folds_only_at_safe_evaluation_positions() {
+        for barrier in 0..6 {
+            let module = local("component");
+            let object = local("components");
+            let mut block = Block(vec![declare(&module,
+                RValue::Select(Select::Call(Call::new(global("require"), vec![string("Component")]))))]);
+            if barrier == 1 { block.0.push(Call::new(global("between"), vec![]).into()); }
+            if barrier == 4 { module.0.lock().add_source_binding(crate::SourceBinding {
+                name: "component".into(), origin: crate::BindingOrigin::DebugLocal {
+                    prototype: 1, register: 0, start_pc: 0, end_pc: 5,
+                },
+            }); }
+            let receiver = if barrier == 2 { Index::new(local_value(&object), string("Nested")).into() }
+                else { local_value(&object) };
+            let key = if barrier == 3 { global("key") } else { string("Component") };
+            block.0.push(assign(Index::new(receiver, key).into(), local_value(&module)));
+            if barrier == 5 { block.0.push(Return::new(vec![local_value(&module)]).into()); }
+            let before = block.to_string();
+            assert_eq!(super::rebuild_ui_expression_trees(&mut block), barrier == 0);
+            if barrier == 0 { assert_eq!(block.to_string(), "components.Component = require(\"Component\")"); }
+            else { assert_eq!(block.to_string(), before); }
+        }
+    }
+
+    #[test]
+    fn import_field_store_preserves_a_mutable_captured_receiver() {
+        let module = local("component");
+        let object = local("components");
+        let mut block = Block(vec![
+            declare(&object, global("initial")),
+            Call::new(global("publish"), vec![closure_capturing(&object)]).into(),
+            assign(object.clone().into(), global("replacement")),
+            declare(&module, RValue::Select(Select::Call(Call::new(global("require"), vec![string("Component")])))),
+            assign(Index::new(local_value(&object), string("Component")).into(), local_value(&module)),
+        ]);
+        let before = block.to_string();
+        super::rebuild_ui_expression_trees(&mut block);
+        assert_eq!(block.to_string(), before);
+    }
+
+    #[test]
+    fn ordered_operator_cleanup_keeps_effects_branches_and_binding_roles() {
+        for barrier in 0..7 {
+            let source = local("source");
+            let temp = local(if barrier == 6 { "distance" } else { "v12" });
+            let mut block = Block(vec![declare(&temp,
+                Binary::new(local_value(&source), number(2.0), BinaryOperation::Mul).into())]);
+            if barrier == 1 {
+                block.0.push(Call::new(global("mutate"), vec![]).into());
+            }
+            if barrier == 4 {
+                block.0.push(assign(source.clone().into(), number(3.0)));
+            }
+            if barrier == 5 {
+                temp.0.lock().add_source_binding(crate::SourceBinding {
+                    name: "distance".into(), origin: crate::BindingOrigin::DebugLocal {
+                        prototype: 1, register: 0, start_pc: 0, end_pc: 5,
+                    },
+                });
+            }
+            let result = match barrier {
+                2 => Binary::new(Call::new(global("first"), vec![]).into(),
+                    local_value(&temp), BinaryOperation::Add).into(),
+                3 => Binary::new(local_value(&source), local_value(&temp), BinaryOperation::And).into(),
+                _ => Binary::new(local_value(&temp), number(4.0), BinaryOperation::Add).into(),
+            };
+            block.0.push(Return::new(vec![result]).into());
+            let before = block.to_string();
+            assert_eq!(super::rebuild_ui_expression_trees(&mut block), barrier == 0);
+            if barrier == 0 { assert_eq!(block.to_string(), "return source * 2 + 4"); }
+            else { assert_eq!(block.to_string(), before); }
+        }
     }
 
     #[test]

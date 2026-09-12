@@ -1,0 +1,373 @@
+{
+  "schema_version": 1,
+  "parent_commit": "fffb4ad7e738e45288a838cdfd7a111920aaa8c1",
+  "change": "Contextual folding of single-use require/GetService handles into safe named field stores",
+  "baseline_binary_sha256": "4641474882013bcc096c3ba8625abe8271e40ec12a4ceccf2bdc045d5d624872",
+  "binary_sha256": "f582dc87610d866bfb5de78a3f58a216f015839dd4b5b0837386f6af485a9d28",
+  "source_hashes": {
+    "ast/src/inline_temps.rs": "05f99f11886c902c83db318bfde8198863809847a19271dfa5bafa62b65e517f",
+    "ast/src/name_locals.rs": "39e23f3e2a650cb2c18f8971c0c03558b421703a8af19ae0477fe0ae181765c8",
+    "scripts/provenance_fixtures.py": "dbd7f899ae4851dd75523f13e9019b1614d76dfea6cbf5607119f85bb084b7d8"
+  },
+  "fixture_hashes": {
+    "docs/failure_fixtures/roadmap_v2/import_field_store.driver.luau": "abdc0b20a70e16764586746d1e95c3791ac8f95554c7bf77e34c1385315f7f1c",
+    "docs/failure_fixtures/roadmap_v2/import_field_store.luau": "f03a2db60fa8b668283e2cc76ef97c719237297e793eab71221c1ea14e96fbc2",
+    "docs/failure_fixtures/roadmap_v2/import_field_store.manifest.json": "130fcc3b438a2a5aa4f7ba90e450f07273b0942dd027fca4fa307db8550d8297"
+  },
+  "rust_primary_tests": 1023,
+  "rust_child_repeat": 1,
+  "rust_tests_including_child_repeat": 1024,
+  "private": {
+    "files": 3978,
+    "changed": 1300,
+    "unchanged": 2678,
+    "categories": {
+      "structure_or_types": 1300
+    },
+    "delta_bytes": -301512,
+    "delta_lines": -10277,
+    "delta_generated_bindings": 2,
+    "delta_long_lines": 0,
+    "errors": []
+  },
+  "public": {
+    "profiles": 513,
+    "status": {
+      "passed": 513
+    },
+    "changed": 15,
+    "measured_common": 405,
+    "unmeasured": 108,
+    "raw_mean_before": 0.8525583269402266,
+    "raw_mean_after": 0.8637129643133653,
+    "improved": 15,
+    "regressed": 0,
+    "unchanged": 390,
+    "source_bindings": {
+      "before": 5148,
+      "after": 5148
+    },
+    "aligned_bindings": {
+      "before": 3793,
+      "after": 3793
+    },
+    "exact_names": {
+      "before": 1144,
+      "after": 1144
+    }
+  },
+  "relay_audit": {
+    "beta": {
+      "parsed": 3975,
+      "metrics": {
+        "single_use_AstExprCall": 20763,
+        "require_field_relays": 10045,
+        "sole_use_require_field_relays": 10045,
+        "discard_locals": 3107,
+        "inferred_call_annotations": 0,
+        "styledTextLabel_exact_pairs": 544,
+        "generated_single_use_AstExprCall": 4659,
+        "single_use_AstExprIndexName": 3579,
+        "single_use_AstExprTable": 958,
+        "generated_single_use_AstExprTable": 945,
+        "single_use_AstExprConstantNumber": 44,
+        "single_use_AstExprLocal": 907,
+        "generated_single_use_AstExprLocal": 905,
+        "single_use_AstExprBinary": 1801,
+        "generated_single_use_AstExprBinary": 1374,
+        "single_use_AstExprIndexExpr": 229,
+        "generated_single_use_AstExprIndexExpr": 208,
+        "single_use_AstExprInterpString": 16,
+        "generated_single_use_AstExprInterpString": 16,
+        "single_use_AstExprIfElse": 70,
+        "generated_single_use_AstExprIfElse": 70,
+        "single_use_AstExprUnary": 43,
+        "generated_single_use_AstExprUnary": 43,
+        "single_use_AstExprConstantNil": 11,
+        "generated_single_use_AstExprConstantNil": 8,
+        "single_use_AstExprConstantBool": 20,
+        "generated_single_use_AstExprConstantBool": 20,
+        "single_use_AstExprGlobal": 12,
+        "single_use_AstExprConstantString": 13,
+        "generated_single_use_AstExprConstantString": 13,
+        "generated_single_use_AstExprConstantNumber": 41,
+        "generated_single_use_AstExprIndexName": 9
+      },
+      "files_with_relays": 1227,
+      "files_with_sole_use_relays": 1227,
+      "files_with_styledTextLabel_exact_pairs": 544
+    },
+    "v2_before": {
+      "parsed": 3978,
+      "metrics": {
+        "single_use_AstExprCall": 23113,
+        "require_field_relays": 10007,
+        "sole_use_require_field_relays": 10007,
+        "discard_locals": 3185,
+        "inferred_call_annotations": 531,
+        "styledTextLabel_exact_pairs": 544,
+        "single_use_AstExprIndexName": 6875,
+        "generated_single_use_AstExprCall": 2811,
+        "single_use_AstExprTable": 1194,
+        "generated_single_use_AstExprTable": 1173,
+        "single_use_AstExprConstantNumber": 43,
+        "single_use_AstExprUnary": 206,
+        "generated_single_use_AstExprUnary": 204,
+        "single_use_AstExprLocal": 603,
+        "single_use_AstExprBinary": 5600,
+        "generated_single_use_AstExprBinary": 4843,
+        "single_use_AstExprIndexExpr": 535,
+        "generated_single_use_AstExprIndexExpr": 341,
+        "generated_single_use_AstExprLocal": 485,
+        "single_use_AstExprInterpString": 113,
+        "single_use_AstExprConstantNil": 18,
+        "generated_single_use_AstExprConstantNil": 18,
+        "single_use_AstExprVarargs": 11,
+        "generated_single_use_AstExprVarargs": 10,
+        "single_use_AstExprConstantBool": 20,
+        "generated_single_use_AstExprConstantBool": 20,
+        "single_use_AstExprGlobal": 71,
+        "single_use_AstExprConstantString": 13,
+        "generated_single_use_AstExprConstantString": 13,
+        "generated_single_use_AstExprConstantNumber": 38,
+        "generated_single_use_AstExprIndexName": 11
+      },
+      "files_with_relays": 1214,
+      "files_with_sole_use_relays": 1214,
+      "files_with_styledTextLabel_exact_pairs": 544
+    },
+    "v2_after": {
+      "files": 3978,
+      "metrics": {
+        "single_use_AstExprCall": 12839,
+        "require_field_relays": 0,
+        "sole_use_require_field_relays": 0,
+        "discard_locals": 3185,
+        "inferred_call_annotations": 531,
+        "styledTextLabel_exact_pairs": 0,
+        "single_use_AstExprIndexName": 6875,
+        "generated_single_use_AstExprCall": 2811,
+        "single_use_AstExprTable": 1198,
+        "generated_single_use_AstExprTable": 1177,
+        "single_use_AstExprConstantNumber": 43,
+        "single_use_AstExprUnary": 206,
+        "generated_single_use_AstExprUnary": 204,
+        "single_use_AstExprLocal": 602,
+        "single_use_AstExprBinary": 5600,
+        "generated_single_use_AstExprBinary": 4843,
+        "single_use_AstExprIndexExpr": 535,
+        "generated_single_use_AstExprIndexExpr": 341,
+        "generated_single_use_AstExprLocal": 484,
+        "single_use_AstExprInterpString": 113,
+        "single_use_AstExprConstantNil": 18,
+        "generated_single_use_AstExprConstantNil": 18,
+        "single_use_AstExprVarargs": 11,
+        "generated_single_use_AstExprVarargs": 10,
+        "single_use_AstExprConstantBool": 20,
+        "generated_single_use_AstExprConstantBool": 20,
+        "single_use_AstExprGlobal": 71,
+        "single_use_AstExprConstantString": 13,
+        "generated_single_use_AstExprConstantString": 13,
+        "generated_single_use_AstExprConstantNumber": 38,
+        "generated_single_use_AstExprIndexName": 11
+      },
+      "files_with_relays": 0,
+      "files_with_styledTextLabel_exact_pairs": 0
+    }
+  },
+  "status": "passed",
+  "runtime": {
+    "profiles": 198,
+    "status": {
+      "passed": 198
+    },
+    "dataflow": {
+      "unknown": 52,
+      "different": 27,
+      "proved": 119
+    },
+    "report_sha256": "e054beee7abe4174d8cad075617174b28cc1c93dae00051a392f40a66a3ef41d"
+  },
+  "import_runtime": {
+    "profiles": 6,
+    "status": {
+      "passed": 6
+    },
+    "dataflow": {
+      "unknown": 6
+    },
+    "scenarios_per_profile": 168,
+    "profile_scenario_observations": 1008,
+    "report_sha256": "8e4a637d76293d1442ce16ff5bb49b3ce383ef9dc549b025c75b47163ba6591e"
+  },
+  "runtime_metadata": {
+    "profiles": 198,
+    "metadata_deterministic_threads_1_4": true,
+    "lineage_audit": {
+      "scripts": 198,
+      "source_files": 198,
+      "source_set_equal": true,
+      "source_files_changed": 0,
+      "status": {
+        "passed": 198
+      },
+      "annotation_spans": 6,
+      "bindings_without_identifier_tokens": 0,
+      "conditional_result_records": 573,
+      "definitions": 9644,
+      "definitions_with_final_binding_ancestry": 5548,
+      "dropped_records": 0,
+      "final_bindings": 1811,
+      "functions": 852,
+      "identifier_spans": 5388,
+      "incomplete_lineages": 0,
+      "lifted_statements": 8232,
+      "omitted_output_occurrences": 0,
+      "opaque_output_regions": 12,
+      "statements_with_pc": 8232,
+      "unlocated_final_bindings": 66
+    },
+    "emission_audit": {
+      "scripts": 198,
+      "status": {
+        "passed": 198
+      },
+      "parser_local_tokens": 5496,
+      "mapped_local_tokens": 5388,
+      "opaque_local_tokens": 108,
+      "unexplained_local_tokens": 0,
+      "parser_bindings": 1835,
+      "mapped_parser_bindings": 1811,
+      "storage_ids_with_multiple_parser_bindings": 0
+    },
+    "capture_effects_audit": {
+      "schema_version": 1,
+      "scripts": 198,
+      "readonly_slots": 198,
+      "analysis_status": {
+        "complete": 198
+      },
+      "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+    },
+    "report_sha256": "bcb197f7c01cd89bd1fe9d6d514b155d1fbf24540a84f885a1015d0528d0082a"
+  },
+  "import_metadata": {
+    "profiles": 6,
+    "metadata_deterministic_threads_1_4": true,
+    "lineage_audit": {
+      "scripts": 6,
+      "source_files": 6,
+      "source_set_equal": true,
+      "source_files_changed": 0,
+      "status": {
+        "passed": 6
+      },
+      "annotation_spans": 0,
+      "bindings_without_identifier_tokens": 0,
+      "conditional_result_records": 0,
+      "definitions": 338,
+      "definitions_with_final_binding_ancestry": 168,
+      "dropped_records": 0,
+      "final_bindings": 102,
+      "functions": 54,
+      "identifier_spans": 282,
+      "incomplete_lineages": 0,
+      "lifted_statements": 392,
+      "omitted_output_occurrences": 0,
+      "opaque_output_regions": 0,
+      "statements_with_pc": 392,
+      "unlocated_final_bindings": 6
+    },
+    "emission_audit": {
+      "scripts": 6,
+      "status": {
+        "passed": 6
+      },
+      "parser_local_tokens": 282,
+      "mapped_local_tokens": 282,
+      "opaque_local_tokens": 0,
+      "unexplained_local_tokens": 0,
+      "parser_bindings": 102,
+      "mapped_parser_bindings": 102,
+      "storage_ids_with_multiple_parser_bindings": 0
+    },
+    "capture_effects_audit": {
+      "schema_version": 1,
+      "scripts": 6,
+      "readonly_slots": 0,
+      "analysis_status": {
+        "complete": 6
+      },
+      "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+    },
+    "report_sha256": "92b99825b07f85f22ef171e89885320b9f660e7f170c82c8d199e848c2fcd2c5"
+  },
+  "public_metadata": {
+    "profiles": 513,
+    "metadata_deterministic_threads_1_4": true,
+    "lineage_audit": {
+      "scripts": 513,
+      "source_files": 513,
+      "source_set_equal": true,
+      "source_files_changed": 0,
+      "status": {
+        "passed": 513
+      },
+      "annotation_spans": 36,
+      "bindings_without_identifier_tokens": 21,
+      "conditional_result_records": 3542,
+      "definitions": 97176,
+      "definitions_with_final_binding_ancestry": 46957,
+      "dropped_records": 0,
+      "final_bindings": 13135,
+      "functions": 3961,
+      "identifier_spans": 45311,
+      "incomplete_lineages": 0,
+      "lifted_statements": 77329,
+      "omitted_output_occurrences": 0,
+      "opaque_output_regions": 150,
+      "statements_with_pc": 77329,
+      "unlocated_final_bindings": 68
+    },
+    "emission_audit": {
+      "scripts": 513,
+      "status": {
+        "passed": 513
+      },
+      "parser_local_tokens": 45562,
+      "mapped_local_tokens": 45311,
+      "opaque_local_tokens": 251,
+      "unexplained_local_tokens": 0,
+      "parser_bindings": 13117,
+      "mapped_parser_bindings": 13117,
+      "storage_ids_with_multiple_parser_bindings": 3
+    },
+    "capture_effects_audit": {
+      "schema_version": 1,
+      "scripts": 513,
+      "readonly_slots": 4597,
+      "analysis_status": {
+        "complete": 513
+      },
+      "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+    },
+    "report_sha256": "832953d21852318752ceb4925f094f52a7dc82c5583a2d7d055d3a407d8be904"
+  },
+  "limitations": [
+    "Private modules were parsed and compiled, not executed as a complete Roblox game. Every changed private output was compiled O0/O2; unchanged outputs retain exact validated baseline hashes.",
+    "AST single-use counts identify syntactic candidates, not proofs that expressions can move safely.",
+    "Runtime observations are bounded tests; the additional six import profiles have unknown symbolic dataflow, not formal equivalence.",
+    "Public profiles include previously reviewed examples; these are replay metrics, not a new blind holdout.",
+    "The beta release/output remains frozen. The shared legacy issue is fixed in current V2 source and output only.",
+    "Captured-table constructor grouping, excess arithmetic temporaries and conditional/naming weaknesses remain separate roadmap items."
+  ],
+  "evidence_root": "D:/Medal/medal-decompiler/out/v2-fix-research",
+  "evidence_hashes": {
+    "private-review.json": "ad95be31d974031e8801d0ef081d1302a9b0ae743d9c92e8bdb8d5fce54c27b9",
+    "public.json": "26a665cdd0f6773d1e7b57c2fa2dacda5a7d026c30b131aafc67d47dcc2d2275",
+    "public-review.json": "28a0ce3e28b96ae63537edddd8df100eadd6c80b0f10f38f53efe3518889f427",
+    "output-audit-before.json": "6a47fb6d5e3bb0a4a26520774f70f1945382316dc0efa2a8d088e3d539de219a",
+    "output-audit-after.json": "86fd450bd0d38e8dc638a8e3c7cea23727c4bc8b5333961c5f84c554963b2139",
+    "workspace-tests.log": "c674f6ed6863ab898bc0a618103da3294f2ef01fbae45bc05ad33af89011692c"
+  }
+}

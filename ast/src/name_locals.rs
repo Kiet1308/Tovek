@@ -889,6 +889,30 @@ fn strip_method_verb_prefix(name: &str) -> Option<&str> {
     None
 }
 
+// Query qualifiers describe how a result is found, not the result itself:
+// `PlayerFromCharacter` -> `Player`, `PartOnRayWithIgnoreList` -> `Part`.
+// Apply only to weak get/find result hints, with whole PascalCase word
+// boundaries. Strong getter/key hints and recorded identifiers are untouched.
+fn query_result_noun(name: &str) -> &str {
+    for (index, character) in name.char_indices().skip(1) {
+        if !character.is_ascii_uppercase() { continue; }
+        for qualifier in ["From", "With", "By", "On"] {
+            // A location alone is useful (`ClosestPointOnPath`). Only
+            // discard `On` when the query also spells out a `With` filter.
+            if qualifier == "On" && !name[index..].match_indices("With").any(|(offset, _)|
+                name[index + offset + 4..].chars().next().is_some_and(|c| c.is_ascii_uppercase()))
+            { continue; }
+            if let Some(tail) = name[index..].strip_prefix(qualifier)
+                && tail.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                && index >= 3
+            {
+                return &name[..index];
+            }
+        }
+    }
+    name
+}
+
 /// Lowest-tier fallback: a stored method/function result reads as the callee's
 /// own name when that name is noun-like — `state:Computed(fn)` -> `computed`,
 /// `rng:NextNumber(a, b)` -> `number`, `p:Length(x)` -> `length`,
@@ -909,7 +933,10 @@ fn callee_noun_hint(name: &str) -> Option<String> {
     if let Some(rest) =
         strip_verb_prefix(&lowered).or_else(|| strip_method_verb_prefix(&lowered))
     {
-        return sanitize(rest);
+        let noun = if lowered.starts_with("get") || lowered.starts_with("find") {
+            query_result_noun(rest)
+        } else { rest };
+        return sanitize(noun);
     }
     if let Some(result) = verb_result_name(name) {
         return Some(result.to_string());
@@ -9128,6 +9155,28 @@ mod tests {
         assert_eq!(name_decl(method_call(recv(), "FireAll", vec![])), "v");
         assert_eq!(name_decl(method_call(recv(), "andThen", vec![])), "v");
         assert_eq!(name_decl(method_call(recv(), "sub", vec![])), "v");
+    }
+
+    #[test]
+    fn query_result_names_omit_search_qualifiers_without_truncating_words() {
+        for (method, expected) in [
+            ("FindPartOnRayWithIgnoreList", "part"),
+            ("GetPlayerFromCharacter", "playerFromCharacter"),
+            ("FindUserByAccountId", "user"),
+            ("GetAssetsByType", "assetsByType"),
+            ("GetPositionOnGround", "positionOnGround"),
+            ("FindClosestPointOnPath", "closestPointOnPath"),
+            ("FindRecordsWithTag", "records"),
+            ("GetBypassToken", "bypassToken"),
+            ("GetOnlinePlayers", "onlinePlayers"),
+            ("GetPlatform", "platform"),
+            ("ToWorldSpace", "worldSpace"),
+            ("GetPointInWorldSpace", "pointInWorldSpace"),
+        ] {
+            assert_eq!(name_decl(method_call(global("api"), method, vec![])), expected, "{method}");
+        }
+        // A literal lookup key remains stronger evidence.
+        assert_eq!(name_decl(method_call(global("api"), "FindFirstChild", vec![string("PartOnRay")])), "partOnRay");
     }
 
     /// `state:KeyOf(t, "InputType")` -> `inputType`; `TKeyOf(t, {"DisplayName"})`

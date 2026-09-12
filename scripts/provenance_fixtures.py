@@ -111,8 +111,11 @@ def main():
             selected = [r for r in roles if 'inferred_conditional_result' in r['classifications']]
             if not selected or any('output_parameter' in r['classifications'] for r in selected):
                 raise RuntimeError('conditional result was merged back into an input parameter')
-    if args.fixtures_report and len(audit['examples']) != 2:
-        raise RuntimeError('expected O2 g1/g2 conditional examples')
+    if args.fixtures_report:
+        expected_examples = {f"conditional_O2_g{r['debug']}.lua" for r in rows
+                             if r['case'] == 'conditional' and r['opt'] == 2}
+        if {e['script_path'] for e in audit['examples']} != expected_examples:
+            raise RuntimeError('conditional examples do not match the input fixture profiles')
     emission_audit = None
     if args.ast:
         emission_path = work / 'emission-audit.json'
