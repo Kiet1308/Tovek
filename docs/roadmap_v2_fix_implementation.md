@@ -8,7 +8,7 @@ Goal đang chạy: hoàn thành [ROADMAP_V2_FIX.md](ROADMAP_V2_FIX.md), kiểm c
 | F8 nền kiểm tra chất lượng | Đã triển khai và nghiệm thu, commit `f1059d9` đã push; gate cuối roadmap vẫn còn |
 | F2 biểu thức toán/đối số | Bước proof số đã nghiệm thu; các nhóm snapshot còn lại vẫn mở |
 | F3 helper điều kiện | Chưa triển khai |
-| F4 constructor trước capture | Chưa triển khai |
+| F4 constructor trước capture | Xong và đã nghiệm thu; gom init liên tiếp trước lần quan sát đầu tiên |
 | F5 tên suy luận | Chưa triển khai |
 | F6 helper/scope/pass cuối | Chưa triển khai |
 | F7 annotation/discard | Chưa triển khai |
@@ -42,3 +42,15 @@ Kết quả so F1: **13 file private đổi**, giảm **32 dòng, 528 byte, 31 b
 Nghiệm thu: **736 test AST**, **1.025 test workspace chính + 1 lần test con**, **204 runtime hiện có + 6 numeric profiles** qua. Fixture numeric có 210 tổ hợp/profile với counter bị sửa, capture setter, input giả kiểu số, metamethod, global lookup, lỗi ở nhiều vị trí và NaN. Ba profile g1 thay output nên ca runtime thực sự đi qua phép tối ưu; source g2 được bảo vệ. Lineage/emission audits của 204 runtime, 6 numeric và 513 public qua, thread 1/4 deterministic. Fixture numeric được thêm vào manifest mặc định, đưa bộ tiếp theo lên **210 profiles**. [Bằng chứng](roadmap_v2_acceptance/fix_numeric_motion.json).
 
 Profile opt-in trên Geometry, LightningCore, Write và Billboards xác nhận phần lớn ứng viên còn bị chặn ở vị trí đánh giá hoặc bởi statement xen giữa. Ví dụ Geometry ghi nhận 106 lần từ chối vị trí và 146 lần từ chối do statement; LightningCore nhận 4 ứng viên nhờ proof số. Các số này không chứng minh những trường hợp bị từ chối đều có thể rút gọn. F2 còn mở cho các nhóm đã nêu trong roadmap; không đánh dấu xong chỉ bằng 13 file cải thiện.
+
+## F4 — constructor trước capture
+
+Đã tách capture về sau khỏi quan sát trong lúc khởi tạo: một declaration mới, chỉ ghi một lần, chưa bị đọc/capture có thể gom các field liên tiếp vào constructor. Key/value đọc hoặc capture chính bảng, alias, callback xen giữa, reassignment và statement khác vẫn dừng việc gom. Các pass di chuyển constructor qua statement vẫn giữ gate captured cũ. Phân tích có budget và giới hạn độ sâu; không đủ bằng chứng thì giữ nguyên.
+
+Label và nhóm component registry đã có `StyledTextLabel = require(...)` ngay trong bảng. So bước F2: **1.215 file private đổi**, giảm 528 byte, tăng 1.165 dòng chủ yếu do đóng constructor nhiều dòng; số binding sinh tự động và dòng dài không tăng. Đây là cải thiện cách nhóm field, không phải tuyên bố giảm số dòng. Bảng rỗng chỉ có một field chứa callback giữ dạng statement để tránh tăng tầng lồng không có lợi.
+
+Public **513/513** qua; cả **405 profile đo được giữ nguyên điểm cấu trúc**. Năm output thay đổi tại Promise (2) và DataTypeBuffer (3) thuộc nhóm alignment unknown: đã đọc diff, field được gom vào constructor, không lấy chúng làm bằng chứng tăng AST ratio. Bản thử đầu làm Config lồng sâu hơn đã được chỉnh trước nghiệm thu.
+
+Nghiệm thu: **738 test AST**, **1.027 test workspace chính + 1 lần test con**, **210 runtime hiện có + 6 constructor profiles** qua. Fixture mới có **224 tổ hợp/profile**, gồm capture sớm/muộn, quan sát qua alias, self-capture, thay binding, key động/trùng/nil, lỗi theo thứ tự và multret. Cả sáu profile g1/g2 thay output so bản F2, nên VM thực sự kiểm code đã được gom. Symbolic dataflow vẫn unknown. Lineage/emission/capture audits của 210 runtime, 6 constructor và 513 public qua, deterministic thread 1/4, không local token chưa giải thích được. Fixture được thêm vào manifest mặc định, đưa bộ tiếp theo lên **216 profiles**. [Bằng chứng](roadmap_v2_acceptance/fix_constructor_capture.json).
+
+Output F4 và báo cáo chi tiết nằm cục bộ tại `out/v2-fix-all/f4`; folder so sánh chính sẽ đồng bộ khi hoàn tất roadmap.

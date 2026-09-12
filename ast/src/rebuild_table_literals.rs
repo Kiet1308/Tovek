@@ -7,29 +7,32 @@ use crate::{Assign, Block, Index, LValue, LocalRw, RValue, RcLocal, Statement, T
 /// statement, so the table has no opportunity to be read or aliased before the
 /// folded writes.
 pub fn rebuild_table_literals(block: &mut Block) -> bool {
-    let captured = crate::inline_temps::collect_usage(block)
-        .into_iter()
+    let usage = crate::inline_temps::collect_usage(block);
+    let single_write = usage.iter().filter(|(_, usage)| usage.writes == 1)
+        .map(|(local, _)| local.clone()).collect();
+    let captured = usage.iter()
         .filter(|(_, usage)| usage.captured)
-        .map(|(local, _)| local)
+        .map(|(local, _)| local.clone())
         .collect::<rustc_hash::FxHashSet<_>>();
-    rebuild_with_captured(block, &captured)
+    rebuild_with_captured(block, &captured, &single_write)
 }
 
 pub(crate) fn rebuild_with_captured(
     block: &mut Block,
     captured: &rustc_hash::FxHashSet<RcLocal>,
+    single_write: &rustc_hash::FxHashSet<RcLocal>,
 ) -> bool {
-    let nested_changed = rebuild_nested_blocks(block, captured);
+    let nested_changed = rebuild_nested_blocks(block, captured, single_write);
     let sunk_changed = sink_total_table_declarations(block, captured);
     let regions_changed = sink_private_constructor_regions(block, captured);
     let drained_changed = extract_drained_constructor_fields(block);
-    rebuild_current_block(block, captured) | sunk_changed | regions_changed | drained_changed | nested_changed
+    rebuild_current_block(block, captured, single_write) | sunk_changed | regions_changed | drained_changed | nested_changed
 }
 
-fn rebuild_nested_blocks(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>) -> bool {
+fn rebuild_nested_blocks(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>, single_write: &rustc_hash::FxHashSet<RcLocal>) -> bool {
     let mut changed = false;
     for statement in &mut block.0 {
-        changed |= rebuild_nested_in_statement(statement, captured);
+        changed |= rebuild_nested_in_statement(statement, captured, single_write);
     }
     changed
 }
@@ -37,20 +40,21 @@ fn rebuild_nested_blocks(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
 fn rebuild_nested_in_statement(
     statement: &mut Statement,
     captured: &rustc_hash::FxHashSet<RcLocal>,
+    single_write: &rustc_hash::FxHashSet<RcLocal>,
 ) -> bool {
-    let closures_changed = rebuild_closures_in_statement(statement, captured);
+    let closures_changed = rebuild_closures_in_statement(statement, captured, single_write);
     let blocks_changed = match statement {
         Statement::If(r#if) => {
-            rebuild_with_captured(&mut r#if.then_block.lock(), captured)
-                | rebuild_with_captured(&mut r#if.else_block.lock(), captured)
+            rebuild_with_captured(&mut r#if.then_block.lock(), captured, single_write)
+                | rebuild_with_captured(&mut r#if.else_block.lock(), captured, single_write)
         }
-        Statement::While(r#while) => rebuild_with_captured(&mut r#while.block.lock(), captured),
-        Statement::Repeat(repeat) => rebuild_with_captured(&mut repeat.block.lock(), captured),
+        Statement::While(r#while) => rebuild_with_captured(&mut r#while.block.lock(), captured, single_write),
+        Statement::Repeat(repeat) => rebuild_with_captured(&mut repeat.block.lock(), captured, single_write),
         Statement::NumericFor(numeric_for) => {
-            rebuild_with_captured(&mut numeric_for.block.lock(), captured)
+            rebuild_with_captured(&mut numeric_for.block.lock(), captured, single_write)
         }
         Statement::GenericFor(generic_for) => {
-            rebuild_with_captured(&mut generic_for.block.lock(), captured)
+            rebuild_with_captured(&mut generic_for.block.lock(), captured, single_write)
         }
         _ => false,
     };
@@ -60,6 +64,7 @@ fn rebuild_nested_in_statement(
 fn rebuild_closures_in_statement(
     statement: &mut Statement,
     captured: &rustc_hash::FxHashSet<RcLocal>,
+    single_write: &rustc_hash::FxHashSet<RcLocal>,
 ) -> bool {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
@@ -69,11 +74,11 @@ fn rebuild_closures_in_statement(
         None
     });
     functions.into_iter().fold(false, |changed, function| {
-        rebuild_with_captured(&mut function.lock().body, captured) | changed
+        rebuild_with_captured(&mut function.lock().body, captured, single_write) | changed
     })
 }
 
-fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>) -> bool {
+fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>, single_write: &rustc_hash::FxHashSet<RcLocal>) -> bool {
     let mut index = 0;
     let mut changed = false;
     while index + 1 < block.0.len() {
@@ -87,13 +92,28 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
             .and_then(|assign| assign.right[0].as_table())
             .map(|table| table.0.len())
             .unwrap_or(0);
+        // A fresh single-write declaration cannot already be reachable through
+        // a closure. Contiguous stores keep it private until their first escape:
+        // every key/value below is checked for a read or capture of this object.
+        // Later closure captures do not retroactively observe initialization.
+        let private = !captured.contains(&object_local)
+            || (single_write.contains(&object_local)
+                && !observed_before(&block.0[..index], &object_local, &mut 8192, 0));
+        if private && captured.contains(&object_local) && initial_len == 0
+            && lone_callback_field(&block.0[index + 1..], &object_local)
+        {
+            // A one-field wrapper around a callback adds nesting without
+            // grouping a registry. Retain the readable statement layout.
+            index += 1;
+            continue;
+        }
 
         while index + 1 < block.0.len() {
             if let Statement::SetList(set_list) = &block.0[index + 1] {
                 let table = block.0[index].as_assign().unwrap().right[0]
                     .as_table()
                     .unwrap();
-                if captured.contains(&object_local)
+                if !private
                     || !can_append_set_list(table, set_list, &object_local)
                 {
                     break;
@@ -126,7 +146,7 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
             let table = block.0[index].as_assign().unwrap().right[0]
                 .as_table()
                 .unwrap();
-            if captured.contains(&object_local)
+            if !private
                 || table
                     .0
                     .last()
@@ -148,6 +168,41 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
         index += 1;
     }
     changed
+}
+
+fn lone_callback_field(statements: &[Statement], object: &RcLocal) -> bool {
+    let Some(first) = statements.first() else { return false; };
+    if first.as_assign().and_then(|assign| field_assignment_parts(assign, object)).is_none() { return false; }
+    let mut callback = false;
+    crate::inline_temps::collect_closures_in_statement(first, &mut |_| callback = true);
+    if !callback { return false; }
+    !statements.get(1).is_some_and(|next| {
+        next.as_assign().and_then(|assign| field_assignment_parts(assign, object))
+            .is_some_and(|(key, value)| can_fold_table_field_assignment(key, value, object))
+            || matches!(next, Statement::SetList(list) if can_append_set_list(&Table::default(), list, object))
+    })
+}
+
+fn observed_before(statements: &[Statement], local: &RcLocal, remaining: &mut usize, depth: usize) -> bool {
+    if depth >= 64 { return true; }
+    for statement in statements {
+        if *remaining == 0 { return true; }
+        *remaining -= 1;
+        if statement.values_read().into_iter().chain(statement.values_written()).any(|read| read == local) {
+            return true;
+        }
+        let nested = match statement {
+            Statement::If(branch) => observed_before(&branch.then_block.lock().0, local, remaining, depth + 1)
+                || observed_before(&branch.else_block.lock().0, local, remaining, depth + 1),
+            Statement::While(loop_) => observed_before(&loop_.block.lock().0, local, remaining, depth + 1),
+            Statement::Repeat(loop_) => observed_before(&loop_.block.lock().0, local, remaining, depth + 1),
+            Statement::NumericFor(loop_) => observed_before(&loop_.block.lock().0, local, remaining, depth + 1),
+            Statement::GenericFor(loop_) => observed_before(&loop_.block.lock().0, local, remaining, depth + 1),
+            _ => false,
+        };
+        if nested { return true; }
+    }
+    false
 }
 
 fn expands(value: &RValue) -> bool {
@@ -705,7 +760,7 @@ mod tests {
     }
 
     #[test]
-    fn refuses_setlist_with_unproven_slots_arity_or_capture() {
+    fn setlist_requires_valid_slots_and_no_capture_during_initialization() {
         for kind in 0..6 {
             let object = local("children");
             let entry = match kind {
@@ -736,7 +791,52 @@ mod tests {
             ]);
             let before = block.to_string();
             rebuild_table_literals(&mut block);
-            assert_eq!(block.to_string(), before, "case {kind}");
+            if kind == 5 {
+                // This closure is only created after the complete constructor.
+                assert_eq!(block.0.len(), 2);
+                let table = block.0[0].as_assign().unwrap().right[0].as_table().unwrap();
+                assert_eq!(table.0.len(), 2);
+                assert!(matches!(&table.0[1].1, RValue::Call(_)));
+            } else { assert_eq!(block.to_string(), before, "case {kind}"); }
+        }
+    }
+
+    #[test]
+    fn folds_fields_only_before_the_first_capture_or_alias_observation() {
+        for barrier in 0..5 {
+            let object = local("components");
+            let mut block = Block(vec![]);
+            if barrier == 1 { block.0.push(print(closure_capturing(&object))); }
+            block.0.push(declare(&object, Table::default().into()));
+            if barrier == 2 { block.0.push(print(closure_capturing(&object))); }
+            if barrier == 3 { block.0.push(declare(&local("alias"), local_value(&object))); }
+            block.0.push(assign_field(&object, string("Widget"), Call::new(global("make"), vec![]).into()));
+            if barrier == 4 { block.0.push(Assign::new(vec![object.clone().into()], vec![global("replacement")]).into()); }
+            block.0.push(Return::new(vec![closure_capturing(&object)]).into());
+            let before = block.to_string();
+            assert_eq!(rebuild_table_literals(&mut block), barrier == 0);
+            if barrier == 0 {
+                assert_eq!(block.0.len(), 2);
+                assert_eq!(block.0[0].as_assign().unwrap().right[0].as_table().unwrap().0.len(), 1);
+            } else { assert_eq!(block.to_string(), before, "barrier {barrier}"); }
+        }
+    }
+
+    #[test]
+    fn captured_single_callback_field_keeps_layout_until_another_field_joins() {
+        for multiple in [false, true] {
+            let object = local("settings");
+            let callback_dependency = local("key");
+            let mut block = Block(vec![
+                declare(&object, Table::default().into()),
+                assign_field(&object, string("OnChanged"), closure_capturing(&callback_dependency)),
+            ]);
+            if multiple { block.0.push(assign_field(&object, string("Enabled"), number(1.0))); }
+            block.0.push(Return::new(vec![closure_capturing(&object)]).into());
+            let before = block.to_string();
+            assert_eq!(rebuild_table_literals(&mut block), multiple);
+            if multiple { assert_eq!(block.0.len(), 2); }
+            else { assert_eq!(block.to_string(), before); }
         }
     }
 

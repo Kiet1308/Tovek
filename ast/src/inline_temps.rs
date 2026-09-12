@@ -67,7 +67,7 @@ pub fn rebuild_ui_expression_trees(block: &mut Block) -> bool {
     facts.rebuild_call_chains = true;
     let mut any_changed = false;
     loop {
-        let rebuilt = crate::rebuild_table_literals::rebuild_with_captured(block, &facts.captured);
+        let rebuilt = crate::rebuild_table_literals::rebuild_with_captured(block, &facts.captured, &facts.stable_captured);
         let inlined = inline_in_block(block, &facts);
         any_changed |= rebuilt | inlined;
         if !rebuilt && !inlined {
