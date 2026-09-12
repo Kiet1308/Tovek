@@ -154,26 +154,29 @@ Chưa phát hiện lỗi runtime mới trong các phép thử đã chạy cho F1
 | Mục | Ưu tiên / trạng thái | Kết quả cần đạt | Điều kiện và độ khó |
 |---|---|---|---|
 | **F1 — import → field** | P0, **xong** | Gộp relay một lần tại vị trí an toàn, giữ import callee hữu ích | Đã chạy source/runtime/metadata/corpus; không cần AI |
-| **F2 — biểu thức toán và đối số** | P1, mở | Công thức dễ nhận ra hơn, giảm temp thừa trong nhóm Geometry/Lightning/Write/timer/prettyPrint | Cao; proof thứ tự/effect/import phải cụ thể |
+| **F2 — biểu thức toán và đối số** | P1, **xong bước proof số**, còn mở | Công thức dễ nhận ra hơn, giảm temp thừa trong nhóm Geometry/Lightning/Write/timer/prettyPrint | Commit `2add294`; 13 file cải thiện, các nhóm snapshot còn lại đang xử lý |
 | **F3 — helper điều kiện ngắn** | P1, mở | Ít binding phi/flag hơn, guard và return gọn trong chế độ statement | Cao; cần value-exact và short-circuit/capture tests |
-| **F4 — constructor trước capture** | P1, mở | Gom bảng component/export chỉ capture sau init khi chưa escape | Vừa–cao; dựa trên F1 và phân tích program point |
-| **F5 — chất lượng tên suy luận** | P1, mở | Hết plural sai và tên bị một nhánh sử dụng chi phối | Vừa; confidence, loại từ, bằng chứng mâu thuẫn |
+| **F4 — constructor trước capture** | P1, **xong** | Gom bảng component/export chỉ capture sau init khi chưa escape | Commit `e1f1131` đã push; 1.215 file private được gom field, runtime/metadata qua |
+| **F5 — chất lượng tên suy luận** | P1, **đang kiểm chứng** | Hết plural sai và tên bị một nhánh sử dụng chi phối | Đã sửa role/confidence/polytype/count; 741 test AST qua, đang kiểm corpus và metadata |
 | **F6 — scope/helper và pass cuối** | P2, mở | Tên helper tốt, vị trí khai báo hợp lý, không lặp cleanup vô hạn | Cao; cần đo pass tạo alias trước khi sửa |
 | **F7 — annotation/discard** | P2, mở | Hiển thị nhẹ hơn nhưng vẫn thấy đâu là suy luận | Vừa; dùng compact mode sẵn có và metadata đầy đủ |
-| **F8 — gate chất lượng output** | P0 trước mỗi đợt sửa, còn mở | Phát hiện lùi theo file/nhóm, giữ unknown và baseline bất biến | Nền dữ liệu đã có; cần đưa chỉ số và fixture mới vào quy trình thường xuyên |
+| **F8 — gate chất lượng output** | **Nền đã xong**, gate bàn giao còn mở | Phát hiện lùi theo file/nhóm, giữ unknown và baseline bất biến | Commit `f1059d9` đã push; scanner tích hợp report, fixture mặc định hiện có 216 profiles |
 
 Trình tự đề xuất: **F1 đã hoàn thành → phần gate tối thiểu F8 → F2 → F3 → F4 → F5 → F6 → F7**, chạy F8 sau mỗi thay đổi. Ưu tiên output theo yêu cầu; R7 performance để sau. **R9 tiếp tục dừng; AI tắt mặc định; không tải model, không đưa output/private source lên GitHub.**
 
 Checklist triển khai:
 
 - [x] **F1:** sửa source theo ngữ cảnh field store; thêm fixture owned và unit tests phủ cả ca được gộp lẫn ca phải giữ; xuất lại corpus, folder V2 và HTML.
-- [ ] **F8 nền:** tích hợp scanner các loại temp/relay/annotation vào report thường xuyên; thêm fixture import vào lệnh nghiệm thu chuẩn; giữ baseline hash và tách số file, source duy nhất, cấu hình và unknown.
+- [x] **F8 nền:** tích hợp scanner các loại temp/relay/annotation vào report thường xuyên; thêm fixture import vào lệnh nghiệm thu chuẩn; giữ baseline hash và tách số file, source duy nhất, cấu hình và unknown. Đã push `f1059d9`; [bằng chứng](roadmap_v2_acceptance/fix_quality_foundation.json).
 - [ ] **F2:** thu trace lý do từ chối ở các điểm toán tiêu biểu; triển khai từng proof nhỏ và chứng minh giảm local không đánh đổi event order. Nghiệm thu phải có ít nhất một ca cải thiện trong mỗi nhóm đã nhận vào scope; ca chưa đủ proof ghi rõ còn mở, không che bằng tổng trung bình.
 - [ ] **F3:** khôi phục boolean chain/guard/direct return khi value-exact; kiểm cả false/nil, NaN, lỗi giữa nhánh, branch bị bỏ qua và mutation; không thêm if-expression vào default output.
-- [ ] **F4:** chứng minh bảng chưa escape trước init hoàn tất; gom constructor theo thứ tự và giữ các ca capture sớm/callback/reentrant/alias quan sát bảng dở dang. File Label và nhóm component registry là nghiệm thu đọc trực tiếp.
+- [x] **F4:** chứng minh bảng chưa escape trước init hoàn tất; gom constructor theo thứ tự và giữ các ca capture sớm/callback/reentrant/alias quan sát bảng dở dang. File Label và nhóm component registry đã đọc lại. Đã push `e1f1131`; [bằng chứng](roadmap_v2_acceptance/fix_constructor_capture.json).
 - [ ] **F5:** lưu độ tin cậy và loại vai trò xuyên các lần suy luận; sửa tên collection/polytype tổng quát; không còn `serializeds`/`deserializeds` do heuristic trong source benchmark hiện tại; bảo vệ tên nguồn và các ví dụ người dùng đã duyệt.
 - [ ] **F6:** ghi evidence trước/sau các pass liên quan; chỉ sửa placement hoặc thêm cleanup có giới hạn ở nơi giải thích được; kiểm closure identity, recursion, capture và số lần tạo function.
 - [ ] **F7:** thu gọn annotation với mapping đầy đủ, giữ marker suy luận và fallback khi metadata không đủ; discard chỉ loại bỏ khi có proof effect, kèm parse/span/AST/runtime checks thích hợp.
+- [ ] **F8 bàn giao:** chạy gate cuối, đồng bộ folder V2/HTML và 25 trang đối chiếu với executable cuối; kiểm browser, hash và beta bất biến.
+
+**Cập nhật triển khai 12/09/2026:** F2 đã push bước proof số `2add294` nhưng chưa đủ điều kiện tick toàn mục. F5 đang kiểm chứng, chưa nghiệm thu. Chi tiết từng bước và giới hạn tại [file tiến độ](roadmap_v2_fix_implementation.md); các số đo F1 trong phần nghiên cứu bên dưới là baseline lịch sử, không phải số đo bản đang phát triển.
 
 Không chốt mục tiêu kiểu “xóa 100% local dùng một lần” hoặc “AST phải đạt 1,0”. Mỗi đợt cần danh sách cụ thể các ca cải thiện, các ca không đổi vì an toàn và mọi ca giảm điểm; chỉ sửa nhận xét đánh giá khi đã xem output mới.
 
