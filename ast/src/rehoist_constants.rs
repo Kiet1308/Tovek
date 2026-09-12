@@ -242,6 +242,7 @@ fn rehoist_one_scope(
         let name = unique_name(candidate.base_name(), &mut used_names);
         let local = RcLocal::new(Local::new(Some(name)));
         declarations.push(Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(local.clone())],
             right: vec![RValue::Literal(candidate.literal())],
             prefix: true,
@@ -541,6 +542,7 @@ mod tests {
         let mut statements = Vec::new();
         for index in 0..200 {
             statements.push(Statement::Assign(Assign {
+                node_origin: Default::default(),
                 left: vec![LValue::Local(RcLocal::new(Local::new(Some(format!(
                     "local{index}"
                 )))))],
@@ -563,6 +565,7 @@ mod tests {
             ..crate::Function::default()
         }));
         let closure = RValue::Closure(crate::Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(function.clone()),
             upvalues: Vec::new(),
         });
@@ -686,11 +689,13 @@ mod tests {
             ..crate::Function::default()
         }));
         let closure = RValue::Closure(crate::Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(function.clone()),
             upvalues: Vec::new(),
         });
         let binder = RcLocal::default();
         let mut body = Block(vec![Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(binder)],
             right: vec![closure],
             prefix: true,
@@ -713,6 +718,7 @@ mod tests {
         let mut function = crate::Function::default();
         function.body = Block(vec![wait(5.0), wait(5.0)]);
         let closure = RValue::Closure(crate::Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(function))),
             upvalues: Vec::new(),
         });
@@ -720,6 +726,7 @@ mod tests {
         let mut body = Block(vec![
             wait(5.0),
             Statement::Assign(Assign {
+                node_origin: Default::default(),
                 left: vec![LValue::Local(local)],
                 right: vec![closure],
                 prefix: true,

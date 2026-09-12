@@ -498,6 +498,7 @@ fn make_bool_conditional(
             if let ast::RValue::Unary(ast::Unary {
                 box value,
                 operation: ast::UnaryOperation::Not,
+                ..
             }) = cond
             {
                 std::mem::swap(&mut then_value, &mut else_value);
@@ -780,10 +781,12 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
             && function.successor_blocks(else_target).next().is_none()
             && let Ok(ast::Statement::Return(ast::Return {
                 values: then_values,
+                ..
             })) = function.block(then_target).unwrap().iter().exactly_one()
             && let Ok(then_value) = then_values.iter().exactly_one()
             && let Ok(ast::Statement::Return(ast::Return {
                 values: else_values,
+                ..
             })) = function.block(else_target).unwrap().iter().exactly_one()
             && let Ok(else_value) = else_values.iter().exactly_one()
         {
@@ -832,6 +835,7 @@ fn match_method_call(call: &ast::Call) -> Option<(&ast::RValue, &str)> {
         && let Some(ast::Index {
             box left,
             right: box ast::RValue::Literal(ast::Literal::String(index)),
+            ..
         }) = call.value.as_index()
         && left == &call.arguments[0]
     {
@@ -974,6 +978,7 @@ fn try_remove_unnecessary_condition(function: &mut Function, node: NodeIndex) ->
             // (C11). `is_total_pure` is stricter than `!has_side_effects()`.
             cond if !ast::is_total_pure(&cond) => Some(
                 ast::Assign {
+                    node_origin: Default::default(),
                     left: vec![ast::RcLocal::default().into()],
                     right: vec![cond],
                     prefix: true,

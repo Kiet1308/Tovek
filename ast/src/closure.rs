@@ -50,8 +50,9 @@ pub struct Function {
     pub body: Block,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct Closure {
+    pub node_origin: crate::node_origins::Origin,
     pub function: ByAddress<Arc<Mutex<Function>>>,
     pub upvalues: Vec<Upvalue>,
 }
@@ -120,3 +121,5 @@ impl LocalRw for Closure {
 impl SideEffects for Closure {}
 
 impl Traverse for Closure {}
+
+crate::node_origins::semantic_debug!(Closure; function,upvalues);

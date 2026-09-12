@@ -106,6 +106,11 @@ def main():
             names = {b['binding_id']: b['name'] for b in trace['final_bindings']}
             if not any(names[bid] == 'selected' for r in results for bid in r['final_bindings']):
                 raise RuntimeError('conditional debug result binding lost')
+        elif '_g1.' in example['script_path'] and 'value_provenance' in trace:
+            roles = trace['value_provenance']['bindings']
+            selected = [r for r in roles if 'inferred_conditional_result' in r['classifications']]
+            if not selected or any('output_parameter' in r['classifications'] for r in selected):
+                raise RuntimeError('conditional result was merged back into an input parameter')
     if args.fixtures_report and len(audit['examples']) != 2:
         raise RuntimeError('expected O2 g1/g2 conditional examples')
     emission_audit = None

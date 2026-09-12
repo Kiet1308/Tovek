@@ -450,6 +450,7 @@ mod tests {
             let x = local("x");
             let result = local("result");
             let closure = Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(Function {
                     body: Block(vec![Return::new(vec![RValue::Local(result.clone())]).into()]),
                     ..Default::default()
@@ -515,6 +516,7 @@ mod tests {
         let parameter = local("parameter");
         let helper = local("weightedSum");
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function {
                 bytecode_proto_id: Some(1),
                 name: Some("weightedSum".into()),
@@ -554,6 +556,7 @@ mod tests {
             ..Default::default()
         }));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(function.clone()),
             upvalues: vec![],
         };

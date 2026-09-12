@@ -4,8 +4,9 @@ use crate::{RcLocal, SideEffects, Traverse, formatter::Formatter};
 
 use super::{LValue, LocalRw, RValue};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Assign {
+    pub node_origin: crate::node_origins::Origin,
     pub left: Vec<LValue>,
     pub right: Vec<RValue>,
     pub prefix: bool,
@@ -15,6 +16,7 @@ pub struct Assign {
 impl Assign {
     pub fn new(left: Vec<LValue>, right: Vec<RValue>) -> Self {
         Self {
+            node_origin: Default::default(),
             left,
             right,
             prefix: false,
@@ -89,3 +91,5 @@ impl fmt::Display for Assign {
         .format_assign(self)
     }
 }
+
+crate::node_origins::semantic_debug!(Assign; left,right,prefix,parallel);

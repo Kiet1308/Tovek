@@ -539,7 +539,7 @@ fn field_assignment_parts<'a>(
     if assign.prefix || assign.parallel || assign.left.len() != 1 || assign.right.len() != 1 {
         return None;
     }
-    let LValue::Index(Index { left, right }) = &assign.left[0] else {
+    let LValue::Index(Index { left, right, .. }) = &assign.left[0] else {
         return None;
     };
     let RValue::Local(local) = left.as_ref() else {
@@ -667,6 +667,7 @@ mod tests {
 
     fn closure_capturing(local: &RcLocal) -> RValue {
         RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(local.clone())],
         })
@@ -678,7 +679,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &object,
-                Table(vec![
+                Table::new(vec![
                     (None, number(1.0)),
                     (Some(string("Header")), number(9.0)),
                 ])
@@ -714,7 +715,7 @@ mod tests {
                 _ => (None, number(1.0)),
             };
             let mut block = Block(vec![
-                declare(&object, Table(vec![entry]).into()),
+                declare(&object, Table::new(vec![entry]).into()),
                 crate::SetList::new(
                     object.clone(),
                     if kind == 3 { 4 } else { 2 },
@@ -787,13 +788,14 @@ mod tests {
             string("Activated"),
         ));
         let callback = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![],
         });
         let mut block = Block(vec![
             declare(
                 &props,
-                RValue::Table(Table(vec![(Some(string("Name")), string("Button"))])),
+                RValue::Table(Table::new(vec![(Some(string("Name")), string("Button"))])),
             ),
             assign_field(&props, event_key, callback),
             Return::new(vec![Call::new(
@@ -857,11 +859,11 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &props,
-                RValue::Table(Table(vec![
+                RValue::Table(Table::new(vec![
                     (Some(string("Name")), string("Panel")),
                     (
                         Some(string("children")),
-                        RValue::Table(Table(vec![(Some(string("Label")), string("Child"))])),
+                        RValue::Table(Table::new(vec![(Some(string("Label")), string("Child"))])),
                     ),
                 ])),
             ),
@@ -901,7 +903,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &entry,
-                RValue::Table(Table(vec![(Some(string("Model")), local_value(&model))])),
+                RValue::Table(Table::new(vec![(Some(string("Model")), local_value(&model))])),
             ),
             declare(
                 &center,
@@ -965,7 +967,7 @@ mod tests {
                 _ => print(closure_capturing(&dependency)),
             };
             let mut block = Block(vec![
-                declare(&object, Table(vec![(Some(string("Snapshot")), local_value(&dependency))]).into()),
+                declare(&object, Table::new(vec![(Some(string("Snapshot")), local_value(&dependency))]).into()),
                 If::new(global("condition"), Block::default(), Block(vec![hazard])).into(),
                 crate::SetList::new(object.clone(), 1, vec![number(4.0)], None).into(),
                 Return::new(vec![local_value(&object)]).into(),
@@ -989,11 +991,11 @@ mod tests {
                 });
             }
             let initializer = match kind {
-                1 => Table(vec![(Some(local_value(&dependency)), number(1.0))]),
-                2 => Table(vec![(Some(number(f64::NAN)), number(1.0))]),
-                3 => Table(vec![(Some(string("Value")), Call::new(global("before"), vec![]).into())]),
-                4 => Table(vec![(None, crate::VarArg.into())]),
-                5 => Table(vec![(Some(string("Callback")), closure_capturing(&dependency))]),
+                1 => Table::new(vec![(Some(local_value(&dependency)), number(1.0))]),
+                2 => Table::new(vec![(Some(number(f64::NAN)), number(1.0))]),
+                3 => Table::new(vec![(Some(string("Value")), Call::new(global("before"), vec![]).into())]),
+                4 => Table::new(vec![(None, crate::VarArg.into())]),
+                5 => Table::new(vec![(Some(string("Callback")), closure_capturing(&dependency))]),
                 _ => Table::default(),
             };
             let mut region = vec![print(string("work"))];
@@ -1022,7 +1024,7 @@ mod tests {
             Call::new(global("key"), vec![]).into()).into()],
             vec![Call::new(global("value"), vec![]).into()]);
         let mut block = Block(vec![
-            declare(&object, Table(vec![(Some(number(1.0)), number(99.0))]).into()),
+            declare(&object, Table::new(vec![(Some(number(1.0)), number(99.0))]).into()),
             print(closure_capturing(&receiver)),
             field.into(),
             crate::SetList::new(object.clone(), 1, vec![nil()],
@@ -1043,6 +1045,7 @@ mod tests {
     fn constructor_region_keeps_module_function_definitions_as_statements() {
         let object = local("Module");
         let callback = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))), upvalues: vec![],
         });
         let mut block = Block(vec![declare(&object, Table::default().into()),
@@ -1159,7 +1162,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &props,
-                RValue::Table(Table(vec![
+                RValue::Table(Table::new(vec![
                     (Some(string("Name")), nil()),
                     (Some(string("LayoutOrder")), nil()),
                 ])),
@@ -1182,7 +1185,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &props,
-                RValue::Table(Table(vec![
+                RValue::Table(Table::new(vec![
                     (Some(string("A")), nil()),
                     (
                         Some(string("B")),
@@ -1240,6 +1243,7 @@ mod tests {
                 declare(&outer_table, RValue::Table(Table::default())),
                 assign_field(&outer_table, string("Name"), string("InsideIf")),
                 print(RValue::Closure(Closure {
+                    node_origin: Default::default(),
                     function: ByAddress(function.clone()),
                     upvalues: vec![],
                 })),

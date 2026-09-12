@@ -658,6 +658,7 @@ fn collapse_use(
                 call.clone()
             } else if is_not_v(&f.condition) {
                 RValue::Unary(Unary {
+                    node_origin: Default::default(),
                     value: Box::new(call.clone()),
                     operation: UnaryOperation::Not,
                 })
@@ -665,6 +666,7 @@ fn collapse_use(
                 return None;
             };
             Some(Statement::If(If {
+                node_origin: Default::default(),
                 condition: cond,
                 then_block: f.then_block.clone(),
                 else_block: f.else_block.clone(),
@@ -678,6 +680,7 @@ fn collapse_use(
             if r.values.len() == 1 && is_v(&r.values[0]) && !call_is_multivalue =>
         {
             Some(Statement::Return(Return {
+                node_origin: Default::default(),
                 values: vec![call.clone()],
             }))
         }
@@ -698,6 +701,7 @@ fn collapse_use(
                 && (a.left.len() == 1 || !call_is_multivalue) =>
         {
             Some(Statement::Assign(Assign {
+                node_origin: Default::default(),
                 left: a.left.clone(),
                 right: vec![call.clone()],
                 prefix: a.prefix,
@@ -1012,12 +1016,14 @@ fn negate_canon(cond: RValue) -> RValue {
                 BinaryOperation::Equal
             };
             RValue::Binary(Binary {
+                node_origin: Default::default(),
                 left: b.left,
                 right: b.right,
                 operation,
             })
         }
         other => RValue::Unary(Unary {
+            node_origin: Default::default(),
             value: Box::new(other),
             operation: UnaryOperation::Not,
         }),
@@ -1211,7 +1217,7 @@ fn unguard(mut stmts: Vec<Statement>) -> Vec<Statement> {
                     let suffix: Vec<Statement> = stmts.split_off(i + 1);
                     let folded = unguard(suffix);
                     if let Some(x) = ret_val {
-                        early_prefix.push(Statement::Return(Return { values: vec![x] }));
+                        early_prefix.push(Statement::Return(Return { node_origin: Default::default(), values: vec![x] }));
                     }
                     out.push(Statement::If(If::new(
                         negate_canon(cond),
@@ -2022,6 +2028,7 @@ fn deinline_block(
             let stmt = match &hit.result {
                 None => Statement::Call(call),
                 Some(r) => Statement::Assign(Assign {
+                    node_origin: Default::default(),
                     left: vec![LValue::Local(r.clone())],
                     right: vec![RValue::Call(call)],
                     prefix: true,
@@ -2046,7 +2053,7 @@ fn deinline_block(
             }
             let mut replacement = vec![stmt, marker];
             if let Some(ret) = hit.tail_ret {
-                replacement.push(Statement::Return(Return { values: vec![ret] }));
+                replacement.push(Statement::Return(Return { node_origin: Default::default(), values: vec![ret] }));
             }
             let advance = replacement.len();
             stmts.splice(i..i + consume, replacement);
@@ -2972,6 +2979,7 @@ fn alias_leaf_block(stmts: &mut Vec<Statement>, r: &RcLocal, changed: &mut bool)
         stmts.push(s);
     }
     stmts.push(Statement::Assign(Assign {
+        node_origin: Default::default(),
         left: vec![LValue::Local(r.clone())],
         right: vec![RValue::Local(t)],
         prefix: false,
@@ -4877,6 +4885,7 @@ mod tests {
 
     fn assign_local(local: &RcLocal, value: RValue, prefix: bool) -> Statement {
         Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(local.clone())],
             right: vec![value],
             prefix,
@@ -5801,6 +5810,7 @@ mod tests {
 
     fn not_rv(v: RValue) -> RValue {
         RValue::Unary(Unary {
+            node_origin: Default::default(),
             value: Box::new(v),
             operation: UnaryOperation::Not,
         })
@@ -5813,6 +5823,7 @@ mod tests {
     /// init-less `local l` (a RESULT-register declaration).
     fn init_less_decl(l: &RcLocal) -> Statement {
         Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(l.clone())],
             right: vec![],
             prefix: true,
@@ -6385,6 +6396,7 @@ mod tests {
     #[test]
     fn body_unsafe_sees_closure_inside_if_expression() {
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: Vec::new(),
         });
@@ -6404,6 +6416,7 @@ mod tests {
         let parameter = local("parameter");
         let argument = local("argument");
         let make = |proto, upvalue| Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function {
                 bytecode_proto_id: Some(proto),
                 ..Function::default()
@@ -6439,6 +6452,7 @@ mod tests {
     fn body_unsafe_allows_only_bytecode_proven_nested_closures() {
         let callback = |proto| {
             RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(Function {
                     bytecode_proto_id: proto,
                     ..Function::default()
@@ -6461,6 +6475,7 @@ mod tests {
         let call = call1(global("f"), number(1.0));
 
         let indexed = Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Index(Index::new(local_value(&t), string("field")))],
             right: vec![local_value(&v)],
             prefix: false,
@@ -6508,6 +6523,7 @@ mod tests {
         let a = local("a");
         let b = local("b");
         let multi_lhs = Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(a.clone()), LValue::Local(b.clone())],
             right: vec![local_value(&v)],
             prefix: false,
@@ -6668,6 +6684,7 @@ mod tests {
         let recv = local("o");
         let mc = |m: &str| {
             Statement::MethodCall(MethodCall {
+                node_origin: Default::default(),
                 value: Box::new(local_value(&recv)),
                 method: m.to_string(),
                 arguments: vec![],

@@ -575,7 +575,7 @@ fn try_rewrite_select(
     let Some((idx, args)) = hit else { return; };
     let target = &targets[idx];
     let call = Call::new(target.f_local.clone().into(), args).reconstructed(crate::call_origins::Kind::ArithmeticDeinline);
-    stmts.splice(index..index + 2, [crate::Assign { left: vec![result.into()], right: vec![call.into()], prefix: true, parallel: false }.into()]);
+    stmts.splice(index..index + 2, [crate::Assign { node_origin: Default::default(), left: vec![result.into()], right: vec![call.into()], prefix: true, parallel: false }.into()]);
     converted.insert(target.f_local.clone());
 }
 
@@ -775,6 +775,7 @@ mod tests {
     }
     fn not_rv(v: RValue) -> RValue {
         RValue::Unary(Unary {
+            node_origin: Default::default(),
             value: Box::new(v),
             operation: UnaryOperation::Not,
         })
@@ -815,8 +816,10 @@ mod tests {
             body: Block(body),
         }));
         Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(f.clone())],
             right: vec![RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(func),
                 upvalues: vec![],
             })],
@@ -828,6 +831,7 @@ mod tests {
     /// `local r = <rhs>` (a declaration).
     fn local_decl(r: &RcLocal, rhs: RValue) -> Statement {
         Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(r.clone())],
             right: vec![rhs],
             prefix: true,
@@ -1192,6 +1196,7 @@ mod tests {
         let x = local("x");
         let r = local("r");
         let reassign = Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(f.clone())],
             right: vec![global("otherFn")],
             prefix: false,
@@ -1363,6 +1368,7 @@ mod tests {
         let r = local("r");
         let decl = helper_decl(&callback, "mutate", vec![], vec![
             Assign {
+                node_origin: Default::default(),
                 left: vec![LValue::Local(x.clone())],
                 right: vec![number(9.0)],
                 prefix: false,
@@ -1451,7 +1457,7 @@ mod tests {
             Block(vec![Assign::new(vec![result.clone().into()], vec![bin(bin(lv(&x), BinaryOperation::Mul, number(2.0)), BinaryOperation::Add, Literal::Boolean(false).into())]).into()]),
         );
         let mut block = Block(vec![adjust_decl(&f),
-            Assign { left: vec![result.clone().into()], right: vec![], prefix: true, parallel: false }.into(),
+            Assign { node_origin: Default::default(), left: vec![result.clone().into()], right: vec![], prefix: true, parallel: false }.into(),
             branch.into(), Return::new(vec![lv(&result)]).into()]);
         expr_deinline(&mut block);
         let Statement::Return(ret) = block.0.last().unwrap() else { panic!(); };
@@ -1459,7 +1465,7 @@ mod tests {
         assert_eq!(call.arguments, vec![lv(&x), Literal::Boolean(false).into()]);
 
         let nil_region = vec![
-            Assign { left: vec![result.clone().into()], right: vec![], prefix: true, parallel: false }.into(),
+            Assign { node_origin: Default::default(), left: vec![result.clone().into()], right: vec![], prefix: true, parallel: false }.into(),
             crate::If::new(lv(&x), Block(vec![Assign::new(vec![result.clone().into()], vec![number(7.0)]).into()]), Block::default()).into(),
             Return::new(vec![lv(&result)]).into(),
         ];
@@ -1481,7 +1487,7 @@ mod tests {
             let mut statements = vec![adjust_decl(&f)];
             if ambiguous { statements.push(adjust_decl(&other)); }
             statements.extend([
-                Assign { left: vec![result.clone().into()], right: vec![], prefix: true, parallel: false }.into(),
+                Assign { node_origin: Default::default(), left: vec![result.clone().into()], right: vec![], prefix: true, parallel: false }.into(),
                 crate::If::new(
                     bin(lv(&x), BinaryOperation::LessThan, number(0.0)),
                     Block(vec![Assign::new(vec![result.clone().into()], vec![number(3.0)]).into()]),

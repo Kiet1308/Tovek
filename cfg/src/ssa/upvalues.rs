@@ -56,6 +56,7 @@ mod tests {
 
     fn capture(local: ast::RcLocal) -> ast::Statement {
         let closure = ast::Closure {
+            node_origin: Default::default(),
             function: Default::default(),
             upvalues: vec![ast::Upvalue::Ref(local)],
         };

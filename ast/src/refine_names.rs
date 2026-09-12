@@ -275,6 +275,14 @@ impl Graph {
                     from_binding: None,
                 });
             }
+            if data.4.conditional_result && !data.4.parameter && generated(&before) {
+                candidates.push(Candidate {
+                    name: "selected".into(), priority: 40,
+                    reason: "preserved_conditional_result",
+                    witness: "private two-arm SSA join; returned and observed separately; no source spelling claim".into(),
+                    from_binding: None,
+                });
+            }
             let type_evidence = data.1.as_ref().map(|hint| TypeEvidence {
                 representation: hint.clone(), origin: "recorded_bytecode_local_type_naming_hint",
             }).into_iter().collect();
@@ -943,6 +951,7 @@ mod tests {
     }
     fn declare(local: &RcLocal, value: RValue) -> Statement {
         Assign {
+            node_origin: Default::default(),
             left: vec![local.clone().into()],
             right: vec![value],
             prefix: true,
@@ -952,12 +961,13 @@ mod tests {
     }
     fn record(key: &str, value: &RcLocal) -> Statement {
         Return::new(vec![
-            Table(vec![(Some(text(key)), value.clone().into())]).into()
+            Table::new(vec![(Some(text(key)), value.clone().into())]).into()
         ])
         .into()
     }
     fn closure(parameters: Vec<RcLocal>, body: Block) -> RValue {
         Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function {
                 parameters,
                 body,
@@ -985,6 +995,29 @@ mod tests {
                 ..Default::default()
             },
         )
+    }
+
+    #[test]
+    fn inferred_selection_keeps_a_more_specific_existing_name() {
+        let value = local("playerGui");
+        value.0.lock().4.conditional_result = true;
+        let block = Block(vec![declare(&value, Literal::Nil.into()), Return::new(vec![value.clone().into()]).into()]);
+        run(&block);
+        assert_eq!(value.to_string(), "playerGui");
+    }
+
+    #[test]
+    fn inferred_selection_yields_to_field_evidence() {
+        for selected in [false, true] {
+            let value = local("v");
+            value.0.lock().4.conditional_result = selected;
+            let block = Block(vec![declare(&value, Literal::Nil.into()),
+                Assign::new(vec![Index::new(global("object"), text("_CachedFolder")).into()],
+                    vec![value.clone().into()]).into(),
+                Return::new(vec![value.clone().into()]).into()]);
+            run(&block);
+            assert_eq!(value.to_string(), "cachedFolder");
+        }
     }
 
     #[test]
@@ -1031,7 +1064,7 @@ mod tests {
             if refuse == 4 {
                 statements.push(Assign::new(vec![helper.clone().into()], vec![global("unknown")]).into());
             }
-            statements.push(Assign { left: vec![result.clone().into(), second.clone().into()],
+            statements.push(Assign { node_origin: Default::default(), left: vec![result.clone().into(), second.clone().into()],
                 right: vec![Call::new(helper.clone().into(), vec![]).into()], prefix: true, parallel: false }.into());
             let report = run(&Block(statements));
             assert_eq!(result.to_string(), if refuse == 0 { "width2" } else { "v3" });
@@ -1052,7 +1085,7 @@ mod tests {
         let reads = vec![Index::new(global("record"), text("Width")).into(),
             Index::new(global("record"), text("Height")).into()];
         let block = Block(vec![declare(&helper, closure(vec![], Block(vec![Return::new(reads).into()]))),
-            Assign { left: vec![width.clone().into(), height.clone().into()],
+            Assign { node_origin: Default::default(), left: vec![width.clone().into(), height.clone().into()],
                 right: vec![RValue::Select(Select::Call(Call::new(helper.clone().into(), vec![])))], prefix: true, parallel: false }.into()]);
         let report = run(&block);
         assert_eq!(width.to_string(), "width");
@@ -1068,7 +1101,7 @@ mod tests {
             let helper = local("measures");
             let width = local("v");
             let height = local("v2");
-            let mut body = vec![Assign { left: vec![width.clone().into(), height.clone().into()],
+            let mut body = vec![Assign { node_origin: Default::default(), left: vec![width.clone().into(), height.clone().into()],
                 right: vec![Call::new(helper.clone().into(), vec![]).into()], prefix: true, parallel: false }.into()];
             if rebound {
                 body.push(Assign::new(vec![helper.clone().into()], vec![global("unknown")]).into());
@@ -1093,6 +1126,7 @@ mod tests {
             parameter_name_hints: vec![Some("number".into())],
             body: Block(vec![Return::new(vec![parameter.clone().into()]).into()]), ..Default::default() };
         let block = Block(vec![Return::new(vec![Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(std::mem::take(&mut function)))), upvalues: vec![],
         }.into()]).into()]);
         let report = run(&block);
@@ -1249,13 +1283,14 @@ mod tests {
         let key = local("children");
         let parameter = local("p");
         let path = Index {
+            node_origin: Default::default(),
             left: Box::new(global("script")),
             right: Box::new(text("Children")),
         }
         .into();
         let body = vec![
             assertion(parameter.clone().into(), "Expected `children`"),
-            Return::new(vec![Table(vec![(
+            Return::new(vec![Table::new(vec![(
                 Some(key.clone().into()),
                 parameter.clone().into(),
             )])

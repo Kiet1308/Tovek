@@ -17,6 +17,7 @@ mod binary;
 mod r#break;
 mod call;
 pub mod call_origins;
+pub mod node_origins;
 pub mod annotations;
 mod close;
 mod closure;
@@ -170,7 +171,8 @@ impl type_system::Infer for RValue {
 
 impl<'a: 'b, 'b> Reduce for RValue {
     fn reduce(self) -> RValue {
-        match self {
+        let origin = node_origins::value(&self).map(|o| o.snapshot());
+        let mut result = match self {
             Self::Unary(unary) => unary.reduce(),
             Self::Binary(binary) => binary.reduce(),
             Self::Literal(literal) => literal.reduce(),
@@ -178,11 +180,14 @@ impl<'a: 'b, 'b> Reduce for RValue {
             Self::Closure(closure) => closure.reduce(),
             Self::IfExpression(if_expression) => if_expression.reduce(),
             other => other,
-        }
+        };
+        node_origins::inherit(&mut result, origin.as_ref());
+        result
     }
 
     fn reduce_condition(self) -> RValue {
-        match self {
+        let origin = node_origins::value(&self).map(|o| o.snapshot());
+        let mut result = match self {
             Self::Unary(unary) => unary.reduce_condition(),
             Self::Binary(binary) => binary.reduce_condition(),
             Self::Literal(literal) => literal.reduce_condition(),
@@ -190,7 +195,9 @@ impl<'a: 'b, 'b> Reduce for RValue {
             Self::Closure(closure) => closure.reduce_condition(),
             Self::IfExpression(if_expression) => if_expression.reduce_condition(),
             other => other,
-        }
+        };
+        node_origins::inherit(&mut result, origin.as_ref());
+        result
     }
 }
 

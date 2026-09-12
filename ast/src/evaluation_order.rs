@@ -200,7 +200,7 @@ mod tests {
     fn dot_lookup_and_namecall_have_distinct_argument_positions() {
         let object = local("object"); let value = local("value");
         let dot = Call::new(field(&object), vec![value.clone().into()]).into();
-        let method = Statement::MethodCall(MethodCall { value: Box::new(object.clone().into()), method: "field".into(), arguments: vec![value.clone().into()] });
+        let method = Statement::MethodCall(MethodCall { node_origin: Default::default(), value: Box::new(object.clone().into()), method: "field".into(), arguments: vec![value.clone().into()] });
         assert!(!can_sink(&dot, &value, &field(&object), &|_| false));
         assert!(can_sink(&method, &value, &field(&object), &|_| false));
         // A receiver snapshot must still precede an argument that can change it.
@@ -215,7 +215,7 @@ mod tests {
         let replacement = field(&flag);
         let condition = crate::Binary::new(flag.clone().into(), target.clone().into(), BinaryOperation::And).into();
         assert!(!can_sink(&Return::new(vec![condition]).into(), &target, &replacement, &|_| false));
-        let table = Table(vec![(Some(Literal::Nil.into()), Literal::Nil.into()), (None, target.clone().into())]).into();
+        let table = Table::new(vec![(Some(Literal::Nil.into()), Literal::Nil.into()), (None, target.clone().into())]).into();
         assert!(!can_sink(&Return::new(vec![table]).into(), &target, &replacement, &|_| false));
         let ret = Return::new(vec![flag.clone().into(), target.clone().into()]).into();
         assert!(!can_sink(&ret, &target, &replacement, &|l| l == &flag));

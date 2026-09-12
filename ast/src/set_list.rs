@@ -1,7 +1,8 @@
 use crate::{formatter, LocalRw, RValue, RcLocal, SideEffects, Traverse};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct SetList {
+    pub node_origin: crate::node_origins::Origin,
     pub object_local: RcLocal,
     pub index: usize,
     pub values: Vec<RValue>,
@@ -16,6 +17,7 @@ impl SetList {
         tail: Option<RValue>,
     ) -> Self {
         Self {
+            node_origin: Default::default(),
             object_local,
             index,
             values,
@@ -139,3 +141,5 @@ mod tests {
         assert!(block.to_string().contains("table.pack(...)"));
     }
 }
+
+crate::node_origins::semantic_debug!(SetList; object_local,index,values,tail);

@@ -7,6 +7,14 @@ assignment targets and expression references use the same collector. Preview
 rendering never records occurrences. Ordinary source and analysis modes do not
 allocate this detailed map.
 
+R2 additionally records statement and nested-value byte spans in
+`binding_provenance.value_provenance.output_regions`. These join bounded
+dependency ancestry and separately retained AST-node origins to input instruction
+clusters. Node history identifies real copies, installed inline substitutions
+and explicit reconstruction producers, with unknowns for unattributed nodes;
+they do not establish exact producer PCs. See the
+[preservation and invalidation contract](source_binding_preservation.md).
+
 Spans are half-open UTF-8 byte ranges. Line and Unicode-scalar column numbers
 are one-based; a tab occupies one column in this coordinate system. The collector
 keeps at most 100,000 total identifier, annotation and opaque-region occurrences
@@ -72,6 +80,8 @@ both matrices with the independent parser. [Validation inventory](roadmap_v2_acc
 [private token audit](roadmap_v2_acceptance/emission_corpus_map.json),
 [public token audit](roadmap_v2_acceptance/emission_public_map.json).
 
-Arbitrary nested-value producer tracking, complete clone/synthesis attribution
-and pass-complete provenance invalidation remain separate R2 work. This source
-map provides bounded, inspectable links without promoting ancestry into proof.
+The [R2 node lifecycle contract](source_binding_preservation.md) extends this
+historical identifier map with immutable nested input occurrences, retained AST
+origins, clone/inline flags, explicit synthesis and per-pass policies. It keeps
+unattributed scalar leaves and rebuilt nodes unknown; it does not promote
+ancestry into value equality or original-source recovery.

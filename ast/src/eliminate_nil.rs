@@ -357,6 +357,7 @@ mod tests {
 
     fn closure_capturing(local: &RcLocal) -> RValue {
         RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(local.clone())],
         })

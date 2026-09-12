@@ -4,8 +4,9 @@ use crate::{LocalRw, RcLocal, Traverse, formatter::Formatter, has_side_effects};
 
 use super::RValue;
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Return {
+    pub node_origin: crate::node_origins::Origin,
     pub values: Vec<RValue>,
 }
 
@@ -13,7 +14,7 @@ has_side_effects!(Return);
 
 impl Return {
     pub fn new(values: Vec<RValue>) -> Self {
-        Self { values }
+        Self { node_origin: Default::default(), values }
     }
 }
 
@@ -56,3 +57,5 @@ impl fmt::Display for Return {
         .format_return(self)
     }
 }
+
+crate::node_origins::semantic_debug!(Return; values);

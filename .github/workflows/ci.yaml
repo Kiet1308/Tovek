@@ -172,6 +172,14 @@ jobs:
             --report "$RUNNER_TEMP/roadmap-v2-lineage.json" \
             --keep "$RUNNER_TEMP/roadmap-v2-lineage" --cache --compact-annotations
 
+      - name: V2 binding preservation VM controls
+        run: |
+          python3 scripts/binding_preservation_controls.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --keep "$RUNNER_TEMP/binding-preservation-controls" \
+            --report "$RUNNER_TEMP/binding-preservation-controls.json"
+
       - name: V2 nested assignment function dataflow
         run: |
           python3 scripts/assignment_order_audit.py \
@@ -389,6 +397,7 @@ jobs:
             ${{ runner.temp }}/output-size.json
             ${{ runner.temp }}/roadmap-v2.json
             ${{ runner.temp }}/roadmap-v2-lineage.json
+            ${{ runner.temp }}/binding-preservation-controls.json
             ${{ runner.temp }}/roadmap-v2-public-lineage.json
             ${{ runner.temp }}/roadmap-v2-formatter-controls.json
             ${{ runner.temp }}/roadmap-v2-assignment-order.json

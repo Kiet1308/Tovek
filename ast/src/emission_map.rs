@@ -5,6 +5,28 @@ use crate::formatter::SourceSpan;
 pub const OCCURRENCE_LIMIT: usize = 100_000;
 pub const ANNOTATION_BYTE_LIMIT: usize = 4096;
 pub const CALL_OCCURRENCE_LIMIT: usize = 100_000;
+pub const REGION_LIMIT: usize = 100_000;
+
+pub fn value_kind(value: &crate::RValue) -> &'static str {
+    use crate::RValue;
+    match value {
+        RValue::Local(_) => "local", RValue::Global(_) => "global",
+        RValue::Literal(_) => "literal", RValue::Call(_) => "call",
+        RValue::MethodCall(_) => "method_call", RValue::VarArg(_) => "vararg",
+        RValue::Table(_) => "table", RValue::Index(_) => "index",
+        RValue::Unary(_) => "unary", RValue::Binary(_) => "binary",
+        RValue::Closure(_) => "closure", RValue::IfExpression(_) => "conditional_value",
+        RValue::Select(_) => "scalar_adjustment",
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SyntaxRegion {
+    pub kind: &'static str,
+    pub bindings: Vec<u64>,
+    pub span: SourceSpan,
+    pub origin: crate::node_origins::Origin,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CallOccurrence {
@@ -38,6 +60,8 @@ pub struct OpaqueOccurrence {
 /// No RcLocal owners are retained and no IDs are allocated by this collector.
 #[derive(Default, Debug)]
 pub struct EmissionMap {
+    pub regions: Vec<SyntaxRegion>,
+    pub omitted_regions: usize,
     pub bindings: Vec<BindingOccurrence>,
     pub annotations: Vec<AnnotationOccurrence>,
     pub opaque_regions: Vec<OpaqueOccurrence>,
@@ -47,6 +71,12 @@ pub struct EmissionMap {
 }
 
 impl EmissionMap {
+    pub fn region(&mut self, kind: &'static str, bindings: Vec<u64>, span: SourceSpan,
+                  origin: Option<&crate::node_origins::Origin>) {
+        if self.regions.len() < REGION_LIMIT {
+            self.regions.push(SyntaxRegion { kind, bindings, span, origin: origin.map(|o| o.snapshot()).unwrap_or_default() });
+        } else { self.omitted_regions += 1; }
+    }
     pub(crate) fn can_record(&self) -> bool {
         self.bindings.len() + self.annotations.len() + self.opaque_regions.len() < OCCURRENCE_LIMIT
     }
@@ -86,6 +116,7 @@ impl EmissionMap {
     }
 
     pub fn sort(&mut self) {
+        self.regions.sort_by_key(|r| (r.span.start.byte_offset, r.span.end.byte_offset, r.kind));
         self.bindings.sort_by_key(|item| (item.span.start.byte_offset, item.span.end.byte_offset, item.binding_id));
         self.annotations.sort_by_key(|item| item.span.start.byte_offset);
         self.opaque_regions.sort_by_key(|item| item.span.start.byte_offset);

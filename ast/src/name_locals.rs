@@ -4835,6 +4835,7 @@ mod tests {
                 ..Default::default()
             };
             Block(vec![Return::new(vec![Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(function))),
                 upvalues: vec![],
             }.into()]).into()])
@@ -4952,6 +4953,7 @@ mod tests {
         function.parameters = vec![param_a.clone(), param_b.clone()];
         function.body = Block(vec![use_local(&param_a), use_local(&param_b)]);
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(function))),
             upvalues: Vec::new(),
         };
@@ -5034,6 +5036,7 @@ mod tests {
         let mut function = Function::default();
         function.body = Block(vec![use_local(&upvalue)]);
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(function))),
             upvalues: vec![Upvalue::Ref(upvalue.clone())],
         };
@@ -5130,7 +5133,7 @@ mod tests {
             vec![index.clone(), child_name.clone()],
             vec![RValue::Call(Call::new(
                 global("ipairs"),
-                vec![RValue::Table(Table(vec![
+                vec![RValue::Table(Table::new(vec![
                     (None, string("RevealRigs")),
                     (None, string("DoubleRigs")),
                 ]))],
@@ -5308,7 +5311,7 @@ mod tests {
         let module_decl = declare(&module, RValue::Table(Table::default()));
         let folders_decl = declare(
             &folders,
-            RValue::Table(Table(vec![
+            RValue::Table(Table::new(vec![
                 (
                     None,
                     RValue::MethodCall(MethodCall::new(
@@ -5377,6 +5380,7 @@ mod tests {
                 string("DisableCollision"),
             ))],
             vec![RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(function))),
                 upvalues: Vec::new(),
             })],
@@ -5771,6 +5775,7 @@ mod tests {
             1.0,
         )]))]);
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(function))),
             upvalues: Vec::new(),
         });
@@ -5808,6 +5813,7 @@ mod tests {
         )]))]);
         let closure = || {
             RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(function.clone()))),
                 upvalues: Vec::new(),
             })
@@ -5952,6 +5958,7 @@ mod tests {
         let mut fn_a = Function::default();
         fn_a.body = Block(vec![declare_part(&part_a), use_local(&part_a)]);
         let closure_a = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(fn_a))),
             upvalues: Vec::new(),
         });
@@ -5959,6 +5966,7 @@ mod tests {
         let mut fn_b = Function::default();
         fn_b.body = Block(vec![declare_part(&part_b), use_local(&part_b)]);
         let closure_b = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(fn_b))),
             upvalues: Vec::new(),
         });
@@ -5987,6 +5995,7 @@ mod tests {
         let mut fn_a = Function::default();
         fn_a.body = Block(vec![declare_part(&part_a), use_local(&part_a)]);
         let closure_a = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(fn_a))),
             upvalues: Vec::new(),
         });
@@ -5994,6 +6003,7 @@ mod tests {
         let mut fn_b = Function::default();
         fn_b.body = Block(vec![declare_part(&part_b), use_local(&part_b)]);
         let closure_b = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(fn_b))),
             upvalues: Vec::new(),
         });
@@ -6165,6 +6175,7 @@ mod tests {
         let mut function = Function::default();
         function.body = Block(vec![declare(&inner, number(2.0)), use_local(&inner)]);
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(function))),
             upvalues: vec![Upvalue::Ref(outer.clone())],
         });
@@ -6207,6 +6218,7 @@ mod tests {
             use_local(&inner),
         ]);
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(function))),
             upvalues: vec![Upvalue::Ref(outer.clone())],
         });
@@ -6281,6 +6293,7 @@ mod tests {
         let s5 = declare(
             &handler,
             RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(function))),
                 upvalues: Vec::new(),
             }),
@@ -6315,6 +6328,7 @@ mod tests {
 
     fn closure_of(function: Function) -> RValue {
         RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(function))),
             upvalues: vec![],
         })
@@ -6930,7 +6944,7 @@ mod tests {
         let on_close = RcLocal::default();
         let layout = RcLocal::default();
         let handlers = RcLocal::default();
-        let table = Table(vec![
+        let table = Table::new(vec![
             (Some(string("onClose")), RValue::Local(on_close.clone())),
             (Some(string("layout")), RValue::Local(layout.clone())),
         ]);
@@ -6949,6 +6963,7 @@ mod tests {
     fn forward_declared_callback_named_from_event_use() {
         let handler = RcLocal::default();
         let declaration = Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(handler.clone())],
             right: Vec::new(),
             prefix: true,
@@ -7115,7 +7130,7 @@ mod tests {
     fn callback_named_from_setter_field() {
         let setter = RcLocal::default();
         let handlers = RcLocal::default();
-        let table = Table(vec![(
+        let table = Table::new(vec![(
             Some(string("setVisible")),
             RValue::Local(setter.clone()),
         )]);
@@ -9124,7 +9139,7 @@ mod tests {
             name_decl(method_call(recv(), "KeyOf", vec![global("t"), string("InputType")])),
             "inputType"
         );
-        let table = RValue::Table(Table(vec![(None, string("DisplayName"))]));
+        let table = RValue::Table(Table::new(vec![(None, string("DisplayName"))]));
         assert_eq!(
             name_decl(method_call(recv(), "TKeyOf", vec![global("t"), table])),
             "displayName"
@@ -9142,7 +9157,7 @@ mod tests {
         let (p, v, w) = (RcLocal::default(), RcLocal::default(), RcLocal::default());
         let curried = RValue::Call(Call::new(
             method_call(RValue::Local(p.clone()), "New", vec![string("TextLabel")]),
-            vec![RValue::Table(Table(vec![]))],
+            vec![RValue::Table(Table::new(vec![]))],
         ));
         let mut body = declare_and_use(
             &v,
@@ -9192,7 +9207,7 @@ mod tests {
             name_decl(lib_call("utils", "merge", vec![global("a"), global("b")])),
             "merged"
         );
-        let literal = RValue::Table(Table(vec![]));
+        let literal = RValue::Table(Table::new(vec![]));
         assert_eq!(name_decl(lib_call("table", "freeze", vec![literal])), "frozen");
         assert_eq!(name_decl(lib_call("table", "find", vec![global("t"), global("x")])), "index");
         assert_eq!(name_decl(lib_call("coroutine", "running", vec![])), "thread");
@@ -9219,7 +9234,7 @@ mod tests {
         let call = || {
             RValue::Call(Call::new(
                 global("setmetatable"),
-                vec![RValue::Table(Table(vec![])), global("Class")],
+                vec![RValue::Table(Table::new(vec![])), global("Class")],
             ))
         };
         name_param_fn(

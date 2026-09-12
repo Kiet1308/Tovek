@@ -82,12 +82,14 @@ pub(crate) fn negate(cond: RValue) -> RValue {
                 _ => BinaryOperation::Equal,
             };
             RValue::Binary(Binary {
+                node_origin: Default::default(),
                 left: b.left,
                 right: b.right,
                 operation,
             })
         }
         other => RValue::Unary(Unary {
+            node_origin: Default::default(),
             value: Box::new(other),
             operation: UnaryOperation::Not,
         }),
@@ -222,6 +224,7 @@ fn guard_split(f: If, has_rest: bool) -> Result<(Statement, Vec<Statement>), If>
         condition,
         then_block,
         else_block,
+        ..
     } = f;
     let then_stmts = std::mem::take(&mut then_block.lock().0);
     let else_stmts = std::mem::take(&mut else_block.lock().0);
@@ -419,7 +422,7 @@ mod tests {
             .into(),
             Return::new(vec![
                 Call::new(RValue::Global(Global::from("render")), vec![
-                    crate::Table(vec![(None, Literal::Number(1.0).into())]).into(),
+                    crate::Table::new(vec![(None, Literal::Number(1.0).into())]).into(),
                 ])
                 .into(),
             ])

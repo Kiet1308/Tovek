@@ -21,8 +21,9 @@ impl fmt::Display for UnaryOperation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Unary {
+    pub node_origin: crate::node_origins::Origin,
     pub value: Box<RValue>,
     pub operation: UnaryOperation,
 }
@@ -75,6 +76,7 @@ impl Reduce for Unary {
                 RValue::Unary(Unary {
                     box value,
                     operation: UnaryOperation::Not,
+                    ..
                 }),
                 UnaryOperation::Not,
             ) => ensure_boolean(value.reduce_condition()),
@@ -97,9 +99,11 @@ impl Reduce for Unary {
                     left,
                     right,
                     operation: BinaryOperation::Equal,
+                    ..
                 }),
                 UnaryOperation::Not,
             ) => Binary {
+                node_origin: Default::default(),
                 left,
                 right,
                 operation: BinaryOperation::NotEqual,
@@ -110,9 +114,11 @@ impl Reduce for Unary {
                     left,
                     right,
                     operation: BinaryOperation::NotEqual,
+                    ..
                 }),
                 UnaryOperation::Not,
             ) => Binary {
+                node_origin: Default::default(),
                 left,
                 right,
                 operation: BinaryOperation::Equal,
@@ -123,22 +129,27 @@ impl Reduce for Unary {
                     left,
                     right,
                     operation,
+                    ..
                 }),
                 UnaryOperation::Not,
             ) if (operation == BinaryOperation::And || operation == BinaryOperation::Or)
             // TODO: unnecessary clones
                 && (does_reduce(&Unary {
+                    node_origin: Default::default(),
                     value: left.clone(),
                     operation: UnaryOperation::Not,
                 }.into()) || does_reduce(&Unary {
+                    node_origin: Default::default(),
                     value: right.clone(),
                     operation: UnaryOperation::Not,
                 }.into())) =>
             {
                 ensure_boolean(
                     Binary {
+                        node_origin: Default::default(),
                         left: Box::new(
                             Unary {
+                                node_origin: Default::default(),
                                 value: left,
                                 operation: UnaryOperation::Not,
                             }
@@ -146,6 +157,7 @@ impl Reduce for Unary {
                         ),
                         right: Box::new(
                             Unary {
+                                node_origin: Default::default(),
                                 value: right,
                                 operation: UnaryOperation::Not,
                             }
@@ -161,6 +173,7 @@ impl Reduce for Unary {
                 )
             }
             (value, operation) => Self {
+                node_origin: Default::default(),
                 value: Box::new(value),
                 operation,
             }
@@ -186,6 +199,7 @@ impl Reduce for Unary {
                 RValue::Literal(Literal::Boolean(true))
             } else {
                 Unary {
+                    node_origin: Default::default(),
                     value: Box::new(value),
                     operation: UnaryOperation::Length,
                 }
@@ -204,6 +218,7 @@ impl Reduce for Unary {
                 RValue::Unary(Unary {
                     box value,
                     operation: UnaryOperation::Not,
+                    ..
                 }),
                 UnaryOperation::Not,
             ) => value.reduce_condition(),
@@ -219,9 +234,11 @@ impl Reduce for Unary {
                     left,
                     right,
                     operation: BinaryOperation::Equal,
+                    ..
                 }),
                 UnaryOperation::Not,
             ) => Binary {
+                node_origin: Default::default(),
                 left,
                 right,
                 operation: BinaryOperation::NotEqual,
@@ -232,9 +249,11 @@ impl Reduce for Unary {
                     left,
                     right,
                     operation: BinaryOperation::NotEqual,
+                    ..
                 }),
                 UnaryOperation::Not,
             ) => Binary {
+                node_origin: Default::default(),
                 left,
                 right,
                 operation: BinaryOperation::Equal,
@@ -245,21 +264,26 @@ impl Reduce for Unary {
                     left,
                     right,
                     operation,
+                    ..
                 }),
                 UnaryOperation::Not,
             ) if (operation == BinaryOperation::And || operation == BinaryOperation::Or)
             // TODO: unnecessary clones
                 && (does_reduce(&Unary {
+                    node_origin: Default::default(),
                     value: left.clone(),
                     operation: UnaryOperation::Not,
                 }.into()) || does_reduce(&Unary {
+                    node_origin: Default::default(),
                     value: right.clone(),
                     operation: UnaryOperation::Not,
                 }.into())) =>
             {
                 Binary {
+                    node_origin: Default::default(),
                     left: Box::new(
                         Unary {
+                            node_origin: Default::default(),
                             value: left,
                             operation: UnaryOperation::Not,
                         }
@@ -267,6 +291,7 @@ impl Reduce for Unary {
                     ),
                     right: Box::new(
                         Unary {
+                            node_origin: Default::default(),
                             value: right,
                             operation: UnaryOperation::Not,
                         }
@@ -281,6 +306,7 @@ impl Reduce for Unary {
                 .reduce_condition()
             }
             (value, operation) => Self {
+                node_origin: Default::default(),
                 value: Box::new(value),
                 operation,
             }
@@ -292,6 +318,7 @@ impl Reduce for Unary {
 impl Unary {
     pub fn new(value: RValue, operation: UnaryOperation) -> Self {
         Self {
+            node_origin: Default::default(),
             value: Box::new(value),
             operation,
         }
@@ -380,10 +407,12 @@ mod tests {
     #[test]
     fn length_of_table_with_dynamic_key_keeps_possible_error() {
         let key = RValue::Local(RcLocal::default());
-        let table = RValue::Table(Table(vec![(
+        let table = RValue::Table(Table::new(vec![(
             Some(key),
             RValue::Literal(Literal::Number(1.0)),
         )]));
         assert!(is_length(&len_condition(table)));
     }
 }
+
+crate::node_origins::semantic_debug!(Unary; value,operation);

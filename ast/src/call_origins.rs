@@ -39,6 +39,7 @@ pub struct Scope(Option<State>, PhantomData<Rc<()>>);
 pub fn enter(enabled: bool) -> Scope {
     Scope(STATE.with(|s| s.replace(enabled.then(State::default))), PhantomData)
 }
+pub(crate) fn enabled() -> bool { STATE.with(|state| state.borrow().is_some()) }
 impl Scope {
     pub fn take_report(self) -> Report {
         STATE.with(|s| s.borrow_mut().as_mut().map(|s| std::mem::take(&mut s.report)).unwrap_or_default())

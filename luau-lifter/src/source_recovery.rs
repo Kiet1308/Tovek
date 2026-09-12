@@ -64,6 +64,7 @@ pub(crate) fn provenance_report(
     let ids = |items: &[u64]| items.iter().map(|&item| id(item)).collect::<Vec<_>>();
     let mut locals = BTreeMap::new();
     collect(body, &mut locals, &mut BTreeSet::new());
+    let value_provenance = crate::value_provenance::report(&traces, &locals, &emission_map, &local_producers);
     let mut emitted_by_origin: BTreeMap<u64, Vec<u64>> = BTreeMap::new();
     let mut emitted = Vec::new();
     let mut known_origins = BTreeSet::new();
@@ -198,6 +199,13 @@ pub(crate) fn provenance_report(
                 "status": if emitted_by_origin.contains_key(&d.id) { "mapped_storage_ancestry" } else { "no_final_binding_mapping" },
             })).collect::<Vec<_>>(),
             "local_maps": trace.maps.iter().map(|m| json!({"phase": m.phase, "from": id(m.from), "to": id(m.to)})).collect::<Vec<_>>(),
+            "value_origins": trace.values.iter().map(|v| json!({"id": v.id,
+                "block": v.block, "statement_index": v.statement, "path": v.path,
+                "kind": v.kind, "binding_id": v.binding.map(id), "children": v.children,
+                "relation": "initial_ssa_value_in_instruction_cluster"})).collect::<Vec<_>>(),
+            "inline_events": trace.inlines.iter().map(|e| json!({"phase": e.phase,
+                "producer": id(e.producer), "consumer_bindings": ids(&e.consumer_bindings),
+                "site_kind": e.site_kind, "exact_final_value_mapping": false})).collect::<Vec<_>>(),
             "conditional_results": trace.selects.iter().map(|s| json!({"phase": s.phase,
                 "proof": "two_arm_private_block_join", "branch": s.branch, "join": s.join,
                 "binding_id": id(s.binding), "condition_bindings": ids(&s.condition_bindings),
@@ -229,7 +237,8 @@ pub(crate) fn provenance_report(
         "functions": functions, "final_bindings": emitted,
         "output_map": output_map,
         "call_reconstruction": reconstructed_calls,
-        "limitations": "An absent direct mapping does not distinguish inlining, dead code, cloning or synthesis. Conditional results are retained as statements; the trace does not authorize eager evaluation or change source naming. Arbitrary value-producer provenance and pass-complete invalidation remain open.",
+        "value_provenance": value_provenance,
+        "limitations": "Exact final value identity is invalidated by uninstrumented rewrites. Input nested values and committed SSA inline events remain recorded; output regions carry bounded dependency ancestry or explicit unknown. No ancestry is an effect, source-identity, capture or lifetime proof.",
     })
 }
 

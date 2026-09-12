@@ -1,0 +1,4042 @@
+{
+ "source_fixture": "docs/failure_fixtures/roadmap_v2/conditional.luau",
+ "source_sha256": "1dbba5fb689f50c9c2a74f0fc7b1db44bfde99974e91451c80a09da84cfd0068",
+ "examples": [
+  {
+   "profile": "conditional_O2_g1",
+   "before": "return function(p, p2, p3)\n\tif not p then\n\t\tp2 = p3\n\tend\n\n\tif p2 == nil then\n\t\treturn nil, \"missing\"\n\telse\n\t\treturn p2, \"present\"\n\tend\nend\n",
+   "after": "return function(p, p2, p3)\n\tlocal selected\n\n\tif p then\n\t\tselected = p2\n\telse\n\t\tselected = p3\n\tend\n\n\tif selected == nil then\n\t\treturn nil, \"missing\"\n\telse\n\t\treturn selected, \"present\"\n\tend\nend\n",
+   "trace": {
+    "call_reconstruction": {
+     "callees_limit": 50000,
+     "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+     "event_limit": 4096,
+     "events": [],
+     "model": "committed-call-reconstruction-events-v2",
+     "occurrence_limit": 100000,
+     "occurrences": [],
+     "omitted_callee_registrations": 0,
+     "omitted_events": 0,
+     "omitted_occurrences": 0,
+     "schema_version": 2,
+     "search_hints": {
+      "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+      "pc_limit": 200000,
+      "region_limit": 8192,
+      "regions": [],
+      "truncated": false
+     }
+    },
+    "contract": "Diagnostic ancestry only. Storage coalescing is not value/source-binding equality. No close, ownership, purity or totality certificate is created or transferred by this trace.",
+    "final_bindings": [
+     {
+      "binding_id": "b1099511627784",
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "lineage": [
+       "b1",
+       "b1099511627783",
+       "b1099511627784"
+      ],
+      "name": "p",
+      "recorded_source_origins": [],
+      "unknown_origins": []
+     },
+     {
+      "binding_id": "b1099511627787",
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "lineage": [
+       "b2",
+       "b1099511627785",
+       "b1099511627786",
+       "b1099511627787"
+      ],
+      "name": "p2",
+      "recorded_source_origins": [],
+      "unknown_origins": []
+     },
+     {
+      "binding_id": "b1099511627796",
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "lineage": [
+       "b3",
+       "b1099511627794",
+       "b1099511627795",
+       "b1099511627796"
+      ],
+      "name": "p3",
+      "recorded_source_origins": [],
+      "unknown_origins": []
+     },
+     {
+      "binding_id": "b1099511627798",
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "lineage": [
+       "b1099511627788",
+       "b1099511627789",
+       "b1099511627791",
+       "b1099511627793"
+      ],
+      "name": "selected",
+      "recorded_source_origins": [],
+      "unknown_origins": []
+     }
+    ],
+    "functions": [
+     {
+      "conditional_results": [],
+      "definitions": [
+       {
+        "block": 0,
+        "dependencies": [],
+        "final_bindings": [],
+        "id": "b7",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b0",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "no_final_binding_mapping",
+        "write_index": 0
+       }
+      ],
+      "dropped_records": 0,
+      "function_id": "root:p1",
+      "inline_events": [
+       {
+        "consumer_bindings": [],
+        "exact_final_value_mapping": false,
+        "phase": "ssa_inline",
+        "producer": "b7",
+        "site_kind": "statement"
+       }
+      ],
+      "instruction_count": 3,
+      "lifted_statements": [
+       {
+        "block": 0,
+        "instruction_pcs": [
+         1
+        ],
+        "kind": "assignment",
+        "read_registers": [],
+        "source_lines": [
+         1
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b0"
+        ]
+       },
+       {
+        "block": 0,
+        "instruction_pcs": [
+         2
+        ],
+        "kind": "return",
+        "read_registers": [
+         "b0"
+        ],
+        "source_lines": [
+         1
+        ],
+        "statement_index": 1,
+        "written_registers": []
+       }
+      ],
+      "local_maps": [],
+      "post_destruct_bindings": [],
+      "pre_destruct_bindings": [],
+      "prototype": 1,
+      "registers": [
+       {
+        "final_bindings": [],
+        "id": "b0",
+        "kind": "register",
+        "slot": 0,
+        "source_bindings": []
+       }
+      ],
+      "value_origins": [
+       {
+        "binding_id": null,
+        "block": 0,
+        "children": [],
+        "id": 0,
+        "kind": "closure",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b7",
+        "block": 0,
+        "children": [],
+        "id": 1,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       }
+      ]
+     },
+     {
+      "conditional_results": [
+       {
+        "binding_id": "b1099511627788",
+        "branch": 0,
+        "condition_bindings": [
+         "b1099511627783"
+        ],
+        "else_predecessor": 2,
+        "else_value": "b1099511627795",
+        "final_bindings": [
+         "b1099511627798"
+        ],
+        "join": 3,
+        "phase": "constructed_ssa",
+        "proof": "two_arm_private_block_join",
+        "then_predecessor": 1,
+        "then_value": "b1099511627786"
+       }
+      ],
+      "definitions": [
+       {
+        "block": 0,
+        "dependencies": [
+         "b1099511627784"
+        ],
+        "final_bindings": [
+         "b1099511627784"
+        ],
+        "id": "b1099511627783",
+        "kind": "ssa_block_parameter",
+        "original_register": "b1",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 6,
+        "dependencies": [],
+        "final_bindings": [
+         "b1099511627784"
+        ],
+        "id": "b1099511627784",
+        "kind": "ssa_block_parameter",
+        "original_register": "b1",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 1,
+        "dependencies": [
+         "b1099511627787"
+        ],
+        "final_bindings": [
+         "b1099511627787"
+        ],
+        "id": "b1099511627785",
+        "kind": "ssa_block_parameter",
+        "original_register": "b2",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 1,
+        "dependencies": [
+         "b1099511627785"
+        ],
+        "final_bindings": [
+         "b1099511627787"
+        ],
+        "id": "b1099511627786",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b6",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "mapped_storage_ancestry",
+        "write_index": 0
+       },
+       {
+        "block": 6,
+        "dependencies": [],
+        "final_bindings": [
+         "b1099511627787"
+        ],
+        "id": "b1099511627787",
+        "kind": "ssa_block_parameter",
+        "original_register": "b2",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 3,
+        "dependencies": [
+         "b1099511627786",
+         "b1099511627795"
+        ],
+        "final_bindings": [
+         "b1099511627798"
+        ],
+        "id": "b1099511627788",
+        "kind": "ssa_block_parameter",
+        "original_register": "b6",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 3,
+        "dependencies": [
+         "b1099511627788"
+        ],
+        "final_bindings": [
+         "b1099511627798"
+        ],
+        "id": "b1099511627789",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b5",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "mapped_storage_ancestry",
+        "write_index": 0
+       },
+       {
+        "block": 5,
+        "dependencies": [],
+        "final_bindings": [],
+        "id": "b1099511627790",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b4",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "no_final_binding_mapping",
+        "write_index": 0
+       },
+       {
+        "block": 5,
+        "dependencies": [
+         "b1099511627789"
+        ],
+        "final_bindings": [
+         "b1099511627798"
+        ],
+        "id": "b1099511627791",
+        "kind": "ssa_block_parameter",
+        "original_register": "b5",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 4,
+        "dependencies": [],
+        "final_bindings": [],
+        "id": "b1099511627792",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b4",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "no_final_binding_mapping",
+        "write_index": 0
+       },
+       {
+        "block": 4,
+        "dependencies": [
+         "b1099511627789"
+        ],
+        "final_bindings": [
+         "b1099511627798"
+        ],
+        "id": "b1099511627793",
+        "kind": "ssa_block_parameter",
+        "original_register": "b5",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 2,
+        "dependencies": [
+         "b1099511627796"
+        ],
+        "final_bindings": [
+         "b1099511627796"
+        ],
+        "id": "b1099511627794",
+        "kind": "ssa_block_parameter",
+        "original_register": "b3",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 2,
+        "dependencies": [
+         "b1099511627794"
+        ],
+        "final_bindings": [
+         "b1099511627796"
+        ],
+        "id": "b1099511627795",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b6",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "mapped_storage_ancestry",
+        "write_index": 0
+       },
+       {
+        "block": 6,
+        "dependencies": [],
+        "final_bindings": [
+         "b1099511627796"
+        ],
+        "id": "b1099511627796",
+        "kind": "ssa_block_parameter",
+        "original_register": "b3",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       }
+      ],
+      "dropped_records": 0,
+      "function_id": "root:p1/p1@pc1:p0",
+      "inline_events": [
+       {
+        "consumer_bindings": [],
+        "exact_final_value_mapping": false,
+        "phase": "ssa_inline",
+        "producer": "b1099511627792",
+        "site_kind": "statement"
+       },
+       {
+        "consumer_bindings": [],
+        "exact_final_value_mapping": false,
+        "phase": "ssa_inline",
+        "producer": "b1099511627790",
+        "site_kind": "statement"
+       }
+      ],
+      "instruction_count": 11,
+      "lifted_statements": [
+       {
+        "block": 0,
+        "instruction_pcs": [
+         0
+        ],
+        "kind": "branch",
+        "read_registers": [
+         "b1"
+        ],
+        "source_lines": [
+         2
+        ],
+        "statement_index": 0,
+        "written_registers": []
+       },
+       {
+        "block": 1,
+        "instruction_pcs": [
+         1
+        ],
+        "kind": "assignment",
+        "read_registers": [
+         "b2"
+        ],
+        "source_lines": [
+         2
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b6"
+        ]
+       },
+       {
+        "block": 2,
+        "instruction_pcs": [
+         3
+        ],
+        "kind": "assignment",
+        "read_registers": [
+         "b3"
+        ],
+        "source_lines": [
+         2
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b6"
+        ]
+       },
+       {
+        "block": 3,
+        "instruction_pcs": [
+         4
+        ],
+        "kind": "assignment",
+        "read_registers": [
+         "b6"
+        ],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b5"
+        ]
+       },
+       {
+        "block": 3,
+        "instruction_pcs": [
+         5
+        ],
+        "kind": "branch",
+        "read_registers": [
+         "b6"
+        ],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 1,
+        "written_registers": []
+       },
+       {
+        "block": 4,
+        "instruction_pcs": [
+         7
+        ],
+        "kind": "assignment",
+        "read_registers": [],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b4"
+        ]
+       },
+       {
+        "block": 4,
+        "instruction_pcs": [
+         8
+        ],
+        "kind": "return",
+        "read_registers": [
+         "b5",
+         "b4"
+        ],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 1,
+        "written_registers": []
+       },
+       {
+        "block": 5,
+        "instruction_pcs": [
+         9
+        ],
+        "kind": "assignment",
+        "read_registers": [],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b4"
+        ]
+       },
+       {
+        "block": 5,
+        "instruction_pcs": [
+         10
+        ],
+        "kind": "return",
+        "read_registers": [
+         "b5",
+         "b4"
+        ],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 1,
+        "written_registers": []
+       }
+      ],
+      "local_maps": [
+       {
+        "from": "b1099511627786",
+        "phase": "ssa_construction",
+        "to": "b1099511627785"
+       },
+       {
+        "from": "b1099511627789",
+        "phase": "ssa_construction",
+        "to": "b1099511627788"
+       },
+       {
+        "from": "b1099511627795",
+        "phase": "ssa_construction",
+        "to": "b1099511627794"
+       },
+       {
+        "from": "b1099511627783",
+        "phase": "ssa_construction",
+        "to": "b1099511627784"
+       },
+       {
+        "from": "b1099511627785",
+        "phase": "ssa_construction",
+        "to": "b1099511627787"
+       },
+       {
+        "from": "b1099511627791",
+        "phase": "ssa_construction",
+        "to": "b1099511627788"
+       },
+       {
+        "from": "b1099511627793",
+        "phase": "ssa_construction",
+        "to": "b1099511627788"
+       },
+       {
+        "from": "b1099511627794",
+        "phase": "ssa_construction",
+        "to": "b1099511627796"
+       },
+       {
+        "from": "b1099511627788",
+        "phase": "phi_parameter_transport",
+        "to": "b1099511627797"
+       },
+       {
+        "from": "b1099511627788",
+        "phase": "phi_edge_transport",
+        "to": "b1099511627798"
+       },
+       {
+        "from": "b1099511627787",
+        "phase": "phi_edge_transport",
+        "to": "b1099511627798"
+       },
+       {
+        "from": "b1099511627788",
+        "phase": "phi_edge_transport",
+        "to": "b1099511627799"
+       },
+       {
+        "from": "b1099511627796",
+        "phase": "phi_edge_transport",
+        "to": "b1099511627799"
+       },
+       {
+        "from": "b1099511627788",
+        "phase": "ssa_destruction",
+        "to": "b1099511627798"
+       },
+       {
+        "from": "b1099511627797",
+        "phase": "ssa_destruction",
+        "to": "b1099511627798"
+       },
+       {
+        "from": "b1099511627799",
+        "phase": "ssa_destruction",
+        "to": "b1099511627798"
+       }
+      ],
+      "post_destruct_bindings": [
+       "b1099511627784",
+       "b1099511627787",
+       "b1099511627796",
+       "b1099511627798"
+      ],
+      "pre_destruct_bindings": [
+       "b1099511627784",
+       "b1099511627787",
+       "b1099511627788",
+       "b1099511627796"
+      ],
+      "prototype": 0,
+      "registers": [
+       {
+        "final_bindings": [
+         "b1099511627784"
+        ],
+        "id": "b1",
+        "kind": "parameter",
+        "slot": 0,
+        "source_bindings": []
+       },
+       {
+        "final_bindings": [
+         "b1099511627787"
+        ],
+        "id": "b2",
+        "kind": "parameter",
+        "slot": 1,
+        "source_bindings": []
+       },
+       {
+        "final_bindings": [
+         "b1099511627796"
+        ],
+        "id": "b3",
+        "kind": "parameter",
+        "slot": 2,
+        "source_bindings": []
+       },
+       {
+        "final_bindings": [],
+        "id": "b4",
+        "kind": "register",
+        "slot": 5,
+        "source_bindings": []
+       },
+       {
+        "final_bindings": [],
+        "id": "b5",
+        "kind": "register",
+        "slot": 4,
+        "source_bindings": []
+       },
+       {
+        "final_bindings": [],
+        "id": "b6",
+        "kind": "register",
+        "slot": 3,
+        "source_bindings": []
+       }
+      ],
+      "value_origins": [
+       {
+        "binding_id": "b1099511627783",
+        "block": 0,
+        "children": [],
+        "id": 0,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627785",
+        "block": 1,
+        "children": [],
+        "id": 1,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627794",
+        "block": 2,
+        "children": [],
+        "id": 2,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627788",
+        "block": 3,
+        "children": [],
+        "id": 3,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": null,
+        "block": 3,
+        "children": [
+         5,
+         6
+        ],
+        "id": 4,
+        "kind": "binary",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": "b1099511627788",
+        "block": 3,
+        "children": [],
+        "id": 5,
+        "kind": "local",
+        "path": [
+         1,
+         0,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": null,
+        "block": 3,
+        "children": [],
+        "id": 6,
+        "kind": "literal",
+        "path": [
+         1,
+         0,
+         1
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": null,
+        "block": 4,
+        "children": [],
+        "id": 7,
+        "kind": "literal",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627793",
+        "block": 4,
+        "children": [],
+        "id": 8,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": "b1099511627792",
+        "block": 4,
+        "children": [],
+        "id": 9,
+        "kind": "local",
+        "path": [
+         1,
+         1
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": null,
+        "block": 5,
+        "children": [],
+        "id": 10,
+        "kind": "literal",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627791",
+        "block": 5,
+        "children": [],
+        "id": 11,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": "b1099511627790",
+        "block": 5,
+        "children": [],
+        "id": 12,
+        "kind": "local",
+        "path": [
+         1,
+         1
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       }
+      ]
+     }
+    ],
+    "limitations": "Exact final value identity is invalidated by uninstrumented rewrites. Input nested values and committed SSA inline events remain recorded; output regions carry bounded dependency ancestry or explicit unknown. No ancestry is an effect, source-identity, capture or lifetime proof.",
+    "limits": {
+     "ancestry_per_binding": 256,
+     "records_per_function": 50000
+    },
+    "local_producers": {
+     "contract": "Explicit committed introductions keyed by final storage identity and linked to exact emitted identifier spans. Input instruction/value ancestry remains unknown unless separately recorded. No source/debug, SSA, close, ownership or effect evidence is copied to these locals. Missing records, including budget omissions and uninstrumented passes, never prove an input local or compiler temporary.",
+     "model": "committed-emitter-local-introductions-v1",
+     "omitted_records": 0,
+     "passes": [
+      {
+       "introduced_locals": 0,
+       "omitted_records": 0,
+       "pass": "branch_constructors",
+       "records": [],
+       "rewrite_model": "luau-v9-private-property-diamond-v2"
+      },
+      {
+       "introduced_locals": 0,
+       "omitted_records": 0,
+       "pass": "conditional_lowering",
+       "records": [],
+       "rewrite_model": "luau-v9-scalar-select-statements-v1"
+      }
+     ],
+     "recorded_introductions": 0,
+     "records_per_pass": 4096,
+     "schema_version": 1
+    },
+    "model": "ssa-storage-lineage-v1",
+    "origin_granularity": "input instruction clusters per lifted statement and SSA definition write slot; exact final identifier spans link to binding storage ancestry, not nested value producer PCs",
+    "output_map": {
+     "annotations": [],
+     "bindings": [
+      {
+       "binding_id": "b1099511627784",
+       "role": "parameter",
+       "span": {
+        "end": {
+         "byte_offset": 17,
+         "column_one_based": 18,
+         "line_one_based": 1
+        },
+        "start": {
+         "byte_offset": 16,
+         "column_one_based": 17,
+         "line_one_based": 1
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627787",
+       "role": "parameter",
+       "span": {
+        "end": {
+         "byte_offset": 21,
+         "column_one_based": 22,
+         "line_one_based": 1
+        },
+        "start": {
+         "byte_offset": 19,
+         "column_one_based": 20,
+         "line_one_based": 1
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627796",
+       "role": "parameter",
+       "span": {
+        "end": {
+         "byte_offset": 25,
+         "column_one_based": 26,
+         "line_one_based": 1
+        },
+        "start": {
+         "byte_offset": 23,
+         "column_one_based": 24,
+         "line_one_based": 1
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627798",
+       "role": "declaration",
+       "span": {
+        "end": {
+         "byte_offset": 42,
+         "column_one_based": 16,
+         "line_one_based": 2
+        },
+        "start": {
+         "byte_offset": 34,
+         "column_one_based": 8,
+         "line_one_based": 2
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627784",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 49,
+         "column_one_based": 6,
+         "line_one_based": 4
+        },
+        "start": {
+         "byte_offset": 48,
+         "column_one_based": 5,
+         "line_one_based": 4
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627798",
+       "role": "assignment_target",
+       "span": {
+        "end": {
+         "byte_offset": 65,
+         "column_one_based": 11,
+         "line_one_based": 5
+        },
+        "start": {
+         "byte_offset": 57,
+         "column_one_based": 3,
+         "line_one_based": 5
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627787",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 70,
+         "column_one_based": 16,
+         "line_one_based": 5
+        },
+        "start": {
+         "byte_offset": 68,
+         "column_one_based": 14,
+         "line_one_based": 5
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627798",
+       "role": "assignment_target",
+       "span": {
+        "end": {
+         "byte_offset": 87,
+         "column_one_based": 11,
+         "line_one_based": 7
+        },
+        "start": {
+         "byte_offset": 79,
+         "column_one_based": 3,
+         "line_one_based": 7
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627796",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 92,
+         "column_one_based": 16,
+         "line_one_based": 7
+        },
+        "start": {
+         "byte_offset": 90,
+         "column_one_based": 14,
+         "line_one_based": 7
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627798",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 111,
+         "column_one_based": 13,
+         "line_one_based": 10
+        },
+        "start": {
+         "byte_offset": 103,
+         "column_one_based": 5,
+         "line_one_based": 10
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627798",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 171,
+         "column_one_based": 18,
+         "line_one_based": 13
+        },
+        "start": {
+         "byte_offset": 163,
+         "column_one_based": 10,
+         "line_one_based": 13
+        }
+       }
+      }
+     ],
+     "contract": "Exact final identifier spans reference stable final binding IDs. Follow a binding's lineage to SSA definitions and their lifted statement PC sets for storage ancestry only; those sets are not precise producer PCs for an individual use. No value, close, purity or source-equality proof is inferred.",
+     "limitations": "Implicit method receiver declarations have no identifier token. Interpolation sub-rendering and display fallbacks are explicit opaque regions. An absent token is not evidence of dead code, inlining or synthesis. An annotation's text is not promoted to a verified source/proof claim.",
+     "limits": {
+      "annotation_text_bytes": 4096,
+      "occurrences": 100000
+     },
+     "model": "final-emission-binding-spans-v1",
+     "omitted_occurrences": 0,
+     "opaque_regions": [],
+     "positions": "Half-open UTF-8 byte offsets; lines and Unicode-scalar columns are one-based; tabs count as one column.",
+     "schema_version": 1
+    },
+    "schema_version": 1,
+    "summary": {
+     "annotation_spans": 0,
+     "bindings_without_identifier_tokens": 0,
+     "conditional_result_records": 1,
+     "definitions": 15,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 2,
+     "identifier_spans": 11,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "omitted_output_occurrences": 0,
+     "opaque_output_regions": 0,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    },
+    "value_provenance": {
+     "bindings": [
+      {
+       "binding_id": "b1099511627784",
+       "classifications": [
+        "output_parameter",
+        "parameter_ancestry"
+       ],
+       "incomplete": false,
+       "source_sites": [],
+       "storage_and_source_identity_distinct": true
+      },
+      {
+       "binding_id": "b1099511627787",
+       "classifications": [
+        "output_parameter",
+        "parameter_ancestry"
+       ],
+       "incomplete": false,
+       "source_sites": [
+        "f1:b1:s0"
+       ],
+       "storage_and_source_identity_distinct": true
+      },
+      {
+       "binding_id": "b1099511627796",
+       "classifications": [
+        "output_parameter",
+        "parameter_ancestry"
+       ],
+       "incomplete": false,
+       "source_sites": [
+        "f1:b2:s0"
+       ],
+       "storage_and_source_identity_distinct": true
+      },
+      {
+       "binding_id": "b1099511627798",
+       "classifications": [
+        "inferred_conditional_result"
+       ],
+       "incomplete": false,
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "storage_and_source_identity_distinct": true
+      }
+     ],
+     "contract": "Input value paths are immutable occurrences before SSA copy propagation. Final spans identify exact emitted syntax. Storage dependencies and retained node tags are separate ancestry relations, never exact producers, evaluation order, lifetime or source spelling. Node clone flags record actual AST copies surviving into output, not duplicated runtime execution; shared storage ancestry alone never proves cloning. Committed inline substitutions mark the installed node. Reductions union parent and child node origins. Newly rebuilt unattributed nodes and detached scalar leaves remain unknown. Explicit reconstruction producers identify synthetic nodes without claiming original call sites. Missing debug data never proves a compiler temporary.",
+     "limits": {
+      "binding_walk": 256,
+      "output_regions": 100000,
+      "sites_per_region": 64,
+      "work": 2000000
+     },
+     "model": "input-value-graph-and-output-regions-v1",
+     "node_input_limit": 16,
+     "omitted_output_regions": 0,
+     "output_regions": [
+      {
+       "bindings": [],
+       "end_byte": 191,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": false,
+        "inputs": [
+         {
+          "function_id": "root:p1",
+          "source_site": "f0:b0:s1",
+          "value_origin": null
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 0
+      },
+      {
+       "bindings": [],
+       "end_byte": 191,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "closure",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": true,
+        "inputs": [
+         {
+          "function_id": "root:p1",
+          "source_site": "f0:b0:s0",
+          "value_origin": 0
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 7
+      },
+      {
+       "bindings": [
+        "b1099511627798"
+       ],
+       "end_byte": 42,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 27
+      },
+      {
+       "bindings": [
+        "b1099511627784"
+       ],
+       "end_byte": 97,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 44
+      },
+      {
+       "bindings": [
+        "b1099511627784"
+       ],
+       "end_byte": 49,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 48
+      },
+      {
+       "bindings": [
+        "b1099511627787",
+        "b1099511627798"
+       ],
+       "end_byte": 70,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 55
+      },
+      {
+       "bindings": [
+        "b1099511627787"
+       ],
+       "end_byte": 70,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0"
+       ],
+       "start_byte": 68
+      },
+      {
+       "bindings": [
+        "b1099511627796",
+        "b1099511627798"
+       ],
+       "end_byte": 92,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 77
+      },
+      {
+       "bindings": [
+        "b1099511627796"
+       ],
+       "end_byte": 92,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b2:s0"
+       ],
+       "start_byte": 90
+      },
+      {
+       "bindings": [
+        "b1099511627798"
+       ],
+       "end_byte": 187,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 99
+      },
+      {
+       "bindings": [
+        "b1099511627798"
+       ],
+       "end_byte": 111,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 103
+      },
+      {
+       "bindings": [
+        "b1099511627798"
+       ],
+       "end_byte": 118,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "binary",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": false,
+        "inputs": [
+         {
+          "function_id": "root:p1/p1@pc1:p0",
+          "source_site": "f1:b3:s1",
+          "value_origin": 4
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 103
+      },
+      {
+       "bindings": [],
+       "end_byte": 118,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "literal",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 115
+      },
+      {
+       "bindings": [],
+       "end_byte": 147,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": false,
+        "inputs": [
+         {
+          "function_id": "root:p1/p1@pc1:p0",
+          "source_site": "f1:b4:s1",
+          "value_origin": null
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 124
+      },
+      {
+       "bindings": [],
+       "end_byte": 136,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "literal",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 133
+      },
+      {
+       "bindings": [],
+       "end_byte": 147,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "literal",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 138
+      },
+      {
+       "bindings": [
+        "b1099511627798"
+       ],
+       "end_byte": 182,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": false,
+        "inputs": [
+         {
+          "function_id": "root:p1/p1@pc1:p0",
+          "source_site": "f1:b5:s1",
+          "value_origin": null
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 154
+      },
+      {
+       "bindings": [
+        "b1099511627798"
+       ],
+       "end_byte": 171,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 163
+      },
+      {
+       "bindings": [],
+       "end_byte": 182,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "literal",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 173
+      }
+     ],
+     "pass_contracts": [
+      {
+       "pass": "lifting_and_ssa_construction",
+       "policy": "seed immutable statement/value occurrences and register/debug intervals before positional keys expire",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "ssa_copy_propagation",
+       "policy": "preserve node tags; union binding ancestry; retain distinct source identities",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "ssa_inline",
+       "policy": "mark only installed value as inlined; record numeric producer/consumer events; reductions union parent/child ancestry",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "ssa_phi_destruction",
+       "policy": "preserve operand tags; record parameter and edge transport maps; fresh transfer statements have no invented input origin",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "ssa_close_and_upvalue_maps",
+       "policy": "diagnostic ancestry may union; close certificates independently intersect; names never transfer ownership",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "structuring_and_fallback",
+       "policy": "moved values retain tags; actual AST copies mark cloned; fresh control syntax remains unknown unless explicitly attributed",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "deep_clone",
+       "policy": "copy occurrence ancestry and mark AST copying; discarded speculative copies leave no output record",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "reduce_and_reduce_condition",
+       "policy": "union retained parent/child origins up to budget; detached scalar leaves invalidate occurrence identity",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "factor_common_tails",
+       "policy": "retained representatives keep their tags; deleted alternatives are not invented as equivalent input producers",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "statement_expression_arithmetic_deinline",
+       "policy": "explicit call construction records synthesis producer; preserved/copied arguments keep their own input ancestry",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "synthesize_terminal_helpers",
+       "policy": "explicit reconstructed calls have synthesis origin; new helper bodies do not inherit caller-PC claims",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "inline_temps_and_ui_reconstruction",
+       "policy": "installed root records inline; moved child nodes retain tags; reconstructed containers without tags remain unknown",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "coalesce_locals_and_copy_cleanup",
+       "policy": "preserve syntax tags and union storage ancestry; source-binding compatibility remains a separate gate",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "conditional_expressions_and_table_rebuild",
+       "policy": "retained child tags survive; newly assembled parent syntax has no fabricated input identity",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "recover_methods_and_rehoist_constants",
+       "policy": "retained operands keep ancestry; new wrappers start unknown; names do not create origin links",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "materialize_value_captures_and_call_receivers",
+       "policy": "fresh declarations start unknown; copied values retain tags; existing capture/evaluation gates remain authoritative",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "eliminate_nil_and_recover_connection",
+       "policy": "deleted nodes disappear; retained nodes keep ancestry; replacement locals receive no proof from names",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "rebalance_and_cleanup_final",
+       "policy": "moves/copies preserve ancestry; new expression structure is unknown; no structural similarity becomes origin proof",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "canonicalize_and_normalize_conditions",
+       "policy": "retained children keep ancestry; replaced polarity/operator roots require merge or remain unknown",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "guard_continue_cleanup_returns_flatten_guards",
+       "policy": "retained/moved nodes keep ancestry; fresh control flow remains unknown; eliminated paths are not emitted",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "branch_constructors_and_lower_conditionals",
+       "policy": "fresh locals require committed producer ledger; retained/copied values carry ancestry; no inherited ownership certificate",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "name_locals_and_refine_names",
+       "policy": "source identities and node origins are independent of spelling; storage splits retain only explicitly copied ancestry",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "formatter",
+       "policy": "record actual emitted spans; metadata snapshots never mark cloning; previews add no occurrences; opaque or unattributed regions stay unknown",
+       "transfers_effect_or_lifetime_proof": false
+      }
+     ],
+     "schema_version": 1,
+     "source_sites": {
+      "f0:b0:s0": {
+       "block": 0,
+       "function_id": "root:p1",
+       "instruction_pcs": [
+        1
+       ],
+       "instruction_role": "assignment",
+       "prototype": 1,
+       "source_lines": [
+        1
+       ],
+       "statement_index": 0
+      },
+      "f0:b0:s1": {
+       "block": 0,
+       "function_id": "root:p1",
+       "instruction_pcs": [
+        2
+       ],
+       "instruction_role": "return",
+       "prototype": 1,
+       "source_lines": [
+        1
+       ],
+       "statement_index": 1
+      },
+      "f1:b0:s0": {
+       "block": 0,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        0
+       ],
+       "instruction_role": "branch",
+       "prototype": 0,
+       "source_lines": [
+        2
+       ],
+       "statement_index": 0
+      },
+      "f1:b1:s0": {
+       "block": 1,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        1
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        2
+       ],
+       "statement_index": 0
+      },
+      "f1:b2:s0": {
+       "block": 2,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        3
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        2
+       ],
+       "statement_index": 0
+      },
+      "f1:b3:s0": {
+       "block": 3,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        4
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 0
+      },
+      "f1:b3:s1": {
+       "block": 3,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        5
+       ],
+       "instruction_role": "branch",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 1
+      },
+      "f1:b4:s0": {
+       "block": 4,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        7
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 0
+      },
+      "f1:b4:s1": {
+       "block": 4,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        8
+       ],
+       "instruction_role": "return",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 1
+      },
+      "f1:b5:s0": {
+       "block": 5,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        9
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 0
+      },
+      "f1:b5:s1": {
+       "block": 5,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        10
+       ],
+       "instruction_role": "return",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 1
+      }
+     },
+     "visited_dependencies": 21,
+     "work_exhausted": false
+    }
+   }
+  },
+  {
+   "profile": "conditional_O2_g2",
+   "before": "return function(condition, primary, fallback)\n\tlocal selected\n\n\tif condition then\n\t\tselected = primary\n\telse\n\t\tselected = fallback\n\tend\n\n\tif selected == nil then\n\t\treturn nil, \"missing\"\n\telse\n\t\treturn selected, \"present\"\n\tend\nend\n",
+   "after": "return function(condition, primary, fallback)\n\tlocal selected\n\n\tif condition then\n\t\tselected = primary\n\telse\n\t\tselected = fallback\n\tend\n\n\tif selected == nil then\n\t\treturn nil, \"missing\"\n\telse\n\t\treturn selected, \"present\"\n\tend\nend\n",
+   "trace": {
+    "call_reconstruction": {
+     "callees_limit": 50000,
+     "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+     "event_limit": 4096,
+     "events": [],
+     "model": "committed-call-reconstruction-events-v2",
+     "occurrence_limit": 100000,
+     "occurrences": [],
+     "omitted_callee_registrations": 0,
+     "omitted_events": 0,
+     "omitted_occurrences": 0,
+     "schema_version": 2,
+     "search_hints": {
+      "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+      "pc_limit": 200000,
+      "region_limit": 8192,
+      "regions": [],
+      "truncated": false
+     }
+    },
+    "contract": "Diagnostic ancestry only. Storage coalescing is not value/source-binding equality. No close, ownership, purity or totality certificate is created or transferred by this trace.",
+    "final_bindings": [
+     {
+      "binding_id": "b1099511627784",
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "lineage": [
+       "b1",
+       "b1099511627783",
+       "b1099511627784"
+      ],
+      "name": "condition",
+      "recorded_source_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 0,
+        "start_pc": 0
+       }
+      ],
+      "unknown_origins": []
+     },
+     {
+      "binding_id": "b1099511627787",
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "lineage": [
+       "b2",
+       "b1099511627785",
+       "b1099511627786",
+       "b1099511627787"
+      ],
+      "name": "primary",
+      "recorded_source_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 1,
+        "start_pc": 0
+       }
+      ],
+      "unknown_origins": []
+     },
+     {
+      "binding_id": "b1099511627795",
+      "has_conditional_result_ancestry": true,
+      "incomplete": false,
+      "lineage": [
+       "b1099511627788",
+       "b1099511627789",
+       "b1099511627791",
+       "b1099511627793",
+       "b1099511627795"
+      ],
+      "name": "selected",
+      "recorded_source_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 3,
+        "start_pc": 4
+       }
+      ],
+      "unknown_origins": []
+     },
+     {
+      "binding_id": "b1099511627796",
+      "has_conditional_result_ancestry": false,
+      "incomplete": false,
+      "lineage": [
+       "b3",
+       "b1099511627794",
+       "b1099511627796"
+      ],
+      "name": "fallback",
+      "recorded_source_origins": [
+       {
+        "end_pc": 11,
+        "kind": "debug_local",
+        "prototype": 0,
+        "register": 2,
+        "start_pc": 0
+       }
+      ],
+      "unknown_origins": []
+     }
+    ],
+    "functions": [
+     {
+      "conditional_results": [],
+      "definitions": [
+       {
+        "block": 0,
+        "dependencies": [],
+        "final_bindings": [],
+        "id": "b7",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b0",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "no_final_binding_mapping",
+        "write_index": 0
+       }
+      ],
+      "dropped_records": 0,
+      "function_id": "root:p1",
+      "inline_events": [
+       {
+        "consumer_bindings": [],
+        "exact_final_value_mapping": false,
+        "phase": "ssa_inline",
+        "producer": "b7",
+        "site_kind": "statement"
+       }
+      ],
+      "instruction_count": 3,
+      "lifted_statements": [
+       {
+        "block": 0,
+        "instruction_pcs": [
+         1
+        ],
+        "kind": "assignment",
+        "read_registers": [],
+        "source_lines": [
+         1
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b0"
+        ]
+       },
+       {
+        "block": 0,
+        "instruction_pcs": [
+         2
+        ],
+        "kind": "return",
+        "read_registers": [
+         "b0"
+        ],
+        "source_lines": [
+         1
+        ],
+        "statement_index": 1,
+        "written_registers": []
+       }
+      ],
+      "local_maps": [],
+      "post_destruct_bindings": [],
+      "pre_destruct_bindings": [],
+      "prototype": 1,
+      "registers": [
+       {
+        "final_bindings": [],
+        "id": "b0",
+        "kind": "register",
+        "slot": 0,
+        "source_bindings": []
+       }
+      ],
+      "value_origins": [
+       {
+        "binding_id": null,
+        "block": 0,
+        "children": [],
+        "id": 0,
+        "kind": "closure",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b7",
+        "block": 0,
+        "children": [],
+        "id": 1,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       }
+      ]
+     },
+     {
+      "conditional_results": [
+       {
+        "binding_id": "b1099511627788",
+        "branch": 0,
+        "condition_bindings": [
+         "b1099511627783"
+        ],
+        "else_predecessor": 2,
+        "else_value": "b1099511627795",
+        "final_bindings": [
+         "b1099511627795"
+        ],
+        "join": 3,
+        "phase": "constructed_ssa",
+        "proof": "two_arm_private_block_join",
+        "then_predecessor": 1,
+        "then_value": "b1099511627786"
+       },
+       {
+        "binding_id": "b1099511627788",
+        "branch": 6,
+        "condition_bindings": [
+         "b1099511627784"
+        ],
+        "else_predecessor": 2,
+        "else_value": "b1099511627795",
+        "final_bindings": [
+         "b1099511627795"
+        ],
+        "join": 3,
+        "phase": "pre_destruct",
+        "proof": "two_arm_private_block_join",
+        "then_predecessor": 6,
+        "then_value": "b1099511627787"
+       }
+      ],
+      "definitions": [
+       {
+        "block": 0,
+        "dependencies": [
+         "b1099511627784"
+        ],
+        "final_bindings": [
+         "b1099511627784"
+        ],
+        "id": "b1099511627783",
+        "kind": "ssa_block_parameter",
+        "original_register": "b1",
+        "source_bindings": [
+         {
+          "name": "condition",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 0,
+           "start_pc": 0
+          }
+         }
+        ],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 6,
+        "dependencies": [],
+        "final_bindings": [
+         "b1099511627784"
+        ],
+        "id": "b1099511627784",
+        "kind": "ssa_block_parameter",
+        "original_register": "b1",
+        "source_bindings": [
+         {
+          "name": "condition",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 0,
+           "start_pc": 0
+          }
+         }
+        ],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 1,
+        "dependencies": [
+         "b1099511627787"
+        ],
+        "final_bindings": [
+         "b1099511627787"
+        ],
+        "id": "b1099511627785",
+        "kind": "ssa_block_parameter",
+        "original_register": "b2",
+        "source_bindings": [
+         {
+          "name": "primary",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 1,
+           "start_pc": 0
+          }
+         }
+        ],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 1,
+        "dependencies": [
+         "b1099511627785"
+        ],
+        "final_bindings": [
+         "b1099511627787"
+        ],
+        "id": "b1099511627786",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b6",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "mapped_storage_ancestry",
+        "write_index": 0
+       },
+       {
+        "block": 6,
+        "dependencies": [],
+        "final_bindings": [
+         "b1099511627787"
+        ],
+        "id": "b1099511627787",
+        "kind": "ssa_block_parameter",
+        "original_register": "b2",
+        "source_bindings": [
+         {
+          "name": "primary",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 1,
+           "start_pc": 0
+          }
+         }
+        ],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 3,
+        "dependencies": [
+         "b1099511627786",
+         "b1099511627795"
+        ],
+        "final_bindings": [
+         "b1099511627795"
+        ],
+        "id": "b1099511627788",
+        "kind": "ssa_block_parameter",
+        "original_register": "b6",
+        "source_bindings": [
+         {
+          "name": "selected",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 3,
+           "start_pc": 4
+          }
+         }
+        ],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 3,
+        "dependencies": [
+         "b1099511627788"
+        ],
+        "final_bindings": [
+         "b1099511627795"
+        ],
+        "id": "b1099511627789",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b5",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "mapped_storage_ancestry",
+        "write_index": 0
+       },
+       {
+        "block": 5,
+        "dependencies": [],
+        "final_bindings": [],
+        "id": "b1099511627790",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b4",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "no_final_binding_mapping",
+        "write_index": 0
+       },
+       {
+        "block": 5,
+        "dependencies": [
+         "b1099511627789"
+        ],
+        "final_bindings": [
+         "b1099511627795"
+        ],
+        "id": "b1099511627791",
+        "kind": "ssa_block_parameter",
+        "original_register": "b5",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 4,
+        "dependencies": [],
+        "final_bindings": [],
+        "id": "b1099511627792",
+        "kind": "unclassified_ssa_definition",
+        "original_register": "b4",
+        "source_bindings": [],
+        "statement_index": 0,
+        "status": "no_final_binding_mapping",
+        "write_index": 0
+       },
+       {
+        "block": 4,
+        "dependencies": [
+         "b1099511627789"
+        ],
+        "final_bindings": [
+         "b1099511627795"
+        ],
+        "id": "b1099511627793",
+        "kind": "ssa_block_parameter",
+        "original_register": "b5",
+        "source_bindings": [],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 2,
+        "dependencies": [
+         "b1099511627796"
+        ],
+        "final_bindings": [
+         "b1099511627796"
+        ],
+        "id": "b1099511627794",
+        "kind": "ssa_block_parameter",
+        "original_register": "b3",
+        "source_bindings": [
+         {
+          "name": "fallback",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 2,
+           "start_pc": 0
+          }
+         }
+        ],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       },
+       {
+        "block": 2,
+        "dependencies": [
+         "b1099511627794"
+        ],
+        "final_bindings": [
+         "b1099511627795"
+        ],
+        "id": "b1099511627795",
+        "kind": "recorded_source_definition",
+        "original_register": "b6",
+        "source_bindings": [
+         {
+          "name": "selected",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 3,
+           "start_pc": 4
+          }
+         }
+        ],
+        "statement_index": 0,
+        "status": "mapped_storage_ancestry",
+        "write_index": 0
+       },
+       {
+        "block": 6,
+        "dependencies": [],
+        "final_bindings": [
+         "b1099511627796"
+        ],
+        "id": "b1099511627796",
+        "kind": "ssa_block_parameter",
+        "original_register": "b3",
+        "source_bindings": [
+         {
+          "name": "fallback",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 2,
+           "start_pc": 0
+          }
+         }
+        ],
+        "statement_index": null,
+        "status": "mapped_storage_ancestry",
+        "write_index": null
+       }
+      ],
+      "dropped_records": 0,
+      "function_id": "root:p1/p1@pc1:p0",
+      "inline_events": [
+       {
+        "consumer_bindings": [],
+        "exact_final_value_mapping": false,
+        "phase": "ssa_inline",
+        "producer": "b1099511627792",
+        "site_kind": "statement"
+       },
+       {
+        "consumer_bindings": [],
+        "exact_final_value_mapping": false,
+        "phase": "ssa_inline",
+        "producer": "b1099511627790",
+        "site_kind": "statement"
+       }
+      ],
+      "instruction_count": 11,
+      "lifted_statements": [
+       {
+        "block": 0,
+        "instruction_pcs": [
+         0
+        ],
+        "kind": "branch",
+        "read_registers": [
+         "b1"
+        ],
+        "source_lines": [
+         2
+        ],
+        "statement_index": 0,
+        "written_registers": []
+       },
+       {
+        "block": 1,
+        "instruction_pcs": [
+         1
+        ],
+        "kind": "assignment",
+        "read_registers": [
+         "b2"
+        ],
+        "source_lines": [
+         2
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b6"
+        ]
+       },
+       {
+        "block": 2,
+        "instruction_pcs": [
+         3
+        ],
+        "kind": "assignment",
+        "read_registers": [
+         "b3"
+        ],
+        "source_lines": [
+         2
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b6"
+        ]
+       },
+       {
+        "block": 3,
+        "instruction_pcs": [
+         4
+        ],
+        "kind": "assignment",
+        "read_registers": [
+         "b6"
+        ],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b5"
+        ]
+       },
+       {
+        "block": 3,
+        "instruction_pcs": [
+         5
+        ],
+        "kind": "branch",
+        "read_registers": [
+         "b6"
+        ],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 1,
+        "written_registers": []
+       },
+       {
+        "block": 4,
+        "instruction_pcs": [
+         7
+        ],
+        "kind": "assignment",
+        "read_registers": [],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b4"
+        ]
+       },
+       {
+        "block": 4,
+        "instruction_pcs": [
+         8
+        ],
+        "kind": "return",
+        "read_registers": [
+         "b5",
+         "b4"
+        ],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 1,
+        "written_registers": []
+       },
+       {
+        "block": 5,
+        "instruction_pcs": [
+         9
+        ],
+        "kind": "assignment",
+        "read_registers": [],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 0,
+        "written_registers": [
+         "b4"
+        ]
+       },
+       {
+        "block": 5,
+        "instruction_pcs": [
+         10
+        ],
+        "kind": "return",
+        "read_registers": [
+         "b5",
+         "b4"
+        ],
+        "source_lines": [
+         3
+        ],
+        "statement_index": 1,
+        "written_registers": []
+       }
+      ],
+      "local_maps": [
+       {
+        "from": "b1099511627786",
+        "phase": "ssa_construction",
+        "to": "b1099511627785"
+       },
+       {
+        "from": "b1099511627789",
+        "phase": "ssa_construction",
+        "to": "b1099511627788"
+       },
+       {
+        "from": "b1099511627783",
+        "phase": "ssa_construction",
+        "to": "b1099511627784"
+       },
+       {
+        "from": "b1099511627785",
+        "phase": "ssa_construction",
+        "to": "b1099511627787"
+       },
+       {
+        "from": "b1099511627791",
+        "phase": "ssa_construction",
+        "to": "b1099511627788"
+       },
+       {
+        "from": "b1099511627793",
+        "phase": "ssa_construction",
+        "to": "b1099511627788"
+       },
+       {
+        "from": "b1099511627794",
+        "phase": "ssa_construction",
+        "to": "b1099511627796"
+       },
+       {
+        "from": "b1099511627788",
+        "phase": "phi_parameter_transport",
+        "to": "b1099511627797"
+       },
+       {
+        "from": "b1099511627788",
+        "phase": "phi_edge_transport",
+        "to": "b1099511627798"
+       },
+       {
+        "from": "b1099511627787",
+        "phase": "phi_edge_transport",
+        "to": "b1099511627798"
+       },
+       {
+        "from": "b1099511627788",
+        "phase": "phi_edge_transport",
+        "to": "b1099511627799"
+       },
+       {
+        "from": "b1099511627795",
+        "phase": "phi_edge_transport",
+        "to": "b1099511627799"
+       },
+       {
+        "from": "b1099511627788",
+        "phase": "ssa_destruction",
+        "to": "b1099511627795"
+       },
+       {
+        "from": "b1099511627797",
+        "phase": "ssa_destruction",
+        "to": "b1099511627795"
+       },
+       {
+        "from": "b1099511627798",
+        "phase": "ssa_destruction",
+        "to": "b1099511627795"
+       },
+       {
+        "from": "b1099511627799",
+        "phase": "ssa_destruction",
+        "to": "b1099511627795"
+       }
+      ],
+      "post_destruct_bindings": [
+       "b1099511627784",
+       "b1099511627787",
+       "b1099511627795",
+       "b1099511627796"
+      ],
+      "pre_destruct_bindings": [
+       "b1099511627784",
+       "b1099511627787",
+       "b1099511627788",
+       "b1099511627795",
+       "b1099511627796"
+      ],
+      "prototype": 0,
+      "registers": [
+       {
+        "final_bindings": [
+         "b1099511627784"
+        ],
+        "id": "b1",
+        "kind": "parameter",
+        "slot": 0,
+        "source_bindings": [
+         {
+          "name": "condition",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 0,
+           "start_pc": 0
+          }
+         }
+        ]
+       },
+       {
+        "final_bindings": [
+         "b1099511627787"
+        ],
+        "id": "b2",
+        "kind": "parameter",
+        "slot": 1,
+        "source_bindings": [
+         {
+          "name": "primary",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 1,
+           "start_pc": 0
+          }
+         }
+        ]
+       },
+       {
+        "final_bindings": [
+         "b1099511627796"
+        ],
+        "id": "b3",
+        "kind": "parameter",
+        "slot": 2,
+        "source_bindings": [
+         {
+          "name": "fallback",
+          "origin": {
+           "end_pc": 11,
+           "kind": "debug_local",
+           "prototype": 0,
+           "register": 2,
+           "start_pc": 0
+          }
+         }
+        ]
+       },
+       {
+        "final_bindings": [],
+        "id": "b4",
+        "kind": "register",
+        "slot": 5,
+        "source_bindings": []
+       },
+       {
+        "final_bindings": [],
+        "id": "b5",
+        "kind": "register",
+        "slot": 4,
+        "source_bindings": []
+       },
+       {
+        "final_bindings": [],
+        "id": "b6",
+        "kind": "register",
+        "slot": 3,
+        "source_bindings": []
+       }
+      ],
+      "value_origins": [
+       {
+        "binding_id": "b1099511627783",
+        "block": 0,
+        "children": [],
+        "id": 0,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627785",
+        "block": 1,
+        "children": [],
+        "id": 1,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627794",
+        "block": 2,
+        "children": [],
+        "id": 2,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627788",
+        "block": 3,
+        "children": [],
+        "id": 3,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": null,
+        "block": 3,
+        "children": [
+         5,
+         6
+        ],
+        "id": 4,
+        "kind": "binary",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": "b1099511627788",
+        "block": 3,
+        "children": [],
+        "id": 5,
+        "kind": "local",
+        "path": [
+         1,
+         0,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": null,
+        "block": 3,
+        "children": [],
+        "id": 6,
+        "kind": "literal",
+        "path": [
+         1,
+         0,
+         1
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": null,
+        "block": 4,
+        "children": [],
+        "id": 7,
+        "kind": "literal",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627793",
+        "block": 4,
+        "children": [],
+        "id": 8,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": "b1099511627792",
+        "block": 4,
+        "children": [],
+        "id": 9,
+        "kind": "local",
+        "path": [
+         1,
+         1
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": null,
+        "block": 5,
+        "children": [],
+        "id": 10,
+        "kind": "literal",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 0
+       },
+       {
+        "binding_id": "b1099511627791",
+        "block": 5,
+        "children": [],
+        "id": 11,
+        "kind": "local",
+        "path": [
+         1,
+         0
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       },
+       {
+        "binding_id": "b1099511627790",
+        "block": 5,
+        "children": [],
+        "id": 12,
+        "kind": "local",
+        "path": [
+         1,
+         1
+        ],
+        "relation": "initial_ssa_value_in_instruction_cluster",
+        "statement_index": 1
+       }
+      ]
+     }
+    ],
+    "limitations": "Exact final value identity is invalidated by uninstrumented rewrites. Input nested values and committed SSA inline events remain recorded; output regions carry bounded dependency ancestry or explicit unknown. No ancestry is an effect, source-identity, capture or lifetime proof.",
+    "limits": {
+     "ancestry_per_binding": 256,
+     "records_per_function": 50000
+    },
+    "local_producers": {
+     "contract": "Explicit committed introductions keyed by final storage identity and linked to exact emitted identifier spans. Input instruction/value ancestry remains unknown unless separately recorded. No source/debug, SSA, close, ownership or effect evidence is copied to these locals. Missing records, including budget omissions and uninstrumented passes, never prove an input local or compiler temporary.",
+     "model": "committed-emitter-local-introductions-v1",
+     "omitted_records": 0,
+     "passes": [
+      {
+       "introduced_locals": 0,
+       "omitted_records": 0,
+       "pass": "branch_constructors",
+       "records": [],
+       "rewrite_model": "luau-v9-private-property-diamond-v2"
+      },
+      {
+       "introduced_locals": 0,
+       "omitted_records": 0,
+       "pass": "conditional_lowering",
+       "records": [],
+       "rewrite_model": "luau-v9-scalar-select-statements-v1"
+      }
+     ],
+     "recorded_introductions": 0,
+     "records_per_pass": 4096,
+     "schema_version": 1
+    },
+    "model": "ssa-storage-lineage-v1",
+    "origin_granularity": "input instruction clusters per lifted statement and SSA definition write slot; exact final identifier spans link to binding storage ancestry, not nested value producer PCs",
+    "output_map": {
+     "annotations": [],
+     "bindings": [
+      {
+       "binding_id": "b1099511627784",
+       "role": "parameter",
+       "span": {
+        "end": {
+         "byte_offset": 25,
+         "column_one_based": 26,
+         "line_one_based": 1
+        },
+        "start": {
+         "byte_offset": 16,
+         "column_one_based": 17,
+         "line_one_based": 1
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627787",
+       "role": "parameter",
+       "span": {
+        "end": {
+         "byte_offset": 34,
+         "column_one_based": 35,
+         "line_one_based": 1
+        },
+        "start": {
+         "byte_offset": 27,
+         "column_one_based": 28,
+         "line_one_based": 1
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627796",
+       "role": "parameter",
+       "span": {
+        "end": {
+         "byte_offset": 44,
+         "column_one_based": 45,
+         "line_one_based": 1
+        },
+        "start": {
+         "byte_offset": 36,
+         "column_one_based": 37,
+         "line_one_based": 1
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627795",
+       "role": "declaration",
+       "span": {
+        "end": {
+         "byte_offset": 61,
+         "column_one_based": 16,
+         "line_one_based": 2
+        },
+        "start": {
+         "byte_offset": 53,
+         "column_one_based": 8,
+         "line_one_based": 2
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627784",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 76,
+         "column_one_based": 14,
+         "line_one_based": 4
+        },
+        "start": {
+         "byte_offset": 67,
+         "column_one_based": 5,
+         "line_one_based": 4
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627795",
+       "role": "assignment_target",
+       "span": {
+        "end": {
+         "byte_offset": 92,
+         "column_one_based": 11,
+         "line_one_based": 5
+        },
+        "start": {
+         "byte_offset": 84,
+         "column_one_based": 3,
+         "line_one_based": 5
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627787",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 102,
+         "column_one_based": 21,
+         "line_one_based": 5
+        },
+        "start": {
+         "byte_offset": 95,
+         "column_one_based": 14,
+         "line_one_based": 5
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627795",
+       "role": "assignment_target",
+       "span": {
+        "end": {
+         "byte_offset": 119,
+         "column_one_based": 11,
+         "line_one_based": 7
+        },
+        "start": {
+         "byte_offset": 111,
+         "column_one_based": 3,
+         "line_one_based": 7
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627796",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 130,
+         "column_one_based": 22,
+         "line_one_based": 7
+        },
+        "start": {
+         "byte_offset": 122,
+         "column_one_based": 14,
+         "line_one_based": 7
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627795",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 149,
+         "column_one_based": 13,
+         "line_one_based": 10
+        },
+        "start": {
+         "byte_offset": 141,
+         "column_one_based": 5,
+         "line_one_based": 10
+        }
+       }
+      },
+      {
+       "binding_id": "b1099511627795",
+       "role": "read",
+       "span": {
+        "end": {
+         "byte_offset": 209,
+         "column_one_based": 18,
+         "line_one_based": 13
+        },
+        "start": {
+         "byte_offset": 201,
+         "column_one_based": 10,
+         "line_one_based": 13
+        }
+       }
+      }
+     ],
+     "contract": "Exact final identifier spans reference stable final binding IDs. Follow a binding's lineage to SSA definitions and their lifted statement PC sets for storage ancestry only; those sets are not precise producer PCs for an individual use. No value, close, purity or source-equality proof is inferred.",
+     "limitations": "Implicit method receiver declarations have no identifier token. Interpolation sub-rendering and display fallbacks are explicit opaque regions. An absent token is not evidence of dead code, inlining or synthesis. An annotation's text is not promoted to a verified source/proof claim.",
+     "limits": {
+      "annotation_text_bytes": 4096,
+      "occurrences": 100000
+     },
+     "model": "final-emission-binding-spans-v1",
+     "omitted_occurrences": 0,
+     "opaque_regions": [],
+     "positions": "Half-open UTF-8 byte offsets; lines and Unicode-scalar columns are one-based; tabs count as one column.",
+     "schema_version": 1
+    },
+    "schema_version": 1,
+    "summary": {
+     "annotation_spans": 0,
+     "bindings_without_identifier_tokens": 0,
+     "conditional_result_records": 2,
+     "definitions": 15,
+     "definitions_with_final_binding_ancestry": 12,
+     "dropped_records": 0,
+     "final_bindings": 4,
+     "functions": 2,
+     "identifier_spans": 11,
+     "incomplete_lineages": 0,
+     "lifted_statements": 11,
+     "omitted_output_occurrences": 0,
+     "opaque_output_regions": 0,
+     "statements_with_pc": 11,
+     "unlocated_final_bindings": 0
+    },
+    "value_provenance": {
+     "bindings": [
+      {
+       "binding_id": "b1099511627784",
+       "classifications": [
+        "output_parameter",
+        "recorded_source_local",
+        "parameter_ancestry"
+       ],
+       "incomplete": false,
+       "source_sites": [],
+       "storage_and_source_identity_distinct": true
+      },
+      {
+       "binding_id": "b1099511627787",
+       "classifications": [
+        "output_parameter",
+        "recorded_source_local",
+        "parameter_ancestry"
+       ],
+       "incomplete": false,
+       "source_sites": [
+        "f1:b1:s0"
+       ],
+       "storage_and_source_identity_distinct": true
+      },
+      {
+       "binding_id": "b1099511627795",
+       "classifications": [
+        "recorded_source_local"
+       ],
+       "incomplete": false,
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "storage_and_source_identity_distinct": true
+      },
+      {
+       "binding_id": "b1099511627796",
+       "classifications": [
+        "output_parameter",
+        "recorded_source_local",
+        "parameter_ancestry"
+       ],
+       "incomplete": false,
+       "source_sites": [],
+       "storage_and_source_identity_distinct": true
+      }
+     ],
+     "contract": "Input value paths are immutable occurrences before SSA copy propagation. Final spans identify exact emitted syntax. Storage dependencies and retained node tags are separate ancestry relations, never exact producers, evaluation order, lifetime or source spelling. Node clone flags record actual AST copies surviving into output, not duplicated runtime execution; shared storage ancestry alone never proves cloning. Committed inline substitutions mark the installed node. Reductions union parent and child node origins. Newly rebuilt unattributed nodes and detached scalar leaves remain unknown. Explicit reconstruction producers identify synthetic nodes without claiming original call sites. Missing debug data never proves a compiler temporary.",
+     "limits": {
+      "binding_walk": 256,
+      "output_regions": 100000,
+      "sites_per_region": 64,
+      "work": 2000000
+     },
+     "model": "input-value-graph-and-output-regions-v1",
+     "node_input_limit": 16,
+     "omitted_output_regions": 0,
+     "output_regions": [
+      {
+       "bindings": [],
+       "end_byte": 229,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": false,
+        "inputs": [
+         {
+          "function_id": "root:p1",
+          "source_site": "f0:b0:s1",
+          "value_origin": null
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 0
+      },
+      {
+       "bindings": [],
+       "end_byte": 229,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "closure",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": true,
+        "inputs": [
+         {
+          "function_id": "root:p1",
+          "source_site": "f0:b0:s0",
+          "value_origin": 0
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 7
+      },
+      {
+       "bindings": [
+        "b1099511627795"
+       ],
+       "end_byte": 61,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 46
+      },
+      {
+       "bindings": [
+        "b1099511627784"
+       ],
+       "end_byte": 135,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 63
+      },
+      {
+       "bindings": [
+        "b1099511627784"
+       ],
+       "end_byte": 76,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 67
+      },
+      {
+       "bindings": [
+        "b1099511627787",
+        "b1099511627795"
+       ],
+       "end_byte": 102,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 82
+      },
+      {
+       "bindings": [
+        "b1099511627787"
+       ],
+       "end_byte": 102,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0"
+       ],
+       "start_byte": 95
+      },
+      {
+       "bindings": [
+        "b1099511627795",
+        "b1099511627796"
+       ],
+       "end_byte": 130,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": false,
+        "inputs": [
+         {
+          "function_id": "root:p1/p1@pc1:p0",
+          "source_site": "f1:b2:s0",
+          "value_origin": null
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 109
+      },
+      {
+       "bindings": [
+        "b1099511627796"
+       ],
+       "end_byte": 130,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 122
+      },
+      {
+       "bindings": [
+        "b1099511627795"
+       ],
+       "end_byte": 225,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 137
+      },
+      {
+       "bindings": [
+        "b1099511627795"
+       ],
+       "end_byte": 149,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 141
+      },
+      {
+       "bindings": [
+        "b1099511627795"
+       ],
+       "end_byte": 156,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "binary",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": false,
+        "inputs": [
+         {
+          "function_id": "root:p1/p1@pc1:p0",
+          "source_site": "f1:b3:s1",
+          "value_origin": 4
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 141
+      },
+      {
+       "bindings": [],
+       "end_byte": 156,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "literal",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 153
+      },
+      {
+       "bindings": [],
+       "end_byte": 185,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": false,
+        "inputs": [
+         {
+          "function_id": "root:p1/p1@pc1:p0",
+          "source_site": "f1:b4:s1",
+          "value_origin": null
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 162
+      },
+      {
+       "bindings": [],
+       "end_byte": 174,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "literal",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 171
+      },
+      {
+       "bindings": [],
+       "end_byte": 185,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "literal",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 176
+      },
+      {
+       "bindings": [
+        "b1099511627795"
+       ],
+       "end_byte": 220,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "statement",
+       "node_ancestry": {
+        "cloned": true,
+        "exact_value_producer": false,
+        "incomplete": false,
+        "inlined": false,
+        "inputs": [
+         {
+          "function_id": "root:p1/p1@pc1:p0",
+          "source_site": "f1:b5:s1",
+          "value_origin": null
+         }
+        ],
+        "relation": "retained_node_ancestry",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 192
+      },
+      {
+       "bindings": [
+        "b1099511627795"
+       ],
+       "end_byte": 209,
+       "exact_value_producer": false,
+       "incomplete": false,
+       "kind": "local",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "storage_dependency_ancestry",
+       "source_sites": [
+        "f1:b1:s0",
+        "f1:b2:s0",
+        "f1:b3:s0"
+       ],
+       "start_byte": 201
+      },
+      {
+       "bindings": [],
+       "end_byte": 220,
+       "exact_value_producer": false,
+       "incomplete": true,
+       "kind": "literal",
+       "node_ancestry": {
+        "cloned": false,
+        "exact_value_producer": false,
+        "incomplete": true,
+        "inlined": false,
+        "inputs": [],
+        "relation": "unknown",
+        "synthesized_by": null
+       },
+       "relation": "unknown",
+       "source_sites": [],
+       "start_byte": 211
+      }
+     ],
+     "pass_contracts": [
+      {
+       "pass": "lifting_and_ssa_construction",
+       "policy": "seed immutable statement/value occurrences and register/debug intervals before positional keys expire",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "ssa_copy_propagation",
+       "policy": "preserve node tags; union binding ancestry; retain distinct source identities",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "ssa_inline",
+       "policy": "mark only installed value as inlined; record numeric producer/consumer events; reductions union parent/child ancestry",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "ssa_phi_destruction",
+       "policy": "preserve operand tags; record parameter and edge transport maps; fresh transfer statements have no invented input origin",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "ssa_close_and_upvalue_maps",
+       "policy": "diagnostic ancestry may union; close certificates independently intersect; names never transfer ownership",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "structuring_and_fallback",
+       "policy": "moved values retain tags; actual AST copies mark cloned; fresh control syntax remains unknown unless explicitly attributed",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "deep_clone",
+       "policy": "copy occurrence ancestry and mark AST copying; discarded speculative copies leave no output record",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "reduce_and_reduce_condition",
+       "policy": "union retained parent/child origins up to budget; detached scalar leaves invalidate occurrence identity",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "factor_common_tails",
+       "policy": "retained representatives keep their tags; deleted alternatives are not invented as equivalent input producers",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "statement_expression_arithmetic_deinline",
+       "policy": "explicit call construction records synthesis producer; preserved/copied arguments keep their own input ancestry",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "synthesize_terminal_helpers",
+       "policy": "explicit reconstructed calls have synthesis origin; new helper bodies do not inherit caller-PC claims",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "inline_temps_and_ui_reconstruction",
+       "policy": "installed root records inline; moved child nodes retain tags; reconstructed containers without tags remain unknown",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "coalesce_locals_and_copy_cleanup",
+       "policy": "preserve syntax tags and union storage ancestry; source-binding compatibility remains a separate gate",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "conditional_expressions_and_table_rebuild",
+       "policy": "retained child tags survive; newly assembled parent syntax has no fabricated input identity",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "recover_methods_and_rehoist_constants",
+       "policy": "retained operands keep ancestry; new wrappers start unknown; names do not create origin links",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "materialize_value_captures_and_call_receivers",
+       "policy": "fresh declarations start unknown; copied values retain tags; existing capture/evaluation gates remain authoritative",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "eliminate_nil_and_recover_connection",
+       "policy": "deleted nodes disappear; retained nodes keep ancestry; replacement locals receive no proof from names",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "rebalance_and_cleanup_final",
+       "policy": "moves/copies preserve ancestry; new expression structure is unknown; no structural similarity becomes origin proof",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "canonicalize_and_normalize_conditions",
+       "policy": "retained children keep ancestry; replaced polarity/operator roots require merge or remain unknown",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "guard_continue_cleanup_returns_flatten_guards",
+       "policy": "retained/moved nodes keep ancestry; fresh control flow remains unknown; eliminated paths are not emitted",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "branch_constructors_and_lower_conditionals",
+       "policy": "fresh locals require committed producer ledger; retained/copied values carry ancestry; no inherited ownership certificate",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "name_locals_and_refine_names",
+       "policy": "source identities and node origins are independent of spelling; storage splits retain only explicitly copied ancestry",
+       "transfers_effect_or_lifetime_proof": false
+      },
+      {
+       "pass": "formatter",
+       "policy": "record actual emitted spans; metadata snapshots never mark cloning; previews add no occurrences; opaque or unattributed regions stay unknown",
+       "transfers_effect_or_lifetime_proof": false
+      }
+     ],
+     "schema_version": 1,
+     "source_sites": {
+      "f0:b0:s0": {
+       "block": 0,
+       "function_id": "root:p1",
+       "instruction_pcs": [
+        1
+       ],
+       "instruction_role": "assignment",
+       "prototype": 1,
+       "source_lines": [
+        1
+       ],
+       "statement_index": 0
+      },
+      "f0:b0:s1": {
+       "block": 0,
+       "function_id": "root:p1",
+       "instruction_pcs": [
+        2
+       ],
+       "instruction_role": "return",
+       "prototype": 1,
+       "source_lines": [
+        1
+       ],
+       "statement_index": 1
+      },
+      "f1:b0:s0": {
+       "block": 0,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        0
+       ],
+       "instruction_role": "branch",
+       "prototype": 0,
+       "source_lines": [
+        2
+       ],
+       "statement_index": 0
+      },
+      "f1:b1:s0": {
+       "block": 1,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        1
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        2
+       ],
+       "statement_index": 0
+      },
+      "f1:b2:s0": {
+       "block": 2,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        3
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        2
+       ],
+       "statement_index": 0
+      },
+      "f1:b3:s0": {
+       "block": 3,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        4
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 0
+      },
+      "f1:b3:s1": {
+       "block": 3,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        5
+       ],
+       "instruction_role": "branch",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 1
+      },
+      "f1:b4:s0": {
+       "block": 4,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        7
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 0
+      },
+      "f1:b4:s1": {
+       "block": 4,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        8
+       ],
+       "instruction_role": "return",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 1
+      },
+      "f1:b5:s0": {
+       "block": 5,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        9
+       ],
+       "instruction_role": "assignment",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 0
+      },
+      "f1:b5:s1": {
+       "block": 5,
+       "function_id": "root:p1/p1@pc1:p0",
+       "instruction_pcs": [
+        10
+       ],
+       "instruction_role": "return",
+       "prototype": 0,
+       "source_lines": [
+        3
+       ],
+       "statement_index": 1
+      }
+     },
+     "visited_dependencies": 23,
+     "work_exhausted": false
+    }
+   }
+  }
+ ]
+}

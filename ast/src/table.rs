@@ -4,8 +4,15 @@ use crate::{
 
 use std::{fmt, iter};
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Table(pub Vec<(Option<RValue>, RValue)>);
+#[derive(Clone, PartialEq, Default)]
+pub struct Table(pub Vec<(Option<RValue>, RValue)>, pub crate::node_origins::Origin);
+
+impl Table {
+    pub fn new(fields: Vec<(Option<RValue>, RValue)>) -> Self { Self(fields, Default::default()) }
+}
+impl fmt::Debug for Table {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.debug_tuple("Table").field(&self.0).finish() }
+}
 
 impl Reduce for Table {
     fn reduce(self) -> RValue {

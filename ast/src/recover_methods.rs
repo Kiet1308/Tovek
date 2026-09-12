@@ -640,6 +640,7 @@ mod tests {
         Assign::new(
             vec![LValue::Index(Index::new(prefix, string(method)))],
             vec![RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(function))),
                 upvalues: Vec::new(),
             })],
@@ -768,6 +769,7 @@ mod tests {
             ..Default::default()
         };
         let nested_closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(inner))),
             upvalues: Vec::new(),
         });
@@ -1024,6 +1026,7 @@ mod tests {
             ..Default::default()
         };
         let outer_closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(outer_fn))),
             upvalues: Vec::new(),
         });

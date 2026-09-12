@@ -182,11 +182,13 @@ impl<'a> Inliner<'a> {
                                     left,
                                     right,
                                     operation,
+                                    ..
                                 }) if can_reverse_comparison(*operation, new_rvalue.as_ref().unwrap())
                                     && left.has_side_effects()
                                     && let ast::RValue::Local(local) = right.as_ref()
                                     && local == read =>
                                 {
+                                    ast::node_origins::inlined(new_rvalue.as_mut().unwrap());
                                     *right = std::mem::replace(
                                         left,
                                         Box::new(new_rvalue.take().unwrap()),
@@ -222,6 +224,7 @@ impl<'a> Inliner<'a> {
                         if let Either::Right(rvalue) = v {
                             match rvalue {
                                 ast::RValue::Local(local) if local == read => {
+                                    ast::node_origins::inlined(new_rvalue.as_mut().unwrap());
                                     *rvalue = new_rvalue.take().unwrap();
                                     // success!
                                     return Some(true);
@@ -251,6 +254,9 @@ impl<'a> Inliner<'a> {
     // TODO: REFACTOR: move to ssa module?
     // TODO: inline into block arguments
     fn inline_rvalues(self) {
+        let mut origin_events = Vec::new();
+        let mut omitted_inline_events = 0;
+        let trace_origins = self.function.provenance.is_some();
         let mut fact_statistics = facts::Statistics::default();
         let node_indices = self.function.graph().node_indices().collect::<Vec<_>>();
         for node in node_indices {
@@ -265,7 +271,7 @@ impl<'a> Inliner<'a> {
                         .into_iter()
                         .filter(|&l| {
                             self.local_usages[l] == 1 && !self.upvalue_to_group.contains_key(l)
-                                && (!l.has_source_binding() || ast::assignment_preserves_function_name(stat, l))
+                                && (!l.preserve_binding() || ast::assignment_preserves_function_name(stat, l))
                         })
                         .cloned()
                         .map(Some)
@@ -373,6 +379,14 @@ impl<'a> Inliner<'a> {
                                     // we dont need to update local usages because tracking usages for a local
                                     // with no declarations serves no purpose
                                     block[stat_index] = ast::Empty {}.into();
+                                    if trace_origins && origin_events.len() < crate::provenance::RECORD_LIMIT {
+                                        origin_events.push(crate::provenance::InlineEvent {
+                                            phase: "ssa_inline", producer: read.as_ref().unwrap().stable_id(),
+                                            consumer_bindings: block[index].values_written()
+                                                .into_iter().map(ast::RcLocal::stable_id).collect(),
+                                            site_kind: "statement",
+                                        });
+                                    } else if trace_origins { omitted_inline_events += 1; }
                                     *read = None;
                                     facts.invalidate(stat_index);
                                     facts.invalidate(index);
@@ -443,6 +457,12 @@ impl<'a> Inliner<'a> {
                                     // with no declarations serves no purpose
                                     block[stat_index] = ast::Empty {}.into();
                                     for old_local in old_locals {
+                                        if trace_origins && origin_events.len() < crate::provenance::RECORD_LIMIT {
+                                            origin_events.push(crate::provenance::InlineEvent {
+                                                phase: "ssa_inline", producer: old_local.stable_id(),
+                                                consumer_bindings: Vec::new(), site_kind: "generic_for_pack",
+                                            });
+                                        } else if trace_origins { omitted_inline_events += 1; }
                                         *stat_to_values_read[index]
                                             .iter_mut()
                                             .find(|l| l.as_ref() == Some(&old_local))
@@ -527,7 +547,7 @@ impl<'a> Inliner<'a> {
                             if !new_rvalue_has_side_effects
                                 && let Ok(ast::LValue::Local(local)) =
                                     &assign.left.iter().exactly_one()
-                                && !local.has_source_binding()
+                                && !local.preserve_binding()
                                 && let Some(read) = arg_to_values_read[index]
                                     .iter_mut()
                                     .find(|l| l.as_ref() == Some(local))
@@ -570,6 +590,13 @@ impl<'a> Inliner<'a> {
                                     // with no declarations serves no purpose
 
                                     block[stat_index] = ast::Empty {}.into();
+                                    if trace_origins && origin_events.len() < crate::provenance::RECORD_LIMIT {
+                                        origin_events.push(crate::provenance::InlineEvent {
+                                            phase: "ssa_inline", producer: read.as_ref().unwrap().stable_id(),
+                                            consumer_bindings: vec![self.function.graph().edge_weight(edge).unwrap().arguments[index].0.stable_id()],
+                                            site_kind: "phi_argument",
+                                        });
+                                    } else if trace_origins { omitted_inline_events += 1; }
                                     *read = None;
                                     facts.invalidate(stat_index);
                                     continue 'w;
@@ -592,6 +619,10 @@ impl<'a> Inliner<'a> {
             fact_statistics.add(facts.statistics());
         }
         fact_statistics.record();
+        if let Some(trace) = &mut self.function.provenance {
+            trace.dropped_records += omitted_inline_events;
+            for event in origin_events { trace.inline_event(event); }
+        }
     }
 }
 
@@ -675,6 +706,7 @@ fn field_assignment_parts<'a>(
         && let ast::LValue::Index(ast::Index {
             left: box ast::RValue::Local(local),
             right,
+            ..
         }) = &assign.left[0]
         && local == object_local
     {
@@ -1162,7 +1194,7 @@ mod tests {
                 ast::Call::new(global("first"), vec![]).into(),
             ),
         ]);
-        block[0].as_assign_mut().unwrap().right[0] = Table(vec![
+        block[0].as_assign_mut().unwrap().right[0] = Table::new(vec![
             (Some(string("first")), Literal::Nil.into()),
             (
                 Some(string("second")),
@@ -1325,7 +1357,7 @@ mod tests {
     #[test]
     fn dynamic_table_constructor_blocks_effect_reordering() {
         let key = local("key");
-        let table = RValue::Table(Table(vec![(
+        let table = RValue::Table(Table::new(vec![(
             Some(local_value(&key)),
             number(1.0),
         )]));
@@ -1422,7 +1454,7 @@ mod tests {
     fn reconstruction_candidate_survives_until_child_bodies_exist() {
         for retain in [false, true] {
             let helper = local("adjust");
-            let closure = ast::Closure { function: Default::default(), upvalues: vec![] };
+            let closure = ast::Closure { node_origin: Default::default(), function: Default::default(), upvalues: vec![] };
             closure.function.lock().retain_for_reconstruction = retain;
             let mut block = inline_block(Block(vec![
                 Assign::new(vec![helper.clone().into()], vec![closure.into()]).into(),
@@ -1459,7 +1491,7 @@ mod set_list_fold_through_tests {
     fn table_decl(local: &RcLocal, entries: Vec<(Option<RValue>, RValue)>) -> Statement {
         let mut assign = Assign::new(
             vec![LValue::Local(local.clone())],
-            vec![RValue::Table(Table(entries))],
+            vec![RValue::Table(Table::new(entries))],
         );
         assign.prefix = true;
         assign.into()

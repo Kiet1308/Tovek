@@ -290,6 +290,7 @@ mod tests {
             ..Function::default()
         }));
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(function),
             upvalues: vec![Upvalue::Copy(outer_counter.clone())],
         });
@@ -350,6 +351,7 @@ mod tests {
         let outer_function = Arc::new(Mutex::new(Function {
             body: Block(vec![
                 Return::new(vec![RValue::Closure(Closure {
+                    node_origin: Default::default(),
                     function: ByAddress(nested_function.clone()),
                     upvalues: vec![Upvalue::Copy(counter.clone())],
                 })])
@@ -359,6 +361,7 @@ mod tests {
         }));
         let make_closure = || {
             RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(outer_function.clone()),
                 upvalues: vec![Upvalue::Copy(counter.clone())],
             })

@@ -401,6 +401,7 @@ fn collapse_if_expression(
         condition,
         then_value,
         else_value,
+        ..
     } = if_expr;
     let condition = *condition;
     let then_value = *then_value;
@@ -1406,6 +1407,7 @@ mod tests {
             ..Function::default()
         }));
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(function),
             upvalues: vec![],
         });

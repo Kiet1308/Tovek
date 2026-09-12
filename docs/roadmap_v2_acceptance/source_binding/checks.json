@@ -1,0 +1,496 @@
+{
+ "runtime": {
+  "total": 198,
+  "status": {
+   "passed": 198
+  },
+  "dataflow": {
+   "unknown": 52,
+   "different": 27,
+   "proved": 119
+  },
+  "controls": {
+   "passed": 9
+  },
+  "groups": {
+   "UI": {
+    "passed": 24
+   },
+   "binding-preservation": {
+    "passed": 6
+   },
+   "buffer/math": {
+    "passed": 24
+   },
+   "conditional": {
+    "passed": 12
+   },
+   "effect/capture": {
+    "passed": 18
+   },
+   "effect/order": {
+    "passed": 36
+   },
+   "formatter": {
+    "passed": 12
+   },
+   "loop/capture": {
+    "passed": 24
+   },
+   "naming/capture": {
+    "passed": 36
+   },
+   "ordered-reconstruction": {
+    "passed": 6
+   }
+  }
+ },
+ "public": {
+  "development": {
+   "total": 468,
+   "status": {
+    "passed": 468
+   },
+   "dataflow": {
+    "unknown": 280,
+    "different": 70,
+    "proved": 118
+   },
+   "ast": {
+    "measured": 363,
+    "unknown": 105
+   }
+  },
+  "holdout": {
+   "total": 45,
+   "status": {
+    "passed": 45
+   },
+   "dataflow": {
+    "unknown": 17,
+    "different": 16,
+    "proved": 12
+   },
+   "ast": {
+    "measured": 42,
+    "unknown": 3
+   }
+  }
+ },
+ "private_parser": {
+  "scripts": 3936,
+  "status": {
+   "passed": 3936
+  },
+  "parser_local_tokens": 496303,
+  "mapped_local_tokens": 494413,
+  "opaque_local_tokens": 1890,
+  "unexplained_local_tokens": 0,
+  "parser_bindings": 129744,
+  "mapped_parser_bindings": 129744,
+  "storage_ids_with_multiple_parser_bindings": 11
+ },
+ "runtime_metadata": {
+  "lifter_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+  "input_report_sha256": "6c0346b29a892973ded4d73a1c9bd4f40178cd6bd9deb574e66d84685d0f21c7",
+  "dataset": "runtime_fixtures",
+  "metadata_deterministic_threads_1_4": true,
+  "cache_checks": [
+   {
+    "mode": "cache_cold",
+    "threads": 1,
+    "seconds": 6.835708100003103,
+    "identical_source_and_metadata": true,
+    "statistics": {
+     "bypasses": 0,
+     "bytes": 21417613,
+     "corrupt": 0,
+     "entries": 198,
+     "entry_byte_limit": 16777216,
+     "entry_count_limit": 20000,
+     "evictions": 0,
+     "executable_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+     "hits": 0,
+     "io_errors": 0,
+     "max_bytes": 536870912,
+     "misses": 198,
+     "model": "executable-context-artifact-cache-v1",
+     "raced_hits": 0,
+     "schema_version": 1,
+     "writes": 198
+    }
+   },
+   {
+    "mode": "cache_warm",
+    "threads": 4,
+    "seconds": 0.6484348000012687,
+    "identical_source_and_metadata": true,
+    "statistics": {
+     "bypasses": 0,
+     "bytes": 21417613,
+     "corrupt": 0,
+     "entries": 198,
+     "entry_byte_limit": 16777216,
+     "entry_count_limit": 20000,
+     "evictions": 0,
+     "executable_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+     "hits": 198,
+     "io_errors": 0,
+     "max_bytes": 536870912,
+     "misses": 0,
+     "model": "executable-context-artifact-cache-v1",
+     "raced_hits": 0,
+     "schema_version": 1,
+     "writes": 0
+    }
+   }
+  ],
+  "compact_checks": [
+   {
+    "mode": "compact1",
+    "seconds": 1.8557559000000765,
+    "threads": 1,
+    "statistics": []
+   },
+   {
+    "mode": "compact4",
+    "seconds": 0.8991850999991584,
+    "threads": 4,
+    "statistics": [
+     {
+      "bypasses": 0,
+      "bytes": 42834933,
+      "corrupt": 0,
+      "entries": 396,
+      "entry_byte_limit": 16777216,
+      "entry_count_limit": 20000,
+      "evictions": 0,
+      "executable_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+      "hits": 0,
+      "io_errors": 0,
+      "max_bytes": 536870912,
+      "misses": 198,
+      "model": "executable-context-artifact-cache-v1",
+      "raced_hits": 0,
+      "schema_version": 1,
+      "writes": 198
+     }
+    ]
+   },
+   {
+    "mode": "compact_warm",
+    "seconds": 1.7270496000019193,
+    "threads": 1,
+    "statistics": [
+     {
+      "bypasses": 0,
+      "bytes": 42834933,
+      "corrupt": 0,
+      "entries": 396,
+      "entry_byte_limit": 16777216,
+      "entry_count_limit": 20000,
+      "evictions": 0,
+      "executable_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+      "hits": 198,
+      "io_errors": 0,
+      "max_bytes": 536870912,
+      "misses": 0,
+      "model": "executable-context-artifact-cache-v1",
+      "raced_hits": 0,
+      "schema_version": 1,
+      "writes": 0
+     }
+    ]
+   }
+  ],
+  "ancestry": {
+   "scripts": 198,
+   "source_files": 198,
+   "source_set_equal": true,
+   "source_files_changed": 0,
+   "status": {
+    "passed": 198
+   },
+   "annotation_spans": 6,
+   "bindings_without_identifier_tokens": 0,
+   "conditional_result_records": 573,
+   "definitions": 9644,
+   "definitions_with_final_binding_ancestry": 5550,
+   "dropped_records": 0,
+   "final_bindings": 1812,
+   "functions": 852,
+   "identifier_spans": 5390,
+   "incomplete_lineages": 0,
+   "lifted_statements": 8232,
+   "omitted_output_occurrences": 0,
+   "opaque_output_regions": 12,
+   "statements_with_pc": 8232,
+   "unlocated_final_bindings": 66
+  },
+  "emission": {
+   "scripts": 198,
+   "status": {
+    "passed": 198
+   },
+   "parser_local_tokens": 5498,
+   "mapped_local_tokens": 5390,
+   "opaque_local_tokens": 108,
+   "unexplained_local_tokens": 0,
+   "parser_bindings": 1836,
+   "mapped_parser_bindings": 1812,
+   "storage_ids_with_multiple_parser_bindings": 0
+  },
+  "capture": {
+   "schema_version": 1,
+   "scripts": 198,
+   "readonly_slots": 198,
+   "analysis_status": {
+    "complete": 198
+   },
+   "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+  },
+  "compact": {
+   "scripts": 198,
+   "statuses": {
+    "passed": 198
+   },
+   "events": 10,
+   "occurrences": 10,
+   "with_callee_prototype": 10,
+   "events_without_output_occurrence": 0,
+   "copied_events": 0,
+   "compacted_comments": 6,
+   "producers": {
+    "arithmetic_deinline": 10
+   },
+   "omitted": {
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "omitted_callee_registrations": 0
+   }
+  }
+ },
+ "public_metadata": {
+  "lifter_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+  "input_report_sha256": "c6b947d976007783a8a9e221eb5df800d8495606776be7de141642af567f452f",
+  "dataset": "pinned_public_sources",
+  "metadata_deterministic_threads_1_4": true,
+  "cache_checks": [
+   {
+    "mode": "cache_cold",
+    "threads": 1,
+    "seconds": 16.117336100000102,
+    "identical_source_and_metadata": true,
+    "statistics": {
+     "bypasses": 0,
+     "bytes": 161381862,
+     "corrupt": 0,
+     "entries": 433,
+     "entry_byte_limit": 16777216,
+     "entry_count_limit": 20000,
+     "evictions": 0,
+     "executable_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+     "hits": 80,
+     "io_errors": 0,
+     "max_bytes": 536870912,
+     "misses": 433,
+     "model": "executable-context-artifact-cache-v1",
+     "raced_hits": 0,
+     "schema_version": 1,
+     "writes": 433
+    }
+   },
+   {
+    "mode": "cache_warm",
+    "threads": 4,
+    "seconds": 2.634755499999301,
+    "identical_source_and_metadata": true,
+    "statistics": {
+     "bypasses": 0,
+     "bytes": 161381862,
+     "corrupt": 0,
+     "entries": 433,
+     "entry_byte_limit": 16777216,
+     "entry_count_limit": 20000,
+     "evictions": 0,
+     "executable_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+     "hits": 513,
+     "io_errors": 0,
+     "max_bytes": 536870912,
+     "misses": 0,
+     "model": "executable-context-artifact-cache-v1",
+     "raced_hits": 0,
+     "schema_version": 1,
+     "writes": 0
+    }
+   }
+  ],
+  "compact_checks": [
+   {
+    "mode": "compact1",
+    "seconds": 13.625385499999538,
+    "threads": 1,
+    "statistics": []
+   },
+   {
+    "mode": "compact4",
+    "seconds": 4.290045400000963,
+    "threads": 4,
+    "statistics": [
+     {
+      "bypasses": 0,
+      "bytes": 322763125,
+      "corrupt": 0,
+      "entries": 866,
+      "entry_byte_limit": 16777216,
+      "entry_count_limit": 20000,
+      "evictions": 0,
+      "executable_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+      "hits": 79,
+      "io_errors": 0,
+      "max_bytes": 536870912,
+      "misses": 434,
+      "model": "executable-context-artifact-cache-v1",
+      "raced_hits": 1,
+      "schema_version": 1,
+      "writes": 433
+     }
+    ]
+   },
+   {
+    "mode": "compact_warm",
+    "seconds": 7.235432199999195,
+    "threads": 1,
+    "statistics": [
+     {
+      "bypasses": 0,
+      "bytes": 322763125,
+      "corrupt": 0,
+      "entries": 866,
+      "entry_byte_limit": 16777216,
+      "entry_count_limit": 20000,
+      "evictions": 0,
+      "executable_sha256": "64df0b3d1ff819ed974391b539df6e56d7416308ed96ee2bcd09c5de02338fd0",
+      "hits": 513,
+      "io_errors": 0,
+      "max_bytes": 536870912,
+      "misses": 0,
+      "model": "executable-context-artifact-cache-v1",
+      "raced_hits": 0,
+      "schema_version": 1,
+      "writes": 0
+     }
+    ]
+   }
+  ],
+  "ancestry": {
+   "scripts": 513,
+   "source_files": 513,
+   "source_set_equal": true,
+   "source_files_changed": 0,
+   "status": {
+    "passed": 513
+   },
+   "annotation_spans": 36,
+   "bindings_without_identifier_tokens": 21,
+   "conditional_result_records": 3542,
+   "definitions": 97176,
+   "definitions_with_final_binding_ancestry": 47089,
+   "dropped_records": 0,
+   "final_bindings": 13273,
+   "functions": 3961,
+   "identifier_spans": 45626,
+   "incomplete_lineages": 0,
+   "lifted_statements": 77329,
+   "omitted_output_occurrences": 0,
+   "opaque_output_regions": 150,
+   "statements_with_pc": 77329,
+   "unlocated_final_bindings": 68
+  },
+  "emission": {
+   "scripts": 513,
+   "status": {
+    "passed": 513
+   },
+   "parser_local_tokens": 45877,
+   "mapped_local_tokens": 45626,
+   "opaque_local_tokens": 251,
+   "unexplained_local_tokens": 0,
+   "parser_bindings": 13255,
+   "mapped_parser_bindings": 13255,
+   "storage_ids_with_multiple_parser_bindings": 3
+  },
+  "capture": {
+   "schema_version": 1,
+   "scripts": 513,
+   "readonly_slots": 4597,
+   "analysis_status": {
+    "complete": 513
+   },
+   "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+  },
+  "compact": {
+   "scripts": 513,
+   "statuses": {
+    "passed": 513
+   },
+   "events": 31,
+   "occurrences": 31,
+   "with_callee_prototype": 31,
+   "events_without_output_occurrence": 0,
+   "copied_events": 0,
+   "compacted_comments": 36,
+   "producers": {
+    "arithmetic_deinline": 6,
+    "expression_deinline": 3,
+    "statement_deinline": 22
+   },
+   "omitted": {
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "omitted_callee_registrations": 0
+   }
+  }
+ },
+ "witnesses": {
+  "profiles": 42,
+  "status": {
+   "passed": 42
+  },
+  "dataflow": {
+   "proved": 29,
+   "different": 12,
+   "unknown": 1
+  },
+  "compiled_mutants_detected": 42
+ },
+ "study": {
+  "profiles": 84,
+  "status": {
+   "passed": 84
+  },
+  "dataflow": {
+   "proved": 50,
+   "different": 18,
+   "unknown": 16
+  },
+  "compiled_mutants_detected": 84
+ },
+ "study-synthesis": {
+  "profiles": 84,
+  "status": {
+   "passed": 84
+  },
+  "dataflow": {
+   "proved": 50,
+   "different": 18,
+   "unknown": 16
+  },
+  "compiled_mutants_detected": 84
+ },
+ "legacy_semantic": {
+  "passed": 45,
+  "failed": 0,
+  "raw_log_sha256": "b3491c741a26d7dc2bf1b0e93271ae99bd552a2764170946cf298c32a8ae061b"
+ }
+}

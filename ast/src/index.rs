@@ -3,8 +3,9 @@ use crate::{LocalRw, RcLocal, Traverse, formatter::Formatter, has_side_effects};
 use super::RValue;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Index {
+    pub node_origin: crate::node_origins::Origin,
     pub left: Box<RValue>,
     pub right: Box<RValue>,
 }
@@ -15,6 +16,7 @@ has_side_effects!(Index);
 impl Index {
     pub fn new(left: RValue, right: RValue) -> Self {
         Self {
+            node_origin: Default::default(),
             left: Box::new(left),
             right: Box::new(right),
         }
@@ -65,3 +67,5 @@ impl fmt::Display for Index {
         .format_index(self)
     }
 }
+
+crate::node_origins::semantic_debug!(Index; left,right);

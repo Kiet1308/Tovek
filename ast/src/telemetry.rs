@@ -440,6 +440,7 @@ mod tests {
             .body
             .push(crate::Return::new(vec![local.clone().into()]).into());
         let closure = crate::Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(triomphe::Arc::new(Mutex::new(function))),
             upvalues: vec![],
         };

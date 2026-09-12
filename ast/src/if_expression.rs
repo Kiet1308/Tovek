@@ -2,8 +2,9 @@ use std::fmt;
 
 use crate::{LocalRw, RValue, RcLocal, Reduce, SideEffects, Traverse, formatter::Formatter};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct IfExpression {
+    pub node_origin: crate::node_origins::Origin,
     pub condition: Box<RValue>,
     pub then_value: Box<RValue>,
     pub else_value: Box<RValue>,
@@ -12,6 +13,7 @@ pub struct IfExpression {
 impl IfExpression {
     pub fn new(condition: RValue, then_value: RValue, else_value: RValue) -> Self {
         Self {
+            node_origin: Default::default(),
             condition: Box::new(condition),
             then_value: Box::new(then_value),
             else_value: Box::new(else_value),
@@ -64,6 +66,7 @@ impl SideEffects for IfExpression {
 impl Reduce for IfExpression {
     fn reduce(self) -> RValue {
         Self {
+            node_origin: Default::default(),
             condition: Box::new(self.condition.reduce_condition()),
             then_value: Box::new(self.then_value.reduce()),
             else_value: Box::new(self.else_value.reduce()),
@@ -73,6 +76,7 @@ impl Reduce for IfExpression {
 
     fn reduce_condition(self) -> RValue {
         Self {
+            node_origin: Default::default(),
             condition: Box::new(self.condition.reduce_condition()),
             then_value: Box::new(self.then_value.reduce_condition()),
             else_value: Box::new(self.else_value.reduce_condition()),
@@ -97,3 +101,5 @@ impl fmt::Display for IfExpression {
         .format_if_expression(self)
     }
 }
+
+crate::node_origins::semantic_debug!(IfExpression; condition,then_value,else_value);

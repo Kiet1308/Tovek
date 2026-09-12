@@ -288,13 +288,13 @@ mod tests {
     }
     fn sample(object: &RcLocal) -> Block {
         Block(vec![
-            decl(object, Table(vec![(Some(string("Name")), string("Panel"))]).into()),
+            decl(object, Table::new(vec![(Some(string("Name")), string("Panel"))]).into()),
             diamond(object, string("Value"), call("condition", vec![])),
             Return::new(vec![object.clone().into()]).into(),
         ])
     }
     fn captured(local: &RcLocal) -> RValue {
-        Closure { function: ByAddress(Arc::new(Mutex::new(Function::default()))),
+        Closure { node_origin: Default::default(), function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(local.clone())] }.into()
     }
 
@@ -302,7 +302,7 @@ mod tests {
     fn keeps_branches_and_scalar_results_and_rebuilds_following_fields() {
         let object = local("props");
         let mut body = sample(&object);
-        body.0.insert(2, write(&object, string("Children"), Table(vec![(None, call("child", vec![]))]).into()));
+        body.0.insert(2, write(&object, string("Children"), Table::new(vec![(None, call("child", vec![]))]).into()));
         let report = rebuild_branch_constructors(&mut body);
         assert_eq!(report.rebuilt_regions, 1);
         assert_eq!(report.introduced_locals, 1);
@@ -385,7 +385,7 @@ mod tests {
     fn snapshots_initial_effects_before_the_condition_in_original_order() {
         let object = local("props");
         let mut body = sample(&object);
-        body.0[0].as_assign_mut().unwrap().right[0] = Table(vec![
+        body.0[0].as_assign_mut().unwrap().right[0] = Table::new(vec![
             (Some(string("First")), call("first", vec![])),
             (Some(string("Second")), call("second", vec![])),
         ]).into();
@@ -430,6 +430,7 @@ mod tests {
                 function.body.0.push(crate::SetList::new(object, 1, vec![], None).into());
             }
             let mut body = Block(vec![Return::new(vec![Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(function))), upvalues: vec![],
             }.into()]).into()]);
             let before = body.to_string();
@@ -473,11 +474,12 @@ mod tests {
         let mut function = Function::default();
         function.parameters = (0..190).map(|i| local(&format!("p{i}"))).collect();
         function.body = sample(&object);
-        function.body.0[0].as_assign_mut().unwrap().right[0] = Table(vec![
+        function.body.0[0].as_assign_mut().unwrap().right[0] = Table::new(vec![
             (Some(string("First")), call("first", vec![])),
             (Some(string("Second")), call("second", vec![])),
         ]).into();
         let mut body = Block(vec![Return::new(vec![Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(function))), upvalues: vec![],
         }.into()]).into()]);
         let before = body.to_string();
@@ -496,10 +498,11 @@ mod tests {
             let mut function = Function::default();
             function.body = sample(&object);
             fields.push((None, Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(function))), upvalues: vec![],
             }.into()));
         }
-        let mut body = Block(vec![Return::new(vec![Table(fields).into()]).into()]);
+        let mut body = Block(vec![Return::new(vec![Table::new(fields).into()]).into()]);
         let report = rebuild_branch_constructors(&mut body);
         assert_eq!(report.rebuilt_regions, REGION_LIMIT);
         assert_eq!(report.refused_regions.get("region_budget"), Some(&1));
@@ -512,6 +515,7 @@ mod tests {
             let object = local("Number");
             let mut body = sample(&object);
             let handler: RValue = Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(Function::default()))), upvalues: vec![],
             }.into();
             if in_property {

@@ -3,6 +3,7 @@ mod instruction;
 mod lifter;
 mod op_code;
 mod source_recovery;
+mod value_provenance;
 mod capture_effects;
 mod reconstruction_candidates;
 pub mod profile;
@@ -1453,6 +1454,7 @@ fn decompile_function(
         .enumerate()
         .flat_map(|(i, g)| g.into_iter().map(move |l| (l, i)))
         .collect::<FxHashMap<_, _>>();
+    cfg::source_bindings::preserve_conditional_results(&function, &protected_upvalue_locals);
     // TODO: REFACTOR: some way to write a macro that states
     // if cfg::ssa::inline results in change then structure_jumps, structure_compound_conditionals,
     // structure_for_loops and remove_unnecessary_params must run again.

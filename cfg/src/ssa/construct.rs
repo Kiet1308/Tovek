@@ -1106,6 +1106,7 @@ impl<'a> SsaConstructor<'a> {
                 if let Some(definition) = trace.definitions.get_mut(&id) { definition.dependencies = dependencies; }
             }
             crate::provenance::record_selects(self.function, "constructed_ssa");
+            crate::provenance::record_values(self.function);
         }
 
         // TODO: irreducible control flow (see the paper this algorithm is from)
@@ -1144,6 +1145,7 @@ pub fn construct(
     Vec<FxHashSet<RcLocal>>,
 ) {
     if let Some(trace) = &mut function.provenance { trace.phase = "ssa_construction"; }
+    for parameter in &function.parameters { parameter.0.lock().4.parameter = true; }
     // if entry has predecessors, this might risk it never being incomplete
     // resulting in broken params
     // TODO: verify ^ and insert temporary entry that's removed if there is no block params (if its an issue)

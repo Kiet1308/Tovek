@@ -1,7 +1,9 @@
 import copy
+import hashlib
 import unittest
 
 from call_reconstruction import MODEL, occurrences_at, validate, validate_parser_calls
+from call_reconstruction_audit import compact_comparison
 
 
 def fixture():
@@ -27,6 +29,39 @@ def fixture():
 
 
 class CallReconstructionTests(unittest.TestCase):
+    def test_compact_translates_output_regions_but_never_input_coordinates(self):
+        annotation = 'equivalent call inferred; original call site unknown'
+        original = ('-- 界\n-- ' + annotation + '\nreturn 7').encode()
+        output = '-- 界\n-- inferred call\nreturn 7'.encode()
+        def make(source, compact):
+            def position(offset):
+                prefix = source[:offset]
+                return dict(byte_offset=offset, line_one_based=prefix.count(b'\n') + 1,
+                            column_one_based=len(prefix.rsplit(b'\n', 1)[-1].decode()) + 1)
+            start = source.index(b'-- ', 3)
+            end = source.index(b'\n', start)
+            item = dict(text=annotation, text_truncated=False,
+                        span=dict(start=position(start), end=position(end)))
+            if compact: item['displayed_text'] = 'inferred call'
+            options = 64 if compact else 0
+            identity = b'artifact' + b'version' + (1).to_bytes(4, 'little') + options.to_bytes(4, 'little')
+            return dict(binding_provenance=dict(output_map=dict(annotations=[item]),
+                        value_provenance=dict(output_regions=[dict(start_byte=source.index(b'return'), end_byte=len(source))],
+                                              source_sites={'site': dict(instruction_pcs=[end], path=[end])})),
+                        schema_version=1, bytecode_artifact_id='artifact', tovek_version='version',
+                        decompile_option_bits=options, source_sha256=hashlib.sha256(source).hexdigest(),
+                        analysis_id='sha256:' + hashlib.sha256(identity).hexdigest())
+        full, compact = make(original, False), make(output, True)
+        compact['binding_provenance']['value_provenance']['source_sites'] = copy.deepcopy(
+            full['binding_provenance']['value_provenance']['source_sites'])
+        self.assertEqual(compact_comparison(full, compact, original, output), 1)
+        for field in ('start_byte', 'end_byte'):
+            changed = copy.deepcopy(compact)
+            changed['binding_provenance']['value_provenance']['output_regions'][0][field] += 1
+            with self.assertRaises(ValueError): compact_comparison(full, changed, original, output)
+        compact['binding_provenance']['value_provenance']['source_sites']['site']['instruction_pcs'][0] -= 1
+        with self.assertRaises(ValueError): compact_comparison(full, compact, original, output)
+
     def test_inference_cannot_be_promoted_and_historical_events_stay_unclassified(self):
         trace, source, _ = fixture()
         trace['call_reconstruction']['events'][0]['evidence'] = 'original_call_proved'

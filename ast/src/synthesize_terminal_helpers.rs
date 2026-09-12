@@ -143,6 +143,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
             helper_body.insert(
                 0,
                 Statement::Assign(Assign {
+                    node_origin: Default::default(),
                     left: locals.into_iter().map(LValue::Local).collect(),
                     right: Vec::new(),
                     prefix: true,
@@ -151,6 +152,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
             );
         }
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function {
                 bytecode_proto_id: None,
                 bytecode_function_id: None,
@@ -167,6 +169,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
             upvalues: upvalues.into_iter().map(Upvalue::Ref).collect(),
         };
         let declaration = Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(helper)],
             right: vec![RValue::Closure(closure)],
             prefix: true,
@@ -938,6 +941,7 @@ mod tests {
                 vec![RValue::Local(frames.clone())],
                 Block(vec![
                     Statement::Assign(Assign {
+                        node_origin: Default::default(),
                         left: vec![LValue::Local(result.clone())],
                         right: vec![RValue::MethodCall(MethodCall::new(
                             RValue::Local(item),
@@ -975,12 +979,14 @@ mod tests {
         }
         let mut body = Block(vec![
             Statement::Assign(Assign {
+                node_origin: Default::default(),
                 left: vec![LValue::Local(frames)],
                 right: vec![RValue::Table(crate::Table::default())],
                 prefix: true,
                 parallel: false,
             }),
             Statement::Assign(Assign {
+                node_origin: Default::default(),
                 left: vec![LValue::Local(result.clone())],
                 right: Vec::new(),
                 prefix: true,
@@ -1068,10 +1074,12 @@ mod tests {
     fn indexed_lhs_closure_is_seen_by_capture_and_mobility_checks() {
         let captured_local = local("captured");
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(captured_local.clone())],
         });
         let statement = Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Index(Index::new(global("table"), closure))],
             right: vec![RValue::Literal(Literal::Boolean(true))],
             prefix: false,

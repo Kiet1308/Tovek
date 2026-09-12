@@ -162,6 +162,7 @@ mod tests {
 
     fn closure(function: &Arc<Mutex<Function>>) -> RValue {
         RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(function.clone()),
             upvalues: vec![],
         })
@@ -385,6 +386,7 @@ mod tests {
     fn cleans_closure_nested_in_indexed_lhs() {
         let inner = function(vec![Return::new(vec![string("done")]).into(), call("dead")]);
         let mut block = Block(vec![Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Index(Index::new(
                 global("targets"),
                 closure(&inner),

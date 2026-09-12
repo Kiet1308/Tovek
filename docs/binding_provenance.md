@@ -7,6 +7,10 @@ artifact APIs use `DecompileOptions::emit_binding_provenance` (flag bit 16).
 This diagnostic can generate substantially more metadata than ordinary
 upvalue analysis.
 
+R2 also has an always-on [binding-preservation consumer](source_binding_preservation.md).
+Its presentation constraints are independent of this optional trace; enabling
+the trace still must not change emitted source.
+
 The trace answers which input statement, SSA definition and later storage
 binding are connected by recorded maps. **Storage ancestry is not value
 equality or source-binding identity.** It must not authorize an inline, a
@@ -27,6 +31,8 @@ distinction and the explicit ambiguous/unknown attribution.
 | `registers` | Input storage slot, with distinct parameter/incoming-upvalue roles and any recorded debug evidence. A general register is not classified as a compiler temporary. |
 | `lifted_statements` | Initial CFG block and statement position, instruction PC set, available line set, coarse instruction role and ordered register reads/writes. These positions refer to the initial lifting snapshot. |
 | `definitions` | SSA identity, original register, initial statement/write slot or block parameter, initial read dependencies, debug binding evidence and final storage mappings. Phi dependencies are sets, not ordered expression operands. |
+| `value_origins` | Immutable nested-value paths/children and SSA references in the initial statement cluster, before copy propagation. |
+| `inline_events` | Committed SSA expression/phi-argument/generic-pack substitutions, with producer and any surviving consumer binding. |
 | `local_maps` | Ordered mapping events at SSA construction, cleanup and destruction. This is not a complete ledger of every later AST rewrite. |
 | `conditional_results` | A phi supplied by distinct local inputs from a two-arm branch: each arm is direct or one private block leading to a two-predecessor join. Then/else follow CFG edge polarity. Recognition runs after initial SSA construction and again before destruction. |
 | `pre_destruct_bindings`, `post_destruct_bindings` | Identity snapshots around SSA destruction, including edge arguments. |
@@ -58,7 +64,7 @@ result in its storage ancestry without becoming a newly recovered source local.
 | Lift and SSA construct | Record initial instruction clusters and definition/write-slot relations before statement positions change. |
 | SSA local map and destruction | Merge lineage through existing source-metadata transfer points. Close and capture compatibility are governed by their existing proofs, independently of lineage. |
 | CFG structuring | Freeze the function trace before speculative CFG clones. Cloned local metadata retains ID ancestry; the trace does not keep a mutable CFG alive. |
-| AST replacement and cloning | Existing metadata-preserving local replacements and local clones carry ancestry. Inlining a local into an arbitrary nested value does not yet attach provenance to that value. |
+| AST replacement and cloning | Metadata-preserving local replacements carry ancestry; copying Local metadata records that fact. Rebuilt expressions invalidate exact value identity. The immutable input graph remains available. |
 | Final naming and formatting | Read remaining ancestry and record exact identifier token spans keyed by final IDs in the optional [emission map](emission_map.md). PC sets retain storage-ancestry meaning; no unique value producer or new source identity is inferred. |
 
 There is a combined limit of 50,000 records per lifted function and 256
@@ -75,9 +81,14 @@ bindings are a separate summary category.
 
 Two late passes now publish [explicit local introductions](emitter_local_origins.md),
 linked to final identifiers without replacing unknown input storage ancestry.
-Arbitrary nested-value provenance, earlier clone/synthesis event attribution and a
-complete per-pass preserve/merge/invalidate ledger remain R2 work. Exact final
-identifier and annotation locations are available through `output_map`, with
+Nested input occurrences and exact final syntax regions are now available in
+`value_origins` and `value_provenance`; direct retained-node tags and bounded
+storage dependencies are separate relations, neither claiming exact rewritten
+value identity. Actual AST copies and committed inline substitutions now carry
+node-history flags, and reductions merge origins. The [R2 contract](source_binding_preservation.md)
+defines preservation/invalidation for every pipeline stage and explicit unknown
+cases for unattributed replacements and scalar leaves. Exact final identifier
+and annotation locations remain available through `output_map`, with
 explicit opaque regions for interpolation sub-rendering and display fallbacks.
 Consumers must retain unknown cases rather than interpreting absence as proof
 of optimization.

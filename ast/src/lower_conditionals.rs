@@ -511,7 +511,7 @@ mod tests {
         let value = crate::IfExpression::new(
             choose(),
             choose(),
-            crate::Table(vec![(None, choose())]).into(),
+            crate::Table::new(vec![(None, choose())]).into(),
         )
         .into();
         let mut block = Block(vec![crate::Return::new(vec![value]).into()]);
@@ -580,6 +580,7 @@ fn has_continue(block: &Block) -> bool {
 
 fn assign(local: &RcLocal, value: RValue, prefix: bool) -> Statement {
     Assign {
+        node_origin: Default::default(),
         left: vec![local.clone().into()],
         right: vec![value],
         prefix,
@@ -681,6 +682,7 @@ impl Attempt<'_> {
                 no.push(assign(&local, no_value, false));
                 prefix.push(
                     Assign {
+                        node_origin: Default::default(),
                         left: vec![local.clone().into()],
                         right: vec![],
                         prefix: true,

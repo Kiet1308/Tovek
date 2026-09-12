@@ -208,7 +208,7 @@ mod tests {
         assert!(effects.contains(Effects::CAPTURE_WRITE));
         assert!(effects.contains(Effects::YIELD));
         assert!(may_write_capture(&indexed));
-        let dynamic_key = RValue::Table(Table(vec![(
+        let dynamic_key = RValue::Table(Table::new(vec![(
             Some(RValue::Local(cell.clone())),
             Literal::Nil.into(),
         )]));

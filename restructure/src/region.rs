@@ -7240,6 +7240,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let fns = RcLocal::new(Local::new(Some("fns".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -7251,7 +7252,7 @@ mod tests {
         let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
         for_init.0.right = vec![RValue::Global(Global::from("items"))];
         function.block_mut(init).unwrap().push(
-            Assign::new(vec![LValue::Local(fns.clone())], vec![RValue::Table(Table(vec![]))])
+            Assign::new(vec![LValue::Local(fns.clone())], vec![RValue::Table(Table::new(vec![]))])
                 .into(),
         );
         function.block_mut(init).unwrap().push(for_init.into());
@@ -7410,6 +7411,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let callback = RcLocal::new(Local::new(Some("callback".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function::default()))),
             upvalues: vec![Upvalue::Ref(result.clone())],
         };
@@ -7475,6 +7477,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let callback = RcLocal::new(Local::new(Some("callback".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function::default()))),
             upvalues: vec![Upvalue::Ref(generator.clone())],
         };
@@ -7596,6 +7599,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let callback = RcLocal::new(Local::new(Some("callback".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -7671,6 +7675,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let callback = RcLocal::new(Local::new(Some("callback".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -7744,6 +7749,7 @@ mod tests {
         let control = RcLocal::new(Local::new(Some("control".into())));
         let result = RcLocal::new(Local::new(Some("result".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -7837,6 +7843,7 @@ mod tests {
         let control = RcLocal::new(Local::new(Some("control".into())));
         let result = RcLocal::new(Local::new(Some("result".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -7971,6 +7978,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let callback = RcLocal::new(Local::new(Some("callback".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -8032,6 +8040,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let callback = RcLocal::new(Local::new(Some("callback".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -8102,6 +8111,7 @@ mod tests {
         let sink = RcLocal::new(Local::new(Some("sink".into())));
         let outer = RcLocal::new(Local::new(Some("outer".into())));
         let inner = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -8111,6 +8121,7 @@ mod tests {
             upvalues: vec![Upvalue::Copy(result.clone())],
         });
         let outer_value = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![ast::Return::new(vec![inner]).into()]),
                 ..Default::default()
@@ -8174,6 +8185,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let outer = RcLocal::new(Local::new(Some("outer".into())));
         let inner = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -8183,6 +8195,7 @@ mod tests {
             upvalues: vec![Upvalue::Copy(result.clone())],
         });
         let outer_value = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![ast::Return::new(vec![inner]).into()]),
                 ..Default::default()
@@ -8243,6 +8256,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let outer = RcLocal::new(Local::new(Some("outer".into())));
         let inner = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(control.clone())]).into(),
@@ -8252,6 +8266,7 @@ mod tests {
             upvalues: vec![Upvalue::Copy(control.clone())],
         });
         let outer_value = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![ast::Return::new(vec![inner]).into()]),
                 ..Default::default()
@@ -8316,6 +8331,7 @@ mod tests {
         let sink = RcLocal::new(Local::new(Some("sink".into())));
         let outer = RcLocal::new(Local::new(Some("outer".into())));
         let inner = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(result.clone())]).into(),
@@ -8330,6 +8346,7 @@ mod tests {
             Block::default(),
         );
         let outer_value = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![conditional.into()]),
                 ..Default::default()
@@ -8626,6 +8643,7 @@ mod tests {
         let control = RcLocal::new(Local::new(Some("control".into())));
         let value = RcLocal::new(Local::new(Some("value".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function::default()))),
             upvalues: vec![Upvalue::Ref(captured.clone())],
         };
@@ -8692,6 +8710,7 @@ mod tests {
         let control = RcLocal::new(Local::new(Some("control".into())));
         let value = RcLocal::new(Local::new(Some("value".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function::default()))),
             // A value capture is a snapshot at closure construction. Rebinding
             // the local after iterator preparation cannot affect that snapshot.
@@ -8760,6 +8779,7 @@ mod tests {
         let control = RcLocal::new(Local::new(Some("control".into())));
         let value = RcLocal::new(Local::new(Some("value".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     ast::Return::new(vec![RValue::Local(captured.clone())]).into(),
@@ -8948,6 +8968,7 @@ mod tests {
         let result = RcLocal::new(Local::new(Some("result".into())));
         let callback = RcLocal::new(Local::new(Some("callback".into())));
         let closure = Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     Close {
@@ -9016,6 +9037,7 @@ mod tests {
         let callback = RcLocal::new(Local::new(Some("callback".into())));
         let child_local = RcLocal::new(Local::new(Some("child_local".into())));
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     Close {
@@ -9092,6 +9114,7 @@ mod tests {
         let mut for_init = GenericForInit::new(generator.clone(), state.clone(), control.clone());
         for_init.0.right = vec![RValue::Global(Global::from("items"))];
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: Block::from(vec![
                     for_init.into(),
@@ -9149,6 +9172,7 @@ mod tests {
             .into(),
         ]);
         let hidden_protocol = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(ast::Function {
                 body: child_body,
                 ..Default::default()
@@ -9812,6 +9836,7 @@ mod tests {
         );
         function.block_mut(body).unwrap().push(
             Statement::Return(ast::Return {
+                node_origin: Default::default(),
                 values: vec![value.into()],
             })
             .into(),
@@ -9873,6 +9898,7 @@ mod tests {
         );
         function.block_mut(return_block).unwrap().push(
             Statement::Return(ast::Return {
+                node_origin: Default::default(),
                 values: vec![value.into()],
             })
             .into(),

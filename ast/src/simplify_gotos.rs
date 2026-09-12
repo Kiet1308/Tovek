@@ -49,6 +49,7 @@ fn dc_arc(block: &Arc<Mutex<Block>>) -> Arc<Mutex<Block>> {
 fn dc_lvalue(lvalue: &LValue) -> LValue {
     match lvalue {
         LValue::Index(index) => LValue::Index(Index {
+            node_origin: index.node_origin.clone(),
             left: Box::new(dc_rvalue(&index.left)),
             right: Box::new(dc_rvalue(&index.right)),
         }),
@@ -58,6 +59,7 @@ fn dc_lvalue(lvalue: &LValue) -> LValue {
 
 fn dc_call(call: &Call) -> Call {
     Call {
+        node_origin: call.node_origin.clone(),
         value: Box::new(dc_rvalue(&call.value)),
         arguments: call.arguments.iter().map(dc_rvalue).collect(),
         reconstruction_event: call.reconstruction_event,
@@ -66,6 +68,7 @@ fn dc_call(call: &Call) -> Call {
 
 fn dc_method_call(method_call: &MethodCall) -> MethodCall {
     MethodCall {
+        node_origin: method_call.node_origin.clone(),
         value: Box::new(dc_rvalue(&method_call.value)),
         method: method_call.method.clone(),
         arguments: method_call.arguments.iter().map(dc_rvalue).collect(),
@@ -73,10 +76,10 @@ fn dc_method_call(method_call: &MethodCall) -> MethodCall {
 }
 
 fn dc_rvalue(rvalue: &RValue) -> RValue {
-    match rvalue {
+    let mut copy = match rvalue {
         RValue::Call(call) => RValue::Call(dc_call(call)),
         RValue::MethodCall(method_call) => RValue::MethodCall(dc_method_call(method_call)),
-        RValue::Table(table) => RValue::Table(Table(
+        RValue::Table(table) => RValue::Table(Table::new(
             table
                 .0
                 .iter()
@@ -84,14 +87,17 @@ fn dc_rvalue(rvalue: &RValue) -> RValue {
                 .collect(),
         )),
         RValue::Index(index) => RValue::Index(Index {
+            node_origin: Default::default(),
             left: Box::new(dc_rvalue(&index.left)),
             right: Box::new(dc_rvalue(&index.right)),
         }),
         RValue::Unary(unary) => RValue::Unary(Unary {
+            node_origin: Default::default(),
             value: Box::new(dc_rvalue(&unary.value)),
             operation: unary.operation,
         }),
         RValue::Binary(binary) => RValue::Binary(Binary {
+            node_origin: Default::default(),
             left: Box::new(dc_rvalue(&binary.left)),
             right: Box::new(dc_rvalue(&binary.right)),
             operation: binary.operation,
@@ -105,12 +111,17 @@ fn dc_rvalue(rvalue: &RValue) -> RValue {
         // shared `Function` Arc on purpose — later passes key on its `Arc::as_ptr`
         // identity (see the header note), so a fresh Arc would panic.
         _ => rvalue.clone(),
+    };
+    if let (Some(source), Some(target)) = (crate::node_origins::value(rvalue), crate::node_origins::value_mut(&mut copy)) {
+        *target = source.clone();
     }
+    copy
 }
 
 fn dc_stmt(statement: &Statement) -> Statement {
-    match statement {
+    let mut copy = match statement {
         Statement::Assign(assign) => Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: assign.left.iter().map(dc_lvalue).collect(),
             right: assign.right.iter().map(dc_rvalue).collect(),
             prefix: assign.prefix,
@@ -119,9 +130,11 @@ fn dc_stmt(statement: &Statement) -> Statement {
         Statement::Call(call) => Statement::Call(dc_call(call)),
         Statement::MethodCall(method_call) => Statement::MethodCall(dc_method_call(method_call)),
         Statement::Return(r#return) => Statement::Return(Return {
+            node_origin: Default::default(),
             values: r#return.values.iter().map(dc_rvalue).collect(),
         }),
         Statement::If(r#if) => Statement::If(If {
+            node_origin: Default::default(),
             condition: dc_rvalue(&r#if.condition),
             then_block: dc_arc(&r#if.then_block),
             else_block: dc_arc(&r#if.else_block),
@@ -148,6 +161,7 @@ fn dc_stmt(statement: &Statement) -> Statement {
             origin: generic_for.origin,
         }),
         Statement::SetList(set_list) => Statement::SetList(SetList {
+            node_origin: Default::default(),
             object_local: set_list.object_local.clone(),
             index: set_list.index,
             values: set_list.values.iter().map(dc_rvalue).collect(),
@@ -156,7 +170,11 @@ fn dc_stmt(statement: &Statement) -> Statement {
         // Goto/Label/Break/Continue/Comment/Empty/Close and unused for-internals
         // hold no nested block containers, so a shallow clone is already deep.
         _ => statement.clone(),
+    };
+    if let (Some(source), Some(target)) = (crate::node_origins::statement(statement), crate::node_origins::statement_mut(&mut copy)) {
+        *target = source.clone();
     }
+    copy
 }
 
 // ===================================================================
@@ -865,6 +883,7 @@ fn rewrite_escape_sequence(
             EscapeBoundary::FallThrough if !remainder.is_empty() => output.push(
                 If::new(
                     RValue::Unary(Unary {
+                        node_origin: Default::default(),
                         value: Box::new(RValue::Local(signal)),
                         operation: crate::UnaryOperation::Not,
                     }),
@@ -958,6 +977,7 @@ fn structure_one_forward_label(block: &mut Block) -> bool {
             region.remove(0);
             let condition = if negate {
                 RValue::Unary(Unary {
+                    node_origin: Default::default(),
                     value: Box::new(condition),
                     operation: crate::UnaryOperation::Not,
                 })
@@ -1587,6 +1607,7 @@ fn normalize_loop_entry_region(label: &str, region: &[Statement]) -> Option<Vec<
     output.append(&mut replacement);
     output.append(&mut hit_region);
     let guard = RValue::Unary(Unary {
+        node_origin: Default::default(),
         value: Box::new(RValue::Local(hit_local)),
         operation: crate::UnaryOperation::Not,
     });
@@ -1914,6 +1935,7 @@ fn unstructure_one_loop(
                 let mut body = std::mem::take(&mut *w.block.lock());
                 convert_break_continue(&mut body.0, &exit, &head);
                 let not_cond = RValue::Unary(Unary {
+                    node_origin: Default::default(),
                     value: Box::new(w.condition),
                     operation: crate::UnaryOperation::Not,
                 });
@@ -1932,6 +1954,7 @@ fn unstructure_one_loop(
                 let mut body = std::mem::take(&mut *r.block.lock());
                 convert_break_continue(&mut body.0, &exit, &cont);
                 let not_cond = RValue::Unary(Unary {
+                    node_origin: Default::default(),
                     value: Box::new(r.condition),
                     operation: crate::UnaryOperation::Not,
                 });
@@ -2342,10 +2365,12 @@ mod tests {
         let entry = local("entry");
 
         let break_condition = RValue::Unary(Unary {
+            node_origin: Default::default(),
             value: Box::new(local_value(&stage)),
             operation: crate::UnaryOperation::Not,
         });
         let hit_condition = RValue::Binary(Binary {
+            node_origin: Default::default(),
             left: Box::new(local_value(&entry)),
             right: Box::new(bool_lit(true)),
             operation: BinaryOperation::Equal,
@@ -2463,7 +2488,7 @@ mod tests {
         assert!(
             !matches!(
                 &fallback_if.condition,
-                RValue::Unary(Unary { value, operation: crate::UnaryOperation::Not })
+                RValue::Unary(Unary { value, operation: crate::UnaryOperation::Not, .. })
                     if matches!(&**value, RValue::Local(local) if local == &stage)
             ),
             "fallback guard must use a dedicated hit flag, not the payload local:\n{}",
@@ -2755,6 +2780,7 @@ mod tests {
         }));
         let block = Block(vec![
             Return::new(vec![RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(function),
                 upvalues: Vec::new(),
             })])

@@ -15,7 +15,7 @@ fn wait(value: f64) -> Statement {
     Call::new(field(global("task"), "wait"), vec![number(value)]).into()
 }
 fn closure(parameters: Vec<RcLocal>, body: Block) -> RValue {
-    Closure { function: ByAddress(Arc::new(Mutex::new(Function {
+    Closure { node_origin: Default::default(), function: ByAddress(Arc::new(Mutex::new(Function {
         parameters, body, ..Default::default()
     }))), upvalues: vec![] }.into()
 }

@@ -973,6 +973,7 @@ mod tests {
         }));
         let callback = local("callback");
         let closure = Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(closure_function),
             upvalues: Vec::new(),
         };
@@ -1007,6 +1008,7 @@ mod tests {
         }));
         let callback = local("callback");
         let closure = Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(closure_function),
             upvalues: Vec::new(),
         };
@@ -1035,6 +1037,7 @@ mod tests {
         }));
         let callback = local("callback");
         let closure = Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(closure_function),
             upvalues: Vec::new(),
         };
@@ -1114,6 +1117,7 @@ mod tests {
         let child = Arc::new(Mutex::new(AstFunction::default()));
         let callback = local("callback");
         let closure = Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(child.clone()),
             upvalues: Vec::new(),
         };
@@ -1324,6 +1328,7 @@ mod tests {
             ..Default::default()
         };
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(Arc::new(Mutex::new(child))),
             upvalues: Vec::new(),
         });
@@ -1355,6 +1360,7 @@ mod tests {
         let captured = local("captured");
         let callback = local("callback");
         let closure = Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
             upvalues: vec![Upvalue::Ref(captured)],
         };
@@ -1384,6 +1390,7 @@ mod tests {
         let captured = local("captured");
         let callback = local("callback");
         let closure = Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
             upvalues: vec![Upvalue::Ref(captured.clone())],
         };
@@ -1429,6 +1436,7 @@ mod tests {
         let callback = local("callback");
         function.parameters.push(parameter.clone());
         let closure = Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
             upvalues: vec![Upvalue::Ref(parameter.clone())],
         };
@@ -1484,6 +1492,7 @@ mod tests {
             .into(),
             Assign::new(vec![LValue::Local(callback)], vec![RValue::Closure(
                 Closure {
+                    node_origin: Default::default(),
                     function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
                     upvalues: vec![Upvalue::Ref(captured.clone())],
                 },
@@ -1531,6 +1540,7 @@ mod tests {
         let captured = local("captured");
         let callback = local("callback");
         let closure = Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction {
                 body: Block::from(vec![
                     ast::Return::new(vec![captured.clone().into()]).into(),
@@ -1596,6 +1606,7 @@ mod tests {
         let captured = local("captured");
         let callback = local("callback");
         let closure = Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(Arc::new(Mutex::new(AstFunction::default()))),
             upvalues: vec![Upvalue::Ref(captured.clone())],
         };

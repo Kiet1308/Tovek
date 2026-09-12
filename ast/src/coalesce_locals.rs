@@ -189,7 +189,7 @@ fn statement_contains_closure(statement: &Statement) -> bool {
 }
 
 fn is_unnamed(local: &RcLocal) -> bool {
-    !local.has_source_binding() && local.0.0.lock().0.is_none()
+    !local.preserve_binding() && local.0.0.lock().0.is_none()
 }
 
 fn paths_are_exclusive(left: &[(usize, bool)], right: &[(usize, bool)]) -> bool {
@@ -576,6 +576,7 @@ mod tests {
         let captured = RcLocal::default();
         let value = RcLocal::default();
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(captured)],
         });

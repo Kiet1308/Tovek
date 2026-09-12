@@ -42,13 +42,14 @@ def compact_comparison(full, compact, original, output):
     for a, b, replacement in reversed(edits): predicted = predicted[:a] + replacement + predicted[b:]
     if predicted != output: raise ValueError('compact mode changed bytes beyond recorded comments')
     starts = [0] + [i + 1 for i, byte in enumerate(output) if byte == 10]
+    def translate_offset(old):
+        if any(a < old < b for a, b, _ in edits):
+            raise ValueError('non-boundary source position inside replaced comment')
+        return old + sum(len(replacement) - (b - a) for a, b, replacement in edits if b <= old)
     def translate(value):
         if isinstance(value, dict):
             if set(value) == {'byte_offset', 'line_one_based', 'column_one_based'}:
-                old = value['byte_offset']
-                if any(a < old < b for a, b, _ in edits):
-                    raise ValueError('non-boundary source position inside replaced comment')
-                offset = old + sum(len(replacement) - (b - a) for a, b, replacement in edits if b <= old)
+                offset = translate_offset(value['byte_offset'])
                 line = bisect.bisect_right(starts, offset)
                 value.update(byte_offset=offset, line_one_based=line,
                              column_one_based=len(output[starts[line - 1]:offset].decode('utf-8')) + 1)
@@ -57,6 +58,12 @@ def compact_comparison(full, compact, original, output):
         elif isinstance(value, list):
             for child in value: translate(child)
     translate(expected)
+    # These fields use byte offsets rather than SourcePosition objects. Only
+    # translate this documented output inventory; input PCs and value paths
+    # elsewhere in the metadata are not positions in the emitted source.
+    for region in expected['binding_provenance'].get('value_provenance', {}).get('output_regions', []):
+        for field in ('start_byte', 'end_byte'):
+            region[field] = translate_offset(region[field])
     expected['decompile_option_bits'] |= 64
     expected['source_sha256'] = compact['source_sha256']  # Independently checked against bytes.
     # Identity hashes include options; they are not semantic certificates.

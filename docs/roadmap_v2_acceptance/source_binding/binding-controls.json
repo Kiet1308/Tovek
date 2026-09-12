@@ -1,0 +1,299 @@
+{
+ "schema_version": 1,
+ "compiler_sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d",
+ "luau_sha256": "50029806035a3a76f5e8a5c0960fd596fa4a10503d6e35472110b12426fa8b65",
+ "fixture_sha256": "9aa5c359f6169bfe4158c527acb8bf5adf35dfd8c33252e65bab46a8cd27e3e8",
+ "driver_sha256": "b5933e0f8b34875d9978bb78b603f657cc216ce1bc25d9d49c9115517d5c88f0",
+ "status": "passed",
+ "rows": [
+  {
+   "control": "original",
+   "opt": 0,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [],
+   "status": "passed"
+  },
+  {
+   "control": "original",
+   "opt": 0,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [],
+   "status": "passed"
+  },
+  {
+   "control": "original",
+   "opt": 1,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [],
+   "status": "passed"
+  },
+  {
+   "control": "original",
+   "opt": 1,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [],
+   "status": "passed"
+  },
+  {
+   "control": "original",
+   "opt": 2,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [],
+   "status": "passed"
+  },
+  {
+   "control": "original",
+   "opt": 2,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [],
+   "status": "passed"
+  },
+  {
+   "control": "false_nil_selection",
+   "opt": 0,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    0
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "false_nil_selection",
+   "opt": 0,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    0
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "false_nil_selection",
+   "opt": 1,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    0
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "false_nil_selection",
+   "opt": 1,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    0
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "false_nil_selection",
+   "opt": 2,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    0
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "false_nil_selection",
+   "opt": 2,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    0
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "truthy_normalization",
+   "opt": 0,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    7
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "truthy_normalization",
+   "opt": 0,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    7
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "truthy_normalization",
+   "opt": 1,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    7
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "truthy_normalization",
+   "opt": 1,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    7
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "truthy_normalization",
+   "opt": 2,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    7
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "truthy_normalization",
+   "opt": 2,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    7
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "lost_reference_write",
+   "opt": 0,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "lost_reference_write",
+   "opt": 0,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "lost_reference_write",
+   "opt": 1,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "lost_reference_write",
+   "opt": 1,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "lost_reference_write",
+   "opt": 2,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "lost_reference_write",
+   "opt": 2,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "early_capture_observation",
+   "opt": 0,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "early_capture_observation",
+   "opt": 0,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "early_capture_observation",
+   "opt": 1,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "early_capture_observation",
+   "opt": 1,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "early_capture_observation",
+   "opt": 2,
+   "debug": 1,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  },
+  {
+   "control": "early_capture_observation",
+   "opt": 2,
+   "debug": 2,
+   "observations": 10,
+   "differing_vectors": [
+    8
+   ],
+   "status": "passed"
+  }
+ ],
+ "contract": "All mutated subjects compile; fixed VM observations must detect each mutation at every profile. This establishes driver sensitivity, not general decompiler equivalence."
+}

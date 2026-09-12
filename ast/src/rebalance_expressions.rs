@@ -584,6 +584,7 @@ mod tests {
     fn conditional_split_refuses_global_write_inside_selected_closure() {
         let destination = RcLocal::new(Local::new(Some("result".into())));
         let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function {
                 body: Block(vec![Assign::new(
                     vec![LValue::Global(Global::from("result"))],

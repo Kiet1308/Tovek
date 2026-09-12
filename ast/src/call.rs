@@ -6,6 +6,7 @@ use super::RValue;
 
 #[derive(Clone)]
 pub struct Call {
+    pub node_origin: crate::node_origins::Origin,
     pub value: Box<RValue>,
     pub arguments: Vec<RValue>,
     /// Creation event only. Copies retain the event; a newly built Call starts
@@ -28,6 +29,7 @@ impl fmt::Debug for Call {
 impl Call {
     pub fn new(value: RValue, arguments: Vec<RValue>) -> Self {
         Self {
+            node_origin: Default::default(),
             value: Box::new(value),
             arguments,
             reconstruction_event: 0,
@@ -35,6 +37,14 @@ impl Call {
     }
 
     pub(crate) fn reconstructed(mut self, producer: crate::call_origins::Kind) -> Self {
+        if crate::call_origins::enabled() {
+            self.node_origin = crate::node_origins::Origin::synthesized(match producer {
+            crate::call_origins::Kind::StatementDeinline => "statement_deinline",
+            crate::call_origins::Kind::ExpressionDeinline => "expression_deinline",
+            crate::call_origins::Kind::ArithmeticDeinline => "arithmetic_deinline",
+            crate::call_origins::Kind::TerminalSynthesis => "terminal_synthesis",
+            });
+        }
         if let RValue::Local(local) = &*self.value {
             self.reconstruction_event = crate::call_origins::record(producer, local.stable_id());
         }
@@ -101,8 +111,9 @@ impl fmt::Display for Call {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct MethodCall {
+    pub node_origin: crate::node_origins::Origin,
     // TODO: STYLE: rename to object?
     pub value: Box<RValue>,
     pub method: String,
@@ -112,6 +123,7 @@ pub struct MethodCall {
 impl MethodCall {
     pub fn new(value: RValue, method: String, arguments: Vec<RValue>) -> Self {
         Self {
+            node_origin: Default::default(),
             value: Box::new(value),
             method,
             arguments,
@@ -170,3 +182,5 @@ impl fmt::Display for MethodCall {
         .format_method_call(self)
     }
 }
+
+crate::node_origins::semantic_debug!(MethodCall; value,method,arguments);

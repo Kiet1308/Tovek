@@ -7,8 +7,9 @@ use super::{Block, RValue};
 
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct If {
+    pub node_origin: crate::node_origins::Origin,
     pub condition: RValue,
     pub then_block: Arc<Mutex<Block>>,
     pub else_block: Arc<Mutex<Block>>,
@@ -24,6 +25,7 @@ impl PartialEq for If {
 impl If {
     pub fn new(condition: RValue, then_block: Block, else_block: Block) -> Self {
         Self {
+            node_origin: Default::default(),
             condition,
             then_block: Arc::new(then_block.into()),
             else_block: Arc::new(else_block.into()),
@@ -74,3 +76,5 @@ impl fmt::Display for If {
         .format_if(self)
     }
 }
+
+crate::node_origins::semantic_debug!(If; condition,then_block,else_block);

@@ -16,7 +16,16 @@ use triomphe::Arc;
 /// so the AST namer can consult it as the lowest-priority evidence once every
 /// usage-based hint has had its chance.
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
-pub struct Local(pub Option<String>, pub Option<String>, pub Vec<SourceBinding>, pub Option<Box<BindingLineage>>);
+pub struct Local(pub Option<String>, pub Option<String>, pub Vec<SourceBinding>, pub Option<Box<BindingLineage>>, pub BindingRoles);
+
+/// Source presentation constraints, independent of storage ancestry and cell
+/// ownership. A conditional result is inferred, never a recovered source local.
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub struct BindingRoles {
+    pub parameter: bool,
+    pub conditional_result: bool,
+    pub separate_from_parameter: bool,
+}
 
 /// Diagnostic ancestry of storage/SSA identities, not an equality or lifetime
 /// certificate. IDs are scoped to one decompilation. An incomplete set may be
@@ -25,6 +34,9 @@ pub struct Local(pub Option<String>, pub Option<String>, pub Vec<SourceBinding>,
 pub struct BindingLineage {
     pub definitions: Vec<u64>,
     pub incomplete: bool,
+    /// A new storage local was constructed from a cloned Local metadata value.
+    /// This is an ancestry fact, not proof that an emitted expression was cloned.
+    pub copied_local_metadata: bool,
 }
 
 impl BindingLineage {
@@ -47,6 +59,7 @@ impl BindingLineage {
 
     fn inherit(&mut self, other: &Self) {
         self.incomplete |= other.incomplete;
+        self.copied_local_metadata |= other.copied_local_metadata;
         for &id in &other.definitions { self.add(id); }
     }
 }
@@ -99,18 +112,18 @@ pub fn assignment_preserves_function_name(statement: &crate::Statement, local: &
 
 impl From<Option<String>> for Local {
     fn from(name: Option<String>) -> Self {
-        Self(name, None, Vec::new(), None)
+        Self(name, None, Vec::new(), None, BindingRoles::default())
     }
 }
 
 impl Local {
     pub fn new(name: Option<String>) -> Self {
-        Self(name, None, Vec::new(), None)
+        Self(name, None, Vec::new(), None, BindingRoles::default())
     }
 
     /// An unnamed local carrying a bytecode-type naming hint.
     pub fn with_type_hint(hint: String) -> Self {
-        Self(None, Some(hint), Vec::new(), None)
+        Self(None, Some(hint), Vec::new(), None, BindingRoles::default())
     }
 
     /// The bytecode-type naming hint, if any.
@@ -284,7 +297,8 @@ impl SideEffects for RcLocal {}
 impl Traverse for RcLocal {}
 
 impl RcLocal {
-    pub fn new(local: Local) -> Self {
+    pub fn new(mut local: Local) -> Self {
+        if let Some(lineage) = &mut local.3 { lineage.copied_local_metadata = true; }
         Self(ByAddress(Arc::new(Mutex::new(local))), next_local_id())
     }
 
@@ -297,14 +311,22 @@ impl RcLocal {
         !self.0.lock().2.is_empty()
     }
 
+    pub fn preserve_binding(&self) -> bool {
+        let local = self.0.lock();
+        !local.2.is_empty() || local.4.conditional_result
+    }
+
     pub fn inherit_source_bindings(&self, other: &Self) {
         if self == other { return; }
-        let (evidence, lineage) = {
+        let (evidence, lineage, roles) = {
             let local = other.0.lock();
-            (local.2.clone(), local.3.clone())
+            (local.2.clone(), local.3.clone(), local.4)
         };
-        if evidence.is_empty() && lineage.is_none() { return; }
+        if evidence.is_empty() && lineage.is_none() && roles == BindingRoles::default() { return; }
         let mut local = self.0.lock();
+        local.4.parameter |= roles.parameter;
+        local.4.conditional_result |= roles.conditional_result;
+        local.4.separate_from_parameter |= roles.separate_from_parameter;
         for binding in evidence { local.add_source_binding(binding); }
         if let Some(lineage) = lineage {
             local.3.get_or_insert_with(Default::default).inherit(&lineage);
@@ -328,6 +350,10 @@ impl RcLocal {
         let (first, second) = if self < other { (self, other) } else { (other, self) };
         let first = first.0.lock();
         let second = second.0.lock();
+        if (first.4.parameter && second.4.separate_from_parameter)
+            || (second.4.parameter && first.4.separate_from_parameter) {
+            return false;
+        }
         // Keep separately recorded locals distinct, even for equal spelling.
         let own = |b: &&SourceBinding| matches!(b.origin, BindingOrigin::DebugLocal { .. });
         let mut left = first.2.iter().filter(own).peekable();

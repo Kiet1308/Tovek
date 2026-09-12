@@ -32,6 +32,7 @@ fn select(flag: RValue, yes: RValue, no: RValue) -> RValue {
 }
 fn closure(parameters: Vec<RcLocal>, body: Block, captures: &[RcLocal]) -> RValue {
     Closure {
+        node_origin: Default::default(),
         function: ByAddress(Arc::new(Mutex::new(Function {
             parameters,
             body,
@@ -43,6 +44,7 @@ fn closure(parameters: Vec<RcLocal>, body: Block, captures: &[RcLocal]) -> RValu
 }
 fn assign(target: &RcLocal, value: RValue, prefix: bool) -> Statement {
     Assign {
+        node_origin: Default::default(),
         left: vec![target.clone().into()],
         right: vec![value],
         prefix,
@@ -495,7 +497,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     add(
         "table_refusal",
         &x,
-        Block(vec![ret(vec![ast::Table(vec![(None, x.choice())]).into()])]),
+        Block(vec![ret(vec![ast::Table::new(vec![(None, x.choice())]).into()])]),
         false,
         Some("table_constructor_order"),
     )?;

@@ -126,6 +126,7 @@ mod tests {
                 string(method),
             ))],
             vec![RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(function))),
                 upvalues: Vec::new(),
             })],
@@ -144,6 +145,7 @@ mod tests {
         };
         Call::new(
             RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(Arc::new(Mutex::new(function))),
                 upvalues: Vec::new(),
             }),
@@ -932,6 +934,7 @@ mod tests {
             Assign::new(
                 vec![LValue::Global(Global::from("make"))],
                 vec![RValue::Closure(Closure {
+                    node_origin: Default::default(),
                     function: ByAddress(Arc::new(Mutex::new(Function {
                         body: Block(vec![Return::new(vec![global("value")]).into()]),
                         ..Default::default()
@@ -975,7 +978,7 @@ mod tests {
     fn formats_if_expression_in_table_field_and_call_arg() {
         let flag = local("flag");
         let block = Block(vec![
-            Return::new(vec![RValue::Table(Table(vec![
+            Return::new(vec![RValue::Table(Table::new(vec![
                 (
                     Some(string("Value")),
                     IfExpression::new(local_value(&flag), string("A"), string("B")).into(),
@@ -1005,7 +1008,7 @@ mod tests {
     fn empty_string_keys_use_bracket_syntax() {
         let table = local("t");
         let block = Block(vec![
-            Return::new(vec![RValue::Table(Table(vec![
+            Return::new(vec![RValue::Table(Table::new(vec![
                 (Some(string("")), string("empty")),
                 (Some(string("field")), string("value")),
             ]))])
@@ -1124,6 +1127,7 @@ mod tests {
                     string("OnClientInvoke"),
                 ))],
                 vec![RValue::Closure(Closure {
+                    node_origin: Default::default(),
                     function: ByAddress(Arc::new(Mutex::new(function))),
                     upvalues: vec![crate::Upvalue::Ref(captured.clone())],
                 })],
@@ -1171,6 +1175,7 @@ mod tests {
         let mut assignment = Assign::new(vec![outer.clone().into()], vec![number(1.0)]);
         assignment.prefix = true;
         let mut declaration = Assign::new(vec![helper.clone().into()], vec![RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(function))), upvalues: vec![],
         })]);
         declaration.prefix = true;
@@ -1204,6 +1209,7 @@ mod tests {
     fn emission_map_marks_interpolation_subrendering_opaque() {
         let item = local("item");
         let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall {
+            node_origin: Default::default(),
             value: Box::new(string("%*")), method: "format".into(), arguments: vec![local_value(&item)],
         })]).into()]);
         let (source, _, map) = format_with_emission_map(&block, IndentationMode::Tab, true).unwrap();
@@ -1241,7 +1247,7 @@ mod tests {
             let values = vec![string(&"a".repeat(70)), string(&"b".repeat(70)), tail];
             let call = Call::new(global("collect"), values.clone()).to_string();
             let returned = Return::new(values.clone()).to_string();
-            let array = Table(values.into_iter().map(|v| (None, v)).collect()).to_string();
+            let array = Table::new(values.into_iter().map(|v| (None, v)).collect()).to_string();
             assert!(call.starts_with("collect(\n"));
             assert!(returned.starts_with("return\n"));
             assert!(array.starts_with("{\n"));
@@ -1269,7 +1275,7 @@ mod tests {
     #[test]
     fn short_calls_and_single_constructor_arguments_stay_compact() {
         assert_eq!(Call::new(global("f"), vec![number(1.0), number(2.0)]).to_string(), "f(1, 2)");
-        let table = Table(vec![(Some(string("field")), number(1.0))]);
+        let table = Table::new(vec![(Some(string("field")), number(1.0))]);
         assert_eq!(Call::new(global("f"), vec![table.into()]).to_string(), "f({\n\tfield = 1\n})");
     }
 
@@ -1753,7 +1759,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                     Statement::Call(_) | Statement::MethodCall(_) => true,
                     Statement::Repeat(repeat) => is_ambiguous(&repeat.condition),
                     Statement::Assign(Assign { right: list, .. })
-                    | Statement::Return(Return { values: list }) => {
+                    | Statement::Return(Return { values: list, .. }) => {
                         if let Some(last) = list.last() {
                             is_ambiguous(last)
                         } else {
@@ -2164,6 +2170,13 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         syntax_kind: ClosureSyntaxKind,
         display_name: Option<String>,
     ) {
+        if let (Some(start), Some(end)) = (start, self.current_position()) {
+            if let Some(map) = self.emission_map.as_mut() {
+                let bindings = closure.values_read().into_iter().map(RcLocal::stable_id)
+                    .collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+                map.region("closure", bindings, SourceSpan { start, end }, Some(&closure.node_origin));
+            }
+        }
         let (Some(start), Some(end), Some(observer)) = (
             start,
             self.current_position(),
@@ -2382,6 +2395,22 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn format_rvalue(&mut self, rvalue: &RValue) -> fmt::Result {
+        let start = self.emission_map.as_ref().and_then(|_| self.current_position());
+        let result = self.format_rvalue_inner(rvalue);
+        if result.is_ok() && !matches!(rvalue, RValue::Closure(_)) {
+            if let (Some(start), Some(end)) = (start, self.current_position()) {
+                if let Some(map) = self.emission_map.as_mut() {
+                    let bindings = rvalue.values_read().into_iter().map(RcLocal::stable_id)
+                        .collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+                    map.region(crate::emission_map::value_kind(rvalue), bindings, SourceSpan { start, end },
+                        crate::node_origins::value(rvalue));
+                }
+            }
+        }
+        result
+    }
+
+    fn format_rvalue_inner(&mut self, rvalue: &RValue) -> fmt::Result {
         if let Some(budget) = self.layout_budget.as_mut() {
             if *budget == 0 { return Err(fmt::Error); }
             *budget -= 1;
@@ -2988,6 +3017,22 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn format_statement(&mut self, statement: &Statement) -> fmt::Result {
+        let start = self.emission_map.as_ref().and_then(|_| self.current_position());
+        let result = self.format_statement_inner(statement);
+        if result.is_ok() {
+            if let (Some(start), Some(end)) = (start, self.current_position()) {
+                if let Some(map) = self.emission_map.as_mut() {
+                    let bindings = statement.values().into_iter().map(RcLocal::stable_id)
+                        .collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+                    map.region("statement", bindings, SourceSpan { start, end },
+                        crate::node_origins::statement(statement));
+                }
+            }
+        }
+        result
+    }
+
+    fn format_statement_inner(&mut self, statement: &Statement) -> fmt::Result {
         self.indent()?;
 
         if matches!(

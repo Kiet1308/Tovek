@@ -169,7 +169,7 @@ fn candidate_decl(statement: &Statement) -> Option<RcLocal> {
     let LValue::Local(local) = &assign.left[0] else {
         return None;
     };
-    (!local.has_source_binding()).then(|| local.clone())
+    (!local.preserve_binding()).then(|| local.clone())
 }
 
 fn branch_assignments(r#if: &If, local: &RcLocal) -> Option<(RValue, RValue, RValue)> {
@@ -253,6 +253,7 @@ fn negate_condition(condition: RValue) -> RValue {
                 _ => unreachable!(),
             };
             Binary {
+                node_origin: Default::default(),
                 left: binary.left,
                 right: binary.right,
                 operation,
@@ -952,7 +953,7 @@ mod tests {
         let temp = local("v");
         let cond = local("cond");
         let large_table = || {
-            RValue::Table(crate::Table(
+            RValue::Table(crate::Table::new(
                 (0..60)
                     .map(|i| (Some(string(&format!("Field{i}"))), string("value")))
                     .collect(),

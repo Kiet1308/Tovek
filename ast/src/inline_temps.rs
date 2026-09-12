@@ -213,7 +213,7 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
         let ordered_alias = facts.rebuild_call_chains && !is_service_or_require_handle(&replacement) && matches!(&replacement,
             RValue::Index(_) | RValue::Select(Select::Call(_) | Select::MethodCall(_)));
         let named_function = crate::assignment_preserves_function_name(&block.0[use_index], &local);
-        if local.has_source_binding() && !named_function { continue; }
+        if local.preserve_binding() && !named_function { continue; }
         if !call_callee && !ordered_alias && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
         {
             continue;
@@ -504,6 +504,7 @@ fn replace_first_rvalue_use(
             return false;
         }
         *rvalue = replacement;
+        crate::node_origins::inlined(rvalue);
         return true;
     }
 
@@ -730,7 +731,7 @@ fn for_each_method_call_rvalue_mut(method_call: &mut MethodCall, f: &mut impl Fn
 }
 
 pub(crate) fn is_generated_temp(local: &RcLocal) -> bool {
-    if local.has_source_binding() { return false; }
+    if local.preserve_binding() { return false; }
     let Some(name) = local.0 .0.lock().0.clone() else {
         return false;
     };
@@ -1013,6 +1014,7 @@ mod tests {
 
     fn closure_capturing(local: &RcLocal) -> RValue {
         RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(local.clone())],
         })
@@ -1235,7 +1237,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &temp,
-                RValue::Table(Table(vec![
+                RValue::Table(Table::new(vec![
                     (Some(string("Name")), string("ProgressBar")),
                     (Some(string("LayoutOrder")), number(1.0)),
                 ])),
@@ -1257,7 +1259,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &children,
-                RValue::Table(Table(vec![(Some(string("Name")), string("Child"))])),
+                RValue::Table(Table::new(vec![(Some(string("Name")), string("Child"))])),
             ),
             Return::new(vec![local_value(&children)]).into(),
         ]);
@@ -1288,7 +1290,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &temp,
-                RValue::Table(Table(vec![(
+                RValue::Table(Table::new(vec![(
                     Some(string("Child")),
                     Call::new(global("makeChild"), vec![]).into(),
                 )])),
@@ -1316,7 +1318,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &temp,
-                RValue::Table(Table(vec![(
+                RValue::Table(Table::new(vec![(
                     Some(string("Child")),
                     Call::new(global("makeChild"), vec![]).into(),
                 )])),
@@ -1345,7 +1347,7 @@ mod tests {
             body: Block(vec![
                 declare(
                     &temp,
-                    RValue::Table(Table(vec![(
+                    RValue::Table(Table::new(vec![(
                         Some(string("Child")),
                         Call::new(global("makeChild"), vec![]).into(),
                     )])),
@@ -1362,6 +1364,7 @@ mod tests {
         let mut block = Block(vec![
             declare(&create, global("factory")),
             print(RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(function.clone()),
                 upvalues: vec![Upvalue::Ref(create)],
             })),
@@ -1386,11 +1389,11 @@ mod tests {
                 declare(&target, RValue::Table(Table::default())),
                 declare(
                     &props,
-                    RValue::Table(Table(vec![(Some(string("Name")), string("Title"))])),
+                    RValue::Table(Table::new(vec![(Some(string("Name")), string("Title"))])),
                 ),
                 declare(
                     &children,
-                    RValue::Table(Table(vec![(
+                    RValue::Table(Table::new(vec![(
                         Some(string("Constraint")),
                         Call::new(global("makeConstraint"), vec![]).into(),
                     )])),
@@ -1412,6 +1415,7 @@ mod tests {
         let mut block = Block(vec![
             declare(&create, global("factory")),
             print(RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(function.clone()),
                 upvalues: vec![Upvalue::Ref(create)],
             })),
@@ -1434,7 +1438,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &temp,
-                RValue::Table(Table(vec![(
+                RValue::Table(Table::new(vec![(
                     Some(string("Child")),
                     Call::new(global("makeChild"), vec![]).into(),
                 )])),
@@ -1455,7 +1459,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &temp,
-                RValue::Table(Table(vec![(Some(local_value(&key)), number(1.0))])),
+                RValue::Table(Table::new(vec![(Some(local_value(&key)), number(1.0))])),
             ),
             Call::new(global("between"), vec![]).into(),
             print(local_value(&temp)),
@@ -1474,7 +1478,7 @@ mod tests {
         let mut block = Block(vec![
             declare(
                 &temp,
-                RValue::Table(Table(vec![(
+                RValue::Table(Table::new(vec![(
                     Some(string("Child")),
                     Call::new(global("makeChild"), vec![]).into(),
                 )])),
@@ -1534,7 +1538,7 @@ mod tests {
     fn does_not_inline_mutated_table_temp() {
         let temp = local("v5");
         let mut block = Block(vec![
-            declare(&temp, RValue::Table(Table(vec![]))),
+            declare(&temp, RValue::Table(Table::new(vec![]))),
             assign(
                 LValue::Index(Index::new(local_value(&temp), string("Name"))),
                 string("Value"),

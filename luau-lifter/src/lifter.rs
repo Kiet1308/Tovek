@@ -1765,6 +1765,7 @@ impl<'a> Lifter<'a> {
                         statements.push(
                             ast::Assign::new(vec![dest_local.into()], vec![
                                 ast::Closure {
+                                    node_origin: Default::default(),
                                     function: ByAddress(function),
                                     upvalues: upvalues_passed,
                                 }
@@ -1945,7 +1946,7 @@ impl<'a> Lifter<'a> {
                         (Some(key), value)
                     })
                     .collect();
-                ast::Table(entries).into()
+                ast::Table::new(entries).into()
             }
         }
     }

@@ -2,7 +2,7 @@
 //! certificate and no transform may treat storage ancestry as value equality.
 use std::collections::{BTreeMap, BTreeSet};
 
-use ast::{LocalRw, RcLocal, SourceBinding, Statement};
+use ast::{LocalRw, RcLocal, SourceBinding, Statement, Traverse};
 use petgraph::{stable_graph::NodeIndex, visit::EdgeRef};
 
 use crate::function::Function;
@@ -49,6 +49,28 @@ pub struct MapEvent {
     pub to: u64,
 }
 
+/// Immutable nested-value occurrence in the initial SSA snapshot. Paths refer
+/// to that snapshot only; later syntax is related by bindings/events, never by
+/// assuming a statement index survives mutation.
+#[derive(Debug, Clone)]
+pub struct ValueOrigin {
+    pub id: usize,
+    pub block: usize,
+    pub statement: usize,
+    pub path: Vec<usize>,
+    pub kind: &'static str,
+    pub binding: Option<u64>,
+    pub children: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InlineEvent {
+    pub phase: &'static str,
+    pub producer: u64,
+    pub consumer_bindings: Vec<u64>,
+    pub site_kind: &'static str,
+}
+
 #[derive(Debug, Clone)]
 pub struct SelectResult {
     pub phase: &'static str,
@@ -72,6 +94,8 @@ pub struct FunctionTrace {
     pub lifted: BTreeMap<(usize, usize), LiftedStatement>,
     pub definitions: BTreeMap<u64, Definition>,
     pub maps: Vec<MapEvent>,
+    pub values: Vec<ValueOrigin>,
+    pub inlines: Vec<InlineEvent>,
     pub selects: Vec<SelectResult>,
     pub pre_destruct_bindings: Vec<u64>,
     pub post_destruct_bindings: Vec<u64>,
@@ -89,6 +113,8 @@ impl FunctionTrace {
             lifted: BTreeMap::new(),
             definitions: BTreeMap::new(),
             maps: Vec::new(),
+            values: Vec::new(),
+            inlines: Vec::new(),
             selects: Vec::new(),
             pre_destruct_bindings: Vec::new(),
             post_destruct_bindings: Vec::new(),
@@ -101,6 +127,8 @@ impl FunctionTrace {
             + self.lifted.len()
             + self.definitions.len()
             + self.maps.len()
+            + self.values.len()
+            + self.inlines.len()
             + self.selects.len()
             >= RECORD_LIMIT
         {
@@ -161,6 +189,9 @@ impl FunctionTrace {
             .any(|b| matches!(b.origin, ast::BindingOrigin::DebugLocal { .. }))
         {
             "recorded_source_definition"
+        } else if site.and_then(|(statement, _)| self.lifted.get(&(node.index(), statement)))
+            .is_some_and(|s| matches!(s.kind, "numeric_for_prep" | "generic_for_prep")) {
+            "compiler_loop_control_definition"
         } else {
             "unclassified_ssa_definition"
         };
@@ -180,14 +211,77 @@ impl FunctionTrace {
     }
 
     pub fn local_map(&mut self, phase: &'static str, from: &RcLocal, to: &RcLocal) {
+        self.local_map_ids(phase, from.stable_id(), to.stable_id());
+    }
+
+    pub fn local_map_ids(&mut self, phase: &'static str, from: u64, to: u64) {
         if from != to && self.room() {
             self.maps.push(MapEvent {
                 phase,
-                from: from.stable_id(),
-                to: to.stable_id(),
+                from,
+                to,
             });
         }
     }
+
+    pub fn inline_event(&mut self, event: InlineEvent) {
+        if self.room() { self.inlines.push(event); }
+    }
+
+    fn value(&mut self, value: &mut ast::RValue, block: usize, statement: usize,
+             path: Vec<usize>, depth: usize, function: &std::sync::Arc<str>) -> Option<usize> {
+        if depth >= 256 { self.dropped_records += 1; return None; }
+        if !self.room() { return None; }
+        let id = self.values.len();
+        self.values.push(ValueOrigin { id, block, statement, path: path.clone(),
+            kind: ast::emission_map::value_kind(value),
+            binding: value.as_local().map(RcLocal::stable_id), children: Vec::new() });
+        if let Some(origin) = ast::node_origins::value_mut(value) {
+            *origin = ast::node_origins::Origin::input(ast::node_origins::Input {
+                function: function.clone(), block, statement, value: Some(id),
+            });
+        }
+        let mut children = Vec::new();
+        for (index, child) in value.rvalues_mut().into_iter().enumerate() {
+            let mut child_path = path.clone();
+            child_path.push(index);
+            if let Some(child) = self.value(child, block, statement, child_path, depth + 1, function) {
+                children.push(child);
+            }
+        }
+        self.values[id].children = children;
+        Some(id)
+    }
+}
+
+/// Capture before copy propagation while lifted statement/write-slot locations
+/// still refer to the same instructions. Closure bodies have their own trace.
+pub fn record_values(function: &mut Function) {
+    let Some(mut trace) = function.provenance.take() else { return; };
+    let function_id: std::sync::Arc<str> = trace.function_id.clone().into();
+    let nodes = function.graph().node_indices().collect::<Vec<_>>();
+    for node in nodes {
+        for (statement, item) in function.block_mut(node).unwrap().iter_mut().enumerate() {
+            if trace.lifted.contains_key(&(node.index(), statement)) {
+                if let Some(origin) = ast::node_origins::statement_mut(item) {
+                    *origin = ast::node_origins::Origin::input(ast::node_origins::Input {
+                        function: function_id.clone(), block: node.index(), statement, value: None,
+                    });
+                }
+            }
+            if let Statement::Assign(assign) = item {
+                for (index, left) in assign.left.iter_mut().enumerate() {
+                    for (child, value) in left.rvalues_mut().into_iter().enumerate() {
+                        trace.value(value, node.index(), statement, vec![0, index, child], 0, &function_id);
+                    }
+                }
+            }
+            for (index, value) in item.rvalues_mut().into_iter().enumerate() {
+                trace.value(value, node.index(), statement, vec![1, index], 0, &function_id);
+            }
+        }
+    }
+    function.provenance = Some(trace);
 }
 
 pub fn statement_kind(statement: &Statement) -> &'static str {
@@ -238,6 +332,15 @@ pub fn record_selects(function: &mut Function, phase: &'static str) {
     if function.provenance.is_none() {
         return;
     }
+    let (results, dropped_results) = select_results(function, phase);
+    let trace = function.provenance.as_mut().unwrap();
+    trace.dropped_records += dropped_results;
+    for result in results {
+        if trace.room() { trace.selects.push(result); }
+    }
+}
+
+pub fn select_results(function: &Function, phase: &'static str) -> (Vec<SelectResult>, usize) {
     let mut results = Vec::new();
     let mut dropped_results = 0;
     for branch in function.graph().node_indices() {
@@ -328,14 +431,8 @@ pub fn record_selects(function: &mut Function, phase: &'static str) {
             }
         }
     }
-    let trace = function.provenance.as_mut().unwrap();
-    trace.dropped_records += dropped_results;
     results.sort_by_key(|r| (r.branch, r.join, r.binding));
-    for result in results {
-        if trace.room() {
-            trace.selects.push(result);
-        }
-    }
+    (results, dropped_results)
 }
 
 #[cfg(test)]
@@ -609,5 +706,81 @@ mod tests {
         assert!(trace.definitions.is_empty());
         assert!(version.0.lock().3.as_ref().unwrap().incomplete);
         assert!(!version.has_source_binding());
+    }
+
+    #[test]
+    fn result_preservation_needs_multiple_observations_and_refuses_captured_cells() {
+        for captured in [false, true] {
+            let (mut function, _, primary, fallback, selected, [_, _, _, join]) = diamond(false);
+            function.parameters = vec![primary.clone(), fallback];
+            primary.0.lock().4.parameter = true;
+            crate::source_bindings::preserve_conditional_results(&function, &Default::default());
+            assert!(!selected.preserve_binding());
+            function.block_mut(join).unwrap().insert(0,
+                If::new(selected.clone().into(), Block::default(), Block::default()).into());
+            let protected = if captured { [selected.clone()].into_iter().collect() } else { Default::default() };
+            crate::source_bindings::preserve_conditional_results(&function, &protected);
+            assert_eq!(selected.preserve_binding(), !captured);
+            assert_eq!(selected.source_bindings_compatible(&primary), captured);
+            assert!(!selected.has_source_binding());
+            let transport = RcLocal::default();
+            transport.inherit_source_bindings(&selected);
+            assert_eq!(transport.preserve_binding(), !captured);
+            assert_eq!(transport.source_bindings_compatible(&primary), captured);
+        }
+    }
+
+    #[test]
+    fn optional_parameter_normalization_does_not_force_a_new_binding() {
+        let (mut function, _, primary, _, selected, [_, _, _, join]) = diamond(true);
+        function.parameters = vec![primary.clone()];
+        primary.0.lock().4.parameter = true;
+        function.block_mut(join).unwrap().insert(0,
+            If::new(selected.clone().into(), Block::default(), Block::default()).into());
+        crate::source_bindings::preserve_conditional_results(&function, &Default::default());
+        assert!(selected.0.lock().4.conditional_result);
+        assert!(!selected.0.lock().4.separate_from_parameter);
+        assert!(selected.source_bindings_compatible(&primary));
+    }
+
+    #[test]
+    fn nested_value_graph_covers_assignment_keys_and_keeps_paths_after_rewrite() {
+        let mut function = Function::new(0);
+        function.provenance = Some(Box::new(FunctionTrace::new(0, "root:p0".into())));
+        let node = function.new_block();
+        function.set_entry(node);
+        let object = local("object");
+        let key = local("key");
+        let value = local("value");
+        function.block_mut(node).unwrap().push(ast::Assign::new(
+            vec![ast::Index::new(object.into(), key.into()).into()],
+            vec![ast::Index::new(value.into(), ast::Literal::String(b"Value".to_vec()).into()).into()]).into());
+        record_values(&mut function);
+        let values = &function.provenance.as_ref().unwrap().values;
+        assert_eq!(values.len(), 5);
+        assert_eq!(values[0].path, vec![0, 0, 0]);
+        assert_eq!(values[1].path, vec![0, 0, 1]);
+        assert_eq!(values[2].kind, "index");
+        assert_eq!(values[2].children, vec![3, 4]);
+        function.block_mut(node).unwrap().clear();
+        assert_eq!(function.provenance.as_ref().unwrap().values.len(), 5);
+    }
+    #[test]
+    fn compiler_temporary_requires_a_loop_protocol_definition_not_missing_debug_data() {
+        let register = local("register");
+        let definition = local("definition");
+        let node = NodeIndex::new(0);
+        let mut trace = FunctionTrace::new(0, "root:p0".into());
+        trace.statement(LiftedStatement { block: 0, index: 0, pcs: vec![1], lines: vec![],
+            kind: "assignment", read_registers: vec![], written_registers: vec![register.stable_id()] });
+        trace.definition(&definition, &register, node, Some((0, 0)), vec![]);
+        assert_eq!(trace.definitions[&definition.stable_id()].kind, "unclassified_ssa_definition");
+        trace.lifted.get_mut(&(0, 0)).unwrap().kind = "generic_for_prep";
+        trace.definition(&definition, &register, node, Some((0, 0)), vec![]);
+        assert_eq!(trace.definitions[&definition.stable_id()].kind, "compiler_loop_control_definition");
+        definition.0.lock().add_source_binding(ast::SourceBinding { name: "iterator".into(),
+            origin: ast::BindingOrigin::DebugLocal { prototype: 0, register: 0, start_pc: 1, end_pc: 8 } });
+        trace.definition(&definition, &register, node, Some((0, 0)), vec![]);
+        assert_eq!(trace.definitions[&definition.stable_id()].kind, "recorded_source_definition");
     }
 }

@@ -454,6 +454,7 @@ impl<'a, 'b> Lifter<'a, 'b> {
                         ast::If::new(
                             if *invert {
                                 ast::Unary {
+                                    node_origin: Default::default(),
                                     value: Box::new(value.clone()),
                                     operation: ast::UnaryOperation::Not,
                                 }
@@ -616,6 +617,7 @@ impl<'a, 'b> Lifter<'a, 'b> {
                         ast::Assign::new(
                             vec![self.locals[destination].clone().into()],
                             vec![ast::Closure {
+                                node_origin: Default::default(),
                                 function: ByAddress(ast_function),
                                 upvalues: upvalues_passed
                                     .into_iter()
@@ -679,6 +681,7 @@ impl<'a, 'b> Lifter<'a, 'b> {
                     statements.push(
                         ast::Assign::new(
                             vec![ast::Index {
+                                node_origin: Default::default(),
                                 left: Box::new(self.locals[&object].clone().into()),
                                 right: Box::new(key),
                             }

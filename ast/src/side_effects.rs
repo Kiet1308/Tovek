@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn dynamic_table_keys_are_not_total_or_reorderable() {
         let key = RcLocal::new(Local::new(Some("key".to_owned())));
-        let table = RValue::Table(Table(vec![(
+        let table = RValue::Table(Table::new(vec![(
             Some(RValue::Local(key)),
             RValue::Literal(Literal::Number(1.0)),
         )]));

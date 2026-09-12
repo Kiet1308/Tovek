@@ -343,6 +343,7 @@ mod tests {
         let mut value = RValue::Literal(Literal::Number(1.0));
         for _ in 0..MAX_NODES {
             value = crate::Unary {
+                node_origin: Default::default(),
                 value: Box::new(value),
                 operation: UnaryOperation::Negate,
             }

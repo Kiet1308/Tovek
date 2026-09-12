@@ -801,6 +801,7 @@ mod tests {
     #[test]
     fn function_pass_leaves_child_function_bodies_untouched() {
         let child = crate::Closure {
+            node_origin: Default::default(),
             function: by_address::ByAddress(Arc::new(Mutex::new(crate::Function {
                 body: Block(vec![cond_if(vec![call("left"), call("shared")], vec![
                     call("right"),
@@ -903,12 +904,14 @@ mod tests {
     fn keeps_branch_scoped_dependency_inside_arms() {
         let local = RcLocal::default();
         let declaration = Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(local.clone())],
             right: vec![RValue::Literal(Literal::Number(1.0))],
             prefix: true,
             parallel: false,
         });
         let other_declaration = Statement::Assign(Assign {
+            node_origin: Default::default(),
             left: vec![LValue::Local(local.clone())],
             right: vec![RValue::Literal(Literal::Number(2.0))],
             prefix: true,
@@ -947,6 +950,7 @@ mod tests {
         let candidate_temp = RcLocal::default();
         let assign = |local: &RcLocal| {
             Statement::Assign(Assign {
+                node_origin: Default::default(),
                 left: vec![LValue::Local(local.clone())],
                 right: vec![global("source")],
                 prefix: false,
@@ -1112,6 +1116,7 @@ mod tests {
                     0 => call(if next(seed) % 2 == 0 { "work" } else { "other" }),
                     1 => ret("done"),
                     2 => Statement::Assign(Assign {
+                        node_origin: Default::default(),
                         left: vec![LValue::Local(local.clone())], right: vec![global("source")],
                         prefix: next(seed) % 2 == 0, parallel: false,
                     }),
@@ -1152,6 +1157,7 @@ mod tests {
     fn dirty_tail_keeps_shared_closure_identity_and_body_fixed_point() {
         fn make() -> (Block, crate::Closure) {
             let child = crate::Closure {
+                node_origin: Default::default(),
                 function: by_address::ByAddress(Arc::new(Mutex::new(crate::Function {
                     body: Block(vec![cond_if(vec![call("left"), ret("done")], vec![call("right"), ret("done")])]),
                     ..Default::default()

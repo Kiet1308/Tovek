@@ -858,10 +858,17 @@ impl<'a> Destructor<'a> {
             }
         }
 
+        if let Some(trace) = &mut self.function.provenance {
+            let mut mappings = param_map.iter().collect::<Vec<_>>();
+            mappings.sort_by_key(|(from, _)| from.stable_id());
+            for (from, to) in mappings { trace.local_map("phi_parameter_transport", from, to); }
+        }
+
         if !param_map.is_empty() {
             self.function.block_mut(node).unwrap().insert(
                 0,
                 ast::Assign {
+                    node_origin: Default::default(),
                     left: param_map.keys().map(|k| k.clone().into()).collect(),
                     right: param_map.values().map(|v| v.clone().into()).collect(),
                     prefix: false,
@@ -893,6 +900,9 @@ impl<'a> Destructor<'a> {
                 .collect::<Vec<_>>();
 
             for &edge in &edges_to_node {
+                let trace_enabled = self.function.provenance.is_some();
+                let mut transport_origins = Vec::new();
+                let mut omitted_transports = 0;
                 let args = self
                     .function
                     .graph_mut()
@@ -902,6 +912,7 @@ impl<'a> Destructor<'a> {
                     .iter_mut();
 
                 let mut parallel_assign = ast::Assign {
+                    node_origin: Default::default(),
                     left: Vec::with_capacity(args.len()),
                     right: Vec::with_capacity(args.len()),
                     prefix: false,
@@ -911,6 +922,16 @@ impl<'a> Destructor<'a> {
                 for (param, arg) in args {
                     let temp_local = RcLocal::default();
                     temp_local.inherit_source_bindings(param);
+                    if trace_enabled {
+                        if transport_origins.len() < crate::provenance::RECORD_LIMIT {
+                            transport_origins.push((param.stable_id(), temp_local.stable_id()));
+                        } else { omitted_transports += 1; }
+                        if let Some(source) = arg.as_local() {
+                            if transport_origins.len() < crate::provenance::RECORD_LIMIT {
+                                transport_origins.push((source.stable_id(), temp_local.stable_id()));
+                            } else { omitted_transports += 1; }
+                        }
+                    }
                     if let ast::RValue::Local(arg) = arg
                         && let Some(group) = self.upvalue_to_group.get(arg)
                     {
@@ -923,6 +944,13 @@ impl<'a> Destructor<'a> {
                         .right
                         .push(std::mem::replace(arg, temp_local.into()));
                     *param = param_map[param].clone();
+                }
+
+                if let Some(trace) = &mut self.function.provenance {
+                    trace.dropped_records += omitted_transports;
+                    for (from, to) in transport_origins {
+                        trace.local_map_ids("phi_edge_transport", from, to);
+                    }
                 }
 
                 if !parallel_assign.left.is_empty() {
@@ -1029,6 +1057,7 @@ impl<'a> Destructor<'a> {
         let marker_outputs = marker.values_written();
         let marker_inputs = marker.values_read();
         let mut before = ast::Assign {
+            node_origin: Default::default(),
             left: Vec::new(),
             right: Vec::new(),
             prefix: false,

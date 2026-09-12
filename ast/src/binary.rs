@@ -55,6 +55,7 @@ pub(crate) fn is_boolean(r: &RValue) -> bool {
             left,
             right,
             operation: BinaryOperation::And | BinaryOperation::Or,
+            ..
         }) => is_boolean(left) && is_boolean(right),
         RValue::Unary(unary) if unary.operation == crate::UnaryOperation::Not => true,
         RValue::Literal(Literal::Boolean(_)) => true,
@@ -91,8 +92,9 @@ impl fmt::Display for BinaryOperation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Binary {
+    pub node_origin: crate::node_origins::Origin,
     pub left: Box<RValue>,
     pub right: Box<RValue>,
     pub operation: BinaryOperation,
@@ -129,15 +131,19 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 RValue::Unary(Unary {
                     operation: UnaryOperation::Not,
                     value: left,
+                    ..
                 }),
                 RValue::Unary(Unary {
                     operation: UnaryOperation::Not,
                     value: right,
+                    ..
                 }),
                 BinaryOperation::And | BinaryOperation::Or,
             ) => Unary {
+                node_origin: Default::default(),
                 value: Box::new(
                     Binary {
+                        node_origin: Default::default(),
                         left,
                         right,
                         operation: if self.operation == BinaryOperation::And {
@@ -186,6 +192,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
                         }),
                     right: box RValue::Literal(Literal::Boolean(true)),
                     operation: BinaryOperation::And,
+                    ..
                 }),
                 RValue::Literal(Literal::Boolean(false)),
                 BinaryOperation::Or,
@@ -204,6 +211,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 left.into_iter().chain(right.into_iter()).collect(),
             )),
             (left, right, operation) => Self {
+                node_origin: Default::default(),
                 left: Box::new(left),
                 right: Box::new(right),
                 operation,
@@ -224,15 +232,19 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 RValue::Unary(Unary {
                     operation: UnaryOperation::Not,
                     value: left,
+                    ..
                 }),
                 RValue::Unary(Unary {
                     operation: UnaryOperation::Not,
                     value: right,
+                    ..
                 }),
                 BinaryOperation::And | BinaryOperation::Or,
             ) => Unary {
+                node_origin: Default::default(),
                 value: Box::new(
                     Binary {
+                        node_origin: Default::default(),
                         left,
                         right,
                         operation: if self.operation == BinaryOperation::And {
@@ -296,6 +308,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 left.into_iter().chain(right.into_iter()).collect(),
             )),
             (left, right, operation) => Self {
+                node_origin: Default::default(),
                 left: Box::new(left),
                 right: Box::new(right),
                 operation,
@@ -308,6 +321,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
 impl Binary {
     pub fn new(left: RValue, right: RValue, operation: BinaryOperation) -> Self {
         Self {
+            node_origin: Default::default(),
             left: Box::new(left),
             right: Box::new(right),
             operation,
@@ -472,3 +486,5 @@ mod tests {
         assert_eq!(kept, global("foo"));
     }
 }
+
+crate::node_origins::semantic_debug!(Binary; left,right,operation);

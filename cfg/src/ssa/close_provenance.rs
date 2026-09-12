@@ -294,6 +294,7 @@ mod tests {
         function.block_mut(body).unwrap().push(
             Assign::new(vec![LValue::Local(RcLocal::default())], vec![
                 Closure {
+                    node_origin: Default::default(),
                     function: Default::default(),
                     upvalues: vec![Upvalue::Ref(result.clone())],
                 }

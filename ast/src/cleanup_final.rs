@@ -972,6 +972,7 @@ mod tests {
 
     fn closure() -> RValue {
         RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![],
         })
@@ -1025,6 +1026,7 @@ mod tests {
         let flag = local("flag");
         let holder = local("holder");
         let captured = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(flag.clone())],
         });
@@ -1050,6 +1052,7 @@ mod tests {
         let flag = local("flag");
         let holder = local("holder");
         let captured = RValue::Closure(Closure {
+            node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(flag.clone())],
         });
@@ -1085,6 +1088,7 @@ mod tests {
         let mut block = Block(vec![declare(
             &holder,
             vec![RValue::Closure(Closure {
+                node_origin: Default::default(),
                 function: ByAddress(function.clone()),
                 upvalues: vec![Upvalue::Ref(flag)],
             })],
@@ -1263,7 +1267,7 @@ mod tests {
 
     #[test]
     fn multi_function_return_table_recovers_named_module() {
-        let mut block = Block(vec![Return::new(vec![RValue::Table(Table(vec![
+        let mut block = Block(vec![Return::new(vec![RValue::Table(Table::new(vec![
             (Some(string("Play")), closure()),
             (Some(string("Stop")), closure()),
         ]))])

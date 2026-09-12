@@ -18,6 +18,8 @@ def validate_trace(trace, metadata=None):
     errors = []
     from call_reconstruction import validate as validate_call_reconstruction
     errors.extend(validate_call_reconstruction(trace))
+    from value_provenance import validate as validate_value_provenance
+    errors.extend(validate_value_provenance(trace))
     def require(ok, reason):
         if not ok and len(errors) < 20:
             errors.append(reason)
@@ -28,7 +30,7 @@ def validate_trace(trace, metadata=None):
     origins = {}
     selects = set()
     for f in trace['functions']:
-        require(sum(len(f.get(k, [])) for k in ('registers', 'definitions', 'lifted_statements', 'local_maps', 'conditional_results'))
+        require(sum(len(f.get(k, [])) for k in ('registers', 'definitions', 'lifted_statements', 'local_maps', 'conditional_results', 'value_origins', 'inline_events'))
                 <= trace['limits']['records_per_function'], 'function record budget exceeded')
         registers = {r['id']: r for r in f['registers']}
         definitions = {d['id']: d for d in f['definitions']}
@@ -113,6 +115,7 @@ def main():
     changed_sources = [p for p in sorted(source_paths) if not (args.before / p).is_file()
                        or not (args.after / p).is_file() or (args.before / p).read_bytes() != (args.after / p).read_bytes()]
     totals, rows, examples = collections.Counter(), [], []
+    value_totals = collections.Counter()
     for key in sorted(a.keys() | b.keys()):
         row = {'script_path': key, 'status': 'passed'}
         if key not in a or key not in b:
@@ -139,6 +142,9 @@ def main():
                 row.update(status='invalid_trace', errors=errors)
             row['summary'] = trace['summary']
             totals.update(trace['summary'])
+            from value_provenance import summarize
+            row['value_coverage'] = summarize(trace)
+            value_totals.update(row['value_coverage'])
             if key.startswith('conditional_O2_'):
                 examples.append({'script_path': key, 'trace': trace})
         rows.append(row)
@@ -148,6 +154,7 @@ def main():
               'before_manifest_sha256': sha256(args.before / '.tovek-analysis/manifest.json'),
               'after_manifest_sha256': sha256(args.after / '.tovek-analysis/manifest.json'),
               'changed_sources': changed_sources, 'rows': rows, 'examples': examples,
+              'value_coverage': dict(value_totals),
               'contract': 'Exact source bytes and all prior sidecar fields except analysis identity/options are preserved. Trace checks cover PC bounds, write slots, ID uniqueness and bidirectional ancestry. No semantic proof is inferred from storage lineage.'}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8', newline='\n')

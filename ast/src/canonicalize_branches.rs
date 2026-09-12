@@ -221,7 +221,7 @@ fn is_parent_advance(statement: &Statement, cursor: &RcLocal) -> bool {
     let [LValue::Local(destination)] = assign.left.as_slice() else {
         return false;
     };
-    let [RValue::Index(Index { left, right })] = assign.right.as_slice() else {
+    let [RValue::Index(Index { left, right, .. })] = assign.right.as_slice() else {
         return false;
     };
     destination == cursor
@@ -518,7 +518,7 @@ fn is_single_task_wait(block: &Block) -> bool {
     let [Statement::Call(call)] = block.0.as_slice() else {
         return false;
     };
-    let RValue::Index(Index { left, right }) = &*call.value else {
+    let RValue::Index(Index { left, right, .. }) = &*call.value else {
         return false;
     };
     matches!(&**left, RValue::Global(Global(name)) if name.as_slice() == b"task")
@@ -844,6 +844,7 @@ mod tests {
             declare_local(
                 &found,
                 RValue::Closure(Closure {
+                    node_origin: Default::default(),
                     function: ByAddress(Arc::new(Mutex::new(Function::default()))),
                     upvalues: vec![Upvalue::Ref(parent.clone())],
                 }),
