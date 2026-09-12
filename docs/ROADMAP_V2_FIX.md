@@ -1,6 +1,6 @@
 # Roadmap sửa chất lượng output V2
 
-Ngày chốt bằng chứng: **12/09/2026**. Trạng thái: **F1 đã sửa và nghiệm thu; F2–F8 là công việc tiếp theo**. Đây là roadmap bổ sung cho [ROADMAP_V2.md](ROADMAP_V2.md), không thay trạng thái R1–R9 đã ghi trong [implementation record](roadmap_v2_implementation.md).
+Ngày chốt bằng chứng nghiên cứu: **12/09/2026**. Trạng thái triển khai: **F1, F4 và F8 nền đã nghiệm thu; F2 hoàn thành một phần; F5 đang kiểm chứng; F3, F6, F7 và F8 bàn giao còn mở**. Checkbox và commit cập nhật ở mục 4. Đây là roadmap bổ sung cho [ROADMAP_V2.md](ROADMAP_V2.md), không thay trạng thái R1–R9 đã ghi trong [implementation record](roadmap_v2_implementation.md).
 
 **Kết luận:** V2 hiện cải thiện rõ tên biến, cây UI và nhiều ca bảo toàn hành vi, nhưng còn làm công thức toán và một số helper ngắn khó đọc hơn beta. Ví dụ `local styledTextLabel = require(...); v.StyledTextLabel = styledTextLabel` là vấn đề chung của cả hai bản, không phải lỗi riêng V2. Vấn đề này đã được sửa trong source V2 và xuất lại toàn bộ output. Những điểm lùi còn lại cần sửa theo từng loại biểu thức và bằng chứng thứ tự đánh giá; không thể an toàn bằng cách xóa mọi biến dùng một lần.
 
@@ -10,9 +10,9 @@ Ngày chốt bằng chứng: **12/09/2026**. Trạng thái: **F1 đã sửa và 
 |---|---|---|
 | Beta / V1 trong cặp so sánh | Release `v0.9.0-beta`, commit `27422b9f8e0aeca0e61db55992930f17a98f4099` | `eb39366eb2428bbdda725376d6b205604d06296e4cc21b0d97eb1612676a6a87` |
 | V2 trước F1 | Base `fffb4ad7e738e45288a838cdfd7a111920aaa8c1`, gồm đợt output polish trước | `4641474882013bcc096c3ba8625abe8271e40ec12a4ceccf2bdc045d5d624872` |
-| **V2 hiện tại** | Working tree sau output polish + sửa import-field-store F1 | `f582dc87610d866bfb5de78a3f58a216f015839dd4b5b0837386f6af485a9d28` |
+| **V2 baseline nghiên cứu (F1)** | Sau output polish + sửa import-field-store F1; đã commit tại `c08a908` | `f582dc87610d866bfb5de78a3f58a216f015839dd4b5b0837386f6af485a9d28` |
 
-Hash từng file source thay đổi, fixture, compiler và báo cáo nằm trong [nghiệm thu F1](roadmap_v2_acceptance/import_field_store_validation.json). Việc ghim executable quan trọng vì HEAD chưa bao gồm các thay đổi working tree. Beta lấy từ [release chính thức](https://github.com/Kiet1308/Tovek/releases/tag/v0.9.0-beta); folder beta được giữ nguyên hash để còn đối chiếu.
+Hash từng file source thay đổi, fixture, compiler và báo cáo nằm trong [nghiệm thu F1](roadmap_v2_acceptance/import_field_store_validation.json). Các số đo và cách gọi “V2 hiện tại” trong phần phân tích 2–3, 5 bên dưới chỉ bản F1 đã ghim khi nghiên cứu; kết quả của các bước sửa tiếp theo nằm tại [tiến độ triển khai](roadmap_v2_fix_implementation.md). Beta lấy từ [release chính thức](https://github.com/Kiet1308/Tovek/releases/tag/v0.9.0-beta); folder beta được giữ nguyên hash để còn đối chiếu.
 
 Phép nghiên cứu gồm:
 
