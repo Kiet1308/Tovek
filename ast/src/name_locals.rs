@@ -28,10 +28,18 @@ enum IdentifierCase {
     Preserve,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum NameRole {
+    Noun,
+    Description,
+    Callable,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct Hint {
     name: String,
     score: u8,
+    role: NameRole,
 }
 
 /// Score of a name derived only from the parameter's bytecode type.
@@ -698,7 +706,7 @@ fn is_generic_semantic_name(name: &str) -> bool {
     is_default_name(name)
         || matches!(
             name,
-            "_" | "i" | "j" | "k" | "n" | "x" | "y" | "fn" | "key" | "value" | "item" | "result"
+            "_" | "i" | "j" | "k" | "n" | "x" | "y" | "fn" | "key" | "value" | "values" | "item" | "result"
         )
 }
 
@@ -1007,6 +1015,40 @@ fn rvalue_hint(rvalue: &RValue) -> Option<String> {
             .or_else(|| Some("fn".to_string())),
         _ => None,
     }
+}
+
+// A transform result such as `serialized` describes a value; it does not
+// identify the noun a collection contains. Keep that distinction through local
+// hints and collection consensus, rather than banning suffixes on source names.
+fn rvalue_name_role(value: &RValue, name: &str, depth: usize) -> NameRole {
+    if depth >= 32 { return NameRole::Description; }
+    let (member, arguments) = match value {
+        RValue::Call(call) | RValue::Select(Select::Call(call)) =>
+            (static_callee(call).map(|(_, member)| member), call.arguments.as_slice()),
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) =>
+            (Some(call.method.as_str()), call.arguments.as_slice()),
+        RValue::Closure(_) => return NameRole::Callable,
+        RValue::Binary(binary) => {
+            let source = match binary.operation {
+                BinaryOperation::Or => &binary.left,
+                BinaryOperation::And => &binary.right,
+                _ => return NameRole::Description,
+            };
+            return rvalue_name_role(source, name, depth + 1);
+        }
+        _ => return NameRole::Noun,
+    };
+    if member.and_then(verb_result_name) == Some(name)
+        && !matches!(name, "clone" | "copy" | "parts" | "hash" | "sum" | "count" | "sample")
+    {
+        return NameRole::Description;
+    }
+    if let [argument] = arguments
+        && rvalue_hint(argument).as_deref() == Some(name)
+    {
+        return rvalue_name_role(argument, name, depth + 1);
+    }
+    NameRole::Noun
 }
 
 fn string_literal(rvalue: &RValue) -> Option<&str> {
@@ -1652,6 +1694,15 @@ fn collect_create_element_aliases(block: &mut Block, aliases: &mut FxHashSet<usi
 /// complete information regardless of statement order.
 #[derive(Default, Clone)]
 struct LocalUsage {
+    /// Literal string repetition uses this number as its repeat count.
+    repetition_count: bool,
+    /// A simple copy/default/constant offset preserves a scalar count role.
+    count_role_source: Option<usize>,
+    buffer_size: bool,
+    size_role_source: Option<usize>,
+    /// Function/table alternatives can share a callable role; scalar
+    /// alternatives cannot be named from a call made in only one branch.
+    typeof_non_callable: bool,
     /// Distinct string field keys read as `local.Field` / `local["Field"]`.
     string_fields_read: FxHashSet<String>,
     /// Invoked directly: `local(...)`.
@@ -1764,7 +1815,7 @@ struct LocalUsage {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum FillSource {
-    Static(String),
+    Static(Hint),
     Local(usize),
 }
 
@@ -1813,14 +1864,18 @@ fn table_entry_hint(table: &Table) -> Option<String> {
 fn fill_source(value: &RValue) -> Option<FillSource> {
     let source = match value {
         RValue::Local(local) => match current_name(local) {
-            Some(name) if !is_generic_semantic_name(&name) => FillSource::Static(name),
+            Some(name) if !is_generic_semantic_name(&name) => FillSource::Static(Hint { name, score: 100, role: NameRole::Noun }),
             _ => FillSource::Local(local_ptr(local)),
         },
-        RValue::Table(table) => FillSource::Static(table_entry_hint(table)?),
-        _ => FillSource::Static(rvalue_hint(value)?),
+        RValue::Table(table) => FillSource::Static(Hint { name: table_entry_hint(table)?, score: 52, role: NameRole::Noun }),
+        _ => {
+            let name = rvalue_hint(value)?;
+            let role = rvalue_name_role(value, &name, 0);
+            FillSource::Static(Hint { name, score: 60, role })
+        }
     };
     match &source {
-        FillSource::Static(name) if is_generic_semantic_name(name) => None,
+        FillSource::Static(hint) if is_generic_semantic_name(&hint.name) => None,
         _ => Some(source),
     }
 }
@@ -1840,7 +1895,7 @@ fn note_collection_fill(local: &RcLocal, value: &RValue, usage: &mut FxHashMap<u
         entry.connection_fills += 1;
         entry
             .collection_value_sources
-            .insert(FillSource::Static("connection".to_string()));
+            .insert(FillSource::Static(Hint { name: "connection".to_string(), score: 60, role: NameRole::Noun }));
     } else {
         entry.unknown_collection_fill = true;
         if let Some(source) = fill_source(value) {
@@ -1887,6 +1942,8 @@ fn is_accumulator_update(local: &RcLocal, value: &RValue) -> bool {
 }
 
 fn note_local_write(local: &RcLocal, value: &RValue, usage: &mut FxHashMap<usize, LocalUsage>) {
+    usage.entry(local_ptr(local)).or_default().count_role_source = count_role_source(value, 0);
+    usage.entry(local_ptr(local)).or_default().size_role_source = size_role_source(value, 0);
     let entry = usage.entry(local_ptr(local)).or_default();
     if is_counter_update(local, value) {
         entry.counter_updates += 1;
@@ -1960,6 +2017,18 @@ fn note_call_usage(
     aliases: &FxHashSet<usize>,
     usage: &mut FxHashMap<usize, LocalUsage>,
 ) {
+    if static_callee(call) == Some((Some("string"), "rep"))
+        && call.arguments.first().and_then(string_literal).is_some()
+        && let Some(count) = call.arguments.get(1).and_then(|value| count_role_source(value, 0))
+    {
+        usage.entry(count).or_default().repetition_count = true;
+    }
+    if let Some((Some("buffer"), member)) = static_callee(call)
+        && crate::naming_api::buffer_arguments(member).first() == Some(&"size")
+        && let Some(size) = call.arguments.first().and_then(|value| size_role_source(value, 0))
+    {
+        usage.entry(size).or_default().buffer_size = true;
+    }
     if let RValue::Local(local) = &*call.value {
         usage.entry(local_ptr(local)).or_default().used_as_callee = true;
     }
@@ -2074,6 +2143,9 @@ fn type_tag(type_name: &str) -> &'static str {
     match type_name {
         "string" => "string",
         "number" => "number",
+        "table" => "table",
+        "boolean" => "boolean",
+        "nil" => "nil",
         "Instance" => "Instance",
         "function" => "function",
         _ => "other",
@@ -2248,6 +2320,11 @@ fn note_method_usage(method_call: &MethodCall, usage: &mut FxHashMap<usize, Loca
 fn note_method_arg_usage(method_call: &MethodCall, usage: &mut FxHashMap<usize, LocalUsage>) {
     let method = method_call.method.as_str();
     let args = &method_call.arguments;
+    if method == "rep" && string_literal(&method_call.value).is_some()
+        && let Some(count) = args.first().and_then(|value| count_role_source(value, 0))
+    {
+        usage.entry(count).or_default().repetition_count = true;
+    }
     if CHILD_LOOKUP_METHODS.contains(&method)
         && let Some(RValue::Local(arg)) = args.first()
     {
@@ -2318,6 +2395,33 @@ fn note_api_slot(arg: &RcLocal, slot: &'static str, usage: &mut FxHashMap<usize,
     }
 }
 
+fn count_role_source(value: &RValue, depth: usize) -> Option<usize> {
+    if depth >= 8 { return None; }
+    match value {
+        RValue::Local(local) => Some(local_ptr(local)),
+        RValue::Binary(binary)
+            if matches!(binary.operation, BinaryOperation::Add | BinaryOperation::Sub | BinaryOperation::Or)
+                && matches!(&*binary.right, RValue::Literal(Literal::Number(n)) if n.is_finite()) =>
+            count_role_source(&binary.left, depth + 1),
+        _ => None,
+    }
+}
+
+// Scaling a byte capacity by a positive constant keeps its size role. This is
+// naming context only: it proves neither a numeric value nor arithmetic purity.
+fn size_role_source(value: &RValue, depth: usize) -> Option<usize> {
+    if depth >= 8 { return None; }
+    match value {
+        RValue::Local(local) => Some(local_ptr(local)),
+        RValue::Binary(binary)
+            if matches!(binary.operation, BinaryOperation::Add | BinaryOperation::Sub | BinaryOperation::Or
+                | BinaryOperation::Mul | BinaryOperation::Div | BinaryOperation::IDiv)
+                && matches!(&*binary.right, RValue::Literal(Literal::Number(n)) if n.is_finite() && *n > 0.0) =>
+            size_role_source(&binary.left, depth + 1),
+        _ => None,
+    }
+}
+
 /// Record that a param's value was stored into a named field (`obj.Key = param`):
 /// the destination key names the param. Only a bare `RValue::Local` RHS qualifies
 /// — a wrapped RHS (`obj.CFrame = CFrame.new(p5)`, `obj.X = f(p)`) is a
@@ -2380,7 +2484,10 @@ fn note_type_guard(binary: &Binary, usage: &mut FxHashMap<usize, LocalUsage>) {
         return;
     };
     let tag = type_tag(type_name);
+    // Absence makes a role optional; it is not a competing value shape.
+    if tag == "nil" { return; }
     let entry = usage.entry(local_ptr(local)).or_default();
+    entry.typeof_non_callable |= !matches!(tag, "function" | "table");
     match entry.typeof_type {
         None => entry.typeof_type = Some(tag),
         Some(existing) if existing != tag => entry.typeof_conflict = true,
@@ -2847,7 +2954,7 @@ struct Namer {
 
 struct ParamConsensus {
     calls: usize,
-    names: Vec<Option<String>>,
+    names: Vec<Option<Hint>>,
     valid: Vec<bool>,
 }
 
@@ -2880,6 +2987,11 @@ impl Namer {
 
     #[track_caller]
     fn set_hint_ptr(&mut self, ptr: usize, name: String, score: u8) {
+        self.set_hint_ptr_with_role(ptr, name, score, NameRole::Noun);
+    }
+
+    #[track_caller]
+    fn set_hint_ptr_with_role(&mut self, ptr: usize, name: String, score: u8, role: NameRole) {
         if let Some(evidence) = &mut self.evidence {
             evidence.record(ptr, &name, score, self.evidence_rule, std::panic::Location::caller());
         }
@@ -2888,7 +3000,7 @@ impl Namer {
             None => true,
         };
         if replace {
-            self.hints.insert(ptr, Hint { name, score });
+            self.hints.insert(ptr, Hint { name, score, role });
         }
     }
 
@@ -2999,29 +3111,26 @@ impl Namer {
         current_name(local).or_else(|| self.hint_name(local).map(str::to_string))
     }
 
-    fn resolve_fill_source(&self, source: &FillSource) -> Option<String> {
-        let name = match source {
-            FillSource::Static(name) => name.clone(),
-            FillSource::Local(ptr) => self.hints.get(ptr)?.name.clone(),
+    fn resolve_fill_source(&self, source: &FillSource) -> Option<Hint> {
+        let hint = match source {
+            FillSource::Static(hint) => hint.clone(),
+            FillSource::Local(ptr) => self.hints.get(ptr)?.clone(),
         };
-        (!is_generic_semantic_name(&name)).then_some(name)
+        (!is_generic_semantic_name(&hint.name)).then_some(hint)
     }
 
-    fn unanimous_fill_name(&self, sources: &FxHashSet<FillSource>) -> Option<String> {
+    fn unanimous_fill_name(&self, sources: &FxHashSet<FillSource>) -> Option<Hint> {
         // A constructed object's name (`self`/`object`) says nothing about
         // the collection it is pushed into (`selfs` is not a word).
-        let name = self.unanimous_fill_name_raw(sources)?;
-        (!matches!(name.as_str(), "self" | "object")).then_some(name)
-    }
-
-    fn unanimous_fill_name_raw(&self, sources: &FxHashSet<FillSource>) -> Option<String> {
-        let mut result = None;
+        let mut result: Option<Hint> = None;
         for source in sources {
-            let name = self.resolve_fill_source(source)?;
-            match &result {
-                None => result = Some(name),
-                Some(existing) if existing != &name => return None,
-                _ => {}
+            let hint = self.resolve_fill_source(source)?;
+            if hint.role != NameRole::Noun || hint.score <= TYPE_HINT_SCORE { return None; }
+            if matches!(hint.name.as_str(), "self" | "object") { return None; }
+            match &mut result {
+                None => result = Some(hint),
+                Some(existing) if existing.name != hint.name => return None,
+                Some(existing) => existing.score = existing.score.min(hint.score),
             }
         }
         result
@@ -3068,20 +3177,28 @@ impl Namer {
 
             if !usage.unknown_semantic_fill
                 && let Some(value) = self.unanimous_fill_name(&usage.collection_value_sources)
-                && let Some(values) = pluralize(&value)
+                && let Some(values) = pluralize(&value.name)
             {
                 let key = (!usage.unknown_collection_key)
                     .then(|| self.unanimous_fill_name(&usage.collection_key_sources))
                     .flatten();
                 let (name, score) = match key {
-                    Some(key) if !name_ends_with_word(&values, &key) => {
-                        (format!("{values}By{}", capitalize_first(&key)), 53)
+                    Some(key) if !name_ends_with_word(&values, &key.name) => {
+                        (format!("{values}By{}", capitalize_first(&key.name)), 53.min(value.score).min(key.score))
                     }
-                    _ => (values, 52),
+                    _ => (values, 52.min(value.score)),
                 };
                 if let Some(name) = sanitize_preserve(&name) {
                     candidates.push((ptr, name, score, "collection_content_consensus"));
                 }
+            } else if !usage.unknown_semantic_fill
+                && usage.collection_value_sources.iter().any(|source|
+                    self.resolve_fill_source(source).is_some_and(|hint| hint.role == NameRole::Description))
+            {
+                // We know these are collected values, without inventing a noun
+                // from a transform adjective. A returned loop result (35), API
+                // slot or source role still outranks this neutral fallback.
+                candidates.push((ptr, "values".to_string(), 30, "collection_transform_values"));
             }
             if usage.counter_updates > 0 && !usage.counter_invalid_write {
                 candidates.push((ptr, "count".to_string(), 46, "counter_updates"));
@@ -3467,6 +3584,10 @@ impl Namer {
                     && let Some(element) = singularize(&collection)
                 {
                     self.set_hint(local, element, 45);
+                } else if let RValue::Local(collection) = &*index.left
+                    && self.usage.get(&local_ptr(collection)).is_some_and(|usage| usage.typeof_conflict && usage.iterated)
+                {
+                    self.set_hint_str(local, "item", 39);
                 }
             }
             _ => {}
@@ -3489,7 +3610,22 @@ impl Namer {
             _ => None,
         };
         if let Some(name) = callee_noun {
-            self.set_hint(local, name, METHOD_NOUN_SCORE);
+            let member = match rvalue {
+                RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => Some(call.method.as_str()),
+                RValue::Call(call) | RValue::Select(Select::Call(call)) => static_callee(call).map(|(_, member)| member),
+                _ => None,
+            };
+            // An explicit getter/factory subject carries more evidence than a
+            // bare callee noun, while IsA/literal-child evidence still wins.
+            let score = if member.is_some_and(|member| !CHILD_LOOKUP_METHODS.contains(&member)
+                && strip_verb_prefix(&lower_first(member)).is_some()) {
+                54
+            } else { METHOD_NOUN_SCORE };
+            let role = rvalue_name_role(rvalue, &name, 0);
+            if let Some(evidence) = &mut self.evidence {
+                evidence.register(local_ptr(local), local.stable_id());
+            }
+            self.set_hint_ptr_with_role(local_ptr(local), name, score, role);
         }
         // Bytecode type hint: the weakest evidence of all, and skipped on an
         // inlinable movable temp so it can never cost a line.
@@ -3501,13 +3637,18 @@ impl Namer {
         }
     }
 
-    fn callsite_argument_name(&self, value: &RValue) -> Option<String> {
-        let name = match value {
-            RValue::Local(local) => self.local_known_name(local),
-            RValue::Index(index) => index_key(index).and_then(sanitize),
-            _ => rvalue_hint(value),
+    fn callsite_argument_name(&self, value: &RValue) -> Option<Hint> {
+        let hint = match value {
+            RValue::Local(local) => match current_name(local) {
+                Some(name) if !is_default_name(&name) => Some(Hint { name, score: 100, role: NameRole::Noun }),
+                _ => self.hints.get(&local_ptr(local)).cloned(),
+            },
+            _ => rvalue_hint(value).map(|name| {
+                let role = rvalue_name_role(value, &name, 0);
+                Hint { name, score: 60, role }
+            }),
         }?;
-        (!is_default_name(&name) && name != "_").then_some(name)
+        (!is_default_name(&hint.name) && hint.name != "_").then_some(hint)
     }
 
     /// Name local-function parameters from unanimous semantic call-site sources
@@ -3544,8 +3685,11 @@ impl Namer {
         // Drop all temporary RcLocal clones before `apply` performs Arc-count-
         // based unused detection; only pointer-keyed hints remain in `self`.
         drop(definitions);
-        for (parameter, name) in hints {
-            self.set_hint(&parameter, name, 49);
+        for (parameter, hint) in hints {
+            if let Some(evidence) = &mut self.evidence {
+                evidence.register(local_ptr(&parameter), parameter.stable_id());
+            }
+            self.set_hint_ptr_with_role(local_ptr(&parameter), hint.name, 49.min(hint.score), hint.role);
         }
     }
 
@@ -3599,15 +3743,14 @@ impl Namer {
         let typeof_conflict = usage.typeof_conflict;
         let typeof_type = usage.typeof_type;
 
-        // Player is checked first, ahead of the conflict/contradiction guards
-        // below: a `.UserId`/`.Character`/`.DisplayName` read is a near-certain
-        // Player tell that outranks any noisy `typeof` evidence on the same param.
-        if is_player {
-            self.set_hint_str(param, "player", 44);
+        // Different type branches describe a polymorphic input. A property or
+        // loop in just one branch must not name the whole parameter's type.
+        if typeof_conflict {
+            self.set_hint_str(param, "value", 32);
             return;
         }
-        // Checked against multiple types -> genuinely polymorphic -> refuse.
-        if typeof_conflict {
+        if is_player {
+            self.set_hint_str(param, "player", 44);
             return;
         }
         if instance_shaped {
@@ -3663,6 +3806,15 @@ impl Namer {
                 .as_deref()
                 .and_then(param_name_from_field_key)
         };
+        if usage.typeof_conflict {
+            // Explicit destination roles can still name a polymorphic value;
+            // shape guesses below cannot. Preserve source/debug names as usual.
+            let callable_role = usage.used_as_callee && !usage.typeof_non_callable && !instance_shaped;
+            if callable_role { self.set_hint_str(param, "callback", 37); }
+            if let Some(name) = field_name { self.set_hint(param, name, 48); }
+            if let Some(name) = attr_name { self.set_hint(param, name, 47); }
+            return;
+        }
         // A name-string API slot — but a name string can't be an Instance, so a
         // contradicting instance use refuses it.
         let api_name = if usage.api_slot_conflict || instance_shaped || is_instance_typeof {
@@ -3673,6 +3825,10 @@ impl Namer {
         // A string-method receiver is a string (=> the `value` hypernym, matching
         // the typeof-string tier). Refuse on a contradicting Instance use.
         let string_value = usage.string_method_seen && !instance_shaped && !is_instance_typeof;
+        let numeric_role = !instance_shaped && !is_instance_typeof
+            && !matches!(typeof_type, Some("string") | Some("function") | Some("table"));
+        let repetition_count = numeric_role && usage.repetition_count && !usage.buffer_size;
+        let buffer_size = numeric_role && usage.buffer_size && !usage.repetition_count;
         // A literal/empty-table default reveals a scalar/table type. Refuse on a
         // contradicting Instance use (an Instance param can't default to 0/{}).
         let or_default = if usage.or_default_conflict || instance_shaped || is_instance_typeof {
@@ -3794,6 +3950,12 @@ impl Namer {
         }
         if string_value {
             self.set_hint_str(param, "value", 40);
+        }
+        if repetition_count {
+            self.set_hint_str(param, "count", 43);
+        }
+        if buffer_size {
+            self.set_hint_str(param, "size", 43);
         }
         match or_default {
             Some("number") | Some("string") => self.set_hint_str(param, "value", 40),
@@ -4168,7 +4330,11 @@ impl Namer {
                                         self.instance_assignment_conflicts.insert(local_ptr(local));
                                     }
                                     if let Some(hint) = rvalue_hint(rvalue) {
-                                        self.set_hint(local, hint, 60);
+                                        let role = rvalue_name_role(rvalue, &hint, 0);
+                                        if let Some(evidence) = &mut self.evidence {
+                                            evidence.register(local_ptr(local), local.stable_id());
+                                        }
+                                        self.set_hint_ptr_with_role(local_ptr(local), hint, 60, role);
                                     }
                                     // A dynamic FindFirstChild/WaitForChild result
                                     // has only the honest hypernym `child`. Keep it
@@ -4249,7 +4415,12 @@ impl Namer {
                     let names = iterator_names(&generic_for.right);
                     // The element (second) variable can be named after the
                     // collection it iterates: `for index, crop in crops`.
-                    let element_name = self.collection_element_name(&generic_for.right);
+                    let element_name = self.collection_element_name(&generic_for.right).or_else(|| {
+                        generic_for.right.first().and_then(|value| match unwrap_iter_arg(value) {
+                            RValue::Local(local) if self.usage.get(&local_ptr(local)).is_some_and(|usage| usage.typeof_conflict) => Some("item".to_string()),
+                            _ => None,
+                        })
+                    });
                     for (index, res_local) in generic_for.res_locals.iter().enumerate() {
                         // Loop binders are not function parameters, but they can
                         // carry the same exact API-slot dataflow. In particular,
@@ -4361,6 +4532,7 @@ impl Namer {
                         self.hints.entry(local_ptr(param)).or_insert(Hint {
                             name: hint,
                             score: TYPE_HINT_SCORE,
+                            role: NameRole::Noun,
                         });
                     }
                     self.name_one(param, "p", &mut param_scope, ReusePolicy::FileUnique);
@@ -4503,10 +4675,10 @@ fn record_local_function_call(
             state.valid[index] = false;
             continue;
         };
-        match &state.names[index] {
+        match &mut state.names[index] {
             None => state.names[index] = Some(name),
-            Some(existing) if existing != &name => state.valid[index] = false,
-            _ => {}
+            Some(existing) if existing.name != name.name || existing.role != name.role => state.valid[index] = false,
+            Some(existing) => existing.score = existing.score.min(name.score),
         }
     }
 }
@@ -4770,6 +4942,22 @@ pub fn name_locals_with_evidence(
             (local_ptr(&local), usage)
         })
         .collect();
+    // Carry count/size roles back through immutable scalar snapshots.
+    // This names parameters only; it cannot pin an otherwise removable temp.
+    for _ in 0..8 {
+        let sources: Vec<_> = usage.iter().flat_map(|(ptr, fact)| {
+            let stable = counts.get(ptr).is_some_and(|u| u.writes == 1);
+            [
+                (stable && fact.repetition_count).then_some(fact.count_role_source).flatten().map(|source| (source, false)),
+                (stable && fact.buffer_size).then_some(fact.size_role_source).flatten().map(|source| (source, true)),
+            ].into_iter().flatten()
+        }).filter(|(source, size)| !usage.get(source).is_some_and(|fact| if *size { fact.buffer_size } else { fact.repetition_count })).collect();
+        if sources.is_empty() { break; }
+        for (source, size) in sources {
+            let fact = usage.entry(source).or_default();
+            if size { fact.buffer_size = true; } else { fact.repetition_count = true; }
+        }
+    }
     let mut collapse_candidates = FxHashSet::default();
     collect_collapse_candidates(block, &mut collapse_candidates);
     let mut class_signal_locals = FxHashSet::default();
@@ -7619,9 +7807,9 @@ mod tests {
         assert_eq!(name_of(&p), "value");
     }
 
-    /// A param checked against two different types is polymorphic -> stays `p`.
+    /// A param checked against different types gets a neutral value role.
     #[test]
-    fn typeof_conflict_keeps_default_param_name() {
+    fn typeof_conflict_uses_neutral_param_name() {
         let p = RcLocal::default();
         let guard = |ty: &str| {
             RValue::Binary(Binary::new(
@@ -7649,7 +7837,7 @@ mod tests {
         let (f, decl) = declare_closure_fn(function);
         let mut block = Block(vec![decl, use_local(&f)]);
         name_locals(&mut block, true);
-        assert_eq!(name_of(&p), "p");
+        assert_eq!(name_of(&p), "value");
     }
 
     /// A param used as the receiver of an instance method reads as `instance`.
@@ -9272,6 +9460,167 @@ mod tests {
         // `vector` is also the library global used right there, so the reserved-
         // name guard may suffix it.
         assert!(name_decl(lib_call("vector", "create", vec![number(0.0)])).starts_with("vector"));
+    }
+
+    #[test]
+    fn collection_names_keep_transform_role_through_direct_and_local_values() {
+        for verb in ["Serialize", "Deserialize", "Filter", "Normalize", "Encode"] {
+            for via_local in [false, true] {
+                let output = RcLocal::default();
+                let element = RcLocal::default();
+                let i = RcLocal::default();
+                let transformed = lib_call("codec", verb, vec![global("input")]);
+                let mut body = Vec::new();
+                let value = if via_local {
+                    body.push(declare(&element, transformed));
+                    body.push(use_local(&element));
+                    RValue::Local(element)
+                } else { transformed };
+                body.push(keyed_assign(&output, RValue::Local(i.clone()), value));
+                name_param_fn(vec![], vec![
+                    declare(&output, RValue::Table(Table::default())),
+                    GenericFor::new(vec![i], vec![global("entries")], Block(body)).into(),
+                    ret(vec![RValue::Local(output.clone())]),
+                ]);
+                assert_eq!(name_of(&output), "result", "{verb}, local={via_local}");
+            }
+        }
+        // Real noun roles and literal source names are not suffix-filtered.
+        for noun in ["part", "seed", "thread"] {
+            let source = named_local(noun);
+            let output = RcLocal::default();
+            name_param_fn(vec![source.clone()], vec![
+                declare(&output, RValue::Table(Table::default())),
+                keyed_assign(&output, number(1.0), RValue::Local(source)),
+                ret(vec![RValue::Local(output.clone())]),
+            ]);
+            assert_eq!(name_of(&output), format!("{noun}s"));
+        }
+    }
+
+    #[test]
+    fn polymorphic_parameter_is_not_named_by_one_branch_shape() {
+        for reverse in [false, true] {
+            for source_name in [None, Some("input")] {
+                let p = source_name.map(named_local).unwrap_or_default();
+                if let Some(name) = source_name {
+                    p.0.lock().add_source_binding(crate::SourceBinding {
+                        name: name.into(),
+                        origin: crate::BindingOrigin::DebugLocal { prototype: 0, register: 0, start_pc: 0, end_pc: 100 },
+                    });
+                }
+                let guard = |tag: &str| RValue::Binary(Binary::new(
+                    RValue::Call(Call::new(global("typeof"), vec![RValue::Local(p.clone())])),
+                    string(tag), BinaryOperation::Equal,
+                ));
+                let element = RcLocal::default();
+                let neighbor = RcLocal::default();
+                let mut branches = vec![
+                    If::new(guard("table"), Block(vec![
+                        GenericFor::new(vec![RcLocal::default(), element.clone()], vec![RValue::Local(p.clone())], Block(vec![
+                            use_local(&element),
+                            declare(&neighbor, RValue::Index(Index::new(RValue::Local(p.clone()), global("nextIndex")))),
+                            use_local(&neighbor),
+                        ])).into(),
+                        use_local(&p),
+                    ]), Block::default()).into(),
+                    If::new(guard("string"), Block(vec![use_local(&p)]), Block::default()).into(),
+                ];
+                if reverse { branches.reverse(); }
+                name_param_fn(vec![p.clone()], branches);
+                assert_eq!(name_of(&p), source_name.unwrap_or("value"));
+                assert_eq!(name_of(&element), "item");
+                assert!(name_of(&neighbor).starts_with("item"));
+            }
+        }
+    }
+
+    #[test]
+    fn callable_table_and_function_alternatives_keep_callback_role() {
+        for alternative in ["table", "nil", "string"] {
+            let param = RcLocal::default();
+            let guard = |tag: &str| RValue::Binary(Binary::new(
+                RValue::Call(Call::new(global("type"), vec![RValue::Local(param.clone())])),
+                string(tag), BinaryOperation::Equal,
+            ));
+            name_param_fn(vec![param.clone()], vec![
+                If::new(guard(alternative), Block(vec![use_local(&param)]), Block::default()).into(),
+                If::new(guard("function"), Block(vec![use_local(&param)]), Block::default()).into(),
+                Statement::Call(Call::new(RValue::Local(param.clone()), vec![])),
+            ]);
+            assert_eq!(name_of(&param), if alternative != "string" { "callback" } else { "value" });
+        }
+    }
+
+    #[test]
+    fn weak_collection_and_callsite_hints_keep_their_confidence() {
+        let request = RcLocal::default();
+        let requests = RcLocal::default();
+        let param = RcLocal::default();
+        let helper = RcLocal::default();
+        let mut function = Function::default();
+        function.parameters = vec![param.clone()];
+        function.body = Block(vec![ret(vec![RValue::Unary(Unary::new(RValue::Local(param.clone()), UnaryOperation::Length))])]);
+        let mut block = Block(vec![
+            declare(&requests, RValue::Table(Table::default())),
+            declare(&request, method_call(global("node"), "Request", vec![])),
+            keyed_assign(&requests, number(1.0), RValue::Local(request.clone())),
+            use_local(&request),
+            declare(&helper, closure_of(function)),
+            Statement::Call(Call::new(RValue::Local(helper), vec![RValue::Local(requests.clone())])),
+            use_local(&requests),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&request), "request");
+        assert_eq!(name_of(&requests), "requests");
+        // A callee's own array use outranks a weak method-noun guess that has
+        // passed through a collection and a call argument.
+        assert_eq!(name_of(&param), "list");
+    }
+
+    #[test]
+    fn literal_repetition_names_count_through_immutable_offsets() {
+        for mutated in [false, true] {
+            let param = RcLocal::default();
+            let base = RcLocal::default();
+            let offset = RcLocal::default();
+            let mut body = vec![
+                declare(&base, RValue::Binary(Binary::new(RValue::Local(param.clone()), number(0.0), BinaryOperation::Or))),
+            ];
+            if mutated { body.push(Assign::new(vec![LValue::Local(base.clone())], vec![global("replacement")]).into()); }
+            body.push(declare(&offset, RValue::Binary(Binary::new(RValue::Local(base), number(1.0), BinaryOperation::Add))));
+            body.push(ret(vec![RValue::MethodCall(MethodCall::new(string("    "), "rep".into(), vec![RValue::Local(offset.clone())]))]));
+            name_param_fn(vec![param.clone()], body);
+            assert_eq!(name_of(&param), if mutated { "value" } else { "count" });
+            assert!(name_of(&offset).starts_with('v'));
+        }
+        let param = RcLocal::default();
+        name_param_fn(vec![param.clone()], vec![
+            method_stmt(global("object"), "rep", vec![RValue::Local(param.clone())]),
+        ]);
+        assert_eq!(name_of(&param), "p");
+    }
+
+    #[test]
+    fn buffer_size_role_reaches_scaled_capacity_but_not_reassigned_snapshots() {
+        for kind in 0..4 {
+            let param = RcLocal::default();
+            let capacity = RcLocal::default();
+            let divisor = if kind == 2 { global("factor") } else { number(0.7272727272727273) };
+            let mut body = vec![declare(&capacity, RValue::Binary(Binary::new(
+                RValue::Local(param.clone()), divisor, BinaryOperation::IDiv,
+            )))];
+            if kind == 1 { body.push(Assign::new(vec![LValue::Local(capacity.clone())], vec![number(16.0)]).into()); }
+            if kind == 3 {
+                param.0.lock().add_source_binding(crate::SourceBinding {
+                    name: "requestedBytes".into(),
+                    origin: crate::BindingOrigin::DebugLocal { prototype: 0, register: 0, start_pc: 0, end_pc: 100 },
+                });
+            }
+            body.push(ret(vec![lib_call("buffer", "create", vec![RValue::Local(capacity)])]));
+            name_param_fn(vec![param.clone()], body);
+            assert_eq!(name_of(&param), match kind { 0 => "size", 3 => "requestedBytes", _ => "p" });
+        }
     }
 
     /// A returned `setmetatable(...)` object in a plain constructor is `self`;

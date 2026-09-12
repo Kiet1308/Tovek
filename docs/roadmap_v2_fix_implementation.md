@@ -8,8 +8,8 @@ Goal đang chạy: hoàn thành [ROADMAP_V2_FIX.md](ROADMAP_V2_FIX.md), kiểm c
 | F8 nền kiểm tra chất lượng | Đã triển khai và nghiệm thu, commit `f1059d9` đã push; gate cuối roadmap vẫn còn |
 | F2 biểu thức toán/đối số | Bước proof số đã nghiệm thu; các nhóm snapshot còn lại vẫn mở |
 | F3 helper điều kiện | Chưa triển khai |
-| F4 constructor trước capture | Xong và đã nghiệm thu; gom init liên tiếp trước lần quan sát đầu tiên |
-| F5 tên suy luận | Chưa triển khai |
+| F4 constructor trước capture | Xong, commit `e1f1131` đã push; gom init trước lần quan sát đầu tiên |
+| F5 tên suy luận | Xong và đã nghiệm thu; giữ role/confidence, tên đa kiểu và số lần lặp chuỗi |
 | F6 helper/scope/pass cuối | Chưa triển khai |
 | F7 annotation/discard | Chưa triển khai |
 
@@ -54,3 +54,17 @@ Public **513/513** qua; cả **405 profile đo được giữ nguyên điểm c�
 Nghiệm thu: **738 test AST**, **1.027 test workspace chính + 1 lần test con**, **210 runtime hiện có + 6 constructor profiles** qua. Fixture mới có **224 tổ hợp/profile**, gồm capture sớm/muộn, quan sát qua alias, self-capture, thay binding, key động/trùng/nil, lỗi theo thứ tự và multret. Cả sáu profile g1/g2 thay output so bản F2, nên VM thực sự kiểm code đã được gom. Symbolic dataflow vẫn unknown. Lineage/emission/capture audits của 210 runtime, 6 constructor và 513 public qua, deterministic thread 1/4, không local token chưa giải thích được. Fixture được thêm vào manifest mặc định, đưa bộ tiếp theo lên **216 profiles**. [Bằng chứng](roadmap_v2_acceptance/fix_constructor_capture.json).
 
 Output F4 và báo cáo chi tiết nằm cục bộ tại `out/v2-fix-all/f4`; folder so sánh chính sẽ đồng bộ khi hoàn tất roadmap.
+
+## F5 — tên suy luận theo vai trò và độ tin cậy
+
+Hint giữ tên, độ tin cậy và loại vai trò qua collection consensus lẫn call-site consensus. Các mô tả kết quả như `serialized`, `formatted`, `frozen` không được pluralize thành danh từ; collection dùng `result` khi là kết quả vòng lặp, hoặc `values` làm gợi ý trung tính. Danh từ yếu như `request` vẫn có thể tạo `requests` nhưng không được tự nâng độ tin cậy để lấn át vai trò có bằng chứng mạnh hơn. Chủ thể getter/factory được phân biệt với tên callee trần; `IsA` và tên child literal vẫn được ưu tiên hơn fallback đó. Pass `refine_names` đã giữ priority giảm dần trên các cạnh lan truyền, không cần đổi cơ chế đó.
+
+Tham số nhận table/string/number không còn bị một nhánh lặp đặt tên thành `items`. `prettyPrint` hiện dùng `value, count: number?`; `count` đến từ số lần lặp chuỗi qua snapshot/default/offset chỉ ghi một lần, không phỏng đoán lại tên nguồn `indentLevel`. Phần tử và phần tử lân cận trong nhánh lặp vẫn có thể tên `item`. Function và callable table có thể cùng giữ vai trò `callback`; nil chỉ thể hiện vai trò tùy chọn. Tên debug/source tiếp tục được bảo vệ.
+
+Vai trò kích thước từ `buffer.create` được truyền ngược qua snapshot chỉ ghi một lần và phép tính với hằng số dương, có giới hạn độ sâu/số vòng. Nhờ đó `expandbuffertosize` trong Write khôi phục tham số `size`; snapshot bị ghi lại hoặc hệ số biến không tạo bằng chứng này. Đây là gợi ý tên, không phải chứng nhận kiểu số hay độ thuần của phép tính.
+
+So F4: **86 file private đổi tên**, **giảm 46 binding p/v**, không file nào tăng binding p/v; cấu trúc, số dòng và dòng dài không đổi, tổng byte tăng 195. Các dạng `serializeds`, `deserializeds`, `formatteds`, `frozens`, `joineds` không còn trong corpus private hiện tại. Public có **17 output thay tên**, toàn bộ **405 profile đo được giữ nguyên điểm cấu trúc**; 3 profile Promise đổi thuộc nhóm alignment unknown đã đọc diff riêng. Ser dùng `result`; Logging dùng `count`; prettyPrint dùng tên đa kiểu đúng vai trò. Đây là cải thiện tên, không tuyên bố đã sửa các snapshot toán/helper còn lại.
+
+Nghiệm thu: **744 test AST**, **1.033 test workspace chính + 1 lần test con**, **222 runtime**, **513 public** qua. Sáu naming profiles nằm trong 222 cấu hình đó, mỗi profile có **42 tổ hợp**; ba profile g1 thay output, ba profile g2 giữ nguyên hash so F4. Các ca tên kết quả width/height và buffer-role giữ nguyên output ở cả 12 cấu hình. Cả 12 output public của Computed/ForKeys/ForPairs/ForValues giữ nguyên hash, bảo vệ `processor`; nhóm ClickToMove giữ nguyên output với `part/parts`; `size` được kiểm trực tiếp trong Write. Unit tests kiểm source/debug, gợi ý mâu thuẫn và snapshot bị ghi lại. Lineage/emission/capture audits và deterministic thread 1/4 đều qua; không local token chưa giải thích được. Symbolic dataflow của fixture mới vẫn unknown. [Bằng chứng](roadmap_v2_acceptance/fix_naming_roles.json).
+
+Output F5 cục bộ: `out/v2-fix-all/f5`, executable SHA `4fb604f528876e2ac0a9e116cda1b29acb45d3db975609fd8aa20fcd7a5c9e8d`. F2/F3/F6/F7 và bước đồng bộ folder V2/HTML tiếp tục mở.
