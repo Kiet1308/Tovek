@@ -823,6 +823,7 @@ fn try_decompile_bytecode_internal(
             // generic reducer, so it is safe before recover_guard_continue.
             {
                 ptime!(S_NORMALIZE_CONDS);
+                ast::terminal_returns::reconstruct_terminal_returns(&mut body);
                 ast::canonicalize_branches::canonicalize_branches(&mut body);
                 ast::normalize_conditions::normalize_for_statement_output(
                     &mut body,

@@ -31,6 +31,7 @@ pub const PASS_CONTRACTS: &[(&str, &str)] = &[
     ("inline_temps_and_ui_reconstruction", "installed root records inline; moved child nodes retain tags; reconstructed containers without tags remain unknown"),
     ("coalesce_locals_and_copy_cleanup", "preserve syntax tags and union storage ancestry; source-binding compatibility remains a separate gate"),
     ("conditional_expressions_and_table_rebuild", "retained child tags survive; newly assembled parent syntax has no fabricated input identity"),
+    ("terminal_returns", "moved RHS retains ancestry and records inline; fresh returns/boolean wrappers remain unknown; eliminated binding is not merged into its parameter"),
     ("recover_methods_and_rehoist_constants", "retained operands keep ancestry; new wrappers start unknown; names do not create origin links"),
     ("materialize_value_captures_and_call_receivers", "fresh declarations start unknown; copied values retain tags; existing capture/evaluation gates remain authoritative"),
     ("eliminate_nil_and_recover_connection", "deleted nodes disappear; retained nodes keep ancestry; replacement locals receive no proof from names"),

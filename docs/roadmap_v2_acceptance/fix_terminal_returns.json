@@ -1,0 +1,346 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "scope": "F3 terminal inferred-result writes and value-exact scalar guard returns",
+  "base_commit": "b66a186",
+  "baseline_binary_sha256": "4fb604f528876e2ac0a9e116cda1b29acb45d3db975609fd8aa20fcd7a5c9e8d",
+  "binary_sha256": "8459de6ce5367646d079868286fa956162020524385d784b0b9570ddc67e9366",
+  "rust_primary_tests": 1043,
+  "rust_child_repeat": 1,
+  "ast_tests": 754,
+  "runtime_profiles": 222,
+  "terminal_profiles": 6,
+  "terminal_scenarios_per_profile": 200,
+  "terminal_output_profiles_changed": [
+    {
+      "opt": 0,
+      "debug": 1
+    },
+    {
+      "opt": 1,
+      "debug": 1
+    },
+    {
+      "opt": 1,
+      "debug": 2
+    },
+    {
+      "opt": 2,
+      "debug": 1
+    },
+    {
+      "opt": 2,
+      "debug": 2
+    }
+  ],
+  "public_profiles": 513,
+  "public_outputs_changed": [
+    {
+      "key": [
+        "Fusion",
+        "src/Utility/isSimilar.luau",
+        0
+      ],
+      "before": 0.5764075067024129,
+      "after": 0.6089466089466089,
+      "delta": 0.03253910224419598,
+      "normalized_before": 0.5764075067024129,
+      "normalized_after": 0.6089466089466089,
+      "normalized_delta": 0.03253910224419598,
+      "beta_raw": 0.5220994475138122,
+      "beta_normalized": 0.5220994475138122
+    },
+    {
+      "key": [
+        "promise",
+        "lib/init.lua",
+        1
+      ],
+      "before": null,
+      "after": null,
+      "delta": null,
+      "normalized_before": null,
+      "normalized_after": null,
+      "normalized_delta": null,
+      "beta_raw": null,
+      "beta_normalized": null
+    },
+    {
+      "key": [
+        "promise",
+        "lib/init.lua",
+        2
+      ],
+      "before": null,
+      "after": null,
+      "delta": null,
+      "normalized_before": null,
+      "normalized_after": null,
+      "normalized_delta": null,
+      "beta_raw": null,
+      "beta_normalized": null
+    },
+    {
+      "key": [
+        "RbxUtil",
+        "modules/input/Gamepad.luau",
+        0
+      ],
+      "before": null,
+      "after": null,
+      "delta": null,
+      "normalized_before": null,
+      "normalized_after": null,
+      "normalized_delta": null,
+      "beta_raw": null,
+      "beta_normalized": null
+    },
+    {
+      "key": [
+        "RbxUtil",
+        "modules/input/Gamepad.luau",
+        1
+      ],
+      "before": null,
+      "after": null,
+      "delta": null,
+      "normalized_before": null,
+      "normalized_after": null,
+      "normalized_delta": null,
+      "beta_raw": null,
+      "beta_normalized": null
+    },
+    {
+      "key": [
+        "RbxUtil",
+        "modules/input/Gamepad.luau",
+        2
+      ],
+      "before": null,
+      "after": null,
+      "delta": null,
+      "normalized_before": null,
+      "normalized_after": null,
+      "normalized_delta": null,
+      "beta_raw": null,
+      "beta_normalized": null
+    },
+    {
+      "key": [
+        "RbxUtil",
+        "modules/table-util/init.luau",
+        0
+      ],
+      "before": null,
+      "after": null,
+      "delta": null,
+      "normalized_before": null,
+      "normalized_after": null,
+      "normalized_delta": null,
+      "beta_raw": null,
+      "beta_normalized": null
+    }
+  ],
+  "private": {
+    "files": 3978,
+    "changed": 79,
+    "unchanged": 3899,
+    "categories": {
+      "structure_or_types": 79
+    },
+    "delta_bytes": -1702,
+    "delta_lines": -259,
+    "delta_generated_bindings": -16,
+    "delta_long_lines": 0,
+    "errors": []
+  },
+  "quality_gate": {
+    "metric": "sole_use_require_field_relays",
+    "status": "passed",
+    "failures": []
+  },
+  "metadata": {
+    "runtime": {
+      "lineage": {
+        "scripts": 222,
+        "source_files": 222,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 222
+        },
+        "annotation_spans": 6,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 579,
+        "definitions": 12346,
+        "definitions_with_final_binding_ancestry": 6853,
+        "dropped_records": 0,
+        "final_bindings": 2321,
+        "functions": 1080,
+        "identifier_spans": 6834,
+        "incomplete_lineages": 0,
+        "lifted_statements": 10564,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 12,
+        "statements_with_pc": 10564,
+        "unlocated_final_bindings": 90
+      },
+      "emission": {
+        "scripts": 222,
+        "status": {
+          "passed": 222
+        },
+        "parser_local_tokens": 6942,
+        "mapped_local_tokens": 6834,
+        "opaque_local_tokens": 108,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 2345,
+        "mapped_parser_bindings": 2321,
+        "storage_ids_with_multiple_parser_bindings": 0
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 222,
+        "readonly_slots": 240,
+        "analysis_status": {
+          "complete": 222
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "deterministic_threads_1_4": true
+    },
+    "terminal": {
+      "lineage": {
+        "scripts": 6,
+        "source_files": 6,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 6
+        },
+        "annotation_spans": 0,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 37,
+        "definitions": 868,
+        "definitions_with_final_binding_ancestry": 488,
+        "dropped_records": 0,
+        "final_bindings": 239,
+        "functions": 84,
+        "identifier_spans": 592,
+        "incomplete_lineages": 0,
+        "lifted_statements": 800,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 0,
+        "statements_with_pc": 800,
+        "unlocated_final_bindings": 2
+      },
+      "emission": {
+        "scripts": 6,
+        "status": {
+          "passed": 6
+        },
+        "parser_local_tokens": 592,
+        "mapped_local_tokens": 592,
+        "opaque_local_tokens": 0,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 239,
+        "mapped_parser_bindings": 239,
+        "storage_ids_with_multiple_parser_bindings": 0
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 6,
+        "readonly_slots": 0,
+        "analysis_status": {
+          "complete": 6
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "deterministic_threads_1_4": true
+    },
+    "public": {
+      "lineage": {
+        "scripts": 513,
+        "source_files": 513,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 513
+        },
+        "annotation_spans": 36,
+        "bindings_without_identifier_tokens": 21,
+        "conditional_result_records": 3542,
+        "definitions": 97176,
+        "definitions_with_final_binding_ancestry": 46947,
+        "dropped_records": 0,
+        "final_bindings": 13130,
+        "functions": 3961,
+        "identifier_spans": 45277,
+        "incomplete_lineages": 0,
+        "lifted_statements": 77329,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 150,
+        "statements_with_pc": 77329,
+        "unlocated_final_bindings": 68
+      },
+      "emission": {
+        "scripts": 513,
+        "status": {
+          "passed": 513
+        },
+        "parser_local_tokens": 45528,
+        "mapped_local_tokens": 45277,
+        "opaque_local_tokens": 251,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 13112,
+        "mapped_parser_bindings": 13112,
+        "storage_ids_with_multiple_parser_bindings": 3
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 513,
+        "readonly_slots": 4597,
+        "analysis_status": {
+          "complete": 513
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "deterministic_threads_1_4": true
+    }
+  },
+  "source_hashes": {
+    "ast/src/terminal_returns.rs": "f0d29a63a5074946e8d99e9288334e4e480e07dedebd14495d80a4daf4ae2edd",
+    "ast/src/lib.rs": "f8abc3c1dde0eaf830229d9292aa3e205d34dc40e734c0bbc74c34ad7c721348",
+    "ast/src/node_origins.rs": "4b097fb025f821e03d0b17535dc57ce58b66f8689c3c77677a2239f1a2e70ef1",
+    "luau-lifter/src/lib.rs": "af3828d6e649c2a71ad3bcdd5a00fb6b6a78438f9e3c1ed12a6afd03d4ab1b7c"
+  },
+  "fixture_hashes": {
+    "docs/failure_fixtures/roadmap_v2/terminal_returns.luau": "136870da2ecae2284965f121296b292eefa79f03168af2549f364741ec129cc6",
+    "docs/failure_fixtures/roadmap_v2/terminal_returns.driver.luau": "08f3982a407ce931a697ab279ccf97d4b240071e68de1ee074767164dc567a99",
+    "docs/failure_fixtures/roadmap_v2/terminal_returns.manifest.json": "b6fc8f2993bb684e15cee9cd7ed87bb0d815cb972d3b41140f37f25f20c08f93",
+    "docs/failure_fixtures/roadmap_v2/manifest.json": "2f872d40685ebedcc64e2ba6abe0d7692be313e5f0db81d46a47f6d0c271ff84"
+  },
+  "evidence_hashes": {
+    "out/v2-fix-all/f3/workspace-tests.log": "92efd0b22e7d2fe319903a7c9a31169a645cfd9bd1806da29c73ef542c7a487d",
+    "out/v2-fix-all/f3/build-final.log": "22abba9680653f58e0f97bb46b76bf8df077ec430cf8357dcdee4a10bed2a6ea",
+    "out/v2-fix-all/f3/private-review.json": "9300912709127ac5d5fc1d97f8907947e383eb6651c30aa071f110697e53e87c",
+    "out/v2-fix-all/f3/public-review.json": "21e6ce37bb7dfdd4df1eed675fe315575de853603ad3535a77ced921877e0478",
+    "out/v2-fix-all/f3/beta-public-review.json": "8a0903fe561e0a9bbefd68ce27abf1a38f6a6db93887a6aa5cb516dcea29f6a3",
+    "out/v2-fix-all/f3/runtime.json": "8fbc3dc2be99ce27755d91177ba09f0c2df9bdac084a3b36e1144a1a14cd48c4",
+    "out/v2-fix-all/f3/terminal-runtime.json": "c8bd4b1ea5ed19f1275543fcf31845951972993e300cc4b160d860bfd828eb23",
+    "out/v2-fix-all/f3/terminal-runtime-before.json": "ded58796fdf5a61940bc6c9ed4ab6ff907b0a15ed7fbf8f6c5941e501ead8058",
+    "out/v2-fix-all/f3/public.json": "5565e9be120bf5a5f210d0db9b6062f2fae47ca94298fae0cf5ebfd76b609a15",
+    "out/v2-fix-all/f3/runtime-traces.json": "fd01552c49ad136a17e3e84b0afea44e3af87408dbdee04e0d43727fc5602cdf",
+    "out/v2-fix-all/f3/terminal-traces.json": "ef3895d2863db921b6203ee77ee6645d949a7eb2ba5ffcddb9c63fa081ecdef2",
+    "out/v2-fix-all/f3/public-traces.json": "df484eac2abae7dc31ee6e63d513b1f18f9971c72592a200418dab1e5bb228fe",
+    "out/v2-fix-all/f3/quality.json": "60e3ef43acc74d3fa607be8aa17af4ee257db0402201b03235d52e95bf8ffb06"
+  },
+  "limitations": [
+    "Terminal rewrites only; field/callee snapshots and intervening effects remain for F2/F6.",
+    "Source/debug bindings, parameters, external upvalue writes and any captured result cells remain protected.",
+    "Raw call/vararg returns retain their multret behavior; moved single-local RHS is scalar-adjusted.",
+    "No if-expression emission or relational complement introduced.",
+    "Long/multiline guards and explicit false/nil alternatives remain statements.",
+    "Symbolic dataflow unknown is retained; finite VM cases do not prove arbitrary private-game equivalence."
+  ]
+}

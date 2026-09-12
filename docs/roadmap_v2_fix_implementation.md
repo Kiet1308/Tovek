@@ -7,9 +7,9 @@ Goal đang chạy: hoàn thành [ROADMAP_V2_FIX.md](ROADMAP_V2_FIX.md), kiểm c
 | F1 import → field và output polish | Xong; commit `c08a908`, đã push |
 | F8 nền kiểm tra chất lượng | Đã triển khai và nghiệm thu, commit `f1059d9` đã push; gate cuối roadmap vẫn còn |
 | F2 biểu thức toán/đối số | Bước proof số đã nghiệm thu; các nhóm snapshot còn lại vẫn mở |
-| F3 helper điều kiện | Chưa triển khai |
+| F3 helper điều kiện | Xong và đã nghiệm thu; return cuối nhánh, chuỗi scalar ngắn, giữ arity và binding được bảo vệ |
 | F4 constructor trước capture | Xong, commit `e1f1131` đã push; gom init trước lần quan sát đầu tiên |
-| F5 tên suy luận | Xong và đã nghiệm thu; giữ role/confidence, tên đa kiểu và số lần lặp chuỗi |
+| F5 tên suy luận | Xong; commit `b66a186` đã push, giữ role/confidence, tên đa kiểu và số lần lặp chuỗi |
 | F6 helper/scope/pass cuối | Chưa triển khai |
 | F7 annotation/discard | Chưa triển khai |
 
@@ -68,3 +68,19 @@ So F4: **86 file private đổi tên**, **giảm 46 binding p/v**, không file n
 Nghiệm thu: **744 test AST**, **1.033 test workspace chính + 1 lần test con**, **222 runtime**, **513 public** qua. Sáu naming profiles nằm trong 222 cấu hình đó, mỗi profile có **42 tổ hợp**; ba profile g1 thay output, ba profile g2 giữ nguyên hash so F4. Các ca tên kết quả width/height và buffer-role giữ nguyên output ở cả 12 cấu hình. Cả 12 output public của Computed/ForKeys/ForPairs/ForValues giữ nguyên hash, bảo vệ `processor`; nhóm ClickToMove giữ nguyên output với `part/parts`; `size` được kiểm trực tiếp trong Write. Unit tests kiểm source/debug, gợi ý mâu thuẫn và snapshot bị ghi lại. Lineage/emission/capture audits và deterministic thread 1/4 đều qua; không local token chưa giải thích được. Symbolic dataflow của fixture mới vẫn unknown. [Bằng chứng](roadmap_v2_acceptance/fix_naming_roles.json).
 
 Output F5 cục bộ: `out/v2-fix-all/f5`, executable SHA `4fb604f528876e2ac0a9e116cda1b29acb45d3db975609fd8aa20fcd7a5c9e8d`. F2/F3/F6/F7 và bước đồng bộ folder V2/HTML tiếp tục mở.
+
+## F3 — return cuối nhánh và guard ngắn
+
+Pass `terminal_returns` chuyển phép ghi cuối nhánh vào biến kết quả suy luận thành return trực tiếp, rồi ghép các guard scalar có giá trị chính xác thành `and/or/not`. Không chuyển statement xen giữa, không đi xuyên loop để đẩy return; các nhánh đã return giữ nguyên arity. Call/method/vararg vốn được gán vào một local được bọc Select khi trả trực tiếp, vì `return (f())` vẫn trả một giá trị còn `return f()` có thể trả nhiều giá trị.
+
+Phải chứng minh có declaration trong cây đang xét; upvalue của hàm ngoài, parameter, binding debug/source và mọi result bị capture đều được giữ. `conditional_result` là vai trò suy luận nên có thể được loại bằng proof terminal này, nhưng không gộp cell đó vào parameter. Chỉ dọn declaration nil vừa mất toàn bộ lần đọc/ghi còn lại; initializer có hiệu ứng không bị bỏ. Phân tích giới hạn độ sâu, số node và số lần viết lại. Node RHS được chuyển giữ ancestry và dấu inline; cú pháp return/wrapper mới không có PC nguồn bịa thêm.
+
+Bản thử đầu tạo một dòng dài ở VRCameraTeleportDetector và làm `_shouldLog` khó đọc hơn. Bản nghiệm thu giới hạn preview khi ghép chuỗi, giữ guard nhiều dòng hoặc quá dài; cặp literal false/nil vẫn dùng nhánh tường minh. Các vị trí đó được kiểm lại, không lấy số dòng giảm làm lý do chấp nhận output khó đọc hơn.
+
+So F5: **79/3.978 file private đổi**, **giảm 259 dòng, 1.702 byte và 16 binding p/v**; không file nào tăng số dòng, binding p/v hay dòng dài. Tất cả file đổi qua parser và compile O0/O2; file không đổi giữ hash baseline. Geometry/HitboxFunctions bỏ local flag trả về, IsEmpty/IsFilled và Registry dùng chain ngắn, Promise bỏ các nhánh true/false dư. Billboards dùng return trực tiếp ở nhánh cuối; các snapshot field/callee vẫn thuộc F2, không tuyên bố đã khôi phục cả công thức.
+
+Public **513/513** qua, **7 output đổi**. Fusion `isSimilar` O0 tăng cả raw/normalized ratio **0,5764 → 0,6089**, so beta là **0,5221**; 404 profile đo được còn lại giữ điểm. Sáu output đổi còn lại thuộc Promise (2), Gamepad (3), TableUtil (1), alignment vẫn unknown và đã đọc diff riêng. Bản `_shouldLog` cuối giữ hash F5. Có báo cáo đối chiếu toàn bộ public với beta tại `out/v2-fix-all/f3/beta-public-review.json`.
+
+Nghiệm thu: **754 test AST**, **1.043 test workspace chính + 1 lần test con**, **222 runtime hiện có + 6 terminal profiles**, **513 public** qua. Fixture mới chạy **200 tình huống/profile**, kiểm false/nil/NaN, tuple/vararg/scalar, branch bị bỏ qua, lỗi ở nhiều event, metamethod, đổi callee trong lookup, parameter và closure quan sát result. Năm profile thay output so F5; O0 g2 giữ nguyên hash. Lineage/emission/capture audits, source/trace và deterministic thread 1/4 đều qua; không local token chưa giải thích được. Symbolic dataflow vẫn unknown. Fixture đã thêm vào manifest mặc định, đưa bộ tiếp theo lên **228 profiles**. [Bằng chứng](roadmap_v2_acceptance/fix_terminal_returns.json).
+
+Output F3 cục bộ: `out/v2-fix-all/f3`, executable SHA `8459de6ce5367646d079868286fa956162020524385d784b0b9570ddc67e9366`. F2/F6/F7 và bước bàn giao V2/HTML tiếp tục mở; folder so sánh chính vẫn ở F1 cho đến lượt đồng bộ cuối.
