@@ -20,6 +20,7 @@ import time
 from bytecode_dataflow import compare_dataflow
 from bytecode_roundtrip import compare_chunks, parse_chunk
 from source_fidelity import compare_ast, conditional_count, parse_ast
+from output_quality import analyze_tree
 
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -101,6 +102,7 @@ def check_case(args, case, root, work, opt, debug):
             source_ast = parse_ast(args.ast, original, args.timeout)
             output_ast = parse_ast(args.ast, emitted, args.timeout)
             row["source_fidelity"] = compare_ast(source_ast, output_ast)
+            row["output_quality"] = analyze_tree(output_ast, output.decode('utf-8'))
             row["output_conditional_expressions"] = conditional_count(output_ast)
             if row["output_conditional_expressions"]:
                 raise RuntimeError("statement output style gate failed")

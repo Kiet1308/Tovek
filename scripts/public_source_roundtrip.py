@@ -17,6 +17,7 @@ from bytecode_roundtrip import compare_chunks, parse_chunk
 from bytecode_dataflow import compare_dataflow
 from roadmap_v2 import ROOT, checked, compile_source, fixture_path, sha256
 from source_fidelity import compare_ast, parse_ast
+from output_quality import analyze_tree
 
 
 def main():
@@ -83,8 +84,10 @@ def main():
             row["legacy_normalized"] = dict(collections.Counter(p["tier"] for p in pairs),
                                               missing=len(missing), extra=len(extra))
             if args.ast:
+                output_ast = parse_ast(args.ast, emitted, args.timeout)
                 row["source_fidelity"] = compare_ast(parse_ast(args.ast, source, args.timeout),
-                                                      parse_ast(args.ast, emitted, args.timeout))
+                                                      output_ast)
+                row["output_quality"] = analyze_tree(output_ast, output.decode('utf-8'))
             row.update(status="passed", output_sha256=sha256(emitted), output_bytes=len(output),
                        decompile_seconds=elapsed, output=str(emitted))
         except (RuntimeError, ValueError, OSError, subprocess.TimeoutExpired) as error:
