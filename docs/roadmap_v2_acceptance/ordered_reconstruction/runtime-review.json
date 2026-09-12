@@ -1,0 +1,337 @@
+{
+ "changed_rows": 4,
+ "rows": [
+  {
+   "key": [
+    "conditional",
+    1,
+    1
+   ],
+   "split": null,
+   "changes": {
+    "output_sha256": {
+     "before": "e7d20ab799eb77e29d052cdb7ba5b98e2c6b787fcb2dedd9e2aaa4fda53688cb",
+     "after": "413b62c695317f994b6925499115dc18030eed7fb074686538644b5d992f0349"
+    },
+    "output_bytes": {
+     "before": 138,
+     "after": 139
+    },
+    "dataflow": {
+     "before": {
+      "model": "luau-acyclic-use-def-v1",
+      "status": "proved",
+      "fingerprints": [
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330",
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330"
+      ]
+     },
+     "after": {
+      "model": "luau-acyclic-use-def-v1",
+      "status": "different",
+      "fingerprints": [
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330",
+       "8e069ef02d3e8e27b88e7487bde105d04fad4887174f482fe03c374855d38211"
+      ]
+     }
+    },
+    "source_fidelity": {
+     "before": {
+      "model": "luau-ast-binding-v2",
+      "status": "measured",
+      "raw_structural_ratio": 0.6602870813397129,
+      "statement_initializer_normalized_ratio": 0.5809128630705395,
+      "style_normalization": "single-local-if-initializer-v1",
+      "source_conditional_expressions": 2,
+      "output_conditional_expressions": 0,
+      "source_bindings": 4,
+      "output_bindings": 3,
+      "aligned_bindings": 1,
+      "exact_names": 0,
+      "alignment_coverage": 0.25,
+      "exact_name_precision_on_aligned": 0.0,
+      "exact_name_recovery_lower_bound": 0.0,
+      "bindings": [
+       {
+        "source_binding": 0,
+        "output_binding": 0,
+        "source_name": "condition",
+        "output_name": "p",
+        "exact_name": false,
+        "occurrences": 2
+       }
+      ],
+      "type_syntax_equal": true
+     },
+     "after": {
+      "model": "luau-ast-binding-v2",
+      "status": "measured",
+      "raw_structural_ratio": 0.6666666666666666,
+      "statement_initializer_normalized_ratio": 0.5606694560669456,
+      "style_normalization": "single-local-if-initializer-v1",
+      "source_conditional_expressions": 2,
+      "output_conditional_expressions": 0,
+      "source_bindings": 4,
+      "output_bindings": 3,
+      "aligned_bindings": 1,
+      "exact_names": 0,
+      "alignment_coverage": 0.25,
+      "exact_name_precision_on_aligned": 0.0,
+      "exact_name_recovery_lower_bound": 0.0,
+      "bindings": [
+       {
+        "source_binding": 0,
+        "output_binding": 0,
+        "source_name": "condition",
+        "output_name": "p",
+        "exact_name": false,
+        "occurrences": 2
+       }
+      ],
+      "type_syntax_equal": true
+     }
+    }
+   }
+  },
+  {
+   "key": [
+    "conditional",
+    1,
+    2
+   ],
+   "split": null,
+   "changes": {
+    "output_sha256": {
+     "before": "b1bcbb86683ff56f06bfd2434b7f3af0913224f978b8b3ea295d6389ac25cdbb",
+     "after": "013c3ee7a1a29eb3f8bc616da4136b52d5522bd91bf25208cd79cabc14d99a73"
+    },
+    "output_bytes": {
+     "before": 235,
+     "after": 230
+    },
+    "dataflow": {
+     "before": {
+      "model": "luau-acyclic-use-def-v1",
+      "status": "proved",
+      "fingerprints": [
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330",
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330"
+      ]
+     },
+     "after": {
+      "model": "luau-acyclic-use-def-v1",
+      "status": "different",
+      "fingerprints": [
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330",
+       "8e069ef02d3e8e27b88e7487bde105d04fad4887174f482fe03c374855d38211"
+      ]
+     }
+    },
+    "source_fidelity": {
+     "before": {
+      "model": "luau-ast-binding-v2",
+      "status": "measured",
+      "raw_structural_ratio": 0.5702127659574469,
+      "statement_initializer_normalized_ratio": 0.846441947565543,
+      "style_normalization": "single-local-if-initializer-v1",
+      "source_conditional_expressions": 2,
+      "output_conditional_expressions": 0,
+      "source_bindings": 4,
+      "output_bindings": 4,
+      "aligned_bindings": 0,
+      "exact_names": 0,
+      "alignment_coverage": 0.0,
+      "exact_name_precision_on_aligned": null,
+      "exact_name_recovery_lower_bound": 0.0,
+      "bindings": [],
+      "type_syntax_equal": true
+     },
+     "after": {
+      "model": "luau-ast-binding-v2",
+      "status": "measured",
+      "raw_structural_ratio": 0.575107296137339,
+      "statement_initializer_normalized_ratio": 0.8528301886792453,
+      "style_normalization": "single-local-if-initializer-v1",
+      "source_conditional_expressions": 2,
+      "output_conditional_expressions": 0,
+      "source_bindings": 4,
+      "output_bindings": 4,
+      "aligned_bindings": 0,
+      "exact_names": 0,
+      "alignment_coverage": 0.0,
+      "exact_name_precision_on_aligned": null,
+      "exact_name_recovery_lower_bound": 0.0,
+      "bindings": [],
+      "type_syntax_equal": true
+     }
+    }
+   }
+  },
+  {
+   "key": [
+    "conditional",
+    2,
+    1
+   ],
+   "split": null,
+   "changes": {
+    "output_sha256": {
+     "before": "e7d20ab799eb77e29d052cdb7ba5b98e2c6b787fcb2dedd9e2aaa4fda53688cb",
+     "after": "413b62c695317f994b6925499115dc18030eed7fb074686538644b5d992f0349"
+    },
+    "output_bytes": {
+     "before": 138,
+     "after": 139
+    },
+    "dataflow": {
+     "before": {
+      "model": "luau-acyclic-use-def-v1",
+      "status": "proved",
+      "fingerprints": [
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330",
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330"
+      ]
+     },
+     "after": {
+      "model": "luau-acyclic-use-def-v1",
+      "status": "different",
+      "fingerprints": [
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330",
+       "8e069ef02d3e8e27b88e7487bde105d04fad4887174f482fe03c374855d38211"
+      ]
+     }
+    },
+    "source_fidelity": {
+     "before": {
+      "model": "luau-ast-binding-v2",
+      "status": "measured",
+      "raw_structural_ratio": 0.6602870813397129,
+      "statement_initializer_normalized_ratio": 0.5809128630705395,
+      "style_normalization": "single-local-if-initializer-v1",
+      "source_conditional_expressions": 2,
+      "output_conditional_expressions": 0,
+      "source_bindings": 4,
+      "output_bindings": 3,
+      "aligned_bindings": 1,
+      "exact_names": 0,
+      "alignment_coverage": 0.25,
+      "exact_name_precision_on_aligned": 0.0,
+      "exact_name_recovery_lower_bound": 0.0,
+      "bindings": [
+       {
+        "source_binding": 0,
+        "output_binding": 0,
+        "source_name": "condition",
+        "output_name": "p",
+        "exact_name": false,
+        "occurrences": 2
+       }
+      ],
+      "type_syntax_equal": true
+     },
+     "after": {
+      "model": "luau-ast-binding-v2",
+      "status": "measured",
+      "raw_structural_ratio": 0.6666666666666666,
+      "statement_initializer_normalized_ratio": 0.5606694560669456,
+      "style_normalization": "single-local-if-initializer-v1",
+      "source_conditional_expressions": 2,
+      "output_conditional_expressions": 0,
+      "source_bindings": 4,
+      "output_bindings": 3,
+      "aligned_bindings": 1,
+      "exact_names": 0,
+      "alignment_coverage": 0.25,
+      "exact_name_precision_on_aligned": 0.0,
+      "exact_name_recovery_lower_bound": 0.0,
+      "bindings": [
+       {
+        "source_binding": 0,
+        "output_binding": 0,
+        "source_name": "condition",
+        "output_name": "p",
+        "exact_name": false,
+        "occurrences": 2
+       }
+      ],
+      "type_syntax_equal": true
+     }
+    }
+   }
+  },
+  {
+   "key": [
+    "conditional",
+    2,
+    2
+   ],
+   "split": null,
+   "changes": {
+    "output_sha256": {
+     "before": "b1bcbb86683ff56f06bfd2434b7f3af0913224f978b8b3ea295d6389ac25cdbb",
+     "after": "013c3ee7a1a29eb3f8bc616da4136b52d5522bd91bf25208cd79cabc14d99a73"
+    },
+    "output_bytes": {
+     "before": 235,
+     "after": 230
+    },
+    "dataflow": {
+     "before": {
+      "model": "luau-acyclic-use-def-v1",
+      "status": "proved",
+      "fingerprints": [
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330",
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330"
+      ]
+     },
+     "after": {
+      "model": "luau-acyclic-use-def-v1",
+      "status": "different",
+      "fingerprints": [
+       "2cf7d2ae40c0b68db22718f21217fd80859d17b60162ee2cf9c9b2da6e0f3330",
+       "8e069ef02d3e8e27b88e7487bde105d04fad4887174f482fe03c374855d38211"
+      ]
+     }
+    },
+    "source_fidelity": {
+     "before": {
+      "model": "luau-ast-binding-v2",
+      "status": "measured",
+      "raw_structural_ratio": 0.5702127659574469,
+      "statement_initializer_normalized_ratio": 0.846441947565543,
+      "style_normalization": "single-local-if-initializer-v1",
+      "source_conditional_expressions": 2,
+      "output_conditional_expressions": 0,
+      "source_bindings": 4,
+      "output_bindings": 4,
+      "aligned_bindings": 0,
+      "exact_names": 0,
+      "alignment_coverage": 0.0,
+      "exact_name_precision_on_aligned": null,
+      "exact_name_recovery_lower_bound": 0.0,
+      "bindings": [],
+      "type_syntax_equal": true
+     },
+     "after": {
+      "model": "luau-ast-binding-v2",
+      "status": "measured",
+      "raw_structural_ratio": 0.575107296137339,
+      "statement_initializer_normalized_ratio": 0.8528301886792453,
+      "style_normalization": "single-local-if-initializer-v1",
+      "source_conditional_expressions": 2,
+      "output_conditional_expressions": 0,
+      "source_bindings": 4,
+      "output_bindings": 4,
+      "aligned_bindings": 0,
+      "exact_names": 0,
+      "alignment_coverage": 0.0,
+      "exact_name_precision_on_aligned": null,
+      "exact_name_recovery_lower_bound": 0.0,
+      "bindings": [],
+      "type_syntax_equal": true
+     }
+    }
+   }
+  }
+ ]
+}

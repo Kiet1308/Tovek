@@ -1,0 +1,2508 @@
+{
+ "summary": {
+  "total": 500,
+  "passed": 500
+ },
+ "rows": [
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Assets/Cutscenes/DragonBallBallingCutscene.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Assets/Cutscenes/GohanObtainmentCutscene.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Assets/Cutscenes/SinbadObtainmentCutscene/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Assets/Cutscenes/SparkleObtainmentCutscene/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Cmdr/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/DivergentVFX/effects/bezier.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/DivergentVFX/effects/impactframe.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/DivergentVFX/effects/mesh.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/DivergentVFX/effects/shockwave.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/DivergentVFX/effects/static_mesh.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/DivergentVFX/init__volt-script-000493.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/DivergentVFX/LightningCore.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/DivergentVFX/pool.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/DivergentVFX/schema.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/AssetGrid/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/AssetGrid/SecondaryActions.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/AssetPreview/EquipButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/AssetPreview/EquipStates.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Bar/BossHealth/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Bar/BossHealth/ThresholdIcon.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Bar/CanvasHealthBar/Decayed.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Bar/ImageHealthBar/Decayed.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Billboards.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Button/MenuButton/Default.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Button/MenuButton/Wide.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Button/Model.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Button/TeleportIcon.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Image/ButtonCarousel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Menu/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Offset.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/PrimaryButton/Filters.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ScrollingFrame/MilestoneRewards.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ScrollingFrame/StyledBase.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Slider/Controls.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Slot/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/StyledBlock/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/TextBox/Button.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/TextBox/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ThrottledModel/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ThrottledModel/NewThrottledModel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ViewportGui/ViewportModel/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/VirtualGrid/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/DirectionalSpecks.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/Flipbook/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/Shine/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/SplitFlipbook.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/Star.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/BuildingResources/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/Construct/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/ForgeEquipment.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/Home/ExpeditionShop.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/Home/ResearchLab.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/RerollEquipment/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/ScrapEquipment/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/ScrapEquipment/ScrapEquipment.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/Upgrade/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/QuestBoardMilestones.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionUpgrades/UpgradeButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingHotbar.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingMenu/FishingMilestones.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingMenu/FishingRodSelection.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingMenu/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingRightHUD.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/AbilityInput/FreePlacement.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/CardSelectionPrompt/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/DamageIndicator/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/AbilityButton/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/AutoUpgradeButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/GameCounter/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/GameMeters/Themes/SkillPoints.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/GameTimer.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/GameUnitView.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/UpgradeButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/PortalSelectionPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Enemies/SandboxSpawnEnemy.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Equipment.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Maps.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Modifiers.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Units.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/UnitSpectate.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/UpgradeBar/Button.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/UpgradeBar/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/ViewCardsPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/CreatorSpotlight/Hotbar.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/CheckpointShopMenu/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/CheckpointShopMenu/ShopItem.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/NodeMapMenu/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/NodeMapMenu/NodeMapButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/Set/SetHUDLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/Set/SetLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/StageInfo.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/TopHUD/Old.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Summer2026Event/HordeTimer.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Summer2026Event/Hotbar.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/AbilityInputLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/CurrencyLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/Hotbar.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/Game/TopHUD/IconLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/ItemNotifications.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/LeftHUD.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/Lobby/RightHUD.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/PinnedQuests/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/PlayerList/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/PlayerList/PlayerButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/ProximityPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/TeleportIcons.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/TopBar/DropdownButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/TopBar/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/Archetype.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/AssetIcon/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/AssetIcon/Item/EquipmentTome.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/AssetIcon/Item/ExpeditionTome.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/Element.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/EnemyModifier.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/EnemyResistance.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/Event.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/GameModifier/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/Potion.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/StatusEffect.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/FlowLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/KeybindLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StatGrade.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StatGradeText.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/Ascension.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/GameModifier.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/Limited.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/PortalAugments.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/PortalLives.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/Shiny.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/Trait.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Achievements.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Areas/AreaButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/AutoPlaySettings/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/AutoPlaySettings/PresetButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Battlepass/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Challenge/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Crafting/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Crafting/SelectRecipePrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventCalendar/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/Default.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/GuessUnitEvent.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/ShenronEvent.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/Summer2026Event.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/SummerFishingEvent.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Content/BountyBoard/BountyQuest.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Content/Calendar.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/EventNavigation.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/GuessUnitEvent/GuessUnitPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/GuessUnitEvent/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/HeadlinerHunt/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonBackground.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonOutlinedLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonWishQuest.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/WishUnitPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/ModeButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/Pages/Gamemode.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/Pages/Home.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Shared/EventActions.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Shared/EventDescription.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/SingleMenu.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Evolve/QuickCraftButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Expedition/Entry.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Expedition/PayloadSelection.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/GuildIcon.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/Pages/Vault/EditColorPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/Pages/Vault/EditIconPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guildless/Pages/Home/GuildCreationPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guildless/Pages/Home/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guildless/Pages/Join/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Index/Pages/Enemy.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Index/Pages/Equipment.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Index/Pages/Unit.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/ItemInventory/PortalPreview.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/LeaderboardDisplay/Leaderboard/Entry.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/LevelMilestones/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/LevelMilestones/LevelMilestone.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/LobbyMusic/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/MapSelection/AssetBuffsButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/MapSelection/SelectButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/MapSelection/StarMissions.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/Character/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/GamemodeBanner/Button.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/GamemodeBanner/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/GamemodeButton/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/GamemodeEntry.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PreRelease/EarlyAccessButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PreRelease/RewardButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Profile/BannerButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Profile/Pages/Banners.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Profile/Pages/Profile.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Profile/TitleButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/PinButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/QuestList.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/UnitTrialButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/UnitTrialList.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/QuickOpenLootbox/AutoSellSettings.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/QuickOpenLootbox/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Keybind.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/Action.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/CheckBoxOld.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/Color.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/Dropdown.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/MultiSelection/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/MultiSelection/SelectionPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/Toggle.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/ShinyNormalizer.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/ShinyTransfer.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/StageInfo.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/StatReroll/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/StatTransfer/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/StatTransfer/StatPotentialButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/BundleButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/GamepassButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/PremiumButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/ProductButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/ProductDecal.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Summon/AutoSellSettings.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Summon/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Tournament/EditTeamPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Tournament/EntryPage.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Tournament/Leaderboard/Entry.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/Leaderboard.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/Milestones.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/TowerSegment.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TraitReroll/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TraitReroll/TraitLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitAscension.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/SizeButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/StatsWindow.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/UnitPreview/Button.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitManager/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitManager/UnitButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitManager/UnitGrid.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UpdateLog/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UpdateLog/ScrollerItems/GamemodeButton.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/WikiTools/Viewport.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Notifications/MatchmakingWindow.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Archetype.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Colors/ColorEditor.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Element.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Map/Portal.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Sorters/Assets.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/UserInfoFromUserID.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/Amount.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/AssetSelection.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/Codes.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/ColorPickerPrompt/ColorPicker.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/ColorPickerPrompt/HexTextBox.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/ColorPickerPrompt/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/FeedUnit/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/GameResults/UnitExpDisplay.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/HotbarCurrencySelection.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/JoinFriend.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/JoinParty/PartyLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/Obtainments/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/RewardCalendar/CalendarReward.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/RewardCalendar/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitEquipment/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitPassives/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitSelection.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/ViewAsset/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Shop/CurrencyDisplay.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Shop/ShopItem.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Shop/ShopPrompt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Shop/ShopPromptPurchase.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Equipment/AbilityLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Equipment/PassiveLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Portal.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Unit/StatLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Unit/TraitLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/GameUnit/PlayerLabel.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Dependencies/Mock/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Dependencies/Mock/MockElements/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Fusion/Colour/sRGB.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/State/ChildOf.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/State/ChildOfClass.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/State/DragInput.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/State/GuiInset.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/State/HasTag.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/State/ImportState.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/State/Tagged.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/AugmentPortal.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/DamageIndicator.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/DiceRoll.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/ExpeditionCheckpointShop.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/ExpeditionNodeMap.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/Guild.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/MythicTraitRoll.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/PortalSettings.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/TowerOfGod.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Stories/UnitManager.story.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Utils/contrast.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Utils/getLuminance.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Utils/HyperText/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Utils/ImportBatcher/ImportBatcherOLD.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Utils/ImportBatcher/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/FusionPackage/Utils/Promise/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/MoonPlayer/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/Lerps.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/TweenFunctions.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/MoonPlayer/LerpCore/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/MoonPlayer/SaveDiscovery.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/MoonPlayer/TrackPlayer.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Nodes/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Nodes/Network/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Nodes/Schema/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/CameraShake/Apply.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/EvenCycle.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/Events.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/EventsCollision.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/EventsPayload.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/EventsSchema.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/Flipbook.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/LinkService.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/Pool.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/Rocks/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/Rocks/Trajectory.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/ScreenEmit.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/TexturePin.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/TrailEmitter.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/TypeRegistry/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Part_Icles/Update.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/beam.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mesh.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mod/color/sRGB.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mod/lerp.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mod/tween.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mod/utility.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/obj/Bezier.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/obj/Promise.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFX/spin.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/bezier.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/lightning.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/randomizer.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/spin.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/color/sRGB.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/lerp.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/recolor.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/tween.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/utility.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/obj/Bezier.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/pkg/Promise.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/services/texture_loader.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/HighlightGroup/Old.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Accessories.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Archetypes/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/DamageTypes.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Elements/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Emotes.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Equipment.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Events/BingoEvent/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Expeditions/Buildings/ResearchLabTree/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Expeditions/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Expeditions/StatAnvils/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/FishingRods.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Items.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Mounts.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Music.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Payloads.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Portals.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Products.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/ProfileBanners.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Skins.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/StatPotential/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Titles.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Traits/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Information/Units.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Network/BufferEncoder/Enums.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Network/BufferEncoder/Write.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Network/Comm.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Promise/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/QuickZone/Classes/Group.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/QuickZone/Classes/Zone.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/QuickZone/Utils/Geometry.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/ReplicaClient.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/MeshEmitter/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/CameraShake/Apply.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/EvenCycle.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Events.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/EventsCollision.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/EventsPayload.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/EventsSchema.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Flipbook.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/LinkService.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Pool.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Rocks/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Rocks/Trajectory.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/ScreenEmit.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/TexturePin.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/TrailEmitter.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/TypeRegistry/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Update.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/UnitUtils/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/UnitUtils/StatUtils.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Utils/CharacterTilt.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Utils/FormatNumber/_internal/class.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Utils/FormatNumber/_internal/formatter_settings.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Utils/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Utils/Timer.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/VFXManager/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Zone/SimpleZone/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Zone/SimpleZone/SearchFor.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Zone/SimpleZone/Utility/BVH.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/Shared/Zone/SimpleZone/Utility/UtilityFunctions.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/SheetSyncedModules/CraftingRecipes/Parser.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/SheetSyncedModules/Equipment/Writer.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/SheetSyncedModules/Items/Parser.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "ReplicatedStorage/SheetSyncedModules/PlayerLevelInfo/Parser.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientAbilityInputHandler.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientAmbianceHandler.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientAutoRejoinInput.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientBuildingHandlers/TrainingGrounds.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientCosmeticSystem/init.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientDialogueRequests.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientDisableCamera.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientEnemyEffects/DisplayReplicaData.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientEnemyEffects/SpawnEffect/Default.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientEnemyEffects/SpawnEffect/Zombie.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientExpeditionBuildings.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientFishingHandler.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientGameDrops/init.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientGameEffects/Storm.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientGameReplica.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientGlobalAnnouncement (PLEASE RICKY REWORK THIS).client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientHotbarHandler.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientInputHandler.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientInteractableHandler.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/InteractiveFoliage.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/LensFlare/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/Rain/RainModule.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/init.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapReplica.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMenuEffect.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMovement/HandleDash.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMovement/HandleSprint.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMusicHandler.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPartyReplica.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPhantomModel.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPlacementSystem.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPlayerAccessory.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPlayerDataReplica.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientReplicaHandler.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientSpectateUnit.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientSpectators.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientUnitAttack.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientUnitModel.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientUnitReplica.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ClientUnitTargeting.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/DisplayUnit.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/HookReplicaToStateKey.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/HookSheetSyncedModules.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/LocalScript.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/MountAutoPlayIndicators.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/MountController.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/MountDamageIndicator.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/MountEmotes.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/Mounts/ShenronDragon/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/MountSettingsMenu.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/MountStarterUnitPrompt.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/MountSummonMenu/_SummonCutscene.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/MountSummonMenu/SummonCutscene.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/MountUnitView.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/CameraInput.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/CameraUtils.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/Invisicam.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/ZoomController/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/ZoomController/Popper.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/AvatarAbilitiesInterface.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveDisplay.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/DynamicThumbstick.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/CameraInput.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/CameraUtils.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/Invisicam.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/ZoomController/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/ZoomController/Popper.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/ClickToMoveController.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/ClickToMoveDisplay.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/DynamicThumbstick.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/ReplicatePortal.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "private",
+   "path": "StarterPlayer/StarterPlayerScripts/SheetSyncHookHandler.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "residual",
+   "path": "StarterPlayer/StarterCharacterScripts/Animate.client.luau",
+   "status": "passed"
+  },
+  {
+   "group": "residual",
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.luau",
+   "status": "passed"
+  },
+  {
+   "group": "residual",
+   "path": "ReplicatedStorage/Part_Icles/Emit.luau",
+   "status": "passed"
+  },
+  {
+   "group": "residual",
+   "path": "ReplicatedStorage/Shared/Information/Abilities.luau",
+   "status": "passed"
+  },
+  {
+   "group": "residual",
+   "path": "ReplicatedStorage/Shared/TimeManager/MeshEmitter/init.luau",
+   "status": "passed"
+  },
+  {
+   "group": "residual",
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Container.luau",
+   "status": "passed"
+  },
+  {
+   "group": "residual",
+   "path": "ReplicatedStorage/Cmdr/Server commands/Admin/teleportServer.luau",
+   "status": "passed"
+  }
+ ]
+}

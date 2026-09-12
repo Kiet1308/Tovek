@@ -16,6 +16,8 @@ pub struct Event {
     pub producer: Kind,
     pub callee_binding_at_creation: String,
     pub callee_prototype: Option<usize>,
+    /// Equivalent output structure, never a certificate of an original call.
+    pub evidence: &'static str,
 }
 
 #[derive(Default, Debug, Serialize)]
@@ -73,6 +75,7 @@ pub(crate) fn record(producer: Kind, binding: u64) -> u32 {
             event_id, producer, callee_binding_at_creation: format!("b{binding}"),
             callee_prototype: if producer == Kind::TerminalSynthesis { None }
                 else { state.callees.get(&binding).copied().flatten() },
+            evidence: if producer == Kind::TerminalSynthesis { "synthesis" } else { "equivalent_call_inference" },
         });
         event_id
     })

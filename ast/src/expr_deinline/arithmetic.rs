@@ -9,7 +9,7 @@ use rustc_hash::FxHashSet;
 use crate::deinline::{Bindings, MatchCtx, stmt_rvalues, unify_rvalue};
 use crate::{
     BinaryOperation, Block, Function, IfExpression, Literal, RValue, RcLocal, Statement, Traverse,
-    UnaryOperation, Upvalue,
+    UnaryOperation, Upvalue, LocalRw,
 };
 
 pub(super) const MARKER: &str =
@@ -96,7 +96,12 @@ pub(crate) fn pattern(function: &Function) -> Option<RValue> {
     }
     let params = function.parameters.iter().cloned().collect();
     let mut budget = MAX_NODES;
-    let result = return_tree(&function.body.0, &params, &mut budget, 0)?;
+    let result = return_tree(&function.body.0, Some(&params), &mut budget, 0)?;
+    // Reconstruction requires an argument for every parameter. An unused
+    // parameter cannot bind from this pattern, so this is not a callable
+    // candidate and must not veto the optional loop-synthesis pass either.
+    let reads = result.values_read();
+    if !params.iter().all(|parameter| reads.contains(&parameter)) { return None; }
     // At least three operators/selection nodes: a simple x * 2 is too generic.
     if operators(&result) < 3 {
         return None;
@@ -106,19 +111,56 @@ pub(crate) fn pattern(function: &Function) -> Option<RValue> {
 
 fn return_tree(
     stmts: &[Statement],
-    params: &FxHashSet<RcLocal>,
+    params: Option<&FxHashSet<RcLocal>>,
     budget: &mut usize,
     depth: usize,
 ) -> Option<RValue> {
-    if depth > 4 {
+    if depth > 8 {
         return None;
     }
     match stmts {
+        [Statement::Assign(decl), Statement::If(branch), Statement::Return(ret)]
+            if decl.prefix && !decl.parallel && decl.left.len() == 1
+                && (decl.right.is_empty() || matches!(decl.right.as_slice(), [RValue::Literal(Literal::Nil)]))
+                && ret.values.len() == 1 => {
+            let crate::LValue::Local(result) = &decl.left[0] else { return None; };
+            if !matches!(&ret.values[0], RValue::Local(l) if l == result)
+                || params.is_some_and(|p| p.contains(result))
+                || !allowed(&branch.condition, params, budget)
+                || branch.condition.values_read().contains(&result) { return None; }
+            let yes = assigned_result(&branch.then_block.lock().0, result, params, budget, depth + 1)?;
+            let no = assigned_result(&branch.else_block.lock().0, result, params, budget, depth + 1)?;
+            *budget = budget.checked_sub(1)?;
+            Some(IfExpression::new(branch.condition.clone(), yes, no).into())
+        }
+        [Statement::Assign(assign), rest @ ..]
+            if assign.prefix && !assign.parallel && assign.left.len() == 1
+                && assign.right.len() == 1 && !rest.is_empty() => {
+            let crate::LValue::Local(local) = &assign.left[0] else { return None; };
+            if params.is_some_and(|p| p.contains(local))
+                || !allowed(&assign.right[0], params, budget)
+                || assign.right[0].values_read().contains(&local) { return None; }
+            let mut extended = params.cloned();
+            if let Some(p) = &mut extended { p.insert(local.clone()); }
+            let mut result = return_tree(rest, extended.as_ref(), budget, depth + 1)?;
+            let destination = Statement::Return(crate::Return::new(vec![result.clone()]));
+            // A let is substituted exactly once and only at an evaluation slot
+            // it can reach. This preserves metamethod order and skipped arms.
+            if !crate::evaluation_order::can_sink(&destination, local, &assign.right[0], &|_| false) {
+                return None;
+            }
+            fn substitute(value: &mut RValue, local: &RcLocal, replacement: &RValue) {
+                if matches!(value, RValue::Local(l) if l == local) { *value = replacement.clone(); }
+                else { for child in value.rvalues_mut() { substitute(child, local, replacement); } }
+            }
+            substitute(&mut result, local, &assign.right[0]);
+            Some(result)
+        }
         [Statement::Return(ret)] if ret.values.len() == 1 => {
-            allowed(&ret.values[0], Some(params), budget).then(|| ret.values[0].clone())
+            allowed(&ret.values[0], params, budget).then(|| ret.values[0].clone())
         }
         [Statement::If(branch)] => {
-            if !allowed(&branch.condition, Some(params), budget) {
+            if !allowed(&branch.condition, params, budget) {
                 return None;
             }
             let yes = return_tree(&branch.then_block.lock().0, params, budget, depth + 1)?;
@@ -129,7 +171,7 @@ fn return_tree(
         [Statement::If(branch), rest @ ..]
             if !rest.is_empty() && branch.else_block.lock().0.is_empty() =>
         {
-            if !allowed(&branch.condition, Some(params), budget) {
+            if !allowed(&branch.condition, params, budget) {
                 return None;
             }
             let yes = return_tree(&branch.then_block.lock().0, params, budget, depth + 1)?;
@@ -139,6 +181,36 @@ fn return_tree(
         }
         _ => None,
     }
+}
+
+// A private phi/select result has one terminal scalar store per path. An empty
+// arm keeps the declaration's nil. No control/statement follows an arm store,
+// so converting it to an internal return cannot skip a later evaluation.
+fn assigned_result(stmts: &[Statement], result: &RcLocal, params: Option<&FxHashSet<RcLocal>>, budget: &mut usize, depth: usize) -> Option<RValue> {
+    if depth > 8 { return None; }
+    match stmts {
+        [] => { *budget = budget.checked_sub(1)?; Some(Literal::Nil.into()) }
+        [Statement::Assign(assign)] if !assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1 => {
+            if !matches!(&assign.left[0], crate::LValue::Local(l) if l == result)
+                || !allowed(&assign.right[0], params, budget)
+                || assign.right[0].values_read().contains(&result) { return None; }
+            Some(assign.right[0].clone())
+        }
+        [Statement::If(branch)] => {
+            if !allowed(&branch.condition, params, budget) || branch.condition.values_read().contains(&result) { return None; }
+            let yes = assigned_result(&branch.then_block.lock().0, result, params, budget, depth + 1)?;
+            let no = assigned_result(&branch.else_block.lock().0, result, params, budget, depth + 1)?;
+            *budget = budget.checked_sub(1)?;
+            Some(IfExpression::new(branch.condition.clone(), yes, no).into())
+        }
+        _ => None,
+    }
+}
+
+pub(super) fn region(statements: &[Statement]) -> Option<RValue> {
+    if statements.is_empty() || statements.len() > 8 { return None; }
+    let mut budget = MAX_NODES;
+    return_tree(statements, None, &mut budget, 0)
 }
 
 fn allowed(value: &RValue, params: Option<&FxHashSet<RcLocal>>, budget: &mut usize) -> bool {
@@ -240,6 +312,25 @@ fn unify_tree(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unused_parameters_do_not_create_unmatchable_helper_candidates() {
+        let value = crate::RcLocal::new(crate::Local::new(Some("value".into())));
+        let unused = crate::RcLocal::new(crate::Local::new(Some("unused".into())));
+        let mut expression: RValue = value.clone().into();
+        for factor in [2.0, 3.0, 4.0] {
+            expression = crate::Binary::new(expression, Literal::Number(factor).into(), BinaryOperation::Mul).into();
+        }
+        let mut function = Function {
+            bytecode_proto_id: Some(0), name: Some("calculate".into()),
+            parameters: vec![value, unused],
+            body: Block(vec![crate::Return::new(vec![expression]).into()]),
+            ..Default::default()
+        };
+        assert!(pattern(&function).is_none());
+        function.parameters.pop();
+        assert!(pattern(&function).is_some());
+    }
 
     #[test]
     fn node_and_attempt_budgets_fail_closed() {

@@ -117,6 +117,9 @@ struct ExprTarget {
     param_order: Vec<RcLocal>,
     /// Additional, bounded proof path for named bytecode arithmetic helpers.
     arithmetic: Option<std::rc::Rc<arithmetic::Safety>>,
+    captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+    search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
+    protect_definition: bool,
 }
 
 impl ExprTarget {
@@ -128,8 +131,18 @@ impl ExprTarget {
     }
 }
 
-pub fn expr_deinline(body: &mut Block) {
-    let targets = collect_expr_targets(body);
+pub fn expr_deinline(body: &mut Block) { run(body, false); }
+
+/// Match named scalar helpers before cleanup can consume their only binding
+/// into an export property. A committed call keeps that lexical binder alive.
+pub fn arithmetic_deinline_early(body: &mut Block) { run(body, true); }
+
+fn run(body: &mut Block, arithmetic_only: bool) {
+    let mut targets = collect_expr_targets(body);
+    if arithmetic_only {
+        targets.retain(|t| t.arithmetic.is_some());
+        for target in &mut targets { target.protect_definition = true; }
+    }
     if targets.is_empty() {
         return;
     }
@@ -196,9 +209,11 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
     // at a site past the rebind would call the wrong function. A binder that is
     // never rebound is written exactly once (its declaration); any extra write
     // refuses it.
+    let captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body));
+    if !captures.complete() { return Vec::new(); }
     let mut write_counts: FxHashMap<RcLocal, usize> = FxHashMap::default();
     collect_write_counts(&body.0, &mut write_counts);
-
+    let search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
     let arithmetic_safety = std::rc::Rc::new(arithmetic::Safety::new(body));
     let mut arithmetic_targets = 0usize;
     let mut targets = Vec::new();
@@ -232,6 +247,12 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
                 locals: FxHashSet::default(),
                 param_order: g.parameters.clone(),
                 arithmetic: Some(arithmetic_safety.clone()),
+                captures: captures.clone(),
+                search: search.clone(),
+                // Keep competing helper definitions intact in every phase.
+                // Folding one helper into another would erase the ambiguity
+                // that must also block reconstruction in their callers.
+                protect_definition: true,
             });
             return;
         }
@@ -242,6 +263,8 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
         // single embeddable expression, so refuse it. We do NOT fold such a body
         // ourselves (that would re-derive a slice of the reconstructor and risk
         // building an `E` that diverges from real call sites).
+        let shape = crate::deinline_safety::CaptureSafety::new(&g.body);
+        if !shape.complete() || shape.nodes() > 2048 { return; }
         let pat = canon(&g.body.0);
         let expr = match pat.as_slice() {
             [Statement::Return(r)] if r.values.len() == 1 => r.values[0].clone(),
@@ -278,8 +301,12 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
             locals: FxHashSet::default(),
             param_order,
             arithmetic: None,
+            captures: captures.clone(),
+                search: search.clone(),
+                protect_definition: false,
         });
     });
+    if targets.len() > 256 { return Vec::new(); }
     // Never silently truncate the ambiguity set: an omitted helper might also
     // match. Budget exhaustion disables the entire new family for this module.
     if arithmetic_targets > arithmetic::MAX_TARGETS {
@@ -440,7 +467,17 @@ fn walk_block(
     // Phase 2: scan this block left to right, matching each statement's own
     // expressions, activating each target after its declaration.
     let mut active: Vec<usize> = outer_active.to_vec();
-    for s in stmts.iter_mut() {
+    let mut index = 0;
+    while index < stmts.len() {
+        // A bounded terminal scalar region has no live continuation. Normalize
+        // its lets/guard returns before comparing with named helper patterns.
+        if try_rewrite_region(&mut stmts[index..], targets, &active, current_func, converted) {
+            stmts.truncate(index + 1);
+            break;
+        }
+        try_rewrite_select(stmts, index, targets, &active, current_func, converted);
+        let s = &mut stmts[index];
+        index += 1;
         // Skip the per-statement rvalue scan (and its allocation) entirely until a
         // helper is in scope.
         if !active.is_empty() {
@@ -510,6 +547,71 @@ fn target_decl_index(
 // Matching + rewrite (outermost-first)
 // ===================================================================
 
+fn try_rewrite_select(
+    stmts: &mut Vec<Statement>, index: usize, targets: &[ExprTarget], active: &[usize],
+    current_func: Option<FnPtr>, converted: &mut FxHashSet<RcLocal>,
+) {
+    if active.is_empty() || current_func.is_some_and(|p| targets.iter().any(|t| t.func_ptr == p)) { return; }
+    let [Statement::Assign(decl), Statement::If(_)] = &stmts[index..stmts.len().min(index + 2)] else { return; };
+    if !decl.prefix || decl.parallel || decl.left.len() != 1 { return; }
+    let LValue::Local(result) = &decl.left[0] else { return; };
+    let result = result.clone();
+    // The result binding is retained, including debug identity. Captured cells
+    // refuse because moving the nil initialization inside a call is observable.
+    if !targets[active[0]].captures.uncaptured(&result) { return; }
+    let candidate = vec![stmts[index].clone(), stmts[index + 1].clone(), crate::Return::new(vec![result.clone().into()]).into()];
+    let Some(value) = arithmetic::region(&candidate) else { return; };
+    let mut hit = None;
+    let ordered = crate::reconstruction_search::prioritize(active, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
+    for idx in ordered {
+        let target = &targets[idx];
+        let Some(safety) = &target.arithmetic else { continue; };
+        if !safety.spend_attempt() { return; }
+        if let Some(args) = try_match(target, &value) {
+            if hit.is_some() { return; }
+            hit = Some((idx, args));
+        }
+    }
+    let Some((idx, args)) = hit else { return; };
+    let target = &targets[idx];
+    let call = Call::new(target.f_local.clone().into(), args).reconstructed(crate::call_origins::Kind::ArithmeticDeinline);
+    stmts.splice(index..index + 2, [crate::Assign { left: vec![result.into()], right: vec![call.into()], prefix: true, parallel: false }.into()]);
+    converted.insert(target.f_local.clone());
+}
+
+fn try_rewrite_region(
+    stmts: &mut [Statement],
+    targets: &[ExprTarget],
+    active: &[usize],
+    current_func: Option<FnPtr>,
+    converted: &mut FxHashSet<RcLocal>,
+) -> bool {
+    if active.is_empty() || stmts.len() > 8 || matches!(stmts, [Statement::Return(_)]) { return false; }
+    if current_func.is_some_and(|ptr| targets.iter().any(|t| t.func_ptr == ptr)) { return false; }
+    let Some(value) = arithmetic::region(stmts) else { return false; };
+    let mut declared = FxHashSet::default();
+    crate::deinline::collect_declared_locals(stmts, &mut declared);
+    let mut hit = None;
+    for &idx in active {
+        let target = &targets[idx];
+        let Some(safety) = &target.arithmetic else { continue; };
+        if current_func == Some(target.func_ptr) { continue; }
+        if !safety.spend_attempt() { return false; }
+        if declared.iter().any(|l| l.has_source_binding() || !target.captures.uncaptured(l)) { continue; }
+        if let Some(args) = try_match(target, &value) {
+            if hit.is_some() { return false; }
+            hit = Some((idx, args));
+        }
+    }
+    let Some((idx, args)) = hit else { return false; };
+    let target = &targets[idx];
+    let call = Call::new(target.f_local.clone().into(), args)
+        .reconstructed(crate::call_origins::Kind::ArithmeticDeinline);
+    stmts[0] = crate::Return::new(vec![call.into()]).into();
+    converted.insert(target.f_local.clone());
+    true
+}
+
 fn try_rewrite(
     rv: &mut RValue,
     targets: &[ExprTarget],
@@ -523,7 +625,7 @@ fn try_rewrite(
     // considers `active` targets). Prune the whole subtree — this skips the entire
     // pre-declaration region of every block. Mirrors the statement pass's
     // `if active.is_empty()` guard in `deinline::try_match_at`.
-    if active.is_empty() {
+    if active.is_empty() || current_func.is_some_and(|ptr| targets.iter().any(|t| t.protect_definition && t.func_ptr == ptr)) {
         return;
     }
     // Outermost-first: try to match the WHOLE node before descending, so the
@@ -531,7 +633,8 @@ fn try_rewrite(
     if let Some(cands) = by_root.get(&std::mem::discriminant(&*rv)) {
         let mut hit: Option<(usize, Vec<RValue>)> = None;
         let mut ambiguous = false;
-        for &idx in cands {
+        let ordered = crate::reconstruction_search::prioritize(cands, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
+        for &idx in &ordered {
             if !active.contains(&idx) {
                 continue; // helper not yet in lexical scope here
             }
@@ -539,6 +642,7 @@ fn try_rewrite(
             if current_func == Some(t.func_ptr) {
                 continue; // never match a helper against its own body
             }
+            if !t.search.spend(2048) { ambiguous = true; break; }
             if let Some(safety) = &t.arithmetic {
                 if !safety.spend_attempt() {
                     ambiguous = true;
@@ -612,14 +716,10 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
     //   * IDENTITY-STABLE — a `{}` / `{...}` constructor is effect-free but yields a
     //     FRESH reference per evaluation, so a parameter used twice (`p == p`) would
     //     flip from two distinct tables to one shared reference.
-    // A bare `Local` or `Literal` satisfies both unconditionally (and is also
-    // value-stable: re-reading is identical). It covers every argument observed in
-    // the corpus — Luau materialises any compound operand into a register before the
-    // inlined body, so a real inlined arg is already a local/constant. Anything else
-    // (Binary/Unary/Index/Call/Table/IfExpression/...) is REFUSED, not trusted.
-    if !args
-        .iter()
-        .all(|a| matches!(a, RValue::Local(_) | RValue::Literal(_)))
+    // Literals and non-reference-captured locals are total, identity-stable
+    // snapshots. A call/metamethod in this expression may mutate a referenced
+    // cell despite there being no syntactic assignment in the expression.
+    if !args.iter().all(|a| t.captures.stable(a))
     {
         return None;
     }
@@ -706,6 +806,7 @@ mod tests {
         let func = Arc::new(Mutex::new(Function {
             bytecode_proto_id: None,
             bytecode_function_id: None,
+            retain_for_reconstruction: false,
             name: Some(name.to_string()),
             parameters: params,
             parameter_annotations: Vec::new(),
@@ -1283,6 +1384,129 @@ mod tests {
         let before = block.to_string();
         expr_deinline(&mut block);
         assert_eq!(before, block.to_string());
+    }
+
+    #[test]
+    fn legacy_expression_refuses_cell_changed_by_a_call_or_metamethod() {
+        for copy in [false, true] {
+            let f = local("positive"); let p = local("p"); let x = local("x");
+            let mut writer = helper_decl(&local("writer"), "writer", vec![], vec![
+                Assign::new(vec![x.clone().into()], vec![number(-1.0)]).into()
+            ]);
+            if let Statement::Assign(a) = &mut writer {
+                if let RValue::Closure(c) = &mut a.right[0] {
+                    c.upvalues.push(if copy { crate::Upvalue::Copy(x.clone()) } else { crate::Upvalue::Ref(x.clone()) });
+                }
+            }
+            let mut block = Block(vec![
+                helper_decl(&f, "positive", vec![p.clone()], vec![Return::new(vec![num_positive(&lv(&p))]).into()]),
+                writer,
+                local_decl(&local("result"), num_positive(&lv(&x))),
+            ]);
+            expr_deinline(&mut block);
+            assert_eq!(is_call_to(rhs_of(block.0.last().unwrap()), &f), copy);
+        }
+    }
+
+    #[test]
+    fn scalar_region_normalizes_lets_on_either_side_without_duplicating_effects() {
+        fn sum(value: RValue) -> RValue {
+            bin(bin(value, BinaryOperation::Add, number(3.0)), BinaryOperation::Add, number(4.0))
+        }
+        for helper_let in [false, true] {
+            let f = local("scale"); let p = local("p"); let temp = local("product");
+            let x = local("x"); let site = local("v");
+            let product = |v| bin(v, BinaryOperation::Mul, number(2.0));
+            let body = if helper_let {
+                vec![local_decl(&temp, product(lv(&p))), Return::new(vec![sum(lv(&temp))]).into()]
+            } else { vec![Return::new(vec![sum(product(lv(&p)))]).into()] };
+            let mut declaration = helper_decl(&f, "scale", vec![p], body);
+            if let Statement::Assign(a) = &mut declaration {
+                if let RValue::Closure(c) = &mut a.right[0] { c.function.0.lock().bytecode_proto_id = Some(7); }
+            }
+            let mut block = Block(vec![declaration]);
+            if helper_let { block.0.push(Return::new(vec![sum(product(lv(&x)))]).into()); }
+            else { block.0.extend([local_decl(&site, product(lv(&x))), Return::new(vec![sum(lv(&site))]).into()]); }
+            expr_deinline(&mut block);
+            let Statement::Return(ret) = block.0.last().unwrap() else { panic!(); };
+            assert!(is_call_to(&ret.values[0], &f), "{}", block);
+        }
+        let p = local("p"); let t = local("t");
+        let product = bin(lv(&p), BinaryOperation::Mul, number(2.0));
+        for tail in [
+            bin(lv(&t), BinaryOperation::Add, lv(&t)),
+            bin(bin(lv(&p), BinaryOperation::Add, number(1.0)), BinaryOperation::Add, lv(&t)),
+            crate::IfExpression::new(lv(&p), lv(&t), number(0.0)).into(),
+        ] {
+            assert!(arithmetic::region(&[local_decl(&t, product.clone()), Return::new(vec![tail]).into()]).is_none());
+        }
+    }
+
+    #[test]
+    fn scalar_phi_normalization_preserves_false_nil_and_branch_arity() {
+        let f = local("adjust"); let x = local("x"); let result = local("v");
+        let branch = crate::If::new(
+            bin(lv(&x), BinaryOperation::LessThan, number(0.0)),
+            Block(vec![Assign::new(vec![result.clone().into()], vec![Literal::Boolean(false).into()]).into()]),
+            Block(vec![Assign::new(vec![result.clone().into()], vec![bin(bin(lv(&x), BinaryOperation::Mul, number(2.0)), BinaryOperation::Add, Literal::Boolean(false).into())]).into()]),
+        );
+        let mut block = Block(vec![adjust_decl(&f),
+            Assign { left: vec![result.clone().into()], right: vec![], prefix: true, parallel: false }.into(),
+            branch.into(), Return::new(vec![lv(&result)]).into()]);
+        expr_deinline(&mut block);
+        let Statement::Return(ret) = block.0.last().unwrap() else { panic!(); };
+        let RValue::Call(call) = &ret.values[0] else { panic!("{}", block); };
+        assert_eq!(call.arguments, vec![lv(&x), Literal::Boolean(false).into()]);
+
+        let nil_region = vec![
+            Assign { left: vec![result.clone().into()], right: vec![], prefix: true, parallel: false }.into(),
+            crate::If::new(lv(&x), Block(vec![Assign::new(vec![result.clone().into()], vec![number(7.0)]).into()]), Block::default()).into(),
+            Return::new(vec![lv(&result)]).into(),
+        ];
+        let RValue::IfExpression(select) = arithmetic::region(&nil_region).unwrap() else { panic!(); };
+        assert!(matches!(&*select.else_value, RValue::Literal(Literal::Nil)));
+        let mut tuple = nil_region.clone();
+        tuple[2] = Return::new(vec![lv(&result), number(2.0)]).into();
+        assert!(arithmetic::region(&tuple).is_none());
+        let mut late = nil_region;
+        late.insert(2, Assign::new(vec![result.into()], vec![number(8.0)]).into());
+        assert!(arithmetic::region(&late).is_none());
+    }
+
+    #[test]
+    fn early_scalar_phi_keeps_multiuse_result_and_ambiguous_helpers() {
+        for ambiguous in [false, true] {
+            let f = local("adjust"); let other = local("alsoAdjust");
+            let x = local("x"); let result = local("selected");
+            let mut statements = vec![adjust_decl(&f)];
+            if ambiguous { statements.push(adjust_decl(&other)); }
+            statements.extend([
+                Assign { left: vec![result.clone().into()], right: vec![], prefix: true, parallel: false }.into(),
+                crate::If::new(
+                    bin(lv(&x), BinaryOperation::LessThan, number(0.0)),
+                    Block(vec![Assign::new(vec![result.clone().into()], vec![number(3.0)]).into()]),
+                    Block(vec![Assign::new(vec![result.clone().into()], vec![bin(bin(lv(&x), BinaryOperation::Mul, number(2.0)), BinaryOperation::Add, number(3.0))]).into()]),
+                ).into(),
+                Return::new(vec![lv(&result), lv(&result)]).into(),
+            ]);
+            let mut block = Block(statements);
+            let before = block.to_string();
+            arithmetic_deinline_early(&mut block);
+            if ambiguous {
+                assert_eq!(before, block.to_string());
+                expr_deinline(&mut block);
+                assert_eq!(before, block.to_string());
+            }
+            else {
+                let assign = block.0.iter().find_map(|s| match s {
+                    Statement::Assign(a) if a.left == vec![LValue::Local(result.clone())] => Some(a),
+                    _ => None,
+                }).unwrap();
+                assert!(is_call_to(&assign.right[0], &f), "{block}");
+                let ret = block.0.last().unwrap().as_return().unwrap();
+                assert_eq!(ret.values, vec![lv(&result), lv(&result)]);
+            }
+        }
     }
 
     #[test]

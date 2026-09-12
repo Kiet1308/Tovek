@@ -1,0 +1,31 @@
+{
+ "schema_version": 1,
+ "status": "passed",
+ "source_files": 3978,
+ "sidecars": 3936,
+ "source_tree_sha256": "40472a95bef2212266bc2dc4523455e172d35555ce21737bd418720cb7f375f1",
+ "tree_hash_model": "utf8-relative-path-ordered-v1",
+ "roots": {
+  "before": {
+   "path": "D:\\Medal\\medal-decompiler\\out\\v2-r4-r5\\reviewed\\private16",
+   "tool_sha256": "fd11317a7f3bb9b034a84a093ad68600d8b42ab1ffb040f41023b990370a82f2",
+   "invocation_repo_head": "1f8b6035ffc3b1e9179860cb4d364547c879b382",
+   "requested_threads": 16
+  },
+  "after": {
+   "path": "D:\\Medal\\medal-decompiler\\out\\v2-r4-r5\\final\\private16",
+   "tool_sha256": "860eae3c200815eccebc14ae87c2de69ebc4046c49704d5734a1a4e05f111dfb",
+   "invocation_repo_head": "1f8b6035ffc3b1e9179860cb4d364547c879b382",
+   "requested_threads": 16
+  }
+ },
+ "verifier_sha256": "f8c6146d4c7c2d906c41282c1e7cf07ff9c1121ab6e3de34fe3adec9edc50f7f",
+ "excluded_manifest_fields": [
+  "command",
+  "tool_path",
+  "tool_sha256",
+  "repo_head",
+  "threads"
+ ],
+ "contract": "Exact source path/byte tree and all detailed sidecar bytes agree. Actual manifest executable identities are checked. Only top-level invocation/tool/current-directory Git identity fields are excluded and recorded separately. Source files without bytecode sidecars are counted separately. No sidecar provenance field, unknown proof, inference or output annotation is normalized away."
+}

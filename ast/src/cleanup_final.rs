@@ -28,7 +28,7 @@ pub fn cleanup_final(block: &mut Block, script_name: Option<&str>) {
 // ---------------------------------------------------------------------------
 // 5.2: straight-line boolean propagation and dead branches
 
-type ConstantState = FxHashMap<RcLocal, bool>;
+type ConstantState = FxHashMap<RcLocal, Literal>;
 
 fn simplify_constants_in_tree(block: &mut Block, function_upvalues: &FxHashSet<RcLocal>) {
     for (function, upvalues) in closure_functions(block) {
@@ -105,6 +105,10 @@ fn simplify_constant_block(
 
             let mut then_state = state.clone();
             let mut else_state = state.clone();
+            if let Statement::If(node) = &block.0[index] {
+                refine_guard(&node.condition, true, captured, &mut then_state, 0);
+                refine_guard(&node.condition, false, captured, &mut else_state, 0);
+            }
             {
                 let Statement::If(node) = &mut block.0[index] else {
                     unreachable!()
@@ -171,9 +175,9 @@ fn simplify_constant_block(
 
 fn replace_constants(value: &mut RValue, state: &ConstantState) -> bool {
     if let RValue::Local(local) = value
-        && let Some(&constant) = state.get(local)
+        && let Some(constant) = state.get(local)
     {
-        *value = RValue::Literal(Literal::Boolean(constant));
+        *value = RValue::Literal(constant.clone());
         return true;
     }
     if matches!(value, RValue::Closure(_)) {
@@ -216,14 +220,48 @@ fn update_state_after_statement(
         return;
     };
     if !captured.contains(local) {
-        state.insert(local.clone(), value);
+        state.insert(local.clone(), Literal::Boolean(value));
+    }
+}
+
+fn refine_guard(condition: &RValue, taken: bool, captured: &FxHashSet<RcLocal>, state: &mut ConstantState, depth: usize) {
+    if depth >= 32 || state.len() >= MAX_ACTIVE_LOCALS { return; }
+    match condition {
+        RValue::Unary(unary) if unary.operation == crate::UnaryOperation::Not =>
+            refine_guard(&unary.value, !taken, captured, state, depth + 1),
+        RValue::Binary(binary) => {
+            use crate::BinaryOperation as Op;
+            if (binary.operation == Op::And && taken) || (binary.operation == Op::Or && !taken) {
+                refine_guard(&binary.left, taken, captured, state, depth + 1);
+                refine_guard(&binary.right, taken, captured, state, depth + 1);
+            } else if (binary.operation == Op::Equal && taken) || (binary.operation == Op::NotEqual && !taken) {
+                let pair = match (&*binary.left, &*binary.right) {
+                    (RValue::Local(local), RValue::Literal(literal))
+                    | (RValue::Literal(literal), RValue::Local(local)) => Some((local, literal)),
+                    _ => None,
+                };
+                if let Some((local, literal)) = pair {
+                    // Equality with a primitive literal excludes __eq. Numeric
+                    // zero is deliberately absent: +0 == -0 loses the sign bit.
+                    let exact = match literal {
+                        Literal::Nil | Literal::Boolean(_) => true,
+                        Literal::String(bytes) => bytes.len() <= 1024,
+                        Literal::Number(n) => n.is_finite() && *n != 0.0
+                            && n.abs().to_bits() != std::f64::consts::PI.to_bits(),
+                        _ => false,
+                    };
+                    if exact && !captured.contains(local) { state.insert(local.clone(), literal.clone()); }
+                }
+            }
+        }
+        _ => {} // Truthiness, type hints and calls named type/typeof prove no exact value.
     }
 }
 
 fn intersect_states(left: &ConstantState, right: &ConstantState) -> ConstantState {
     left.iter()
         .filter(|(local, value)| right.get(*local) == Some(*value))
-        .map(|(local, value)| (local.clone(), *value))
+        .map(|(local, value)| (local.clone(), value.clone()))
         .collect()
 }
 
@@ -957,6 +995,29 @@ mod tests {
         cleanup_final(&mut block, None);
 
         assert_eq!(block.to_string(), "live()");
+    }
+
+    #[test]
+    fn runtime_guard_values_keep_signed_zero_capture_and_unknown_types() {
+        use super::{ConstantState, refine_guard, FxHashSet};
+        let x = local("x");
+        x.0.lock().1 = Some("number".into());
+        for literal in [Literal::Boolean(false), Literal::Nil, Literal::Number(7.0), Literal::Number(0.0), Literal::Number(-0.0), Literal::Number(f64::INFINITY)] {
+            let mut state = ConstantState::default();
+            let condition = crate::Binary::new(x.clone().into(), literal.clone().into(), crate::BinaryOperation::Equal).into();
+            refine_guard(&condition, true, &FxHashSet::default(), &mut state, 0);
+            let exact = matches!(literal, Literal::Boolean(_) | Literal::Nil | Literal::Number(7.0));
+            assert_eq!(state.contains_key(&x), exact);
+            let mut opposite = ConstantState::default();
+            refine_guard(&condition, false, &FxHashSet::default(), &mut opposite, 0);
+            assert!(opposite.is_empty());
+            let mut captured = ConstantState::default();
+            refine_guard(&condition, true, &[x.clone()].into_iter().collect(), &mut captured, 0);
+            assert!(captured.is_empty());
+        }
+        let mut state = ConstantState::default();
+        refine_guard(&x.clone().into(), false, &FxHashSet::default(), &mut state, 0);
+        assert!(state.is_empty(), "falsey does not distinguish false from nil");
     }
 
     #[test]

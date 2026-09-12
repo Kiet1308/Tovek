@@ -43,6 +43,8 @@ def main():
                         default=ROOT / 'docs/failure_fixtures/compiler_witnesses/manifest.json')
     for name in ('compiler', 'luau', 'ast', 'lifter', 'keep', 'report'):
         parser.add_argument('--' + name, type=pathlib.Path, required=True)
+    parser.add_argument('--synthesize-arithmetic-loops', action='store_true')
+    parser.add_argument('--evaluation-use', choices=('development', 'initial-holdout', 'unblinded-regression'), default='development')
     args = parser.parse_args()
     spec = json.loads(args.manifest.read_text(encoding='utf-8'))
     root = args.manifest.parent.resolve()
@@ -83,7 +85,8 @@ def main():
     for threads in (1, 4):
         stdout, _ = checked([args.lifter, 'decompile-folder', inputs, work / f'output{threads}',
                             '--key', 1, '--threads', threads, '--emit-binding-provenance',
-                            '--strict-no-synthetic-control'], timeout=180)
+                            '--strict-no-synthetic-control',
+                            *(['--synthesize-arithmetic-loops'] if args.synthesize_arithmetic_loops else [])], timeout=180)
         (work / f'output{threads}.log').write_bytes(stdout)
     a, b = work / 'output1', work / 'output4'
     _, one = manifest(a); _, four = manifest(b)
@@ -106,6 +109,10 @@ def main():
             errors = validate_trace(trace) + validate_emission_map(trace, output)
             errors.extend(validate_parser_identity(trace, output, trees[1])[0])
             if errors: raise ValueError('; '.join(errors))
+            input_chunk = parse_chunk(raw, 1)
+            helper_prototypes = [p.id for p in input_chunk.protos if p.name and input_chunk.strings[p.name - 1] == b'helper']
+            inferred_events = {e['event_id'] for e in trace['call_reconstruction']['events']
+                               if e['callee_prototype'] in helper_prototypes}
             original = (directory / 'source.luau').read_text(encoding='utf-8')
             before, after = case['mutant']['from'], case['mutant']['to']
             if original.count(before) != 1: raise ValueError('mutant edit is not unique')
@@ -126,9 +133,15 @@ def main():
             if observations['source'] != expected or observations['output'] != expected or observations['mutant'] == expected:
                 raise ValueError('runtime mismatch or undetected compiled mutant')
             row.update(status='passed', runtime_vectors=case['vectors'], observations=observations,
+                       contextual_recompile=dict(opt=profile['opt'], debug=profile['debug'], flags=spec['compiler_flags'],
+                           bytecode_sha256=hashlib.sha256(rebuilt).hexdigest(), complete_module=True),
                        output_sha256=metadata['source_sha256'], sidecar_sha256=one[name + '.lua']['sidecar_sha256'],
                        dataflow=compare_dataflow(parse_chunk(raw, 1), parse_chunk(rebuilt, 1)),
                        source_helper_calls=helper_calls(trees[0]), output_helper_calls=helper_calls(trees[1]),
+                       helper_prototypes=helper_prototypes,
+                       reconstructed_helper_occurrences=sum(o['event_id'] in inferred_events for o in trace['call_reconstruction']['occurrences']),
+                       synthesized_arithmetic_loops=sum(a['text'] == 'equivalent fixed-count loop synthesized; original loop unknown'
+                                                        for a in trace['output_map']['annotations']),
                        call_events=trace['call_reconstruction'], caller_prototype=caller.id,
                        caller_instructions=[dict(zip(('pc', 'opcode', 'a', 'b', 'c', 'd', 'e', 'aux'),
                            (insn[0], OPCODES[insn[1]], *insn[2:]))) for insn in caller.insns])
@@ -136,12 +149,15 @@ def main():
             row['error'] = str(error)
         rows.append(row)
     report = dict(schema_version=1, manifest_sha256=sha256(args.manifest), compiler_commit_expected=spec['compiler_commit'],
+                  dataset=spec.get('dataset', 'development-compiler-witnesses'),
+                  evaluation_use=args.evaluation_use,
+                  synthesize_arithmetic_loops=args.synthesize_arithmetic_loops,
                   tools={name: dict(path=str(getattr(args, name).resolve()), sha256=sha256(getattr(args, name)))
                          for name in ('compiler', 'luau', 'ast', 'lifter')}, work=str(work), rows=rows,
                   summary=dict(profiles=len(rows), status=dict(collections.Counter(r['status'] for r in rows)),
                                dataflow=dict(collections.Counter(r.get('dataflow', {}).get('status', 'unavailable') for r in rows)),
                                compiled_mutants_detected=sum(r['status'] == 'passed' for r in rows)),
-                  contract='Seven development compiler families, locked before decompiler evaluation. Bytecode hashes retain registers/arity/capture/debug data; remarks and caller operands characterize transformations. Source/helper call counts use lexical callee identity, but do not align original/output callsites or establish uniqueness. Runtime observations and compiled mutants do not promote unknown/different dataflow. Not a holdout precision/recall estimate.')
+                  contract='Compiler families locked before their first decompiler evaluation; evaluation_use records whether this run is development, an initial holdout, or an unblinded regression. The dataset name alone does not establish independence. Bytecode hashes retain registers/arity/capture/debug data; remarks and caller operands characterize transformations. The complete emitted module is recompiled in its original compiler profile. Source/helper call counts use lexical callee identity, but do not alone align original/output callsites or establish uniqueness. Runtime observations and compiled mutants do not promote unknown/different dataflow. Precision/recall requires a separate labeled-site review.')
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(json.dumps(report['summary']))

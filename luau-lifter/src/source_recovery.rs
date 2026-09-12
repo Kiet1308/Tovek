@@ -86,11 +86,18 @@ pub(crate) fn provenance_report(
         });
         json!({"start": position(span.start), "end": position(span.end)})
     };
+    let (search_regions, search_truncated) = ast::reconstruction_search::report();
     let reconstructed_calls = json!({
-        "schema_version": 1, "model": "committed-call-reconstruction-events-v1",
+        "schema_version": 2, "model": "committed-call-reconstruction-events-v2",
         "event_limit": ast::call_origins::EVENT_LIMIT,
         "occurrence_limit": ast::emission_map::CALL_OCCURRENCE_LIMIT,
         "callees_limit": ast::call_origins::CALLEE_LIMIT,
+        "search_hints": {
+            "regions": search_regions, "truncated": search_truncated,
+            "pc_limit": ast::reconstruction_search::PC_LIMIT,
+            "region_limit": ast::reconstruction_search::REGION_LIMIT,
+            "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+        },
         "events": call_origins.events,
         "omitted_events": call_origins.omitted_events,
         "omitted_callee_registrations": call_origins.omitted_callee_registrations,

@@ -4,6 +4,7 @@ mod lifter;
 mod op_code;
 mod source_recovery;
 mod capture_effects;
+mod reconstruction_candidates;
 pub mod profile;
 pub mod upvalue_analysis;
 
@@ -423,6 +424,11 @@ fn try_decompile_bytecode_internal(
             }
             let raw_upvalue_analysis =
                 emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
+            let source_lines = if chunk.functions.len() <= 4096
+                && chunk.functions.iter().map(|p| p.instructions.len()).sum::<usize>() <= ast::reconstruction_search::PC_LIMIT {
+                chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect()
+            } else { vec![vec![None; ast::reconstruction_search::PC_LIMIT + 1]] };
+            let _reconstruction_search = ast::reconstruction_search::enter(source_lines);
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
             ast::telemetry::count("capture_readonly_slots", capture_effects.readonly.iter()
                 .flatten().filter(|&&readonly| readonly).count() as u64);
@@ -437,6 +443,7 @@ fn try_decompile_bytecode_internal(
             }
             let mut stack = vec![(root_function, chunk.main, root_function_id)];
             while let Some((ast_func, func_id, static_function_id)) = stack.pop() {
+                ast::reconstruction_search::register_function(Arc::as_ptr(&ast_func) as usize, func_id);
                 let typed_locals = {
                     let proto = &chunk.functions[func_id];
                     let (annotations, hints) = parameter_types_from_bytecode(
@@ -694,6 +701,11 @@ fn try_decompile_bytecode_internal(
             {
                 ptime!(S_MATERIALIZE);
                 ast::materialize_value_captures::materialize_value_captures(&mut body);
+            }
+            {
+                let span = ast::telemetry::Span::ast("S_ARITHMETIC_DEINLINE_EARLY", &body, true);
+                ast::expr_deinline::arithmetic_deinline_early(&mut body);
+                span.finish_ast(&body, true);
             }
             {
                 ptime!(S_REHOIST_CONSTANTS);

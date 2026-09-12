@@ -5,7 +5,7 @@
 //! faithfully reproduces that, so the output shows the function inlined
 //! everywhere instead of called. This pass detects those inlined regions and
 //! rewrites them back into real calls `funcName(args)`, each marked
-//! `INLINED / UNHOOKABLE`, and marks the recovered definition too.
+//! equivalent-call inferences, and marks the candidate definition too.
 //!
 //! Correctness is paramount: the pass is verification-gated. It only converts a
 //! region when it can structurally *prove* the region is a context-specialised
@@ -30,10 +30,10 @@ use crate::{
     Select, SideEffects, Statement, Table, Traverse, Unary, UnaryOperation, Upvalue, While,
 };
 
-const DEF_MARKER: &str = " [-O2 INLINED, UNHOOKABLE] reconstructed definition;";
+const DEF_MARKER: &str = " equivalent calls inferred from this helper; original call sites unknown";
 // Trailing (same-line) marker appended to a reconstructed call: `f(args) -- ...`.
 // No leading `^` caret (it no longer points up at a separate line above).
-const CALL_MARKER: &str = "inlined by Luau -O2 (UNHOOKABLE)";
+const CALL_MARKER: &str = "equivalent call inferred; original call site unknown";
 
 type FnPtr = *const Mutex<Function>;
 
@@ -240,6 +240,8 @@ struct Target {
     /// lowered by inlining into a loop guard plus a cloned caller continuation;
     /// the CPS matcher verifies that continuation before refolding it.
     cps_loop_return: bool,
+    captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+    search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
 }
 
 #[derive(Default, Clone)]
@@ -289,6 +291,8 @@ impl Target {
 // ===================================================================
 
 pub fn deinline(body: &mut Block) {
+    if !crate::deinline_safety::CaptureSafety::new(body).complete() { return; }
+    let search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
     let mut converted: FxHashSet<RcLocal> = FxHashSet::default();
     // P4 perf: the write-once census is INVARIANT across fixed-point iterations for
     // the only thing we query — TARGET BINDERS (a `local f = function…end` local,
@@ -308,13 +312,15 @@ pub fn deinline(body: &mut Block) {
         crate::expr_deinline::collect_write_counts(&body.0, &mut write_counts);
         crate::telemetry::count("bindings", write_counts.len() as u64);
     }
-    loop {
+    for _ in 0..64 {
         dprof::inc(&dprof::ITERATIONS, 1);
         crate::telemetry::count("iterations", 1);
         let targets = {
             let _t = dprof::T::new(&dprof::COLLECT_TARGETS_US);
             let _span = crate::telemetry::Span::new("D_COLLECT_TARGETS");
-            let targets = collect_targets(body, &write_counts);
+            let mut targets = collect_targets(body, &write_counts);
+            if targets.len() > 256 { break; }
+            for target in &mut targets { target.search = search.clone(); }
             crate::telemetry::count("accepted_targets", targets.len() as u64);
             targets
         };
@@ -367,6 +373,7 @@ pub fn deinline(body: &mut Block) {
             break;
         }
         converted.extend(newly);
+        if search.exhausted() { break; }
     }
     if !converted.is_empty() {
         // Binders of CONVERTED helpers that can return more than one value (a P7-A
@@ -400,7 +407,7 @@ pub fn deinline(body: &mut Block) {
 // and ordering are preserved.
 // ===================================================================
 
-const COLLAPSE_MARKER: &str = " [-O2 INLINED, UNHOOKABLE] reconstructed call";
+const COLLAPSE_MARKER: &str = " equivalent call inferred; original call site unknown";
 
 /// One of the comments THIS pass itself injects (a reconstructed-call/def/collapse
 /// marker). They are runtime no-ops. The fixed-point loop re-collects targets each
@@ -2486,7 +2493,8 @@ fn try_match_at(
     // only targets whose local function is in scope here (declared earlier, in a
     // visible block) are candidates — emitting a call to an out-of-scope local
     // would be invalid.
-    for &ti in active {
+    let ordered = crate::reconstruction_search::prioritize(active, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
+    for &ti in &ordered {
         let t = &targets[ti];
         if current_func == Some(t.func_ptr) {
             continue; // never match a function against its own definition body
@@ -2514,6 +2522,7 @@ fn try_match_at(
         {
             continue;
         }
+        if !t.search.spend(t.pat_raw_len.saturating_add(t.pat_spine_len).saturating_add(2).saturating_mul(2048)) { return None; }
         let hit = match (t.kind, t.value_anchor) {
             (TKind::Void, _) => match_void(
                 stmts,
@@ -3121,43 +3130,25 @@ fn finish_unified(
     // temp (the per-function inliner won't hoist it past an effect), which binds
     // here as a side-effect-free `Local` and is accepted. Everything else: REFUSE.
     //
-    // NOTE (DeInlineReview §1 / DeinlineReport §2 — verified unreachable, P2):
-    // this `collect_written` oracle sees only SYNTACTIC writes and writes inside
-    // closure LITERALS — NOT a caller local mutated indirectly by a call to a
-    // by-name function whose body writes a captured upvalue. For that to corrupt a
-    // reconstruction, a bound argument `a` would have to read a local `x` that some
-    // call IN the region mutates between the call-site (front) and `x`'s in-body use
-    // — making `f(x)` snapshot a stale value. This is unreachable on genuine -O2
-    // output, for THREE independent reasons:
-    //   1. The arg gate just below refuses every non-trivial arg, so `a` can only
-    //      be a plain `Local`/literal, never an operator or call result.
-    //   2. This pass runs BEFORE `inline_temps` (luau-lifter `lib.rs`: deinline at
-    //      ~line 204, inline_single_use_temps at ~213). At deinline time no
-    //      single-use temp has been forwarded yet, so a value that would be unstable
-    //      across an effect still sits in its own distinct snapshot local
-    //      (`local tmp = x` before the effect) and `a` binds to that STABLE `tmp`,
-    //      not to `x`. (When `inline_temps` later runs, `can_move_between`
-    //      ALSO refuses to forward a captured-local read across a side-effecting
-    //      statement — `reads_captured_local && has_side_effects` — so the unstable
-    //      shape never materialises afterwards either.)
-    //   3. An unknown/global/method callee cannot mutate a caller LOCAL unless a
-    //      closure capturing that local by ref has already escaped to it; such a
-    //      capture makes the local `has_side_effects`-tainted upstream and keeps it
-    //      out of the plain-`Local` arg position by (1).
-    // A precise interprocedural effect summary was considered (P2) but would change
-    // ZERO corpus output (the hole is empty); and the cheap sound guard (refuse any
-    // arg reading a "written-in-some-closure" local) was measured to refuse
-    // de-inlines across 70+ corpus files — in React/UI Luau nearly every local
-    // lives inside a closure — so it stays DEFERRED rather than pay that
-    // readability cost for a precursor that cannot occur. A regression tripwire
-    // (`captured_mutation_hole_shape_is_refused`) pins the boundary.
+    // Callback/metamethod writes are not syntactic region writes. A module
+    // census protects reference-captured cells independently of upstream SSA
+    // cleanup, so the proof holds even when matching a handwritten shape.
     if prefix_used != prefix.len() {
         return None;
     }
     let mut region_writes: FxHashSet<RcLocal> = FxHashSet::default();
     collect_written(cwin, &mut region_writes);
+    // Written-parameter copies may have effects. Their original order must
+    // match parameter order, and no argument may refer to a copy we remove.
+    let mut prefix_index = 0;
     for (idx, a) in args.iter().enumerate() {
+        if a.values_read().iter().any(|read| prefix.iter().any(|(l, _)| l == *read)) {
+            return None;
+        }
         if t.written_params.contains(&t.param_order[idx]) {
+            let bound = b.locals.get(&t.param_order[idx])?;
+            if prefix.get(prefix_index).map(|(l, _)| l) != Some(bound) { return None; }
+            prefix_index += 1;
             // A prefix-copy initialiser is not hoisted (see above); it only must not
             // read a local the region writes — the site evaluated it before the
             // region, and so does `f(args)`.
@@ -3168,7 +3159,7 @@ fn finish_unified(
             }
             continue;
         }
-        if !matches!(a, RValue::Local(_) | RValue::Literal(_)) || a.has_side_effects() {
+        if !t.captures.stable(a) {
             return None;
         }
         for r in a.values_read() {
@@ -3176,6 +3167,16 @@ fn finish_unified(
                 return None;
             }
         }
+    }
+    // Each prefix declaration adjusted to one result. Keep that adjustment
+    // when its initializer becomes the last argument of the reconstructed call.
+    for arg in &mut args {
+        *arg = match arg.clone() {
+            RValue::Call(call) => RValue::Select(crate::Select::Call(call)),
+            RValue::MethodCall(call) => RValue::Select(crate::Select::MethodCall(call)),
+            RValue::VarArg(vararg) => RValue::Select(crate::Select::VarArg(vararg)),
+            value => value,
+        };
     }
     Some(Unified {
         args,
@@ -3853,6 +3854,7 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
         decls.push((l.clone(), fa.clone()));
     });
 
+    let captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body));
     let mut targets = Vec::new();
     for (f_local, func) in decls {
         crate::telemetry::count("candidate_binders", 1);
@@ -3896,6 +3898,8 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
                 continue;
             }
         };
+        let shape = crate::deinline_safety::CaptureSafety::new(&g.body);
+        if !shape.complete() || shape.nodes() > 2048 { continue; }
         let pat = canon(&g.body.0);
         if pat.is_empty() {
             deinline_reject!(
@@ -4074,6 +4078,8 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
             unread,
             specializable,
             cps_loop_return,
+            captures: captures.clone(),
+            search: Default::default(),
         });
     }
     targets
@@ -4908,6 +4914,8 @@ mod tests {
             unread: FxHashSet::default(),
             specializable: false,
             cps_loop_return: false,
+            captures: Default::default(),
+            search: Default::default(),
         }
     }
 
@@ -4925,6 +4933,22 @@ mod tests {
         let cand = canon(&[print_x(), assign_local(&other, add_one(&other), false)]);
 
         assert!(try_unify_site(&target, &cand, &[]).is_none());
+    }
+
+    #[test]
+    fn written_argument_copies_keep_order_dependencies_and_scalar_arity() {
+        let p = local("p"); let q = local("q"); let a = local("a"); let b = local("b");
+        let mut target = void_target(vec![print_x()], [p.clone(), q.clone()].into_iter().collect());
+        target.param_order = vec![p.clone(), q.clone()];
+        target.written_params = target.param_order.clone();
+        let bindings = Bindings { locals: [(p, a.clone()), (q, b.clone())].into_iter().collect(), ..Default::default() };
+        let first: RValue = Call::new(global("first"), vec![]).into();
+        let last: RValue = Call::new(global("last"), vec![]).into();
+        let prefix = vec![(a.clone(), first.clone()), (b.clone(), last.clone())];
+        let hit = finish_unified(&target, &[], bindings.clone(), &prefix).unwrap();
+        assert!(hit.args.iter().all(|v| matches!(v, RValue::Select(crate::Select::Call(_)))));
+        assert!(finish_unified(&target, &[], bindings.clone(), &[(b.clone(), last), (a.clone(), first.clone())]).is_none());
+        assert!(finish_unified(&target, &[], bindings, &[(a.clone(), first), (b, a.into())]).is_none());
     }
 
     #[test]
@@ -5062,6 +5086,8 @@ mod tests {
             unread: FxHashSet::default(),
             specializable: true,
             cps_loop_return: false,
+            captures: Default::default(),
+            search: Default::default(),
         };
 
         let caller_key = local("callerKey");
@@ -5130,6 +5156,8 @@ mod tests {
             unread: FxHashSet::default(),
             specializable: true,
             cps_loop_return: false,
+            captures: Default::default(),
+            search: Default::default(),
         };
         let candidate = canon(&[Statement::Call(Call::new(
             global("consume"),
@@ -5188,6 +5216,8 @@ mod tests {
             unread: FxHashSet::default(),
             specializable: false,
             cps_loop_return: false,
+            captures: Default::default(),
+            search: Default::default(),
         };
         let left = local("left");
         let right = local("right");
@@ -5261,6 +5291,8 @@ mod tests {
             unread: FxHashSet::default(),
             specializable: false,
             cps_loop_return: true,
+            captures: Default::default(),
+            search: Default::default(),
         };
 
         let actual = local("actual");
@@ -5597,6 +5629,8 @@ mod tests {
             unread: FxHashSet::default(),
             specializable: false,
             cps_loop_return: false,
+            captures: Default::default(),
+            search: Default::default(),
         };
 
         let arg = local("arg");
@@ -5678,6 +5712,8 @@ mod tests {
             unread: unread_set,
             specializable: false,
             cps_loop_return: false,
+            captures: Default::default(),
+            search: Default::default(),
         }
     }
 
@@ -5819,6 +5855,8 @@ mod tests {
             unread: FxHashSet::default(),
             specializable: false,
             cps_loop_return: false,
+            captures: Default::default(),
+            search: Default::default(),
         }
     }
 
@@ -5857,6 +5895,8 @@ mod tests {
             unread: FxHashSet::default(),
             specializable: false,
             cps_loop_return: false,
+            captures: Default::default(),
+            search: Default::default(),
         }
     }
 
@@ -6798,6 +6838,8 @@ mod tests {
             unread: FxHashSet::default(),
             specializable: false,
             cps_loop_return: false,
+            captures: Default::default(),
+            search: Default::default(),
         };
         // site: local L = 7; if q then L = L + 1 end; print(L)
         let q = local("q");

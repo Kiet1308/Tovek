@@ -1,0 +1,4941 @@
+{
+ "summary": {
+  "changed_files": 493,
+  "non_annotation": 347,
+  "packing_before": 15,
+  "packing_after": 0,
+  "default_detailed_equal": true
+ },
+ "rows": [
+  {
+   "path": "ReplicatedStorage/Assets/Cutscenes/DragonBallBallingCutscene.luau",
+   "before_sha256": "65281c99bdbec782031523ade7c09d506e4782ad36e6e3f08680916977133762",
+   "after_sha256": "b32598dd234057b384f4302117c5e3a89070282fcc65cbc4e5e47c0132ddcd3a",
+   "before_lines": 786,
+   "after_lines": 818,
+   "before_bytes": 18575,
+   "after_bytes": 18791,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Assets/Cutscenes/GohanObtainmentCutscene.luau",
+   "before_sha256": "6a6c0ed2fdb07d0497fa79357ca456216fc76e5a650e1788824fef78bb9ebbd6",
+   "after_sha256": "ce0853cfaedf5e1a9c4d5855f287c217828a2c9ae6bdeb7695d72238993d0f44",
+   "before_lines": 854,
+   "after_lines": 890,
+   "before_bytes": 22071,
+   "after_bytes": 22345,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Assets/Cutscenes/SinbadObtainmentCutscene/init.luau",
+   "before_sha256": "a44a8d6a4f4395969cc3ae5ea103d580fe5f4fb75d18e63bd57d42149c9bf6b2",
+   "after_sha256": "0ada6e9d51d0877339a6c9f432098b1dcfa41f1dd38eaec720f7ee1c5b959f15",
+   "before_lines": 697,
+   "after_lines": 725,
+   "before_bytes": 14951,
+   "after_bytes": 15149,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Assets/Cutscenes/SparkleObtainmentCutscene/init.luau",
+   "before_sha256": "7c2bf0915ca9da2eecc901afaa803017a2fedd109bb2b9fc51e43dda119fbb47",
+   "after_sha256": "b896a9132572b4e1df8399f971bad8d0a6db8a0216c1f9233c965466a026cc21",
+   "before_lines": 672,
+   "after_lines": 704,
+   "before_bytes": 14725,
+   "after_bytes": 14961,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Cmdr/init.luau",
+   "before_sha256": "8d7e4c4bf544ecb30b944953129fa098211c3efc6c804250d6ec13077bb4ba19",
+   "after_sha256": "9b7b5b9d25d573026100817a48d49b322f189aa9b6d1dbf0d63f7fe5372caa1c",
+   "before_lines": 42,
+   "after_lines": 40,
+   "before_bytes": 987,
+   "after_bytes": 931,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/DivergentVFX/effects/bezier.luau",
+   "before_sha256": "1cf65e2846f5ff5c68ad240eb7c3a17da481bca4686de1292e8c2d83db120d6f",
+   "after_sha256": "258f1134d12af2a7c450e5c6c4e388e555e219f1e3a3b0e1e0a306d357887d87",
+   "before_lines": 215,
+   "after_lines": 215,
+   "before_bytes": 5059,
+   "after_bytes": 5079,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/DivergentVFX/effects/impactframe.luau",
+   "before_sha256": "3aa33dfcf73a18f9b3a6dc2de5b2d46938bd534bb7d20d6aae423165266321da",
+   "after_sha256": "3f5dae04a5a671653ef6c2bf2dc047b0970873568f4053b44a3a521babf5e02c",
+   "before_lines": 293,
+   "after_lines": 317,
+   "before_bytes": 6938,
+   "after_bytes": 7358,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/DivergentVFX/effects/mesh.luau",
+   "before_sha256": "6db461b9ccc028e25533b2ce59a1c4edadfc81b8a7140914fba65886c5488607",
+   "after_sha256": "f3ae9ab05eed76013814430eb8a3b9235f176e15bca0a2eddbd8730511b760aa",
+   "before_lines": 824,
+   "after_lines": 832,
+   "before_bytes": 18765,
+   "after_bytes": 18776,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/DivergentVFX/effects/shockwave.luau",
+   "before_sha256": "c7b45a0d03250f60c366406efc4a0dd2cba6b79e21f021e1585abd9db51f35a2",
+   "after_sha256": "5b8ee8431bfecb571ed9a793c2a1559dc96cfddb222e3d7dba1f3ea4640b3ac1",
+   "before_lines": 273,
+   "after_lines": 273,
+   "before_bytes": 8695,
+   "after_bytes": 8687,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/DivergentVFX/effects/static_mesh.luau",
+   "before_sha256": "cacc251ba6143757c2f49a478f288df2e78868e016488562156ce6092da731d2",
+   "after_sha256": "1f948353676cd53de1975a7f69fbac4e0a54e414161bd1e9bfded27d4b884f33",
+   "before_lines": 365,
+   "after_lines": 365,
+   "before_bytes": 7021,
+   "after_bytes": 7061,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/DivergentVFX/init__volt-script-000493.luau",
+   "before_sha256": "20306689fd81e6c7fbd0fe19739e136689a1778797fbf7d5ae315409bcca19ea",
+   "after_sha256": "37b32c1b713f1d53a115d26850c1013b4178ce79540158eda06d63ef0be19840",
+   "before_lines": 370,
+   "after_lines": 370,
+   "before_bytes": 9254,
+   "after_bytes": 9314,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/DivergentVFX/LightningCore.luau",
+   "before_sha256": "ec67f9383a7866c9c7418bb1342db9b5e157fbe9af0f9febfeee9be44632c20e",
+   "after_sha256": "36e6ad2b7321ecf7d4d96dca0d9abba4d07a922378169e5785ad1a5a5826ad3c",
+   "before_lines": 3578,
+   "after_lines": 3682,
+   "before_bytes": 83361,
+   "after_bytes": 84905,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/DivergentVFX/pool.luau",
+   "before_sha256": "ddeed45d237dbf96ca0698444fa0271351573c0008f44c31dac28f2b9171e6bd",
+   "after_sha256": "90a57fcca744be36d0a81117eaea0c62045b9ec4d65a98f1deaf905c17b7dd4c",
+   "before_lines": 193,
+   "after_lines": 193,
+   "before_bytes": 3366,
+   "after_bytes": 3406,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/DivergentVFX/schema.luau",
+   "before_sha256": "b0330a6322ad0853abad51d4b3bf083f345b451265640d7751d7b21eb2f8aa9f",
+   "after_sha256": "18e211f94c7cb16104a16ef79e6cb28808f4bf0e1d79312901ec357ee39e0c15",
+   "before_lines": 629,
+   "after_lines": 629,
+   "before_bytes": 13718,
+   "after_bytes": 13718,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/AssetGrid/init.luau",
+   "before_sha256": "ae6c0882cd62623f11dfa4bc4b18aa1bb4b80da7be55ffe5c47291bb84067aa4",
+   "after_sha256": "533defab0d0701e5021d6254e9e6d4640b25f6bfac52ee20369f57d3bc058dfb",
+   "before_lines": 365,
+   "after_lines": 365,
+   "before_bytes": 10105,
+   "after_bytes": 10205,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/AssetGrid/SecondaryActions.luau",
+   "before_sha256": "1c54f03a11e3922c6a05e525de8f639f3c0af744fea4722d2ea23deefa9e64f4",
+   "after_sha256": "685abc8b332c98db17de9321cbe39a5614157746d55c63741a1fec91cf47cae0",
+   "before_lines": 315,
+   "after_lines": 314,
+   "before_bytes": 10856,
+   "after_bytes": 10835,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/AssetPreview/EquipButton.luau",
+   "before_sha256": "41ec15ba1110b2bb2e8d1daef514831460a0926787cfa83a1f42f21d4c78c20b",
+   "after_sha256": "7be9ebfe97ef19304ac4f3103abddccc33404d02b396e0465b911effad611486",
+   "before_lines": 103,
+   "after_lines": 102,
+   "before_bytes": 2935,
+   "after_bytes": 2914,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/AssetPreview/EquipStates.luau",
+   "before_sha256": "39d4d75f81ac05421b5c965612a5f86a174ed58a9e8755631086e14661bcb23a",
+   "after_sha256": "e2414d67bbb754bbdb73c0f22d462e2e089e70db184602196c4a971261b5051a",
+   "before_lines": 166,
+   "after_lines": 166,
+   "before_bytes": 4356,
+   "after_bytes": 4396,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Bar/BossHealth/init.luau",
+   "before_sha256": "dbe38db1c96bcc10e8bfc9fc7e989bd4a089fa971099d5b4cdd7bb4e1922cf70",
+   "after_sha256": "3f68c8593b2ba00687c1faeaf61deace6359067331aa3bb0c0faf6e6b75e6fa6",
+   "before_lines": 397,
+   "after_lines": 392,
+   "before_bytes": 14115,
+   "after_bytes": 14013,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Bar/BossHealth/ThresholdIcon.luau",
+   "before_sha256": "af74d4ab6a0dce1458e83348d282deb3cd12f1fd1b62ca08cc26005772b51489",
+   "after_sha256": "5deaa182984f7620d0a8a477e8b138c6024e7cb89d29c8b26e40ead76bb017ba",
+   "before_lines": 43,
+   "after_lines": 42,
+   "before_bytes": 1585,
+   "after_bytes": 1564,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Bar/CanvasHealthBar/Decayed.luau",
+   "before_sha256": "289c242dd76e731df5d36ac80f811b6250c794ad355b9c891396fa592d93579f",
+   "after_sha256": "194a1e28ee83c3e5742b8c3591aedf4f13c81edde85aebe2b5d304db31760145",
+   "before_lines": 75,
+   "after_lines": 74,
+   "before_bytes": 2421,
+   "after_bytes": 2400,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Bar/ImageHealthBar/Decayed.luau",
+   "before_sha256": "d4a9ce7ffb8c92b97771c29bca4d28135dcf2492b7c997221c99c7fbfd1a7c5c",
+   "after_sha256": "a82d490c808e424bb69a24c533f54a074c347e1276aac254b98daee7f200ce1d",
+   "before_lines": 98,
+   "after_lines": 97,
+   "before_bytes": 2749,
+   "after_bytes": 2728,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Billboards.luau",
+   "before_sha256": "9e954031ae54d511ee6d1e0c4d5813901e356b2ad22a1464032c01587a73045a",
+   "after_sha256": "0c6c7c7fb1a280321071f2af61351886c76b741758651a568d2c7ba6288fe182",
+   "before_lines": 957,
+   "after_lines": 1027,
+   "before_bytes": 19893,
+   "after_bytes": 21216,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Button/MenuButton/Default.luau",
+   "before_sha256": "b7692174b915b1a99d11831443b7676f3e7c24ed6cd2ba76c123e133bb724998",
+   "after_sha256": "1cea7dfa8a82bb0394d6a2010b64ac975441b3a4b1b7402c1008de60f76f58f8",
+   "before_lines": 326,
+   "after_lines": 325,
+   "before_bytes": 10348,
+   "after_bytes": 10327,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Button/MenuButton/Wide.luau",
+   "before_sha256": "badf6a2bd381cae9fb8075f3995c23d93df52d1442450f6fc9b47b3fc037a44c",
+   "after_sha256": "df685e442d3faa9134121855b4499c191d5f94299fe4e79541d77fc54fb47bb9",
+   "before_lines": 316,
+   "after_lines": 315,
+   "before_bytes": 10591,
+   "after_bytes": 10570,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Button/Model.luau",
+   "before_sha256": "adc0692c708fb157c0a1546cbe487d957531dbd5755788fa6d6a198d7deb2291",
+   "after_sha256": "558cfeafc647ff18d7326c23c7b3e596f9a9986b2b832498d43c8dc5e53e3b5d",
+   "before_lines": 64,
+   "after_lines": 63,
+   "before_bytes": 2368,
+   "after_bytes": 2347,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Button/TeleportIcon.luau",
+   "before_sha256": "ef63c0ebda840a7db4ab516f59ce2bd04e36bb47e74add601daecd4480afaf5f",
+   "after_sha256": "d558b41b95d0e986dab63c3cff1c0eedb992108183e8c3262eec69788c21eab8",
+   "before_lines": 144,
+   "after_lines": 143,
+   "before_bytes": 4574,
+   "after_bytes": 4553,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Image/ButtonCarousel.luau",
+   "before_sha256": "51c7e93871fb8116b75ebe94e1d64bf725dd39b0ebd76ebf2a3981fe64c08a40",
+   "after_sha256": "0cc795622206f8e155592082f411d42184ed58a3f488f8758bb404096c96c285",
+   "before_lines": 58,
+   "after_lines": 55,
+   "before_bytes": 1811,
+   "after_bytes": 1775,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Menu/init.luau",
+   "before_sha256": "60cd396fda8164360351f356dbe8cdb5228541c8b60eda730d3dfb8233fb2fad",
+   "after_sha256": "77a9ba6bd219f140254093dc18d2690357ffe84bd5d611f0fb1c0c1f13fd946b",
+   "before_lines": 233,
+   "after_lines": 232,
+   "before_bytes": 7012,
+   "after_bytes": 6991,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Offset.luau",
+   "before_sha256": "ae9d0137b6479ad677632c4ad31aaee90759ce96121517d04a0bda2b64b28fdc",
+   "after_sha256": "13edc0f7427742d425bebe842651b5ac14e752758649045a027c1a39b9bad5f2",
+   "before_lines": 50,
+   "after_lines": 47,
+   "before_bytes": 1634,
+   "after_bytes": 1596,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/PrimaryButton/Filters.luau",
+   "before_sha256": "896611914607bcf35f97b87e818d9a667ff9239d7753fb3843fb01cfb60364ec",
+   "after_sha256": "e316adb5c9e05f7fd04f9ec4ef40c4fc1e18f3577cc37585c9f4e45df4e0bb27",
+   "before_lines": 64,
+   "after_lines": 63,
+   "before_bytes": 2048,
+   "after_bytes": 2027,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ScrollingFrame/MilestoneRewards.luau",
+   "before_sha256": "86ddd4ca49bfffb1aadab137d38cae4d750b043b434e4d7e55bf79b45cf2de61",
+   "after_sha256": "4af6137324a118c164711dce4c4daa94d769c2bfcd5f937029de0be980fe8752",
+   "before_lines": 267,
+   "after_lines": 266,
+   "before_bytes": 9769,
+   "after_bytes": 9748,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ScrollingFrame/StyledBase.luau",
+   "before_sha256": "d08f7ce5159a61da11a389b2d9a2d0490082cc04e23aa494b6c3340cd37c7db4",
+   "after_sha256": "38f3d6cdb93466188974767071821a47af93e2a63633f5ad5d198d133520af94",
+   "before_lines": 200,
+   "after_lines": 199,
+   "before_bytes": 7714,
+   "after_bytes": 7690,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Slider/Controls.luau",
+   "before_sha256": "f774182b978adc4f589dc351df99d07732cdee23eea17ef8414fea3b7e53f6aa",
+   "after_sha256": "aee4189c6a12fdfa3695317ce02514baa2e6c7dd3bc588e54d43cb56007bbe50",
+   "before_lines": 150,
+   "after_lines": 148,
+   "before_bytes": 4584,
+   "after_bytes": 4524,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/Slot/init.luau",
+   "before_sha256": "df24658e564f3fb501f516d1f61b17f07648b3f37d004ca9888b0b8fb9482b16",
+   "after_sha256": "7e6b0424bbaedfd3947a1ce9172d33fd3ac65ac34a31258b66fb42eb71bb1130",
+   "before_lines": 560,
+   "after_lines": 559,
+   "before_bytes": 20116,
+   "after_bytes": 20095,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/StyledBlock/init.luau",
+   "before_sha256": "8ef9b3e4af7a0668ce8f5c236a78cef58e832b953c0026559cd8c0d42846ca7c",
+   "after_sha256": "106b9606777ab48826027f1dfd58e8dbe9bc1c54a1ad9221d3851b9f2790d910",
+   "before_lines": 70,
+   "after_lines": 69,
+   "before_bytes": 1737,
+   "after_bytes": 1715,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/TextBox/Button.luau",
+   "before_sha256": "148042bb6b12359c5c4f1c98564adaa8dee2faa3705b8fc2f45ab75fa712c23d",
+   "after_sha256": "4cc7f9d36ced3b5da6b84560fccf26757ea8dc24213c9e9a384d8fdcfc22c6ed",
+   "before_lines": 43,
+   "after_lines": 40,
+   "before_bytes": 1429,
+   "after_bytes": 1376,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/TextBox/init.luau",
+   "before_sha256": "bc32a5f9e24dd9ef9caf4df18c5894bd5468347ea5e0d8b3c6cf0e33ffc91bdd",
+   "after_sha256": "de4ce34ff11275cd1a4d295bb132bf232094120cbac9cb25134cb87834aa4d6f",
+   "before_lines": 279,
+   "after_lines": 276,
+   "before_bytes": 7995,
+   "after_bytes": 8063,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ThrottledModel/init.luau",
+   "before_sha256": "d3d3365a6c99bf480ee4714bd1d877cccc4c983dbb4018842beac942d901933a",
+   "after_sha256": "ee1cf1bae6e6e698b63f9a65ee7388d87629923a9ee7d413c497247ca18317db",
+   "before_lines": 323,
+   "after_lines": 323,
+   "before_bytes": 7257,
+   "after_bytes": 7297,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ThrottledModel/NewThrottledModel.luau",
+   "before_sha256": "290952ca190741fc3b95f7fad1a552c0108336ecdf27f2b53695d2e43187ab57",
+   "after_sha256": "7dc9985a10c900a1ab5477ce84345f3b21ed42daedf15fd50bd52b9bf240362b",
+   "before_lines": 218,
+   "after_lines": 218,
+   "before_bytes": 4244,
+   "after_bytes": 4324,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/ViewportGui/ViewportModel/init.luau",
+   "before_sha256": "4339b6efec1002e613dd549ed0cc94b0808e6e8428e79629c4de2c9f857cd41e",
+   "after_sha256": "85bdf6644670c7be30bbe679e057f2f3319a2b98acae8186e9a54befe630352f",
+   "before_lines": 147,
+   "after_lines": 145,
+   "before_bytes": 4894,
+   "after_bytes": 4868,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Base/VirtualGrid/init.luau",
+   "before_sha256": "a1bc52af91daf9c4c00cac5e35d833c4f31375e0adf875c5d1264976ffa38b7d",
+   "after_sha256": "bc1e3236df2cbe752cc0c0d3d622b8d1cd1341817e5973f53ca191bd5276fd0c",
+   "before_lines": 405,
+   "after_lines": 404,
+   "before_bytes": 10026,
+   "after_bytes": 10167,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/DirectionalSpecks.luau",
+   "before_sha256": "58b6ffb72a2ab7d9f6d183690f9ff1a9f5f4b3b235ffbf5617449fbf5196d224",
+   "after_sha256": "1aa2c2b162ec5e529192703ba7ee7ee01372a2b7ed20b85a539886bc5f937636",
+   "before_lines": 203,
+   "after_lines": 202,
+   "before_bytes": 5715,
+   "after_bytes": 5693,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/Flipbook/init.luau",
+   "before_sha256": "3ea8582663323ca3d82ddae7363f66b65565ae642bd526d86e92596c5a3b89b5",
+   "after_sha256": "c3d2f713aacb4ec680616f48175dd3ec43ac7748df0013a8fedafec12d619e60",
+   "before_lines": 137,
+   "after_lines": 136,
+   "before_bytes": 3662,
+   "after_bytes": 3687,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/Shine/init.luau",
+   "before_sha256": "f7db745396e2e1b9b0c388e404978d03d143cf930d63b3f6759a733b370743e1",
+   "after_sha256": "fb7e1d718202875acb00e6a9de055561b8a24109fdd91847db487b3f1acf8f63",
+   "before_lines": 87,
+   "after_lines": 86,
+   "before_bytes": 3025,
+   "after_bytes": 3006,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/SplitFlipbook.luau",
+   "before_sha256": "32a615289fccac38419aa274cb66831b7e1afa8618704e5b5fe4861d56a407d2",
+   "after_sha256": "815549581b077c50ca1d8ddb4443e625b4922c04eef59cd4743afef31988dcfa",
+   "before_lines": 135,
+   "after_lines": 134,
+   "before_bytes": 3549,
+   "after_bytes": 3574,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Effects/Star.luau",
+   "before_sha256": "81d7f3e01e3ae9308d7de315df6b7f76baca47f8c6cebe7246ec12512d1343af",
+   "after_sha256": "d4f90e4955ab479cff5d7e4cde555d40b3677e962b3a53225cb1cfd14d95b0ac",
+   "before_lines": 75,
+   "after_lines": 74,
+   "before_bytes": 2607,
+   "after_bytes": 2590,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/BuildingResources/init.luau",
+   "before_sha256": "ab3cda5a4bf55e13b3e22abe1c64b70b34c46b1364f4bc4da004b96df3790378",
+   "after_sha256": "10a39bbcfb546293d7e24ace4e442559fd98e55971ea5749d0ec15b16f24da98",
+   "before_lines": 547,
+   "after_lines": 543,
+   "before_bytes": 18405,
+   "after_bytes": 19588,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/Construct/init.luau",
+   "before_sha256": "3ddbf03410db6de6964fe3fcf260bba3c58ffe5758dac58ef3f579989ac4a41a",
+   "after_sha256": "510246d33a226e6c8ae15cdd743999c4b9eedfcc210576fd77851e666cb37cea",
+   "before_lines": 101,
+   "after_lines": 98,
+   "before_bytes": 3194,
+   "after_bytes": 3095,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/ForgeEquipment.luau",
+   "before_sha256": "0670850aab83046262970302ae3317c79d2027c93655de3a1cb2c7e70135045c",
+   "after_sha256": "b7b50157e97d2233c7fc0fa31c30c5c437fc19faf8f44455c84da69e87f2f51b",
+   "before_lines": 288,
+   "after_lines": 285,
+   "before_bytes": 9952,
+   "after_bytes": 10276,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/Home/ExpeditionShop.luau",
+   "before_sha256": "464c3498399fabf61626e6d5943f50b263ad94f466ea71e49f6d5816ecc545e2",
+   "after_sha256": "d7b89680e0377827a9a990803feacf277a081d9350ad0b4e7ea940ff70a1073f",
+   "before_lines": 36,
+   "after_lines": 34,
+   "before_bytes": 1288,
+   "after_bytes": 1236,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/Home/ResearchLab.luau",
+   "before_sha256": "19a0661fb404fdc5601bad2efd89404f0e0919c2aaf81447d6139f44449107de",
+   "after_sha256": "fdab281f8b19aab7ca382a3c7d4a1912c5aa2807776ae4fcae7bc6fa3d78fe5d",
+   "before_lines": 35,
+   "after_lines": 33,
+   "before_bytes": 1415,
+   "after_bytes": 1355,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/RerollEquipment/init.luau",
+   "before_sha256": "2c6caea0abb4a7c401902f359a6eb24430fffb39d5090e7dea0818e452fe8a49",
+   "after_sha256": "8adb786bfe53bfe266d3426dbb004c372930b8278065eb21028d7b3fee73374e",
+   "before_lines": 852,
+   "after_lines": 840,
+   "before_bytes": 26620,
+   "after_bytes": 27014,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/ScrapEquipment/init.luau",
+   "before_sha256": "c8ab7af9b915a715dc973cb4b7ccbadd79075175ac1c52d3313abfeb1171c3bc",
+   "after_sha256": "2013c3a113202fc2ae83ac658b13e7e0fd571f221ce5013f15e1b02f20026890",
+   "before_lines": 391,
+   "after_lines": 391,
+   "before_bytes": 12984,
+   "after_bytes": 12983,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/ScrapEquipment/ScrapEquipment.luau",
+   "before_sha256": "27b36896cc5e1551ea0e7d6a73216025181b7813ac86012c1db472d19363696f",
+   "after_sha256": "623fac60be3817f0b314d5628a950454c5f2401e69fd39233cef6296c55206e3",
+   "before_lines": 142,
+   "after_lines": 137,
+   "before_bytes": 4868,
+   "after_bytes": 5026,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/Pages/Upgrade/init.luau",
+   "before_sha256": "74309b3b9ba8e4655004f10297a936659370ce22312a9f97d2c8e9c76e8d8f3c",
+   "after_sha256": "ad843c8dafaf45f290824e1c111fe75fe367613478c5667a8061b34dd4b0a333",
+   "before_lines": 93,
+   "after_lines": 91,
+   "before_bytes": 2993,
+   "after_bytes": 2937,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionBuilding/QuestBoardMilestones.luau",
+   "before_sha256": "f4e85f9573d6bb7c58485c69e117861c1d2f4ddb8e4412c1ab1f0173ad1e733c",
+   "after_sha256": "09111e4a599a39c261ba53ba6a1ca72ff0988fb814c7b7e6ea5710144cbf64c2",
+   "before_lines": 282,
+   "after_lines": 282,
+   "before_bytes": 10326,
+   "after_bytes": 10752,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Expeditions/ExpeditionUpgrades/UpgradeButton.luau",
+   "before_sha256": "eb46c98aecc00b35dd94e4c2f3a05ace01d4d36720a7ef174a781a0c303b85cb",
+   "after_sha256": "18e30222e4b2c977a125576ec510dbe558d4128e1e5fd3e2c55b718e47fb0c84",
+   "before_lines": 228,
+   "after_lines": 227,
+   "before_bytes": 7827,
+   "after_bytes": 7806,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingHotbar.luau",
+   "before_sha256": "9dea37e47be83bcbecc19541d92e3780bac723e6a29444cc5813bea69eaeda94",
+   "after_sha256": "36075cf1ccbcd08c242e0461baef511372e7768ed9a559bb03b02ddf83d3f5f1",
+   "before_lines": 92,
+   "after_lines": 91,
+   "before_bytes": 3156,
+   "after_bytes": 3135,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingMenu/FishingMilestones.luau",
+   "before_sha256": "7880540785c75b98cfdfb35a8f6d27b4d45229acb6943e0ac4a3416bf9712655",
+   "after_sha256": "439730434eb64c4047e061ddea81bd22a7cffed5327be141e71f3e051748d761",
+   "before_lines": 390,
+   "after_lines": 388,
+   "before_bytes": 14677,
+   "after_bytes": 14863,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingMenu/FishingRodSelection.luau",
+   "before_sha256": "e659b67d13a370bd3a808449384aa0b3509c1fff74e67a62307b9abf963f7fab",
+   "after_sha256": "f6f8fbb1f56f178d1caee6b7bd358d2b4e69a10435adeaa8faa18c9c10d17c21",
+   "before_lines": 244,
+   "after_lines": 243,
+   "before_bytes": 8903,
+   "after_bytes": 8882,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingMenu/init.luau",
+   "before_sha256": "860c32f63cb23382d50a2c9277a6d073e256b75bf632d701fd71353555222946",
+   "after_sha256": "23967c873d8a580997f3c5ac72678319be857113de97a4a97717ad6b738c6798",
+   "before_lines": 324,
+   "after_lines": 321,
+   "before_bytes": 11898,
+   "after_bytes": 11839,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Fishing/FishingRightHUD.luau",
+   "before_sha256": "591df4b8789f4c61e0cb75b6e90b3224d2884fc7c5db0028cd4280b435e22b2d",
+   "after_sha256": "82902c0097e46f81481767901ea55de7150f604227c0ed8d537148fb1dff6ef6",
+   "before_lines": 304,
+   "after_lines": 302,
+   "before_bytes": 10567,
+   "after_bytes": 10764,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/AbilityInput/FreePlacement.luau",
+   "before_sha256": "4e5a9173415de894a3ed7c5004b839000b526d2db954a5e8c5732c510b57837e",
+   "after_sha256": "9896b4be20b5e8edf1a3084a5d40030aca3faaf5a19f4596a0951ad355379929",
+   "before_lines": 69,
+   "after_lines": 69,
+   "before_bytes": 2490,
+   "after_bytes": 2530,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/CardSelectionPrompt/init.luau",
+   "before_sha256": "0447c2943dfac232d3c2dc2de49e8f5804fcf7adea830ad9df09f7de5a6614dd",
+   "after_sha256": "cbb1f432fe5c0fdccb349780de23036eb905ccfbb8a0f6a45ed1ff68ae3c8f27",
+   "before_lines": 210,
+   "after_lines": 210,
+   "before_bytes": 6996,
+   "after_bytes": 7036,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/DamageIndicator/init.luau",
+   "before_sha256": "011ffab0765f1384b1eb01d06476c3908153a39428abcadd5bedea14c425275e",
+   "after_sha256": "9fde8b0c09d94525bc0a7743093b3671a144b84e203db2a492cf213bd226e41d",
+   "before_lines": 514,
+   "after_lines": 524,
+   "before_bytes": 12973,
+   "after_bytes": 13024,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/AbilityButton/init.luau",
+   "before_sha256": "ca5c6e91064d21d2ffccaed2f660e003ec9dd4c78906693f7e29dd698b10337e",
+   "after_sha256": "d06434a7b87ba7f5577066ef143bda32a97bdcc9a8c51bd7dfbeeecc7d986e55",
+   "before_lines": 140,
+   "after_lines": 136,
+   "before_bytes": 4794,
+   "after_bytes": 4796,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/AutoUpgradeButton.luau",
+   "before_sha256": "02b3454f7b23e34512df1bc191a5cf2a4e83c6ccaac015571b1bf30012ab6d60",
+   "after_sha256": "1f625244c551d9987596c4f2e0e0012d6a33a0f3723dff8c3d7f879cac8e73a9",
+   "before_lines": 175,
+   "after_lines": 174,
+   "before_bytes": 5296,
+   "after_bytes": 5275,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/GameCounter/init.luau",
+   "before_sha256": "37edfdd87696c62e563589a22f7cfadef6e0492bf474509d4f7f70ded33ca398",
+   "after_sha256": "520d775173f5b60bdaad5e88aeea95ac8a8222097f7e32e131f139157005cd7e",
+   "before_lines": 84,
+   "after_lines": 85,
+   "before_bytes": 2952,
+   "after_bytes": 2969,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/GameMeters/Themes/SkillPoints.luau",
+   "before_sha256": "c70fbce2cf5a77ec66738b465dc10b16fb3eeb2f56d11d029a3204d574abcf77",
+   "after_sha256": "0abe16d3ed784170448cc651088a94add69e1688a0d5d93bcb35da77c84c4d02",
+   "before_lines": 45,
+   "after_lines": 44,
+   "before_bytes": 1621,
+   "after_bytes": 1600,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/GameTimer.luau",
+   "before_sha256": "419d2f179399761bdc5cbdf5c6de7a98e5d3c2b2be59c99406896e2c476f0a46",
+   "after_sha256": "7153b48611f8906249d09ef6cd9fb7a35acf4e1604a434602731f8ed931bfd60",
+   "before_lines": 84,
+   "after_lines": 83,
+   "before_bytes": 2878,
+   "after_bytes": 2857,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/GameUnitView.luau",
+   "before_sha256": "25e080dd4bce958fd531affca02f61efd4c8f5d6acf9aad62e5770ef1b91253a",
+   "after_sha256": "3ff43834a02d4f00e44fdf75b9a13d582b60ae69ac0ac6f64c9aff36a175e669",
+   "before_lines": 854,
+   "after_lines": 877,
+   "before_bytes": 27671,
+   "after_bytes": 31952,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/init.luau",
+   "before_sha256": "0df282d6a5c71ef5e3ec5b1e9e7a37fb962487a23583db8207fcc4e9e188f23f",
+   "after_sha256": "41cb1cc3a011532f5a7d8c83bf20afdfb63cae2995cc44f23c069ec330481062",
+   "before_lines": 813,
+   "after_lines": 817,
+   "before_bytes": 28311,
+   "after_bytes": 29884,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/GameUnitView/UpgradeButton.luau",
+   "before_sha256": "ff47f20e1278286c37967dd4ec0987e47f8bba395078ba85595c1f506d146e05",
+   "after_sha256": "6976373fa2d629f7a8e03a1625109582f1d0088cca8f01c71b612d82f66479f3",
+   "before_lines": 171,
+   "after_lines": 170,
+   "before_bytes": 5934,
+   "after_bytes": 5953,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/PortalSelectionPrompt.luau",
+   "before_sha256": "d4f18eb4e857f1fe8f10fff9b65472942041680f6e9e4f26f29675f782dbb459",
+   "after_sha256": "58e9b67f82bbeeabf8e9a18b26238167525e7c14b4c3b68e6a5378c23985702b",
+   "before_lines": 323,
+   "after_lines": 322,
+   "before_bytes": 11527,
+   "after_bytes": 11598,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Enemies/SandboxSpawnEnemy.luau",
+   "before_sha256": "e2a3538cc6bca287cfdb24e44387f4acf76be294f04260e93b8a8afba185f4ad",
+   "after_sha256": "495094290e7da4c1e3c1378536d5f1ba921488be9f4905e3af3ad15026f77f80",
+   "before_lines": 427,
+   "after_lines": 422,
+   "before_bytes": 11400,
+   "after_bytes": 11591,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Equipment.luau",
+   "before_sha256": "682c84dbb2aeeb0a3e1ecbfcd258f299c5cf4a39c64eb12fad067dc5d28d8287",
+   "after_sha256": "4bbbef09216f37614502c512b6ccd7203d0d67d1d8abd57b6a55f4e6d8582231",
+   "before_lines": 87,
+   "after_lines": 85,
+   "before_bytes": 2835,
+   "after_bytes": 2803,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Maps.luau",
+   "before_sha256": "99378598c4c20361a1ccd7d1b85a43f8f61b97c95243eac30da25506db9b1ef0",
+   "after_sha256": "1cfc95fbc74095794acf09b02310a5dfa28bb6fc1620da3b40ea09bed072eb29",
+   "before_lines": 245,
+   "after_lines": 244,
+   "before_bytes": 8024,
+   "after_bytes": 8003,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Modifiers.luau",
+   "before_sha256": "3bf40d570f634510799de1954b43223897c0fd73555a5d148420a2486f0a0351",
+   "after_sha256": "bef8c33eb7e86619d09780e0d487e741eb9a19a6821b2f02ce2e1f339d24985f",
+   "before_lines": 218,
+   "after_lines": 217,
+   "before_bytes": 6747,
+   "after_bytes": 7015,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/SandboxControls/Units.luau",
+   "before_sha256": "f3fbfdc9e61b61b08bbfe4ae8713deedf553de00c90743098457c809cc28e97c",
+   "after_sha256": "50b93d6e4174527adc26a4dc3da02a300ed1abfb415cceaef5dbea247aa0d72e",
+   "before_lines": 539,
+   "after_lines": 541,
+   "before_bytes": 15420,
+   "after_bytes": 15796,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/UnitSpectate.luau",
+   "before_sha256": "8f16e0009f379a121fd954f4040404c7f4e66ac49a153f401e500911c048f197",
+   "after_sha256": "4e2c9e6a883def787b57253576a4d6592257534c5020a8746a9c0cfe2599aa43",
+   "before_lines": 131,
+   "after_lines": 122,
+   "before_bytes": 4246,
+   "after_bytes": 4320,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/UpgradeBar/Button.luau",
+   "before_sha256": "860eda424217977c1d684c57ff7a6f3f2cbfde1596c24e37767093ca2d96b770",
+   "after_sha256": "07d7606c109dd9017c8919f3da84794e8c98bb4d2036941bf69d64cd9b502fcd",
+   "before_lines": 162,
+   "after_lines": 161,
+   "before_bytes": 5427,
+   "after_bytes": 5406,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/UpgradeBar/init.luau",
+   "before_sha256": "c05f29ff86c0190312374cb5a502d82f4a75f6887aa44ed979e3b2c8608d5b54",
+   "after_sha256": "61a3af6a85119959a054da1c9b2f0e6b78a2074b0083a1b3af14e87e3a85c2b8",
+   "before_lines": 228,
+   "after_lines": 225,
+   "before_bytes": 6817,
+   "after_bytes": 6906,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Game/ViewCardsPrompt.luau",
+   "before_sha256": "632e1410adf97eaaab8e65705156c079fe24644bb3fb3c577ba0efcd3b97c282",
+   "after_sha256": "ee3c534da438e4ac264e289d82043f57fc3322b8f78400f6a77c51d810116d08",
+   "before_lines": 191,
+   "after_lines": 184,
+   "before_bytes": 6339,
+   "after_bytes": 6480,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/CreatorSpotlight/Hotbar.luau",
+   "before_sha256": "aa3c8c1d5db2e74c80c981b40a8f0bd078e71fb85e46c88068dd5cf38ebba4cc",
+   "after_sha256": "96063a82c75cc63e1ea2964013dda8be2b5619a79985decd452d0e67c00be1a7",
+   "before_lines": 182,
+   "after_lines": 174,
+   "before_bytes": 6526,
+   "after_bytes": 6481,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/CheckpointShopMenu/init.luau",
+   "before_sha256": "0340956072c9661fa467f4734457a0ca630a8b676a18bf212873719b088b1e73",
+   "after_sha256": "51500d1ac73187d24886871a3451007679c7fbaccf19fb1317392961f4c167f0",
+   "before_lines": 519,
+   "after_lines": 534,
+   "before_bytes": 18448,
+   "after_bytes": 20137,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/CheckpointShopMenu/ShopItem.luau",
+   "before_sha256": "36e4bec63666e0da83e1d41128de6da146f593f9f76e083b1347361fa1518f99",
+   "after_sha256": "593a917c618ec4079ccf4731bbe7c7374a24aa3275254221abf4ef80ba794991",
+   "before_lines": 210,
+   "after_lines": 209,
+   "before_bytes": 7189,
+   "after_bytes": 7168,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/NodeMapMenu/init.luau",
+   "before_sha256": "f9dc4ef3f90b57c405325e94809196b5fbdfb65d743755259b2ec5525de402f7",
+   "after_sha256": "974235e419e7d08e43d123e0dbb1ffe5444bc6d33e1cef4483e61f52b9f59bdd",
+   "before_lines": 648,
+   "after_lines": 651,
+   "before_bytes": 20570,
+   "after_bytes": 22186,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/NodeMapMenu/NodeMapButton.luau",
+   "before_sha256": "cdae32249527e2dcd6a89a898838dbe721d672bae06ec1463bbc842a83a7fef3",
+   "after_sha256": "1eb6fc3cf9d1fff893ffffd42a4fb16290f9ab3790fd200fbd884a094c5e1946",
+   "before_lines": 247,
+   "after_lines": 246,
+   "before_bytes": 8033,
+   "after_bytes": 8024,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/Set/SetHUDLabel.luau",
+   "before_sha256": "ca0a6c192fa7548c1436d4544c20e3ea6e61a4ba330bf0a8dbf97fa4cb501db0",
+   "after_sha256": "2ff98552329033ae043ac5a1603a26b48dc2edc3228b52cdf4a98c73ca63444d",
+   "before_lines": 121,
+   "after_lines": 120,
+   "before_bytes": 4562,
+   "after_bytes": 4541,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/Set/SetLabel.luau",
+   "before_sha256": "c0efa61b180bc2d6ccbbad87a49c1983950e68f5aa8bf05da50743ead9cd0fa0",
+   "after_sha256": "ff1593fc568bc355394f70d84ddf341e5f5b9e573f039363ed954cf69fceafca",
+   "before_lines": 157,
+   "after_lines": 156,
+   "before_bytes": 5220,
+   "after_bytes": 5199,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/StageInfo.luau",
+   "before_sha256": "788c18a313ceb2994412bc8ee4b8f2ec579559ef0399c83c351c2d4735f9ffc2",
+   "after_sha256": "6d4b5760e6c5f903e1bf6cc8c5ec02825a944e412fa258f7aaf03000fbfd6f80",
+   "before_lines": 124,
+   "after_lines": 121,
+   "before_bytes": 4238,
+   "after_bytes": 4275,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Expedition/TopHUD/Old.luau",
+   "before_sha256": "e04acc5e3aa40a2781f1e6b35d07f29e991e1083120b4a6e9c790c012ebd7e1e",
+   "after_sha256": "fd24abe63af8f03b96e812b508ba92ce86d561d8df0a533fc4edd8eeea3d7ad3",
+   "before_lines": 173,
+   "after_lines": 165,
+   "before_bytes": 5721,
+   "after_bytes": 5951,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Summer2026Event/HordeTimer.luau",
+   "before_sha256": "7af753f0d008d8e6115e6c65a1d4515712b08aecdc31dc68434389432a683180",
+   "after_sha256": "42144e2e93dc6b558bdd89b20f7b6eb8108e032cfdadac0ef82f84b93a44bfe2",
+   "before_lines": 394,
+   "after_lines": 393,
+   "before_bytes": 13084,
+   "after_bytes": 13063,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Gamemodes/Summer2026Event/Hotbar.luau",
+   "before_sha256": "4204e442101bab70ef1a455f2ad6e56f9b736e8fec087aef8f29fa71d7e8af00",
+   "after_sha256": "5ab5214afa88a215dc0b82911312011c2a1d385dbcbe244731141df12033a354",
+   "before_lines": 111,
+   "after_lines": 107,
+   "before_bytes": 4014,
+   "after_bytes": 3993,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/AbilityInputLabel.luau",
+   "before_sha256": "baf60c7f5313950c26cd29b7499279830ade3ca8a953c0fc8bdb3c3136ec40a3",
+   "after_sha256": "9cf03ae0448d9bf415f3bf6a48dda3f38908ad226986798b4bc982b07983ac91",
+   "before_lines": 213,
+   "after_lines": 212,
+   "before_bytes": 7828,
+   "after_bytes": 7806,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/CurrencyLabel.luau",
+   "before_sha256": "ce2f25a5e9e4866be15f5bcd4844cd1d141ba1763dcc3547eeb5efac4d549dc8",
+   "after_sha256": "cbe0ab93c4bf92e4429eb07a03324cb9d6c27e8e43893a1aa073330d398de460",
+   "before_lines": 113,
+   "after_lines": 109,
+   "before_bytes": 4008,
+   "after_bytes": 3934,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/Hotbar.luau",
+   "before_sha256": "cc142fe001affe526711b526b7872f16501ee998552739d4f14bcc9f0cf50688",
+   "after_sha256": "ed62e4f1c38ce8487a3be484f5db88ab40f94efe4735b38d8d7af2a2cd291a4d",
+   "before_lines": 316,
+   "after_lines": 316,
+   "before_bytes": 10619,
+   "after_bytes": 10659,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/BottomHUD/init.luau",
+   "before_sha256": "a8c864e213c1ae293308083a6320ad61446ed1c36a6334f85a7bf5050bcab951",
+   "after_sha256": "c763c372d105f193e492fc02e2a7a074e268a4bb74d7df74ab834e268a2ee850",
+   "before_lines": 600,
+   "after_lines": 597,
+   "before_bytes": 22790,
+   "after_bytes": 22791,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/Game/TopHUD/IconLabel.luau",
+   "before_sha256": "e646f095735ea9fb01ca86db5c68599140308c50ef48710dab01f4dbd146b50a",
+   "after_sha256": "cfa12e52154a7d13f590e45b5959fefe1350326b5f5d38c47fa462f68cd8ef49",
+   "before_lines": 206,
+   "after_lines": 205,
+   "before_bytes": 6484,
+   "after_bytes": 6463,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/ItemNotifications.luau",
+   "before_sha256": "5a45a6e9a70aca877ed1a09472f2d73e9055843b64258319bdc5dc3b7514011e",
+   "after_sha256": "508db7a7c195bab66b008ab8750fde31b5bf7f583b1e85ddc5be2a69fdc12e06",
+   "before_lines": 281,
+   "after_lines": 281,
+   "before_bytes": 8490,
+   "after_bytes": 8530,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/LeftHUD.luau",
+   "before_sha256": "29751003719cbc158c98bfe99c1cfac11c3df3d68ba3f2433d48c90022c42ec8",
+   "after_sha256": "0ffa6d786338d88eaa10e129555f0a0da387990d548b5ba753a8bd8be8692996",
+   "before_lines": 173,
+   "after_lines": 165,
+   "before_bytes": 5305,
+   "after_bytes": 5452,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/Lobby/RightHUD.luau",
+   "before_sha256": "e0fe54c11b095f296ea66d217519fe6bda1921ef1808f5de57249db837c1a90d",
+   "after_sha256": "3059a0d26f424c85ff260bff7ccc2104baa7a0c0d2c1eca6f585e9495faf15bc",
+   "before_lines": 81,
+   "after_lines": 79,
+   "before_bytes": 2555,
+   "after_bytes": 2578,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/PinnedQuests/init.luau",
+   "before_sha256": "b4660867b8d611d3c26b90e261f71b4ed0282d5a3afaca9c2a0fee544cfe865a",
+   "after_sha256": "cb84716b3109bb6a31921f9bd56d7a7a4f8e949197bfe40a9f0423ad9efd39a0",
+   "before_lines": 267,
+   "after_lines": 266,
+   "before_bytes": 8951,
+   "after_bytes": 8928,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/PlayerList/init.luau",
+   "before_sha256": "0acedc1d8bf9e7a1f96a2a1423d9589740f99bb4d65cdf9dc5c5e67fcff875e9",
+   "after_sha256": "e4c41a1ab3fe4ba1cba08a316472d3450c4b55c00b7da29e72db56252aee2e7b",
+   "before_lines": 306,
+   "after_lines": 304,
+   "before_bytes": 9769,
+   "after_bytes": 9704,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/PlayerList/PlayerButton.luau",
+   "before_sha256": "13aa2f1485a317a7598f98cc4a95ea3b269d7aad46722c8a96001be8f93f8362",
+   "after_sha256": "ceb9273cd9012b8e7368567cfcbcbec0139386db568df9ca53ea39645a4a10b5",
+   "before_lines": 372,
+   "after_lines": 371,
+   "before_bytes": 10874,
+   "after_bytes": 10853,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/ProximityPrompt.luau",
+   "before_sha256": "42b4a44ecbd8e9be8653a7cd09b6a1c726d30e4c43ba5ae5b2f92c376292385b",
+   "after_sha256": "f49519ee716337c4a311dd3e4da6eee0f5fc5ea39f27e64141898f81818a0315",
+   "before_lines": 222,
+   "after_lines": 219,
+   "before_bytes": 7556,
+   "after_bytes": 7612,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/TeleportIcons.luau",
+   "before_sha256": "37c44f20114829876ffc3eff99b2d9700aee45f713dbb7b5545699975b5c015e",
+   "after_sha256": "149e17e3a3cc45cd01500c9f4e95fb711b9f4f2915aa11490425699179ae7f14",
+   "before_lines": 111,
+   "after_lines": 109,
+   "before_bytes": 3561,
+   "after_bytes": 3535,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/TopBar/DropdownButton.luau",
+   "before_sha256": "c8c187d7bd1302ae90e1689ac27161a9f4234d6119b6d1c8b9f76824570556a6",
+   "after_sha256": "32e83625e8adc437dc89ed674ed2c0dbcdf94c708be70a9bc2fa0e9958a22e36",
+   "before_lines": 50,
+   "after_lines": 49,
+   "before_bytes": 1546,
+   "after_bytes": 1525,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/HUD/TopBar/init.luau",
+   "before_sha256": "5fe03782fd943e9bd1f3dea3b39a4b91d2c6820e9ecdb59e4ca53c475f903f0f",
+   "after_sha256": "565c8fb51e6fcc06c038a8714e02db93a862ef7af127ab0de7c016624c59f7ab",
+   "before_lines": 143,
+   "after_lines": 140,
+   "before_bytes": 3559,
+   "after_bytes": 3516,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/Archetype.luau",
+   "before_sha256": "2a631b3fa7a0f9de6f31f297e4d10806a893dab00275494181200890b25bab1f",
+   "after_sha256": "75efaf0d4bcfa419f53b63c035277fc58422498797d45e798bc3166b0ee8103b",
+   "before_lines": 96,
+   "after_lines": 95,
+   "before_bytes": 3218,
+   "after_bytes": 3196,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/AssetIcon/init.luau",
+   "before_sha256": "35ba078ceb22604962b5b71ffc0d98354f035277699f99ef61e1734bc9dec82a",
+   "after_sha256": "d4570cfa158ccab5f4b0edc01eee99e716d18f1f43bb4b8e8e1d2e42e6a2ca17",
+   "before_lines": 188,
+   "after_lines": 187,
+   "before_bytes": 6207,
+   "after_bytes": 6186,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/AssetIcon/Item/EquipmentTome.luau",
+   "before_sha256": "7f80efe63febdd90837a832e565e9235f2a3e06bfa96db1d1826a74b7a5bdf5d",
+   "after_sha256": "274faed48415619c48b04c2205f9bcb0a637a8fb1a5b408b8294213de9f57abf",
+   "before_lines": 63,
+   "after_lines": 61,
+   "before_bytes": 2322,
+   "after_bytes": 2286,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/AssetIcon/Item/ExpeditionTome.luau",
+   "before_sha256": "6b3988d20a37526a9c2d0f3292383719c356b6bb08f4813ef9e18b5d7e2c0565",
+   "after_sha256": "2123fdc685f65ffdf6a99ea787302c1b3e57616edaa231fd1296ec5208c732a2",
+   "before_lines": 59,
+   "after_lines": 57,
+   "before_bytes": 2169,
+   "after_bytes": 2133,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/Element.luau",
+   "before_sha256": "7d659609ffab777e9ca96a308f823fba9ac42281068d460f09e942d9725913e2",
+   "after_sha256": "a857507777b5ef600236f1c158a7a1930b9e6383711c4c71044087a9752dd58a",
+   "before_lines": 96,
+   "after_lines": 95,
+   "before_bytes": 3196,
+   "after_bytes": 3174,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/EnemyModifier.luau",
+   "before_sha256": "2225f86d4b901064f05e086655810069498dc4c02fda47b4da85db3ed59b2074",
+   "after_sha256": "b70d5499823a3ea5103b46d68911e2e4ba4506d583d155446fbd65cab4668b58",
+   "before_lines": 111,
+   "after_lines": 110,
+   "before_bytes": 3824,
+   "after_bytes": 3802,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/EnemyResistance.luau",
+   "before_sha256": "d38140ac8ae9f1b003f7867e91dfbd40657e677d530663d1ff815511f44ba5dc",
+   "after_sha256": "f7ecc47e853af75119621f4c6bee0b69245857892e5057d567800da21b38a5ce",
+   "before_lines": 166,
+   "after_lines": 165,
+   "before_bytes": 5769,
+   "after_bytes": 5748,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/Event.luau",
+   "before_sha256": "40d0eb6d702fda7cc0bb88e6a88e435ea74b8a494412afce31cf1e970e91889d",
+   "after_sha256": "9fc5e5c73bc4b057671192a946a171a807cbdf4593c765912a8977d06cd44cc8",
+   "before_lines": 55,
+   "after_lines": 54,
+   "before_bytes": 2019,
+   "after_bytes": 1998,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/GameModifier/init.luau",
+   "before_sha256": "514f4289a2eae33f72a8c15174fbf67011a480a2b5a8e23e6f789e48611df104",
+   "after_sha256": "2817875a2072b032db7e7ae21432d1ad69f2366e6b81d6ce01840110a3b6532b",
+   "before_lines": 120,
+   "after_lines": 119,
+   "before_bytes": 3829,
+   "after_bytes": 3808,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/Potion.luau",
+   "before_sha256": "df65d915521e310542bb9163130280df725b1a79c8a539f5fbc207fe706423aa",
+   "after_sha256": "845d29427da33e99c0f8f10790f76844dd83d7eab6511abf09ae919f5fd9f11d",
+   "before_lines": 55,
+   "after_lines": 54,
+   "before_bytes": 2012,
+   "after_bytes": 1991,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Icons/StatusEffect.luau",
+   "before_sha256": "60b7f4e134ad2c1f36e36369460ae4a8656c396c3572cb70dd08e28f33b8b17f",
+   "after_sha256": "39fdc9f03d30f182ca11ca1c0dd4c4f0f577f655e84e7d1d51f4be832e68c2ee",
+   "before_lines": 127,
+   "after_lines": 126,
+   "before_bytes": 4386,
+   "after_bytes": 4365,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/FlowLabel.luau",
+   "before_sha256": "4001e6877a168b2ec3e9950a454e87b1cb4aa638576b9ce9fdbd20def2519892",
+   "after_sha256": "7b392d0622f04ea9ece842f55d3d0d2c1ae5bd92943e1ed8b008e432a5c3e45b",
+   "before_lines": 145,
+   "after_lines": 141,
+   "before_bytes": 5027,
+   "after_bytes": 4986,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/KeybindLabel.luau",
+   "before_sha256": "95f706517dc34d0c96c083bd5b78a79112f14e3e917a4c5dfd8e8cebf7d8f2f7",
+   "after_sha256": "a886ec9658fb4759ab1bb73678f77fbb6cfafabdd1068dd26b7f36070edcda8f",
+   "before_lines": 79,
+   "after_lines": 77,
+   "before_bytes": 2729,
+   "after_bytes": 2693,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StatGrade.luau",
+   "before_sha256": "92c1bee5f9874caaf411999f01a199303705da0066ffa7a95b28474918090fee",
+   "after_sha256": "5a19f98bd26bcce171d13a564d044fc7195ba60dfc931cf9bbcc91b5ef91a126",
+   "before_lines": 119,
+   "after_lines": 118,
+   "before_bytes": 4005,
+   "after_bytes": 3984,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StatGradeText.luau",
+   "before_sha256": "2ba4d54a56ee919337bcab289bbf2991db522e830e75e3394d7fda4c348819d7",
+   "after_sha256": "47798f71632a6b5792fc2959e259f4da446d8bf0d9fb53ffb2fff0c1a5a33489",
+   "before_lines": 65,
+   "after_lines": 64,
+   "before_bytes": 2584,
+   "after_bytes": 2563,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/Ascension.luau",
+   "before_sha256": "06759317641ca7e3efccba7bac954b655807dcd4af807aa038e6600e136d867f",
+   "after_sha256": "27aea55119e306a6c7fb7106b421463a5264320fdf9a1d38f884318a304a6f77",
+   "before_lines": 55,
+   "after_lines": 54,
+   "before_bytes": 1927,
+   "after_bytes": 1906,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/GameModifier.luau",
+   "before_sha256": "7d050293f3e8c256402d0d570c4505f3ae49c1879e12fa0343fe8e03c38fa1ed",
+   "after_sha256": "0b6548771f4cee11febf275555fc44bc9e422d76eb2a3e9a568ac7e5f9b6102a",
+   "before_lines": 55,
+   "after_lines": 54,
+   "before_bytes": 2138,
+   "after_bytes": 2117,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/init.luau",
+   "before_sha256": "8a328ca050ff6e5a2e7a8df382540349d0f2fddd25fc9f6c5d7808ad99389dd5",
+   "after_sha256": "ac3d1761b3908cbe89daa8f2d4f467501eab464deb2a5e8cc71905d8eb3401f1",
+   "before_lines": 131,
+   "after_lines": 130,
+   "before_bytes": 4214,
+   "after_bytes": 4190,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/Limited.luau",
+   "before_sha256": "71423b9a9724468e77d6c24ec9a7b19d7b612151bae7171db6198a7a25d43c7c",
+   "after_sha256": "d5fbf42cf1edebc62a41f2bf3e5d43ab02fdeb8274deebda758c5224e9d276f3",
+   "before_lines": 58,
+   "after_lines": 57,
+   "before_bytes": 2235,
+   "after_bytes": 2214,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/PortalAugments.luau",
+   "before_sha256": "5b649a6c30b99162f9c19b88fa98ba2362e9ab72892e97c71469c3aca4f6c0ab",
+   "after_sha256": "afa1c2ac11573ce41d967ef1e92381307e53820d5981c788289d0ed5cf78acdc",
+   "before_lines": 87,
+   "after_lines": 86,
+   "before_bytes": 3241,
+   "after_bytes": 3219,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/PortalLives.luau",
+   "before_sha256": "b6b105ec34212652aa09e21c7d6f6f817ef4d4dbc05e73ba0f7e3edcc2e801e1",
+   "after_sha256": "7e178bfee075305856aa8e48d615d6484e500e64effdf17cfd7913243ff412d4",
+   "before_lines": 87,
+   "after_lines": 86,
+   "before_bytes": 3293,
+   "after_bytes": 3272,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/Shiny.luau",
+   "before_sha256": "869510cf6e041b1f6c82de601ce1c6c50898973db3e901eafdfaa627b19885f1",
+   "after_sha256": "2ded227dabe94f36c8c4c75b5f20ca7fcf65cfc6dc3d7af0ffb3e46ba7b6d8c6",
+   "before_lines": 78,
+   "after_lines": 77,
+   "before_bytes": 2753,
+   "after_bytes": 2732,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Labels/StyledIconLabel/Trait.luau",
+   "before_sha256": "1edc365225ca5c2748742c9e96cd55d0151506444744c69539a59aba77381fad",
+   "after_sha256": "2d4b3971c4138001752419b61df42d951801c7680060f4d4db7d36842ddc1055",
+   "before_lines": 49,
+   "after_lines": 48,
+   "before_bytes": 1789,
+   "after_bytes": 1768,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Achievements.luau",
+   "before_sha256": "94fdf565f5711f3e17f0d701e3c3477572c4c005ee042728a0e3b11df519cda4",
+   "after_sha256": "f3fe9fb9e0c148a252c4c07f40776eba5c0d8da61c6c85e73b14f9390712f138",
+   "before_lines": 343,
+   "after_lines": 340,
+   "before_bytes": 12133,
+   "after_bytes": 12099,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Areas/AreaButton.luau",
+   "before_sha256": "ad0215cdd6413ad3dd15231bdeadf8c8faab5e0e23a9ec96aa13cb510a12458c",
+   "after_sha256": "611d5fe1daaa6b980db6358b322b2ffb796a5d1c48cb6727f039c10b44cb619c",
+   "before_lines": 351,
+   "after_lines": 350,
+   "before_bytes": 11875,
+   "after_bytes": 11854,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/AutoPlaySettings/init.luau",
+   "before_sha256": "c7036c715f15e6b5cc96b4ce9d7e32795417df25e326dbe18bdf9a66af0a7e85",
+   "after_sha256": "e18171396f506db5fe9ca4c555bea7a53ef21084e3f3715516978bfd07961b81",
+   "before_lines": 474,
+   "after_lines": 476,
+   "before_bytes": 16789,
+   "after_bytes": 17813,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/AutoPlaySettings/PresetButton.luau",
+   "before_sha256": "a6b1130fcd209135f753aa4a668fa9cd6b51b9b86ea4ffaa086059beaf818e9f",
+   "after_sha256": "35159dd36c416da04972b86d50679637a1555002f83a8e7b9ca03a30e76a4225",
+   "before_lines": 165,
+   "after_lines": 164,
+   "before_bytes": 5899,
+   "after_bytes": 5878,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Battlepass/init.luau",
+   "before_sha256": "491cc02e36f095e5287eb0f371aba060679de4aaa335ba69da7e47ac541a6b35",
+   "after_sha256": "e88d2e8e809b5e171b0fd20f49655098532fcb93e122a5b3073e5e33c1d81b35",
+   "before_lines": 333,
+   "after_lines": 330,
+   "before_bytes": 11709,
+   "after_bytes": 12421,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Challenge/init.luau",
+   "before_sha256": "45b51a84a95ff9007a3c077b53c289f098a260d006b7c6b14f0530dd7b085517",
+   "after_sha256": "57556d359cec151875da5f8486c7eb4cf6afaf18587b3fdba14010f0e85d8d79",
+   "before_lines": 325,
+   "after_lines": 324,
+   "before_bytes": 11599,
+   "after_bytes": 11575,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Crafting/init.luau",
+   "before_sha256": "f487704625b7cac13c9d5eee2ca5cf085f039ef303ad3b386fe6fd2abc83ca01",
+   "after_sha256": "13367b2f279e6f61d26d722cf2b09f92928447fae6582aed14170f98081062cb",
+   "before_lines": 619,
+   "after_lines": 606,
+   "before_bytes": 20676,
+   "after_bytes": 22043,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Crafting/SelectRecipePrompt.luau",
+   "before_sha256": "2c85bb15bbfd859130ee185a435613fb62c51c1183acf7e0c703ea02ca4cc2ab",
+   "after_sha256": "ccb65630b6360aae7938a6d91e4f66212df62a392b67eb146befd7a59ac7627e",
+   "before_lines": 171,
+   "after_lines": 167,
+   "before_bytes": 6008,
+   "after_bytes": 5958,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventCalendar/init.luau",
+   "before_sha256": "e456a365aa9c0e9e876a0fa128deb31fd8d1efbd24b1e10d780f1863ee14c5a2",
+   "after_sha256": "c832b1d01aaeb55884d8ca5cfec85d2e1b6c9aa37867e57787af2585d693f80d",
+   "before_lines": 627,
+   "after_lines": 635,
+   "before_bytes": 19627,
+   "after_bytes": 21198,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/Default.luau",
+   "before_sha256": "08988a1df4fc8cfa390474bc944f246305ab27a0797e999d0e9277967d2cdd9b",
+   "after_sha256": "884328d1888ab1008b3d28b33586f1e3ebf10ad5eb97a7bcd6760956d440c017",
+   "before_lines": 99,
+   "after_lines": 94,
+   "before_bytes": 3149,
+   "after_bytes": 3124,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/GuessUnitEvent.luau",
+   "before_sha256": "159963fa608777bfac01ce4f9458ff67d3f2e7ea09f520eab0baa2512bf8358e",
+   "after_sha256": "8b0ef43a24e65ab57b3cd04330aeda4be80eddcfc0e42bb939cd08e3cbc62d15",
+   "before_lines": 68,
+   "after_lines": 66,
+   "before_bytes": 2665,
+   "after_bytes": 2599,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/ShenronEvent.luau",
+   "before_sha256": "a46b25ea266acbb5987b3aaa2c54dab23e677223151da54360b3e6c1297f35dd",
+   "after_sha256": "adc09fc78fb9e66285dd021b3b760312c8bb5e338dc291bf7490b852791dd102",
+   "before_lines": 72,
+   "after_lines": 71,
+   "before_bytes": 2807,
+   "after_bytes": 2786,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/Summer2026Event.luau",
+   "before_sha256": "bcbd3a9efde8b7541012ed555b9229ad75c2da216b878f946bc38a0922035778",
+   "after_sha256": "8abd6a4b0e43d4149f51b2aa7d040e679bc882c6015ecb15c1ab01dc43c7b7fa",
+   "before_lines": 99,
+   "after_lines": 97,
+   "before_bytes": 3281,
+   "after_bytes": 3273,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Backgrounds/SummerFishingEvent.luau",
+   "before_sha256": "0661c921b37698323889ff470ee96f03a133e0b97a8e345e25da23555827ff58",
+   "after_sha256": "d0b9ed17ec344996dcd7880ea58556d8243c21c50a024938f994b9ab2cdc3cbf",
+   "before_lines": 114,
+   "after_lines": 113,
+   "before_bytes": 3258,
+   "after_bytes": 3237,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Content/BountyBoard/BountyQuest.luau",
+   "before_sha256": "1373ab75e1c1eb57a1e17b3a3bbfdea7314bdee3a6eb5915df89ae3d42c9351c",
+   "after_sha256": "6645023fdaa25e6bf2008d4caf4acb93c8d6d6bda18efb735aa6981dc2ad8d5d",
+   "before_lines": 548,
+   "after_lines": 548,
+   "before_bytes": 19059,
+   "after_bytes": 19408,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Content/Calendar.luau",
+   "before_sha256": "333cc16d1fd5b817292ebd82b437b12fdc671bb0cc92f6a87165f925248085a6",
+   "after_sha256": "caef688be52fe2f831321aecb10402207b19bd7580dd535c207d4587bfa12f48",
+   "before_lines": 199,
+   "after_lines": 199,
+   "before_bytes": 7252,
+   "after_bytes": 7509,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/EventNavigation.luau",
+   "before_sha256": "0982764d4ae2a0ca7ce4453bbc5887fd44363b069ee4e384a4eecc2848ab7a14",
+   "after_sha256": "0df88dc22035cd231be59e11f25503c28871cd2e6a7543cd3d3e8974fbf820ef",
+   "before_lines": 319,
+   "after_lines": 313,
+   "before_bytes": 9367,
+   "after_bytes": 9512,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/GuessUnitEvent/GuessUnitPrompt.luau",
+   "before_sha256": "5378a7d5799a9550513e0ae513b5b38221c69e36ad7fa31e513a4521f8e7d321",
+   "after_sha256": "42396433691252250a793c30bf748cb6748d9f9c13215c61c3811c0ba80055aa",
+   "before_lines": 551,
+   "after_lines": 551,
+   "before_bytes": 17818,
+   "after_bytes": 17898,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/GuessUnitEvent/init.luau",
+   "before_sha256": "3d994ff73434ce77c08b993e15925891d5593b2010b83d2eca284ad37d855f03",
+   "after_sha256": "0e446b73c00eca7bdc18d1813489e8814a91883fb986db23beb7beab3e495d21",
+   "before_lines": 267,
+   "after_lines": 267,
+   "before_bytes": 10888,
+   "after_bytes": 10968,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/HeadlinerHunt/init.luau",
+   "before_sha256": "4cb46721217433ac32e7421d338690d7ae7e00aa4980f4aa7168ab60a8b18904",
+   "after_sha256": "c5fea4116b5176d8f036aba358069e5a3162a9e6786cb6f0dca1c23d7ee822f7",
+   "before_lines": 518,
+   "after_lines": 516,
+   "before_bytes": 18671,
+   "after_bytes": 18680,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonBackground.luau",
+   "before_sha256": "f56911a9b1dda81e5e77e1819f29e2133c0f3595542edd5fbbfece306f7b12e2",
+   "after_sha256": "5415df96759460f7a5a94e052981d371c670ddb3e82c4da55cb7cd83aaae6a22",
+   "before_lines": 402,
+   "after_lines": 399,
+   "before_bytes": 13899,
+   "after_bytes": 14168,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonOutlinedLabel.luau",
+   "before_sha256": "ffef1b9410ba8461d0dc151249c6d6af9a0cee2b9df646133df57ff2ee0c4d23",
+   "after_sha256": "317552e086e5aecd3e505ee047296efb1f3d4ee692e327f98860d22279b0e148",
+   "before_lines": 118,
+   "after_lines": 115,
+   "before_bytes": 3769,
+   "after_bytes": 3732,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/DragonWishQuest.luau",
+   "before_sha256": "7ad4865fca7e872c0f260cacb03f8984132796580d4df5afb863a97c5d44602f",
+   "after_sha256": "2ee6037748d8a52f206ac53f7b94d1835fa987d01644a5720ade6358ee18905a",
+   "before_lines": 418,
+   "after_lines": 415,
+   "before_bytes": 14772,
+   "after_bytes": 15019,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/ShenronEvent/WishUnitPrompt.luau",
+   "before_sha256": "2a8861553da10368b3e3ea32a0b220df22e2eeecad8f0ace8870b691409135c8",
+   "after_sha256": "8a63ef8bba1d46fe5e7e3000568bde053b948faaa513598c9650a88fc2b4c56d",
+   "before_lines": 366,
+   "after_lines": 359,
+   "before_bytes": 11625,
+   "after_bytes": 12271,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/ModeButton.luau",
+   "before_sha256": "8ba067647c0730e7ad1f9733baa821d83bfb9f5a2c294252edad6b4e4d05da5b",
+   "after_sha256": "d6f7a32c1c0823994dde73959eeb5b1b9925201e808a269ceff3fa131611494f",
+   "before_lines": 273,
+   "after_lines": 264,
+   "before_bytes": 8815,
+   "after_bytes": 9245,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/Pages/Gamemode.luau",
+   "before_sha256": "a9d73870663f002e5f883922058a11d6588993bad252131e61417b764be25a02",
+   "after_sha256": "3c60ff3e2f34fbe322b3660475a5f71be191b752940953df470e099859196a44",
+   "before_lines": 231,
+   "after_lines": 230,
+   "before_bytes": 7268,
+   "after_bytes": 7247,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Layouts/Summer2026Event/Pages/Home.luau",
+   "before_sha256": "014287eb44239af5acd337db444729593aa940aa6904d440befe8f837a0f08e1",
+   "after_sha256": "8bccc3a4dd06305a5c3cc10fc6e48f02be36b7eb9417517598ccacc76e3591c4",
+   "before_lines": 327,
+   "after_lines": 321,
+   "before_bytes": 11110,
+   "after_bytes": 11445,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Shared/EventActions.luau",
+   "before_sha256": "cf2139e3bfb0e113c6113bc0b7d1f37a2984a0cf6ea949eb3cdf81703ba83b5b",
+   "after_sha256": "efa4d054571942cf8724b6f3525059dd7b5b3986fcdc8bd1628ab19fbdb52f92",
+   "before_lines": 236,
+   "after_lines": 229,
+   "before_bytes": 8048,
+   "after_bytes": 7738,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/Shared/EventDescription.luau",
+   "before_sha256": "75cc55047f806dcc9dbf96c8af70bb08f5b895c30360bd743c114074ef867914",
+   "after_sha256": "c87a79527ac43392350a401cfe8e97d5fea5450b7532a29ba8c873d680f2f83f",
+   "before_lines": 97,
+   "after_lines": 95,
+   "before_bytes": 3341,
+   "after_bytes": 3328,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/EventView/SingleMenu.luau",
+   "before_sha256": "862dfdbcb59ccff4baad9f343cb8236340ca67538b9923b9230a24eb22f5fe4d",
+   "after_sha256": "d0c961bb88585a78588ea3596d00889da0365af4ecd08e3851b3238021f55c76",
+   "before_lines": 92,
+   "after_lines": 87,
+   "before_bytes": 3099,
+   "after_bytes": 3091,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Evolve/QuickCraftButton.luau",
+   "before_sha256": "5fa9672e94e5d4e6ac5076bdb4f355d35c75f59c8c211bd7c08303eec5b1595a",
+   "after_sha256": "ee8a66cc09dca076689efd1c289e4c1ec9dd3fed893136c8c02ef6104aa8fc2d",
+   "before_lines": 52,
+   "after_lines": 51,
+   "before_bytes": 1805,
+   "after_bytes": 1784,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Expedition/Entry.luau",
+   "before_sha256": "d71edf817ab5e42eab020689745da06963279075b1b74cb27595d25fbfa83768",
+   "after_sha256": "2aed65a57b1b6720e10ffa4641be7ae4274e536c7d146fc1271dc7aefcdc5310",
+   "before_lines": 714,
+   "after_lines": 716,
+   "before_bytes": 24777,
+   "after_bytes": 25764,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Expedition/PayloadSelection.luau",
+   "before_sha256": "b72db8079e8c32b3818404208516ade21c46576505ff97779f59462c5ee3d119",
+   "after_sha256": "6d65444ef413bf8752db22561034d1fa3a29d0453014c0c92c1392579e39945b",
+   "before_lines": 568,
+   "after_lines": 560,
+   "before_bytes": 18802,
+   "after_bytes": 19352,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/GuildIcon.luau",
+   "before_sha256": "038103e8addb4ba504d9998e1a04d5fd7619a36d558830e00c2f6db78943e13f",
+   "after_sha256": "ca08963a787f9bfba8477173314c75968439f67abc2b22c7603d999f65adff09",
+   "before_lines": 52,
+   "after_lines": 49,
+   "before_bytes": 1786,
+   "after_bytes": 1735,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/init.luau",
+   "before_sha256": "4e14333735e8ff197dd3c8709a57f5bf249a5e17bd20f50627dcad34f3e5358d",
+   "after_sha256": "260ad2910ebef3f986339b7e5bd64c90333b2006f9d734d529c40c387bdcef23",
+   "before_lines": 164,
+   "after_lines": 161,
+   "before_bytes": 5325,
+   "after_bytes": 5446,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/Pages/Vault/EditColorPrompt.luau",
+   "before_sha256": "712f97269efe5d07f4eda0a3639daeca942488f1cbee74ceb172c318b280b767",
+   "after_sha256": "e8b0d15c6ece3d24e4ae76a2d3fa9eabfa5433f700b1998ebc6f69261ae193c3",
+   "before_lines": 210,
+   "after_lines": 210,
+   "before_bytes": 7224,
+   "after_bytes": 7284,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guild/Pages/Vault/EditIconPrompt.luau",
+   "before_sha256": "e658ef01985610f95a390fe809ab3b550b5b89bb9565574505b444fdee1deb9d",
+   "after_sha256": "588b138e540345d2dddff97b3e9f5be66e23d9eb61a5b7798fedb0834fdcfdb8",
+   "before_lines": 293,
+   "after_lines": 293,
+   "before_bytes": 9996,
+   "after_bytes": 10036,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guildless/Pages/Home/GuildCreationPrompt.luau",
+   "before_sha256": "da88d2d4ea656b5e80e05cd4841806c7f49d8048813b62c1ff956fb7519ce4ee",
+   "after_sha256": "64c645c9722085d067afffda3329b1b2b3e2269a8a0b316ed41c4a84db84336a",
+   "before_lines": 344,
+   "after_lines": 336,
+   "before_bytes": 10781,
+   "after_bytes": 11522,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guildless/Pages/Home/init.luau",
+   "before_sha256": "2c528206ff407602791305082971c7079540260e11bb57b617e6e9f526fc713b",
+   "after_sha256": "ca61b1324e97060e54e600df1702d84d9b2802b5339772e4498cde500d00babb",
+   "before_lines": 118,
+   "after_lines": 118,
+   "before_bytes": 4266,
+   "after_bytes": 4306,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Guildless/Pages/Join/init.luau",
+   "before_sha256": "0d40cc40a93d9c019bbfe81297271be1ff07242cc575ae7cadd8aaee6f6c34d4",
+   "after_sha256": "31c2638cfcc34dd62672e653bbbf0c1abe4d4a881f7eb8ce1a784cc2d545a55d",
+   "before_lines": 217,
+   "after_lines": 216,
+   "before_bytes": 7251,
+   "after_bytes": 7230,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Index/Pages/Enemy.luau",
+   "before_sha256": "8c3e495ce8dfbad819a257569e97a92238ec50ceec057e4cb1cb3749ff0c71b3",
+   "after_sha256": "de3b06c8e95eff5990b1ce96ba17961135c27a5ab9392df5ec3cbf47a22d1b38",
+   "before_lines": 371,
+   "after_lines": 364,
+   "before_bytes": 11798,
+   "after_bytes": 12391,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Index/Pages/Equipment.luau",
+   "before_sha256": "9e8a69d1c467a518edc91433c3c5821248d70e742ac71962504d581d038eedb9",
+   "after_sha256": "6e78b26e526380e2f070d6cdf36acbbaf425d207e26cd70fef61d790c3b26acb",
+   "before_lines": 357,
+   "after_lines": 350,
+   "before_bytes": 11501,
+   "after_bytes": 12066,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Index/Pages/Unit.luau",
+   "before_sha256": "3d9462f5f5d65315946549c9fe1f46a6789033dc9ed914f5578d6bd38aaca22e",
+   "after_sha256": "57fad2ac1a553bd066cd61c0a159f6869c30d110f436b886ae7a92f5a383d5a2",
+   "before_lines": 376,
+   "after_lines": 375,
+   "before_bytes": 11974,
+   "after_bytes": 12642,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/ItemInventory/PortalPreview.luau",
+   "before_sha256": "4e3e3e667777c23fb7d5abc5982579d55ea29f3c6497def3aa808bf2deeaf255",
+   "after_sha256": "44a9a6535089923c9290d0be2bbd1772a12156570736278af0423fe631c15595",
+   "before_lines": 334,
+   "after_lines": 334,
+   "before_bytes": 12121,
+   "after_bytes": 12127,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/LeaderboardDisplay/Leaderboard/Entry.luau",
+   "before_sha256": "8ee07953784c96b40f495167f4f115e570c3d88fd3b3ec4c6b07afc5bc9a7139",
+   "after_sha256": "9acd008c0256c68937a2a2bee60c5c439d9bf2873cce5204fe763820e7f4de3f",
+   "before_lines": 114,
+   "after_lines": 113,
+   "before_bytes": 3611,
+   "after_bytes": 3590,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/LevelMilestones/init.luau",
+   "before_sha256": "d6d2569c0b17d3f7af5bb60c5752627abb3a3186f453308632db1400b27998f2",
+   "after_sha256": "d952bab42462bcf347874c2b488e4b2ecb9bc2fbbe77ab0f4aad3abe35216697",
+   "before_lines": 364,
+   "after_lines": 357,
+   "before_bytes": 12574,
+   "after_bytes": 12667,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/LevelMilestones/LevelMilestone.luau",
+   "before_sha256": "e4376296580af2a6ccc80f626c1c53edc411d5f7f3bef623c1b7dcc4612fda76",
+   "after_sha256": "ad1923ed7bd3d474ed72967a9025da129fdd467cfd460eb7dcce51e4dc107140",
+   "before_lines": 269,
+   "after_lines": 264,
+   "before_bytes": 8878,
+   "after_bytes": 9208,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/LobbyMusic/init.luau",
+   "before_sha256": "9673d587bde7b0a6bffac425a33fd357182e75480b0a4bdbceaede85192cff7d",
+   "after_sha256": "cc18c56c8833146b27ae3952a08ad510fdabe87086d9e70b02d9be48280b76bc",
+   "before_lines": 175,
+   "after_lines": 174,
+   "before_bytes": 5726,
+   "after_bytes": 5745,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/MapSelection/AssetBuffsButton.luau",
+   "before_sha256": "dba094518f64c9ed14304e2650677d277241b3e028d665bef5578fd15ae6dd32",
+   "after_sha256": "278d99753a79455ea80e0ba7e1f0d3c3771b84d3fef542dfd2bb2dd7f6cf73f0",
+   "before_lines": 45,
+   "after_lines": 44,
+   "before_bytes": 1566,
+   "after_bytes": 1545,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/MapSelection/SelectButton.luau",
+   "before_sha256": "3b10e9d6d1c584b5af8316216ee8db63d3416d2a15173ded1ef87c7d18fa084b",
+   "after_sha256": "efa22eb4944812ab3342f2818a8532080f579ad51a3379e67ab89e38229dadcf",
+   "before_lines": 50,
+   "after_lines": 49,
+   "before_bytes": 1951,
+   "after_bytes": 1930,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/MapSelection/StarMissions.luau",
+   "before_sha256": "d56bfdc4c4d49b23bb351e41e4f2bae3ac1c617df407574abb78b4b2b82b8b31",
+   "after_sha256": "9b9f7f539a75df64285b79a5193e25301c463d52694d6f9da12ede388df77ba8",
+   "before_lines": 257,
+   "after_lines": 257,
+   "before_bytes": 9680,
+   "after_bytes": 9658,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/Character/init.luau",
+   "before_sha256": "0e6ec61a12cdc7f06ae4e1f7f9e5da99e49b1ba246d9f222902d9d02f63bee13",
+   "after_sha256": "c8ee1c70c46a18fb4007f4697ee0b2bbf149a632072d8d97a0c6c09738c813c9",
+   "before_lines": 78,
+   "after_lines": 78,
+   "before_bytes": 2680,
+   "after_bytes": 2720,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/GamemodeBanner/Button.luau",
+   "before_sha256": "e9021a52f9a872022ec83c63505a429ca759c8826d8972c1bde42082eda4dc55",
+   "after_sha256": "f6ab5b576985043ce6660a5d817c0af62fd27ca669e7879380ead5f124e4a135",
+   "before_lines": 76,
+   "after_lines": 73,
+   "before_bytes": 2486,
+   "after_bytes": 2454,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/GamemodeBanner/init.luau",
+   "before_sha256": "b76add11c6ae1ce91d450e63c5dcbbf38e00774c80cfd6e94a3d68bfeb3d5fb7",
+   "after_sha256": "5e4352c6823eb4745fb2dd2ab448a1d3ac46a722cd1617df0ce47c5500fdc56d",
+   "before_lines": 120,
+   "after_lines": 117,
+   "before_bytes": 4338,
+   "after_bytes": 4287,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/GamemodeButton/init.luau",
+   "before_sha256": "afa37ef749ea35e2b299b7a1ca6197e1d77ecc6e3c965ca19c2c71afa2506dbd",
+   "after_sha256": "51c7f0ff0b9aef97e8958b097071da66a1f336c6376e0d358cc2e90293d035a6",
+   "before_lines": 452,
+   "after_lines": 451,
+   "before_bytes": 15758,
+   "after_bytes": 15737,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PartyView/GamemodeEntry.luau",
+   "before_sha256": "75479df73c49da1416319c75cc82ec41b7b1a32757cbd9d5594011071c51efe1",
+   "after_sha256": "eb33006546ec416f2f0775a0fd78db653947e9058af04f5b0e9b1c4206fef7c8",
+   "before_lines": 416,
+   "after_lines": 412,
+   "before_bytes": 14613,
+   "after_bytes": 14605,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PreRelease/EarlyAccessButton.luau",
+   "before_sha256": "57fd0ce0a0114d90dd3c7aa0c7af3e0d805824eaf1319316012f5f8a4c5338fd",
+   "after_sha256": "77ccf679cadf861e4c99899172a96a3677e64e7b70bb296f37ec280ea32ebb92",
+   "before_lines": 75,
+   "after_lines": 74,
+   "before_bytes": 2772,
+   "after_bytes": 2751,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/PreRelease/RewardButton.luau",
+   "before_sha256": "efef83d131f9b8900868bd002a9b80d56f8fc1e9e429b7e10a2435bddbf2d595",
+   "after_sha256": "80679a7b2634e820eac20c0fdf6619f1725f86afa869cf14e5c1a078a4a133c5",
+   "before_lines": 310,
+   "after_lines": 307,
+   "before_bytes": 9908,
+   "after_bytes": 10289,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Profile/BannerButton.luau",
+   "before_sha256": "f51d310231fc65d08766e170455d995327734aa6c8ccade830a41fe1460bdab9",
+   "after_sha256": "927227406fcaf7b9fa398437328a17493da1d44f0f932565abe9afb8b8c1418f",
+   "before_lines": 194,
+   "after_lines": 193,
+   "before_bytes": 6632,
+   "after_bytes": 6611,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Profile/Pages/Banners.luau",
+   "before_sha256": "6b43adcd0ca3d31681814cfdafe27249d1175f86f7600aad75633a1cef7f9a87",
+   "after_sha256": "0517dd1a8fcc368cfaf93990612139becae1227a5636a6b30e1d0fce4f501445",
+   "before_lines": 322,
+   "after_lines": 321,
+   "before_bytes": 11250,
+   "after_bytes": 11214,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Profile/Pages/Profile.luau",
+   "before_sha256": "afdc3e5e227f5fe30a72bb202bc261c33e518b19a5c55cc2d494e04ebd2cd172",
+   "after_sha256": "38cda15df3eaab1acfc872f29f0ad6786cfd78ff9f922c48177bccdcbed92bee",
+   "before_lines": 738,
+   "after_lines": 745,
+   "before_bytes": 23376,
+   "after_bytes": 24412,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Profile/TitleButton.luau",
+   "before_sha256": "0b6d7f42dccce40a643605b6dc6fc00dd1ba87c5c09d56a093b22d4e86e93560",
+   "after_sha256": "98ccdf8b9f2f00bbce8030ce32e0dca6cefba6ae745de629cbf70159573174c3",
+   "before_lines": 166,
+   "after_lines": 165,
+   "before_bytes": 5546,
+   "after_bytes": 5525,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/init.luau",
+   "before_sha256": "0bf56c875df27d9eacbe7c47c5de2715a81cf36b28abac2548852790e7fb9db2",
+   "after_sha256": "13f086d4c1508e6aafc43979421f4ff127d19eed920fa2ce34a1a6e418e0633b",
+   "before_lines": 290,
+   "after_lines": 284,
+   "before_bytes": 8865,
+   "after_bytes": 8960,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/PinButton.luau",
+   "before_sha256": "17552afa23c72f88ce0610ab5e9ef5e4efa68ba974b024d7325243ddee1dde19",
+   "after_sha256": "6f4f770747e2fb4ed6e85cf0e37d0fc569e4ebf9740eb49d9aa1b0fe26ddc43d",
+   "before_lines": 52,
+   "after_lines": 51,
+   "before_bytes": 1631,
+   "after_bytes": 1610,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/QuestList.luau",
+   "before_sha256": "cf07b0864d5b76f6f1ba7e16f84516ac63ba0a5f6cacda9d7d36dc774f113a59",
+   "after_sha256": "e0a82b43e890321aa39c5c82b74e98067f065cdfae3e157517b91b1d3d35a0fa",
+   "before_lines": 155,
+   "after_lines": 153,
+   "before_bytes": 5274,
+   "after_bytes": 5266,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/UnitTrialButton.luau",
+   "before_sha256": "488d40dbd1c5cd244b40d8d72c9da9c16ea6a13f14bb38318c8156be935e1740",
+   "after_sha256": "1b68bfbc211571396b1711e108c1cb696ccff1d67e05b1be9d2448e6a58a1f6c",
+   "before_lines": 69,
+   "after_lines": 68,
+   "before_bytes": 2205,
+   "after_bytes": 2184,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Quests/UnitTrialList.luau",
+   "before_sha256": "0410f629fc8fc10afe49a89eab05d2fb6a25e5cb899bdaa49e2e594285c4d7e7",
+   "after_sha256": "cb18eb31d872394b3120b34f0d7edeeafe58e94685c12d905b00b8d43b58730d",
+   "before_lines": 208,
+   "after_lines": 206,
+   "before_bytes": 6117,
+   "after_bytes": 6104,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/QuickOpenLootbox/AutoSellSettings.luau",
+   "before_sha256": "fe90a841284413d31c8619f1e60439225aa5389196d747a9e3c6565d63781204",
+   "after_sha256": "95a4c838a24a5c1adf9acf83b0a18607ba6c99245fab4647ae580e6d5fe1329f",
+   "before_lines": 197,
+   "after_lines": 196,
+   "before_bytes": 6150,
+   "after_bytes": 6129,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/QuickOpenLootbox/init.luau",
+   "before_sha256": "3a80e8e01a14ba57b226e22b0950702b1229e779e81e7ba001c27087ecbca868",
+   "after_sha256": "60789424e5bbc6824663f21ec055bfc54c1d32ce7ce7cf13ff1ceb81b50c6804",
+   "before_lines": 708,
+   "after_lines": 707,
+   "before_bytes": 23736,
+   "after_bytes": 23715,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Keybind.luau",
+   "before_sha256": "f456926eff1cc35cb96f1d6d1377ab968b836b98d70f9ce68b015426ac2c6d1f",
+   "after_sha256": "60a416bf1236f0e430ea2743663279e09d88be79ea59d1ed563bce023a5f86f0",
+   "before_lines": 182,
+   "after_lines": 181,
+   "before_bytes": 4913,
+   "after_bytes": 4972,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/Action.luau",
+   "before_sha256": "0ccc70021611faf36d9a54b16550ce933445f60491a8d56c846d7f70ff30b7ba",
+   "after_sha256": "57cd7d6c7cc69f900a40ea330be04f12c402b743e3dd84f7b98a8b936d01a70f",
+   "before_lines": 49,
+   "after_lines": 47,
+   "before_bytes": 1628,
+   "after_bytes": 1596,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/CheckBoxOld.luau",
+   "before_sha256": "a9d68c89c9ec4895a76777e17f6849f9bd7cb86e8e14501cca31671427f93486",
+   "after_sha256": "32f1b126a9fd74c9b99a909cfc3fb58fcb4ed5b825e87f1a8ebaa52a9c00f99d",
+   "before_lines": 50,
+   "after_lines": 47,
+   "before_bytes": 1586,
+   "after_bytes": 1557,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/Color.luau",
+   "before_sha256": "f2f82545ab1bcacd329240b4cae66debb5ae15bc6904019fbf1949889d00f4ba",
+   "after_sha256": "61e446682f9c0b8d574e424e1f7165f57a5b49f1a46cfb168b7ca9dddf324ebb",
+   "before_lines": 101,
+   "after_lines": 97,
+   "before_bytes": 3224,
+   "after_bytes": 3178,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/Dropdown.luau",
+   "before_sha256": "861a7ae3f0011cc2248dcbe06a28e9c367b454773bdf48bb82d787593b417c57",
+   "after_sha256": "3ff38d99724d954344b92400ea448c88527a8806df8b3f5cd3b139ae7ed06de5",
+   "before_lines": 80,
+   "after_lines": 78,
+   "before_bytes": 2340,
+   "after_bytes": 2308,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/MultiSelection/init.luau",
+   "before_sha256": "0a37a87935fa308f5e1acd4a1ba65b16ca0e37702d086129ceee45de2112dc85",
+   "after_sha256": "4731eab08ee6a05d70dce0143d9bc242aefda02ce0b58083105a4c9fb53feb0f",
+   "before_lines": 106,
+   "after_lines": 104,
+   "before_bytes": 3730,
+   "after_bytes": 3698,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/MultiSelection/SelectionPrompt.luau",
+   "before_sha256": "5cd54a31bc86da61374c8a3f8f0a36e2cf2815e2bc408c3b971238c5945d0094",
+   "after_sha256": "dcb2af72bfc7f2ea363e02f711cc83a75c5fde6bcc71a8ddf70232774c5b0bd1",
+   "before_lines": 208,
+   "after_lines": 207,
+   "before_bytes": 6947,
+   "after_bytes": 6926,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Settings/Setting/Toggle.luau",
+   "before_sha256": "f9755ba70dba3cc13e544607ceab2fca7a98a634fc04cc895c3944bd6e427982",
+   "after_sha256": "95457bec4d4962a89436a7cac2749646c87b176d2e95aca97e28e83d3db358a8",
+   "before_lines": 62,
+   "after_lines": 59,
+   "before_bytes": 2056,
+   "after_bytes": 2009,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/ShinyNormalizer.luau",
+   "before_sha256": "cb7fd0f75bb10d388b6320d5803631ff427e2f598124b27d29b1733c40cb0239",
+   "after_sha256": "f9cd3f9daeacfcc5d7cdcf66a06aa300af018b56c65562e9f6df86777845eb19",
+   "before_lines": 495,
+   "after_lines": 495,
+   "before_bytes": 17060,
+   "after_bytes": 17059,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/ShinyTransfer.luau",
+   "before_sha256": "6e44b8e14d3e667b6df6ac1a2c742341681b77823056516a7fa581eb66ef3feb",
+   "after_sha256": "7871ac4268b2cf567a26b80ff40f7c8c2cb3200b886cb7a1103a280c364d5cee",
+   "before_lines": 543,
+   "after_lines": 528,
+   "before_bytes": 16664,
+   "after_bytes": 18292,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/StageInfo.luau",
+   "before_sha256": "4ee2823307657b6d65bc26fe251e828e1d5fdfea8140b38a28eb651134dcac56",
+   "after_sha256": "2accd79205ae3f596d9097fc7f60b2dd05a8a3d1b099123bd1ed8b8dc69f0662",
+   "before_lines": 799,
+   "after_lines": 845,
+   "before_bytes": 29978,
+   "after_bytes": 32752,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/StatReroll/init.luau",
+   "before_sha256": "83067a0ce192b77603881906177d6c2264da1312cffce5c2da872eca1ecdf7bd",
+   "after_sha256": "4bb1750465a18129f734da25a83aaecee71125541f46844f299c2ee59505b133",
+   "before_lines": 915,
+   "after_lines": 922,
+   "before_bytes": 30960,
+   "after_bytes": 32660,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/StatTransfer/init.luau",
+   "before_sha256": "c504ba3d995f9a8a3e773c722163d797e1d5e1b26d983ddca2c755f58262c4d8",
+   "after_sha256": "f152435847cce38ded67c00407afe3d7089053b30c8181f6dbd00c76294db6c9",
+   "before_lines": 713,
+   "after_lines": 712,
+   "before_bytes": 21456,
+   "after_bytes": 23875,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/StatTransfer/StatPotentialButton.luau",
+   "before_sha256": "ebe74566faacae8adba1a89edb770b7251959f7d9d520418e7a0953496fb9b10",
+   "after_sha256": "8a1e3fe773e0abcc94f5697e570ca960c16afe650904b28de58dd3152557b65c",
+   "before_lines": 100,
+   "after_lines": 99,
+   "before_bytes": 3335,
+   "after_bytes": 3314,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/BundleButton.luau",
+   "before_sha256": "bf1f07540d6a990d304e5a2aeb7c64ebfe58f60d3e99a97d4d15275aab31474d",
+   "after_sha256": "a673395d9f67a4187ff79b33181127d475594a2cc38805abf5dc2257c0ce25e7",
+   "before_lines": 576,
+   "after_lines": 592,
+   "before_bytes": 18975,
+   "after_bytes": 20571,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/GamepassButton.luau",
+   "before_sha256": "dd70fb522c3d1493bf50d2a7340282bdc06f3b456e9cce7ac0b3e2601c0463de",
+   "after_sha256": "7a24a40d30e93ddd712d865ea6d0f3af29530175cdb0fc67c57c32c9cec005c6",
+   "before_lines": 472,
+   "after_lines": 471,
+   "before_bytes": 16247,
+   "after_bytes": 16226,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/PremiumButton.luau",
+   "before_sha256": "d19c60566db89d4ae3fbfd539c42b8d92cbb0ff9998d3bd76c4db53674bc5771",
+   "after_sha256": "feabc299c7fd1c7d8281cc60ba84c39153c3d0cc4082fba71f4f2934fce7d431",
+   "before_lines": 452,
+   "after_lines": 459,
+   "before_bytes": 14806,
+   "after_bytes": 15899,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/ProductButton.luau",
+   "before_sha256": "908fdc70a502272ae86bb7678d6da762c3b23baaca8823e57527c437339a9458",
+   "after_sha256": "9337429c22a8151d699a399b8cf03b0bd7fcb1d5fc504e23607942f8fecaf8e5",
+   "before_lines": 538,
+   "after_lines": 551,
+   "before_bytes": 17943,
+   "after_bytes": 19483,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Store/ProductDecal.luau",
+   "before_sha256": "00b2912e7215fd919bc07bebc19ad6441d8fa65a74742b675686029098efab71",
+   "after_sha256": "609e6370b16a2a37188245c00d1d93cebeaf2af63426ec0775dab63fe2fd889c",
+   "before_lines": 119,
+   "after_lines": 116,
+   "before_bytes": 3853,
+   "after_bytes": 3792,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Summon/AutoSellSettings.luau",
+   "before_sha256": "2cc8a0595f500b57fccb96e1b75e3307e585c52685374a2b7318bbc8ee9b4cec",
+   "after_sha256": "e172977504a962698d72cb49be2349faf664613aee6568031eace43edc002d47",
+   "before_lines": 192,
+   "after_lines": 191,
+   "before_bytes": 6586,
+   "after_bytes": 6565,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Summon/init.luau",
+   "before_sha256": "b450a5898aa42e167f720da23b3cf4f7a918456e3360aac54b08aa12078e350f",
+   "after_sha256": "6d339274dd612d3723f79dea8f4a98b0ac3ad90653b1765f9b8b5702046ecab2",
+   "before_lines": 679,
+   "after_lines": 677,
+   "before_bytes": 22394,
+   "after_bytes": 23150,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Tournament/EditTeamPrompt.luau",
+   "before_sha256": "cf42104e939a3bfcf8bb1ee1046ab469b4f269d6e7173d5434e1f87965e3d6c9",
+   "after_sha256": "faa83a03cbc4a0912bfc2523096b10e8951acc3b9e252f9f055a4d8e08b5f0b6",
+   "before_lines": 234,
+   "after_lines": 234,
+   "before_bytes": 8168,
+   "after_bytes": 8208,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Tournament/EntryPage.luau",
+   "before_sha256": "fd4a297c0c40a4b37e373583827b74fd90b7516ccfeb5a107d2f87d1747b6e92",
+   "after_sha256": "b3af0953424f013dccfeb18d53a0ccadfefaf2f5f111187fa70fa01a4cdd25e2",
+   "before_lines": 401,
+   "after_lines": 396,
+   "before_bytes": 13644,
+   "after_bytes": 13682,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/Tournament/Leaderboard/Entry.luau",
+   "before_sha256": "f4cd0e8dc5e52f2b0d4a1ca3206a044412e32a1e58c9462dc94016954a869002",
+   "after_sha256": "5c533d534580f7cbc86661962ffbe1d5d6e2a52d3f2b77c80f7e0657d81f5842",
+   "before_lines": 109,
+   "after_lines": 108,
+   "before_bytes": 3443,
+   "after_bytes": 3422,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/init.luau",
+   "before_sha256": "711a00af2dd296ce68f4a459ee4609d77086e87fff70213301b55883658af508",
+   "after_sha256": "4b93c19dcf5fb5637d4bb9ec546c416e1ec5a17b8d1f4858d25bdd50573cfc1e",
+   "before_lines": 391,
+   "after_lines": 386,
+   "before_bytes": 13520,
+   "after_bytes": 14126,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/Leaderboard.luau",
+   "before_sha256": "4427baac1196ba228efecf5068d57fc5d816d0a8554edfed222a35f5f89cd3a6",
+   "after_sha256": "cf115b771ec8b0886336b3d884df878b482672f902f380c240af9586ff6b9ef6",
+   "before_lines": 541,
+   "after_lines": 540,
+   "before_bytes": 20474,
+   "after_bytes": 20453,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/Milestones.luau",
+   "before_sha256": "eb46f11458049cf5a9cc9e4c65467777a5530b4e4fc5f79efd50b0b0e8e8e82a",
+   "after_sha256": "23d05f3c856811a4adc62e3b624ad922cef77aebdff54647996ae310efe09857",
+   "before_lines": 284,
+   "after_lines": 284,
+   "before_bytes": 10137,
+   "after_bytes": 10120,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TowerOfGod/TowerSegment.luau",
+   "before_sha256": "833912dec3679ccba568597c4704a54080b5428045dfbfb3bfb3f4a90fdbc789",
+   "after_sha256": "616775c49b3c218fe0f1c111c887b46eff253b0383f6fe3b85a957bcdace0a22",
+   "before_lines": 257,
+   "after_lines": 256,
+   "before_bytes": 9318,
+   "after_bytes": 9297,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TraitReroll/init.luau",
+   "before_sha256": "025f0212f82f61e44e212a0a00e3ea2eb2ccfdb97e46daa1a6ed0f935feefd22",
+   "after_sha256": "621d2b0010ccb763fa39b2d49457d8b6a264cae67c2786dd67ec3736e19dfb66",
+   "before_lines": 842,
+   "after_lines": 837,
+   "before_bytes": 28416,
+   "after_bytes": 29444,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/TraitReroll/TraitLabel.luau",
+   "before_sha256": "6361cf167d078edd3b8d890060da985409038f8ac24a381131c8b47afc1b9918",
+   "after_sha256": "d125c6efb79518c495987aa5c18de88ca5af6d3b3142be1fa710870f8e54a830",
+   "before_lines": 202,
+   "after_lines": 200,
+   "before_bytes": 6598,
+   "after_bytes": 6578,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitAscension.luau",
+   "before_sha256": "8d56352d16baa56d440124df64cad9c2a3bc633f9177b6d3464cf9c5c72a57ec",
+   "after_sha256": "1c855382e2d91cd4d73638ae9ea19ed69e45c62c6f2e733c0900134e77b088ea",
+   "before_lines": 548,
+   "after_lines": 541,
+   "before_bytes": 17824,
+   "after_bytes": 18308,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/SizeButton.luau",
+   "before_sha256": "1d5b652b8c53f18f27a100f465fa89711f289fddcc7b2ff6d404f1c35f960012",
+   "after_sha256": "2db078a4a11fb1b2819b7ba47cedf6ed42a83f79c21f73b4113860c066eec3ba",
+   "before_lines": 86,
+   "after_lines": 85,
+   "before_bytes": 3279,
+   "after_bytes": 3258,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/StatsWindow.luau",
+   "before_sha256": "34bcbc4b79c22f03b4ef93d58d661d3b8d9ec3dc7ed0c88d2be241bc5302eeb2",
+   "after_sha256": "a90301238e102ef9319ff041b1ad3b971146dfdfac062699da0091fcb3caf03b",
+   "before_lines": 675,
+   "after_lines": 684,
+   "before_bytes": 22721,
+   "after_bytes": 24405,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitInventory/UnitPreview/Button.luau",
+   "before_sha256": "a13dd2dfa391f4850fc0d73f5d22f0e152c2ef3b6239079ab0bb03a8fed1ba96",
+   "after_sha256": "1be2eeb59ac3b901dc2462688c734f4f90518591bfa712cd04e04ee7bb2305a9",
+   "before_lines": 130,
+   "after_lines": 128,
+   "before_bytes": 4355,
+   "after_bytes": 4311,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitManager/init.luau",
+   "before_sha256": "e468f8d51af6b0ea75690857ad7ad827cc8c236f2e199b7235250035158ba41b",
+   "after_sha256": "a52a375701f3d02d9364c32d0ae4fd729a08d9e312b6b062d02e5adecf8d5cde",
+   "before_lines": 294,
+   "after_lines": 290,
+   "before_bytes": 10366,
+   "after_bytes": 10951,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitManager/UnitButton.luau",
+   "before_sha256": "6246d19eb5012555d330bd17e722bc934f05f61a509340fb10a868f85f6245b7",
+   "after_sha256": "780f59db7b0313458bcfc043500d232a6f35fdd186c88d3b2a2fecf988b3e661",
+   "before_lines": 457,
+   "after_lines": 449,
+   "before_bytes": 15959,
+   "after_bytes": 16523,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UnitManager/UnitGrid.luau",
+   "before_sha256": "665114559ee21f4b52d108be4f18d658b69a573d4ae4c4e83594b64e2dc0f4b4",
+   "after_sha256": "809fa6a43c4453f0af75db9810a7debdd0310bfea3bf4b123e4ea5ed02c7069a",
+   "before_lines": 136,
+   "after_lines": 133,
+   "before_bytes": 4484,
+   "after_bytes": 4479,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UpdateLog/init.luau",
+   "before_sha256": "e927eb4028027fe238191bad9043b74de9356d229efa29e20f8944ea1efc6c33",
+   "after_sha256": "424f8d48c67177213718c6a5618f5ff38d9f1998aa083726d4c596fbbe51f258",
+   "before_lines": 606,
+   "after_lines": 601,
+   "before_bytes": 16974,
+   "after_bytes": 17153,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/UpdateLog/ScrollerItems/GamemodeButton.luau",
+   "before_sha256": "81966d3939a8a10e8846641c4bf6e2c7d3429c2f5120c5f83df59e3b7055ff1a",
+   "after_sha256": "dc7b1e611a60d2c64f4a0a400038f8193cc0bc626c856a909749bc7668561121",
+   "before_lines": 58,
+   "after_lines": 60,
+   "before_bytes": 2155,
+   "after_bytes": 2168,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Menu/WikiTools/Viewport.luau",
+   "before_sha256": "ab226b864fa7104f586f401ea6789678cdb03dc93a9f6c43ed9c135c5b49d64b",
+   "after_sha256": "eebac39e4dfdfc6c3c6a9bca2d9cf9e90acd46d1580033f4663d9f32980aa97e",
+   "before_lines": 444,
+   "after_lines": 438,
+   "before_bytes": 12777,
+   "after_bytes": 12825,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Notifications/MatchmakingWindow.luau",
+   "before_sha256": "55b12cdd4329ee5c40f2a0767df64e1c1db88f9b0c65e9ccec767c0db3959ff8",
+   "after_sha256": "7395760b2a5e1aebfd45b571005633b45814d25a2f2579d3803e22a4fbfd217f",
+   "before_lines": 165,
+   "after_lines": 164,
+   "before_bytes": 5930,
+   "after_bytes": 5909,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Archetype.luau",
+   "before_sha256": "384144c23ce2b61900085c7cf611f0bd86e3857095f19695ca10098bd8d36276",
+   "after_sha256": "69767edd294162f92894ad707fb67f51937564a6628dd140336ae48e89b114b2",
+   "before_lines": 180,
+   "after_lines": 180,
+   "before_bytes": 4514,
+   "after_bytes": 4614,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Colors/ColorEditor.luau",
+   "before_sha256": "53b1178bcc3755f51db69a2593c3f05d1c05d617d7436b52c18d0c27e813ff15",
+   "after_sha256": "99a2161f3d1ca3161d27812f37b8704bf14c265db2d8758da4a259c10d070f9f",
+   "before_lines": 71,
+   "after_lines": 68,
+   "before_bytes": 1844,
+   "after_bytes": 1796,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Element.luau",
+   "before_sha256": "8bd2a0896e420c6d37f3cc618bb670c70d6816547c49a4b09f2f0fac2d3cdf97",
+   "after_sha256": "06caf90f9b836414997018abd4687fde124cce613d9e329323f6eb7e3eba299a",
+   "before_lines": 181,
+   "after_lines": 181,
+   "before_bytes": 4558,
+   "after_bytes": 4658,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Map/Portal.luau",
+   "before_sha256": "2f8fc4192b27515fd833312a0cd6efd8909ffd5b8670423b4960d651fec96198",
+   "after_sha256": "637d1a9329572d99888079ebac3089c77260cca78c9f346de8e4e673aed74a79",
+   "before_lines": 62,
+   "after_lines": 62,
+   "before_bytes": 2339,
+   "after_bytes": 2345,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/Sorters/Assets.luau",
+   "before_sha256": "a688eda1d620b04d8cbef812adf05a6fc35650a3e9ffd8d28be3b3c13b43718b",
+   "after_sha256": "2ef9eb761d26091e025df87565ad85abd6a9ec6dc2179b88f3b071099a4187a4",
+   "before_lines": 927,
+   "after_lines": 769,
+   "before_bytes": 17763,
+   "after_bytes": 16187,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Processors/UserInfoFromUserID.luau",
+   "before_sha256": "b5f27b56e2abfe718835a6e0d1fe31ff7228d928f33d5dc255efec8f4ff4c1fc",
+   "after_sha256": "e6753137c477972e8b9f80d9a16c066888b7d10e56a19ad5958a88ed516b4879",
+   "before_lines": 115,
+   "after_lines": 115,
+   "before_bytes": 2289,
+   "after_bytes": 2309,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/Amount.luau",
+   "before_sha256": "0a1d0c445d1b3a5003b1fb1c0fddbb097b1a4c601306ccf30ac9e88c488f5776",
+   "after_sha256": "ace60a553ba08f365c24e68e0532688de0d0e9f655719359d624fecb33752115",
+   "before_lines": 260,
+   "after_lines": 260,
+   "before_bytes": 8143,
+   "after_bytes": 8142,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/AssetSelection.luau",
+   "before_sha256": "7e51ce80878b75622b0b36784f976b23309001732b5a1b3062872505620c207b",
+   "after_sha256": "1abb40ef72aa73a22b77b3b509330d575daad162222feadab9c05e73cc303457",
+   "before_lines": 376,
+   "after_lines": 373,
+   "before_bytes": 11801,
+   "after_bytes": 11921,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/Codes.luau",
+   "before_sha256": "1448adb0d29136db06b071ea3918514365606160d9d116dcb7f904fea9d0fe21",
+   "after_sha256": "17063289dabf1975eea3f75826fcb0484242e86e13415ce8f4d5fde344d5354e",
+   "before_lines": 207,
+   "after_lines": 204,
+   "before_bytes": 6801,
+   "after_bytes": 7024,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/ColorPickerPrompt/ColorPicker.luau",
+   "before_sha256": "a8ae33a28f284a3bbd77fbce9312ef4f8576049850d9f726f4534525880eff8d",
+   "after_sha256": "7ff77705293aaf4cfd24c4e66953b041bb39767b946165a146f55ac07659ed66",
+   "before_lines": 184,
+   "after_lines": 184,
+   "before_bytes": 5823,
+   "after_bytes": 5863,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/ColorPickerPrompt/HexTextBox.luau",
+   "before_sha256": "6954eb24de717264c9cdc676bd8a1b27b87529a971925379970749f0a1032e6b",
+   "after_sha256": "8da80760eca4955f05193a26b1b052701b102d3365d6871eaffd9f790005e922",
+   "before_lines": 52,
+   "after_lines": 52,
+   "before_bytes": 1563,
+   "after_bytes": 1603,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/ColorPickerPrompt/init.luau",
+   "before_sha256": "95a7adefb99e797d40b5f8ea9da8ea9caf681cdfbd709325f79b38f79cf84366",
+   "after_sha256": "d323c1f2d177305348717a1da1309d8721d503aabaa22532825f60525980542a",
+   "before_lines": 138,
+   "after_lines": 137,
+   "before_bytes": 4732,
+   "after_bytes": 4751,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/FeedUnit/init.luau",
+   "before_sha256": "dbacc0cd004779b60f64f54764451a338f2d62e09499f7d648853897bbf60ec4",
+   "after_sha256": "58018e37e41d08d31215335cb82eac91cfcb509ff65ad87c87b21a88af3963b9",
+   "before_lines": 683,
+   "after_lines": 678,
+   "before_bytes": 23262,
+   "after_bytes": 23327,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/GameResults/UnitExpDisplay.luau",
+   "before_sha256": "d06802d55d6468bfac039173629b7456850e9f2975640344e05e4f1a2087d978",
+   "after_sha256": "1c553a7b662fcaf9707e92130c458d39b4e59e07bcfd9d11a870ae5d1c417337",
+   "before_lines": 238,
+   "after_lines": 236,
+   "before_bytes": 7980,
+   "after_bytes": 7954,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/HotbarCurrencySelection.luau",
+   "before_sha256": "826adeeab4ac5a741718f1d8f02640afa8d0fbb4a521d881239a93d1a0962db2",
+   "after_sha256": "c99151589e75821218278a8c3a575807360fb808629803cefb9b963265a99ba3",
+   "before_lines": 329,
+   "after_lines": 328,
+   "before_bytes": 11217,
+   "after_bytes": 11310,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/JoinFriend.luau",
+   "before_sha256": "c4768e493903d073bd1ef7949b4a7b90bf2296768ece04bbdb8f28c785bc3753",
+   "after_sha256": "23c7f3b60ff54e012a8a201317df1d5bee961c58924383c17d8eee4d5852cd71",
+   "before_lines": 149,
+   "after_lines": 146,
+   "before_bytes": 4831,
+   "after_bytes": 4941,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/JoinParty/PartyLabel.luau",
+   "before_sha256": "2ad71a748e9fa1b6d9a935985d560c0c25a422a8b40a813ca2d5cf1b9dd8b037",
+   "after_sha256": "dc29c45e04f70c81393da77105dd4721182eedef3591c98b377e2ceada86414a",
+   "before_lines": 126,
+   "after_lines": 125,
+   "before_bytes": 4370,
+   "after_bytes": 4349,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/Obtainments/init.luau",
+   "before_sha256": "cb07dc6944e8a46c4214664e94f29cd786e2ce10e20457358b6857dbce653e87",
+   "after_sha256": "1b49714fc26fbfe93ccb198661f815125849e378b68b107259c86d68fea22178",
+   "before_lines": 166,
+   "after_lines": 165,
+   "before_bytes": 5171,
+   "after_bytes": 5150,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/RewardCalendar/CalendarReward.luau",
+   "before_sha256": "38263c485e233a553a4b602596a956181bd0fa405ff76a81b323aaf903bf2e48",
+   "after_sha256": "293a34d31accdd0a7839eeda5e05366d7e4cae5f0ae5702a060bfda9341421c0",
+   "before_lines": 413,
+   "after_lines": 419,
+   "before_bytes": 13448,
+   "after_bytes": 14403,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/RewardCalendar/init.luau",
+   "before_sha256": "e1eca78e0e2da8227347a432c5448bfda54ef5771ed19462f676ea052cad226b",
+   "after_sha256": "c71d1b78dd0d497e4fa6a20a30dc378d6eb8b26925cdf308478b27c1a241546b",
+   "before_lines": 245,
+   "after_lines": 250,
+   "before_bytes": 8532,
+   "after_bytes": 9413,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitEquipment/init.luau",
+   "before_sha256": "e81e23874b0d8d3e5e589ac869142bcaac8bd75ec20b6afa39aa512e30efd875",
+   "after_sha256": "86a366beceb86156027f8b6f1fc9898a88b4ad96daf67e6ef5632c7a212d3a45",
+   "before_lines": 322,
+   "after_lines": 321,
+   "before_bytes": 10554,
+   "after_bytes": 10533,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitPassives/init.luau",
+   "before_sha256": "6053925099fc1ff86965068ec7598c78d6250b9dd3f2cddf1954c1b67f7591df",
+   "after_sha256": "8ec6e3ed4bcbf150d315675ee7b1ae5bbb2bda3e86370d1623c8147a796dc445",
+   "before_lines": 100,
+   "after_lines": 99,
+   "before_bytes": 3556,
+   "after_bytes": 3535,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/UnitSelection.luau",
+   "before_sha256": "03bc4f713a6fbdf94171368d35bc8f21c22557a62e86000968d6bc1243c51aed",
+   "after_sha256": "19f30ba5b9467fe83fb86b3652bb91153712478c8212a65148ca6e8dd5590b66",
+   "before_lines": 390,
+   "after_lines": 389,
+   "before_bytes": 12379,
+   "after_bytes": 12358,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Prompts/ViewAsset/init.luau",
+   "before_sha256": "1a58e39eec0e40124ff9ad936852d7c8eaba66dcb7ceababf2ab3c0dfd76a9ea",
+   "after_sha256": "746f26387127e8b1f6f9ff4ab809c6a9ea6f6c73613e66946668bd327a7d00a1",
+   "before_lines": 672,
+   "after_lines": 672,
+   "before_bytes": 22396,
+   "after_bytes": 23115,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Shop/CurrencyDisplay.luau",
+   "before_sha256": "02e9941019d8ecd096e3a39c48a369395db33f8ba467df226815449f763e3947",
+   "after_sha256": "0694b0babd9911e7bbb0a57cbc3dcefdb5acf95aa2b9db9cc1d697ac4a9f168b",
+   "before_lines": 114,
+   "after_lines": 111,
+   "before_bytes": 4005,
+   "after_bytes": 3987,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Shop/ShopItem.luau",
+   "before_sha256": "c5dee0f44690d8529a48be22582e4f08678ec353f477c74a67b3a63001ff1002",
+   "after_sha256": "eab6bc6f47379cede1edc30a3a1f22cb31be5438f5281f97efede7b5127aea40",
+   "before_lines": 293,
+   "after_lines": 288,
+   "before_bytes": 8995,
+   "after_bytes": 9048,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Shop/ShopPrompt.luau",
+   "before_sha256": "abc4b81c92b069aaa73d51300f8bed46a3fadc389bd1dad0248da30ff8811255",
+   "after_sha256": "7d53a73b4bcefe93b5ac84fdc44ad182ddb62941450def2cbe5380b6e2254609",
+   "before_lines": 240,
+   "after_lines": 239,
+   "before_bytes": 8360,
+   "after_bytes": 8377,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Shop/ShopPromptPurchase.luau",
+   "before_sha256": "66f201cc12831025bbbfa3ad567f056d78ebc03868ef884270f34dc6530ba5fa",
+   "after_sha256": "9766e9891031c5cc567d0b047ffa16a1105143480c75d0e10279dd31c554efb2",
+   "before_lines": 94,
+   "after_lines": 94,
+   "before_bytes": 3154,
+   "after_bytes": 3194,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Equipment/AbilityLabel.luau",
+   "before_sha256": "cbe52b7f1bec0a306d7bb6a57629aa7cedde6664e45b116717a3c84b07437c39",
+   "after_sha256": "5153d868430f0915fe5567b882a69278e58b13a5cfe4294801e509864eb2660f",
+   "before_lines": 337,
+   "after_lines": 336,
+   "before_bytes": 10858,
+   "after_bytes": 10837,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Equipment/PassiveLabel.luau",
+   "before_sha256": "d6ff3e6d6b261d56bcf6e0aaac2ce591f65bbecd5fe6780886617da9535f435c",
+   "after_sha256": "43d3628858e9d5afa60ed518d73bdfb781274f3e0729496ab17c54dc84ca5494",
+   "before_lines": 290,
+   "after_lines": 289,
+   "before_bytes": 9210,
+   "after_bytes": 9189,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Portal.luau",
+   "before_sha256": "1cf9aba204148448a469dac26599ed17db6c439051a2eff48c3e507753a3fb22",
+   "after_sha256": "aff85c7d3aaff93352ab4021c4591e05e0ab6d1c28339d0ed1af707abdcb9842",
+   "before_lines": 189,
+   "after_lines": 189,
+   "before_bytes": 6763,
+   "after_bytes": 6769,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Unit/StatLabel.luau",
+   "before_sha256": "e93e857e6eb4b3beebddcefd68f09ed417d69146eecdfa3b626ac0f1488de56c",
+   "after_sha256": "584ab043089d07e94e5668fdb5cf87d58a51a65a41d054ae0f6da55d2c1e1934",
+   "before_lines": 250,
+   "after_lines": 249,
+   "before_bytes": 7945,
+   "after_bytes": 7924,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/AssetTooltip/Unit/TraitLabel.luau",
+   "before_sha256": "6ac25d7aede50f1d65dca8a1e4bb0aa26618cecd663405ba9ffeb7b7a2e427d1",
+   "after_sha256": "d5f42edba085734b8d855427010162c51aa88ced7ed0ea5057a8b2936c521978",
+   "before_lines": 129,
+   "after_lines": 128,
+   "before_bytes": 4175,
+   "after_bytes": 4154,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Components/Tooltips/GameUnit/PlayerLabel.luau",
+   "before_sha256": "6e15261650502f6280c2fe678ae31ef9b4378d70681ee1dc9e1edd74ba0da4d6",
+   "after_sha256": "f30c7b972a655fb9036d57662a230422f2a8a767079ef9d990d6ef2efe727d62",
+   "before_lines": 51,
+   "after_lines": 50,
+   "before_bytes": 1706,
+   "after_bytes": 1685,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Dependencies/Mock/init.luau",
+   "before_sha256": "9e81a84919bc5d2eef36ae6beb5a3c9d8ef9d6dbe68ede0062b6b4c5ac2e2280",
+   "after_sha256": "ebd05eacc9eae505c928e04c48cd8c1b12b862714c714a6f492969d04718e13d",
+   "before_lines": 1432,
+   "after_lines": 1443,
+   "before_bytes": 29894,
+   "after_bytes": 29995,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Dependencies/Mock/MockElements/init.luau",
+   "before_sha256": "b672e7fdd25d540560685d83a0a18c734def92dea1d35defd6eb5c2c0344f950",
+   "after_sha256": "d606dc15f0754a930b1f02e033ba8aa3332fe3efff72ec197288054b126e2b8e",
+   "before_lines": 42,
+   "after_lines": 42,
+   "before_bytes": 946,
+   "after_bytes": 986,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Fusion/Colour/sRGB.luau",
+   "before_sha256": "5a17ad3979b2600a519bc91a27cb3c259a24305440978b9f00469764a37ef9bd",
+   "after_sha256": "7d5b557fc1bdfc8287cfce6fcf2ad740fd9da8007ee4261fab209e3ca9ea24ad",
+   "before_lines": 83,
+   "after_lines": 36,
+   "before_bytes": 1195,
+   "after_bytes": 841,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/init.luau",
+   "before_sha256": "0656ec5fd7fc6781853225d34dbcb2ac13dca89355acf505628ec81f22a16759",
+   "after_sha256": "ac0b28ac625940ca91a8487d4315675fd0859fb2d58a57e14b20e66ee376928d",
+   "before_lines": 256,
+   "after_lines": 256,
+   "before_bytes": 5789,
+   "after_bytes": 5909,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.luau",
+   "before_sha256": "2c320021069187f28a72e12f42b4e45bda8ffb04886bc469acb5bdf3a9b65fb5",
+   "after_sha256": "40c0d520234fe6dbd0079388e3977bd92c26cdf3b7941df1a141e383d702b7ff",
+   "before_lines": 1480,
+   "after_lines": 1479,
+   "before_bytes": 31415,
+   "after_bytes": 31713,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/State/ChildOf.luau",
+   "before_sha256": "3d89dc3fd0b5192c0b09bf65ac2c315a8b7662838ff3ab182a3dfb66b2ca7b2f",
+   "after_sha256": "4007cddfe87c712963bd619753c60737a11d143955106c56d5374bbabcd02736",
+   "before_lines": 77,
+   "after_lines": 77,
+   "before_bytes": 1809,
+   "after_bytes": 1849,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/State/ChildOfClass.luau",
+   "before_sha256": "a91838eaf105d148f608050b4d34520495778a329f9a659dfee5e401ee15effb",
+   "after_sha256": "d5a8a4bef0d418c6b8b130f4996c9e9a22c23ec66a323d23931924228dc05af4",
+   "before_lines": 75,
+   "after_lines": 75,
+   "before_bytes": 1711,
+   "after_bytes": 1751,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/State/DragInput.luau",
+   "before_sha256": "1c98783c1056c3c24fd011c4daeeb07350efa68535f022b0e912cb0fb6e05f91",
+   "after_sha256": "56ff7fbdc34b69ee45a0a7eedcee3fb06eb56e8aed1abcf64e8b52a56bd7a2e3",
+   "before_lines": 250,
+   "after_lines": 250,
+   "before_bytes": 6802,
+   "after_bytes": 6862,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/State/GuiInset.luau",
+   "before_sha256": "80bb500333f9577081c7218ff030534f0bd8eb98afecde1ec99c3713ba39c424",
+   "after_sha256": "ed86942e6c061698a7c7fa9d9583b670ff0e4f08712cc9fe9c26559f9e1c4c0c",
+   "before_lines": 20,
+   "after_lines": 20,
+   "before_bytes": 654,
+   "after_bytes": 694,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/State/HasTag.luau",
+   "before_sha256": "9878afa81b84d0cb326dbfa66c0cab5af609a5b64cc7bc80739cf8829606dcfa",
+   "after_sha256": "4a567132ae8e80040abc3395b58d540ed9cb925c17c53762b32db5c23b9e083e",
+   "before_lines": 66,
+   "after_lines": 66,
+   "before_bytes": 1659,
+   "after_bytes": 1699,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/State/ImportState.luau",
+   "before_sha256": "69d77a18117444c2bce8d6ba3ec922660e4502ae6ab4fa39ec4883ecb6ff4e71",
+   "after_sha256": "5ed8e9cc4b2c33ba23091bdb74b3d4dc6ab847303bda57339f2458594bef1fd8",
+   "before_lines": 515,
+   "after_lines": 527,
+   "before_bytes": 7784,
+   "after_bytes": 8091,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/State/Tagged.luau",
+   "before_sha256": "0801dd980fc28837358571c986cc1f626966ebbe00d6d396ac541909957eaa4a",
+   "after_sha256": "2f697f7d991cc3b13579160ee8a5e3592f94f0425d870d9394c9467fde44382d",
+   "before_lines": 47,
+   "after_lines": 47,
+   "before_bytes": 1287,
+   "after_bytes": 1327,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/AugmentPortal.story.luau",
+   "before_sha256": "20325b7352d9fa4e71866e72776e4bbb5e211ab715a9f8a8cb0f62311c1884db",
+   "after_sha256": "bb6d94e9e2fff76de6f3642095dab9ad4ae02fb5e941efe57275ca9a1ab9576e",
+   "before_lines": 100,
+   "after_lines": 100,
+   "before_bytes": 2489,
+   "after_bytes": 2529,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/DamageIndicator.story.luau",
+   "before_sha256": "2b340382813240d604685fa2a835e81d251957a0e4e28433f9670bc8006e3c93",
+   "after_sha256": "ef56da1edce27ebc5f45a22fedb34a55bbf69ef697ca8fe90d7c217f4a12d2de",
+   "before_lines": 129,
+   "after_lines": 137,
+   "before_bytes": 3094,
+   "after_bytes": 3366,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/DiceRoll.story.luau",
+   "before_sha256": "b5223e2f5bfd3e0bd2afa96e5c01687d57577c5149b5eabd1d61c4fb9e9b555f",
+   "after_sha256": "563e64a1b0a8a917e91e25298829e6782eb1808d5773ed1d2197b8e44c36b6a5",
+   "before_lines": 73,
+   "after_lines": 69,
+   "before_bytes": 2020,
+   "after_bytes": 1968,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/ExpeditionCheckpointShop.story.luau",
+   "before_sha256": "ac9f8389ee41edd744091c6e6788843ca8cc979a16ee76a4ecebd8a4eb90741d",
+   "after_sha256": "46b8b01f2757886cc13ab8e147d3fa637cea1ce14f5af98e98fb3a53ba6099eb",
+   "before_lines": 155,
+   "after_lines": 151,
+   "before_bytes": 3394,
+   "after_bytes": 3340,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/ExpeditionNodeMap.story.luau",
+   "before_sha256": "1cf5481ef79371c68e70fda82d96aaeacb1c51de0333ed2cca0ba957ae80e229",
+   "after_sha256": "612c05e2be266125a7dcff39c0223e56da10e9bb5f93cbf4a5b9e9d49b8ec048",
+   "before_lines": 92,
+   "after_lines": 88,
+   "before_bytes": 2650,
+   "after_bytes": 2636,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/Guild.story.luau",
+   "before_sha256": "a74072c6914c99d30b4a5da78f2b7b0e46d804522b4f0e34c393406dc234ae66",
+   "after_sha256": "5cd8cec1d20b0562d9f7a3f64b999bc3493a2987725595287d594f410f5256b8",
+   "before_lines": 90,
+   "after_lines": 90,
+   "before_bytes": 2186,
+   "after_bytes": 2226,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/MythicTraitRoll.story.luau",
+   "before_sha256": "f94fdcb13b783fd9b8b699d59e30fc307cbd641019e53da926ad9711ac65b84b",
+   "after_sha256": "123dbad467bd2b882c4655d8ee94684e3c7049bad876b9b5050a4c750f296a0a",
+   "before_lines": 115,
+   "after_lines": 115,
+   "before_bytes": 2900,
+   "after_bytes": 2940,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/PortalSettings.story.luau",
+   "before_sha256": "a55f1d8ba44a0343cd60b659f4f22737484e69af365d9bb0b9e2205bd8a8bf98",
+   "after_sha256": "065475de087d1c0f3ed8b9b7d864954c792c72fd2c7b2b173c78e603740534f0",
+   "before_lines": 81,
+   "after_lines": 81,
+   "before_bytes": 2128,
+   "after_bytes": 2168,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/TowerOfGod.story.luau",
+   "before_sha256": "2310b5a8aa1ac00853f186e8c608589ee192029e8fcd8a81f6f8558376b39f8d",
+   "after_sha256": "73ccf38dcdde5947e52baaab669b4677f651fd5083a57bc59785774136bf64dd",
+   "before_lines": 98,
+   "after_lines": 94,
+   "before_bytes": 2707,
+   "after_bytes": 2655,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Stories/UnitManager.story.luau",
+   "before_sha256": "07144c05eebe68a2b36aeaa84eff1fec16595501288aff5b964014f760952807",
+   "after_sha256": "0a1ae0f46d30049efb08a5d803a297baa8380d5102dba40f17e5bf73e01f54be",
+   "before_lines": 179,
+   "after_lines": 175,
+   "before_bytes": 4780,
+   "after_bytes": 4728,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Utils/contrast.luau",
+   "before_sha256": "59dcf0be53463d4f038422710cc5d1f49f8c8d8a1577420eaad0e4895bb9b5b8",
+   "after_sha256": "4d36ccdb5009079b0b8f0e749b09266ac505ae595f6e91bb5c8d436db89b0301",
+   "before_lines": 83,
+   "after_lines": 38,
+   "before_bytes": 1257,
+   "after_bytes": 940,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Utils/getLuminance.luau",
+   "before_sha256": "2fea85b4e22b5909625c9251c080c70e7167a74bd5b0ed8bfff25f627380e4cc",
+   "after_sha256": "9bcbde2030d45a3cace841775eb91ef8251da761780d4feb0798016e17859e8a",
+   "before_lines": 40,
+   "after_lines": 17,
+   "before_bytes": 608,
+   "after_bytes": 449,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Utils/HyperText/init.luau",
+   "before_sha256": "453915a75d7f25b46aa712447456748a44c7499657ffa4486bc3c699146be6fd",
+   "after_sha256": "9a5d32ae6939afa31a1fcd810fac2087f878dabf9697b80592ee2024023a612b",
+   "before_lines": 1674,
+   "after_lines": 1674,
+   "before_bytes": 49560,
+   "after_bytes": 49640,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Utils/ImportBatcher/ImportBatcherOLD.luau",
+   "before_sha256": "5b04bf4615442d8268f0955e2d013e9dc07df6f5e19d6a65f51076f38dace2ae",
+   "after_sha256": "d7018b87bacb9c7f19c4614f26db10dec8ee2a8d2c20fa0dc9e939a998a34db7",
+   "before_lines": 728,
+   "after_lines": 728,
+   "before_bytes": 12060,
+   "after_bytes": 12240,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Utils/ImportBatcher/init.luau",
+   "before_sha256": "1224067cb9853651fc57cb96eb11f9b9a46577aba8598a5804075eff3a89df82",
+   "after_sha256": "13cb18c7a5b3ddcfc7f9e1863f9618ce5782b5cfbdd10a59ff8f4109b48d1417",
+   "before_lines": 933,
+   "after_lines": 1076,
+   "before_bytes": 16178,
+   "after_bytes": 18680,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/FusionPackage/Utils/Promise/init.luau",
+   "before_sha256": "2c320021069187f28a72e12f42b4e45bda8ffb04886bc469acb5bdf3a9b65fb5",
+   "after_sha256": "40c0d520234fe6dbd0079388e3977bd92c26cdf3b7941df1a141e383d702b7ff",
+   "before_lines": 1480,
+   "after_lines": 1479,
+   "before_bytes": 31415,
+   "after_bytes": 31713,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/MoonPlayer/init.luau",
+   "before_sha256": "e212731c225a2ab31460e43f8ab1ff28bfa561166682ef5391f306c7c8e0dc53",
+   "after_sha256": "99d912e12c7a63eb5204ae69617a9ac14001127090bfbb86ffcb4eef36c666c4",
+   "before_lines": 1925,
+   "after_lines": 1947,
+   "before_bytes": 41315,
+   "after_bytes": 41490,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/Lerps.luau",
+   "before_sha256": "6af1f020d639116effa6a620ea83a1e7ed97d70fbff83fbbb204a8650cc5dd6d",
+   "after_sha256": "7b5c5c644542eadaf327173f616e10511bc4259af66c2105ef0fda0bbcadc792",
+   "before_lines": 478,
+   "after_lines": 478,
+   "before_bytes": 12538,
+   "after_bytes": 12558,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/MoonPlayer/LerpCore/BoatTween/TweenFunctions.luau",
+   "before_sha256": "130d2f4b1ad24b7e97db2d7eab9c7a537700dfd97fd30b24310e173aae74bac7",
+   "after_sha256": "eabf79ccf19161ac122d48e69c05d311953de2afd1c5c49de9c60f3340b57813",
+   "before_lines": 496,
+   "after_lines": 484,
+   "before_bytes": 11725,
+   "after_bytes": 11616,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/MoonPlayer/LerpCore/init.luau",
+   "before_sha256": "4a2438e32a66ecfc3474edf63c170fd45eab24dc22b62962a6ea7b5972cd2e32",
+   "after_sha256": "d3c5173336e02478acc93ae2bf2493c797e2d1e993498622b882e4ee9dd18ad5",
+   "before_lines": 802,
+   "after_lines": 807,
+   "before_bytes": 17718,
+   "after_bytes": 17688,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/MoonPlayer/SaveDiscovery.luau",
+   "before_sha256": "8a129116fc6897d6f9a02b8d09b47e9af9a34f2f5ffd6e3d67616b882cab5316",
+   "after_sha256": "d8cdcc5ab62b1c13c294ebd927f3bd06d83c57cf688db992563d9f3df204614a",
+   "before_lines": 431,
+   "after_lines": 618,
+   "before_bytes": 7157,
+   "after_bytes": 9853,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/MoonPlayer/TrackPlayer.luau",
+   "before_sha256": "c18c5c2dd1a2499222ff3dbaa42b7c9400c1dcea0a55b58ac300299f5175d721",
+   "after_sha256": "388f3dee848830cff09b16e76907f4cb11c65afb56f882c2006b13c543889649",
+   "before_lines": 255,
+   "after_lines": 260,
+   "before_bytes": 5064,
+   "after_bytes": 5034,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Nodes/init.luau",
+   "before_sha256": "1d193db8dc10773b7ef5e3bc465aea4f99b073df449bb280bce4fb6a19daccf8",
+   "after_sha256": "d3f090b3c27f751afee090cd9e278907b8cfd3a90bd3e95457596806032da06c",
+   "before_lines": 1235,
+   "after_lines": 1235,
+   "before_bytes": 27762,
+   "after_bytes": 27850,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Nodes/Network/init.luau",
+   "before_sha256": "be3a5d45a2687baa0282324904ed7ceb1cd3f28ebd2359a31e83a8cc01092d23",
+   "after_sha256": "ebe0d0c27d009390804cb0b3cf25a030709a263e6a52f43bfd7f4269dcf0b91e",
+   "before_lines": 433,
+   "after_lines": 433,
+   "before_bytes": 10140,
+   "after_bytes": 10200,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Nodes/Schema/init.luau",
+   "before_sha256": "cdcbea82857b53be1061a0c3d87bfe57db1dff17df8e34f0c43eddbd65b129b4",
+   "after_sha256": "5187424588b9d400bd5879b02c8f40f1c59448531af8bf84434fa05e74d5ac30",
+   "before_lines": 586,
+   "after_lines": 586,
+   "before_bytes": 13500,
+   "after_bytes": 13540,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/CameraShake/Apply.luau",
+   "before_sha256": "f0ce17ae894038f3d0eb80e9e9aec0b3fb65a15d55364a3829b7c44f977a3809",
+   "after_sha256": "fae7a394f4dec7267e0eb91f8e6c479e6d24ddd4e748ec1277df688a9610539d",
+   "before_lines": 82,
+   "after_lines": 82,
+   "before_bytes": 1522,
+   "after_bytes": 1582,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/EvenCycle.luau",
+   "before_sha256": "688471e8c3c664c610d3ffc2d94969aa90890030b9b6aeec97ccafdd99f8b250",
+   "after_sha256": "8c8d490f9716cbd4db794fcd0e0f0d4c57f39cb6ada8616c54d49b061e5fff83",
+   "before_lines": 143,
+   "after_lines": 143,
+   "before_bytes": 3088,
+   "after_bytes": 3168,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/Events.luau",
+   "before_sha256": "f7b5f916f0a69d9a985cac7f29f150383fb2a11c6f1afc567128a359d811dc67",
+   "after_sha256": "4afdf84fff553bf3fd2056c50db989ee158c5108ff5eb6bcb3e5f11f98026189",
+   "before_lines": 1154,
+   "after_lines": 1154,
+   "before_bytes": 25689,
+   "after_bytes": 25809,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/EventsCollision.luau",
+   "before_sha256": "c69b7ebf3539351c039a109b0e1fb5d230a45e1e34fd1e6811c7ec50b74cd00d",
+   "after_sha256": "9c37235b073cbf5bb2fcadbbe9e7a54851b2c99dfa1a82ff548f316adced027f",
+   "before_lines": 491,
+   "after_lines": 498,
+   "before_bytes": 13918,
+   "after_bytes": 14094,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/EventsPayload.luau",
+   "before_sha256": "f56c0992b36b5e0279e6090916db55850bcc263f6b7ffade9d219f088e156ba9",
+   "after_sha256": "a22444de1ca5207327f4d5ce5f7098c4f155762a1e6c8810239bc50f2908f65f",
+   "before_lines": 477,
+   "after_lines": 477,
+   "before_bytes": 10113,
+   "after_bytes": 10193,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/EventsSchema.luau",
+   "before_sha256": "59abcaa48fc7fc828fb6fad83282775153a68b1fcdc2049b9109d35af1ec7159",
+   "after_sha256": "6d6c9168e2ac3d03970f328fd8704c5f9e9d06832af6fac95886f6b1af91e87b",
+   "before_lines": 955,
+   "after_lines": 953,
+   "before_bytes": 26027,
+   "after_bytes": 26022,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/Flipbook.luau",
+   "before_sha256": "f02e643d768f715feaa09f0cd53171f81832e391cedfabee6d39fb36c357f52a",
+   "after_sha256": "14e96842e8e7a218a3b99ab00bcf11ced6f8619f14917791dca8439bc6f95cd3",
+   "before_lines": 213,
+   "after_lines": 213,
+   "before_bytes": 4857,
+   "after_bytes": 4877,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/init.luau",
+   "before_sha256": "735392fd5ccdf23c8df57138597237d92a25077c20ec75ccef61d9931b701029",
+   "after_sha256": "ef0cfc778d4493e1c67c8d94563a169ce08806a5ec9a4b9e810719bbebd67f3a",
+   "before_lines": 797,
+   "after_lines": 797,
+   "before_bytes": 17149,
+   "after_bytes": 17169,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/LinkService.luau",
+   "before_sha256": "0baa77c66a74b4ccee40296018b191febbc755da9c6cc84db0dafde4027f30e5",
+   "after_sha256": "557b689a482ce168be8ae94090853e473987b12bd63df43b1c4ac185c4efa7ed",
+   "before_lines": 209,
+   "after_lines": 209,
+   "before_bytes": 4761,
+   "after_bytes": 4781,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/Pool.luau",
+   "before_sha256": "585acdd4d865f7196a5e57654e405413be58a69d397cfaf06fc14baf8c3b809e",
+   "after_sha256": "88120db4281e05bf543a36f8f30d9eba5d0a3a0e8d83033b6e299c6dd84bbfe0",
+   "before_lines": 402,
+   "after_lines": 401,
+   "before_bytes": 7932,
+   "after_bytes": 7990,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/Rocks/init.luau",
+   "before_sha256": "438db768598e8ce45faf4d4274b4afd62a185c7d3f90286d1eee16ab5e17f16c",
+   "after_sha256": "7b15dab07f7c75fb1c36badd2d67b3dea7495cd8d1d1a2ce984c6e755f65844e",
+   "before_lines": 471,
+   "after_lines": 471,
+   "before_bytes": 13105,
+   "after_bytes": 13102,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/Rocks/Trajectory.luau",
+   "before_sha256": "354a3db3a99c78b95e84c703b6a514b1a889369ad6b5951657a5c5adff003fba",
+   "after_sha256": "cb6f38528e0477aed1c7b9410300e8ba58539c43ca79e5875cfc68868212f7ef",
+   "before_lines": 278,
+   "after_lines": 278,
+   "before_bytes": 6239,
+   "after_bytes": 6299,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/ScreenEmit.luau",
+   "before_sha256": "d064e8689e18a99fef64323856ab025b6c9e83ddb45bfe5c240bb1817932244c",
+   "after_sha256": "9a800a3e9d0d6cd71f38e3fc91ed290675d89fbacd3213dbb56c347058707fb3",
+   "before_lines": 310,
+   "after_lines": 310,
+   "before_bytes": 8481,
+   "after_bytes": 8541,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/TexturePin.luau",
+   "before_sha256": "369c6589d96c030667016f62480316a53d3c1afe757fd4ae17336bc61bf07cd6",
+   "after_sha256": "532f9eff6f142c20bf11c4873552ec3a9c05c79156dff6d165b41257c45aee53",
+   "before_lines": 342,
+   "after_lines": 342,
+   "before_bytes": 5647,
+   "after_bytes": 5687,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/TrailEmitter.luau",
+   "before_sha256": "cdc2dc5aa647af1d4f4b7e306e0a5465f89221e63dd24290ff064ccebe8a61f0",
+   "after_sha256": "8dd5e29bb21aeaf70995689ae776041d0c167e9384db714d8dfe300ca56b4d74",
+   "before_lines": 422,
+   "after_lines": 422,
+   "before_bytes": 11402,
+   "after_bytes": 11404,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/TypeRegistry/init.luau",
+   "before_sha256": "530639f498f5bc96bdb19de0a1d0df48c3a9f8d893d2219bc9730d8e42046f74",
+   "after_sha256": "bfe9c38bd2eb659e970b567e5000e8885055d48623c7ec111df6a3e0289b3341",
+   "before_lines": 404,
+   "after_lines": 404,
+   "before_bytes": 8376,
+   "after_bytes": 8476,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Part_Icles/Update.luau",
+   "before_sha256": "4c61e61488ddd63b1d907796c700a8a2297e8a294f23145a85a9b06de077766c",
+   "after_sha256": "e91ec1663f4c20d1f0c35b875e795bdb8013800b973ca035ab0b58a007a1955c",
+   "before_lines": 1008,
+   "after_lines": 1022,
+   "before_bytes": 31172,
+   "after_bytes": 31450,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/beam.luau",
+   "before_sha256": "a7da23bac28076a550ea5e51de5892db4133955a24694a88fe84bf984a884b94",
+   "after_sha256": "31160cb0edebc00164ad069310d8baa5ac213ed811cad23d4f0f750409f46699",
+   "before_lines": 114,
+   "after_lines": 113,
+   "before_bytes": 3743,
+   "after_bytes": 3777,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/init.luau",
+   "before_sha256": "bce54272d5dd116f25b37cf3ebbf9c6916fdb30d6fb1bf825eb6a767b264bde3",
+   "after_sha256": "ddce628d820f4ac849e5675b3c93b9465307e9ab21c1938addeb3a882f7191f2",
+   "before_lines": 811,
+   "after_lines": 811,
+   "before_bytes": 18177,
+   "after_bytes": 18217,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mesh.luau",
+   "before_sha256": "d4cd3f9606ca2675e9cc9a61a4e6613fa34a2898330c8a64a50bd686a4ca8cf2",
+   "after_sha256": "b9a36c75a00892278264601b8a5c0ea09fb3daeb0e9bab4b94721d49ad72bc65",
+   "before_lines": 434,
+   "after_lines": 434,
+   "before_bytes": 14501,
+   "after_bytes": 14521,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mod/color/sRGB.luau",
+   "before_sha256": "054df948e00e93f05f84a3066d5055ea2fc6519292766335ec3dd9b7a8251b95",
+   "after_sha256": "5fac9381f5c42da45349be698f3130243543b7b1d9b784d562e47d79fa8bb7d8",
+   "before_lines": 83,
+   "after_lines": 36,
+   "before_bytes": 1203,
+   "after_bytes": 843,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mod/lerp.luau",
+   "before_sha256": "aebcf23503a7847234344809de6773e4298e83aa466d55dfe658be12da17f5df",
+   "after_sha256": "bfa2cc48ad5d7ee0691440d0428a2bf344c1f5895a83c74baaa3a5b87d479197",
+   "before_lines": 219,
+   "after_lines": 223,
+   "before_bytes": 5374,
+   "after_bytes": 5374,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mod/tween.luau",
+   "before_sha256": "f46319c5fc213ef4bbbdedd4612cddb2d74c8ecbffaf8dec4a49d56e5408eae0",
+   "after_sha256": "e6756a1c1e558909acd1c63079076126b6fd779bb160377267aed3e6b26e1611",
+   "before_lines": 189,
+   "after_lines": 177,
+   "before_bytes": 3043,
+   "after_bytes": 2814,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/mod/utility.luau",
+   "before_sha256": "3a25bfd13daaed69d94afac1ccf27f8cd829deadd2825ac9ea1e6b2075038326",
+   "after_sha256": "abbce8a22766cde315d5fad43917a3eec9426c1fd1a5ee142a40b9741096b3ab",
+   "before_lines": 679,
+   "after_lines": 679,
+   "before_bytes": 15611,
+   "after_bytes": 15631,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/obj/Bezier.luau",
+   "before_sha256": "f9c40487b3d5de3a979c09d3d029a2ab33c78405056b8d7c661fa1ce2f63dc58",
+   "after_sha256": "25696b798375a3b96a2bd4fca2f526f072dbf7545ec6cf35e512cc88aaa601e7",
+   "before_lines": 178,
+   "after_lines": 170,
+   "before_bytes": 4422,
+   "after_bytes": 4291,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/obj/Promise.luau",
+   "before_sha256": "067dba822bfdf20efc0eed2b3ff72084f25fab1156ee1d81b2e589625575b5cc",
+   "after_sha256": "9a55c1c5f860fc70ac19316afd7afafdb231a0ccdf09413962bc73126fad1342",
+   "before_lines": 1409,
+   "after_lines": 1409,
+   "before_bytes": 29979,
+   "after_bytes": 30301,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFX/spin.luau",
+   "before_sha256": "905260687a6ef515a61638cdffab0e763edf4763a7144f8849da677c1a9d90ae",
+   "after_sha256": "405bbdd0240adf7e6f0e1750fbe62caa9ec7ad452af99b4ac9952fccdba40c39",
+   "before_lines": 81,
+   "after_lines": 80,
+   "before_bytes": 2610,
+   "after_bytes": 2593,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/bezier.luau",
+   "before_sha256": "b48e62b2159949c4acd31135a952a15a9b07943e299378fcd52a12302b42fa67",
+   "after_sha256": "d8360593ce9ed9765dd157117f2a3b12e415046b54bdeb155a3c984ab3027f87",
+   "before_lines": 389,
+   "after_lines": 389,
+   "before_bytes": 11587,
+   "after_bytes": 11659,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/lightning.luau",
+   "before_sha256": "343e89a57ad9d1292e37e678e2af99b89d2b2f067ef4142fb9d17f3ca73d6e83",
+   "after_sha256": "8d3daa169f58451f67228bfdf91b668da737e5e88984eec53427d904d01a62c4",
+   "before_lines": 1113,
+   "after_lines": 1213,
+   "before_bytes": 32408,
+   "after_bytes": 34273,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/randomizer.luau",
+   "before_sha256": "e5670e2d564612adb2be2494a43a638d8da8ee3fd5551852250c928ce12c7486",
+   "after_sha256": "9f24760fc7c980929b1c60eb4dd9d4e1787b39b42081437f902d0069863a2a09",
+   "before_lines": 95,
+   "after_lines": 95,
+   "before_bytes": 1781,
+   "after_bytes": 1801,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/effects/spin.luau",
+   "before_sha256": "5f5f66a95c7d962567bc6dacecb57a372688fca652edc9fde49f1534c311ff1d",
+   "after_sha256": "41c08844ac8cba48d6fc207d6f8b22287083226b677f3811c8d907136a54f775",
+   "before_lines": 90,
+   "after_lines": 89,
+   "before_bytes": 2433,
+   "after_bytes": 2414,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/color/sRGB.luau",
+   "before_sha256": "5a17ad3979b2600a519bc91a27cb3c259a24305440978b9f00469764a37ef9bd",
+   "after_sha256": "7d5b557fc1bdfc8287cfce6fcf2ad740fd9da8007ee4261fab209e3ca9ea24ad",
+   "before_lines": 83,
+   "after_lines": 36,
+   "before_bytes": 1195,
+   "after_bytes": 841,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/lerp.luau",
+   "before_sha256": "9f51a92c6bb1ed1d16c1fabb8dfa7851c59595064cc600cb6c712972bd480305",
+   "after_sha256": "e81fbba0e47e36bbff90db29c4c44e08c79c543ed52ccec6991a4df67b71c8a4",
+   "before_lines": 220,
+   "after_lines": 224,
+   "before_bytes": 5436,
+   "after_bytes": 5436,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/recolor.luau",
+   "before_sha256": "ea6aca9c778ff5207e81e6d1b274b030219fd6a4cbbb956b9f04537303cdc310",
+   "after_sha256": "6c4f9a4a0680f7631dbb2fb618b4f7ac542a9db73ce84c7504ef81dd0e9dda4e",
+   "before_lines": 123,
+   "after_lines": 123,
+   "before_bytes": 3282,
+   "after_bytes": 3390,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/tween.luau",
+   "before_sha256": "e03ae90e283bbc5215a346f8aca082a41e900c395a98f28eaf5b8e43c943ccda",
+   "after_sha256": "4d4741624f99e19351ebfef6d9916657071aee60d170997e8ce4ceda381c5a8f",
+   "before_lines": 198,
+   "after_lines": 186,
+   "before_bytes": 3169,
+   "after_bytes": 2940,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/mod/utility.luau",
+   "before_sha256": "974eb778e724458e843097165e50c902a03725653b14aa818291aea8ffdcd457",
+   "after_sha256": "de51384e69bb35d708516647fee9151c46a9fb8186ede0e7498cac1bc9842e2e",
+   "before_lines": 891,
+   "after_lines": 891,
+   "before_bytes": 20435,
+   "after_bytes": 20455,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/obj/Bezier.luau",
+   "before_sha256": "0c6557421e36a60508717a08841380e701fa03240c3622b8b92a8bb4df98fee4",
+   "after_sha256": "c1bd1235ace757ec8fa548c41187c1b39ee629cba8517b0781ea7b1e56f387da",
+   "before_lines": 213,
+   "after_lines": 205,
+   "before_bytes": 5050,
+   "after_bytes": 4919,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/pkg/Promise.luau",
+   "before_sha256": "067dba822bfdf20efc0eed2b3ff72084f25fab1156ee1d81b2e589625575b5cc",
+   "after_sha256": "9a55c1c5f860fc70ac19316afd7afafdb231a0ccdf09413962bc73126fad1342",
+   "before_lines": 1409,
+   "after_lines": 1409,
+   "before_bytes": 29979,
+   "after_bytes": 30301,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ForgeVFXForCutscenes/services/texture_loader.luau",
+   "before_sha256": "c39c5f2dd236f060cae54e3d9cc8a22afc437f1c67ac44cf6d2388536a7c9011",
+   "after_sha256": "1270b81b579e69bda37d16266504a21f16f59bd2854457626e59919a80c6b03d",
+   "before_lines": 180,
+   "after_lines": 180,
+   "before_bytes": 4099,
+   "after_bytes": 4159,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/HighlightGroup/Old.luau",
+   "before_sha256": "dcfa47347dce0514cad559960aeb0e201565b197f575ba56af3e33113057f6ce",
+   "after_sha256": "9b420b760538d052f3dc3b15fa29bd538c03eded75909966363ea6ad20187635",
+   "before_lines": 257,
+   "after_lines": 257,
+   "before_bytes": 5059,
+   "after_bytes": 5099,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Accessories.luau",
+   "before_sha256": "85184c5dd866542fe927fc048b6d0125d27482fe03649385f2782ce9998a4c3b",
+   "after_sha256": "f253a0bec0746c29898def1dfd46e52c96e79eca74ad238ee73f9055efedc852",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 710,
+   "after_bytes": 750,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Archetypes/init.luau",
+   "before_sha256": "bbded3aa8bddc948348b3a9074055413d7b16c17722adf5f1af8f39d157be5ce",
+   "after_sha256": "4632e8e5a707c180461b5fe94eb8521112eebb501787eebf4963953cfc8ebb9a",
+   "before_lines": 64,
+   "after_lines": 64,
+   "before_bytes": 1654,
+   "after_bytes": 1694,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/DamageTypes.luau",
+   "before_sha256": "4ad5654e97d5e0147a433358a7a587dcd306c10cd9c838f1d0f51b55323baa05",
+   "after_sha256": "808d369ab214b4d432bd7de6fba98ea96dbb0a1e42d4dee8f6cee4280cc9b4ee",
+   "before_lines": 88,
+   "after_lines": 88,
+   "before_bytes": 2365,
+   "after_bytes": 2405,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Elements/init.luau",
+   "before_sha256": "f87e0a2bcbd89c3b8ebec3a7a3ea0498c89c4d63e5d9ae21ef3d99a33fe89c41",
+   "after_sha256": "1c6bc55967abe2252afa27411928d9bfcf23d4edd66391ea1991019793b95cc5",
+   "before_lines": 83,
+   "after_lines": 83,
+   "before_bytes": 2027,
+   "after_bytes": 2067,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Emotes.luau",
+   "before_sha256": "293f94a7e4880227817bd012e9c5dcc96212ec6fbdb59bf4af314836f9c09b2f",
+   "after_sha256": "0e4a6513bfea34264eac32d255ccff23f9400e3e8b00ef2fa82524a971dee472",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 670,
+   "after_bytes": 710,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Equipment.luau",
+   "before_sha256": "4a3e180cd332ee0510427133dd37ab367838a10c5a26ef127323a458e2874ad6",
+   "after_sha256": "aea38b1ae9f62433404c28efc769e8ab06334767f8ea8b022581ce31b44de98a",
+   "before_lines": 541,
+   "after_lines": 541,
+   "before_bytes": 11561,
+   "after_bytes": 11601,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Events/BingoEvent/init.luau",
+   "before_sha256": "afc0d92362f8b7e128bba5155d7520561228b0059e63ee96bd6e8471a8699f1f",
+   "after_sha256": "98f9c221062d8f3fc1dbf4700f13b87df12ecb57858c966327d45418325f1862",
+   "before_lines": 221,
+   "after_lines": 218,
+   "before_bytes": 4565,
+   "after_bytes": 4504,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Expeditions/Buildings/ResearchLabTree/init.luau",
+   "before_sha256": "528de2a63dfc411a4f924089a6d7e990ee76f3c5e18ee1cc2fd38339e32ee406",
+   "after_sha256": "7195d2332cf4e7b914a4864cc56a0804440256b772febdc01b28ad9b739c8629",
+   "before_lines": 330,
+   "after_lines": 330,
+   "before_bytes": 6987,
+   "after_bytes": 7015,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Expeditions/init.luau",
+   "before_sha256": "33c513f6783dc9f41287a358b3598db5eed4f040a36a61d253e9b0e89118bfd8",
+   "after_sha256": "f8726746a0abbe9b05bb70d528d6c7039ff4620f2e1ccc351a23c7b312f0293e",
+   "before_lines": 1265,
+   "after_lines": 1265,
+   "before_bytes": 26025,
+   "after_bytes": 26108,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Expeditions/StatAnvils/init.luau",
+   "before_sha256": "80dc72901f0d37ba9863de59fe4dd6deb20ac3df4f94ed63aacf3470d88e8bc5",
+   "after_sha256": "b6aa3fee2687e76a30546ba4e4ea3a10ecdde4aaf0ff5986ff5866f91016c7b6",
+   "before_lines": 271,
+   "after_lines": 270,
+   "before_bytes": 5916,
+   "after_bytes": 5895,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/FishingRods.luau",
+   "before_sha256": "ed2fc4107412b18123b2c8c005c2fb93ea7d9191acb72a22430fa3b9f5b97444",
+   "after_sha256": "3a427dafa4adedf9541c7e760eec67825a883730897aa5472cfd8fa7687cbf3a",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 710,
+   "after_bytes": 750,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Items.luau",
+   "before_sha256": "8f2a2ca82c4b3879bae277e6aa30021950b5600614bba4a28e1cb3f0625bb461",
+   "after_sha256": "8e31e9791b4e515d08ce22d596087ede713e3876c07e756a7d0c7293bb57fe39",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 662,
+   "after_bytes": 702,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Mounts.luau",
+   "before_sha256": "ffdfdaf9e59fd84094cbd49dc69a7c7c927a4d53fd1632c31545ffb6359d21a7",
+   "after_sha256": "0d8d1dd5eeb3a6cd0deedfff14eb040f11db70452cc2d60162b79aed733b7e2a",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 670,
+   "after_bytes": 710,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Music.luau",
+   "before_sha256": "c2315e389b195104eb236c5d46709286c763315d4bb8c49d3697ef58be5acc08",
+   "after_sha256": "625ca0e796e6ff8d3a59ff8c55b88622bd5c22b98e91c5c384108f76b4d62f80",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 662,
+   "after_bytes": 702,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Payloads.luau",
+   "before_sha256": "f7160ec4bf55d97795798a14972cfd170c76d53399878928c86851a7edd66e3e",
+   "after_sha256": "5729b588834cbc0ce205aae20fcfbf9fd5ec5f9ee4e0cc4e3bbea6e7a11b6d8c",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 686,
+   "after_bytes": 726,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Portals.luau",
+   "before_sha256": "aa2832877eb3089bf5d1ebf37ed2cb7a3e973bf8d213455846ba581acdbfbf1d",
+   "after_sha256": "68eadf38cc5604b417c18668b2da5bb4676d08a4c0ca86cfa9ebd766c4e83f67",
+   "before_lines": 368,
+   "after_lines": 368,
+   "before_bytes": 7402,
+   "after_bytes": 7404,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Products.luau",
+   "before_sha256": "8828620cf529a4dff410255fec97562724437ab73c25bdcbfc4479997e0355e3",
+   "after_sha256": "e5a46f14ede0e12a1018c5572b4bd460857b344475ec7ae87d20349853c1d702",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 686,
+   "after_bytes": 726,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/ProfileBanners.luau",
+   "before_sha256": "f198d93d80d9cb03cc5231dd8f6730a1bad382b33c716fda1133dece03310e5d",
+   "after_sha256": "0ec9ff418a819d555330cc02221543aa64b8603880ee89df562c08beacd85136",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 734,
+   "after_bytes": 774,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Skins.luau",
+   "before_sha256": "06e3e987e3f0bac9dcb4ddaf62a14c13a94acc03868be599830d83698c5af860",
+   "after_sha256": "4c3a6d43e3d3039cd48a671c2a1246488e31e0715837242a11662dd9727d6b01",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 662,
+   "after_bytes": 702,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/StatPotential/init.luau",
+   "before_sha256": "d1767b17476dec902ead75796cc008389acc4c8c7db25f03257d23d406ffbce3",
+   "after_sha256": "a649876d8b3b359563feb6ea932c34520b43cd7e71e1103627cb2a0a964b6214",
+   "before_lines": 205,
+   "after_lines": 205,
+   "before_bytes": 4830,
+   "after_bytes": 4850,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Titles.luau",
+   "before_sha256": "1cb31786c05885e495b2d50db97b8d7514bc4ce11ef52b630173318e81b02fb2",
+   "after_sha256": "6b545a668fdef9b2e0d013b3aa6568254fa3b513864bdec112f312b34d1bb393",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 670,
+   "after_bytes": 710,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Traits/init.luau",
+   "before_sha256": "1433060efb9008ebb7f57eca2d2b8150bcb8c1f24862ed26ea0be4f73c0b1b1f",
+   "after_sha256": "3baeb519120ee912e84a009cf55d455bff7a95f9882e4a668f72b7d45582176a",
+   "before_lines": 37,
+   "after_lines": 37,
+   "before_bytes": 932,
+   "after_bytes": 972,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Information/Units.luau",
+   "before_sha256": "1b8142773c25a0e7f454d81eaadc8782929b1cda8d88d19c7cec0eb258800b55",
+   "after_sha256": "b00da29d9702806d9b3d993a2ca4fffd4f4578f67e8e7f4b6fb3236768a5f330",
+   "before_lines": 24,
+   "after_lines": 24,
+   "before_bytes": 662,
+   "after_bytes": 702,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Network/BufferEncoder/Enums.luau",
+   "before_sha256": "1731c8be1c1060b4a2054591f1d4b317e264f0bf6d327b3324114608d687dd1d",
+   "after_sha256": "3baf1b8d551f3b66b097b4f1a18b28c1c06e96387726167cf754512defbf4f23",
+   "before_lines": 151,
+   "after_lines": 151,
+   "before_bytes": 2937,
+   "after_bytes": 3017,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Network/BufferEncoder/Write.luau",
+   "before_sha256": "5bbc07411aae03b0f659db85347b800238f79b5e7a40bcd415ddfbd46985ff03",
+   "after_sha256": "854ba179ac49ba2a8c1c72cb1a2db78abb041605d94057ebc14693c524baf8c0",
+   "before_lines": 959,
+   "after_lines": 1479,
+   "before_bytes": 30916,
+   "after_bytes": 39522,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Network/Comm.luau",
+   "before_sha256": "f53dab750e48eab868c7d2331b6d88d7dd0cd2f466404d7a745c0d77d4aa47ef",
+   "after_sha256": "a28cd360abce5f334a55baefc0c9795a1924de5bd66d7aa3cff2e95984d12240",
+   "before_lines": 207,
+   "after_lines": 207,
+   "before_bytes": 4862,
+   "after_bytes": 4882,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Promise/init.luau",
+   "before_sha256": "2c320021069187f28a72e12f42b4e45bda8ffb04886bc469acb5bdf3a9b65fb5",
+   "after_sha256": "40c0d520234fe6dbd0079388e3977bd92c26cdf3b7941df1a141e383d702b7ff",
+   "before_lines": 1480,
+   "after_lines": 1479,
+   "before_bytes": 31415,
+   "after_bytes": 31713,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/QuickZone/Classes/Group.luau",
+   "before_sha256": "d9482284c53269507b1940392103b00b281a1ed257f4d3d9d4af447a95951b83",
+   "after_sha256": "517b25b82ebf4e8fdb4e174a34690ced54ff706cd17b344d242ca2bb097a362f",
+   "before_lines": 523,
+   "after_lines": 523,
+   "before_bytes": 11763,
+   "after_bytes": 11863,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/QuickZone/Classes/Zone.luau",
+   "before_sha256": "9c57ae12d5125dfb020bb10098fcab22f21f09bcf71538b50e295d8eb1480a92",
+   "after_sha256": "20d63d825db161726b5403234ea2ddf8276b29f3d55a2381a445ecdc4939d863",
+   "before_lines": 1075,
+   "after_lines": 1101,
+   "before_bytes": 20954,
+   "after_bytes": 21306,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/QuickZone/Utils/Geometry.luau",
+   "before_sha256": "1c9e3d43f76831ce78974bc072ee841a7f82608ceec28d0c56939faf83e21999",
+   "after_sha256": "e0fd4b83a574b3b255734385c24a6276e62d2d0c3a9d442e2712ca741ffde1ec",
+   "before_lines": 151,
+   "after_lines": 151,
+   "before_bytes": 4588,
+   "after_bytes": 4608,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/ReplicaClient.luau",
+   "before_sha256": "c3153cf62afe80e2b3869705f320d20b9fa55b5fe37803026f551142902af5fb",
+   "after_sha256": "916e9e3ecb4bf027d2d75f434aef1172f24d1c4ee1a05000cef09db0223e1672",
+   "before_lines": 833,
+   "after_lines": 851,
+   "before_bytes": 17774,
+   "after_bytes": 17998,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/init.luau",
+   "before_sha256": "e23d263a28f8eac6a6b333612d6b045ec2fa74a64473c0d04416346d384a3c53",
+   "after_sha256": "eefb9964b5f64489fd770924b935b3e20e9b9f5309d95ce574103baa987732be",
+   "before_lines": 891,
+   "after_lines": 891,
+   "before_bytes": 20520,
+   "after_bytes": 20560,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/MeshEmitter/init.luau",
+   "before_sha256": "e7aed54ab4f48342a4227a16595c512be7e370b1eb3024bf8b6ba98a59ac3432",
+   "after_sha256": "28ac95ee02059d46b34a2d3e85a12fcf5e5141c61862fc200ea28b3ebf1eed3d",
+   "before_lines": 725,
+   "after_lines": 724,
+   "before_bytes": 21026,
+   "after_bytes": 21023,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/CameraShake/Apply.luau",
+   "before_sha256": "f0ce17ae894038f3d0eb80e9e9aec0b3fb65a15d55364a3829b7c44f977a3809",
+   "after_sha256": "fae7a394f4dec7267e0eb91f8e6c479e6d24ddd4e748ec1277df688a9610539d",
+   "before_lines": 82,
+   "after_lines": 82,
+   "before_bytes": 1522,
+   "after_bytes": 1582,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/EvenCycle.luau",
+   "before_sha256": "688471e8c3c664c610d3ffc2d94969aa90890030b9b6aeec97ccafdd99f8b250",
+   "after_sha256": "8c8d490f9716cbd4db794fcd0e0f0d4c57f39cb6ada8616c54d49b061e5fff83",
+   "before_lines": 143,
+   "after_lines": 143,
+   "before_bytes": 3088,
+   "after_bytes": 3168,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Events.luau",
+   "before_sha256": "f7b5f916f0a69d9a985cac7f29f150383fb2a11c6f1afc567128a359d811dc67",
+   "after_sha256": "4afdf84fff553bf3fd2056c50db989ee158c5108ff5eb6bcb3e5f11f98026189",
+   "before_lines": 1154,
+   "after_lines": 1154,
+   "before_bytes": 25689,
+   "after_bytes": 25809,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/EventsCollision.luau",
+   "before_sha256": "c69b7ebf3539351c039a109b0e1fb5d230a45e1e34fd1e6811c7ec50b74cd00d",
+   "after_sha256": "9c37235b073cbf5bb2fcadbbe9e7a54851b2c99dfa1a82ff548f316adced027f",
+   "before_lines": 491,
+   "after_lines": 498,
+   "before_bytes": 13918,
+   "after_bytes": 14094,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/EventsPayload.luau",
+   "before_sha256": "f56c0992b36b5e0279e6090916db55850bcc263f6b7ffade9d219f088e156ba9",
+   "after_sha256": "a22444de1ca5207327f4d5ce5f7098c4f155762a1e6c8810239bc50f2908f65f",
+   "before_lines": 477,
+   "after_lines": 477,
+   "before_bytes": 10113,
+   "after_bytes": 10193,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/EventsSchema.luau",
+   "before_sha256": "59abcaa48fc7fc828fb6fad83282775153a68b1fcdc2049b9109d35af1ec7159",
+   "after_sha256": "6d6c9168e2ac3d03970f328fd8704c5f9e9d06832af6fac95886f6b1af91e87b",
+   "before_lines": 955,
+   "after_lines": 953,
+   "before_bytes": 26027,
+   "after_bytes": 26022,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Flipbook.luau",
+   "before_sha256": "f02e643d768f715feaa09f0cd53171f81832e391cedfabee6d39fb36c357f52a",
+   "after_sha256": "14e96842e8e7a218a3b99ab00bcf11ced6f8619f14917791dca8439bc6f95cd3",
+   "before_lines": 213,
+   "after_lines": 213,
+   "before_bytes": 4857,
+   "after_bytes": 4877,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/init.luau",
+   "before_sha256": "735392fd5ccdf23c8df57138597237d92a25077c20ec75ccef61d9931b701029",
+   "after_sha256": "ef0cfc778d4493e1c67c8d94563a169ce08806a5ec9a4b9e810719bbebd67f3a",
+   "before_lines": 797,
+   "after_lines": 797,
+   "before_bytes": 17149,
+   "after_bytes": 17169,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/LinkService.luau",
+   "before_sha256": "0baa77c66a74b4ccee40296018b191febbc755da9c6cc84db0dafde4027f30e5",
+   "after_sha256": "557b689a482ce168be8ae94090853e473987b12bd63df43b1c4ac185c4efa7ed",
+   "before_lines": 209,
+   "after_lines": 209,
+   "before_bytes": 4761,
+   "after_bytes": 4781,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Pool.luau",
+   "before_sha256": "585acdd4d865f7196a5e57654e405413be58a69d397cfaf06fc14baf8c3b809e",
+   "after_sha256": "88120db4281e05bf543a36f8f30d9eba5d0a3a0e8d83033b6e299c6dd84bbfe0",
+   "before_lines": 402,
+   "after_lines": 401,
+   "before_bytes": 7932,
+   "after_bytes": 7990,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Rocks/init.luau",
+   "before_sha256": "438db768598e8ce45faf4d4274b4afd62a185c7d3f90286d1eee16ab5e17f16c",
+   "after_sha256": "7b15dab07f7c75fb1c36badd2d67b3dea7495cd8d1d1a2ce984c6e755f65844e",
+   "before_lines": 471,
+   "after_lines": 471,
+   "before_bytes": 13105,
+   "after_bytes": 13102,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Rocks/Trajectory.luau",
+   "before_sha256": "354a3db3a99c78b95e84c703b6a514b1a889369ad6b5951657a5c5adff003fba",
+   "after_sha256": "cb6f38528e0477aed1c7b9410300e8ba58539c43ca79e5875cfc68868212f7ef",
+   "before_lines": 278,
+   "after_lines": 278,
+   "before_bytes": 6239,
+   "after_bytes": 6299,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/ScreenEmit.luau",
+   "before_sha256": "d064e8689e18a99fef64323856ab025b6c9e83ddb45bfe5c240bb1817932244c",
+   "after_sha256": "9a800a3e9d0d6cd71f38e3fc91ed290675d89fbacd3213dbb56c347058707fb3",
+   "before_lines": 310,
+   "after_lines": 310,
+   "before_bytes": 8481,
+   "after_bytes": 8541,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/TexturePin.luau",
+   "before_sha256": "369c6589d96c030667016f62480316a53d3c1afe757fd4ae17336bc61bf07cd6",
+   "after_sha256": "532f9eff6f142c20bf11c4873552ec3a9c05c79156dff6d165b41257c45aee53",
+   "before_lines": 342,
+   "after_lines": 342,
+   "before_bytes": 5647,
+   "after_bytes": 5687,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/TrailEmitter.luau",
+   "before_sha256": "cdc2dc5aa647af1d4f4b7e306e0a5465f89221e63dd24290ff064ccebe8a61f0",
+   "after_sha256": "8dd5e29bb21aeaf70995689ae776041d0c167e9384db714d8dfe300ca56b4d74",
+   "before_lines": 422,
+   "after_lines": 422,
+   "before_bytes": 11402,
+   "after_bytes": 11404,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/TypeRegistry/init.luau",
+   "before_sha256": "530639f498f5bc96bdb19de0a1d0df48c3a9f8d893d2219bc9730d8e42046f74",
+   "after_sha256": "bfe9c38bd2eb659e970b567e5000e8885055d48623c7ec111df6a3e0289b3341",
+   "before_lines": 404,
+   "after_lines": 404,
+   "before_bytes": 8376,
+   "after_bytes": 8476,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/TimeManager/Part_Icles/Update.luau",
+   "before_sha256": "4c61e61488ddd63b1d907796c700a8a2297e8a294f23145a85a9b06de077766c",
+   "after_sha256": "e91ec1663f4c20d1f0c35b875e795bdb8013800b973ca035ab0b58a007a1955c",
+   "before_lines": 1008,
+   "after_lines": 1022,
+   "before_bytes": 31172,
+   "after_bytes": 31450,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/UnitUtils/init.luau",
+   "before_sha256": "f8fa32e9f1f56b4bdf4296fa7b7ee42aeccfcdf151110184e548c4aece9570ef",
+   "after_sha256": "c086e9d629e559d7cffbaaa1e33b313f7ed5c6b3254d642aefb3a2306a519795",
+   "before_lines": 922,
+   "after_lines": 922,
+   "before_bytes": 23119,
+   "after_bytes": 23179,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/UnitUtils/StatUtils.luau",
+   "before_sha256": "e87b3ec3b4f53d49aaefb3e4c5ebb9be90d9394de1c202e661e5dbf1156311a0",
+   "after_sha256": "e4ecf8b36d84d5d8978d556a6a2506b621fc945923e8ffb57c69444d5d61c72a",
+   "before_lines": 446,
+   "after_lines": 446,
+   "before_bytes": 9848,
+   "after_bytes": 9855,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Utils/CharacterTilt.luau",
+   "before_sha256": "3a46be2450ccb0d47ca3616fd37f96c66bb7870560ede28c6ec0ba6e68832a98",
+   "after_sha256": "a2a27bfac021f72cfe2d411c4901d4c85c8cef443d2729576dbe1737bd0fb4a0",
+   "before_lines": 42,
+   "after_lines": 43,
+   "before_bytes": 1582,
+   "after_bytes": 1603,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Utils/FormatNumber/_internal/class.luau",
+   "before_sha256": "754349b1598ab2d05735ca39531a037dc67f248bf06761fcdcc4c6480335bce3",
+   "after_sha256": "a0f52e685319e6f6f5f10b6ff2106655b6bb1573e82d5f0e37563d0a39835c60",
+   "before_lines": 214,
+   "after_lines": 214,
+   "before_bytes": 3663,
+   "after_bytes": 3673,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Utils/FormatNumber/_internal/formatter_settings.luau",
+   "before_sha256": "8a32029212185e5c562d1b6dc3b070a3d210c415da260bc2df979c7252603252",
+   "after_sha256": "ae5f428ca3b89cca26a58e5889e531811571664dea1cae1d1b8831a359b32b70",
+   "before_lines": 183,
+   "after_lines": 182,
+   "before_bytes": 4417,
+   "after_bytes": 4395,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Utils/init.luau",
+   "before_sha256": "14b26b9cb441725fa8e5e6577c0478e7df58e6cb8c13136f19f7679ff55109f2",
+   "after_sha256": "dcfdba914fe3e1f309a7f97609b1e58c40460099befc4d4c91d433c9d6b74980",
+   "before_lines": 1991,
+   "after_lines": 1991,
+   "before_bytes": 43306,
+   "after_bytes": 43346,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Utils/Timer.luau",
+   "before_sha256": "d9e06de247a4d0110c08b28bea1fdc6b6d9eeab51ce45ab3a4a84425ad1173d0",
+   "after_sha256": "f75b61bc946960a302b64f2488b77ab3aae7a9c843aaa4577aced9217eddcaba",
+   "before_lines": 227,
+   "after_lines": 227,
+   "before_bytes": 4979,
+   "after_bytes": 5099,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/VFXManager/init.luau",
+   "before_sha256": "f19ec28e2cbc05d6cb6dc3d0eb02654a52c8305640e3c428bff94ab8c8f0e00c",
+   "after_sha256": "42a26eb778b81a8b47d87d7a4b0f00abb28e0d463628fb401867e1c769aac121",
+   "before_lines": 235,
+   "after_lines": 234,
+   "before_bytes": 4294,
+   "after_bytes": 4311,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Zone/SimpleZone/init.luau",
+   "before_sha256": "eb82f0283354b2cf09923bf3219f92feaf503f996a3180202adfec3307cff6ab",
+   "after_sha256": "090e45fbf161e21a64416a21dfe39ad10dd0ca9aad1bd37ab27aaf061c6ce7d0",
+   "before_lines": 725,
+   "after_lines": 725,
+   "before_bytes": 18494,
+   "after_bytes": 18660,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Zone/SimpleZone/SearchFor.luau",
+   "before_sha256": "aed28de175d7049d4ba4b5e0070132b6570e8164b3ea3e9dbf2ffd2070697501",
+   "after_sha256": "11d551193f551b9782e67fbfc1764f26147ad942fe5d6d39cf39aa4d59d1d5db",
+   "before_lines": 91,
+   "after_lines": 90,
+   "before_bytes": 1788,
+   "after_bytes": 1769,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Zone/SimpleZone/Utility/BVH.luau",
+   "before_sha256": "f8f5e4968b49a703dae1ce7e243e577ea6e936f6e09c95def3a0cb41e2b82208",
+   "after_sha256": "be1a937b0f99dcd577bda0685f38d179612a32780f2c1d2a75183393bfc26b9c",
+   "before_lines": 338,
+   "after_lines": 338,
+   "before_bytes": 7146,
+   "after_bytes": 7166,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/Shared/Zone/SimpleZone/Utility/UtilityFunctions.luau",
+   "before_sha256": "9061f7fdcba4bd361d1c6d576719499f2576756bab77fbf21c1d3dab72bf688b",
+   "after_sha256": "c7d4f23db065e34498447f47a5a5c74d8d591f7df247c95e979cd2f6c6539d08",
+   "before_lines": 304,
+   "after_lines": 304,
+   "before_bytes": 6766,
+   "after_bytes": 6768,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/SheetSyncedModules/CraftingRecipes/Parser.luau",
+   "before_sha256": "5bec7f1348128301a1e31bb5c9c17286fb3cb4756cdc50e81a175a4385fd079d",
+   "after_sha256": "2a3a7784e2577a9074ad1d54c419ffdfe881c92e80978c8c458de297532133c6",
+   "before_lines": 60,
+   "after_lines": 60,
+   "before_bytes": 1263,
+   "after_bytes": 1303,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/SheetSyncedModules/Equipment/Writer.luau",
+   "before_sha256": "234945e2a3e708f7e48dd4dd673472636c8bc32181f0f663092c386cfd883ba6",
+   "after_sha256": "28f6e775c9a9cf098c7ac3f102ebb113bb8de5712fd24cec29e8be203c6d6947",
+   "before_lines": 61,
+   "after_lines": 61,
+   "before_bytes": 1420,
+   "after_bytes": 1440,
+   "non_annotation": false
+  },
+  {
+   "path": "ReplicatedStorage/SheetSyncedModules/Items/Parser.luau",
+   "before_sha256": "22ee0739de93056f3bddb16a008ad91ea474b55686777d166f1bdeff694fa879",
+   "after_sha256": "b8ca77d10c2f96a03cdc0421cc2565bad8b2921ceb6b841d38f5e669e989fe06",
+   "before_lines": 44,
+   "after_lines": 44,
+   "before_bytes": 983,
+   "after_bytes": 988,
+   "non_annotation": true
+  },
+  {
+   "path": "ReplicatedStorage/SheetSyncedModules/PlayerLevelInfo/Parser.luau",
+   "before_sha256": "7c57673243cc49610bce4275140be1f6e26630caa5496b0fcc82a6350e2b152d",
+   "after_sha256": "272b467075e342eed01bcc73662d015639871a3e2a66c6ad7a300fbaa4e0a4d9",
+   "before_lines": 33,
+   "after_lines": 33,
+   "before_bytes": 503,
+   "after_bytes": 503,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientAbilityInputHandler.client.luau",
+   "before_sha256": "98a04f18a182ab93bb2ec7a46447766fd66231b382524ea157affca492440bf5",
+   "after_sha256": "fcc9c9598c7bf56d113561711c59bbed01e3a59cbc7bdff5dc53937c58b53688",
+   "before_lines": 87,
+   "after_lines": 87,
+   "before_bytes": 2259,
+   "after_bytes": 2379,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientAmbianceHandler.client.luau",
+   "before_sha256": "7144f758f810b3d12d23c713d2182d31579e830aeb2c8da8fa897d9c4b2bc7f5",
+   "after_sha256": "87e2278e80d9f24b2cfe34748d3bd0992e54752451a3e9a9fd56add2261388f7",
+   "before_lines": 67,
+   "after_lines": 67,
+   "before_bytes": 1499,
+   "after_bytes": 1539,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientAutoRejoinInput.client.luau",
+   "before_sha256": "67bb7dba44c36b3818bb5374d63069f705efe8dc92f1dda7a08a6b204f34887d",
+   "after_sha256": "5cc7969b727beb82e8d6423ef88298919ef58311243a86ed4c8471074f511813",
+   "before_lines": 19,
+   "after_lines": 19,
+   "before_bytes": 542,
+   "after_bytes": 582,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientBuildingHandlers/TrainingGrounds.luau",
+   "before_sha256": "dd7d9431c3ad2388b7057dbe378e5d8f294827233c3be52fe4c803a68e5432b7",
+   "after_sha256": "80c3e184e2f001263fa22a30b3b1c07f7721c35784e5fc529cb410e863d8bd7c",
+   "before_lines": 175,
+   "after_lines": 174,
+   "before_bytes": 4295,
+   "after_bytes": 4299,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientCosmeticSystem/init.client.luau",
+   "before_sha256": "710805abd1d784670d02fef28436c30739ee1a3a52b83da3446f153a8e173853",
+   "after_sha256": "e7fd23beadd915a8a9866067f666f1f9f18c1b372acbb3316d18388746409f05",
+   "before_lines": 300,
+   "after_lines": 299,
+   "before_bytes": 7634,
+   "after_bytes": 7678,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientDialogueRequests.client.luau",
+   "before_sha256": "19556e186d626bfac2ac4aeaee68b85a65432f616a9077c85b1681ab1a3fc2bc",
+   "after_sha256": "8b01fcb7d67e6f4f5a63c938fab526f7b474b240f765935fc1b941e75b9ff007",
+   "before_lines": 80,
+   "after_lines": 80,
+   "before_bytes": 1758,
+   "after_bytes": 1798,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientDisableCamera.client.luau",
+   "before_sha256": "37bfe4fcdbf2b4b8ed659e85bab4550286bf93d269a6db4d1bc798dc0c7ffa6c",
+   "after_sha256": "ceddf656647189e7b79e330682f6a550d86aca998135c5c66a416334dcf3161d",
+   "before_lines": 40,
+   "after_lines": 40,
+   "before_bytes": 1288,
+   "after_bytes": 1348,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientEnemyEffects/DisplayReplicaData.luau",
+   "before_sha256": "59d334162f65d7c2d382276127d35a25ce18ab288d9b39bdba8be4605091af60",
+   "after_sha256": "ca1373382b47dc7d10f14311e227362fcc30c03df95b0ef31d76de467bd5e228",
+   "before_lines": 115,
+   "after_lines": 115,
+   "before_bytes": 3242,
+   "after_bytes": 3262,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientEnemyEffects/SpawnEffect/Default.luau",
+   "before_sha256": "fecce5a612f67437e961778c1cb7727c65b758293a4f219e711325845bf69f52",
+   "after_sha256": "c66d7653f7069c4e736e27aa0b9be5ae7d743eb17d9e3dc34d2b552a79a92a49",
+   "before_lines": 28,
+   "after_lines": 27,
+   "before_bytes": 1106,
+   "after_bytes": 1119,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientEnemyEffects/SpawnEffect/Zombie.luau",
+   "before_sha256": "55f7c77d26dd77bc9d813b261b17eac19acf495ca5ffe047590a912f4b6e345f",
+   "after_sha256": "18385e6e2a45b0bbb9655b3740388e9ba30ed83e8d678c08fbf7653514c9764b",
+   "before_lines": 20,
+   "after_lines": 20,
+   "before_bytes": 871,
+   "after_bytes": 911,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientExpeditionBuildings.client.luau",
+   "before_sha256": "089ca507dc59fc406e705700ee8552dca55920fd23412179f2a1cabb069ecb99",
+   "after_sha256": "bc8f19056fb7c60592655ac1ba34c1def8dad48fd160fa22560e84f37b63d667",
+   "before_lines": 190,
+   "after_lines": 190,
+   "before_bytes": 4166,
+   "after_bytes": 4226,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientFishingHandler.client.luau",
+   "before_sha256": "01cf0edd25eee7e1fa581b639cafa59dc05c8968074319fb3982d179ae1941c7",
+   "after_sha256": "4c49bca21d896788ac9de3750e4b72a0b77a1c7d82e702e0f5aba198deba7529",
+   "before_lines": 471,
+   "after_lines": 496,
+   "before_bytes": 9612,
+   "after_bytes": 10081,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientGameDrops/init.client.luau",
+   "before_sha256": "cd2957acf054840129d586ee850e6bac47a70d23cdfec5c48456e99f0fdfc4e4",
+   "after_sha256": "3a0f1216fb939510b2c6395ac959ab54eea49daf0a4528749dab7e1537ca72fb",
+   "before_lines": 103,
+   "after_lines": 103,
+   "before_bytes": 1943,
+   "after_bytes": 1983,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientGameEffects/Storm.luau",
+   "before_sha256": "2052d548bd16fe0f8d474c938704ba9d4aee63e94a3ce2887eed55b2a3fe9ad3",
+   "after_sha256": "4e65c40a1445a8c8d0c83e55e856419cb322bd480178eac5ee418004e143139c",
+   "before_lines": 115,
+   "after_lines": 115,
+   "before_bytes": 2796,
+   "after_bytes": 2856,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientGameReplica.client.luau",
+   "before_sha256": "c28778bd6b10e8a097df9448bf6c4b085da0df5dc2a4dce7c6bc801d40cfc62e",
+   "after_sha256": "2a9e3b4343e18f2e9c4e84f925af4bfe0efa5898c0bc4a7517c3889c0aea5185",
+   "before_lines": 136,
+   "after_lines": 136,
+   "before_bytes": 4020,
+   "after_bytes": 4060,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientGlobalAnnouncement (PLEASE RICKY REWORK THIS).client.luau",
+   "before_sha256": "d0633456715b167fa67ce8faf4e07a72d83dcbf22fe5162ab7e8df9437819dbe",
+   "after_sha256": "5f60d16e40287af197971e48148075332789e83856fa6163c7eedd74e58684eb",
+   "before_lines": 246,
+   "after_lines": 246,
+   "before_bytes": 7454,
+   "after_bytes": 7494,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientHotbarHandler.client.luau",
+   "before_sha256": "8659e7e571b69598ede8eee94c1493e8f147d42b0c341148a2f4d6f286c4a611",
+   "after_sha256": "bcef9b4921e158d6d6728c7d658b94848c19831de2d1de5ea306e8bf662f6ffa",
+   "before_lines": 63,
+   "after_lines": 63,
+   "before_bytes": 1860,
+   "after_bytes": 1920,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientInputHandler.client.luau",
+   "before_sha256": "571b1777a2978fc41047cef3ca2e450ea0dfbff21d0d3a739617d161b46c2f67",
+   "after_sha256": "40a398250fec1547f09d2d5f8071349ccc71ac408957b47a180a25b5de1dc3a6",
+   "before_lines": 171,
+   "after_lines": 171,
+   "before_bytes": 4369,
+   "after_bytes": 4409,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientInteractableHandler.client.luau",
+   "before_sha256": "9dc21672a2236264241d84af6e3550223de8ec1b6f1713d651d266e10c4b7328",
+   "after_sha256": "693fdd925eeb17308ab7bb3d2cbbca353db437add90b585cd6914aed78e72689",
+   "before_lines": 138,
+   "after_lines": 138,
+   "before_bytes": 3995,
+   "after_bytes": 4035,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/InteractiveFoliage.luau",
+   "before_sha256": "bc2aa7a633a3a1ae76ab91316108b26270af4a85a6928c6766a7776d5039baa2",
+   "after_sha256": "71bb0af53c7cf4694a9781ca9533e34bd911913a95fdcd0895bf09832ef0a321",
+   "before_lines": 131,
+   "after_lines": 132,
+   "before_bytes": 3397,
+   "after_bytes": 3432,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/LensFlare/init.luau",
+   "before_sha256": "e8806fa74f057c80e887b0e483ad300dc089ee6c48d8304d6b7436a30d42447e",
+   "after_sha256": "bf694785303d3884f5d3541fd80a938d4cb3066caff24b905782a05e592aa74c",
+   "before_lines": 168,
+   "after_lines": 168,
+   "before_bytes": 5200,
+   "after_bytes": 5240,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/Effects/Rain/RainModule.luau",
+   "before_sha256": "8907b167af09cb4b1a5023a35ebc10cdf687f8601e64180f4a63b17fdab27b2d",
+   "after_sha256": "12dc60096fc8e58b8cfd06b7e8db499e302a7cc11f5aa14bead89d051aa1b07f",
+   "before_lines": 975,
+   "after_lines": 975,
+   "before_bytes": 25346,
+   "after_bytes": 25406,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapEffects/init.client.luau",
+   "before_sha256": "a3ddfd7944b09801d51c1ea5bf3d155ad644ffb85169415ab570ce3be8f2b991",
+   "after_sha256": "3ab0484ac4a9b739f2ffaf5d5a12e312003b86867b620366c57546459560332b",
+   "before_lines": 512,
+   "after_lines": 512,
+   "before_bytes": 12206,
+   "after_bytes": 12386,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMapReplica.client.luau",
+   "before_sha256": "fd7a339a08cab0189d5c5b4a9c27d2e98fcb47da42a27930f99ae7a8d053815b",
+   "after_sha256": "7fb0651c6d915e26acb9de35ce36420e3af7cd41fd305b56a6a553019e0adf37",
+   "before_lines": 75,
+   "after_lines": 75,
+   "before_bytes": 2135,
+   "after_bytes": 2195,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMenuEffect.client.luau",
+   "before_sha256": "ac75fcc99e0b7188c9984ef95e5de84f2e9058370938a91f4483417acdbcf959",
+   "after_sha256": "6147b9bd55a884a605c49f50895cf5832df965c65dba256892a41d85e983a09d",
+   "before_lines": 95,
+   "after_lines": 95,
+   "before_bytes": 2712,
+   "after_bytes": 2752,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMovement/HandleDash.luau",
+   "before_sha256": "888a6a07cf47ef4cee83b01a213823b069c053e2de4fbdd113e33d0af3f39889",
+   "after_sha256": "e276b8894547e0dcfa7323b16378e8765645c21c68299c160077be5c3dce0a92",
+   "before_lines": 404,
+   "after_lines": 400,
+   "before_bytes": 11522,
+   "after_bytes": 11652,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMovement/HandleSprint.luau",
+   "before_sha256": "308125ce979acaaa0fd217cfdc61e60ec0c587f4cc0067d42e3a0660502597cf",
+   "after_sha256": "7f867b60a5a3da33d4b87eba70742883f241c8607f9a5c6ed79ea2a79e954a7d",
+   "before_lines": 337,
+   "after_lines": 337,
+   "before_bytes": 9145,
+   "after_bytes": 9273,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientMusicHandler.client.luau",
+   "before_sha256": "f70380ef86cb285f83e443a25cbbf29555dfbdea13471b0cd8a9af1372c2bb5c",
+   "after_sha256": "daaef5c796b9e42ecfb98219df446730019a7955cdb778dbfd128c25894ba679",
+   "before_lines": 268,
+   "after_lines": 267,
+   "before_bytes": 6017,
+   "after_bytes": 6073,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPartyReplica.client.luau",
+   "before_sha256": "56cbe8befafde633369b948af1fce1691b85561bbb26d896aadac8cff1b105c6",
+   "after_sha256": "6ff88261e4e11ff8f66e04f1ed8d5b705d6ae0dbe1c9c8e70c649d6a47337ffc",
+   "before_lines": 131,
+   "after_lines": 131,
+   "before_bytes": 3240,
+   "after_bytes": 3340,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPhantomModel.client.luau",
+   "before_sha256": "dedb8aa0a763eefcb8a86433c2e64d2dba3f28f64d84b6709cdcda8b03f1dd95",
+   "after_sha256": "2144c441a4ab37204864f6b03e1c8c0b6e9d70eee240926b7e8b887ede63581d",
+   "before_lines": 192,
+   "after_lines": 192,
+   "before_bytes": 5669,
+   "after_bytes": 5729,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPlacementSystem.client.luau",
+   "before_sha256": "8cd3b95d1dd520be370f76baac998cd04b540c48a6221d08be2d1a8762a930ad",
+   "after_sha256": "fef5aff5d2fd9a7cf3d595629b37173dddcbc840835cee4d3379e7c958197c07",
+   "before_lines": 110,
+   "after_lines": 110,
+   "before_bytes": 3409,
+   "after_bytes": 3609,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPlayerAccessory.client.luau",
+   "before_sha256": "9991ae99a3ae40d578f1c4fb9562f33bd3552fd4c1f081f495f9d95920e43c3d",
+   "after_sha256": "d8a28312122f16f40cdcde08a38ea68b169ebdd07b7ccc75ce179a71780b7ed6",
+   "before_lines": 89,
+   "after_lines": 88,
+   "before_bytes": 2451,
+   "after_bytes": 2615,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientPlayerDataReplica.client.luau",
+   "before_sha256": "b43e356b9042e176f3c091ca55e92859d614d6ceabbd2971c30d8d33ee53bf26",
+   "after_sha256": "1d395f053c5b07e9c9a8971a0141a39db98b08e3f7cc5899ac62d4f43de7c934",
+   "before_lines": 117,
+   "after_lines": 117,
+   "before_bytes": 2412,
+   "after_bytes": 2492,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientReplicaHandler.client.luau",
+   "before_sha256": "72e803051c1729dbb3e931c0ece4d95b5e709d15ab75d4889d6105c4745da26b",
+   "after_sha256": "ca52196b65df63e85bce617b7a7bb0f52025015e50c44c73b1add7d9c6b8a259",
+   "before_lines": 103,
+   "after_lines": 103,
+   "before_bytes": 2292,
+   "after_bytes": 2352,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientSpectateUnit.client.luau",
+   "before_sha256": "af4de6d5c567bb08d940696a0a925e849fe0cb026b4bf9767eb7fd7476c1df3f",
+   "after_sha256": "b530b4720e9989b7c2c4909f18e6305269706fec6e3fd5282fba252984e97e84",
+   "before_lines": 303,
+   "after_lines": 303,
+   "before_bytes": 8127,
+   "after_bytes": 8207,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientSpectators.client.luau",
+   "before_sha256": "3cad2e33799ba347188b9d7e2eda158d46b82913ba4dfb47e004f77397b84982",
+   "after_sha256": "a57133dfa7916faf2b7e95ad82ef1f0284925a29db91e9322afce1f91873e61b",
+   "before_lines": 206,
+   "after_lines": 206,
+   "before_bytes": 4203,
+   "after_bytes": 4263,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientUnitAttack.client.luau",
+   "before_sha256": "72ce45cad07c7263fc7c354433339ae25d2ffd3465ba253125bc02e571658d0d",
+   "after_sha256": "3fd5b737c3bfce075d818b9e24211e6449dcba2c783339fd6b35f55ed1d72e17",
+   "before_lines": 362,
+   "after_lines": 362,
+   "before_bytes": 8921,
+   "after_bytes": 8924,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientUnitModel.client.luau",
+   "before_sha256": "1ff8ab13e8d2d018cab6e8619a7778f9ae4e6ecb6d7ee2da1f38d3a62931ebf7",
+   "after_sha256": "a26891b7ffe4ccd04a4de7bccdcd62407dee8f5e1f20afbf8920166bd5d28d23",
+   "before_lines": 447,
+   "after_lines": 443,
+   "before_bytes": 12143,
+   "after_bytes": 12132,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientUnitReplica.client.luau",
+   "before_sha256": "aa1c26e3d9971ac23ea59b9352d27e0b2ac0297bee3447e07b552604a8c88fc3",
+   "after_sha256": "9419a560339f842ba7e1921e884c10fe792934ef2e93b16580a65c45ae01c877",
+   "before_lines": 89,
+   "after_lines": 89,
+   "before_bytes": 2439,
+   "after_bytes": 2499,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ClientUnitTargeting.client.luau",
+   "before_sha256": "9037f773b4863f851c80cf7aebd9214b1a871d472e748fb83c6c9acb81f59fd8",
+   "after_sha256": "5b5b2409a727779cdfd57190f7cd55d20cccaa6c3d8c9174744aef491fe0c23c",
+   "before_lines": 240,
+   "after_lines": 240,
+   "before_bytes": 5848,
+   "after_bytes": 5904,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/DisplayUnit.client.luau",
+   "before_sha256": "90c31037bf069e7442176223be57d05c160b9f96c5a313d4b5ddaef7726b1a70",
+   "after_sha256": "2ef53b6484933c828d4a97afa26a334a00adaccbe1f1df6874597f72fd6122ff",
+   "before_lines": 235,
+   "after_lines": 235,
+   "before_bytes": 6836,
+   "after_bytes": 6896,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/HookReplicaToStateKey.client.luau",
+   "before_sha256": "ebc64fbf5717978238322727ce873338ae1d52c5e1f882a2251a1e05876c158c",
+   "after_sha256": "fc5c324ba56ba34bb1bfd6a2027615feb781f0ff1476df3e2e0d2957c333f090",
+   "before_lines": 110,
+   "after_lines": 110,
+   "before_bytes": 2189,
+   "after_bytes": 2229,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/HookSheetSyncedModules.client.luau",
+   "before_sha256": "9797fa49a5933ea86627269ac271bfeecb4f58746c4d493f15f7f3eb2fac3072",
+   "after_sha256": "367bb977a6d9cd949135ac886801daa76e5714986b2a3acea3dd204cbf7bfb7f",
+   "before_lines": 65,
+   "after_lines": 56,
+   "before_bytes": 2850,
+   "after_bytes": 2836,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/LocalScript.client.luau",
+   "before_sha256": "2a363a6f9483895412aaa086534c3e8d0ceec1865ad772697b9216f0d59eadec",
+   "after_sha256": "1eb19df0926a61dea2b5ba58f4d1a1fd4131ac1a3eaf8a67121dc4df0fcd1f23",
+   "before_lines": 71,
+   "after_lines": 71,
+   "before_bytes": 2310,
+   "after_bytes": 2390,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/MountAutoPlayIndicators.client.luau",
+   "before_sha256": "74a2b0c75faaa900d1039a0ffabe52f50b53dd70e95feaf85039cbd99885b0fc",
+   "after_sha256": "344dc07f40a0d43c9de58443defb1f02aa96b274fb2ad22d653021294f7cf72d",
+   "before_lines": 232,
+   "after_lines": 232,
+   "before_bytes": 6751,
+   "after_bytes": 6831,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/MountController.luau",
+   "before_sha256": "0ecf927ee579a2ff66a5414800f439548300c6f00593586d813c8f1f4c3daa21",
+   "after_sha256": "6f8af414074228833c580c75929a975b398161938880038f73a4bab8638e4f7f",
+   "before_lines": 125,
+   "after_lines": 125,
+   "before_bytes": 3267,
+   "after_bytes": 3303,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/MountDamageIndicator.client.luau",
+   "before_sha256": "4eadf42f040240bf938c431c8619a92d19e4e47587e030add8cafa3e0c7ab5b9",
+   "after_sha256": "38cb7069a4d6d13534b751b50a128938f751aecf989181492b6f76b1bb86ffcd",
+   "before_lines": 173,
+   "after_lines": 171,
+   "before_bytes": 4962,
+   "after_bytes": 4956,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/MountEmotes.client.luau",
+   "before_sha256": "3f04ccaedc8acf0d4b8dfa9b52d9eef992d72d3342afd35f554370faf69e5a93",
+   "after_sha256": "0e0cf0e2d18710354cae693ee81664e39838df7f34d294af4a4ebd9cee57eda3",
+   "before_lines": 281,
+   "after_lines": 281,
+   "before_bytes": 6259,
+   "after_bytes": 6359,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/Mounts/ShenronDragon/init.luau",
+   "before_sha256": "d01c97f0ea23ea69c09d0cedcedadeefa9db5cbc80d72a4397bd79202227d6d8",
+   "after_sha256": "cfcc6201bc63cf6bec209386a21094c62aa07b01cc749ae159908d3c4a069cbc",
+   "before_lines": 855,
+   "after_lines": 852,
+   "before_bytes": 25361,
+   "after_bytes": 25452,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/MountSettingsMenu.client.luau",
+   "before_sha256": "053316c62af4ecf9645a17ec4bc2c7640a57d9b6380927c9d2a8105001e9df5b",
+   "after_sha256": "21d322858669849c8d3ade816380a98fe64ebd06beea97c62145a0b3f2be877b",
+   "before_lines": 149,
+   "after_lines": 148,
+   "before_bytes": 4820,
+   "after_bytes": 4776,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/MountStarterUnitPrompt.client.luau",
+   "before_sha256": "08ca792f6fb21865bc43b2fd6a1b105da0b6800770efdf41e9b4a29dd6be2343",
+   "after_sha256": "2d91871556aca61cb6db1f13ad337cea78bb2ecef4f5e116cad77032aee49f48",
+   "before_lines": 59,
+   "after_lines": 59,
+   "before_bytes": 2013,
+   "after_bytes": 2033,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/MountSummonMenu/_SummonCutscene.luau",
+   "before_sha256": "3708d90cb7c8083dd3f14de38dadfafb38bd93ebf854f1c06c442863d1360099",
+   "after_sha256": "634c2fc137bdb65c89869182154dbe69a8ea68d0f23c251fc58ed36be8ce48f3",
+   "before_lines": 246,
+   "after_lines": 246,
+   "before_bytes": 8593,
+   "after_bytes": 8593,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/MountSummonMenu/SummonCutscene.luau",
+   "before_sha256": "83332a0bc2b4e728209f0fb6654cb475a96da309af6ae8c44293a77c912f572a",
+   "after_sha256": "a32024d6236c381b7a9e9cacccddd2ad7206a8f8ee3f7cd6814795148b5298ce",
+   "before_lines": 246,
+   "after_lines": 246,
+   "before_bytes": 8441,
+   "after_bytes": 8441,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/MountUnitView.client.luau",
+   "before_sha256": "5ae0974134e1b5923d95bf3b0e45507655d3b55a323f8096403aa79530c544c1",
+   "after_sha256": "eb5185b7d4d0b6ff174f132a69885e000aca13c39f115cac3450aa871e711629",
+   "before_lines": 144,
+   "after_lines": 144,
+   "before_bytes": 4288,
+   "after_bytes": 4328,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/CameraInput.luau",
+   "before_sha256": "b4180bed0f069ee29e126a50edb6e9edf4088edeca1a24b7d896ce3b11f27abb",
+   "after_sha256": "e08a400b88a5e3cff26bc868fef4004219a943a4999ccdcab3e7025020ead612",
+   "before_lines": 498,
+   "after_lines": 498,
+   "before_bytes": 11555,
+   "after_bytes": 11715,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/CameraUtils.luau",
+   "before_sha256": "ed97840830258ba3b3491b133943c364928a1ff79f63c93920f514664eac4cab",
+   "after_sha256": "48ebca438b6cccf85990a3b5f1b87bf8666bde43d46c9f664d49621554b65f8f",
+   "before_lines": 312,
+   "after_lines": 314,
+   "before_bytes": 7727,
+   "after_bytes": 7924,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/Invisicam.luau",
+   "before_sha256": "e2fe30d02976b4c399536a73a1c242217abd95f6724053c6047d5151bf384539",
+   "after_sha256": "0f3d600d753eea9e3e1006155769c816e1045355f9596469686f473b882be40a",
+   "before_lines": 571,
+   "after_lines": 593,
+   "before_bytes": 14741,
+   "after_bytes": 14987,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/ZoomController/init.luau",
+   "before_sha256": "1991f55b597e00d6bb90ccc90e65e012736a86ca2292b1c8ca72c23584a29b57",
+   "after_sha256": "f01f7e1bacf586619828eeba5404bed99c9af37f2ecb7360f60a6be3e145c5cd",
+   "before_lines": 116,
+   "after_lines": 116,
+   "before_bytes": 2614,
+   "after_bytes": 2654,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/CameraModule/ZoomController/Popper.luau",
+   "before_sha256": "d69eaa1088498138e1a3b4ab7e22d7314e67741281708e2260bb8fe2860517a0",
+   "after_sha256": "806ef41bcd405c6e8dbf1f70ef94965faca32e8a6f90fcb4597541cce2025304",
+   "before_lines": 571,
+   "after_lines": 571,
+   "before_bytes": 12485,
+   "after_bytes": 12585,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/AvatarAbilitiesInterface.luau",
+   "before_sha256": "4150a71da596093ff2ff8be1f717ddfaced6f30f62f63ed863e87b1a8cc51a9d",
+   "after_sha256": "27f039b69d7df29e33dc2ea7faed636d50d886317508f2a7829e48a0407ca1d5",
+   "before_lines": 69,
+   "after_lines": 69,
+   "before_bytes": 1703,
+   "after_bytes": 1763,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.luau",
+   "before_sha256": "32de6e8e270c4396f059c10b6c99e92f3a28ed864c5b6660602f173eb65f1e92",
+   "after_sha256": "56f9d23cc5f00b9997c4109e16fddd895260a92f45ce3e8a67b1dd91061aacca",
+   "before_lines": 1504,
+   "after_lines": 1674,
+   "before_bytes": 35817,
+   "after_bytes": 37760,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveDisplay.luau",
+   "before_sha256": "f2d36252137149269349c411a02d92f83c49ba5e4e984c9fb864c0213e1da0e2",
+   "after_sha256": "43864f896c9ca7fdc6436913fc530206370f1c97e2aeeba71d0d0d78b27f84b6",
+   "before_lines": 517,
+   "after_lines": 517,
+   "before_bytes": 13466,
+   "after_bytes": 13506,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/DynamicThumbstick.luau",
+   "before_sha256": "5616f5a5f72ff26ac76e150949e62615e72638422820a991c1c58bc4b412aec1",
+   "after_sha256": "905cf5daeb328b17f64d4821574233ac4800cbe043eafc425ff2f6a10ec288b6",
+   "before_lines": 650,
+   "after_lines": 650,
+   "before_bytes": 18902,
+   "after_bytes": 19022,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/CameraInput.luau",
+   "before_sha256": "f4c62007d4592eec5973bc99cd0fa90774406186efbc483f503c69517a9731ca",
+   "after_sha256": "976fce0080f756dc6d740e311ec2f55f4216553ae19c5988e0f9fa18c6d1cc86",
+   "before_lines": 512,
+   "after_lines": 512,
+   "before_bytes": 11736,
+   "after_bytes": 11896,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/CameraUtils.luau",
+   "before_sha256": "ed97840830258ba3b3491b133943c364928a1ff79f63c93920f514664eac4cab",
+   "after_sha256": "48ebca438b6cccf85990a3b5f1b87bf8666bde43d46c9f664d49621554b65f8f",
+   "before_lines": 312,
+   "after_lines": 314,
+   "before_bytes": 7727,
+   "after_bytes": 7924,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/Invisicam.luau",
+   "before_sha256": "881fedc8b32baef2e4945c1431ab5f355f7c8f286da4923200c9d2e92cef954d",
+   "after_sha256": "26e7523dc16f87672bd2c9a4a0ffdd0f17759938674ede22ffc1eafc07f210ed",
+   "before_lines": 571,
+   "after_lines": 593,
+   "before_bytes": 14740,
+   "after_bytes": 14986,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/ZoomController/init.luau",
+   "before_sha256": "1991f55b597e00d6bb90ccc90e65e012736a86ca2292b1c8ca72c23584a29b57",
+   "after_sha256": "f01f7e1bacf586619828eeba5404bed99c9af37f2ecb7360f60a6be3e145c5cd",
+   "before_lines": 116,
+   "after_lines": 116,
+   "before_bytes": 2614,
+   "after_bytes": 2654,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/CameraModule/ZoomController/Popper.luau",
+   "before_sha256": "9ddabfd8b2f9c032112882db726d1f42aa7ab8976161d9b930a77ab0943050f1",
+   "after_sha256": "1042d056cca90a3c836bbde7aa094f8badf79971d5476733b2f5f2309bd051a7",
+   "before_lines": 575,
+   "after_lines": 575,
+   "before_bytes": 12690,
+   "after_bytes": 12790,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/ClickToMoveController.luau",
+   "before_sha256": "3b993c65fa230d838ceee603c12bcbcecd945c7dfea89309ebc9c01c82240a95",
+   "after_sha256": "dd67f6af4c11ad4c4d8ca262a568d326c1ca50070ac6b3d52c4f03c6f0f04ac2",
+   "before_lines": 1531,
+   "after_lines": 1701,
+   "before_bytes": 36245,
+   "after_bytes": 38188,
+   "non_annotation": true
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/ClickToMoveDisplay.luau",
+   "before_sha256": "7f099782aa1fc28243009884ca95c30f3cb689001bb8fbddd304b51cc80538bf",
+   "after_sha256": "264ad039a721f5dcb35bd814222b6e5b2ed5441bb6a95a1ec95ebb6215acf28e",
+   "before_lines": 517,
+   "after_lines": 517,
+   "before_bytes": 13465,
+   "after_bytes": 13505,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/PlayerModule__volt-script-003651/ControlModule/DynamicThumbstick.luau",
+   "before_sha256": "4d839fcdb2398b3ac72010de99898cf5e3e972d0be711f79cab3f7052ef16e11",
+   "after_sha256": "a687f1cedb3e31fd61625701533525a14f900ce12dbd10ad0c025bf6730b792d",
+   "before_lines": 613,
+   "after_lines": 613,
+   "before_bytes": 17670,
+   "after_bytes": 17790,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/ReplicatePortal.client.luau",
+   "before_sha256": "0e67f92fa6bae93f3b9f873809e63e64bef1fd309058b73a4bb66c3eafa32876",
+   "after_sha256": "76a489b8c53e2dc4d9ccb934ced9a9e393f164a8f64218b2fd83f172ecdddc2a",
+   "before_lines": 98,
+   "after_lines": 98,
+   "before_bytes": 3045,
+   "after_bytes": 3085,
+   "non_annotation": false
+  },
+  {
+   "path": "StarterPlayer/StarterPlayerScripts/SheetSyncHookHandler.client.luau",
+   "before_sha256": "7fb908de1adebb496597bae7a347f283ec73a8e4fe15a8c12ffabb3e50ac5f14",
+   "after_sha256": "ce327c3d8017ceadb993ae2c30876beb2036962763629a76ddd0d4d46483a5d6",
+   "before_lines": 111,
+   "after_lines": 117,
+   "before_bytes": 2637,
+   "after_bytes": 2860,
+   "non_annotation": true
+  }
+ ]
+}

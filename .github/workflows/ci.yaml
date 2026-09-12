@@ -226,6 +226,39 @@ jobs:
             --keep "$RUNNER_TEMP/compiler-witnesses" \
             --report "$RUNNER_TEMP/compiler-witnesses.json"
 
+      - name: V2 ordered reconstruction VM controls
+        run: |
+          python3 scripts/ordered_reconstruction_controls.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --keep "$RUNNER_TEMP/ordered-reconstruction-controls" \
+            --report "$RUNNER_TEMP/ordered-reconstruction-controls.json"
+
+      - name: V2 reconstruction regression and fixed-count loop study
+        run: |
+          for mode in default synthesis; do
+            options=()
+            if [ "$mode" = synthesis ]; then options+=(--synthesize-arithmetic-loops); fi
+            python3 scripts/compiler_witnesses.py \
+              --manifest docs/failure_fixtures/reconstruction_holdout/manifest.json \
+              --evaluation-use unblinded-regression \
+              --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+              --luau "$RUNNER_TEMP/luau-build/luau" \
+              --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+              --lifter target/release/luau-lifter \
+              --keep "$RUNNER_TEMP/reconstruction-holdout-$mode" \
+              --report "$RUNNER_TEMP/reconstruction-holdout-$mode.json" "${options[@]}"
+          done
+
+      - name: V2 source-known reconstruction site review
+        run: |
+          python3 scripts/reconstruction_study_review.py \
+            --initial docs/roadmap_v2_acceptance/ordered_reconstruction/initial-study.json \
+            --initial-work docs/roadmap_v2_acceptance/ordered_reconstruction/initial-gallery \
+            --current "$RUNNER_TEMP/reconstruction-holdout-default.json" \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --report "$RUNNER_TEMP/reconstruction-site-review.json"
+
       - name: V2 lexical binding graph and scope controls
         run: |
           python3 scripts/binding_graph_controls.py \
@@ -364,6 +397,10 @@ jobs:
             ${{ runner.temp }}/local-producer-controls.json
             ${{ runner.temp }}/rehoist-ir.json
             ${{ runner.temp }}/compiler-witnesses.json
+            ${{ runner.temp }}/ordered-reconstruction-controls.json
+            ${{ runner.temp }}/reconstruction-holdout-default.json
+            ${{ runner.temp }}/reconstruction-holdout-synthesis.json
+            ${{ runner.temp }}/reconstruction-site-review.json
             ${{ runner.temp }}/roadmap-v2-cache-controls.json
             ${{ runner.temp }}/roadmap-v2-profile.json
             ${{ runner.temp }}/roadmap-v2/**/*.luau

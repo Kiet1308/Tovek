@@ -114,23 +114,7 @@ fn forwards_table_into_index_write(
 }
 
 fn is_service_or_require_handle(rvalue: &ast::RValue) -> bool {
-    match rvalue {
-        ast::RValue::MethodCall(method_call)
-        | ast::RValue::Select(ast::Select::MethodCall(method_call)) => {
-            method_call.method == "GetService"
-                && matches!(
-                    method_call.arguments.first(),
-                    Some(ast::RValue::Literal(ast::Literal::String(_)))
-                )
-        }
-        ast::RValue::Call(call) | ast::RValue::Select(ast::Select::Call(call)) => {
-            matches!(
-                &*call.value,
-                ast::RValue::Global(global) if global.0.as_slice() == b"require"
-            )
-        }
-        _ => false,
-    }
+    ast::inline_temps::is_service_or_require_handle(rvalue)
 }
 
 struct TraverseSelf<'a, T: Traverse>(&'a mut T);
@@ -345,6 +329,8 @@ impl<'a> Inliner<'a> {
                         let new_rvalue_has_side_effects = statement_facts.single_rhs_observable.unwrap();
                         if (!new_rvalue_has_side_effects || allow_side_effects)
                             && !is_service_or_require_handle(new_rvalue)
+                            && !matches!(new_rvalue, ast::RValue::Closure(c)
+                                if c.function.lock().retain_for_reconstruction)
                         {
                             if let Ok(ast::LValue::Local(local)) = &assign.left.iter().exactly_one()
                                 && !forwards_table_into_index_write(new_rvalue, &block[index], local)
@@ -1429,6 +1415,21 @@ mod tests {
             remove_empty(&mut block);
             assert_eq!(block.len(), 1, "{block}");
             assert!(matches!(&block[0], Statement::Call(_)), "{block}");
+        }
+    }
+
+    #[test]
+    fn reconstruction_candidate_survives_until_child_bodies_exist() {
+        for retain in [false, true] {
+            let helper = local("adjust");
+            let closure = ast::Closure { function: Default::default(), upvalues: vec![] };
+            closure.function.lock().retain_for_reconstruction = retain;
+            let mut block = inline_block(Block(vec![
+                Assign::new(vec![helper.clone().into()], vec![closure.into()]).into(),
+                Return::new(vec![local_value(&helper)]).into(),
+            ]));
+            remove_empty(&mut block);
+            assert_eq!(block.len(), if retain { 2 } else { 1 }, "{block}");
         }
     }
 

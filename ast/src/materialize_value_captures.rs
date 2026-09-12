@@ -201,6 +201,7 @@ fn clone_function_tree(
     let (
         bytecode_proto_id,
         bytecode_function_id,
+        retain_for_reconstruction,
         name,
         parameters,
         parameter_annotations,
@@ -212,6 +213,7 @@ fn clone_function_tree(
         (
             source.bytecode_proto_id,
             source.bytecode_function_id.clone(),
+            source.retain_for_reconstruction,
             source.name.clone(),
             source.parameters.clone(),
             source.parameter_annotations.clone(),
@@ -224,6 +226,7 @@ fn clone_function_tree(
     *clone.lock() = Function {
         bytecode_proto_id,
         bytecode_function_id,
+        retain_for_reconstruction,
         name,
         parameters,
         parameter_annotations,

@@ -1,5 +1,13 @@
 # Late UI tree rebuilding
 
+Latest R4 acceptance (2026-09-12): the [ordered evaluation-position gate](ordered_reconstruction.md)
+extends eligible field/scalar-call alias motion and the existing constructor
+fixed point. The accepted 3,978-file corpus now contains **zero SETLIST packing
+fallbacks**, down from the preceding 15 sites. This is a corpus observation,
+not permission to remove the fallback implementation: unproved captures,
+mutation, key/arity or evaluation order still refuse. Historical counts below
+describe their respective releases. [Current evidence](roadmap_v2_acceptance/ordered_reconstruction_validation.json).
+
 The C4 pass now restores curried factory/property/children expressions from
 their temporary-based lowering. On the final corpus it removes **37 of 59**
 SETLIST fallbacks. `FusionPackage/Components/Base/Menu/init` now has one nested

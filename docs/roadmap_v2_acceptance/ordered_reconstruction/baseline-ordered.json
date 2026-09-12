@@ -1,0 +1,1622 @@
+{
+  "schema_version": 1,
+  "manifest_sha256": "8188424870a0db8d74cfabc1e11c3ea515a1bd90c3898095d65c5e498668a4a8",
+  "compiler_commit_expected": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "tools": {
+    "compiler": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+      "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+    },
+    "luau": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau.exe",
+      "sha256": "50029806035a3a76f5e8a5c0960fd596fa4a10503d6e35472110b12426fa8b65"
+    },
+    "lifter": {
+      "path": "D:\\Medal\\medal-decompiler\\out\\v2-constructor-regions\\lifter-final.exe",
+      "sha256": "df14bf09e324b029a709310dbefc655c771e35b3c3d12df7bd55e8182f8ed7f1"
+    },
+    "ast": {
+      "path": "D:\\Medal\\luau-tools-src\\build\\luau-ast.exe",
+      "sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3"
+    }
+  },
+  "compiler_flags": [
+    "--binary",
+    "--fflags=false"
+  ],
+  "lifter_args": [],
+  "work": "D:\\Medal\\medal-decompiler\\out\\v2-r4-r5\\baseline-ordered\\v2-o6cyy7fh",
+  "split": "development",
+  "cases": [
+    {
+      "case": "ordered_reconstruction",
+      "group": "ordered-reconstruction",
+      "opt": 0,
+      "debug": 1,
+      "status": "failed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        },
+        "graph": {
+          "model": "luau-register-cfg-bisimulation-v1",
+          "status": "unknown",
+          "fingerprints": [
+            "69b3d1c17f5d6e023b281360af8d2663ac383927a99e6a7a025cadad9dde43e1",
+            "702e2282c681056097622400b2a6f29093dbb331def4da6f3a5fe41b11cbc298"
+          ],
+          "summaries": [
+            {
+              "back_edges": 0,
+              "joins": 2,
+              "instructions": 151,
+              "edges": 141,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            },
+            {
+              "back_edges": 0,
+              "joins": 1,
+              "instructions": 132,
+              "edges": 120,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            }
+          ],
+          "reason": "no structural bisimulation under the bounded register mapping"
+        }
+      },
+      "source_sha256": "1d9f6b5395eb367de51c22f9d864ca9b4ca58f5f25ce2766931af585396b378c",
+      "decompile_seconds": 0.03614679999918735,
+      "output_sha256": "cc0ad58b50baeb9294dac0a7bd29fee2c1ab398928d2ef1fe3e8cc26f1bc8a86",
+      "output_bytes": 1213,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "differ": 2,
+        "exact": 9,
+        "equiv": 3,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.6591194968553459,
+        "statement_initializer_normalized_ratio": 0.6591194968553459,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 28,
+        "output_bindings": 23,
+        "aligned_bindings": 14,
+        "exact_names": 2,
+        "alignment_coverage": 0.5,
+        "exact_name_precision_on_aligned": 0.14285714285714285,
+        "exact_name_recovery_lower_bound": 0.07142857142857142,
+        "bindings": [
+          {
+            "source_binding": 0,
+            "output_binding": 0,
+            "source_name": "helper",
+            "output_name": "helper",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "value",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 2,
+            "output_binding": 2,
+            "source_name": "bias",
+            "output_name": "p2",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 4,
+            "output_binding": 4,
+            "source_name": "value",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 5,
+            "output_binding": 5,
+            "source_name": "bias",
+            "output_name": "p2",
+            "exact_name": false,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 8,
+            "output_binding": 6,
+            "source_name": "api",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 10,
+            "output_binding": 7,
+            "source_name": "api",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 11,
+            "output_binding": 8,
+            "source_name": "snapshot",
+            "output_name": "value",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 14,
+            "output_binding": 10,
+            "source_name": "api",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 16,
+            "output_binding": 11,
+            "source_name": "api",
+            "output_name": "data",
+            "exact_name": false,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 20,
+            "output_binding": 16,
+            "source_name": "change",
+            "output_name": "change",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 21,
+            "output_binding": 17,
+            "source_name": "initial",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 24,
+            "output_binding": 20,
+            "source_name": "value",
+            "output_name": "_",
+            "exact_name": false,
+            "occurrences": 1
+          },
+          {
+            "source_binding": 26,
+            "output_binding": 22,
+            "source_name": "value",
+            "output_name": "p2",
+            "exact_name": false,
+            "occurrences": 3
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,true,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.021946299999399344
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,false,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.021721400000387803
+        }
+      },
+      "runtime_compilation": "inline_body_at_matrix_profile",
+      "error": "output observation differs from locked expectation"
+    },
+    {
+      "case": "ordered_reconstruction",
+      "group": "ordered-reconstruction",
+      "opt": 0,
+      "debug": 2,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        },
+        "graph": {
+          "model": "luau-register-cfg-bisimulation-v1",
+          "status": "unknown",
+          "fingerprints": [
+            "69b3d1c17f5d6e023b281360af8d2663ac383927a99e6a7a025cadad9dde43e1",
+            "4d8667cc0bdee242af0635b10f4246a2be99260ab0ed4698841a4c73deecf56a"
+          ],
+          "summaries": [
+            {
+              "back_edges": 0,
+              "joins": 2,
+              "instructions": 151,
+              "edges": 141,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            },
+            {
+              "back_edges": 0,
+              "joins": 3,
+              "instructions": 144,
+              "edges": 134,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            }
+          ],
+          "reason": "no structural bisimulation under the bounded register mapping"
+        }
+      },
+      "source_sha256": "1d9f6b5395eb367de51c22f9d864ca9b4ca58f5f25ce2766931af585396b378c",
+      "decompile_seconds": 0.019185799999831943,
+      "output_sha256": "e24c6f3f2eef3de2e9535b3482484bcf33f4fc66265225b6bceb38a56863b95e",
+      "output_bytes": 1535,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "differ": 2,
+        "exact": 11,
+        "equiv": 1,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.7507861635220126,
+        "statement_initializer_normalized_ratio": 0.7507861635220126,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 28,
+        "output_bindings": 30,
+        "aligned_bindings": 23,
+        "exact_names": 23,
+        "alignment_coverage": 0.8214285714285714,
+        "exact_name_precision_on_aligned": 1.0,
+        "exact_name_recovery_lower_bound": 0.8214285714285714,
+        "bindings": [
+          {
+            "source_binding": 0,
+            "output_binding": 0,
+            "source_name": "helper",
+            "output_name": "helper",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 2,
+            "output_binding": 2,
+            "source_name": "bias",
+            "output_name": "bias",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 3,
+            "output_binding": 3,
+            "source_name": "product",
+            "output_name": "product",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 4,
+            "output_binding": 5,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 5,
+            "output_binding": 6,
+            "source_name": "bias",
+            "output_name": "bias",
+            "exact_name": true,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 6,
+            "output_binding": 7,
+            "source_name": "first",
+            "output_name": "first",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 7,
+            "output_binding": 8,
+            "source_name": "second",
+            "output_name": "second",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 8,
+            "output_binding": 9,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 9,
+            "output_binding": 10,
+            "source_name": "field",
+            "output_name": "field",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 10,
+            "output_binding": 11,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 11,
+            "output_binding": 12,
+            "source_name": "snapshot",
+            "output_name": "snapshot",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 12,
+            "output_binding": 13,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 13,
+            "output_binding": 14,
+            "source_name": "factory",
+            "output_name": "factory",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 14,
+            "output_binding": 15,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 15,
+            "output_binding": 16,
+            "source_name": "scalar",
+            "output_name": "scalar",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 16,
+            "output_binding": 17,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 20,
+            "output_binding": 22,
+            "source_name": "change",
+            "output_name": "change",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 21,
+            "output_binding": 23,
+            "source_name": "initial",
+            "output_name": "initial",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 22,
+            "output_binding": 24,
+            "source_name": "cell",
+            "output_name": "cell",
+            "exact_name": true,
+            "occurrences": 5
+          },
+          {
+            "source_binding": 24,
+            "output_binding": 26,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 1
+          },
+          {
+            "source_binding": 25,
+            "output_binding": 27,
+            "source_name": "predicate",
+            "output_name": "predicate",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 26,
+            "output_binding": 28,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 3
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,true,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.019679000000905944
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,true,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.018076700000165147
+        }
+      },
+      "runtime_compilation": "inline_body_at_matrix_profile",
+      "deterministic_threads_1_4": true
+    },
+    {
+      "case": "ordered_reconstruction",
+      "group": "ordered-reconstruction",
+      "opt": 1,
+      "debug": 1,
+      "status": "failed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        },
+        "graph": {
+          "model": "luau-register-cfg-bisimulation-v1",
+          "status": "unknown",
+          "fingerprints": [
+            "29e171afd01c211aa030808515d893209ddc5714a392c707be74a8715e78713b",
+            "d8bd2a10abe1d0aa28a8f93a9526551a9fd75b56e75201f0488fb2dc90ee40dc"
+          ],
+          "summaries": [
+            {
+              "back_edges": 0,
+              "joins": 2,
+              "instructions": 129,
+              "edges": 119,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            },
+            {
+              "back_edges": 0,
+              "joins": 1,
+              "instructions": 120,
+              "edges": 108,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            }
+          ],
+          "reason": "no structural bisimulation under the bounded register mapping"
+        }
+      },
+      "source_sha256": "1d9f6b5395eb367de51c22f9d864ca9b4ca58f5f25ce2766931af585396b378c",
+      "decompile_seconds": 0.019137600000249222,
+      "output_sha256": "cc0ad58b50baeb9294dac0a7bd29fee2c1ab398928d2ef1fe3e8cc26f1bc8a86",
+      "output_bytes": 1213,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "equiv": 4,
+        "exact": 9,
+        "differ": 1,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.6591194968553459,
+        "statement_initializer_normalized_ratio": 0.6591194968553459,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 28,
+        "output_bindings": 23,
+        "aligned_bindings": 14,
+        "exact_names": 2,
+        "alignment_coverage": 0.5,
+        "exact_name_precision_on_aligned": 0.14285714285714285,
+        "exact_name_recovery_lower_bound": 0.07142857142857142,
+        "bindings": [
+          {
+            "source_binding": 0,
+            "output_binding": 0,
+            "source_name": "helper",
+            "output_name": "helper",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "value",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 2,
+            "output_binding": 2,
+            "source_name": "bias",
+            "output_name": "p2",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 4,
+            "output_binding": 4,
+            "source_name": "value",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 5,
+            "output_binding": 5,
+            "source_name": "bias",
+            "output_name": "p2",
+            "exact_name": false,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 8,
+            "output_binding": 6,
+            "source_name": "api",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 10,
+            "output_binding": 7,
+            "source_name": "api",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 11,
+            "output_binding": 8,
+            "source_name": "snapshot",
+            "output_name": "value",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 14,
+            "output_binding": 10,
+            "source_name": "api",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 16,
+            "output_binding": 11,
+            "source_name": "api",
+            "output_name": "data",
+            "exact_name": false,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 20,
+            "output_binding": 16,
+            "source_name": "change",
+            "output_name": "change",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 21,
+            "output_binding": 17,
+            "source_name": "initial",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 24,
+            "output_binding": 20,
+            "source_name": "value",
+            "output_name": "_",
+            "exact_name": false,
+            "occurrences": 1
+          },
+          {
+            "source_binding": 26,
+            "output_binding": 22,
+            "source_name": "value",
+            "output_name": "p2",
+            "exact_name": false,
+            "occurrences": 3
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,true,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.018331699999180273
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,false,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.01978659999986121
+        }
+      },
+      "runtime_compilation": "inline_body_at_matrix_profile",
+      "error": "output observation differs from locked expectation"
+    },
+    {
+      "case": "ordered_reconstruction",
+      "group": "ordered-reconstruction",
+      "opt": 1,
+      "debug": 2,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        },
+        "graph": {
+          "model": "luau-register-cfg-bisimulation-v1",
+          "status": "unknown",
+          "fingerprints": [
+            "29e171afd01c211aa030808515d893209ddc5714a392c707be74a8715e78713b",
+            "9b7cf9b6da72b65d95d80750dccda6474ae711532326d838f4424c2dd891d188"
+          ],
+          "summaries": [
+            {
+              "back_edges": 0,
+              "joins": 2,
+              "instructions": 129,
+              "edges": 119,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            },
+            {
+              "back_edges": 0,
+              "joins": 3,
+              "instructions": 131,
+              "edges": 121,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            }
+          ],
+          "reason": "no structural bisimulation under the bounded register mapping"
+        }
+      },
+      "source_sha256": "1d9f6b5395eb367de51c22f9d864ca9b4ca58f5f25ce2766931af585396b378c",
+      "decompile_seconds": 0.02050500000041211,
+      "output_sha256": "e24c6f3f2eef3de2e9535b3482484bcf33f4fc66265225b6bceb38a56863b95e",
+      "output_bytes": 1535,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "equiv": 2,
+        "exact": 11,
+        "differ": 1,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.7507861635220126,
+        "statement_initializer_normalized_ratio": 0.7507861635220126,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 28,
+        "output_bindings": 30,
+        "aligned_bindings": 23,
+        "exact_names": 23,
+        "alignment_coverage": 0.8214285714285714,
+        "exact_name_precision_on_aligned": 1.0,
+        "exact_name_recovery_lower_bound": 0.8214285714285714,
+        "bindings": [
+          {
+            "source_binding": 0,
+            "output_binding": 0,
+            "source_name": "helper",
+            "output_name": "helper",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 2,
+            "output_binding": 2,
+            "source_name": "bias",
+            "output_name": "bias",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 3,
+            "output_binding": 3,
+            "source_name": "product",
+            "output_name": "product",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 4,
+            "output_binding": 5,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 5,
+            "output_binding": 6,
+            "source_name": "bias",
+            "output_name": "bias",
+            "exact_name": true,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 6,
+            "output_binding": 7,
+            "source_name": "first",
+            "output_name": "first",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 7,
+            "output_binding": 8,
+            "source_name": "second",
+            "output_name": "second",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 8,
+            "output_binding": 9,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 9,
+            "output_binding": 10,
+            "source_name": "field",
+            "output_name": "field",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 10,
+            "output_binding": 11,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 11,
+            "output_binding": 12,
+            "source_name": "snapshot",
+            "output_name": "snapshot",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 12,
+            "output_binding": 13,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 13,
+            "output_binding": 14,
+            "source_name": "factory",
+            "output_name": "factory",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 14,
+            "output_binding": 15,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 15,
+            "output_binding": 16,
+            "source_name": "scalar",
+            "output_name": "scalar",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 16,
+            "output_binding": 17,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 20,
+            "output_binding": 22,
+            "source_name": "change",
+            "output_name": "change",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 21,
+            "output_binding": 23,
+            "source_name": "initial",
+            "output_name": "initial",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 22,
+            "output_binding": 24,
+            "source_name": "cell",
+            "output_name": "cell",
+            "exact_name": true,
+            "occurrences": 5
+          },
+          {
+            "source_binding": 24,
+            "output_binding": 26,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 1
+          },
+          {
+            "source_binding": 25,
+            "output_binding": 27,
+            "source_name": "predicate",
+            "output_name": "predicate",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 26,
+            "output_binding": 28,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 3
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,true,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.02135719999932917
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,true,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.020687100000941427
+        }
+      },
+      "runtime_compilation": "inline_body_at_matrix_profile",
+      "deterministic_threads_1_4": true
+    },
+    {
+      "case": "ordered_reconstruction",
+      "group": "ordered-reconstruction",
+      "opt": 2,
+      "debug": 1,
+      "status": "failed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        },
+        "graph": {
+          "model": "luau-register-cfg-bisimulation-v1",
+          "status": "unknown",
+          "fingerprints": [
+            "f9013b749a4eeb52a8990c230a732102afc7781f076234f1a4804fc5708d14a4",
+            "11d9daf9e9fdddafeb7fffd6ebab867d6a882e6e4aa6e1159c6b8c07826715a4"
+          ],
+          "summaries": [
+            {
+              "back_edges": 0,
+              "joins": 2,
+              "instructions": 126,
+              "edges": 116,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            },
+            {
+              "back_edges": 0,
+              "joins": 2,
+              "instructions": 123,
+              "edges": 113,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 3,
+              "close_sites": 3
+            }
+          ],
+          "reason": "no structural bisimulation under the bounded register mapping"
+        }
+      },
+      "source_sha256": "1d9f6b5395eb367de51c22f9d864ca9b4ca58f5f25ce2766931af585396b378c",
+      "decompile_seconds": 0.01979879999998957,
+      "output_sha256": "0ea3725711940069f3bad9749cfe5e6fce85d59a28bd85867ea4ebcd92113f8b",
+      "output_bytes": 1188,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "equiv": 4,
+        "exact": 8,
+        "differ": 2,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.6238532110091743,
+        "statement_initializer_normalized_ratio": 0.6238532110091743,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 28,
+        "output_bindings": 22,
+        "aligned_bindings": 10,
+        "exact_names": 0,
+        "alignment_coverage": 0.35714285714285715,
+        "exact_name_precision_on_aligned": 0.0,
+        "exact_name_recovery_lower_bound": 0.0,
+        "bindings": [
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "value",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 2,
+            "output_binding": 2,
+            "source_name": "bias",
+            "output_name": "p2",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 8,
+            "output_binding": 5,
+            "source_name": "api",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 10,
+            "output_binding": 6,
+            "source_name": "api",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 11,
+            "output_binding": 7,
+            "source_name": "snapshot",
+            "output_name": "value",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 14,
+            "output_binding": 9,
+            "source_name": "api",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 16,
+            "output_binding": 10,
+            "source_name": "api",
+            "output_name": "data",
+            "exact_name": false,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 21,
+            "output_binding": 16,
+            "source_name": "initial",
+            "output_name": "p",
+            "exact_name": false,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 24,
+            "output_binding": 19,
+            "source_name": "value",
+            "output_name": "_",
+            "exact_name": false,
+            "occurrences": 1
+          },
+          {
+            "source_binding": 26,
+            "output_binding": 21,
+            "source_name": "value",
+            "output_name": "p2",
+            "exact_name": false,
+            "occurrences": 3
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,true,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.017743300000802265
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,false,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.02081689999977243
+        }
+      },
+      "runtime_compilation": "inline_body_at_matrix_profile",
+      "error": "output observation differs from locked expectation"
+    },
+    {
+      "case": "ordered_reconstruction",
+      "group": "ordered-reconstruction",
+      "opt": 2,
+      "debug": 2,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "unknown",
+        "reasons": {
+          "original": "reference/upvalue capture lifetime",
+          "rebuilt": "reference/upvalue capture lifetime"
+        },
+        "graph": {
+          "model": "luau-register-cfg-bisimulation-v1",
+          "status": "unknown",
+          "fingerprints": [
+            "f9013b749a4eeb52a8990c230a732102afc7781f076234f1a4804fc5708d14a4",
+            "24edadba3e1305d9991cc700df00112a01b7d535781ab35c5f954b40da4c48e2"
+          ],
+          "summaries": [
+            {
+              "back_edges": 0,
+              "joins": 2,
+              "instructions": 126,
+              "edges": 116,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 2,
+              "close_sites": 3
+            },
+            {
+              "back_edges": 0,
+              "joins": 3,
+              "instructions": 130,
+              "edges": 120,
+              "prototypes": 14,
+              "open_packs": 2,
+              "reference_captures": 3,
+              "close_sites": 3
+            }
+          ],
+          "reason": "no structural bisimulation under the bounded register mapping"
+        }
+      },
+      "source_sha256": "1d9f6b5395eb367de51c22f9d864ca9b4ca58f5f25ce2766931af585396b378c",
+      "decompile_seconds": 0.020882099999653292,
+      "output_sha256": "55cbcb86aa70ca5377938308b851689730b8d60f4f02810ec7ed4805d8e24695",
+      "output_bytes": 1572,
+      "recompile": "passed",
+      "legacy_normalized": {
+        "equiv": 3,
+        "exact": 9,
+        "differ": 2,
+        "missing": 0,
+        "extra": 0
+      },
+      "source_fidelity": {
+        "model": "luau-ast-binding-v2",
+        "status": "measured",
+        "raw_structural_ratio": 0.718737976144671,
+        "statement_initializer_normalized_ratio": 0.718737976144671,
+        "style_normalization": "single-local-if-initializer-v1",
+        "source_conditional_expressions": 0,
+        "output_conditional_expressions": 0,
+        "source_bindings": 28,
+        "output_bindings": 32,
+        "aligned_bindings": 18,
+        "exact_names": 18,
+        "alignment_coverage": 0.6428571428571429,
+        "exact_name_precision_on_aligned": 1.0,
+        "exact_name_recovery_lower_bound": 0.6428571428571429,
+        "bindings": [
+          {
+            "source_binding": 1,
+            "output_binding": 1,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 2,
+            "output_binding": 2,
+            "source_name": "bias",
+            "output_name": "bias",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 3,
+            "output_binding": 3,
+            "source_name": "product",
+            "output_name": "product",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 7,
+            "output_binding": 10,
+            "source_name": "second",
+            "output_name": "second",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 8,
+            "output_binding": 11,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 9,
+            "output_binding": 12,
+            "source_name": "field",
+            "output_name": "field",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 10,
+            "output_binding": 13,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 11,
+            "output_binding": 14,
+            "source_name": "snapshot",
+            "output_name": "snapshot",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 12,
+            "output_binding": 15,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 3
+          },
+          {
+            "source_binding": 13,
+            "output_binding": 16,
+            "source_name": "factory",
+            "output_name": "factory",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 14,
+            "output_binding": 17,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 15,
+            "output_binding": 18,
+            "source_name": "scalar",
+            "output_name": "scalar",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 16,
+            "output_binding": 19,
+            "source_name": "api",
+            "output_name": "api",
+            "exact_name": true,
+            "occurrences": 4
+          },
+          {
+            "source_binding": 21,
+            "output_binding": 25,
+            "source_name": "initial",
+            "output_name": "initial",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 22,
+            "output_binding": 26,
+            "source_name": "cell",
+            "output_name": "cell",
+            "exact_name": true,
+            "occurrences": 5
+          },
+          {
+            "source_binding": 24,
+            "output_binding": 28,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 1
+          },
+          {
+            "source_binding": 25,
+            "output_binding": 29,
+            "source_name": "predicate",
+            "output_name": "predicate",
+            "exact_name": true,
+            "occurrences": 2
+          },
+          {
+            "source_binding": 26,
+            "output_binding": 30,
+            "source_name": "value",
+            "output_name": "value",
+            "exact_name": true,
+            "occurrences": 3
+          }
+        ],
+        "type_syntax_equal": true
+      },
+      "output_conditional_expressions": 0,
+      "runtime": {
+        "source": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,true,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.020888700000796234
+        },
+        "output": {
+          "exit": 0,
+          "stdout": "field:0|true,7|get:Value\nfield:1|false,E1|get:Value\nfield:2|true,7|get:Value\nfield:3|true,7|get:Value\nfield:4|true,7|get:Value\nfield:5|true,7|get:Value\nfield:6|true,7|get:Value\nfield:7|true,7|get:Value\nfield:8|true,7|get:Value\nfield:9|true,7|get:Value\nfield:10|true,7|get:Value\nsnapshot:0|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:1|false,E1|get:Value\nsnapshot:2|false,E2|get:Value,get:mutate\nsnapshot:3|false,E3|get:Value,get:mutate,mutate\nsnapshot:4|false,E4|get:Value,get:mutate,mutate,get:Value\nsnapshot:5|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:6|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:7|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:8|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:9|true,7,9|get:Value,get:mutate,mutate,get:Value\nsnapshot:10|true,7,9|get:Value,get:mutate,mutate,get:Value\ncallee:0|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:1|false,E1|get:Factory\ncallee:2|false,E2|get:Factory,get:argument\ncallee:3|false,E3|get:Factory,get:argument,argument\ncallee:4|false,E4|get:Factory,get:argument,argument,factory\ncallee:5|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:6|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:7|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:8|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:9|true,3,nil,false|get:Factory,get:argument,argument,factory\ncallee:10|true,3,nil,false|get:Factory,get:argument,argument,factory\nscalar:0|true,false,nil|get:tail,tail\nscalar:1|false,E1|get:tail\nscalar:2|false,E2|get:tail,tail\nscalar:3|true,false,nil|get:tail,tail\nscalar:4|true,false,nil|get:tail,tail\nscalar:5|true,false,nil|get:tail,tail\nscalar:6|true,false,nil|get:tail,tail\nscalar:7|true,false,nil|get:tail,tail\nscalar:8|true,false,nil|get:tail,tail\nscalar:9|true,false,nil|get:tail,tail\nscalar:10|true,false,nil|get:tail,tail\naddress:0|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:1|false,E1|get:value\naddress:2|false,E2|get:value,value\naddress:3|false,E3|get:value,value,get:object\naddress:4|false,E4|get:value,value,get:object,object\naddress:5|false,E5|get:value,value,get:object,object,get:key\naddress:6|false,E6|get:value,value,get:object,object,get:key,key\naddress:7|false,E7|get:value,value,get:object,object,get:key,key,store:K:7\naddress:8|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:9|true,true|get:value,value,get:object,object,get:key,key,store:K:7\naddress:10|true,true|get:value,value,get:object,object,get:key,key,store:K:7\nguard:1|true,7,0.14285714285714285|\ncaptured:1|true,9|\nguard:2|true,+0,inf|\ncaptured:2|true,+0|\nguard:3|true,-0,-inf|\ncaptured:3|true,-0|\nguard:4|true,false,false|\ncaptured:4|true,false|\nguard:5|true,text,other|\ncaptured:5|true,text|\nguard:6|true,nan,other|\ncaptured:6|true,nan|\nguard:7|true,inf,other|\ncaptured:7|true,inf|\nguard:8|true,-inf,other|\ncaptured:8|true,-inf|\nguard:9|true,2,other|\ncaptured:9|true,2|\nguard:nil|true,nil,nil|\ncaptured:nil|true,nil|\ncell:-2|true,false,-1,function|\ncell:-1|true,false,+0,function|\ncell:0|true,true,1,function|\ncell:1|true,true,2,function|\ncell:2|true,true,3,function|\narithmetic:false:1:0|true,21,21|\narithmetic:false:1:1|true,21,21|\narithmetic:false:1:2|true,21,21|\narithmetic:false:1:3|true,21,21|\narithmetic:false:1:4|true,21,21|\narithmetic:false:1:5|true,21,21|\narithmetic:false:1:6|true,21,21|\narithmetic:false:2:0|true,7,7|\narithmetic:false:2:1|true,7,7|\narithmetic:false:2:2|true,7,7|\narithmetic:false:2:3|true,7,7|\narithmetic:false:2:4|true,7,7|\narithmetic:false:2:5|true,7,7|\narithmetic:false:2:6|true,7,7|\narithmetic:false:3:0|true,7,7|\narithmetic:false:3:1|true,7,7|\narithmetic:false:3:2|true,7,7|\narithmetic:false:3:3|true,7,7|\narithmetic:false:3:4|true,7,7|\narithmetic:false:3:5|true,7,7|\narithmetic:false:3:6|true,7,7|\narithmetic:false:4:0|true,nan,nan|\narithmetic:false:4:1|true,nan,nan|\narithmetic:false:4:2|true,nan,nan|\narithmetic:false:4:3|true,nan,nan|\narithmetic:false:4:4|true,nan,nan|\narithmetic:false:4:5|true,nan,nan|\narithmetic:false:4:6|true,nan,nan|\narithmetic:false:5:0|true,inf,inf|\narithmetic:false:5:1|true,inf,inf|\narithmetic:false:5:2|true,inf,inf|\narithmetic:false:5:3|true,inf,inf|\narithmetic:false:5:4|true,inf,inf|\narithmetic:false:5:5|true,inf,inf|\narithmetic:false:5:6|true,inf,inf|\narithmetic:false:6:0|true,-inf,-inf|\narithmetic:false:6:1|true,-inf,-inf|\narithmetic:false:6:2|true,-inf,-inf|\narithmetic:false:6:3|true,-inf,-inf|\narithmetic:false:6:4|true,-inf,-inf|\narithmetic:false:6:5|true,-inf,-inf|\narithmetic:false:6:6|true,-inf,-inf|\narithmetic:false:7:0|true,3,3|\narithmetic:false:7:1|true,3,3|\narithmetic:false:7:2|true,3,3|\narithmetic:false:7:3|true,3,3|\narithmetic:false:7:4|true,3,3|\narithmetic:false:7:5|true,3,3|\narithmetic:false:7:6|true,3,3|\narithmetic:false:8:0|true,20000000000000010,20000000000000010|\narithmetic:false:8:1|true,20000000000000010,20000000000000010|\narithmetic:false:8:2|true,20000000000000010,20000000000000010|\narithmetic:false:8:3|true,20000000000000010,20000000000000010|\narithmetic:false:8:4|true,20000000000000010,20000000000000010|\narithmetic:false:8:5|true,20000000000000010,20000000000000010|\narithmetic:false:8:6|true,20000000000000010,20000000000000010|\narithmetic:true:1:0|true,box:21,box:21|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:1|false,E1|mul:box:7:2\narithmetic:true:1:2|false,E2|mul:box:7:2,add:box:14:3\narithmetic:true:1:3|false,E3|mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:1:4|false,E4|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2\narithmetic:true:1:5|false,E5|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3\narithmetic:true:1:6|false,E6|mul:box:7:2,add:box:14:3,add:box:17:4,mul:box:7:2,add:box:14:3,add:box:17:4\narithmetic:true:2:0|true,box:7,box:7|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:1|false,E1|mul:box:+0:2\narithmetic:true:2:2|false,E2|mul:box:+0:2,add:box:+0:3\narithmetic:true:2:3|false,E3|mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:2:4|false,E4|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2\narithmetic:true:2:5|false,E5|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3\narithmetic:true:2:6|false,E6|mul:box:+0:2,add:box:+0:3,add:box:3:4,mul:box:+0:2,add:box:+0:3,add:box:3:4\narithmetic:true:3:0|true,box:7,box:7|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:1|false,E1|mul:box:-0:2\narithmetic:true:3:2|false,E2|mul:box:-0:2,add:box:-0:3\narithmetic:true:3:3|false,E3|mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:3:4|false,E4|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2\narithmetic:true:3:5|false,E5|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3\narithmetic:true:3:6|false,E6|mul:box:-0:2,add:box:-0:3,add:box:3:4,mul:box:-0:2,add:box:-0:3,add:box:3:4\narithmetic:true:4:0|true,box:nan,box:nan|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:1|false,E1|mul:box:nan:2\narithmetic:true:4:2|false,E2|mul:box:nan:2,add:box:nan:3\narithmetic:true:4:3|false,E3|mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:4:4|false,E4|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2\narithmetic:true:4:5|false,E5|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3\narithmetic:true:4:6|false,E6|mul:box:nan:2,add:box:nan:3,add:box:nan:4,mul:box:nan:2,add:box:nan:3,add:box:nan:4\narithmetic:true:5:0|true,box:inf,box:inf|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:1|false,E1|mul:box:inf:2\narithmetic:true:5:2|false,E2|mul:box:inf:2,add:box:inf:3\narithmetic:true:5:3|false,E3|mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:5:4|false,E4|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2\narithmetic:true:5:5|false,E5|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3\narithmetic:true:5:6|false,E6|mul:box:inf:2,add:box:inf:3,add:box:inf:4,mul:box:inf:2,add:box:inf:3,add:box:inf:4\narithmetic:true:6:0|true,box:-inf,box:-inf|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:1|false,E1|mul:box:-inf:2\narithmetic:true:6:2|false,E2|mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:3|false,E3|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:6:4|false,E4|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2\narithmetic:true:6:5|false,E5|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3\narithmetic:true:6:6|false,E6|mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4,mul:box:-inf:2,add:box:-inf:3,add:box:-inf:4\narithmetic:true:7:0|true,box:3,box:3|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:1|false,E1|mul:box:-2:2\narithmetic:true:7:2|false,E2|mul:box:-2:2,add:box:-4:3\narithmetic:true:7:3|false,E3|mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:7:4|false,E4|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2\narithmetic:true:7:5|false,E5|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3\narithmetic:true:7:6|false,E6|mul:box:-2:2,add:box:-4:3,add:box:-1:4,mul:box:-2:2,add:box:-4:3,add:box:-1:4\narithmetic:true:8:0|true,box:20000000000000010,box:20000000000000010|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:1|false,E1|mul:box:10000000000000000:2\narithmetic:true:8:2|false,E2|mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:3|false,E3|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\narithmetic:true:8:4|false,E4|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2\narithmetic:true:8:5|false,E5|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3\narithmetic:true:8:6|false,E6|mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4,mul:box:10000000000000000:2,add:box:20000000000000000:3,add:box:20000000000000004:4\n",
+          "stderr": "",
+          "seconds": 0.019698000000062166
+        }
+      },
+      "runtime_compilation": "inline_body_at_matrix_profile",
+      "deterministic_threads_1_4": true
+    }
+  ],
+  "controls": [
+    {
+      "case": "operand_order",
+      "opt": 0,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "d327a9a9d8079ccd3289f3d828cb83d9f80d2f1bf818f606f2875c01b29635fd",
+          "c207f482c10ebaddd6e4da6a6434b67df5d3fdc9a687ed6d2cca78593a29a857"
+        ]
+      },
+      "self_control": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "d327a9a9d8079ccd3289f3d828cb83d9f80d2f1bf818f606f2875c01b29635fd",
+          "d327a9a9d8079ccd3289f3d828cb83d9f80d2f1bf818f606f2875c01b29635fd"
+        ]
+      }
+    },
+    {
+      "case": "operand_order",
+      "opt": 1,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "37ffee593aca00d180602c33784dd3694e2ceefcc232c8cff788a617cf65da24",
+          "00836f01978b72dd17291f0e15090223f91c8d84a0cfebf5972ce68e156462f6"
+        ]
+      },
+      "self_control": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "37ffee593aca00d180602c33784dd3694e2ceefcc232c8cff788a617cf65da24",
+          "37ffee593aca00d180602c33784dd3694e2ceefcc232c8cff788a617cf65da24"
+        ]
+      }
+    },
+    {
+      "case": "operand_order",
+      "opt": 2,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "37ffee593aca00d180602c33784dd3694e2ceefcc232c8cff788a617cf65da24",
+          "00836f01978b72dd17291f0e15090223f91c8d84a0cfebf5972ce68e156462f6"
+        ]
+      },
+      "self_control": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "37ffee593aca00d180602c33784dd3694e2ceefcc232c8cff788a617cf65da24",
+          "37ffee593aca00d180602c33784dd3694e2ceefcc232c8cff788a617cf65da24"
+        ]
+      }
+    },
+    {
+      "case": "return_binding",
+      "opt": 0,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "17a99b8df7924424559e856b6dd8e4e38f9dfaa5cb156faa81f0e4723fa9396e",
+          "981d027d60d6288de3196320313f33cdad6a43fb128851859734314a2ff60dd9"
+        ]
+      },
+      "self_control": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "17a99b8df7924424559e856b6dd8e4e38f9dfaa5cb156faa81f0e4723fa9396e",
+          "17a99b8df7924424559e856b6dd8e4e38f9dfaa5cb156faa81f0e4723fa9396e"
+        ]
+      }
+    },
+    {
+      "case": "return_binding",
+      "opt": 1,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "b5edba4d7d10171b368dd5849d28902d9cbceb0559c13a2336b5e4a364f5cc25",
+          "8805c1d33fb19c7179df58237dc641121f2c6896acfc3ff7573d4e933e26c05a"
+        ]
+      },
+      "self_control": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "b5edba4d7d10171b368dd5849d28902d9cbceb0559c13a2336b5e4a364f5cc25",
+          "b5edba4d7d10171b368dd5849d28902d9cbceb0559c13a2336b5e4a364f5cc25"
+        ]
+      }
+    },
+    {
+      "case": "return_binding",
+      "opt": 2,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "b5edba4d7d10171b368dd5849d28902d9cbceb0559c13a2336b5e4a364f5cc25",
+          "8805c1d33fb19c7179df58237dc641121f2c6896acfc3ff7573d4e933e26c05a"
+        ]
+      },
+      "self_control": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "b5edba4d7d10171b368dd5849d28902d9cbceb0559c13a2336b5e4a364f5cc25",
+          "b5edba4d7d10171b368dd5849d28902d9cbceb0559c13a2336b5e4a364f5cc25"
+        ]
+      }
+    },
+    {
+      "case": "store_binding",
+      "opt": 0,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "edc811e35aa155eac0b9c0a803d85806f102c772c07a67e3e0d07e02953bd082",
+          "8112c4e232395091517ad213ee7eb1922e661542edf169cc2f4e18d02a7156e9"
+        ]
+      },
+      "self_control": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "edc811e35aa155eac0b9c0a803d85806f102c772c07a67e3e0d07e02953bd082",
+          "edc811e35aa155eac0b9c0a803d85806f102c772c07a67e3e0d07e02953bd082"
+        ]
+      }
+    },
+    {
+      "case": "store_binding",
+      "opt": 1,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "0ade9f65e91818a0fdbb53165c2a92205bc02659d182eb3e81d37400aa4e3480",
+          "7bb9eb19902328305d6a0e7a55e3afe572d9c4d1204b55ae352aa4a7125162a5"
+        ]
+      },
+      "self_control": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "0ade9f65e91818a0fdbb53165c2a92205bc02659d182eb3e81d37400aa4e3480",
+          "0ade9f65e91818a0fdbb53165c2a92205bc02659d182eb3e81d37400aa4e3480"
+        ]
+      }
+    },
+    {
+      "case": "store_binding",
+      "opt": 2,
+      "status": "passed",
+      "dataflow": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "different",
+        "fingerprints": [
+          "0ade9f65e91818a0fdbb53165c2a92205bc02659d182eb3e81d37400aa4e3480",
+          "7bb9eb19902328305d6a0e7a55e3afe572d9c4d1204b55ae352aa4a7125162a5"
+        ]
+      },
+      "self_control": {
+        "model": "luau-acyclic-use-def-v1",
+        "status": "proved",
+        "fingerprints": [
+          "0ade9f65e91818a0fdbb53165c2a92205bc02659d182eb3e81d37400aa4e3480",
+          "0ade9f65e91818a0fdbb53165c2a92205bc02659d182eb3e81d37400aa4e3480"
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "status": {
+      "failed": 3,
+      "passed": 3
+    },
+    "dataflow": {
+      "unknown": 6
+    },
+    "controls": {
+      "passed": 9
+    },
+    "groups": {
+      "ordered-reconstruction": {
+        "failed": 3,
+        "passed": 3
+      }
+    }
+  }
+}

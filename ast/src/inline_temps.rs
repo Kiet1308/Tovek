@@ -208,9 +208,13 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
                     | RValue::Select(Select::Call(_) | Select::MethodCall(_))
             )
             && is_call_callee_use(&block.0[use_index], &local);
+        // Field aliases and scalar calls need the same evaluation-position
+        // proof as curried callees. Recorded bindings stay protected.
+        let ordered_alias = facts.rebuild_call_chains && !is_service_or_require_handle(&replacement) && matches!(&replacement,
+            RValue::Index(_) | RValue::Select(Select::Call(_) | Select::MethodCall(_)));
         let named_function = crate::assignment_preserves_function_name(&block.0[use_index], &local);
         if local.has_source_binding() && !named_function { continue; }
-        if !call_callee && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
+        if !call_callee && !ordered_alias && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
         {
             continue;
         }
@@ -220,6 +224,9 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
         if !can_move_between(&replacement, &block.0[index + 1..use_index], facts) {
             continue;
         }
+        if !crate::evaluation_order::can_sink(&block.0[use_index], &local, &replacement, &|l| {
+            facts.captured.contains(l) && !facts.stable_captured.contains(l)
+        }) { continue; }
         if facts.rebuild_call_chains
             && matches!(&replacement, RValue::Local(_) | RValue::Literal(_))
             && replace_single_index_key_use(&mut block.0[use_index], &local, &replacement, facts)
@@ -758,6 +765,18 @@ pub(crate) fn is_movable_single_value(rvalue: &RValue) -> bool {
     }
 }
 
+/// Readability protection shared with SSA: module/service handles retain their
+/// named header declaration. This is a refusal, never an API purity assumption.
+pub fn is_service_or_require_handle(rvalue: &RValue) -> bool {
+    match rvalue {
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) =>
+            call.method == "GetService" && matches!(call.arguments.first(), Some(RValue::Literal(crate::Literal::String(_)))),
+        RValue::Call(call) | RValue::Select(Select::Call(call)) =>
+            matches!(&*call.value, RValue::Global(global) if global.0.as_slice() == b"require"),
+        _ => false,
+    }
+}
+
 fn can_move_between(replacement: &RValue, statements: &[Statement], facts: &MotionFacts) -> bool {
     let read_locals = replacement
         .values_read()
@@ -1016,6 +1035,49 @@ mod tests {
         assert!(!inline_single_use_temps(&mut block));
         assert!(super::rebuild_ui_expression_trees(&mut block));
         assert_eq!(block.to_string(), "return (factory(\"Frame\"))(1)");
+    }
+
+    #[test]
+    fn field_aliases_inline_at_proven_slots_and_keep_snapshots() {
+        let object = local("object"); let alias = local("_field"); let callback = local("callback");
+        for barrier in 0..4 {
+            let mut block = Block(vec![declare(&alias, Index::new(local_value(&object), string("field")).into())]);
+            if barrier == 1 { block.0.push(Call::new(local_value(&callback), vec![]).into()); }
+            let ret = if barrier == 2 { vec![global("environment"), local_value(&alias)] }
+                else { vec![local_value(&alias)] };
+            block.0.push(Return::new(ret).into());
+            if barrier == 3 { alias.0.lock().add_source_binding(crate::SourceBinding {
+                name: "field".into(), origin: crate::BindingOrigin::DebugLocal { prototype: 1, register: 0, start_pc: 0, end_pc: 5 }
+            }); }
+            let before = block.to_string();
+            assert_eq!(super::rebuild_ui_expression_trees(&mut block), barrier == 0);
+            if barrier == 0 { assert_eq!(block.to_string(), "return object.field"); }
+            else { assert_eq!(before, block.to_string()); }
+        }
+    }
+
+    #[test]
+    fn scalar_call_alias_keeps_single_result_in_last_return_slot() {
+        let factory = local("factory"); let value = local("result");
+        let mut block = Block(vec![
+            declare(&value, RValue::Select(Select::Call(Call::new(local_value(&factory), vec![])))),
+            Return::new(vec![number(1.0), local_value(&value)]).into(),
+        ]);
+        assert!(super::rebuild_ui_expression_trees(&mut block));
+        let crate::Statement::Return(ret) = &block.0[0] else { panic!(); };
+        assert!(matches!(ret.values[1], RValue::Select(Select::Call(_))));
+    }
+
+    #[test]
+    fn ordered_alias_cleanup_retains_named_module_imports() {
+        let module = local("colors");
+        let mut block = Block(vec![
+            declare(&module, RValue::Select(Select::Call(Call::new(global("require"), vec![string("Colors")])))),
+            Return::new(vec![Index::new(local_value(&module), string("Black")).into()]).into(),
+        ]);
+        let before = block.to_string();
+        assert!(!super::rebuild_ui_expression_trees(&mut block));
+        assert_eq!(before, block.to_string());
     }
 
     #[test]

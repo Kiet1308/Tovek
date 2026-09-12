@@ -49,6 +49,11 @@ pub fn intrinsic(value: &RValue, is_capture: &impl Fn(&RcLocal) -> bool) -> Effe
     use crate::{Literal, Select};
     match value {
         RValue::Local(local) if is_capture(local) => Effects::CAPTURE_READ,
+        // These AST constants are emitted through math/vector environment
+        // lookups. Motion must account for the source that will execute.
+        RValue::Literal(Literal::Number(n))
+            if !n.is_finite() || n.abs().to_bits() == std::f64::consts::PI.to_bits() => Effects::DYNAMIC_CALL,
+        RValue::Literal(Literal::Vector(..) | Literal::VectorD(..)) => Effects::DYNAMIC_CALL,
         RValue::Local(_)
         | RValue::Literal(_)
         | RValue::VarArg(_)

@@ -1,0 +1,1477 @@
+{
+  "schema_version": 1,
+  "dataset": "bounded-reconstruction-holdout",
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "compiler_flags": [
+    "--fflags=false"
+  ],
+  "driver_sha256": "0c62806cf6c437c5633955f1d1ba32f452702ad63e72ba452beb22b1cdf93718",
+  "cases": [
+    {
+      "family": "helper_let",
+      "group": "helper",
+      "source": "helper_let.luau",
+      "source_sha256": "3cdc850183183e9a844d9893727b85cd293eb983240279facd794261869b77ae",
+      "vectors": 162,
+      "expected_observation_sha256": "150b1b5795fd0c3b64f804d3173e8ddbc40860784ef41a4fbeb5fbefffc47292",
+      "mutant": {
+        "from": " + 11",
+        "to": " + 12"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "55be33d441540b0146a8c5f1b7a9fe33e3858c7a25879c60ba84f75ce0da816e",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "MOVE": 2,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "895f6a93002c3b04a8ba96b4f52e6dd4bf9659e3ef14b3d041c88b82d1ba1bea",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "MOVE": 2,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "9e75e88563f87f3cde353e28168b6f5f49f5397fb1bdbb4b403df0bae2acc07a",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "MOVE": 2,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "794af98beeb8e68dec75c9f0e7d99669a731d493d10a370786adaee7479f23ec",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "MOVE": 2,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "28e6ec5b737967982db42dbd49088cdc51feae888252a9b90a28abd4ad56b2f1",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "7905b74a377a669c9d6abc706078fa2fa3bee69b2d2596d179cef9fdf3a5c204",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 2
+    },
+    {
+      "family": "helper_phi",
+      "group": "helper",
+      "source": "helper_phi.luau",
+      "source_sha256": "638c462d8a32a15cac23be21d6a41eae0946e9251dadd46b88e97d8ad3e333a8",
+      "vectors": 162,
+      "expected_observation_sha256": "67e1214749595a272a5204959f1e281ed3a42e2509bbb7aa28232c112243976e",
+      "mutant": {
+        "from": "value * 7",
+        "to": "value * 8"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "00abb538e1fc24730889472e79e3c17c033e163a43db0184ff7205b072bc7cff",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "LOADB": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "8ac11f35d0f07eee1c3f7a4c08574bf358a68e1b5308f29e9f69795d8c95dbc1",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "LOADB": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "9ba29ec63846d7d4b14018761c34077b510ff4fc95c058cf9a538856a85613df",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "LOADB": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "4b580373aa0a8eb3d7dbd9a59d6c14eea308804e77c6cbebd0255cd2e78bd0f2",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "LOADB": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "5966c5fd6451168e6bb6a9e81a9f4cd4867119e977fa2bb390b3ca58bc39cd6e",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 3,
+            "JUMP": 1,
+            "JUMPIFNOT": 1,
+            "LOADNIL": 2,
+            "MOVE": 2,
+            "MULK": 6,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "b5ca1010cd7e9ebbe29706fd18c53ca5f17f5c244cbadf712b8bf0e54be3b9d9",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 3,
+            "JUMP": 1,
+            "JUMPIFNOT": 1,
+            "LOADNIL": 2,
+            "MOVE": 2,
+            "MULK": 6,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 2
+    },
+    {
+      "family": "helper_guard",
+      "group": "helper",
+      "source": "helper_guard.luau",
+      "source_sha256": "97c5c9cc5029fdf7889367b21d8d0b073b91ef04cbac15a6ba09492a2850afdb",
+      "vectors": 162,
+      "expected_observation_sha256": "67e1214749595a272a5204959f1e281ed3a42e2509bbb7aa28232c112243976e",
+      "mutant": {
+        "from": "value * 7",
+        "to": "value * 8"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "8e0de4e21decce4137729b50a405b4b1933716c6cd62887c1d0e3137049d254c",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "LOADB": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "da03d20ac0125a05e314108543a3b40833c06a1ca640be6b0ea459f6d31be264",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "LOADB": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "e30373fff67a4fa3fe8faa1e1074dee00c69dec75974af1470adea845592a934",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "LOADB": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "adfb1ecb0071dc15ea61e4c8e3ff61b09b204373ee37e547807d0357e765f25e",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "LOADB": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "8c4ecd751f75c3cc86c9c93c783197e265168373b0614ae2f2d3662e8a452774",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 3,
+            "JUMP": 1,
+            "JUMPIFNOT": 1,
+            "MULK": 6,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "82833a2fccc90cc52b89b896032a04663dc79f7a35167744f88db9a324a83367",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 3,
+            "JUMP": 1,
+            "JUMPIFNOT": 1,
+            "MULK": 6,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 2
+    },
+    {
+      "family": "handwritten_shape",
+      "group": "noncall",
+      "source": "handwritten_shape.luau",
+      "source_sha256": "cc9b97f41bea2924dfdb4f110c1d924b4fcfdfc918b4aeefa939b01f31e4f7bb",
+      "vectors": 162,
+      "expected_observation_sha256": "150b1b5795fd0c3b64f804d3173e8ddbc40860784ef41a4fbeb5fbefffc47292",
+      "mutant": {
+        "from": "local first = (value * 3 + 5) * 2 + 11",
+        "to": "local first = (value * 3 + 5) * 2 + 12"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "1c2789f32b94cdac333c9453e15fff045427e5a89a2df8e4a31a0cc6ba69c95a",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADK": 8,
+            "MUL": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "133d7bfa496a990be93769b0c02e2755ae81b2f9f7f04e62c80b2ca02b655f96",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADK": 8,
+            "MUL": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "7040e1a4bb728de747c287a49ea25970568e6c2f29270a714ae871fa616d53ff",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "7aa129085effe020ad9afd2a9a14289f4cab82ea81f66462843b704a4df6a86c",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "7040e1a4bb728de747c287a49ea25970568e6c2f29270a714ae871fa616d53ff",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "7aa129085effe020ad9afd2a9a14289f4cab82ea81f66462843b704a4df6a86c",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    },
+    {
+      "family": "missing_prototype",
+      "group": "noncall",
+      "source": "missing_prototype.luau",
+      "source_sha256": "e5f4dae26c20feac96d9c941a38543e285e608fc521e1da69c242621810e6ce4",
+      "vectors": 162,
+      "expected_observation_sha256": "150b1b5795fd0c3b64f804d3173e8ddbc40860784ef41a4fbeb5fbefffc47292",
+      "mutant": {
+        "from": "local first = (value * 3 + 5) * 2 + 11",
+        "to": "local first = (value * 3 + 5) * 2 + 12"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "f5d88ba9d0591fefbf8e217949e31139601215bfbe6121565274fcf579364ad4",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADK": 8,
+            "MUL": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "e34a9efd8a64f8a46452aa0999be0bf31e6cccb6a3edbef29b9298018046e28a",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADK": 8,
+            "MUL": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "99f4ed5f16d9758aa0ad7cd88008493972e86b90e0ecd5cbbb02dbf8a52a6740",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "953360738527899bfcfbc059b7ee13e05d2d59c9f43f7554215555a065127e8f",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "99f4ed5f16d9758aa0ad7cd88008493972e86b90e0ecd5cbbb02dbf8a52a6740",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "953360738527899bfcfbc059b7ee13e05d2d59c9f43f7554215555a065127e8f",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    },
+    {
+      "family": "ambiguous_helpers",
+      "group": "ambiguous",
+      "source": "ambiguous_helpers.luau",
+      "source_sha256": "5bfca0371fd2ab3b1f0b6de8f5f6a76d072ad01066f154069fc1bedad9eedf45",
+      "vectors": 162,
+      "expected_observation_sha256": "150b1b5795fd0c3b64f804d3173e8ddbc40860784ef41a4fbeb5fbefffc47292",
+      "mutant": {
+        "from": "return helper(value), helper(value)",
+        "to": "return helper(value), helper(value), 99"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "b61ea63aa92e0d98a8cfc5f6e50e5314b806ef8bbe5e914970eb433d82b11969",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "MOVE": 2,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "bf57fac5daad2a585b3d7dd11a9b4fa757a8dd97272affadf28e38d514764d72",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "MOVE": 2,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "d970c4df8ffa1c73427a3d0af5f1760af7641e5d2415327e52ef5ff0282892a8",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "MOVE": 2,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "375f2afc9c911aaddb938461f322b636ddcec69864f1e78184e92835d9c2969f",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 2,
+            "GETUPVAL": 2,
+            "MOVE": 2,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "9c970d8dea5d8f3084f852a46c1777d1d673dd2a95a239a82961dae4e0309937",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "6f0a2258652994467e15cedc8f378bccd1bd5452990fceb78f86ddc80ac74c73",
+          "inlines": 2,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADDK": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 2
+    },
+    {
+      "family": "loop_unit_stride",
+      "group": "loop",
+      "source": "loop_unit_stride.luau",
+      "source_sha256": "3ad798d9fe8cde0331b77ae9d21a9600e4a6b483b3031e9894fdf0f980cba689",
+      "vectors": 162,
+      "expected_observation_sha256": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+      "mutant": {
+        "from": "return total",
+        "to": "return total, 99"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "4a769756a1b11886e79b3dde9ab1fd50b3c9d217f9cc7af811a0df26a6effe82",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 3,
+            "LOADN": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "6fff76268ded1dbc90aff123e5a61e2f9de4d30d6d8b5642ea8301b04dcd2a07",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 3,
+            "LOADN": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "428530069e5e9644d8cc488822aede3ac248b37a13abf1c1b2c4405023630f74",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADN": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "321b06545babdd27e957b009203fa0287d842ca94e71cc213ee3ef2174333c93",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADN": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "fb2b1a6007226772e08985dd3c534d9d139fe8aa59ccd385e97d886f86be704e",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADN": 1,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "bf66bff6ef07d5a2338d9dacbabb25bdae3db3af3b9c52acd5ed7c8f96b36c88",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADN": 1,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    },
+    {
+      "family": "loop_stride_two",
+      "group": "loop",
+      "source": "loop_stride_two.luau",
+      "source_sha256": "16a27b1659b20ad59a6ba6ddfe9f1ccd92869c9d2402afca693cf195c703f0ca",
+      "vectors": 162,
+      "expected_observation_sha256": "0045bd74d13ef210cab6fa0aefd5973f3820c4ae70883ce411366ccb9e1e18ae",
+      "mutant": {
+        "from": "return total",
+        "to": "return total, 99"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "5eae087a2a72284469cc3af5e10913bdff2a1f4195a1f368d4008806cc427266",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "ff376ab05724432e33c960ef301edf73c880501da68683d1c56859300560da32",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "8a91e8cf8367be05e9fe9a0f945516bebda4479ec26a2c0f6350b34182f03016",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADN": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "484a81b75a9fedc5400a13bcbd2cc5692c691a81b6d97dadbc5d9ff91c580461",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADN": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "4c73147388fdfa6975be65416c13dd366a31a37f0684d890a5314bac4871567c",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADN": 1,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "4cf1577314d7ec7e6b68e202a99a3d50a283ffe3fd979f63ad34706822cde2cb",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADN": 1,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    },
+    {
+      "family": "loop_reverse",
+      "group": "loop",
+      "source": "loop_reverse.luau",
+      "source_sha256": "96c0151b03aa34636e46a5a09948f93da9efa05926b39e4c20cbb3a9442d26da",
+      "vectors": 162,
+      "expected_observation_sha256": "b55676ff9b0cc7f02efe367d84c74a0c77477644cdf5dad29c6e6db49d202cec",
+      "mutant": {
+        "from": "return total",
+        "to": "return total, 99"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "7b05623c5fd453f119d19a047544d34b2e3bd6960866baebf4244661c69a5f6b",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 4,
+            "MINUS": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "9ace2a1de1d97b847fa015f9eec050d1592b37769be1c259127992802424d41a",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 4,
+            "MINUS": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "cc6794eecdb3ee7241907635dba33d6fc393fd4e4562816e2277b33c65560a8f",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADN": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "35a451326bb324dc488b1f2047897a9bccf282ed1605bdb2fcc5aa04da0fc73e",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADN": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "9c578ed6962a33313aaae4014a4285b07c796bb133c72b401b529bcb302d2da7",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADN": 1,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "24c42201dc9e71dd64540788f2d121bd10097bef279825b8676bad04900e47bd",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "ADD": 4,
+            "LOADN": 1,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    },
+    {
+      "family": "loop_zero",
+      "group": "loop",
+      "source": "loop_zero.luau",
+      "source_sha256": "91841929f587ab97e0a7520fe31728acda0f6d3f6e1836e956f8d1a03c988917",
+      "vectors": 162,
+      "expected_observation_sha256": "06c77034a2750f86eac51b0f2a4ca95881478ca4dd9fd2cbc60f366d9114fe10",
+      "mutant": {
+        "from": "return total",
+        "to": "return total, 99"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "490a9f54385879cd5b6715be2ea8fe05ec6c33e5eab726617801b3722dc16b6f",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 3,
+            "LOADN": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "2463d8edb49a95e89689e625f110b0a63b257c1541c11c741dfea4a00cd8e8f2",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 3,
+            "LOADN": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "92e25c40b0f49420a246bd607addf902b271e6d0950dd65aeef66d4662d4b069",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADN": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "69632b0ee6d466e5e4b9b5b4ca624e99ec2452b12e3099955b90a9291c91d396",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADN": 4,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "1eb83df00a3c354b608ea8c723b09094530f2aee642c7b52dc7be0ad356715eb",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "LOADN": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "e95dfc8d8c71ceabad1b666b468c2428c2b82a97456afbb996ae396ca36ed44e",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "LOADN": 1,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    },
+    {
+      "family": "loop_last_result",
+      "group": "loop",
+      "source": "loop_last_result.luau",
+      "source_sha256": "71adc3775c8413142778db250bee02b2f099861952177ac3851b017c22e23645",
+      "vectors": 162,
+      "expected_observation_sha256": "1d3caa3a28cfcd6eaec14980d435cccc120465e7a1ac590d2f90c7ab5909f59d",
+      "mutant": {
+        "from": "last = index",
+        "to": "last = index + 1"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "ace92eb86e10fd60bf3a355518ad337b374bdfab9bed4e989854e17f0ba030e8",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADB": 1,
+            "LOADK": 3,
+            "LOADN": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "04b49fcd9633ac6c490623a6b2abedf61d7ed504f9736d2deb6a0908b25fc2d6",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADB": 1,
+            "LOADK": 3,
+            "LOADN": 1,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "3f5b5bc843809df4f9be8d4302af4e6c0aecf6ec3757c7d878494e82dc9f137d",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADB": 1,
+            "LOADK": 1,
+            "LOADN": 3,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "d8847fc35f8379d3cf5b09e30ea3421ff8e8715be1c21f68b9cf75c8f87d1868",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADB": 1,
+            "LOADK": 1,
+            "LOADN": 3,
+            "MOVE": 3,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "8487efe33e022253e180246d5b82945068d0312d2c82b2d4ad5ad5a89966a602",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "CALL": 4,
+            "LOADB": 1,
+            "LOADK": 4,
+            "LOADN": 4,
+            "MOVE": 8,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "e2b230ce6a49eea43e50ad972c9fe16eb6d3435d5ef886711a58ef831645d248",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "CALL": 4,
+            "LOADB": 1,
+            "LOADK": 4,
+            "LOADN": 4,
+            "MOVE": 8,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    },
+    {
+      "family": "loop_captures",
+      "group": "loop",
+      "source": "loop_captures.luau",
+      "source_sha256": "19de6c88d131cb39f5bb0f158c1dbd2ce34ffeeda18399a9b4ccd21308d960b5",
+      "vectors": 162,
+      "expected_observation_sha256": "b6fa594ca15738cd55a31f986262504c089b11411574367db2603752e51c3dfe",
+      "mutant": {
+        "from": "return snapshot",
+        "to": "return 4"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "1eb60b481f10cd00ac8a93736f19ba988b83baa40aa9369717d6fbab3494ff91",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 4,
+            "CAPTURE": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "GETTABLE": 4,
+            "LOADK": 6,
+            "LOADN": 1,
+            "MOVE": 1,
+            "NEWCLOSURE": 1,
+            "NEWTABLE": 1,
+            "RETURN": 1,
+            "SETTABLE": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "bbdf8dec47a41000510d4979a117087c19a7ddab0daf3f637ddb5164b64fd1b1",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 4,
+            "CAPTURE": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "GETTABLE": 4,
+            "LOADK": 6,
+            "LOADN": 1,
+            "MOVE": 1,
+            "NEWCLOSURE": 1,
+            "NEWTABLE": 1,
+            "RETURN": 1,
+            "SETTABLE": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "2861fc6766a67138b72977d2d9bf6df0d6d63c86733bb67612fcbd0ba56cea18",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 4,
+            "CAPTURE": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "GETTABLEN": 4,
+            "LOADN": 3,
+            "NEWCLOSURE": 1,
+            "NEWTABLE": 1,
+            "RETURN": 1,
+            "SETTABLE": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "5b4c7d4d72baf5644f832e3b338726796ff01b3b828db98eab1b64ffe881e8f2",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 4,
+            "CAPTURE": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "GETTABLEN": 4,
+            "LOADN": 3,
+            "NEWCLOSURE": 1,
+            "NEWTABLE": 1,
+            "RETURN": 1,
+            "SETTABLE": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "2861fc6766a67138b72977d2d9bf6df0d6d63c86733bb67612fcbd0ba56cea18",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 4,
+            "CAPTURE": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "GETTABLEN": 4,
+            "LOADN": 3,
+            "NEWCLOSURE": 1,
+            "NEWTABLE": 1,
+            "RETURN": 1,
+            "SETTABLE": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "5b4c7d4d72baf5644f832e3b338726796ff01b3b828db98eab1b64ffe881e8f2",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 4,
+            "CAPTURE": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "GETTABLEN": 4,
+            "LOADN": 3,
+            "NEWCLOSURE": 1,
+            "NEWTABLE": 1,
+            "RETURN": 1,
+            "SETTABLE": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    },
+    {
+      "family": "loop_effects",
+      "group": "loop",
+      "source": "loop_effects.luau",
+      "source_sha256": "a5606fecb4d2b3ae3bed5f96a122a221a03cc393fc967b717cb230c3b686424d",
+      "vectors": 162,
+      "expected_observation_sha256": "9d8bf9bd8e5a20fbfa9c34d17749350b079e8f66662d5505ab18a5fcda7fa100",
+      "mutant": {
+        "from": "sink(\"step\", value * index)",
+        "to": "sink(\"step\", index * value)"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "d1e4148d5df3b3dc1eb8a7afd6f96a2d4522550b09d403f889432bc298e30b77",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 3,
+            "LOADN": 1,
+            "MOVE": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "718a03b2aad0f49f0b5d52e7f8537542510da05d311dc2dcbc318ad5eab70eba",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 3,
+            "LOADN": 1,
+            "MOVE": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "e698112feaff7fed285c6cda7553403756e7ba4715e988144fea9aaafb2a349d",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 1,
+            "LOADN": 3,
+            "MOVE": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "f4dde44bbd00479a9e94834660eb1b784f460dca8d204e8610c94f97dd6dd73c",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "CALL": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 1,
+            "LOADN": 3,
+            "MOVE": 1,
+            "MUL": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "13c193bb9c2cd23f297f1e8a590869674341c79c0cd7a56897f58c64d3051533",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "CALL": 4,
+            "LOADK": 4,
+            "MOVE": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "481b7683bede8c3cfed4b8c8aeec7754bda850e1b8addc6044f60058a19f27c2",
+          "inlines": 0,
+          "unrolls": 1,
+          "run_opcodes": {
+            "CALL": 4,
+            "LOADK": 4,
+            "MOVE": 4,
+            "MULK": 4,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    },
+    {
+      "family": "loop_mutable_result",
+      "group": "loop",
+      "source": "loop_mutable_result.luau",
+      "source_sha256": "4c0bae9e9a2f4b7a8d9708b1d44778d83f2bf3fcc716a688c08c14baec25b45f",
+      "vectors": 162,
+      "expected_observation_sha256": "897a9ffa01c6f8f20b7913a12a59a4390bf32790d3a58b284f2d4400f776593d",
+      "mutant": {
+        "from": "sink(\"observed\", read())",
+        "to": "sink(\"observed\", 0)"
+      },
+      "profiles": [
+        {
+          "opt": 0,
+          "debug": 1,
+          "bytecode_sha256": "3a2db25aaa6c825740de49e5fe0ad2701a9a414e1295a066b3cefb8b34d1d3e5",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "CALL": 2,
+            "CAPTURE": 1,
+            "CLOSEUPVALS": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 4,
+            "LOADN": 1,
+            "MOVE": 2,
+            "MUL": 1,
+            "NEWCLOSURE": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 0,
+          "debug": 2,
+          "bytecode_sha256": "b6d9253a7787226a073ddb76eccf3feb00c92bf9a54c9646d2e9f3dabf67d7d3",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "CALL": 2,
+            "CAPTURE": 1,
+            "CLOSEUPVALS": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 4,
+            "LOADN": 1,
+            "MOVE": 2,
+            "MUL": 1,
+            "NEWCLOSURE": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 1,
+          "bytecode_sha256": "4ddfbdc685f479c07a2808ef6f40d23d1cc3bcf414f8fe69503d7eb668875632",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "CALL": 2,
+            "CAPTURE": 1,
+            "CLOSEUPVALS": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 1,
+            "LOADN": 4,
+            "MOVE": 2,
+            "MUL": 1,
+            "NEWCLOSURE": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 1,
+          "debug": 2,
+          "bytecode_sha256": "2245e11d296a0343afa29fb3bc8a9219a2529d337f84931f49446ba042c11a39",
+          "inlines": 0,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "CALL": 2,
+            "CAPTURE": 1,
+            "CLOSEUPVALS": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 1,
+            "LOADN": 4,
+            "MOVE": 2,
+            "MUL": 1,
+            "NEWCLOSURE": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 1,
+          "bytecode_sha256": "7f145f327fcfb2f112a4a76c3d2cdc1eb931662e1709ba8f3d604630625b5d69",
+          "inlines": 1,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "CALL": 1,
+            "CAPTURE": 1,
+            "CLOSEUPVALS": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 1,
+            "LOADN": 4,
+            "MOVE": 2,
+            "MUL": 1,
+            "NEWCLOSURE": 1,
+            "RETURN": 1
+          }
+        },
+        {
+          "opt": 2,
+          "debug": 2,
+          "bytecode_sha256": "a2706b21914553bada2e40877838b78c9d8fba2e245e8e3f4738c15953da5897",
+          "inlines": 1,
+          "unrolls": 0,
+          "run_opcodes": {
+            "ADD": 1,
+            "CALL": 1,
+            "CAPTURE": 1,
+            "CLOSEUPVALS": 1,
+            "FORNLOOP": 1,
+            "FORNPREP": 1,
+            "LOADK": 1,
+            "LOADN": 4,
+            "MOVE": 2,
+            "MUL": 1,
+            "NEWCLOSURE": 1,
+            "RETURN": 1
+          }
+        }
+      ],
+      "source_helper_calls": 0
+    }
+  ]
+}

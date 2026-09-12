@@ -2,6 +2,9 @@
 //! metadata; matching a label does not establish an original source/proof claim.
 pub fn compact_text(text: &str) -> Option<&'static str> {
     match text {
+        " equivalent calls inferred from this helper; original call sites unknown" => Some("inferred helper"),
+        "equivalent call inferred; original call site unknown"
+        | " equivalent call inferred; original call site unknown" => Some("inferred call"),
         " [-O2 INLINED, UNHOOKABLE] reconstructed definition;" => Some("inferred helper"),
         "inlined by Luau -O2 (UNHOOKABLE)"
         | " [-O2 INLINED, UNHOOKABLE] reconstructed call" => Some("inferred call"),

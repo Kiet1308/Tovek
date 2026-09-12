@@ -32,6 +32,10 @@ pub struct Function {
     /// Unlike `bytecode_proto_id`, this distinguishes multiple closure sites that
     /// instantiate the same prototype. Synthetic functions leave it as `None`.
     pub bytecode_function_id: Option<String>,
+    /// Immutable bytecode hint: retain the local closure binder through SSA so
+    /// the module reconstruction pass can inspect it after child bodies exist.
+    /// This is only an inlining refusal, never a semantic equivalence proof.
+    pub retain_for_reconstruction: bool,
     pub name: Option<String>,
     pub parameters: Vec<RcLocal>,
     /// Source-recoverable Luau type annotation per parameter (aligned with

@@ -1758,6 +1758,8 @@ impl<'a> Lifter<'a> {
                             let mut lifted_function = function.lock();
                             lifted_function.bytecode_proto_id = Some(func_index);
                             lifted_function.bytecode_function_id = child_function_id;
+                            lifted_function.retain_for_reconstruction =
+                                crate::reconstruction_candidates::retain(func, func_name.as_deref());
                             lifted_function.name = func_name;
                         }
                         statements.push(

@@ -1,0 +1,7162 @@
+{
+ "schema_version": 1,
+ "manifest_sha256": "63072e2b460975034612745b880378f71eef9494a7d4fc66520df024f0d99114",
+ "compiler_commit_expected": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+ "dataset": "development-compiler-witnesses",
+ "evaluation_use": "development",
+ "synthesize_arithmetic_loops": false,
+ "tools": {
+  "compiler": {
+   "path": "D:\\Medal\\luau-tools-src\\build\\luau-compile.exe",
+   "sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d"
+  },
+  "luau": {
+   "path": "D:\\Medal\\luau-tools-src\\build\\luau.exe",
+   "sha256": "50029806035a3a76f5e8a5c0960fd596fa4a10503d6e35472110b12426fa8b65"
+  },
+  "ast": {
+   "path": "D:\\Medal\\luau-tools-src\\build\\luau-ast.exe",
+   "sha256": "6735fe164e9d35f1a0c80051a5b0797f5a54624e6315f83c7b15dbea2d3267c3"
+  },
+  "lifter": {
+   "path": "D:\\Medal\\medal-decompiler\\out\\v2-r4-r5\\lifter-locked.exe",
+   "sha256": "860eae3c200815eccebc14ae87c2de69ebc4046c49704d5734a1a4e05f111dfb"
+  }
+ },
+ "work": "D:\\Medal\\medal-decompiler\\out\\v2-r4-r5\\final\\witnesses\\compiler-witness-3l09zkur",
+ "rows": [
+  {
+   "family": "constant_specialization",
+   "opt": 0,
+   "debug": 1,
+   "bytecode_sha256": "6aea294a244fe012b0e5fc4bc4e540aa2d0c1fff2e63b4b2ad81b661bd45a700",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "8d2fb532da28284b0942802d3ded4197e42e85791f8982bdf546201821c0b4c1",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "output": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "mutant": "cac420532af622f7e5658f669a95c5c304d98ede1d84bc0e956528df73be5011"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "8efa228efefd0f82800c5ab4884858e9514532e5997f3ebae00e1f03d5527ff6",
+    "complete_module": true
+   },
+   "output_sha256": "03923c98b664bd724320331c437bcbf80dd901dfb1761c82b6cb2f4a34272266",
+   "sidecar_sha256": "31fabe873fd33a8cdc8a1283266d08b3603d283e20d32bbeff452d21021f613d",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "e18bca09d941821d89b415725591f412ebaa653d6de698d0db96c13d00a6da40",
+     "e18bca09d941821d89b415725591f412ebaa653d6de698d0db96c13d00a6da40"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131844,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131845,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "constant_specialization",
+   "opt": 0,
+   "debug": 2,
+   "bytecode_sha256": "a55cf78bc1c4dcb419e09938be306562ce0df10ecc10c956cddd859e6757450b",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "8d2fb532da28284b0942802d3ded4197e42e85791f8982bdf546201821c0b4c1",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "output": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "mutant": "cac420532af622f7e5658f669a95c5c304d98ede1d84bc0e956528df73be5011"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "13d31035ab47a7641684b6f6f64fcf3b89c5afb252425ab9b878bf488ced6a45",
+    "complete_module": true
+   },
+   "output_sha256": "7c79b783dd2b253e087fddeef70eeb8b5ce5d97b13b2b6caa23a60168d21d332",
+   "sidecar_sha256": "44587e76cf53ad64c1828506b28e8d51df350618b290e6dafa73632f40751e6c",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "e18bca09d941821d89b415725591f412ebaa653d6de698d0db96c13d00a6da40",
+     "e18bca09d941821d89b415725591f412ebaa653d6de698d0db96c13d00a6da40"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131844,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131845,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "constant_specialization",
+   "opt": 1,
+   "debug": 1,
+   "bytecode_sha256": "a5c039349a7793c8ed42eab67f8a804b9ae34ff7ea83c49fb38de163e02e29ca",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "8d2fb532da28284b0942802d3ded4197e42e85791f8982bdf546201821c0b4c1",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "output": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "mutant": "cac420532af622f7e5658f669a95c5c304d98ede1d84bc0e956528df73be5011"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "0af6edaa1877899deae11c2ff04127c4376acfb7f49c098ca6924f5d5906e570",
+    "complete_module": true
+   },
+   "output_sha256": "5fee292c4c03df36e2b8bdcb7802aae85891408e9d03ba6de5230c7e9378135a",
+   "sidecar_sha256": "63c85e849219747aa07078383b774bee991759e203adeb850ae3feda2345eee5",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "5eb7baea7bee6c87f7a757a0ee9e583924276338e12e5b1eeb64fc4b267536b9",
+     "9113955ba039216a28134277159f3c196926c53ccc55a1aeabfb987f99af846f"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131844,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131845,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "constant_specialization",
+   "opt": 1,
+   "debug": 2,
+   "bytecode_sha256": "a2b3cbff522dbbee6ea1b7d632cff056be0a99a0595f43e77ce11d92eec19594",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "8d2fb532da28284b0942802d3ded4197e42e85791f8982bdf546201821c0b4c1",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "output": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "mutant": "cac420532af622f7e5658f669a95c5c304d98ede1d84bc0e956528df73be5011"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "1f1f09c481dc28c5a5aa26d997af013ebc7c3b9cb28a8762dbdb5cd1732e184f",
+    "complete_module": true
+   },
+   "output_sha256": "7c79b783dd2b253e087fddeef70eeb8b5ce5d97b13b2b6caa23a60168d21d332",
+   "sidecar_sha256": "a84c6bfdd7a57cf486d7a76eaf8ce8c281f01f2da30fa6f6c77a8bef352c4b1a",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "5eb7baea7bee6c87f7a757a0ee9e583924276338e12e5b1eeb64fc4b267536b9",
+     "5eb7baea7bee6c87f7a757a0ee9e583924276338e12e5b1eeb64fc4b267536b9"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131844,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131845,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "constant_specialization",
+   "opt": 2,
+   "debug": 1,
+   "bytecode_sha256": "c65cb7b0e95edf69aac6ddc59cb62bb4d843468da44d5022a35f697d839da71e",
+   "inlines": 2,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "8d2fb532da28284b0942802d3ded4197e42e85791f8982bdf546201821c0b4c1",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "output": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "mutant": "cac420532af622f7e5658f669a95c5c304d98ede1d84bc0e956528df73be5011"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "910fe9472cfd83d32d7642f8f51def942bd191a931ff1878a0ecd2fd408831ae",
+    "complete_module": true
+   },
+   "output_sha256": "656a6b301cdce9a3b18d6a9202133da68196ab3abe54bebfb6179cef3c0d834e",
+   "sidecar_sha256": "07744f442f4fe60f012b1a864460fc5044f3efbbda05ac67049edef275e3d431",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "1cb8b6ac4d108084717ad25d441ce3290121d4c9187bfb89d83e2d7bcae11f20",
+     "9d1d8f86f625fff3ba353c210672f0c2ee2cc96ef370b347332c21aa79e1e923"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 0,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 6,
+       "helper_prototype": 1,
+       "start_pc": 2
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 2,
+       "helper_prototype": 0,
+       "start_pc": 0
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "MULK",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "ADDK",
+     "a": 5,
+     "b": 0,
+     "c": 1,
+     "d": 256,
+     "e": 65541,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "constant_specialization",
+   "opt": 2,
+   "debug": 2,
+   "bytecode_sha256": "31cfdf8faaf8a39c0f207f49acbc069cbf86e37876cf68c8d28991571f7fd505",
+   "inlines": 2,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "8d2fb532da28284b0942802d3ded4197e42e85791f8982bdf546201821c0b4c1",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "output": "eefc20c22ae13acd2b7c540cd322067f833089ada5b54317de4edae8c6e30029",
+    "mutant": "cac420532af622f7e5658f669a95c5c304d98ede1d84bc0e956528df73be5011"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "c1b8a4d20e6ce952b1e677cd3b5ee491520fe6d56ece6b0ce651c133766f6842",
+    "complete_module": true
+   },
+   "output_sha256": "da66c5c8a58654dfeada84f842b7a0bfb365b88e34720dc6e6cf974087ec16f1",
+   "sidecar_sha256": "0b7da16ccda42792088c8a9954352ff1ba19508d6439eae0911ff50c50970e41",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "1cb8b6ac4d108084717ad25d441ce3290121d4c9187bfb89d83e2d7bcae11f20",
+     "1cb8b6ac4d108084717ad25d441ce3290121d4c9187bfb89d83e2d7bcae11f20"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 0,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 6,
+       "helper_prototype": 1,
+       "start_pc": 2
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 2,
+       "helper_prototype": 0,
+       "start_pc": 0
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "MULK",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "ADDK",
+     "a": 5,
+     "b": 0,
+     "c": 1,
+     "d": 256,
+     "e": 65541,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "early_return",
+   "opt": 0,
+   "debug": 1,
+   "bytecode_sha256": "2fc2c636a7baf5bc37212cf40ffa651f31922360cb666ee491fc67cfb6068559",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "6186adc0eb7d425e67e229ad1edf917632e04c4ddaa1aefc60bab4edac6f2427",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "output": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "mutant": "91ada2e4b7e9af01473aa6239b75ccf20683c1e8f436212903c05dc07b69087b"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "2c6d73a955cfaf8b8dd12a56474dbce4d1f02f631c98ceca909555ed6917f4ee",
+    "complete_module": true
+   },
+   "output_sha256": "6b29160d95a3b807d1dfe366d1459e22695091f1f56e4d990d96421aa8e1ec1d",
+   "sidecar_sha256": "d8bc2c1ae26a43efc1dca5ee35591f768fb6b532a79023eb3c697afb7b0b55ee",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "2386ad4aef619d0988725a5e0e4532cdcd729e06e6b1c1547701e913640f35c3",
+     "2386ad4aef619d0988725a5e0e4532cdcd729e06e6b1c1547701e913640f35c3"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131844,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "LOADB",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131845,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "early_return",
+   "opt": 0,
+   "debug": 2,
+   "bytecode_sha256": "72b548c4116796c4ea0fb062c9bf8924a9399a1d1f1d2da9f5ac8675bf6fb1a6",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "6186adc0eb7d425e67e229ad1edf917632e04c4ddaa1aefc60bab4edac6f2427",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "output": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "mutant": "91ada2e4b7e9af01473aa6239b75ccf20683c1e8f436212903c05dc07b69087b"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "56c76bbda28cd36412b8d8c6d941c2254828b15d1fde0dc7d2289c249cb6d290",
+    "complete_module": true
+   },
+   "output_sha256": "162d54f79c5a1de8327015b21b25cc725197457ff0d47ccdc78a0acf865633cb",
+   "sidecar_sha256": "cbe2681ba90da0a9cf4a628049d8b213e389dec662972f682b498d6be585cbfe",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "2386ad4aef619d0988725a5e0e4532cdcd729e06e6b1c1547701e913640f35c3",
+     "2386ad4aef619d0988725a5e0e4532cdcd729e06e6b1c1547701e913640f35c3"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131844,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "LOADB",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131845,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "early_return",
+   "opt": 1,
+   "debug": 1,
+   "bytecode_sha256": "a7f9c1200e6f8400cff557e8a81bac0cec4d317d082d12fc4602b220136a84b0",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "6186adc0eb7d425e67e229ad1edf917632e04c4ddaa1aefc60bab4edac6f2427",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "output": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "mutant": "91ada2e4b7e9af01473aa6239b75ccf20683c1e8f436212903c05dc07b69087b"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "bbee7407f1654432ce8a5d5d4d9eb86085af83dc5e8dca2d95628546ba52fe1c",
+    "complete_module": true
+   },
+   "output_sha256": "54cd97796bf667118f6acad6702149a63d4f9c1145324649c468c993cc266895",
+   "sidecar_sha256": "a56729031b83242a623f7f3328ce0c6a575cf96f76b1bc30b391c92502eb9244",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "fad1cdd5026e926d2ff188cd1376e0cb09e6386d3e80d661528da1a578e4e752",
+     "8068be7265eb5618ddfe6450e21bf66a8bea88518291807960a6fe06cccf3b6a"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131844,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "LOADB",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131845,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "early_return",
+   "opt": 1,
+   "debug": 2,
+   "bytecode_sha256": "a9a3356b80890a35517fd7145a2013035ebe85cbbeb6daffb0274f556eb20a71",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "6186adc0eb7d425e67e229ad1edf917632e04c4ddaa1aefc60bab4edac6f2427",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "output": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "mutant": "91ada2e4b7e9af01473aa6239b75ccf20683c1e8f436212903c05dc07b69087b"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "975d65730e607e6b6ea0174693ef65bbbab4a76ec6457534156911129b3ae5b6",
+    "complete_module": true
+   },
+   "output_sha256": "162d54f79c5a1de8327015b21b25cc725197457ff0d47ccdc78a0acf865633cb",
+   "sidecar_sha256": "33e201ed6b1d066aa3fb3e4fb5dffc54b9e32c0474ec7706ba973aa79e0da556",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "fad1cdd5026e926d2ff188cd1376e0cb09e6386d3e80d661528da1a578e4e752",
+     "fad1cdd5026e926d2ff188cd1376e0cb09e6386d3e80d661528da1a578e4e752"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131844,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "LOADB",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 2,
+     "d": 515,
+     "e": 131845,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "early_return",
+   "opt": 2,
+   "debug": 1,
+   "bytecode_sha256": "e5661894b68ca4218dbcb68ad033872e32fa075007f53ef82f83e70f70ea469d",
+   "inlines": 2,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 2
+   },
+   "status": "passed",
+   "source_sha256": "6186adc0eb7d425e67e229ad1edf917632e04c4ddaa1aefc60bab4edac6f2427",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "output": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "mutant": "91ada2e4b7e9af01473aa6239b75ccf20683c1e8f436212903c05dc07b69087b"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "a218bc57334beb63532f0760c2e6824adeaa27c2189da55379b662121b17a65b",
+    "complete_module": true
+   },
+   "output_sha256": "14433f75f338a3737ae4987956e5c9d60fe540e4caa2e58cab791f7014eb20fa",
+   "sidecar_sha256": "2545180f21d8ad3b93dc471f8e70a087242894d6313bdb932884bf0c9e1e87aa",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "a6d87d65efc6b1f216a833ae2db7e38c1db07cab01482d3e5f05c82ee7b8c6ac",
+     "c8c853b43a2a22a5f521b50fdf8aa0130c779e39bf0232fc28fea8db404dae20"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 0,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 4,
+       "helper_prototype": 1,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 8,
+       "helper_prototype": 0,
+       "start_pc": 0
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "JUMPIFNOT",
+     "a": 1,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 513,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "JUMP",
+     "a": 0,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 256,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "LOADNIL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "JUMPIFNOT",
+     "a": 1,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 513,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "LOADB",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "LOADNIL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "early_return",
+   "opt": 2,
+   "debug": 2,
+   "bytecode_sha256": "59aba3ed31aaa30417f171a19d469461b3621630b4141dabe4fb7701ef638dbe",
+   "inlines": 2,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 2
+   },
+   "status": "passed",
+   "source_sha256": "6186adc0eb7d425e67e229ad1edf917632e04c4ddaa1aefc60bab4edac6f2427",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "output": "9748b5884f02c7a5ded6782f88f5ae5954af8bd1d3ffee33b51b87ef875a422d",
+    "mutant": "91ada2e4b7e9af01473aa6239b75ccf20683c1e8f436212903c05dc07b69087b"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "82d20faab74e34b40a8f0c436ca2887952f0c44f2fe63415723c8f1936b870cc",
+    "complete_module": true
+   },
+   "output_sha256": "b3c9a3ed92d0e9d92cd8c6af9b2d3bb4a0feb9214ba990de087190920fc592d5",
+   "sidecar_sha256": "9d98bc9b3a004ac1cce5d4ee16a2425629b7da38ee4c2d0702ec6edc9c9145fc",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "a6d87d65efc6b1f216a833ae2db7e38c1db07cab01482d3e5f05c82ee7b8c6ac",
+     "a6d87d65efc6b1f216a833ae2db7e38c1db07cab01482d3e5f05c82ee7b8c6ac"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 0,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 4,
+       "helper_prototype": 1,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 8,
+       "helper_prototype": 0,
+       "start_pc": 0
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "JUMPIFNOT",
+     "a": 1,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 513,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "JUMP",
+     "a": 0,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 256,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "LOADNIL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "JUMPIFNOT",
+     "a": 1,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 513,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "LOADB",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "LOADNIL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "expression_inline",
+   "opt": 0,
+   "debug": 1,
+   "bytecode_sha256": "b662e5cf44c0beda8441b3326ba904e346e483079e4433379ec1ad3bb5efa088",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "550a14615bdc03d2f477249622783d8d4ae6f8ec59a28ce6e3eb4de987abc3ad",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "output": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "mutant": "26f5daa954c860a0a082990fe501ee0aede610836f549bd014002115c85e384b"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "fb6e3d1952b4b06dc13e6cd1875e952c32eb7c7789c055c4dc5f7778577158d3",
+    "complete_module": true
+   },
+   "output_sha256": "8af2c84f106cbea980e3d4d53d888bb5ed106ac059deded1ff47c2ef02de0b96",
+   "sidecar_sha256": "069aaa732b16ea315a6f36b5e99fe24b69419b738be37be2c2eeae0b175f1a4e",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "29b5136c06b2e040e45a4a8995cd324e7421f9b518bf9b92c07df50e0b234df8",
+     "29b5136c06b2e040e45a4a8995cd324e7421f9b518bf9b92c07df50e0b234df8"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131588,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "ADD",
+     "a": 6,
+     "b": 0,
+     "c": 7,
+     "d": 1792,
+     "e": 458758,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131589,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "expression_inline",
+   "opt": 0,
+   "debug": 2,
+   "bytecode_sha256": "020a1d4dab651589e039a57acab0441680ddf4cca16f01bba82dcc451f73df25",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "550a14615bdc03d2f477249622783d8d4ae6f8ec59a28ce6e3eb4de987abc3ad",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "output": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "mutant": "26f5daa954c860a0a082990fe501ee0aede610836f549bd014002115c85e384b"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "c139370dfdf111df8d1127433a3ccdb602647464b3c19b79478ad7a4ff19c27c",
+    "complete_module": true
+   },
+   "output_sha256": "c13a7cc8fa6edb7a2d98b6309f1a958b948dd9b864a1eb69fe0567342f0947c2",
+   "sidecar_sha256": "786b27262dff0d573bc9c997ac41c9181f23b45c1975158dbbed53d74a3c1e1a",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "29b5136c06b2e040e45a4a8995cd324e7421f9b518bf9b92c07df50e0b234df8",
+     "29b5136c06b2e040e45a4a8995cd324e7421f9b518bf9b92c07df50e0b234df8"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131588,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "ADD",
+     "a": 6,
+     "b": 0,
+     "c": 7,
+     "d": 1792,
+     "e": 458758,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131589,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "expression_inline",
+   "opt": 1,
+   "debug": 1,
+   "bytecode_sha256": "f7e20d20093a787ec5138ce6d4fe2b0fb5288c22297517607fbc072048b72273",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "550a14615bdc03d2f477249622783d8d4ae6f8ec59a28ce6e3eb4de987abc3ad",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "output": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "mutant": "26f5daa954c860a0a082990fe501ee0aede610836f549bd014002115c85e384b"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "fcb11283c5926b12fe72b7b659d8d77daf9eb11fc5617761ab3c76c5c6cdd192",
+    "complete_module": true
+   },
+   "output_sha256": "cb74f4553de5443cb4c88d73771c11498ae6eccdb1bb8bb26743df9759eb8bc4",
+   "sidecar_sha256": "c4ef275401030d93030ae7513f41b302f6f10108740a33671c63ea1204a07cd6",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "9570067168bf0c51b365b4f22e22ab04d15d42892ca489e6814e59dfe4c0e60d",
+     "4a7f81a5f373238d73c2f3edcd3f50ef44add577e3991d9349920e93fc3de20d"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131588,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "ADDK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131589,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "expression_inline",
+   "opt": 1,
+   "debug": 2,
+   "bytecode_sha256": "2f4326cfba3dc4a4ea8d58176335ef4cb0e39e183c3359890ff1bd830776d4d6",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "550a14615bdc03d2f477249622783d8d4ae6f8ec59a28ce6e3eb4de987abc3ad",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "output": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "mutant": "26f5daa954c860a0a082990fe501ee0aede610836f549bd014002115c85e384b"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "487c6dbb0edf90f63bb49cfe046f21a5af8063b91d12b5a4a13793335dfc1e1c",
+    "complete_module": true
+   },
+   "output_sha256": "c13a7cc8fa6edb7a2d98b6309f1a958b948dd9b864a1eb69fe0567342f0947c2",
+   "sidecar_sha256": "1255dceafdc94ea8a46dec44929b1615c76b2e7c2dde2ac1dbd0e6542efb731c",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "9570067168bf0c51b365b4f22e22ab04d15d42892ca489e6814e59dfe4c0e60d",
+     "9570067168bf0c51b365b4f22e22ab04d15d42892ca489e6814e59dfe4c0e60d"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131588,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "GETUPVAL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "ADDK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131589,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "expression_inline",
+   "opt": 2,
+   "debug": 1,
+   "bytecode_sha256": "51ac215584ea9839b6432a19bd64f1919bd9ed79b8d60025adebe7e079a11036",
+   "inlines": 2,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "550a14615bdc03d2f477249622783d8d4ae6f8ec59a28ce6e3eb4de987abc3ad",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "output": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "mutant": "26f5daa954c860a0a082990fe501ee0aede610836f549bd014002115c85e384b"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "b44c8d913aa759adb44a59fcff8cd5bdb5b893dd39af3ce1ca0d3ee68c73de1c",
+    "complete_module": true
+   },
+   "output_sha256": "9f13bf637a82e07c225aba4121cb6789dc1949926e62ada709f6159dd6f0829f",
+   "sidecar_sha256": "f14e8b9ac42b1faf510bcc14789318fa65e1eba55858896f25998973d988ccde",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "885a5e5748da7c6e8eb9dc45219d2861de9ed171aa3f04e4ad742c761f50d306",
+     "6c44865e8eced0cd9f4bb0612a392528c6c215f2640470a3f579427c3534cefd"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 1,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 1,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [
+     {
+      "callee_binding_at_creation": "b16",
+      "callee_prototype": 0,
+      "event_id": 1,
+      "evidence": "equivalent_call_inference",
+      "producer": "arithmetic_deinline"
+     }
+    ],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [
+     {
+      "current_callee_binding": "b16",
+      "event_id": 1,
+      "span": {
+       "end": {
+        "byte_offset": 223,
+        "column_one_based": 19,
+        "line_one_based": 9
+       },
+       "start": {
+        "byte_offset": 214,
+        "column_one_based": 10,
+        "line_one_based": 9
+       }
+      }
+     }
+    ],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 4,
+       "helper_prototype": 1,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 3,
+       "helper_prototype": 0,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 7,
+       "helper_prototype": 0,
+       "start_pc": 4
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "MULK",
+     "a": 6,
+     "b": 0,
+     "c": 2,
+     "d": 512,
+     "e": 131078,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "ADDK",
+     "a": 5,
+     "b": 6,
+     "c": 1,
+     "d": 262,
+     "e": 67077,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MULK",
+     "a": 4,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1284,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "ADDK",
+     "a": 6,
+     "b": 0,
+     "c": 3,
+     "d": 768,
+     "e": 196614,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "MULK",
+     "a": 8,
+     "b": 6,
+     "c": 2,
+     "d": 518,
+     "e": 132616,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "ADDK",
+     "a": 7,
+     "b": 8,
+     "c": 1,
+     "d": 264,
+     "e": 67591,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 7,
+     "c": 0,
+     "d": 7,
+     "e": 1797,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "expression_inline",
+   "opt": 2,
+   "debug": 2,
+   "bytecode_sha256": "3675b35864a2c69de843a53eb98e74269eefad0231b5d2adcd912fd779f5213f",
+   "inlines": 2,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "550a14615bdc03d2f477249622783d8d4ae6f8ec59a28ce6e3eb4de987abc3ad",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "output": "bb5c18d9ff25d9a08e9bf55f73b4f02a46ae63c56ffc6f3963af3ec7d9e1af0e",
+    "mutant": "26f5daa954c860a0a082990fe501ee0aede610836f549bd014002115c85e384b"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "07db2fec57eae49c1bc4f46655511b43836ceb0efce7739ce756be70bb9a5f7d",
+    "complete_module": true
+   },
+   "output_sha256": "28f78818364a46e526cef40861a1ab234a70c953fc606c0d3968dc4b4fe03c68",
+   "sidecar_sha256": "f66345e0eb2e0d0cd334ea8388f51205a0d7c2ef4d01a8f25cf2432c299db4ff",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "885a5e5748da7c6e8eb9dc45219d2861de9ed171aa3f04e4ad742c761f50d306",
+     "885a5e5748da7c6e8eb9dc45219d2861de9ed171aa3f04e4ad742c761f50d306"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 2,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [
+     {
+      "callee_binding_at_creation": "b16",
+      "callee_prototype": 0,
+      "event_id": 1,
+      "evidence": "equivalent_call_inference",
+      "producer": "arithmetic_deinline"
+     },
+     {
+      "callee_binding_at_creation": "b16",
+      "callee_prototype": 0,
+      "event_id": 2,
+      "evidence": "equivalent_call_inference",
+      "producer": "arithmetic_deinline"
+     }
+    ],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [
+     {
+      "current_callee_binding": "b16",
+      "event_id": 1,
+      "span": {
+       "end": {
+        "byte_offset": 232,
+        "column_one_based": 30,
+        "line_one_based": 7
+       },
+       "start": {
+        "byte_offset": 218,
+        "column_one_based": 16,
+        "line_one_based": 7
+       }
+      }
+     },
+     {
+      "current_callee_binding": "b16",
+      "event_id": 2,
+      "span": {
+       "end": {
+        "byte_offset": 288,
+        "column_one_based": 30,
+        "line_one_based": 9
+       },
+       "start": {
+        "byte_offset": 275,
+        "column_one_based": 17,
+        "line_one_based": 9
+       }
+      }
+     }
+    ],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 4,
+       "helper_prototype": 1,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 3,
+       "helper_prototype": 0,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 7,
+       "helper_prototype": 0,
+       "start_pc": 4
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "MULK",
+     "a": 6,
+     "b": 0,
+     "c": 2,
+     "d": 512,
+     "e": 131078,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "ADDK",
+     "a": 5,
+     "b": 6,
+     "c": 1,
+     "d": 262,
+     "e": 67077,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MULK",
+     "a": 4,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1284,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "ADDK",
+     "a": 6,
+     "b": 0,
+     "c": 3,
+     "d": 768,
+     "e": 196614,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "MULK",
+     "a": 8,
+     "b": 6,
+     "c": 2,
+     "d": 518,
+     "e": 132616,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "ADDK",
+     "a": 7,
+     "b": 8,
+     "c": 1,
+     "d": 264,
+     "e": 67591,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 7,
+     "c": 0,
+     "d": 7,
+     "e": 1797,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 772,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "fixed_count_loop",
+   "opt": 0,
+   "debug": 1,
+   "bytecode_sha256": "e01214390e2b6b030c91b57525fcdb4f442611ea419e73adc0c151a6f3257a74",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 1,
+    "FORNLOOP": 1,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "67ab97b6afb20bb254ffaf5da800ae87b6bf4a558358ba2ebf83dd076fcb700b",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "output": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "mutant": "b55676ff9b0cc7f02efe367d84c74a0c77477644cdf5dad29c6e6db49d202cec"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "6471e6ae243d261b51f65117684c9f6fa880fbe6cb1817065a4fd6e788fee4bb",
+    "complete_module": true
+   },
+   "output_sha256": "38f0b0eff364f7992fd49f53b4c9ada098e7be1009363635cc7f7572f6f46642",
+   "sidecar_sha256": "93009abcc920e3f23294866ce668789dc93522ed0ba51d13645b6693bcd04f69",
+   "dataflow": {
+    "model": "luau-register-cfg-bisimulation-v1",
+    "status": "proved",
+    "fingerprints": [
+     "a00c0ba51243ef845d644dde35f2fd8820bd34aa1b522c5cec7125191b400bc0",
+     "a00c0ba51243ef845d644dde35f2fd8820bd34aa1b522c5cec7125191b400bc0"
+    ],
+    "summaries": [
+     {
+      "back_edges": 1,
+      "joins": 2,
+      "instructions": 15,
+      "edges": 15,
+      "prototypes": 2
+     },
+     {
+      "back_edges": 1,
+      "joins": 2,
+      "instructions": 15,
+      "edges": 15,
+      "prototypes": 2
+     }
+    ],
+    "acyclic_unknown": {
+     "original": "unsupported FORNPREP at pc 4",
+     "rebuilt": "unsupported FORNPREP at pc 4"
+    }
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "LOADK",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "LOADN",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "FORNPREP",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MUL",
+     "a": 8,
+     "b": 0,
+     "c": 7,
+     "d": 1792,
+     "e": 458760,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 8,
+     "d": 2052,
+     "e": 525316,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "FORNLOOP",
+     "a": 5,
+     "b": 253,
+     "c": 255,
+     "d": -3,
+     "e": -763,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "fixed_count_loop",
+   "opt": 0,
+   "debug": 2,
+   "bytecode_sha256": "f08c207c7bfb02b741305a5b64e4538e0fc0ed4185f93d9197a165400129ecb6",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 1,
+    "FORNLOOP": 1,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "67ab97b6afb20bb254ffaf5da800ae87b6bf4a558358ba2ebf83dd076fcb700b",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "output": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "mutant": "b55676ff9b0cc7f02efe367d84c74a0c77477644cdf5dad29c6e6db49d202cec"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "900687157c5d0f2f8b3056f5f743fa0b777c6cb6a7dd0ec1c87ee02e789481f4",
+    "complete_module": true
+   },
+   "output_sha256": "2eb8a3efc404769072ec8d8d3323bd9fd168fdebc0b4bc39937d4a5ef3b4b061",
+   "sidecar_sha256": "1f3fec667129cc62202fe3afc0f6269d811f53c999f8f21ea8cce7325a551103",
+   "dataflow": {
+    "model": "luau-register-cfg-bisimulation-v1",
+    "status": "proved",
+    "fingerprints": [
+     "a00c0ba51243ef845d644dde35f2fd8820bd34aa1b522c5cec7125191b400bc0",
+     "a00c0ba51243ef845d644dde35f2fd8820bd34aa1b522c5cec7125191b400bc0"
+    ],
+    "summaries": [
+     {
+      "back_edges": 1,
+      "joins": 2,
+      "instructions": 15,
+      "edges": 15,
+      "prototypes": 2
+     },
+     {
+      "back_edges": 1,
+      "joins": 2,
+      "instructions": 15,
+      "edges": 15,
+      "prototypes": 2
+     }
+    ],
+    "acyclic_unknown": {
+     "original": "unsupported FORNPREP at pc 4",
+     "rebuilt": "unsupported FORNPREP at pc 4"
+    }
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "LOADK",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "LOADN",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "FORNPREP",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MUL",
+     "a": 8,
+     "b": 0,
+     "c": 7,
+     "d": 1792,
+     "e": 458760,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 8,
+     "d": 2052,
+     "e": 525316,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "FORNLOOP",
+     "a": 5,
+     "b": 253,
+     "c": 255,
+     "d": -3,
+     "e": -763,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "fixed_count_loop",
+   "opt": 1,
+   "debug": 1,
+   "bytecode_sha256": "ba8f7d52e4ec5e92720d77158c918f80f1133da78063f0598bff557efcbb75c8",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 1,
+    "FORNLOOP": 1,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "67ab97b6afb20bb254ffaf5da800ae87b6bf4a558358ba2ebf83dd076fcb700b",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "output": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "mutant": "b55676ff9b0cc7f02efe367d84c74a0c77477644cdf5dad29c6e6db49d202cec"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "e2bde8ce473b2c2f265bf1556d7bcf7978eed3ff31555d4de08108a409040781",
+    "complete_module": true
+   },
+   "output_sha256": "faf6a0456ddced29a3f7f14f7d0762d30036506a344f7ffb0632447bdc8c3bcb",
+   "sidecar_sha256": "5d0a4c6af359bbfc963763dbb9c734ec01b4448d49c320db9ff2d057ed195591",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "unknown",
+    "reasons": {
+     "original": "unsupported FORNPREP at pc 4",
+     "rebuilt": "unsupported FORNPREP at pc 4"
+    },
+    "graph": {
+     "model": "luau-register-cfg-bisimulation-v1",
+     "status": "unknown",
+     "fingerprints": [
+      "2e793f2f9c6c138f5eaea30e4c420732b7f8adb7af6965182584176e1af0b4d3",
+      "5c77c9c60aff868b897cd9acb6b699de68e355ad56259c2966d3ce7322586d06"
+     ],
+     "summaries": [
+      {
+       "back_edges": 1,
+       "joins": 2,
+       "instructions": 14,
+       "edges": 14,
+       "prototypes": 2
+      },
+      {
+       "back_edges": 1,
+       "joins": 2,
+       "instructions": 14,
+       "edges": 14,
+       "prototypes": 2
+      }
+     ],
+     "reason": "no structural bisimulation under the bounded register mapping"
+    }
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "LOADN",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "LOADN",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADN",
+     "a": 5,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1029,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "LOADN",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "FORNPREP",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MUL",
+     "a": 8,
+     "b": 0,
+     "c": 7,
+     "d": 1792,
+     "e": 458760,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 8,
+     "d": 2052,
+     "e": 525316,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "FORNLOOP",
+     "a": 5,
+     "b": 253,
+     "c": 255,
+     "d": -3,
+     "e": -763,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "fixed_count_loop",
+   "opt": 1,
+   "debug": 2,
+   "bytecode_sha256": "3dee40fceb8cf70e3a194d67415cba59a3d1222b1da58adb9e905c26f0b27e07",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 1,
+    "FORNLOOP": 1,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "67ab97b6afb20bb254ffaf5da800ae87b6bf4a558358ba2ebf83dd076fcb700b",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "output": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "mutant": "b55676ff9b0cc7f02efe367d84c74a0c77477644cdf5dad29c6e6db49d202cec"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "ee584cd64c8726531ae6829e80b5193ca7f5cd37be4d57d7154bd0a9289b57e8",
+    "complete_module": true
+   },
+   "output_sha256": "2eb8a3efc404769072ec8d8d3323bd9fd168fdebc0b4bc39937d4a5ef3b4b061",
+   "sidecar_sha256": "96a27b995ab504533270b46f4d3da1648ff5e96657b4ba385080eb0831ff4352",
+   "dataflow": {
+    "model": "luau-register-cfg-bisimulation-v1",
+    "status": "proved",
+    "fingerprints": [
+     "2e793f2f9c6c138f5eaea30e4c420732b7f8adb7af6965182584176e1af0b4d3",
+     "2e793f2f9c6c138f5eaea30e4c420732b7f8adb7af6965182584176e1af0b4d3"
+    ],
+    "summaries": [
+     {
+      "back_edges": 1,
+      "joins": 2,
+      "instructions": 14,
+      "edges": 14,
+      "prototypes": 2
+     },
+     {
+      "back_edges": 1,
+      "joins": 2,
+      "instructions": 14,
+      "edges": 14,
+      "prototypes": 2
+     }
+    ],
+    "acyclic_unknown": {
+     "original": "unsupported FORNPREP at pc 4",
+     "rebuilt": "unsupported FORNPREP at pc 4"
+    }
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "LOADN",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "LOADN",
+     "a": 7,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 263,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADN",
+     "a": 5,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1029,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "LOADN",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "FORNPREP",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MUL",
+     "a": 8,
+     "b": 0,
+     "c": 7,
+     "d": 1792,
+     "e": 458760,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 8,
+     "d": 2052,
+     "e": 525316,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "FORNLOOP",
+     "a": 5,
+     "b": 253,
+     "c": 255,
+     "d": -3,
+     "e": -763,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "fixed_count_loop",
+   "opt": 2,
+   "debug": 1,
+   "bytecode_sha256": "e8e2f01892e6d0c2274aa3bddbd376a29d1ca208c5dc0d162f5b42f7b93a1b6b",
+   "inlines": 0,
+   "unrolls": 1,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "67ab97b6afb20bb254ffaf5da800ae87b6bf4a558358ba2ebf83dd076fcb700b",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "output": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "mutant": "b55676ff9b0cc7f02efe367d84c74a0c77477644cdf5dad29c6e6db49d202cec"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "7530cf4964d80b80f06199191316eede6c86523e53abe8e94c0083ae08d3efb3",
+    "complete_module": true
+   },
+   "output_sha256": "bfaab719bb2c14e3d981112e27b7fd735da39c1d52d86a3abfea7a75250e5fb3",
+   "sidecar_sha256": "58b8ef5369c3ae5a899c0ec7797aef91aa3d705bcbdb2ff34da9d5fb013a7209",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "9a26781b114b3ed1fb162ed1db6b1e347a36fcbc4bacb508431e4b105094dd04",
+     "9a26781b114b3ed1fb162ed1db6b1e347a36fcbc4bacb508431e4b105094dd04"
+    ]
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "LOADN",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328708,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 0,
+     "c": 1,
+     "d": 256,
+     "e": 65541,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328708,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 0,
+     "c": 2,
+     "d": 512,
+     "e": 131077,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328708,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 0,
+     "c": 3,
+     "d": 768,
+     "e": 196613,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328708,
+     "aux": 0
+    },
+    {
+     "pc": 9,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "fixed_count_loop",
+   "opt": 2,
+   "debug": 2,
+   "bytecode_sha256": "e940983d706477b008396e1de2eab93b1b87cc8f663a51808c659fa1cdd39672",
+   "inlines": 0,
+   "unrolls": 1,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "67ab97b6afb20bb254ffaf5da800ae87b6bf4a558358ba2ebf83dd076fcb700b",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "output": "dcdbfb3b566afa7c258300a84c6103258e180d4ec59367801ccb8458b7936515",
+    "mutant": "b55676ff9b0cc7f02efe367d84c74a0c77477644cdf5dad29c6e6db49d202cec"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "b77ca012af4309bb083818a4e22c0c01fa690e554e97d9a0f760e429deb7b130",
+    "complete_module": true
+   },
+   "output_sha256": "1ec51a42a7f4c1828344ad70e73228e222e35b4c748da6d3e09cd9e7ac9975d9",
+   "sidecar_sha256": "1e257ae032af9e0915339801e645969202248ae5c6d9de82a61efb8ba6abb334",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "9a26781b114b3ed1fb162ed1db6b1e347a36fcbc4bacb508431e4b105094dd04",
+     "9a26781b114b3ed1fb162ed1db6b1e347a36fcbc4bacb508431e4b105094dd04"
+    ]
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "LOADN",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328708,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 0,
+     "c": 1,
+     "d": 256,
+     "e": 65541,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328708,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 0,
+     "c": 2,
+     "d": 512,
+     "e": 131077,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328708,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "MULK",
+     "a": 5,
+     "b": 0,
+     "c": 3,
+     "d": 768,
+     "e": 196613,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "ADD",
+     "a": 4,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328708,
+     "aux": 0
+    },
+    {
+     "pc": 9,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "result_alias",
+   "opt": 0,
+   "debug": 1,
+   "bytecode_sha256": "8e1427229e3e4d1b4c5ee5d32726de0db4fd5f3d92d6e1f902732e8957259360",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "0bd5d2c18f72a9f76122fe79422bc7f8a2b18b6b17dd7723857aa572449a29b3",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "output": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "mutant": "1418468b7689f495d67ca1c7a6018a74dff67bfc745b7807eaeec2ecf881aea6"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "dbb72e8008a1ab13787e795a3df80316ecb18d6581f0bcb2c2b7fc8d1783435e",
+    "complete_module": true
+   },
+   "output_sha256": "ef65fbb424f2cc72384fe67654a4c0082b584b6f23ed56e9e2a191e55e8203bb",
+   "sidecar_sha256": "7dadf20b48d6934e190bb01feca1318f68b9e61668e2fab43b6f8423f6e15493",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "db5577b08eb157832ba3075ac8db71baa5864f3380eca770ac62175f44a92416",
+     "db5577b08eb157832ba3075ac8db71baa5864f3380eca770ac62175f44a92416"
+    ]
+   },
+   "source_helper_calls": 1,
+   "output_helper_calls": 1,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131588,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1029,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1286,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "RETURN",
+     "a": 6,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 774,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "result_alias",
+   "opt": 0,
+   "debug": 2,
+   "bytecode_sha256": "646b8ff2cae60ce846af1c7b3d8ea45d280752f680a323325df7d9dbba295120",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "0bd5d2c18f72a9f76122fe79422bc7f8a2b18b6b17dd7723857aa572449a29b3",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "output": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "mutant": "1418468b7689f495d67ca1c7a6018a74dff67bfc745b7807eaeec2ecf881aea6"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "bf31baff1dc12365aea35abff96434c86d2a2f5b849ebb69c73264d8544991ac",
+    "complete_module": true
+   },
+   "output_sha256": "210b540b18361e62d2a5d55792e5f1ed49153b19e2a9900a2ec977aa9c042418",
+   "sidecar_sha256": "617eccabb2e4ce217c838b1008348bad27456f6adafb703a47745d8252862367",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "db5577b08eb157832ba3075ac8db71baa5864f3380eca770ac62175f44a92416",
+     "db5577b08eb157832ba3075ac8db71baa5864f3380eca770ac62175f44a92416"
+    ]
+   },
+   "source_helper_calls": 1,
+   "output_helper_calls": 1,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131588,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1029,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1286,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "RETURN",
+     "a": 6,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 774,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "result_alias",
+   "opt": 1,
+   "debug": 1,
+   "bytecode_sha256": "0eb7c912546e16c46b9d324779aaede55883f003e1bd38d48f9eba5af586c902",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "0bd5d2c18f72a9f76122fe79422bc7f8a2b18b6b17dd7723857aa572449a29b3",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "output": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "mutant": "1418468b7689f495d67ca1c7a6018a74dff67bfc745b7807eaeec2ecf881aea6"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "0e8b9e2c6f17d9049f7bd6b42803f70f563737b6c2e2f95873be7de74b4ce9f1",
+    "complete_module": true
+   },
+   "output_sha256": "f1936fbb660881208854ff56d084dc6626e2a42b56a990a129c91eb5baa93f5f",
+   "sidecar_sha256": "a13fd7df141ac287cbec351917d736d8fedee93d1b8efce93f8a014f34a99323",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "f4da8229437a0d59a663fda3f4399d360a162cef9edd1c29620b49592657f72d",
+     "3f8ab7fe74fbd49a2d13ff8b814dd0d77632552c19fcf52f0253ece993af5e54"
+    ]
+   },
+   "source_helper_calls": 1,
+   "output_helper_calls": 1,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131588,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1029,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "RETURN",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "result_alias",
+   "opt": 1,
+   "debug": 2,
+   "bytecode_sha256": "acb36d67d581fcf5bfa8913f9ba591be36097e0ec5d7d4c206772810148cbcc3",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "0bd5d2c18f72a9f76122fe79422bc7f8a2b18b6b17dd7723857aa572449a29b3",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "output": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "mutant": "1418468b7689f495d67ca1c7a6018a74dff67bfc745b7807eaeec2ecf881aea6"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "e587dacd2089a5894be1bbc812f240d9db575484cf44d2b76689bc2bc8055d50",
+    "complete_module": true
+   },
+   "output_sha256": "fcad188c214b2e3368ffb2db463d8af8c01c6b4b88513bf2bbb648b99cec83ea",
+   "sidecar_sha256": "fc35bd242e6252d29894afa631af0cf512d48bf0828af5b6af4bf5768ab14301",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "f4da8229437a0d59a663fda3f4399d360a162cef9edd1c29620b49592657f72d",
+     "f4da8229437a0d59a663fda3f4399d360a162cef9edd1c29620b49592657f72d"
+    ]
+   },
+   "source_helper_calls": 1,
+   "output_helper_calls": 1,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 2,
+     "c": 2,
+     "d": 514,
+     "e": 131588,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1029,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "RETURN",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "result_alias",
+   "opt": 2,
+   "debug": 1,
+   "bytecode_sha256": "5cf492eee4cee5f2b1dd60a9009a3228617a798c0fb12e814f8ba78bcf5b4b20",
+   "inlines": 1,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "0bd5d2c18f72a9f76122fe79422bc7f8a2b18b6b17dd7723857aa572449a29b3",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "output": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "mutant": "1418468b7689f495d67ca1c7a6018a74dff67bfc745b7807eaeec2ecf881aea6"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "064879ac09449869b5e7e470c86fd80956d71e4db66c386370c10566be4d6b93",
+    "complete_module": true
+   },
+   "output_sha256": "9931e26535f21d76ac765ab12f03088ac289efd349968bd65da13560a7be55db",
+   "sidecar_sha256": "055f8d16ebda7717d3af648e07950bd904b72313ff1b691996738bc87bfa6aff",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "632601c17e73a222814bb2bb80444ac95bd987b3491b5cfccfe26ade2b48a6f9",
+     "55a30224eb2e850ccd44f07e02ec98afb13df876e787fe0d6188d07d4f55059a"
+    ]
+   },
+   "source_helper_calls": 1,
+   "output_helper_calls": 0,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 1,
+       "helper_prototype": 1,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 1,
+       "helper_prototype": 0,
+       "start_pc": 0
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "MOVE",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1029,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "RETURN",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "result_alias",
+   "opt": 2,
+   "debug": 2,
+   "bytecode_sha256": "563717b173141555abf00e17c8c07770f6cf6bce6b0ee1c2a130e3ec85228aa4",
+   "inlines": 1,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 0,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "0bd5d2c18f72a9f76122fe79422bc7f8a2b18b6b17dd7723857aa572449a29b3",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "output": "03b2a67df86f308e756e2fc5afd0a14dc9d8f24246a6315376f272e6ce71549a",
+    "mutant": "1418468b7689f495d67ca1c7a6018a74dff67bfc745b7807eaeec2ecf881aea6"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "85e79e8af6e95dacea34854f347eac3b51056e37ef2d00202ab2a0d27b1c4dbd",
+    "complete_module": true
+   },
+   "output_sha256": "bbb4a19e4f7405ee996038966a697795ba5022a275c7bb6286d26043b7d45bef",
+   "sidecar_sha256": "5fa793bc88425318735ca7363b5b1c9055f1675d299984959ae5e74bb5c1435b",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "632601c17e73a222814bb2bb80444ac95bd987b3491b5cfccfe26ade2b48a6f9",
+     "632601c17e73a222814bb2bb80444ac95bd987b3491b5cfccfe26ade2b48a6f9"
+    ]
+   },
+   "source_helper_calls": 1,
+   "output_helper_calls": 0,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 1,
+       "helper_prototype": 1,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 1,
+       "helper_prototype": 0,
+       "start_pc": 0
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "MOVE",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1029,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "RETURN",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "statement_inline",
+   "opt": 0,
+   "debug": 1,
+   "bytecode_sha256": "630352e42f3cc30587a9df48319b1f47d9dee5c785acb04b3b920d709cdeb852",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "394759bb41db9acd4a312f7196fea52c97e7671e8599954ffe4e92c97a3922b6",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "output": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "mutant": "14ba2bdef47e8640ee32a924b31395f074b8997bcd11087f0905162e1fe5e8ac"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "9dd99b716758c26f18f1b89b080281071e0c0fe017ac2585b9fd83bb7226ccd1",
+    "complete_module": true
+   },
+   "output_sha256": "6914ffd22fed402ddc4e89a3779fc20d67b2ebf94a7f214941bd5757cf70d111",
+   "sidecar_sha256": "420653962f7f46e6478c08cfd9c386f9419d27074f607c014a5f0e8ccc14b5f3",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "fc48d0f10293e242ec71bd7af6ef35bf084fc757098bea12559cc9864ad887d6",
+     "fc48d0f10293e242ec71bd7af6ef35bf084fc757098bea12559cc9864ad887d6"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "ADD",
+     "a": 6,
+     "b": 0,
+     "c": 7,
+     "d": 1792,
+     "e": 458758,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 9,
+     "opcode": "RETURN",
+     "a": 0,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 512,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "statement_inline",
+   "opt": 0,
+   "debug": 2,
+   "bytecode_sha256": "7304b488fba706a4b822ed5bd1a39ca28e1d6d2a8007047dbeb4099834a43a93",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "394759bb41db9acd4a312f7196fea52c97e7671e8599954ffe4e92c97a3922b6",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "output": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "mutant": "14ba2bdef47e8640ee32a924b31395f074b8997bcd11087f0905162e1fe5e8ac"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "9f3b546ddcd8f444180d6ccf5bc7db6025e43b6c162eaa3a26566782198384d8",
+    "complete_module": true
+   },
+   "output_sha256": "9651fc0fc78ad54b3f2a6ecea804e532f0ddcb0c4594e3a3cf2c817a05c70b50",
+   "sidecar_sha256": "cebdf9353f351184729e095559d3d2fecdfb84b3276e071d8c514afe7a9dccad",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "fc48d0f10293e242ec71bd7af6ef35bf084fc757098bea12559cc9864ad887d6",
+     "fc48d0f10293e242ec71bd7af6ef35bf084fc757098bea12559cc9864ad887d6"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "ADD",
+     "a": 6,
+     "b": 0,
+     "c": 7,
+     "d": 1792,
+     "e": 458758,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 9,
+     "opcode": "RETURN",
+     "a": 0,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 512,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "statement_inline",
+   "opt": 1,
+   "debug": 1,
+   "bytecode_sha256": "cec46024888581ad74f90d65cda980582f7a4c8bed26a1ac48e2594acd00057d",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "394759bb41db9acd4a312f7196fea52c97e7671e8599954ffe4e92c97a3922b6",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "output": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "mutant": "14ba2bdef47e8640ee32a924b31395f074b8997bcd11087f0905162e1fe5e8ac"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "15ad1bae976d60af3b3dd2cc3a4e26c52a9b300f74197d12c60c6d15f44aa367",
+    "complete_module": true
+   },
+   "output_sha256": "0c432d4b1e67d7c38df1d716dffdb8013a5ca0f99d759e78279b971d93231b81",
+   "sidecar_sha256": "aefc2a57ac195e9d51c6d32603121eb2b590523d7075cced8baf99a774014465",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "d45f18a96c51dfda85e7d92c575a9c1fd5080f5d6bfae8e327e0cc9180c70a7d",
+     "36f96f17a6b9cdc8872624f5d4c05ac3296f68db8d946f3288b60cb5c22a1dd5"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADDK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 0,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 512,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "statement_inline",
+   "opt": 1,
+   "debug": 2,
+   "bytecode_sha256": "e86a54e6b2a457ce8711ffc6da458b0925e91563c6a74adcf1f1bf6bb8acac4d",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 2,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "394759bb41db9acd4a312f7196fea52c97e7671e8599954ffe4e92c97a3922b6",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "output": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "mutant": "14ba2bdef47e8640ee32a924b31395f074b8997bcd11087f0905162e1fe5e8ac"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "ef9d95b3d887ce2c09f6a3243af12137b722ce4203444d7311a730c187c3c627",
+    "complete_module": true
+   },
+   "output_sha256": "9651fc0fc78ad54b3f2a6ecea804e532f0ddcb0c4594e3a3cf2c817a05c70b50",
+   "sidecar_sha256": "eb83ea5b4d74c7aed3369e0bc236c584f4d5000e3aadc66b184ce63a0446271f",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "d45f18a96c51dfda85e7d92c575a9c1fd5080f5d6bfae8e327e0cc9180c70a7d",
+     "d45f18a96c51dfda85e7d92c575a9c1fd5080f5d6bfae8e327e0cc9180c70a7d"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "GETUPVAL",
+     "a": 4,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 4,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADDK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "RETURN",
+     "a": 0,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 512,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "statement_inline",
+   "opt": 2,
+   "debug": 1,
+   "bytecode_sha256": "271ea346e62ef9d3dba75c9c201257bd8487f784243c1518d30e4d197c10c3b9",
+   "inlines": 2,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 4,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "394759bb41db9acd4a312f7196fea52c97e7671e8599954ffe4e92c97a3922b6",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "output": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "mutant": "14ba2bdef47e8640ee32a924b31395f074b8997bcd11087f0905162e1fe5e8ac"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "d24f48e6088d44b82ae08273d1eb3d97b1ed0b695aa6b100b7e81d93d1d06ed9",
+    "complete_module": true
+   },
+   "output_sha256": "4ac45830a2ee96e6b1bf5f86e48014a628f72612cecab86183c55619e0b52d59",
+   "sidecar_sha256": "2636454aa8afc0246d205177685ed091d886766ec87df41a5999941e639a3b4b",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "0a2c1a2932e8b5b872ed7a519548c10acb0faa719e5f53352bb29e5fad9a3a85",
+     "4e002026ac9c1bfec7ee5f08c15e31ae4787dd0d572234595c0eb48d960e89cb"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 0,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 8,
+       "helper_prototype": 1,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 8,
+       "helper_prototype": 0,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 17,
+       "helper_prototype": 0,
+       "start_pc": 9
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "MOVE",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "LOADK",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "MOVE",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "LOADK",
+     "a": 5,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 261,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADDK",
+     "a": 6,
+     "b": 0,
+     "c": 2,
+     "d": 512,
+     "e": 131078,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "ADDK",
+     "a": 4,
+     "b": 0,
+     "c": 3,
+     "d": 768,
+     "e": 196612,
+     "aux": 0
+    },
+    {
+     "pc": 9,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 10,
+     "opcode": "LOADK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 11,
+     "opcode": "MOVE",
+     "a": 7,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1031,
+     "aux": 0
+    },
+    {
+     "pc": 12,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66309,
+     "aux": 0
+    },
+    {
+     "pc": 13,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 14,
+     "opcode": "LOADK",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 15,
+     "opcode": "ADDK",
+     "a": 7,
+     "b": 4,
+     "c": 2,
+     "d": 516,
+     "e": 132103,
+     "aux": 0
+    },
+    {
+     "pc": 16,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66309,
+     "aux": 0
+    },
+    {
+     "pc": 17,
+     "opcode": "RETURN",
+     "a": 0,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 512,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "statement_inline",
+   "opt": 2,
+   "debug": 2,
+   "bytecode_sha256": "7279fd6a9ec3671d8bbcfa9f33b90ed4ff75ea2580f7d7ad0b259051748fba4f",
+   "inlines": 2,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 4,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 0,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "394759bb41db9acd4a312f7196fea52c97e7671e8599954ffe4e92c97a3922b6",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "output": "c945e8a27fbd996e39f44d5512c3f8c6de0aeeff53ec79947fc3fa691837cf20",
+    "mutant": "14ba2bdef47e8640ee32a924b31395f074b8997bcd11087f0905162e1fe5e8ac"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "460946cf42cb1fef81a9619c273a0e194a43ad766cde8c562a2b0c14b20739f7",
+    "complete_module": true
+   },
+   "output_sha256": "3d39465e5f6d5ab0bc6cf5819987e13a7cf96a320aeec1cc020dc8efc55042b0",
+   "sidecar_sha256": "1b08b908cc179624011cfe751609ee6417bb6c6f64fd545d805747cac29d4e90",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "0a2c1a2932e8b5b872ed7a519548c10acb0faa719e5f53352bb29e5fad9a3a85",
+     "0a2c1a2932e8b5b872ed7a519548c10acb0faa719e5f53352bb29e5fad9a3a85"
+    ]
+   },
+   "source_helper_calls": 2,
+   "output_helper_calls": 2,
+   "helper_prototypes": [
+    0
+   ],
+   "reconstructed_helper_occurrences": 2,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [
+     {
+      "callee_binding_at_creation": "b16",
+      "callee_prototype": 0,
+      "event_id": 1,
+      "evidence": "equivalent_call_inference",
+      "producer": "statement_deinline"
+     },
+     {
+      "callee_binding_at_creation": "b16",
+      "callee_prototype": 0,
+      "event_id": 2,
+      "evidence": "equivalent_call_inference",
+      "producer": "statement_deinline"
+     }
+    ],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [
+     {
+      "current_callee_binding": "b16",
+      "event_id": 1,
+      "span": {
+       "end": {
+        "byte_offset": 228,
+        "column_one_based": 22,
+        "line_one_based": 8
+       },
+       "start": {
+        "byte_offset": 208,
+        "column_one_based": 2,
+        "line_one_based": 8
+       }
+      }
+     },
+     {
+      "current_callee_binding": "b16",
+      "event_id": 2,
+      "span": {
+       "end": {
+        "byte_offset": 331,
+        "column_one_based": 21,
+        "line_one_based": 10
+       },
+       "start": {
+        "byte_offset": 312,
+        "column_one_based": 2,
+        "line_one_based": 10
+       }
+      }
+     }
+    ],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [
+      {
+       "caller_prototype": 0,
+       "end_pc_exclusive": 8,
+       "helper_prototype": 1,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 8,
+       "helper_prototype": 0,
+       "start_pc": 0
+      },
+      {
+       "caller_prototype": 1,
+       "end_pc_exclusive": 17,
+       "helper_prototype": 0,
+       "start_pc": 9
+      }
+     ],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 1,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "MOVE",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    },
+    {
+     "pc": 1,
+     "opcode": "LOADK",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 2,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "MOVE",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "LOADK",
+     "a": 5,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 261,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "ADDK",
+     "a": 6,
+     "b": 0,
+     "c": 2,
+     "d": 512,
+     "e": 131078,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 4,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66308,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "ADDK",
+     "a": 4,
+     "b": 0,
+     "c": 3,
+     "d": 768,
+     "e": 196612,
+     "aux": 0
+    },
+    {
+     "pc": 9,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 10,
+     "opcode": "LOADK",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 11,
+     "opcode": "MOVE",
+     "a": 7,
+     "b": 4,
+     "c": 0,
+     "d": 4,
+     "e": 1031,
+     "aux": 0
+    },
+    {
+     "pc": 12,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66309,
+     "aux": 0
+    },
+    {
+     "pc": 13,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 517,
+     "aux": 0
+    },
+    {
+     "pc": 14,
+     "opcode": "LOADK",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 15,
+     "opcode": "ADDK",
+     "a": 7,
+     "b": 4,
+     "c": 2,
+     "d": 516,
+     "e": 132103,
+     "aux": 0
+    },
+    {
+     "pc": 16,
+     "opcode": "CALL",
+     "a": 5,
+     "b": 3,
+     "c": 1,
+     "d": 259,
+     "e": 66309,
+     "aux": 0
+    },
+    {
+     "pc": 17,
+     "opcode": "RETURN",
+     "a": 0,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 512,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "table_lowering",
+   "opt": 0,
+   "debug": 1,
+   "bytecode_sha256": "aafe7c8c140bbe0edc16c1856003d2fccf917904fee910093925679bea8e79b4",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 1,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "e591e5e7669157891ecacda74636d90f53acb168b9dccb4e3d15d213ae067406",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "output": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "mutant": "ebee6e70156d3fe5fea25f70fb1d1f5423eddfe177c862543c94400d59fd5b36"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "b32dc995c32d823afb634cb95078401594e3b33bebc58ac82119514796743acc",
+    "complete_module": true
+   },
+   "output_sha256": "862a29506bc5fa027750baa54d96b4dd9cbae1194caf3cf1496414e4d2cd59da",
+   "sidecar_sha256": "c7975f8d78c6e31dab0d78db45cd50ec4e65f46aa90ec6f765cdfbfa32afe37d",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "21da9988c8972925cf114ab12530a77212fee79c0458a3ba39f206665b679bf4",
+     "21da9988c8972925cf114ab12530a77212fee79c0458a3ba39f206665b679bf4"
+    ]
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "NEWTABLE",
+     "a": 4,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 260,
+     "aux": 2
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "LOADK",
+     "a": 8,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 264,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "SETTABLE",
+     "a": 8,
+     "b": 4,
+     "c": 7,
+     "d": 1796,
+     "e": 459784,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 774,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "SETLIST",
+     "a": 4,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1284,
+     "aux": 1
+    },
+    {
+     "pc": 10,
+     "opcode": "SETTABLEKS",
+     "a": 1,
+     "b": 4,
+     "c": 68,
+     "d": 17412,
+     "e": 4457473,
+     "aux": 2
+    },
+    {
+     "pc": 12,
+     "opcode": "LOADK",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    },
+    {
+     "pc": 13,
+     "opcode": "LOADNIL",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 14,
+     "opcode": "SETTABLE",
+     "a": 6,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328710,
+     "aux": 0
+    },
+    {
+     "pc": 15,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "table_lowering",
+   "opt": 0,
+   "debug": 2,
+   "bytecode_sha256": "6eb4bcdf1f62fb8dcfab6178672b01a18dd7f32038a5ea475d1d446134a54a53",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 1,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "e591e5e7669157891ecacda74636d90f53acb168b9dccb4e3d15d213ae067406",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "output": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "mutant": "ebee6e70156d3fe5fea25f70fb1d1f5423eddfe177c862543c94400d59fd5b36"
+   },
+   "contextual_recompile": {
+    "opt": 0,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "d8ab1f94a570a1d0050d43d2d34937c3c76c983f8d912933e6727d8221ceac9b",
+    "complete_module": true
+   },
+   "output_sha256": "6071d49ff5dd60fe5ba90d20b1fed794249194874b56f8684331655977c705f5",
+   "sidecar_sha256": "5ccb6d52e14ac298e9918ea211e4e37f17c41b7b9106f7b2ea3b91ddac589646",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "21da9988c8972925cf114ab12530a77212fee79c0458a3ba39f206665b679bf4",
+     "21da9988c8972925cf114ab12530a77212fee79c0458a3ba39f206665b679bf4"
+    ]
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "NEWTABLE",
+     "a": 4,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 260,
+     "aux": 2
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "LOADK",
+     "a": 8,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 264,
+     "aux": 0
+    },
+    {
+     "pc": 4,
+     "opcode": "SETTABLE",
+     "a": 8,
+     "b": 4,
+     "c": 7,
+     "d": 1796,
+     "e": 459784,
+     "aux": 0
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 774,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "SETLIST",
+     "a": 4,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1284,
+     "aux": 1
+    },
+    {
+     "pc": 10,
+     "opcode": "SETTABLEKS",
+     "a": 1,
+     "b": 4,
+     "c": 68,
+     "d": 17412,
+     "e": 4457473,
+     "aux": 2
+    },
+    {
+     "pc": 12,
+     "opcode": "LOADK",
+     "a": 5,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 773,
+     "aux": 0
+    },
+    {
+     "pc": 13,
+     "opcode": "LOADNIL",
+     "a": 6,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 6,
+     "aux": 0
+    },
+    {
+     "pc": 14,
+     "opcode": "SETTABLE",
+     "a": 6,
+     "b": 4,
+     "c": 5,
+     "d": 1284,
+     "e": 328710,
+     "aux": 0
+    },
+    {
+     "pc": 15,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "table_lowering",
+   "opt": 1,
+   "debug": 1,
+   "bytecode_sha256": "f4cdc352a01318eca32cdce36ba5412973532304617c45c6f08c7bc56b328e60",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 1,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "e591e5e7669157891ecacda74636d90f53acb168b9dccb4e3d15d213ae067406",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "output": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "mutant": "ebee6e70156d3fe5fea25f70fb1d1f5423eddfe177c862543c94400d59fd5b36"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "08e11fc0b754079137e7fc8b6479ec40d0c43cad339c9fd2f4334a394a471ff5",
+    "complete_module": true
+   },
+   "output_sha256": "cc512faf612d6347f7df3c03854a1caa47df1ab74d002cfd159b6aadc31f3ef0",
+   "sidecar_sha256": "007505e497ac0ef11cc7eff0145f7cd3ac7a2b4d58769195dcec2cd51f44030d",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "e07f321b96f0978c8b4b593e9fad2d04c289718385f090deb91991dab1c360b1",
+     "ce543f94e4f033de2c23020b147f2f24febec28f09a1bf82e349dc5445bc0e07"
+    ]
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "NEWTABLE",
+     "a": 4,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 260,
+     "aux": 2
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "SETTABLEKS",
+     "a": 7,
+     "b": 4,
+     "c": 186,
+     "d": -17916,
+     "e": -4586489,
+     "aux": 1
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 774,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "SETLIST",
+     "a": 4,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1284,
+     "aux": 1
+    },
+    {
+     "pc": 10,
+     "opcode": "SETTABLEKS",
+     "a": 1,
+     "b": 4,
+     "c": 68,
+     "d": 17412,
+     "e": 4457473,
+     "aux": 2
+    },
+    {
+     "pc": 12,
+     "opcode": "LOADNIL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 13,
+     "opcode": "SETTABLEN",
+     "a": 5,
+     "b": 4,
+     "c": 1,
+     "d": 260,
+     "e": 66565,
+     "aux": 0
+    },
+    {
+     "pc": 14,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "table_lowering",
+   "opt": 1,
+   "debug": 2,
+   "bytecode_sha256": "7f083b4573dd7042d6073cb38cfb58dae359661a8198eaf9bb066106c300e588",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 1,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "e591e5e7669157891ecacda74636d90f53acb168b9dccb4e3d15d213ae067406",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "output": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "mutant": "ebee6e70156d3fe5fea25f70fb1d1f5423eddfe177c862543c94400d59fd5b36"
+   },
+   "contextual_recompile": {
+    "opt": 1,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "7fa8854b303cb73c9ec8b977d78a9a226fbc4ddd92a68e906c3808f2caa318f6",
+    "complete_module": true
+   },
+   "output_sha256": "6071d49ff5dd60fe5ba90d20b1fed794249194874b56f8684331655977c705f5",
+   "sidecar_sha256": "4330ac4e568844651f1209d4b2a15debda572390bcc6b5698fb600b25015522b",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "e07f321b96f0978c8b4b593e9fad2d04c289718385f090deb91991dab1c360b1",
+     "e07f321b96f0978c8b4b593e9fad2d04c289718385f090deb91991dab1c360b1"
+    ]
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "NEWTABLE",
+     "a": 4,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 260,
+     "aux": 2
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "SETTABLEKS",
+     "a": 7,
+     "b": 4,
+     "c": 186,
+     "d": -17916,
+     "e": -4586489,
+     "aux": 1
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 774,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "SETLIST",
+     "a": 4,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1284,
+     "aux": 1
+    },
+    {
+     "pc": 10,
+     "opcode": "SETTABLEKS",
+     "a": 1,
+     "b": 4,
+     "c": 68,
+     "d": 17412,
+     "e": 4457473,
+     "aux": 2
+    },
+    {
+     "pc": 12,
+     "opcode": "LOADNIL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 13,
+     "opcode": "SETTABLEN",
+     "a": 5,
+     "b": 4,
+     "c": 1,
+     "d": 260,
+     "e": 66565,
+     "aux": 0
+    },
+    {
+     "pc": 14,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "table_lowering",
+   "opt": 2,
+   "debug": 1,
+   "bytecode_sha256": "f4cdc352a01318eca32cdce36ba5412973532304617c45c6f08c7bc56b328e60",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 1,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "e591e5e7669157891ecacda74636d90f53acb168b9dccb4e3d15d213ae067406",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "output": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "mutant": "ebee6e70156d3fe5fea25f70fb1d1f5423eddfe177c862543c94400d59fd5b36"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 1,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "08e11fc0b754079137e7fc8b6479ec40d0c43cad339c9fd2f4334a394a471ff5",
+    "complete_module": true
+   },
+   "output_sha256": "cc512faf612d6347f7df3c03854a1caa47df1ab74d002cfd159b6aadc31f3ef0",
+   "sidecar_sha256": "4878690063ef5eb127a0a74d9c0c1a48dc006fe98a23d21180b359445db09ff1",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "different",
+    "fingerprints": [
+     "e07f321b96f0978c8b4b593e9fad2d04c289718385f090deb91991dab1c360b1",
+     "ce543f94e4f033de2c23020b147f2f24febec28f09a1bf82e349dc5445bc0e07"
+    ]
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "NEWTABLE",
+     "a": 4,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 260,
+     "aux": 2
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "SETTABLEKS",
+     "a": 7,
+     "b": 4,
+     "c": 186,
+     "d": -17916,
+     "e": -4586489,
+     "aux": 1
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 774,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "SETLIST",
+     "a": 4,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1284,
+     "aux": 1
+    },
+    {
+     "pc": 10,
+     "opcode": "SETTABLEKS",
+     "a": 1,
+     "b": 4,
+     "c": 68,
+     "d": 17412,
+     "e": 4457473,
+     "aux": 2
+    },
+    {
+     "pc": 12,
+     "opcode": "LOADNIL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 13,
+     "opcode": "SETTABLEN",
+     "a": 5,
+     "b": 4,
+     "c": 1,
+     "d": 260,
+     "e": 66565,
+     "aux": 0
+    },
+    {
+     "pc": 14,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  },
+  {
+   "family": "table_lowering",
+   "opt": 2,
+   "debug": 2,
+   "bytecode_sha256": "7f083b4573dd7042d6073cb38cfb58dae359661a8198eaf9bb066106c300e588",
+   "inlines": 0,
+   "unrolls": 0,
+   "run_opcodes": {
+    "CALL": 1,
+    "FORNPREP": 0,
+    "FORNLOOP": 0,
+    "SETLIST": 1,
+    "RETURN": 1
+   },
+   "status": "passed",
+   "source_sha256": "e591e5e7669157891ecacda74636d90f53acb168b9dccb4e3d15d213ae067406",
+   "runtime_vectors": 162,
+   "observations": {
+    "source": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "output": "4b1b6c809a75c736fc79e16df9d6c168504041e9cedbb007248930fdec2bfb2e",
+    "mutant": "ebee6e70156d3fe5fea25f70fb1d1f5423eddfe177c862543c94400d59fd5b36"
+   },
+   "contextual_recompile": {
+    "opt": 2,
+    "debug": 2,
+    "flags": [
+     "--fflags=false"
+    ],
+    "bytecode_sha256": "7fa8854b303cb73c9ec8b977d78a9a226fbc4ddd92a68e906c3808f2caa318f6",
+    "complete_module": true
+   },
+   "output_sha256": "6071d49ff5dd60fe5ba90d20b1fed794249194874b56f8684331655977c705f5",
+   "sidecar_sha256": "ae92ae822d5c56ee70ea605e5c1075f05b7f7ece6906b5c0f4f83ae7d415d7db",
+   "dataflow": {
+    "model": "luau-acyclic-use-def-v1",
+    "status": "proved",
+    "fingerprints": [
+     "e07f321b96f0978c8b4b593e9fad2d04c289718385f090deb91991dab1c360b1",
+     "e07f321b96f0978c8b4b593e9fad2d04c289718385f090deb91991dab1c360b1"
+    ]
+   },
+   "source_helper_calls": 0,
+   "output_helper_calls": 0,
+   "helper_prototypes": [],
+   "reconstructed_helper_occurrences": 0,
+   "synthesized_arithmetic_loops": 0,
+   "call_events": {
+    "callees_limit": 50000,
+    "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+    "event_limit": 4096,
+    "events": [],
+    "model": "committed-call-reconstruction-events-v2",
+    "occurrence_limit": 100000,
+    "occurrences": [],
+    "omitted_callee_registrations": 0,
+    "omitted_events": 0,
+    "omitted_occurrences": 0,
+    "schema_version": 2,
+    "search_hints": {
+     "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+     "pc_limit": 200000,
+     "region_limit": 8192,
+     "regions": [],
+     "truncated": false
+    }
+   },
+   "caller_prototype": 0,
+   "caller_instructions": [
+    {
+     "pc": 0,
+     "opcode": "NEWTABLE",
+     "a": 4,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 260,
+     "aux": 2
+    },
+    {
+     "pc": 2,
+     "opcode": "LOADK",
+     "a": 7,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 7,
+     "aux": 0
+    },
+    {
+     "pc": 3,
+     "opcode": "SETTABLEKS",
+     "a": 7,
+     "b": 4,
+     "c": 186,
+     "d": -17916,
+     "e": -4586489,
+     "aux": 1
+    },
+    {
+     "pc": 5,
+     "opcode": "MOVE",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 6,
+     "opcode": "MOVE",
+     "a": 6,
+     "b": 3,
+     "c": 0,
+     "d": 3,
+     "e": 774,
+     "aux": 0
+    },
+    {
+     "pc": 7,
+     "opcode": "CALL",
+     "a": 6,
+     "b": 1,
+     "c": 0,
+     "d": 1,
+     "e": 262,
+     "aux": 0
+    },
+    {
+     "pc": 8,
+     "opcode": "SETLIST",
+     "a": 4,
+     "b": 5,
+     "c": 0,
+     "d": 5,
+     "e": 1284,
+     "aux": 1
+    },
+    {
+     "pc": 10,
+     "opcode": "SETTABLEKS",
+     "a": 1,
+     "b": 4,
+     "c": 68,
+     "d": 17412,
+     "e": 4457473,
+     "aux": 2
+    },
+    {
+     "pc": 12,
+     "opcode": "LOADNIL",
+     "a": 5,
+     "b": 0,
+     "c": 0,
+     "d": 0,
+     "e": 5,
+     "aux": 0
+    },
+    {
+     "pc": 13,
+     "opcode": "SETTABLEN",
+     "a": 5,
+     "b": 4,
+     "c": 1,
+     "d": 260,
+     "e": 66565,
+     "aux": 0
+    },
+    {
+     "pc": 14,
+     "opcode": "RETURN",
+     "a": 4,
+     "b": 2,
+     "c": 0,
+     "d": 2,
+     "e": 516,
+     "aux": 0
+    }
+   ]
+  }
+ ],
+ "summary": {
+  "profiles": 42,
+  "status": {
+   "passed": 42
+  },
+  "dataflow": {
+   "proved": 29,
+   "different": 12,
+   "unknown": 1
+  },
+  "compiled_mutants_detected": 42
+ },
+ "contract": "Compiler families locked before their first decompiler evaluation; evaluation_use records whether this run is development, an initial holdout, or an unblinded regression. The dataset name alone does not establish independence. Bytecode hashes retain registers/arity/capture/debug data; remarks and caller operands characterize transformations. The complete emitted module is recompiled in its original compiler profile. Source/helper call counts use lexical callee identity, but do not alone align original/output callsites or establish uniqueness. Runtime observations and compiled mutants do not promote unknown/different dataflow. Precision/recall requires a separate labeled-site review."
+}

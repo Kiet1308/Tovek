@@ -3,11 +3,14 @@ import bisect
 import re
 
 KINDS = {'statement_deinline', 'expression_deinline', 'arithmetic_deinline', 'terminal_synthesis'}
-MODEL = 'committed-call-reconstruction-events-v1'
+MODEL = 'committed-call-reconstruction-events-v2'
 
 
 def compact_annotation(text):
     labels = {
+        ' equivalent calls inferred from this helper; original call sites unknown': 'inferred helper',
+        'equivalent call inferred; original call site unknown': 'inferred call',
+        ' equivalent call inferred; original call site unknown': 'inferred call',
         ' [-O2 INLINED, UNHOOKABLE] reconstructed definition;': 'inferred helper',
         'inlined by Luau -O2 (UNHOOKABLE)': 'inferred call',
         ' [-O2 INLINED, UNHOOKABLE] reconstructed call': 'inferred call',
@@ -28,7 +31,7 @@ def validate(trace, source=None):
     def binding(value):
         return isinstance(value, str) and re.fullmatch(r'b(0|[1-9][0-9]*)', value) and int(value[1:]) < 2**64
     try:
-        require(report['schema_version'] == 1 and report['model'] == MODEL, 'unknown schema/model')
+        require((report['schema_version'], report['model']) in ((1, 'committed-call-reconstruction-events-v1'), (2, MODEL)), 'unknown schema/model')
         require((report['event_limit'], report['occurrence_limit'], report['callees_limit']) == (4096, 100000, 50000), 'limits differ')
         events, occurrences = report['events'], report['occurrences']
         require(isinstance(events, list) and len(events) <= 4096, 'event budget exceeded')
@@ -39,9 +42,31 @@ def validate(trace, source=None):
         require(not report['omitted_events'] or len(events) == 4096, 'omission before event cap')
         require(not report['omitted_occurrences'] or len(occurrences) == 100000, 'omission before occurrence cap')
         prototypes = {f['prototype'] for f in trace['functions']}
+        if report['schema_version'] == 2 and 'search_hints' in report:
+            hints = report['search_hints']
+            require((hints['pc_limit'], hints['region_limit']) == (200000, 8192), 'search hint limits differ')
+            require(type(hints['truncated']) is bool, 'invalid search hint truncation')
+            require(len(hints['regions']) <= 8192, 'search hint region budget exceeded')
+            counts = {f['prototype']: f.get('instruction_count') for f in trace['functions']}
+            previous = {}
+            for region in hints['regions']:
+                require(set(region) == {'caller_prototype', 'helper_prototype', 'start_pc', 'end_pc_exclusive'}, 'unknown search hint evidence fields')
+                require(all(integer(value) for value in region.values()), 'invalid search hint coordinate')
+                caller, helper = region['caller_prototype'], region['helper_prototype']
+                start, end = region['start_pc'], region['end_pc_exclusive']
+                require(caller != helper and start < end <= 200000, 'invalid search hint range')
+                if counts.get(caller) is not None:
+                    require(end <= counts[caller], 'search hint outside caller bytecode')
+                require(previous.get((caller, helper), 0) <= start, 'overlapping search hint regions')
+                previous[caller, helper] = end
         final = {b['binding_id'] for b in trace['final_bindings']}
         for index, event in enumerate(events):
-            require(set(event) == {'event_id', 'producer', 'callee_binding_at_creation', 'callee_prototype'}, 'unknown event evidence fields')
+            fields = {'event_id', 'producer', 'callee_binding_at_creation', 'callee_prototype'}
+            if report['schema_version'] == 2:
+                fields.add('evidence')
+                expected = 'synthesis' if event['producer'] == 'terminal_synthesis' else 'equivalent_call_inference'
+                require(event.get('evidence') == expected, 'invalid original-call evidence claim')
+            require(set(event) == fields, 'unknown event evidence fields')
             require(type(event['event_id']) is int and event['event_id'] == index + 1, 'event IDs are not unique creation order')
             require(event['producer'] in KINDS, 'unknown producer')
             require(binding(event['callee_binding_at_creation']), 'invalid creation binding ID')
