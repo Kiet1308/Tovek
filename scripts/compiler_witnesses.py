@@ -18,6 +18,18 @@ from roadmap_v2 import ROOT, checked, sha256
 from source_fidelity import parse_ast
 
 
+def observation_sha256(stdout):
+    """Hash fixture print records using the locked Windows CRLF convention.
+
+    The existing manifests were frozen from Windows VM stdout. Linux prints
+    the same records with LF. Normalize only line terminators, retaining all
+    values, tabs, spaces, ordering and the final newline. Raw hashes are kept
+    separately in the report; source/bytecode golden hashes are never changed.
+    """
+    canonical = stdout.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def helper_calls(tree):
     """Return distinct lexical callee identities, not counts of matching text."""
     counts = collections.Counter()
@@ -117,6 +129,7 @@ def main():
             before, after = case['mutant']['from'], case['mutant']['to']
             if original.count(before) != 1: raise ValueError('mutant edit is not unique')
             observations = {}
+            raw_observations = {}
             for variant, subject in (('source', original), ('output', output.decode('utf-8')),
                                      ('mutant', original.replace(before, after))):
                 runner = directory / (variant + '-runner.luau')
@@ -127,8 +140,10 @@ def main():
                 observed = checked([args.luau, f"-O{profile['opt']}", f"-g{profile['debug']}",
                                     *spec['compiler_flags'], runner], timeout=30)[0]
                 if len(observed.splitlines()) != case['vectors']: raise ValueError('runtime vector count differs')
-                observations[variant] = hashlib.sha256(observed).hexdigest()
+                observations[variant] = observation_sha256(observed)
+                raw_observations[variant] = hashlib.sha256(observed).hexdigest()
                 (directory / (variant + '-observations.txt')).write_bytes(observed)
+            row.update(observations=observations, raw_observations=raw_observations)
             expected = case['expected_observation_sha256']
             if observations['source'] != expected or observations['output'] != expected or observations['mutant'] == expected:
                 raise ValueError('runtime mismatch or undetected compiled mutant')
@@ -151,6 +166,7 @@ def main():
     report = dict(schema_version=1, manifest_sha256=sha256(args.manifest), compiler_commit_expected=spec['compiler_commit'],
                   dataset=spec.get('dataset', 'development-compiler-witnesses'),
                   evaluation_use=args.evaluation_use,
+                  observation_line_endings='CRLF (locked manifest convention); raw stdout hashes retained per row',
                   synthesize_arithmetic_loops=args.synthesize_arithmetic_loops,
                   tools={name: dict(path=str(getattr(args, name).resolve()), sha256=sha256(getattr(args, name)))
                          for name in ('compiler', 'luau', 'ast', 'lifter')}, work=str(work), rows=rows,
