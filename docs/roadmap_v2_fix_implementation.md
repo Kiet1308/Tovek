@@ -10,7 +10,7 @@ Goal đang chạy: hoàn thành [ROADMAP_V2_FIX.md](ROADMAP_V2_FIX.md), kiểm c
 | F3 helper điều kiện | Xong và đã nghiệm thu; return cuối nhánh, chuỗi scalar ngắn, giữ arity và binding được bảo vệ |
 | F4 constructor trước capture | Xong, commit `e1f1131` đã push; gom init trước lần quan sát đầu tiên |
 | F5 tên suy luận | Xong; commit `b66a186` đã push, giữ role/confidence, tên đa kiểu và số lần lặp chuỗi |
-| F6 helper/scope/pass cuối | Chưa triển khai |
+| F6 helper/scope/pass cuối | Xong và đã nghiệm thu; placement có proof trong constructor đang trộn callback inline và helper riêng |
 | F7 annotation/discard | Chưa triển khai |
 
 ## F8 nền — 12/09/2026
@@ -84,3 +84,15 @@ Public **513/513** qua, **7 output đổi**. Fusion `isSimilar` O0 tăng cả ra
 Nghiệm thu: **754 test AST**, **1.043 test workspace chính + 1 lần test con**, **222 runtime hiện có + 6 terminal profiles**, **513 public** qua. Fixture mới chạy **200 tình huống/profile**, kiểm false/nil/NaN, tuple/vararg/scalar, branch bị bỏ qua, lỗi ở nhiều event, metamethod, đổi callee trong lookup, parameter và closure quan sát result. Năm profile thay output so F5; O0 g2 giữ nguyên hash. Lineage/emission/capture audits, source/trace và deterministic thread 1/4 đều qua; không local token chưa giải thích được. Symbolic dataflow vẫn unknown. Fixture đã thêm vào manifest mặc định, đưa bộ tiếp theo lên **228 profiles**. [Bằng chứng](roadmap_v2_acceptance/fix_terminal_returns.json).
 
 Output F3 cục bộ: `out/v2-fix-all/f3`, executable SHA `8459de6ce5367646d079868286fa956162020524385d784b0b9570ddc67e9366`. F2/F6/F7 và bước bàn giao V2/HTML tiếp tục mở; folder so sánh chính vẫn ở F1 cho đến lượt đồng bộ cuối.
+
+## F6 — vị trí helper, 19/09/2026
+
+`MEDAL_DUMP_AST_STAGES=all` (hoặc danh sách tên stage) ghi 11 snapshot AST lên stderr mà không đổi stdout. Trace createSignal/prettyPrint/castToGraph xác nhận các alias đã có từ trước cleanup cuối, không phải được tái tạo ở một pass muộn. Do đó không thêm lượt fixed point chung. Trong createSignal, `fire` bị giữ vì policy tên Function chưa nhận ra field constructor cùng tên; một kiểm tra boolean cũ còn chặn hai capture-read dù bộ kiểm thứ tự chính xác đã cho phép.
+
+Ngoại lệ mới chỉ dùng ở AST đã link closure, với bằng chứng Function cùng tên và constructor vốn đã có callback inline. Danh sách helper riêng đồng nhất hoặc một helper duy nhất giữ nguyên để tránh tăng tầng lồng. DebugLocal/DebugUpvalue, mismatch tên, recursion, nhiều lần dùng, loop/conditional use, callback xen giữa và ghi lại dependency vẫn bị chặn. Không thay exception của SSA. Thử nghiệm đầu đã làm O0 lồng sâu hơn; policy cuối được thu hẹp và cả hai O0 đó giữ nguyên hash baseline.
+
+So F3: **3.978 private giữ nguyên hash**, **4 public output đổi**. createSignal O1/O2 tăng raw và normalized ratio **0,4582 → 0,8920**; 403 profile đo được còn lại giữ điểm. createReconciler O1/O2 gom các helper export vào constructor đang có callback inline, đã đọc diff; alignment vẫn unknown. Không tuyên bố F6 cải thiện diện rộng trên private hoặc đã sửa snapshot toán của F2.
+
+Nghiệm thu: **756 AST tests**, **1.045 workspace tests chính + 1 test con**, **228 runtime hiện có + 6 helper profiles**, **513 public** qua. Fixture mới có **66 tình huống/profile** về identity giữa factory calls, chia sẻ closure qua loop, cell riêng từng iteration, recursion, alias hai field, false/nil/tuple, callback, key lỗi và lỗi theo event. Cả ba g1 đổi output so F3; ba g2 giữ source binding. Lineage/emission/capture audits và deterministic thread 1/4 qua, không local token chưa giải thích được. Manifest mặc định đã thêm helper, lên **234 profiles**. [Bằng chứng](roadmap_v2_acceptance/fix_helper_placement.json).
+
+Output F6: `out/v2-fix-all/f6-final`, SHA `3e567395e15e542e9c748d9db7739ed43eecb5d20fe0c9a8ed4df683d1e13936`. F2/F7 và bàn giao F8 còn mở; V2/HTML chính vẫn ở F1 đến lượt đồng bộ cuối.

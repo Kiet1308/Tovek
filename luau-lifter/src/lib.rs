@@ -641,6 +641,18 @@ fn try_decompile_bytecode_internal(
                     collect_linked_upvalue_bindings(&mut body, &mut linked_upvalue_bindings);
                 }
             }
+            // Opt-in, read-only stage snapshots for output-quality investigation.
+            // Formatting has no emission observer here and never assigns names.
+            let dump_stages = std::env::var("MEDAL_DUMP_AST_STAGES").ok();
+            let dump_stage = |stage: &str, body: &ast::Block| {
+                if dump_stages.as_deref().is_some_and(|selection|
+                    selection == "all" || selection.split(',').any(|selected| selected.trim() == stage))
+                {
+                    eprintln!("---- AST-STAGE {stage} {} ----\n{body}\n---- END AST-STAGE {stage} ----",
+                        script_name.unwrap_or("?"));
+                }
+            };
+            dump_stage("linked", &body);
             // Reverse continuation cloning introduced while structuring inlined
             // early returns.  This is the structured cross-jumping half of P1:
             // exact common tails are shared before the statement de-inliner tries
@@ -683,6 +695,7 @@ fn try_decompile_bytecode_internal(
                     break;
                 }
             }
+            dump_stage("statement_deinline", &body);
             // Tier-B fallback for terminal continuations that cannot be hoisted
             // through every structured branch. It has its own bounded fixed point;
             // running de-inline again was measured byte-identical on the corpus.
@@ -708,6 +721,7 @@ fn try_decompile_bytecode_internal(
                 ast::expr_deinline::arithmetic_deinline_early(&mut body);
                 span.finish_ast(&body, true);
             }
+            dump_stage("arithmetic_deinline", &body);
             {
                 ptime!(S_REHOIST_CONSTANTS);
                 ast::rehoist_constants::rehoist_constants(&mut body);
@@ -728,6 +742,7 @@ fn try_decompile_bytecode_internal(
                     emit_upvalue_analysis,
                 )
             };
+            dump_stage("named", &body);
             // §2.8: recover OOP colon-method definitions. Runs after name_locals
             // (so first params are named `p`/`pN`) and before inline_temps (whose
             // receiver-deref shapes — `p:sibling()`, `p._field`, `p.field = ..` —
@@ -741,6 +756,7 @@ fn try_decompile_bytecode_internal(
                 ptime!(S_INLINE_TEMPS_1);
                 ast::inline_temps::inline_single_use_temps(&mut body);
             }
+            dump_stage("inline_temps", &body);
             // V2 keeps branch assignments/returns as statements. Select/phi
             // binding analysis happens before SSA destruction; emission does
             // not need to fold those regions into IfExpression initializers.
@@ -756,6 +772,7 @@ fn try_decompile_bytecode_internal(
                 ptime!(S_REBUILD_TABLES);
                 ast::inline_temps::rebuild_ui_expression_trees(&mut body);
             }
+            dump_stage("ui_rebuild", &body);
             // Calls make property-assignment receivers hard to scan and can
             // already exist before the UI inliner. Restore the single-value
             // receiver temp after all UI-tree collapsing is complete.
@@ -773,6 +790,7 @@ fn try_decompile_bytecode_internal(
                 ptime!(S_COPY_CLEANUP);
                 ast::copy_cleanup::copy_cleanup(&mut body);
             }
+            dump_stage("copy_cleanup", &body);
             // Eliminate redundant `x = nil` stores left by SSA phi-node
             // materialization (a predeclared `local x` then explicit `x = nil` on
             // every path it stays nil). A forward "definitely-nil" dataflow deletes
@@ -802,6 +820,7 @@ fn try_decompile_bytecode_internal(
                 ptime!(S_EXPR_DEINLINE);
                 ast::expr_deinline::expr_deinline(&mut body);
             }
+            dump_stage("expression_deinline", &body);
             // Balance only after expression de-inline has had the original
             // scalar tree available for helper matching. Expanding a long
             // conditional before this point would hide recoverable helpers such
@@ -816,6 +835,7 @@ fn try_decompile_bytecode_internal(
                 ptime!(S_CLEANUP_FINAL);
                 ast::cleanup_final::cleanup_final(&mut body, script_name);
             }
+            dump_stage("cleanup_final", &body);
             // Normalize boolean/condition shapes (proposal §10): collapse
             // reconstructed `if c then a else b` ternaries into and/or/not and
             // De-Morgan `not (...)` conditions. NaN-safe by default (relational
@@ -824,6 +844,7 @@ fn try_decompile_bytecode_internal(
             {
                 ptime!(S_NORMALIZE_CONDS);
                 ast::terminal_returns::reconstruct_terminal_returns(&mut body);
+                dump_stage("terminal_returns", &body);
                 ast::canonicalize_branches::canonicalize_branches(&mut body);
                 ast::normalize_conditions::normalize_for_statement_output(
                     &mut body,
@@ -848,6 +869,7 @@ fn try_decompile_bytecode_internal(
                 ast::cleanup_returns::cleanup_redundant_returns(&mut body);
                 ast::flatten_guards::flatten_terminal_tail_guards(&mut body);
             }
+            dump_stage("final_guards", &body);
             // Luau has no `goto` or labels.  The structurer uses them only as an
             // internal edge representation, so allowing either AST node to reach
             // formatting would produce source that Luau cannot parse.  Keep this

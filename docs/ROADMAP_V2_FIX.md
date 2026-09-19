@@ -1,6 +1,6 @@
 # Roadmap sửa chất lượng output V2
 
-Ngày chốt bằng chứng nghiên cứu: **12/09/2026**. Trạng thái triển khai: **F1, F3, F4, F5 và F8 nền đã nghiệm thu; F2 hoàn thành một phần; F6, F7 và F8 bàn giao còn mở**. Checkbox và commit cập nhật ở mục 4. Đây là roadmap bổ sung cho [ROADMAP_V2.md](ROADMAP_V2.md), không thay trạng thái R1–R9 đã ghi trong [implementation record](roadmap_v2_implementation.md).
+Ngày chốt bằng chứng nghiên cứu: **12/09/2026**. Trạng thái triển khai: **F1, F3, F4, F5, F6 và F8 nền đã nghiệm thu; F2 hoàn thành một phần; F7 và F8 bàn giao còn mở**. Checkbox và commit cập nhật ở mục 4. Đây là roadmap bổ sung cho [ROADMAP_V2.md](ROADMAP_V2.md), không thay trạng thái R1–R9 đã ghi trong [implementation record](roadmap_v2_implementation.md).
 
 **Kết luận:** V2 hiện cải thiện rõ tên biến, cây UI và nhiều ca bảo toàn hành vi, nhưng còn làm công thức toán và một số helper ngắn khó đọc hơn beta. Ví dụ `local styledTextLabel = require(...); v.StyledTextLabel = styledTextLabel` là vấn đề chung của cả hai bản, không phải lỗi riêng V2. Vấn đề này đã được sửa trong source V2 và xuất lại toàn bộ output. Những điểm lùi còn lại cần sửa theo từng loại biểu thức và bằng chứng thứ tự đánh giá; không thể an toàn bằng cách xóa mọi biến dùng một lần.
 
@@ -158,7 +158,7 @@ Chưa phát hiện lỗi runtime mới trong các phép thử đã chạy cho F1
 | **F3 — helper điều kiện ngắn** | P1, **xong** | Ít binding phi/flag hơn, guard và return gọn trong chế độ statement | 754 test AST, 222+6 runtime, 513 public và metadata qua; 79 file private cải thiện, không tăng dòng dài |
 | **F4 — constructor trước capture** | P1, **xong** | Gom bảng component/export chỉ capture sau init khi chưa escape | Commit `e1f1131` đã push; 1.215 file private được gom field, runtime/metadata qua |
 | **F5 — chất lượng tên suy luận** | P1, **xong** | Hết plural sai và tên bị một nhánh sử dụng chi phối | Commit `b66a186` đã push; 744 test AST; 222 runtime, 513 public, metadata qua; 86 file private cải thiện tên, khôi phục `size` ở Write |
-| **F6 — scope/helper và pass cuối** | P2, mở | Tên helper tốt, vị trí khai báo hợp lý, không lặp cleanup vô hạn | Cao; cần đo pass tạo alias trước khi sửa |
+| **F6 — scope/helper và pass cuối** | P2, **xong** | Helper dùng một lần vào constructor đã có callback inline; giữ danh sách helper riêng | Trace 11 stage; 4 public output đổi, private giữ nguyên; [nghiệm thu](roadmap_v2_acceptance/fix_helper_placement.json) |
 | **F7 — annotation/discard** | P2, mở | Hiển thị nhẹ hơn nhưng vẫn thấy đâu là suy luận | Vừa; dùng compact mode sẵn có và metadata đầy đủ |
 | **F8 — gate chất lượng output** | **Nền đã xong**, gate bàn giao còn mở | Phát hiện lùi theo file/nhóm, giữ unknown và baseline bất biến | Commit `f1059d9` đã push; scanner tích hợp report, fixture mặc định hiện có 228 profiles |
 
@@ -172,7 +172,7 @@ Checklist triển khai:
 - [x] **F3:** khôi phục boolean chain/guard/direct return khi value-exact; kiểm cả false/nil, NaN, lỗi giữa nhánh, branch bị bỏ qua và mutation; không thêm if-expression vào default output. Giữ arity, source binding, parameter và upvalue; từ chối chuỗi dài hoặc cách viết che khác biệt false/nil. [Bằng chứng](roadmap_v2_acceptance/fix_terminal_returns.json).
 - [x] **F4:** chứng minh bảng chưa escape trước init hoàn tất; gom constructor theo thứ tự và giữ các ca capture sớm/callback/reentrant/alias quan sát bảng dở dang. File Label và nhóm component registry đã đọc lại. Đã push `e1f1131`; [bằng chứng](roadmap_v2_acceptance/fix_constructor_capture.json).
 - [x] **F5:** lưu độ tin cậy và loại vai trò xuyên các lần suy luận; sửa tên collection/polytype tổng quát; không còn `serializeds`/`deserializeds` do heuristic trong source benchmark hiện tại; bảo vệ tên nguồn và các ví dụ người dùng đã duyệt. [Bằng chứng](roadmap_v2_acceptance/fix_naming_roles.json).
-- [ ] **F6:** ghi evidence trước/sau các pass liên quan; chỉ sửa placement hoặc thêm cleanup có giới hạn ở nơi giải thích được; kiểm closure identity, recursion, capture và số lần tạo function.
+- [x] **F6:** trace 11 stage cho createSignal/prettyPrint/castToGraph; sửa đúng gate helper cùng tên và hai capture-read. Kiểm identity, recursion, capture, callback và tần suất tạo closure; không thêm cleanup lặp khi trace không cho thấy alias mới. 234 runtime, 513 public qua; không regression ratio đo được; private giữ nguyên. [Bằng chứng](roadmap_v2_acceptance/fix_helper_placement.json).
 - [ ] **F7:** thu gọn annotation với mapping đầy đủ, giữ marker suy luận và fallback khi metadata không đủ; discard chỉ loại bỏ khi có proof effect, kèm parse/span/AST/runtime checks thích hợp.
 - [ ] **F8 bàn giao:** chạy gate cuối, đồng bộ folder V2/HTML và 25 trang đối chiếu với executable cuối; kiểm browser, hash và beta bất biến.
 

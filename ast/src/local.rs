@@ -110,6 +110,45 @@ pub fn assignment_preserves_function_name(statement: &crate::Statement, local: &
     }
 }
 
+/// Late AST presentation exception only. The field already displays the
+/// compiler's function-prototype name; a debug local/upvalue is still distinct
+/// source evidence. This grants no motion/capture/arity permission, and is not
+/// used by SSA inlining before closure bodies and captures have been linked.
+pub(crate) fn constructor_preserves_function_name(statement: &crate::Statement, local: &RcLocal) -> bool {
+    let name = {
+        let evidence = local.0.lock();
+        if evidence.2.is_empty() || evidence.2.iter().any(|b| !matches!(b.origin, BindingOrigin::Function { .. })) {
+            return false;
+        }
+        let Some(name) = evidence.source_name() else { return false; };
+        name.to_owned()
+    };
+    fn field(value: &crate::RValue, local: &RcLocal, name: &[u8], budget: &mut usize, depth: usize) -> bool {
+        if depth >= 32 || *budget == 0 { return false; }
+        let crate::RValue::Table(table) = value else { return false; };
+        // Keep a uniform list of named helpers (and a lone helper) as source
+        // structure. This exception repairs a mixed constructor that already
+        // contains inline callbacks; it does not start nesting every function.
+        let mixed_callbacks = table.0.iter().any(|(_, value)| matches!(value, crate::RValue::Closure(_)));
+        for (key, value) in &table.0 {
+            if *budget == 0 { return false; }
+            *budget -= 1;
+            if mixed_callbacks && value.as_local() == Some(local)
+                && matches!(key, Some(crate::RValue::Literal(crate::Literal::String(key))) if key == name)
+            { return true; }
+            if field(value, local, name, budget, depth + 1) { return true; }
+        }
+        false
+    }
+    let values = match statement {
+        crate::Statement::Assign(assign) => &assign.right,
+        crate::Statement::Return(ret) => &ret.values,
+        _ => return false,
+    };
+    let mut budget = 512;
+    values.iter().any(|value| field(value, local, name.as_bytes(), &mut budget, 0))
+}
+
 impl From<Option<String>> for Local {
     fn from(name: Option<String>) -> Self {
         Self(name, None, Vec::new(), None, BindingRoles::default())

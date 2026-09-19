@@ -245,7 +245,9 @@ fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
         let import_field_store = facts.rebuild_call_chains
             && is_service_or_require_handle(&replacement)
             && is_named_field_store_use(&block.0[use_index], &local);
-        let named_function = crate::assignment_preserves_function_name(&block.0[use_index], &local);
+        let named_function = crate::assignment_preserves_function_name(&block.0[use_index], &local)
+            || (matches!(&replacement, RValue::Closure(_))
+                && crate::local::constructor_preserves_function_name(&block.0[use_index], &local));
         if local.preserve_binding() && !named_function {
             crate::telemetry::count("inline_refused_source_binding", 1);
             continue;
@@ -552,7 +554,13 @@ fn replace_first_rvalue_use(
     conditionally_evaluated: bool,
 ) -> bool {
     if matches!(rvalue, RValue::Local(read) if read == local) {
-        if !can_replace_after_prior_effects(&replacement, *before_side_effects, facts)
+        // The caller has already proved this exact use with can_sink_with_summary.
+        // Closure construction does not execute its body: captures can commute
+        // with earlier capture reads. The older boolean barrier below cannot
+        // distinguish those reads from callbacks/writes, which the position
+        // proof still rejects. Keep the independent conditional-use refusal.
+        if (!matches!(&replacement, RValue::Closure(_))
+            && !can_replace_after_prior_effects(&replacement, *before_side_effects, facts))
             || (conditionally_evaluated && rvalue_evaluation_order_barrier(&replacement, facts))
         {
             return false;
@@ -1072,6 +1080,82 @@ mod tests {
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(local.clone())],
         })
+    }
+
+    #[test]
+    fn named_constructor_helper_crosses_capture_reads_but_not_observers_or_source_bindings() {
+        for barrier in 0..10 {
+            let state = local("state");
+            let helper = local("fire");
+            helper.0.lock().add_source_binding(crate::SourceBinding {
+                origin: crate::BindingOrigin::Function { prototype: 1 }, name: "fire".into(),
+            });
+            if barrier == 4 { helper.0.lock().add_source_binding(crate::SourceBinding {
+                origin: crate::BindingOrigin::DebugLocal { prototype: 0, register: 1, start_pc: 0, end_pc: 10 },
+                name: "fire".into(),
+            }); }
+            let function = Arc::new(Mutex::new(Function {
+                body: Block(vec![assign(state.clone().into(), number(1.0)), Return::new(vec![local_value(&state)]).into()]),
+                ..Function::default()
+            }));
+            let mut upvalues = vec![Upvalue::Ref(state.clone())];
+            if barrier == 7 { upvalues.push(Upvalue::Ref(helper.clone())); }
+            let closure = RValue::Closure(Closure {
+                node_origin: Default::default(), function: ByAddress(function.clone()), upvalues,
+            });
+            let first = if barrier == 1 { Call::new(global("observe"), vec![]).into() }
+                else { closure_capturing(&state) };
+            let mut fields = vec![(Some(string("subscribe")), first),
+                (Some(string(if barrier == 5 { "other" } else { "fire" })), local_value(&helper))];
+            if barrier == 1 { fields.push((Some(string("other")), closure_capturing(&state))); }
+            if barrier == 6 { fields.push((Some(string("again")), local_value(&helper))); }
+            let table = RValue::Table(Table::new(fields));
+            let returned = if barrier == 9 {
+                Binary::new(global("enabled"), table, BinaryOperation::And).into()
+            } else { table };
+            let tail = Return::new(vec![returned]).into();
+            let mut block = Block(vec![declare(&state, number(0.0)), declare(&helper, closure)]);
+            if barrier == 2 { block.0.push(Call::new(global("observe"), vec![]).into()); }
+            if barrier == 3 { block.0.push(assign(state.clone().into(), number(2.0))); }
+            if barrier == 8 {
+                block.0.push(While::new(global("enabled"), Block(vec![tail])).into());
+            } else { block.0.push(tail); }
+            let before = block.to_string();
+            if barrier == 0 {
+                let facts = super::collect_motion_facts(&block);
+                let candidate = &block.0[1].as_assign().unwrap().right[0];
+                assert!(!super::can_replace_after_prior_effects(candidate, true, &facts));
+                assert!(crate::evaluation_order::can_sink_with_summary(&block.0[2], &helper,
+                    candidate, &|l| facts.captured.contains(l) && !facts.stable_captured.contains(l),
+                    facts.candidate_effects(candidate)));
+            }
+            let changed = super::rebuild_ui_expression_trees(&mut block);
+            assert_eq!(changed, barrier == 0, "barrier {barrier}: {}", block);
+            if barrier == 0 {
+                assert!(!block.to_string().contains("local function fire"));
+                assert!(block.to_string().contains("fire = function()"));
+                let table = block.0.last().unwrap().as_return().unwrap().values[0].as_table().unwrap();
+                let installed = table.0[1].1.as_closure().unwrap();
+                assert!(Arc::ptr_eq(&installed.function.0, &function));
+            } else { assert_eq!(block.to_string(), before, "barrier {barrier}"); }
+        }
+    }
+
+    #[test]
+    fn constructor_function_name_exception_is_late_and_requires_recorded_matching_name() {
+        for source in 0..5 {
+            let helper = local("fire");
+            if source != 0 { helper.0.lock().add_source_binding(crate::SourceBinding {
+                origin: if source == 2 { crate::BindingOrigin::DebugUpvalue { prototype: 1, slot: 0 } }
+                    else { crate::BindingOrigin::Function { prototype: 1 } },
+                name: if source == 3 { "other".into() } else { "fire".into() },
+            }); }
+            let mut fields = vec![(Some(string("fire")), local_value(&helper))];
+            if source != 4 { fields.push((Some(string("subscribe")), closure_capturing(&local("state")))); }
+            let statement = Return::new(vec![Table::new(fields).into()]).into();
+            assert_eq!(crate::local::constructor_preserves_function_name(&statement, &helper), source == 1);
+            assert!(!crate::assignment_preserves_function_name(&statement, &helper));
+        }
     }
 
     #[test]

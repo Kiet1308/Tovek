@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "scope": "F6 matching named helper in mixed callback constructors; bounded read-only stage diagnostics",
+  "base_commit": "401c393",
+  "baseline_binary_sha256": "8459de6ce5367646d079868286fa956162020524385d784b0b9570ddc67e9366",
+  "binary_sha256": "3e567395e15e542e9c748d9db7739ed43eecb5d20fe0c9a8ed4df683d1e13936",
+  "rust_primary_tests": 1045,
+  "rust_child_repeat": 1,
+  "ast_tests": 756,
+  "runtime_profiles": 228,
+  "helper_profiles": 6,
+  "helper_scenarios_per_profile": 66,
+  "helper_output_profiles_changed": [
+    {
+      "opt": 0,
+      "debug": 1
+    },
+    {
+      "opt": 1,
+      "debug": 1
+    },
+    {
+      "opt": 2,
+      "debug": 1
+    }
+  ],
+  "public_profiles": 513,
+  "public_outputs_changed": [
+    {
+      "key": [
+        "roact",
+        "src/createReconciler.lua",
+        1
+      ],
+      "before": null,
+      "after": null,
+      "delta": null,
+      "normalized_before": null,
+      "normalized_after": null,
+      "normalized_delta": null
+    },
+    {
+      "key": [
+        "roact",
+        "src/createReconciler.lua",
+        2
+      ],
+      "before": null,
+      "after": null,
+      "delta": null,
+      "normalized_before": null,
+      "normalized_after": null,
+      "normalized_delta": null
+    },
+    {
+      "key": [
+        "roact",
+        "src/createSignal.lua",
+        1
+      ],
+      "before": 0.4582375478927203,
+      "after": 0.8919753086419753,
+      "delta": 0.43373776074925496,
+      "normalized_before": 0.4582375478927203,
+      "normalized_after": 0.8919753086419753,
+      "normalized_delta": 0.43373776074925496
+    },
+    {
+      "key": [
+        "roact",
+        "src/createSignal.lua",
+        2
+      ],
+      "before": 0.4582375478927203,
+      "after": 0.8919753086419753,
+      "delta": 0.43373776074925496,
+      "normalized_before": 0.4582375478927203,
+      "normalized_after": 0.8919753086419753,
+      "normalized_delta": 0.43373776074925496
+    }
+  ],
+  "private": {
+    "files": 3978,
+    "changed": 0,
+    "unchanged": 3978,
+    "categories": {},
+    "delta_bytes": 0,
+    "delta_lines": 0,
+    "delta_generated_bindings": 0,
+    "delta_long_lines": 0,
+    "errors": []
+  },
+  "stage_evidence": {
+    "binary_sha256": "3e567395e15e542e9c748d9db7739ed43eecb5d20fe0c9a8ed4df683d1e13936",
+    "rows": [
+      {
+        "repo": "Fusion",
+        "file": "src/Graph/castToGraph.luau",
+        "opt": 2,
+        "default_dump_identical": true,
+        "unchanged_from_f3": true,
+        "stages": {
+          "linked": "55a673c8deb57871ee65f291bba4ca03153f0157ea4152800365786dd6c9f82a",
+          "statement_deinline": "55a673c8deb57871ee65f291bba4ca03153f0157ea4152800365786dd6c9f82a",
+          "arithmetic_deinline": "55a673c8deb57871ee65f291bba4ca03153f0157ea4152800365786dd6c9f82a",
+          "named": "1b34c104dcac6a4d85b9a3fa2e619ab3ecac5586e827810d044d721b71629512",
+          "inline_temps": "1b34c104dcac6a4d85b9a3fa2e619ab3ecac5586e827810d044d721b71629512",
+          "ui_rebuild": "1b34c104dcac6a4d85b9a3fa2e619ab3ecac5586e827810d044d721b71629512",
+          "copy_cleanup": "1b34c104dcac6a4d85b9a3fa2e619ab3ecac5586e827810d044d721b71629512",
+          "expression_deinline": "1b34c104dcac6a4d85b9a3fa2e619ab3ecac5586e827810d044d721b71629512",
+          "cleanup_final": "1b34c104dcac6a4d85b9a3fa2e619ab3ecac5586e827810d044d721b71629512",
+          "terminal_returns": "1b34c104dcac6a4d85b9a3fa2e619ab3ecac5586e827810d044d721b71629512",
+          "final_guards": "1b34c104dcac6a4d85b9a3fa2e619ab3ecac5586e827810d044d721b71629512"
+        }
+      },
+      {
+        "repo": "roact",
+        "file": "src/createSignal.lua",
+        "opt": 2,
+        "default_dump_identical": true,
+        "unchanged_from_f3": false,
+        "stages": {
+          "linked": "8cf4c0402ca55684f0ff60bba1cb36021dc47b3f41362c25b0699b6b178f9e16",
+          "statement_deinline": "8cf4c0402ca55684f0ff60bba1cb36021dc47b3f41362c25b0699b6b178f9e16",
+          "arithmetic_deinline": "72588db5e5492ced8a0a6fc5126302613d3eb26f5fd64f9610af7bb41063bda4",
+          "named": "0a25aaf1e4d6054f0d6ce56648ded46ebbc29d91247272576f6bee229e42a83b",
+          "inline_temps": "082e111dba9da64ca3a86f7fdbb0d492619d4748e758971ec512528a16eb9d66",
+          "ui_rebuild": "082e111dba9da64ca3a86f7fdbb0d492619d4748e758971ec512528a16eb9d66",
+          "copy_cleanup": "082e111dba9da64ca3a86f7fdbb0d492619d4748e758971ec512528a16eb9d66",
+          "expression_deinline": "082e111dba9da64ca3a86f7fdbb0d492619d4748e758971ec512528a16eb9d66",
+          "cleanup_final": "082e111dba9da64ca3a86f7fdbb0d492619d4748e758971ec512528a16eb9d66",
+          "terminal_returns": "082e111dba9da64ca3a86f7fdbb0d492619d4748e758971ec512528a16eb9d66",
+          "final_guards": "082e111dba9da64ca3a86f7fdbb0d492619d4748e758971ec512528a16eb9d66"
+        }
+      },
+      {
+        "repo": "Rodux",
+        "file": "src/prettyPrint.lua",
+        "opt": 2,
+        "default_dump_identical": true,
+        "unchanged_from_f3": true,
+        "stages": {
+          "linked": "b1f0fb3f854250642071fb9df38678c1df8b959c99a1032e8864f717f1862b8a",
+          "statement_deinline": "b1f0fb3f854250642071fb9df38678c1df8b959c99a1032e8864f717f1862b8a",
+          "arithmetic_deinline": "b1f0fb3f854250642071fb9df38678c1df8b959c99a1032e8864f717f1862b8a",
+          "named": "f93d7f72f1ca2bedd06cf6d2a053f18e81d0603d5cb8ffe1a77643c434c61049",
+          "inline_temps": "f93d7f72f1ca2bedd06cf6d2a053f18e81d0603d5cb8ffe1a77643c434c61049",
+          "ui_rebuild": "f93d7f72f1ca2bedd06cf6d2a053f18e81d0603d5cb8ffe1a77643c434c61049",
+          "copy_cleanup": "f93d7f72f1ca2bedd06cf6d2a053f18e81d0603d5cb8ffe1a77643c434c61049",
+          "expression_deinline": "f93d7f72f1ca2bedd06cf6d2a053f18e81d0603d5cb8ffe1a77643c434c61049",
+          "cleanup_final": "f93d7f72f1ca2bedd06cf6d2a053f18e81d0603d5cb8ffe1a77643c434c61049",
+          "terminal_returns": "f93d7f72f1ca2bedd06cf6d2a053f18e81d0603d5cb8ffe1a77643c434c61049",
+          "final_guards": "f93d7f72f1ca2bedd06cf6d2a053f18e81d0603d5cb8ffe1a77643c434c61049"
+        }
+      }
+    ]
+  },
+  "quality_gate": {
+    "metric": "sole_use_require_field_relays",
+    "status": "passed"
+  },
+  "metadata": {
+    "runtime": {
+      "lineage": {
+        "scripts": 228,
+        "source_files": 228,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 228
+        },
+        "annotation_spans": 6,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 616,
+        "definitions": 13214,
+        "definitions_with_final_binding_ancestry": 7340,
+        "dropped_records": 0,
+        "final_bindings": 2559,
+        "functions": 1164,
+        "identifier_spans": 7424,
+        "incomplete_lineages": 0,
+        "lifted_statements": 11364,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 12,
+        "statements_with_pc": 11364,
+        "unlocated_final_bindings": 92
+      },
+      "emission": {
+        "scripts": 228,
+        "status": {
+          "passed": 228
+        },
+        "parser_local_tokens": 7532,
+        "mapped_local_tokens": 7424,
+        "opaque_local_tokens": 108,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 2583,
+        "mapped_parser_bindings": 2559,
+        "storage_ids_with_multiple_parser_bindings": 0
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 228,
+        "readonly_slots": 240,
+        "analysis_status": {
+          "complete": 228
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "deterministic_threads_1_4": true
+    },
+    "helper": {
+      "lineage": {
+        "scripts": 6,
+        "source_files": 6,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 6
+        },
+        "annotation_spans": 0,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 6,
+        "definitions": 892,
+        "definitions_with_final_binding_ancestry": 453,
+        "dropped_records": 0,
+        "final_bindings": 209,
+        "functions": 120,
+        "identifier_spans": 530,
+        "incomplete_lineages": 0,
+        "lifted_statements": 874,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 0,
+        "statements_with_pc": 874,
+        "unlocated_final_bindings": 2
+      },
+      "emission": {
+        "scripts": 6,
+        "status": {
+          "passed": 6
+        },
+        "parser_local_tokens": 530,
+        "mapped_local_tokens": 530,
+        "opaque_local_tokens": 0,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 209,
+        "mapped_parser_bindings": 209,
+        "storage_ids_with_multiple_parser_bindings": 0
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 6,
+        "readonly_slots": 18,
+        "analysis_status": {
+          "complete": 6
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "deterministic_threads_1_4": true
+    },
+    "public": {
+      "lineage": {
+        "scripts": 513,
+        "source_files": 513,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 513
+        },
+        "annotation_spans": 36,
+        "bindings_without_identifier_tokens": 21,
+        "conditional_result_records": 3542,
+        "definitions": 97176,
+        "definitions_with_final_binding_ancestry": 46941,
+        "dropped_records": 0,
+        "final_bindings": 13124,
+        "functions": 3961,
+        "identifier_spans": 45265,
+        "incomplete_lineages": 0,
+        "lifted_statements": 77329,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 150,
+        "statements_with_pc": 77329,
+        "unlocated_final_bindings": 68
+      },
+      "emission": {
+        "scripts": 513,
+        "status": {
+          "passed": 513
+        },
+        "parser_local_tokens": 45516,
+        "mapped_local_tokens": 45265,
+        "opaque_local_tokens": 251,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 13106,
+        "mapped_parser_bindings": 13106,
+        "storage_ids_with_multiple_parser_bindings": 3
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 513,
+        "readonly_slots": 4597,
+        "analysis_status": {
+          "complete": 513
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "deterministic_threads_1_4": true
+    }
+  },
+  "source_hashes": {
+    "ast/src/local.rs": "80c3e49c0d30cc68aed215226b096b956f26e2eff7fa5682ca32b9202a17bf0c",
+    "ast/src/inline_temps.rs": "5158496a6381948aa8f6c224eb32bedb37a6166046108a872b24495edbd98fb9",
+    "luau-lifter/src/lib.rs": "9ab03fc49d36139e30591164f68efd5b8a9b351823a864d76640bee9520af6d4"
+  },
+  "fixture_hashes": {
+    "docs/failure_fixtures/roadmap_v2/helper_placement.luau": "342c4139b82d0da6956724724b8c18546792e9978ad387f537e49b4c048d426c",
+    "docs/failure_fixtures/roadmap_v2/helper_placement.driver.luau": "5fb04b9d53c2f45b4b51001670662ca9bad15a861316605da8ad722c20de1d70",
+    "docs/failure_fixtures/roadmap_v2/helper_placement.manifest.json": "efe86a9d292b8e89e5dfe20a2000ec108f4c51126a45acc9ea5cd529ed965abe",
+    "docs/failure_fixtures/roadmap_v2/manifest.json": "492ce66027e9c9a6b3f2f32ff8ed0e630209e8888bc71dd051383135a5a26763"
+  },
+  "evidence_hashes": {
+    "out/v2-fix-all/f6-final/workspace-tests.log": "78ae2d6d22f141338bbcbfece81acfbf583186cb149901261549c70b34cf4ec4",
+    "out/v2-fix-all/f6-final/build.log": "cdfda3fb950dd9f65ad46889324144693a5e5f80f411b4f9e389dee3b8052ebb",
+    "out/v2-fix-all/f6-final/private-review.json": "12836beb79c8b83c12ba8a98bda2d65b49259682ffac52bb4f865aff6028140d",
+    "out/v2-fix-all/f6-final/public-review.json": "5e19bed241df9eb27c330055f62f4def8fed38b13e17cb57171c4f407d60ce6b",
+    "out/v2-fix-all/f6-final/runtime.json": "a3bd585c58e31d80bac64502420a33c6a21af5b59a629a4517ab0b2740089751",
+    "out/v2-fix-all/f6-final/helper-runtime.json": "45dda5a9168bc06e0fed3cfabd40cb6e9e7405c34c868ac0844f7d1383b50f81",
+    "out/v2-fix-all/f6-final/helper-runtime-before.json": "20334c9561efae82a65d362cbd5c74470a78e72b5a5f0e478db3b623c459ea33",
+    "out/v2-fix-all/f6-final/public.json": "0b0b25e72f72e8f69954ad9c40c4a2f5032ce4ee06a8737eb9b47c5201d036a5",
+    "out/v2-fix-all/f6-final/runtime-traces.json": "88e59a68eae3da2d333eec8077b415bba455928b898bd5f17c2c32580e39fc14",
+    "out/v2-fix-all/f6-final/helper-traces.json": "558b38ab558186f9d5b4ed7881986f2ec2ad3a6e02edb9fc3f31dcf5d10b0d0d",
+    "out/v2-fix-all/f6-final/public-traces.json": "ca6891a9cf65fa1d629332e942fa3ab90dc8e2284fcb59ebd51cb1ce3e4db044",
+    "out/v2-fix-all/f6-final/quality.json": "43263a3627e20870f1e4c945e9d1aa0126635cf94c8efd43d92d9cb711407481",
+    "out/v2-fix-all/f6-final/after-snapshots.json": "ca9e534a05ae7c07a89686af2225676c0816a0b58c14c35fa2a6a0044bb23d14"
+  },
+  "limitations": [
+    "No private output changed; improvements are restricted to measured public helper placement.",
+    "Uniform named helper lists and lone helper fields remain declarations to avoid extra nesting.",
+    "Only compiler Function origins qualify; debug source bindings, recursion, multiple uses, loop/conditional execution and observer barriers remain protected.",
+    "Stage traces show no late-created alias for the three inspected sources; no speculative extra cleanup pass was added.",
+    "Private-game execution and symbolic dataflow equivalence remain unproven."
+  ]
+}
