@@ -7,6 +7,7 @@ AST metrics. It does not execute Roblox modules or certify their equivalence.
 import argparse
 import collections
 import concurrent.futures
+import hashlib
 import json
 import pathlib
 import re
@@ -18,6 +19,24 @@ from bytecode_dataflow import compare_dataflow
 from roadmap_v2 import ROOT, checked, compile_source, fixture_path, sha256
 from source_fidelity import compare_ast, parse_ast
 from output_quality import analyze_tree
+
+
+def restore_pinned_line_endings(path, expected_sha256):
+    """Materialize the exact frozen text bytes despite Git's checkout EOL policy.
+
+    Manifests can contain LF and CRLF files from different repositories. Only
+    accept a conversion if its complete SHA-256 matches the existing manifest;
+    any content change remains an error. Downstream audits still hash raw bytes.
+    """
+    original = path.read_bytes()
+    if hashlib.sha256(original).hexdigest() == expected_sha256:
+        return
+    lf = original.replace(b'\r\n', b'\n')
+    for candidate in (lf, lf.replace(b'\n', b'\r\n')):
+        if hashlib.sha256(candidate).hexdigest() == expected_sha256:
+            path.write_bytes(candidate)
+            return
+    raise ValueError(f'file differs from pinned content: {path}')
 
 
 def main():
@@ -53,6 +72,17 @@ def main():
         if head.decode().strip() != commit:
             parser.error(f"wrong commit: {repository['name']}")
         license_ = repository["license"]
+        if args.checkout:
+            # Keep all subsequent consumers (including the exact source registry)
+            # on the same locked byte representation on Windows and Linux.
+            pinned_files = [(license_["path"], license_["sha256"])]
+            pinned_files.extend((entry["file"], entry["source_sha256"])
+                                for entry in manifest["sources"] if entry["repo"] == repository["name"])
+            for relative, digest in pinned_files:
+                try:
+                    restore_pinned_line_endings(fixture_path(path, relative), digest)
+                except ValueError as error:
+                    parser.error(str(error))
         if sha256(fixture_path(path, license_["path"])) != license_["sha256"]:
             parser.error(f"license hash mismatch: {repository['name']}")
     args.keep.mkdir(parents=True, exist_ok=True)
