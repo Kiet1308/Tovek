@@ -70,8 +70,7 @@
       <section id="bytecode-v12">
         <h2>Ready for Roblox bytecode v12.</h2>
         <p>Tovek V2 now decompiles Roblox’s v12 bytecode directly. The reader handles size-delimited prototypes, 64-bit cost metadata, and call feedback, including <code>CALLFB</code>. Wide cost values and prototype boundaries are verified on native builds and in the 32-bit WebAssembly reader.</p>
-        <p class="inline-note"><strong>15.30 seconds → 1.02 seconds.</strong> On the large v12 regression sample, V2 is now 15× faster than the previous V2 build, with byte-identical output. These are medians from five interleaved runs on the same machine, a 93.3% reduction in elapsed time. This is a sample-specific result, not a general speedup over v0.9 beta.</p>
-        <p>The optimization removes repeated pairwise checks when merging SSA variables while retaining the constraints that protect source bindings. All 3,978 private output paths and 513 public profiles remain byte-identical. Validation passes 246/246 v12 runtime profiles, 9/9 controls, 27/27 structural cases, and 6/6 WebAssembly reader cases.</p>
+        <p>Unlike v0.9 beta, V2 reads v12 bytecode directly. Validation passes 246/246 v12 runtime profiles, 9/9 controls, 27/27 structural cases, and 6/6 WebAssembly reader cases.</p>
         <p>Runtime-mutated <code>CMPPROTO</code> guards remain unsupported: V2 reports their prototype and instruction location instead of emitting an inaccurate condition. Malformed or truncated v12 inputs are rejected. Bytecode v12 support is included in the V2 release.</p>
       </section>
 
@@ -99,7 +98,7 @@
         <p>The reconstruction follows the order of each observable operation. A table can absorb initialization before its first capture or observation; initialization that is already visible to another part of the program stays in place. Nil overwrites, dynamic keys, and multiple-return tails retain their behavior.</p>
         <figure class="wide-figure code-figure">
           <figcaption class="code-figure-title"><span>Import → export field</span><span>Illustrative excerpt</span></figcaption>
-          <pre><code><span class="syntax-comment">-- A relay that both beta and earlier V2 retained</span>
+          <pre><code><span class="syntax-comment">-- v0.9 beta</span>
 <span class="syntax-key">local</span> styledTextLabel = <span class="syntax-key">require</span>(components.StyledTextLabel)
 exports.StyledTextLabel = styledTextLabel
 
@@ -133,7 +132,7 @@ exports.StyledTextLabel = <span class="syntax-key">require</span>(components.Sty
       <section id="workflow">
         <h2>A local tool, with room to inspect.</h2>
         <p>The Rust CLI continues to handle single files and complete folders. V2 adds an optional bounded artifact cache that accounts for the executable, bytecode, options, and naming context. Path-specific metadata is regenerated, and cache integrity is checked before reuse.</p>
-        <p>Performance work includes cached SSA statement facts and binding summaries, bounded common-tail rescans, pass-level profiling, and separate CLI, in-memory API, and allocation measurements. The <a href="#bytecode-v12">v12 update</a> removes a major bottleneck in large functions without changing their output. PGO was evaluated in isolation; historical warm-cache results are not advertised as a general V2 speedup over beta.</p>
+        <p>V2 uses cached analysis facts and bounded rescans to reduce repeated work in large functions. Parallel processing handles functions and folders, while optional pass-level profiling helps locate expensive stages. These optimizations retain the checks that protect source bindings and evaluation order.</p>
         <p>Core decompilation runs locally using deterministic rules. AI is disabled by default, and the current implementation does not load or download models or call AI services.</p>
         <h3>Choosing a workflow</h3>
         <p>Tovek provides source you can build and a local CLI you can inspect. <a href="https://lua.expert/docs">lua.expert’s documented interface</a> is a hosted API that accepts base64 bytecode and returns Luau text. This is a deployment distinction, not a quality ranking. We have not run a fresh, matched V2-versus-lua.expert evaluation for this release article.</p>
@@ -143,7 +142,7 @@ exports.StyledTextLabel = <span class="syntax-key">require</span>(components.Sty
 
       <section id="evaluation">
         <h2>Measured improvements, visible limitations.</h2>
-        <p>The output-quality comparison below uses the v0.9 beta release and the validated V2 output. The <a href="#bytecode-v12">v12 optimization</a> preserves those output bytes and has separate performance measurements. Compiler, VM, source revisions, and input/output hashes are recorded in the acceptance reports.</p>
+        <p>The comparison below uses the v0.9 beta release and Tovek V2 on the same inputs. It measures output readability, source structure and runtime behavior. Compiler, VM, source revisions, and input/output hashes are recorded in the acceptance reports.</p>
         <div class="table-scroll" tabindex="0" role="region" aria-label="Evaluation comparison table">
           <table><caption>v0.9 beta → Tovek V2</caption><thead><tr><th scope="col">Measurement</th><th scope="col">v0.9 beta</th><th scope="col">Tovek V2</th></tr></thead><tbody>
             <tr><th scope="row">Private files parsing and recompiling</th><td>3,975 / 3,978</td><td>3,978 / 3,978</td></tr>

@@ -7,9 +7,8 @@ SHA256SUMS.txt provides checksums for both downloads.
 What's new
 - Native Roblox bytecode v12 support: size-delimited prototypes, 64-bit cost
   metadata, call feedback and CALLFB, with native and wasm32 reader checks.
-- A major large-function performance fix: the measured v12 sample drops from
-  15.30 s to 1.02 s (five-run interleaved medians), with identical output.
-  This is a sample-specific 15x improvement over the earlier V2 build.
+- More efficient handling of large functions through cached analysis facts
+  and bounded rescans, while preserving source-binding and ordering checks.
 - Clearer inferred names and retained parameter types, stronger source-binding
   preservation, structured control flow and safer evaluation order.
 - More coherent module exports and nested UI constructors; fewer redundant
@@ -18,10 +17,12 @@ What's new
 - Local CLI and HTTP workflows. AI remains disabled; no models are included.
 
 Validation and limits
-The v12 suite passes 246 runtime profiles, nine controls, 27 structural cases
-and six wasm32 reader cases. The performance change preserves all tested output
-bytes across 3,978 private paths and 513 public profiles. The private application
-was not executed as a complete Roblox experience.
+Compared with v0.9 beta, anonymous bindings fall from 54,058 to 36,826 across
+the same 3,975 parseable private files. V2 passes all 198 shared runtime profiles;
+v0.9 beta passes 138. Both versions pass all 513 public parse/recompile profiles.
+The expanded v12 suite passes 246 runtime profiles, nine controls, 27 structural
+cases and six wasm32 reader cases. The private application was not executed as
+a complete Roblox experience.
 Runtime-mutated CMPPROTO guards are explicitly rejected. Truncated bytecode must
 be exported again in full. v13 double-vector serialization has targeted coverage;
 v14 is unsupported. Some complex expressions still contain more temporaries than

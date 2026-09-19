@@ -14,8 +14,6 @@ decompilers hand you a wall of `v1, v2, v3 …` and inlined compiler noise, Tove
 reconstructs names, methods, control flow and idioms so the result reads close to the
 source a human would have written — without sacrificing correctness.
 
-It also happens to be a lot faster.
-
 AI features are disabled. The current decompiler uses deterministic rules and
 does not load or download models or call AI services. AI is not part of this release. Model weights and model caches
 stay local and must not be committed or uploaded to GitHub, including release
@@ -23,23 +21,22 @@ assets, workflow artifacts or Git LFS.
 
 ---
 
-## Why Tovek over medal?
+## What's new in V2
 
-### Readable output, not just *correct* output
-
-| | medal | **Tovek** |
+| | v0.9 beta | **Tovek V2 v0.1** |
 |---|---|---|
-| Local & parameter names | `v1`, `v2`, `v3` … | Inferred from usage — `player`, `connection`, `track`, `dt`, `child`, `color` … |
-| Parameter types | dropped | Recovered from the compiler's bytecode type info: `function Api.emitAt(name: string, cframe: CFrame?)` — exact for primitives, `Vector3`, `buffer`, `thread` and tagged host types (`CFrame`, `Color3`, …); the types also name otherwise-anonymous parameters (`cframe`, `vector`, `callback`) |
-| Service / module handles | `game:GetService("X")` inlined at every call site | Preserved once as a named header local (`local Players = game:GetService("Players")`) |
-| OOP methods | `function T.method(self, ...)` | `function T:method(...)` with real `self` recovery |
-| Compiler `-O2` artifacts | left inlined | de-inlined: temps, expressions and UI tables rebuilt; dead branches/discards removed |
-| Compound assignment | `x = x + 1` | `x += 1` (including indexed targets) |
-| Strings | `string.format("%*", a, b)` | backtick interpolation `` `{a}{b}` `` |
-| Boolean / guard chains | raw `and`/`or` spaghetti | normalized conditions, collapsed predicates, `x and x:FindFirstChild(...)` → named |
-| Control flow | gotos & guard-`continue` left raw | recovered into structured `if` / loops where sound |
+| Roblox bytecode v12 | Not supported | Native support, including CALLFB |
+| Anonymous p/v bindings | 54,058 | 36,826 |
+| Lines over 180 characters | 382 | 98 |
+| Passing shared runtime profiles | 138 / 198 | 198 / 198 |
+| Public parse/recompile profiles | 513 / 513 | 513 / 513 |
 
-A few of the things Tovek does that upstream medal does not:
+Readability counts use the same 3,975 private files parseable in both versions.
+The public profiles cover 171 source files at three optimization levels.
+See the [release evaluation](https://kiet1308.github.io/Tovek/changelog.html#evaluation)
+for scope, methodology and remaining regressions.
+
+### Core capabilities
 
 - **Name inference.** Locals and parameters get meaningful names derived from how they're
   used: `:Connect` → `connection`, `:Clone()` → `clone`, `:LoadAnimation` → `track`,
@@ -71,30 +68,27 @@ A few of the things Tovek does that upstream medal does not:
   unsupported. Runtime-mutated `CMPPROTO` guards are explicitly rejected because their
   prototype-identity predicate cannot be faithfully reconstructed in source. See the
   [v12 validation and limits](https://kiet1308.github.io/Tovek/changelog.html#bytecode-v12).
-- **Validated output.** The full regression corpus (262/262 files) re-parses cleanly under
-  Luau's own front end (`luau-analyze`), so readability gains never come at the cost of
-  producing source that won't parse.
+- **Validated output.** Public regression fixtures are checked with Luau's own
+  parser, compiler and VM. V2 passes all 513 public parse/recompile profiles and
+  the expanded suite of 246 runtime profiles. These checks cover the tested
+  inputs; they do not prove equivalence for every program.
 
-### Substantially faster
+### Performance
 
-- **15× faster on the large v12 regression sample:** 15.296 s → 1.018 s median of
-  five interleaved runs, with byte-identical output. Cached binding summaries remove
-  the out-of-SSA cross-product scan while retaining source-binding constraints.
-  This is a measured sample result, not a speedup claim for every script.
-- **~2× faster** on a single file, and up to **32× faster** across a corpus (some files 80×+).
-- **mimalloc** global allocator — the decompiler is allocation-bound, and per-thread
-  free-lists replace the slow system allocator.
-- **Parallel** per-function lifting and parallel folder decompilation (rayon).
-- **Deterministic, byte-identical output** regardless of thread count (stable local IDs),
-  so results are reproducible and diffable.
-- Fixed several pathological blowups in the original (e.g. exponential upvalue handling).
+- Cached analysis facts and binding summaries reduce repeated work in large
+  functions, while bounded rescans limit control-flow traversal costs.
+- **mimalloc** supplies per-thread allocation caches.
+- **Parallel** per-function lifting and folder decompilation use rayon.
+- **Deterministic, byte-identical output** across thread counts keeps results
+  reproducible and easy to compare.
+- An optional bounded artifact cache speeds up repeated folder workflows.
 
 ### Better tooling
 
 - A native **`decompile-folder`** subcommand that decompiles an entire SynSaveInstance dump
   in parallel.
 - A native **`validate-folder`** subcommand that decompiles *and* validates every output
-  against Luau's parser in one pass — replacing a slow shell script (~46× faster).
+  against Luau's parser in one pass.
 - A small **HTTP server** (`web-server`) for the executor → server workflow, plus a
   ready-to-use client script.
 - A **Cloudflare Worker** target (`luau-worker`) for serverless deployment.
