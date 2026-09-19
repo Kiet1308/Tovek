@@ -1,0 +1,787 @@
+{
+  "base": "27422b9f8e0aeca0e61db55992930f17a98f4099",
+  "head": "465c9dceff1f1d0c925edcc77dec8afaa1baeb37",
+  "count": 130,
+  "commits": [
+    {
+      "hash": "465c9dceff1f1d0c925edcc77dec8afaa1baeb37",
+      "short": "465c9dc",
+      "date": "2026-09-19",
+      "title": "docs: complete F8 gates and final output delivery"
+    },
+    {
+      "hash": "a2048e529502e087aaab713da026e845bf2832d1",
+      "short": "a2048e5",
+      "date": "2026-09-19",
+      "title": "fix: prove completed snapshots and describe retained math (F2)"
+    },
+    {
+      "hash": "f5fb317317f398df1d3137e37d518f663fb2cab6",
+      "short": "f5fb317",
+      "date": "2026-09-19",
+      "title": "fix: prove discarded checks and validate compact annotations (F7)"
+    },
+    {
+      "hash": "65dc97f26d3921458afbf4907994250e01201296",
+      "short": "65dc97f",
+      "date": "2026-09-19",
+      "title": "fix: place sole-use helpers in mixed callback constructors (F6)"
+    },
+    {
+      "hash": "401c39372e4076c8f6edaf44ba6a37af0ee84903",
+      "short": "401c393",
+      "date": "2026-09-12",
+      "title": "fix: reconstruct value-exact terminal returns and short guards"
+    },
+    {
+      "hash": "b66a18649bff7f240c56f2f41778d5c95e6e7651",
+      "short": "b66a186",
+      "date": "2026-09-12",
+      "title": "fix: retain role and confidence in inferred local names"
+    },
+    {
+      "hash": "d8c1a804eabb18472269cd9e0226b3dd3476c425",
+      "short": "d8c1a80",
+      "date": "2026-09-12",
+      "title": "docs: distinguish research baseline from current fix progress"
+    },
+    {
+      "hash": "30f6e0ec8aa086726727835236015064119e7051",
+      "short": "30f6e0e",
+      "date": "2026-09-12",
+      "title": "docs: synchronize V2 fix roadmap completion checkboxes"
+    },
+    {
+      "hash": "e1f1131f6ae8b87be7266970f7054fbb820b0f05",
+      "short": "e1f1131",
+      "date": "2026-09-12",
+      "title": "fix: rebuild table constructors before their first capture"
+    },
+    {
+      "hash": "2add2949524107924b4b4215b021679697f3d963",
+      "short": "2add294",
+      "date": "2026-09-12",
+      "title": "fix: fold arithmetic with proven numeric runtime facts"
+    },
+    {
+      "hash": "f1059d9eff31a1ed266fc0b08aa42e0110f1dd01",
+      "short": "f1059d9",
+      "date": "2026-09-12",
+      "title": "test: add per-file V2 output quality metrics and import regression coverage"
+    },
+    {
+      "hash": "c08a9085df89e9d97619bf3da0b77ea61c590020",
+      "short": "c08a908",
+      "date": "2026-09-12",
+      "title": "fix: polish V2 imports and document output regression roadmap"
+    },
+    {
+      "hash": "fffb4ad7e738e45288a838cdfd7a111920aaa8c1",
+      "short": "fffb4ad",
+      "date": "2026-09-12",
+      "title": "Complete R2 source binding preservation and value ancestry"
+    },
+    {
+      "hash": "d85d8903305368eb7d0c64e3e19f6eaadd8792ab",
+      "short": "d85d890",
+      "date": "2026-09-12",
+      "title": "feat: complete bounded R4 and R5 reconstruction"
+    },
+    {
+      "hash": "1f8b6035ffc3b1e9179860cb4d364547c879b382",
+      "short": "1f8b603",
+      "date": "2026-09-11",
+      "title": "feat: rebuild private constructors across ordered regions"
+    },
+    {
+      "hash": "86ebac2d622e5583338c24e88f05638dc92ac276",
+      "short": "86ebac2",
+      "date": "2026-09-11",
+      "title": "perf: bound common-tail child rescans and defer further tuning"
+    },
+    {
+      "hash": "98d2fbb60626a9848d4ee7d4f3e24f7e10870326",
+      "short": "98d2fbb",
+      "date": "2026-09-11",
+      "title": "perf: evaluate isolated PGO on Windows and Linux"
+    },
+    {
+      "hash": "9b7d1a134edb3dcf3faf545eb867d5ffb4fc3a41",
+      "short": "9b7d1a1",
+      "date": "2026-09-11",
+      "title": "feat: trace reconstructed calls and pin compiler witnesses"
+    },
+    {
+      "hash": "369639f0d0e2820a69c5b0c49cb2a5ab9c6acfad",
+      "short": "369639f",
+      "date": "2026-09-11",
+      "title": "fix: bound register pressure when rehoisting constants"
+    },
+    {
+      "hash": "df802517e13273331cf0d8e1ce5067dfffc569c3",
+      "short": "df80251",
+      "date": "2026-09-11",
+      "title": "feat: record explicit emitter local introductions"
+    },
+    {
+      "hash": "5de361c21edda1a5533ce120728ed6c895640b51",
+      "short": "5de361c",
+      "date": "2026-09-11",
+      "title": "feat: rebuild bounded private property constructors"
+    },
+    {
+      "hash": "f59f886c6c3126988138bdc79a0c4614fbb828bb",
+      "short": "f59f886",
+      "date": "2026-09-11",
+      "title": "fix: preserve nested assignment address reads during UI inlining"
+    },
+    {
+      "hash": "fd8fc68da912db25d66b37f50dff313ff7cc2838",
+      "short": "fd8fc68",
+      "date": "2026-09-11",
+      "title": "chore: keep AI disabled and model artifacts local"
+    },
+    {
+      "hash": "c6b46d19446282607ecedec6ef05413d7ec0beda",
+      "short": "c6b46d1",
+      "date": "2026-09-11",
+      "title": "feat: export lexical declarations separately from IR storage"
+    },
+    {
+      "hash": "9b51e30e65e5837022efb6a1efbbfa67190a52e9",
+      "short": "9b51e30",
+      "date": "2026-09-11",
+      "title": "feat: lower existing scalar conditionals with ordered snapshots"
+    },
+    {
+      "hash": "d35d9ea172792bcfc95dde745fd9ec2206fb93f8",
+      "short": "d35d9ea",
+      "date": "2026-09-11",
+      "title": "fix: preserve captured destination reads with verified immutable slots"
+    },
+    {
+      "hash": "1f7267635145eb8b42a110c38cabc54300a51792",
+      "short": "1f72676",
+      "date": "2026-09-11",
+      "title": "Measure in-memory API and allocator workloads independently"
+    },
+    {
+      "hash": "61e578ce2da1ae79d43372f4b74e28a85418d529",
+      "short": "61e578c",
+      "date": "2026-09-11",
+      "title": "feat(cache): reuse bounded artifacts with complete output context"
+    },
+    {
+      "hash": "205fe1b303cc9504446c184ace3c594c8696b97f",
+      "short": "205fe1b",
+      "date": "2026-09-11",
+      "title": "docs: normalize equality size report line endings"
+    },
+    {
+      "hash": "0cb36b82ab438141e47aeb3cb55583d9c086dacd",
+      "short": "0cb36b8",
+      "date": "2026-09-11",
+      "title": "fix(ssa): preserve ordered equality metamethod arguments"
+    },
+    {
+      "hash": "e12ee8488376a13e18e0bb0d3e2ea64cc58966f9",
+      "short": "e12ee84",
+      "date": "2026-09-11",
+      "title": "feat(registry): verify pinned upstream sources with exact execution images"
+    },
+    {
+      "hash": "d07b1661b8f59b7c4957f6d6d6a8d3bf4c4b7ecf",
+      "short": "d07b166",
+      "date": "2026-09-11",
+      "title": "feat(provenance): map emitted identifiers to bounded storage origins"
+    },
+    {
+      "hash": "b19b86f7c204e49b5bcbc931fb584797f2216546",
+      "short": "b19b86f",
+      "date": "2026-09-11",
+      "title": "fix(formatter): preserve repeated observable index evaluation"
+    },
+    {
+      "hash": "6db2bcad25a5bd93de5b65cdb502623d2094237a",
+      "short": "6db2bca",
+      "date": "2026-09-11",
+      "title": "feat(naming): propagate bounded tuple and branch roles with typed API evidence"
+    },
+    {
+      "hash": "d4a859ea19583b3d0e9c036241eef94c6ed6ed2c",
+      "short": "d4a859e",
+      "date": "2026-09-11",
+      "title": "feat(analysis): summarize static modules and cyclic return roles"
+    },
+    {
+      "hash": "70a6fced800b63737bbf34ccb96ff8880b4aaf07",
+      "short": "70a6fce",
+      "date": "2026-09-11",
+      "title": "feat(naming): retain bounded candidate evidence without changing output"
+    },
+    {
+      "hash": "87061f31431f91c3993504b6b492a8e66441ca61",
+      "short": "87061f3",
+      "date": "2026-09-11",
+      "title": "feat(oracle): validate bounded CFG and captured storage identity"
+    },
+    {
+      "hash": "3a49ccec776640c4852e70979bb7b30a2fb7da47",
+      "short": "3a49cce",
+      "date": "2026-09-11",
+      "title": "feat(ast): add opt-in bounded arithmetic loop synthesis"
+    },
+    {
+      "hash": "fbe21a35c27b1a56b3d75c01691726aa084083ce",
+      "short": "fbe21a3",
+      "date": "2026-09-11",
+      "title": "feat(deinline): recover bounded named arithmetic helper calls"
+    },
+    {
+      "hash": "d1a8a4309e3a992eec4b33572fb51778a0a98109",
+      "short": "d1a8a43",
+      "date": "2026-09-11",
+      "title": "perf(ssa): cache statement facts within inline block visits"
+    },
+    {
+      "hash": "b1c8a826e21ee5900ec974bbca40e43bff840c0f",
+      "short": "b1c8a82",
+      "date": "2026-09-11",
+      "title": "fix(ssa): preserve evaluation order across global lookup"
+    },
+    {
+      "hash": "734689151eedb4290361aee847a9759e5e4c8eb7",
+      "short": "7346891",
+      "date": "2026-09-11",
+      "title": "Add bounded pass profiles and isolate common-tail factoring cost"
+    },
+    {
+      "hash": "6ee7f8bafd07e5df2152cb4a6228998996bd45cf",
+      "short": "6ee7f8b",
+      "date": "2026-09-11",
+      "title": "Add opt-in SSA provenance and conditional lineage diagnostics"
+    },
+    {
+      "hash": "b82aefe6f1730dd2d384de59eca31afef0611d8b",
+      "short": "b82aefe",
+      "date": "2026-09-11",
+      "title": "Infer local roles on a bounded final binding graph"
+    },
+    {
+      "hash": "d4a896f32bf11cb1087b02cc0a915a389607d30a",
+      "short": "d4a896f",
+      "date": "2026-09-10",
+      "title": "Format wide expression groups without changing Luau AST semantics"
+    },
+    {
+      "hash": "a3a6444c3a0d75314b0013d91ef851cee2ddbbfa",
+      "short": "a3a6444",
+      "date": "2026-09-10",
+      "title": "Preserve source bindings and capture cells with V2 acceptance gates"
+    },
+    {
+      "hash": "5e9c5d680c062d5f518b6f3ea7df92ff0ee3f759",
+      "short": "5e9c5d6",
+      "date": "2026-09-10",
+      "title": "Add V2 dataflow controls and reproducible source fixture gate"
+    },
+    {
+      "hash": "d31366187777b49430fd1164e00e7aece3df6beb",
+      "short": "d313661",
+      "date": "2026-09-10",
+      "title": "Complete proof-based structuring and UI reconstruction roadmap"
+    },
+    {
+      "hash": "80c86c2a12cd2fe34731269977d45f104a668829",
+      "short": "80c86c2",
+      "date": "2026-09-03",
+      "title": "Merge nested else-less ifs into a conjunction (ROADMAP E1) and record C4/C6/E findings"
+    },
+    {
+      "hash": "0adf32ebccbc6ef9a86282ab6bd1115aec192063",
+      "short": "0adf32e",
+      "date": "2026-09-03",
+      "title": "Keep dead constant tables instead of dropping them (ROADMAP C5)"
+    },
+    {
+      "hash": "742ee0ad069ed380ce59052e22a62e877349eb33",
+      "short": "742ee0a",
+      "date": "2026-09-03",
+      "title": "De-inline shape recovery and shared-tail hoisting (ROADMAP C1)"
+    },
+    {
+      "hash": "112279efad467063aa150cdd4f97aea9aaea4a9b",
+      "short": "112279e",
+      "date": "2026-09-03",
+      "title": "Point ROADMAP at merged main"
+    },
+    {
+      "hash": "df5be5843da04371ce9594e8a9559c029e7003ad",
+      "short": "df5be58",
+      "date": "2026-09-03",
+      "title": "Name locals and parameters from bytecode types and usage (ROADMAP B)"
+    },
+    {
+      "hash": "d832d27a25c7ded125a5c453eb2538513cfd1e33",
+      "short": "d832d27",
+      "date": "2026-09-03",
+      "title": "Add bytecode round-trip oracle and fix SETLIST multret truncation"
+    },
+    {
+      "hash": "4218b22172f3669bff9b18f5637122ebeebf722e",
+      "short": "4218b22",
+      "date": "2026-09-03",
+      "title": "Recover parameter types from bytecode type info"
+    },
+    {
+      "hash": "cb74133e9dea773527ccd2e22e5e417e9b4193b8",
+      "short": "cb74133",
+      "date": "2026-09-03",
+      "title": "Merge pull request #3 from Kiet1308/fix/pet-source-like-loop-structuring"
+    },
+    {
+      "hash": "37136a660986c1e862418bae41866a10cf7b667d",
+      "short": "37136a6",
+      "date": "2026-09-03",
+      "title": "Structure for-init edge transfers and shared tails without typed rejections"
+    },
+    {
+      "hash": "4ed694564f09d0929534b903dddddbd4c6e25fe7",
+      "short": "4ed6945",
+      "date": "2026-09-01",
+      "title": "Polish reviewer plan wording"
+    },
+    {
+      "hash": "eff7b3e3a931cf1a020bb7b4af36d4e8694a7832",
+      "short": "eff7b3e",
+      "date": "2026-09-01",
+      "title": "Clarify reviewer-facing suffix failure evidence"
+    },
+    {
+      "hash": "5e1275fd8306ecb22e3bb450ce357273177a04d9",
+      "short": "5e1275f",
+      "date": "2026-09-01",
+      "title": "Request reviewer plan for remaining PR3 failures"
+    },
+    {
+      "hash": "13343679e0e84eb63abbe25b07f693e2ecfa0872",
+      "short": "1334367",
+      "date": "2026-09-01",
+      "title": "Make PR3 failure report self-contained"
+    },
+    {
+      "hash": "798d45a99819cc3a2c23cac4d91bdadd5e885e13",
+      "short": "798d45a",
+      "date": "2026-09-01",
+      "title": "Document PR3 corpus failure inventory"
+    },
+    {
+      "hash": "6ef3cf4d8faa2852bc1532382c00d91895f384a8",
+      "short": "6ef3cf4",
+      "date": "2026-09-01",
+      "title": "Harden PR3 loop structuring after re-review"
+    },
+    {
+      "hash": "0248a3fbfc83842b1ee5c10660c6f29335b1a640",
+      "short": "0248a3f",
+      "date": "2026-09-01",
+      "title": "Document lua.expert PR3 comparison"
+    },
+    {
+      "hash": "989842aec855def7c0a614810c100e0cc0f69e24",
+      "short": "989842a",
+      "date": "2026-09-01",
+      "title": "Fix source-like loop structuring and output quality"
+    },
+    {
+      "hash": "fdd5f1ee8728e85c70fba2b814e71e93e0acb29b",
+      "short": "fdd5f1e",
+      "date": "2026-08-31",
+      "title": "Document exact remaining residual control-flow cases"
+    },
+    {
+      "hash": "ca3165842d88460f27109c1ac8966083667cd9ac",
+      "short": "ca31658",
+      "date": "2026-08-31",
+      "title": "Document remaining corpus failure paths"
+    },
+    {
+      "hash": "69ac0de4babe58b4a18508c334f50e81d5733267",
+      "short": "69ac0de",
+      "date": "2026-08-31",
+      "title": "Harden residual control-flow structuring diagnostics"
+    },
+    {
+      "hash": "718d17f794750b39ea5a4600d3086c1e8c557883",
+      "short": "718d17f",
+      "date": "2026-08-31",
+      "title": "Add reproducible residual control-flow fixtures"
+    },
+    {
+      "hash": "4365d60bec813f694df97bb15d898ece47baa42d",
+      "short": "4365d60",
+      "date": "2026-08-31",
+      "title": "Document residual control-flow failure status"
+    },
+    {
+      "hash": "910a2d6d321371ee70b8dd159891c30f4e93d612",
+      "short": "910a2d6",
+      "date": "2026-08-31",
+      "title": "Preserve compiler generic-for break bodies"
+    },
+    {
+      "hash": "b640368c7959c55277db39767731698ce4f6fb13",
+      "short": "b640368",
+      "date": "2026-08-31",
+      "title": "Address PR3 re-review findings"
+    },
+    {
+      "hash": "fa76a60c1e64f4122613a6357236866ba433ead2",
+      "short": "fa76a60",
+      "date": "2026-08-31",
+      "title": "Preserve generic-for call multret"
+    },
+    {
+      "hash": "f0b3cded8ecc83558daacf29e75132669980d0cf",
+      "short": "f0b3cde",
+      "date": "2026-08-31",
+      "title": "Keep vararg multret in generic for"
+    },
+    {
+      "hash": "7f9e4b79e2364db84df294a4365b6daf8fbc26ba",
+      "short": "7f9e4b7",
+      "date": "2026-08-31",
+      "title": "Preserve final select arity in generic for"
+    },
+    {
+      "hash": "9773fb93d9bbe54e8c6433c6ddbdeb392113f401",
+      "short": "9773fb9",
+      "date": "2026-08-31",
+      "title": "Preserve explicit trailing nil in generic for"
+    },
+    {
+      "hash": "470025e8e00c5d2543a3912b3a46f7cb9a132912",
+      "short": "470025e",
+      "date": "2026-08-31",
+      "title": "Reject ref captures in cyclic fallback states"
+    },
+    {
+      "hash": "79cbbbe3cecf1d731467a118bf6ee72301531ca1",
+      "short": "79cbbbe",
+      "date": "2026-08-31",
+      "title": "Account for shared closure bodies with distinct captures"
+    },
+    {
+      "hash": "1c7a6a9823e022211f92d45957fdbc682d43e829",
+      "short": "1c7a6a9",
+      "date": "2026-08-31",
+      "title": "Reject unproven loop result ref captures"
+    },
+    {
+      "hash": "e340a7c5c33080fd0aaf6cd7882f74ee9e28aad6",
+      "short": "e340a7c",
+      "date": "2026-08-31",
+      "title": "Preserve specialized loop result arity"
+    },
+    {
+      "hash": "ae9b0b7af1dcd17173ad31ef0d2681c7a323ac7a",
+      "short": "ae9b0b7",
+      "date": "2026-08-31",
+      "title": "Validate specialized loop result arity"
+    },
+    {
+      "hash": "75be0aaabc804c019430bc68c24e72ce5af0f66e",
+      "short": "75be0aa",
+      "date": "2026-08-31",
+      "title": "Require exact next iterator tuple arity"
+    },
+    {
+      "hash": "c615dbb06a881472ababbe49040fa6b8048680a4",
+      "short": "c615dbb",
+      "date": "2026-08-31",
+      "title": "Prove specialized generic-for prep semantics"
+    },
+    {
+      "hash": "86b4d209cfccadf8b7fa872dfc15c8dd539c9c68",
+      "short": "86b4d20",
+      "date": "2026-08-31",
+      "title": "Reject hidden markers in fallback edge closures"
+    },
+    {
+      "hash": "d022ae54e3418698c305aff70a0b8c75a263b4e6",
+      "short": "d022ae5",
+      "date": "2026-08-31",
+      "title": "Reject unproven generic-for fast paths"
+    },
+    {
+      "hash": "71d9816dc35b0f5d0031d3b30e206a2ab006a8ac",
+      "short": "71d9816",
+      "date": "2026-08-31",
+      "title": "Scan root protocol RHS closures for hidden markers"
+    },
+    {
+      "hash": "ddff00e2d9c485ee28a2c55ebb3233f9671715cf",
+      "short": "ddff00e",
+      "date": "2026-08-31",
+      "title": "Select conditional transfers by branch tag"
+    },
+    {
+      "hash": "e3b89758cfcf0a8a7740f89c4346a221d1a4081c",
+      "short": "e3b8975",
+      "date": "2026-08-31",
+      "title": "Guard live maps on partial loop continuation"
+    },
+    {
+      "hash": "d8bff174e8bd6201682f4db642a5170754df4fc0",
+      "short": "d8bff17",
+      "date": "2026-08-31",
+      "title": "Reject hidden loop markers in closures"
+    },
+    {
+      "hash": "4d592d07196bef6ae48f454b75cc08e3b122bb7b",
+      "short": "4d592d0",
+      "date": "2026-08-31",
+      "title": "Scan close events in edge closures"
+    },
+    {
+      "hash": "bdb5c73f959d6e52ca07901713b11d1a3d1af8e1",
+      "short": "bdb5c73",
+      "date": "2026-08-31",
+      "title": "Reject close events in nested closures"
+    },
+    {
+      "hash": "cafaa26d8991edd36846baa90c9dee50fa67e4d1",
+      "short": "cafaa26",
+      "date": "2026-08-31",
+      "title": "Fail closed on explicit close events"
+    },
+    {
+      "hash": "17057981631db199f08cb90152b72c4f77457271",
+      "short": "1705798",
+      "date": "2026-08-31",
+      "title": "Scan nested structured closure bodies"
+    },
+    {
+      "hash": "30ff71e967fb68b4dc35afb45471189e38304311",
+      "short": "30ff71e",
+      "date": "2026-08-31",
+      "title": "Reject hidden nested closure captures"
+    },
+    {
+      "hash": "13afd188d0ef2328e24834aa4247813b9d135d59",
+      "short": "13afd18",
+      "date": "2026-08-31",
+      "title": "Reject rewrites of captured closure bodies"
+    },
+    {
+      "hash": "68aba2e1f3438d9972d5feb819ee07703503a1cb",
+      "short": "68aba2e",
+      "date": "2026-08-31",
+      "title": "Reserve edge local names for fallback"
+    },
+    {
+      "hash": "539399d22f5e3e2b96afe5ab325f32a85e24a867",
+      "short": "539399d",
+      "date": "2026-08-31",
+      "title": "Reserve close locals for fallback names"
+    },
+    {
+      "hash": "2cd6e601a9fadf0658a9013d5ac6912f82014ad2",
+      "short": "2cd6e60",
+      "date": "2026-08-31",
+      "title": "Reject captured results rewritten on exhaustion"
+    },
+    {
+      "hash": "76acc9a026979e615e910f18c8ad490726c0b6f9",
+      "short": "76acc9a",
+      "date": "2026-08-31",
+      "title": "Reject captured result writes after loops"
+    },
+    {
+      "hash": "e5fe3f65dd5b57c562af1589a9df0430ba1d871f",
+      "short": "e5fe3f6",
+      "date": "2026-08-31",
+      "title": "Guard source-like loops against edge captures"
+    },
+    {
+      "hash": "a7e8916140e8b47b554d0c134fc2ba401cc86212",
+      "short": "a7e8916",
+      "date": "2026-08-31",
+      "title": "Reject pre-existing loop controls in fallback"
+    },
+    {
+      "hash": "c32c2ba64afa92b5af465794a91e5bf8b462e6b3",
+      "short": "c32c2ba",
+      "date": "2026-08-31",
+      "title": "Reject edge reference captures in fallback"
+    },
+    {
+      "hash": "a25c00248f0a8dd98490cfa56a28f9414e7cd4c7",
+      "short": "a25c002",
+      "date": "2026-08-31",
+      "title": "Avoid fallback naming races with unfinished closures"
+    },
+    {
+      "hash": "667cd62d75ed31b06083e7f573c135bf2033c27b",
+      "short": "667cd62",
+      "date": "2026-08-31",
+      "title": "Reserve edge closure globals for fallback names"
+    },
+    {
+      "hash": "a56d6a1de637674d85f61ac7b3cdb6ad64740a8f",
+      "short": "a56d6a1",
+      "date": "2026-08-31",
+      "title": "Require ordered exhaustion result writes"
+    },
+    {
+      "hash": "d0319e26c03f08b712156b74d732f8a5720fca76",
+      "short": "d0319e2",
+      "date": "2026-08-30",
+      "title": "Scan nested closure blocks for fallback names"
+    },
+    {
+      "hash": "a19e274eac390f04f3207b2c36206e5bf34fbcef",
+      "short": "a19e274",
+      "date": "2026-08-30",
+      "title": "Reserve closure globals for fallback control names"
+    },
+    {
+      "hash": "8e856fde645515795c3bbe06478a11bd3d991041",
+      "short": "8e856fd",
+      "date": "2026-08-30",
+      "title": "Avoid irreducible dispatcher name collisions"
+    },
+    {
+      "hash": "a868c198e47b1e444664c7a0d4c891920c90a3f7",
+      "short": "a868c19",
+      "date": "2026-08-30",
+      "title": "Avoid fallback control name global collisions"
+    },
+    {
+      "hash": "1db63db35fee811417d20e34152458bce73b0f74",
+      "short": "1db63db",
+      "date": "2026-08-30",
+      "title": "Avoid fallback control local name collisions"
+    },
+    {
+      "hash": "d2f45fb6aa3eb0265cf57e5b98efbf8f27f0a7c9",
+      "short": "d2f45fb",
+      "date": "2026-08-30",
+      "title": "Fail closed on opaque nested fallback blocks"
+    },
+    {
+      "hash": "5172dd024366e49803b75190e17b679bb375e36f",
+      "short": "5172dd0",
+      "date": "2026-08-30",
+      "title": "Require nil proof for every exported loop result"
+    },
+    {
+      "hash": "3d9d9f82443502c521525369f120cb715e9d4960",
+      "short": "3d9d9f8",
+      "date": "2026-08-30",
+      "title": "Reject unproven live loop result exports"
+    },
+    {
+      "hash": "eed20f05e528351b39635105776897fd15013e7b",
+      "short": "eed20f0",
+      "date": "2026-08-30",
+      "title": "Reject generic loop init edge transfers"
+    },
+    {
+      "hash": "d9c22c3d36c9a608d0fead311e50d244d40f6a92",
+      "short": "d9c22c3",
+      "date": "2026-08-30",
+      "title": "Reject unmodeled generic loop edge effects"
+    },
+    {
+      "hash": "f944092d0d0ddfa55148a882954bc9872ddfcbfb",
+      "short": "f944092",
+      "date": "2026-08-30",
+      "title": "Reject unmodeled generic loop edge transfers"
+    },
+    {
+      "hash": "67bbf4a86d71f1d381133a68f533be21a8132176",
+      "short": "67bbf4a",
+      "date": "2026-08-30",
+      "title": "Harden loop provenance and edge structuring"
+    },
+    {
+      "hash": "7c42fa56a8814cc322389c098a2e4230c8f1802b",
+      "short": "7c42fa5",
+      "date": "2026-08-30",
+      "title": "Fix Unix symlink cleanup in portability test"
+    },
+    {
+      "hash": "652ba6d7ae4af92acf00d7d3d0bca7ea5b429f86",
+      "short": "652ba6d",
+      "date": "2026-08-30",
+      "title": "Configure CI action with explicit nightly toolchain"
+    },
+    {
+      "hash": "cb2242cab74db2c77b17c7d153f6087cdd8b8679",
+      "short": "cb2242c",
+      "date": "2026-08-30",
+      "title": "Use available pinned nightly in CI"
+    },
+    {
+      "hash": "de257f79e4cf027ea7be9d55a8fe14a691daa98a",
+      "short": "de257f7",
+      "date": "2026-08-30",
+      "title": "Pin CI nightly and protect passed upvalue roots"
+    },
+    {
+      "hash": "67f56e93393a769969ec9e2e7ddf9681c5ae65b4",
+      "short": "67f56e9",
+      "date": "2026-08-30",
+      "title": "Protect all SSA upvalue cell identities"
+    },
+    {
+      "hash": "fd5762480a288c4abbd11f7d2adc11b591f51cb1",
+      "short": "fd57624",
+      "date": "2026-08-30",
+      "title": "Fail closed on unsupported generic-for VM protocol"
+    },
+    {
+      "hash": "f8a872ead070a2f5c3cad38f5836f4c71fb1b2ae",
+      "short": "f8a872e",
+      "date": "2026-08-30",
+      "title": "fix roadmap structuring safety analysis"
+    },
+    {
+      "hash": "53d7a149af415b14034fb6d9249a420258d5e58d",
+      "short": "53d7a14",
+      "date": "2026-08-30",
+      "title": "fix source-like Pet loop structuring"
+    },
+    {
+      "hash": "e757ca143df64eab053cd4457b76f777344ce90f",
+      "short": "e757ca1",
+      "date": "2026-08-30",
+      "title": "preserve readable generic for output"
+    },
+    {
+      "hash": "6a3cdcf57f2b4e5f316440d7789c97bbaa702226",
+      "short": "6a3cdcf",
+      "date": "2026-08-30",
+      "title": "fix source-like loop structuring"
+    },
+    {
+      "hash": "04182ff25804b7430004e6880d84dd4da73b8ddd",
+      "short": "04182ff",
+      "date": "2026-08-30",
+      "title": "a"
+    },
+    {
+      "hash": "221f3b02fe68d3ffc8867594349d83abb81c73cb",
+      "short": "221f3b0",
+      "date": "2026-08-29",
+      "title": "fix: ignore generated harness outputs"
+    },
+    {
+      "hash": "35b1f57bffa02ad52e40c2926adfc6b3626f9d82",
+      "short": "35b1f57",
+      "date": "2026-08-29",
+      "title": "fix: preserve Luau semantics across decompiler transforms"
+    }
+  ]
+}
