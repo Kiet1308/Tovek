@@ -639,7 +639,13 @@ fn disposable_unused_value(value: &RValue) -> bool {
     // Keep recovered helper definitions and named tables even when all of their
     // optimized call sites disappeared; they are valuable source structure and
     // are not the scalar/lookup junk this cleanup targets.
-    !contains_structural_definition(value) && crate::side_effects::is_total_pure(value)
+    // Use the bounded effect summary of the emitted expression. In particular,
+    // comparisons with primitive literals cannot dispatch __eq, but math.pi,
+    // non-finite constants and vector literals can emit environment lookups.
+    // Reading a captured value is disposable here: this deletes an unused
+    // evaluation in place, never moves it across a callback.
+    let summary = crate::effects::summarize(value, &|_| true);
+    !summary.exhausted && summary.effects.is_total_pure() && !contains_structural_definition(value)
 }
 
 fn contains_structural_definition(value: &RValue) -> bool {
@@ -1122,6 +1128,38 @@ mod tests {
         let output = block.to_string();
         assert!(output.contains("while flag do"), "{output}");
         assert!(!output.contains("while true do"), "{output}");
+    }
+
+    #[test]
+    fn discarded_primitive_checks_use_emitted_effects_and_keep_observers() {
+        let value = local("value");
+        let equality = |right: RValue| -> RValue {
+            Binary::new(value.clone().into(), right, BinaryOperation::Equal).into()
+        };
+        let cases = vec![
+            (equality(Literal::Nil.into()), false),
+            (equality(boolean(false)), false),
+            (equality(string("ready")), false),
+            (equality(Literal::Number(2.0).into()), false),
+            (equality(local("other").into()), true),
+            (Index::new(value.clone().into(), string("field")).into(), true),
+            (Call::new(global("observe"), vec![]).into(), true),
+            (Literal::Number(std::f64::consts::PI).into(), true),
+            (Literal::Number(f64::INFINITY).into(), true),
+            (Literal::Vector(1.0, 2.0, 3.0).into(), true),
+            (Binary::new(value.clone().into(), Literal::Number(1.0).into(), BinaryOperation::Add).into(), true),
+            (RValue::Table(Table::default()), true),
+        ];
+        for (rhs, kept) in cases {
+            let mut block = Block(vec![declare(&local("_"), vec![rhs])]);
+            let before = block.to_string();
+            cleanup_final(&mut block, None);
+            assert_eq!(!block.is_empty(), kept, "{before}");
+            if kept { assert_eq!(block.to_string(), before); }
+        }
+        // Exhausted summaries never grant permission to discard.
+        let wide = Table::new(vec![(None, boolean(true)); 8193]);
+        assert!(!super::disposable_unused_value(&wide.into()));
     }
 
     #[test]

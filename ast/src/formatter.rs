@@ -1206,6 +1206,40 @@ mod tests {
     }
 
     #[test]
+    fn compact_comments_preserve_full_mapping_and_fail_closed_without_room() {
+        let known = "equivalent call inferred; original call site unknown";
+        let unknown = "custom diagnostic: 界";
+        let oversized = format!("[DEDUP] synthesized from {}", "界".repeat(2000));
+        let block = Block(vec![crate::Comment::new(known.into()).into(),
+            crate::Comment::new(unknown.into()).into(), crate::Comment::new(oversized.clone()).into()]);
+        let (compact, _, map) = super::format_with_emission_map_options(&block, IndentationMode::Tab, true, true).unwrap();
+        assert!(compact.starts_with("-- inferred call\n"));
+        assert!(compact.contains(unknown) && compact.contains(&oversized));
+        assert_eq!(map.annotations[0].text, known);
+        assert_eq!(map.annotations[0].displayed_text.as_deref(), Some("inferred call"));
+        assert!(map.annotations[1].displayed_text.is_none());
+        assert!(map.annotations[2].truncated && map.annotations[2].displayed_text.is_none());
+        for annotation in &map.annotations {
+            let span = &annotation.span;
+            assert!(compact[span.start.byte_offset..span.end.byte_offset].starts_with("--"));
+        }
+        let (fallback, _, map) = super::format_with_emission_map_options(&block, IndentationMode::Tab, false, true).unwrap();
+        assert_eq!(fallback, block.to_string());
+        assert!(map.annotations.is_empty());
+        let mut output = String::new();
+        let mut exhausted = crate::emission_map::EmissionMap::default();
+        let position = SourcePosition { byte_offset: 0, line_one_based: 1, column_one_based: 1 };
+        exhausted.opaque_regions = vec![crate::emission_map::OpaqueOccurrence {
+            reason: "test", span: SourceSpan { start: position, end: position },
+        }; crate::emission_map::OCCURRENCE_LIMIT];
+        let mut formatter = super::Formatter { indentation_level: 0, indentation_mode: IndentationMode::Tab,
+            output: &mut output, colon_method_calls: vec![], position_query: None, closure_observer: None,
+            emission_map: Some(&mut exhausted), layout_budget: None, compact_annotations: true };
+        formatter.format_comment(&crate::Comment::new(known.into())).unwrap();
+        assert!(output.contains(known));
+    }
+
+    #[test]
     fn emission_map_marks_interpolation_subrendering_opaque() {
         let item = local("item");
         let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall {

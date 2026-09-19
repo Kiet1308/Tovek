@@ -1,0 +1,376 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "scope": "F7 bounded unused-value effects and existing compact annotation presentation with full mapping",
+  "base_commit": "65dc97f",
+  "baseline_binary_sha256": "3e567395e15e542e9c748d9db7739ed43eecb5d20fe0c9a8ed4df683d1e13936",
+  "binary_sha256": "5d7b18d87a273dc07b2ba5517f8bcd10976f6e52ae7dbdd2e5bd1b7cebe63608",
+  "rust_primary_tests": 1047,
+  "rust_child_repeat": 1,
+  "ast_tests": 758,
+  "python_tests": 126,
+  "runtime_profiles": 234,
+  "discard_profiles": 6,
+  "discard_scenarios_per_profile": 88,
+  "discard_output_profiles_changed": [
+    {
+      "opt": 0,
+      "debug": 1
+    },
+    {
+      "opt": 0,
+      "debug": 2
+    },
+    {
+      "opt": 1,
+      "debug": 1
+    },
+    {
+      "opt": 1,
+      "debug": 2
+    },
+    {
+      "opt": 2,
+      "debug": 1
+    },
+    {
+      "opt": 2,
+      "debug": 2
+    }
+  ],
+  "discard_dataflow": [
+    {
+      "opt": 0,
+      "debug": 1,
+      "before": "different",
+      "after": "different"
+    },
+    {
+      "opt": 0,
+      "debug": 2,
+      "before": "different",
+      "after": "different"
+    },
+    {
+      "opt": 1,
+      "debug": 1,
+      "before": "different",
+      "after": "different"
+    },
+    {
+      "opt": 1,
+      "debug": 2,
+      "before": "different",
+      "after": "different"
+    },
+    {
+      "opt": 2,
+      "debug": 1,
+      "before": "different",
+      "after": "different"
+    },
+    {
+      "opt": 2,
+      "debug": 2,
+      "before": "different",
+      "after": "different"
+    }
+  ],
+  "public_profiles": 513,
+  "public_outputs_changed": [],
+  "private": {
+    "files": 3978,
+    "changed": 7,
+    "unchanged": 3971,
+    "categories": {
+      "structure_or_types": 7
+    },
+    "delta_bytes": -189,
+    "delta_lines": -8,
+    "delta_generated_bindings": 0,
+    "delta_long_lines": 0,
+    "errors": []
+  },
+  "compact_private": {
+    "files": 232,
+    "changed": 232,
+    "delta_bytes": -39064,
+    "full_calls": 531,
+    "compact_calls": 531
+  },
+  "private_annotation_audit": {
+    "scripts": 232,
+    "statuses": {
+      "passed": 232
+    },
+    "events": 686,
+    "occurrences": 680,
+    "with_callee_prototype": 686,
+    "events_without_output_occurrence": 6,
+    "copied_events": 0,
+    "compacted_comments": 849,
+    "producers": {
+      "expression_deinline": 80,
+      "statement_deinline": 537,
+      "arithmetic_deinline": 69
+    },
+    "omitted": {
+      "omitted_events": 0,
+      "omitted_occurrences": 0,
+      "omitted_callee_registrations": 0
+    }
+  },
+  "quality_gate": {
+    "metric": "sole_use_require_field_relays",
+    "status": "passed"
+  },
+  "metadata": {
+    "runtime": {
+      "lineage": {
+        "scripts": 234,
+        "source_files": 234,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 234
+        },
+        "annotation_spans": 6,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 622,
+        "definitions": 14106,
+        "definitions_with_final_binding_ancestry": 7793,
+        "dropped_records": 0,
+        "final_bindings": 2768,
+        "functions": 1284,
+        "identifier_spans": 7954,
+        "incomplete_lineages": 0,
+        "lifted_statements": 12238,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 12,
+        "statements_with_pc": 12238,
+        "unlocated_final_bindings": 94
+      },
+      "emission": {
+        "scripts": 234,
+        "status": {
+          "passed": 234
+        },
+        "parser_local_tokens": 8062,
+        "mapped_local_tokens": 7954,
+        "opaque_local_tokens": 108,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 2792,
+        "mapped_parser_bindings": 2768,
+        "storage_ids_with_multiple_parser_bindings": 0
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 234,
+        "readonly_slots": 258,
+        "analysis_status": {
+          "complete": 234
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "compact": {
+        "scripts": 234,
+        "statuses": {
+          "passed": 234
+        },
+        "events": 10,
+        "occurrences": 10,
+        "with_callee_prototype": 10,
+        "events_without_output_occurrence": 0,
+        "copied_events": 0,
+        "compacted_comments": 6,
+        "producers": {
+          "arithmetic_deinline": 10
+        },
+        "omitted": {
+          "omitted_events": 0,
+          "omitted_occurrences": 0,
+          "omitted_callee_registrations": 0
+        }
+      },
+      "deterministic_threads_1_4": true,
+      "compact_cache_checks": true
+    },
+    "discard": {
+      "lineage": {
+        "scripts": 6,
+        "source_files": 6,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 6
+        },
+        "annotation_spans": 0,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 0,
+        "definitions": 262,
+        "definitions_with_final_binding_ancestry": 144,
+        "dropped_records": 0,
+        "final_bindings": 36,
+        "functions": 12,
+        "identifier_spans": 102,
+        "incomplete_lineages": 0,
+        "lifted_statements": 208,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 0,
+        "statements_with_pc": 208,
+        "unlocated_final_bindings": 18
+      },
+      "emission": {
+        "scripts": 6,
+        "status": {
+          "passed": 6
+        },
+        "parser_local_tokens": 102,
+        "mapped_local_tokens": 102,
+        "opaque_local_tokens": 0,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 36,
+        "mapped_parser_bindings": 36,
+        "storage_ids_with_multiple_parser_bindings": 0
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 6,
+        "readonly_slots": 0,
+        "analysis_status": {
+          "complete": 6
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "compact": {
+        "scripts": 6,
+        "statuses": {
+          "passed": 6
+        },
+        "events": 0,
+        "occurrences": 0,
+        "with_callee_prototype": 0,
+        "events_without_output_occurrence": 0,
+        "copied_events": 0,
+        "compacted_comments": 0,
+        "producers": {},
+        "omitted": {
+          "omitted_events": 0,
+          "omitted_occurrences": 0,
+          "omitted_callee_registrations": 0
+        }
+      },
+      "deterministic_threads_1_4": true,
+      "compact_cache_checks": true
+    },
+    "public": {
+      "lineage": {
+        "scripts": 513,
+        "source_files": 513,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 513
+        },
+        "annotation_spans": 36,
+        "bindings_without_identifier_tokens": 21,
+        "conditional_result_records": 3542,
+        "definitions": 97176,
+        "definitions_with_final_binding_ancestry": 46941,
+        "dropped_records": 0,
+        "final_bindings": 13124,
+        "functions": 3961,
+        "identifier_spans": 45265,
+        "incomplete_lineages": 0,
+        "lifted_statements": 77329,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 150,
+        "statements_with_pc": 77329,
+        "unlocated_final_bindings": 68
+      },
+      "emission": {
+        "scripts": 513,
+        "status": {
+          "passed": 513
+        },
+        "parser_local_tokens": 45516,
+        "mapped_local_tokens": 45265,
+        "opaque_local_tokens": 251,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 13106,
+        "mapped_parser_bindings": 13106,
+        "storage_ids_with_multiple_parser_bindings": 3
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 513,
+        "readonly_slots": 4597,
+        "analysis_status": {
+          "complete": 513
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "compact": {
+        "scripts": 513,
+        "statuses": {
+          "passed": 513
+        },
+        "events": 31,
+        "occurrences": 31,
+        "with_callee_prototype": 31,
+        "events_without_output_occurrence": 0,
+        "copied_events": 0,
+        "compacted_comments": 36,
+        "producers": {
+          "arithmetic_deinline": 6,
+          "expression_deinline": 3,
+          "statement_deinline": 22
+        },
+        "omitted": {
+          "omitted_events": 0,
+          "omitted_occurrences": 0,
+          "omitted_callee_registrations": 0
+        }
+      },
+      "deterministic_threads_1_4": true,
+      "compact_cache_checks": true
+    }
+  },
+  "source_hashes": {
+    "ast/src/cleanup_final.rs": "3b140b8e2955e5a7603723181eea369677c83511f233f0b7c8b587e82739a23e",
+    "ast/src/formatter.rs": "8176efc243f059c916289ed04e37c1979c98cdafcda7a24c94bb64764a7db3e3",
+    "scripts/output_quality.py": "40d5abc89a63578d11ebc81d562bb8e44b7ea6987ef7d67e502caee00f12cd89",
+    "scripts/test_output_quality.py": "ae26a60c2c3eb4e7a57e8c4c5e73397ea6dbc0b53d5ec6c1c2f6230f08a0dd4c"
+  },
+  "fixture_hashes": {
+    "docs/failure_fixtures/roadmap_v2/discard_effects.luau": "9f13fc24cdb52c7949075ee80c32fe5aa5196d7eb5268ea432e2070f5d267d2d",
+    "docs/failure_fixtures/roadmap_v2/discard_effects.driver.luau": "cbde516d0a1e1493673d9b97819eba91f116b63334c5e4483e754ecbd9e0c92e",
+    "docs/failure_fixtures/roadmap_v2/discard_effects.manifest.json": "98327671d87d067424c6d511cbfb2a0ff79e647bf359dbe58cf0f9854e5af42b",
+    "docs/failure_fixtures/roadmap_v2/manifest.json": "176f9ae8f7751acae6c3613a7dc98fe83eac3b09338d9c7979dfbbe362585448"
+  },
+  "evidence_hashes": {
+    "out/v2-fix-all/f7/workspace-tests.log": "ff68920682dba437e7a9920fbd058eaa3698adf77edf42515e2a3d36cd08fd94",
+    "out/v2-fix-all/f7/python-tests.log": "9f7cf47546c428898dd739169868f9cdaf2dcd5c28179b22fc947608a6e44be2",
+    "out/v2-fix-all/f7/build.log": "717385ff40902537599d27cde20953ef347f5e3796528b7a329de8322e96fc9f",
+    "out/v2-fix-all/f7/private-review.json": "c0ffd9223a9ee72c03b563301465bbb3769b065147e75ae19b09ee255e14e43c",
+    "out/v2-fix-all/f7/public-review.json": "7104436211d3e256d0fd8216269af13723b1a2c1314bb924f069ae7f84c61f0d",
+    "out/v2-fix-all/f7/runtime.json": "5bf61d2f18ff411a7c273523d4ac804ab7f29a8a2bd311a095027095aac66711",
+    "out/v2-fix-all/f7/discard-runtime.json": "821d13deafdb114930481bfb7c00ade7c272876ab6dbee8a285c562cfdc04c43",
+    "out/v2-fix-all/f7/discard-runtime-before.json": "6d84164450287856ce6b2aa409394332ae63110aa6b468e10f7231070b086d68",
+    "out/v2-fix-all/f7/public.json": "55043b1345a324574e721afe0b820de5fd91160b3dacdec78327040b9c4238c4",
+    "out/v2-fix-all/f7/runtime-traces.json": "5f1d6907a80b604dc27b3ea75b6fa1857263f224f5b65c880782210bcb1b61d7",
+    "out/v2-fix-all/f7/discard-traces.json": "6098a1bad92d4d08125410a6c0d02458fe2b70a7faf1bf549bc95a386638d0e2",
+    "out/v2-fix-all/f7/public-traces.json": "d4c998d74f7e6f9c10e01975ea069b77412efdab9d9da38b983886116d49de2b",
+    "out/v2-fix-all/f7/quality.json": "3fd499ea534bc6cd8485c88c079d53985945e841e28e50fc6f797c2c57aba9b8",
+    "out/v2-fix-all/f7/private-annotations.json": "5ee8b970affa3bb24804c0cd796e3e87ee6d6e538302d07d3eb011f2718d211c",
+    "out/v2-fix-all/f7/compact-private-summary.json": "e7930be587800082a8eb46547e0d48cc45a43f61f5f28340adf79b299236db71"
+  },
+  "limitations": [
+    "Compact annotations remain opt-in with binding provenance; default output retains full diagnostics.",
+    "Only total-pure unused scalar expressions are removed; field/global reads, dynamic equality and arithmetic remain observable.",
+    "Source definitions containing closures or constructors are retained.",
+    "Numeric pi/nonfinite/vector literals emitted through environment lookups are not treated as disposable constants.",
+    "The acyclic use-def fingerprint reports different for the new source fixture before and after this change; it is not an equivalence proof. All 88 finite runtime cases agree in every compiler profile.",
+    "Private-game execution remains unproven."
+  ]
+}

@@ -10,8 +10,8 @@ Goal đang chạy: hoàn thành [ROADMAP_V2_FIX.md](ROADMAP_V2_FIX.md), kiểm c
 | F3 helper điều kiện | Xong và đã nghiệm thu; return cuối nhánh, chuỗi scalar ngắn, giữ arity và binding được bảo vệ |
 | F4 constructor trước capture | Xong, commit `e1f1131` đã push; gom init trước lần quan sát đầu tiên |
 | F5 tên suy luận | Xong; commit `b66a186` đã push, giữ role/confidence, tên đa kiểu và số lần lặp chuỗi |
-| F6 helper/scope/pass cuối | Xong và đã nghiệm thu; placement có proof trong constructor đang trộn callback inline và helper riêng |
-| F7 annotation/discard | Chưa triển khai |
+| F6 helper/scope/pass cuối | Xong, commit `65dc97f` đã push; placement có proof trong constructor đang trộn callback inline và helper riêng |
+| F7 annotation/discard | Xong và đã nghiệm thu; bounded discard effects, kiểm compact/fallback/mapping đầy đủ |
 
 ## F8 nền — 12/09/2026
 
@@ -96,3 +96,15 @@ So F3: **3.978 private giữ nguyên hash**, **4 public output đổi**. createS
 Nghiệm thu: **756 AST tests**, **1.045 workspace tests chính + 1 test con**, **228 runtime hiện có + 6 helper profiles**, **513 public** qua. Fixture mới có **66 tình huống/profile** về identity giữa factory calls, chia sẻ closure qua loop, cell riêng từng iteration, recursion, alias hai field, false/nil/tuple, callback, key lỗi và lỗi theo event. Cả ba g1 đổi output so F3; ba g2 giữ source binding. Lineage/emission/capture audits và deterministic thread 1/4 qua, không local token chưa giải thích được. Manifest mặc định đã thêm helper, lên **234 profiles**. [Bằng chứng](roadmap_v2_acceptance/fix_helper_placement.json).
 
 Output F6: `out/v2-fix-all/f6-final`, SHA `3e567395e15e542e9c748d9db7739ed43eecb5d20fe0c9a8ed4df683d1e13936`. F2/F7 và bàn giao F8 còn mở; V2/HTML chính vẫn ở F1 đến lượt đồng bộ cuối.
+
+## F7 — annotation và discard, 19/09/2026
+
+Cleanup dùng bounded effect summary thay cho kiểm purity cũ: so sánh một giá trị với primitive literal không gọi `__eq` nên có thể bỏ khi kết quả không được đọc. Dynamic equality, field/global lookup, phép toán chưa chứng minh và lời gọi vẫn giữ; literal pi/infinite/vector phát qua lookup môi trường cũng không bị coi là hằng thuần. Closure/constructor có giá trị cấu trúc vẫn được bảo vệ. Không dùng tên API hay annotation làm proof và không di chuyển biểu thức qua callback.
+
+So F6: **7 private file đổi**, bỏ **7 discard**, giảm **8 dòng, 189 byte**; binding p/v và dòng dài không tăng. Các trường hợp cụ thể là so sánh trạng thái đã không còn nhánh sử dụng trong BaseFishingRod/CameraModule và so sánh goal với 1 trong quest registry. Đã đọc toàn bộ 7 diff, compile O0/O2; **513 public output giữ nguyên hash**.
+
+Compact mode vốn có được kiểm đầy đủ, không ghi nhận như tính năng vừa tạo. Trên **232 private file có annotation**, chế độ ngắn rút **849 comment**, giảm **39.064 byte**, giữ nguyên AST/tên/type và đầy đủ text trong sidecar; cả **531 marker call suy luận** vẫn hiện diện. Scanner nay đếm cả nhãn ngắn để việc đổi presentation không bị báo nhầm là đã giảm suy luận. Test formatter kiểm unknown comment, Unicode, nội dung quá dài, không có metadata và map hết budget: những trường hợp thiếu chỗ giữ toàn bộ text đều dùng comment đầy đủ. CLI vẫn yêu cầu `--emit-binding-provenance --compact-annotations`; output mặc định vẫn giữ diagnostic đầy đủ.
+
+Nghiệm thu: **758 AST tests**, **1.047 workspace tests chính + 1 test con**, **126 Python tests**, **234 runtime hiện có + 6 discard profiles**, **513 public** qua. Fixture mới chạy **88 tình huống/profile** với nil/false/string/number/NaN, cùng/khác table, `__eq`, `__index`, `__add`, callback, tuple và lỗi theo event; cả sáu profile thay output và qua VM. Acyclic use-def fingerprint vẫn báo **different** ở fixture này cả trước và sau sửa, nên không coi đó là proof tương đương; runtime hữu hạn là bằng chứng riêng. Lineage/emission/capture, compact AST/span/full-text mapping và thread/cache checks đều qua, không token local chưa giải thích được. Manifest mặc định thêm discard, lên **240 profiles**. [Bằng chứng](roadmap_v2_acceptance/fix_annotation_discard.json).
+
+Output F7: `out/v2-fix-all/f7`, SHA `5d7b18d87a273dc07b2ba5517f8bcd10976f6e52ae7dbdd2e5bd1b7cebe63608`. Chỉ còn F2 và bàn giao F8; V2/HTML chính chưa đồng bộ bản này.

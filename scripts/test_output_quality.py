@@ -19,6 +19,14 @@ def declaration(binding):
 
 
 class OutputQualityTests(unittest.TestCase):
+    def test_compact_annotations_do_not_hide_inference_from_quality_counts(self):
+        full = analyze_tree(block(), 'f() -- equivalent call inferred; original call site unknown\n')
+        compact = analyze_tree(block(), 'f() -- inferred call\n-- inferred helper\n')
+        self.assertEqual(full['inferred_call_annotations'], 1)
+        self.assertEqual(compact['inferred_call_annotations'], 1)
+        self.assertEqual(compact['compact_inferred_call_annotations'], 1)
+        self.assertEqual(compact['full_inferred_call_annotations'], 0)
+
     def test_shadowed_names_and_captured_sole_use_are_separate(self):
         outer, inner = local('v', '1,0'), local('v', '4,0')
         tree = block(declaration(outer), {'type': 'AstExprFunction', 'body': block(

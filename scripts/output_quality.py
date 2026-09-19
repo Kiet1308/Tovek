@@ -77,7 +77,11 @@ def analyze_tree(tree, text=''):
                 if refs[key] == 1 and all(d == depth for d in depths[key]):
                     metrics['sole_use_require_field_relays'] += 1
     metrics['discard_locals'] = len(re.findall(r'(?m)^\s*local _ = ', text))
-    metrics['inferred_call_annotations'] = text.count('equivalent call inferred; original call site unknown')
+    # Keep uncertainty visible in the metric when presentation uses the short
+    # label. Switching display mode must not look like removing inferred calls.
+    metrics['full_inferred_call_annotations'] = text.count('equivalent call inferred; original call site unknown')
+    metrics['compact_inferred_call_annotations'] = len(re.findall(r'-- inferred call\r?$', text, re.M))
+    metrics['inferred_call_annotations'] = metrics['full_inferred_call_annotations'] + metrics['compact_inferred_call_annotations']
     metrics['lines'] = len(text.splitlines())
     metrics['bytes_lf'] = len(text.replace('\r\n', '\n').encode('utf-8'))
     return dict(sorted(metrics.items()))
