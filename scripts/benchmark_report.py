@@ -91,13 +91,17 @@ def report(root):
     (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n',encoding='utf-8')
     concise=[]
     texts={}
+    def intern(path):
+        text=(root/path).read_text(encoding='utf-8',errors='replace')
+        key=digest(text.encode('utf-8'))
+        texts.setdefault(key,text)
+        return key
     for row in rows:
         p=programs[row['program']]
-        texts.setdefault(p['source'],(root/p['source']).read_text(encoding='utf-8',errors='replace'))
-        if row.get('output'): texts.setdefault(row['output'],(root/row['output']).read_text(encoding='utf-8',errors='replace'))
         concise.append({k:row.get(k) for k in ('id','suite','version','opt','debug','provider','status','compile','runtime_pass',
                                              'output','fidelity','presentation','error','runtime_observed','evidence','response')}
-                       | dict(name=p['name'],source=p['source']))
+                       | dict(name=p['name'],source=p['source'],source_text=intern(p['source']),
+                              output_text=intern(row['output']) if row.get('output') else None))
     payload=json.dumps(dict(rows=concise,texts=texts),ensure_ascii=True).replace('<','\\u003c')
     def rate(x,n): return f'{x} / {n}' if n else '—'
     table=''.join('<tr>'+''.join(f'<td>{html.escape(str(v))}</td>' for v in (
@@ -138,9 +142,10 @@ def report(root):
 <script id="data" type="application/json">__DATA__</script><script>
 const data=JSON.parse(document.getElementById('data').textContent);let limit=100;
 const byId=new Map();for(const r of data.rows){if(!byId.has(r.id))byId.set(r.id,[]);byId.get(r.id).push(r)}
-function show(id){const rows=byId.get(id),panes=document.getElementById('panes');panes.replaceChildren();document.getElementById('title').textContent=rows[0].name+' · '+id;const entries=[['Source',data.texts[rows[0].source],null],...rows.map(r=>[r.provider+' · '+r.status,r.output?data.texts[r.output]:'No output: '+r.status,r])];for(const [name,text,row] of entries){const pane=document.createElement('div');pane.className='pane';const h=document.createElement('h3');h.textContent=name;const pre=document.createElement('pre');pre.textContent=text;pane.append(h,pre);if(row){const detail=document.createElement('details'),summary=document.createElement('summary'),audit=document.createElement('pre');summary.textContent='Runtime / structure / presentation diagnostics';audit.textContent=JSON.stringify({runtime:row.runtime_observed,structure:row.fidelity,presentation:row.presentation,error:row.error,evidence:row.evidence},null,2);detail.append(summary,audit);pane.append(detail);if(row.response){const link=document.createElement('a');link.href=row.response;link.textContent='Original response receipt';pane.append(link)}}panes.append(pane)}document.getElementById('detail').showModal()}
+function show(id){const rows=byId.get(id);if(!rows)return;const panes=document.getElementById('panes');panes.replaceChildren();document.getElementById('title').textContent=rows[0].name+' · '+id;const entries=[['Source',data.texts[rows[0].source_text],null],...rows.map(r=>[r.provider+' · '+r.status,r.output?data.texts[r.output_text]:'No output: '+r.status,r])];for(const [name,text,row] of entries){const pane=document.createElement('div');pane.className='pane';const h=document.createElement('h3');h.textContent=name;const pre=document.createElement('pre');pre.textContent=text;pane.append(h,pre);if(row){const detail=document.createElement('details'),summary=document.createElement('summary'),audit=document.createElement('pre');summary.textContent='Runtime / structure / presentation diagnostics';audit.textContent=JSON.stringify({runtime:row.runtime_observed,structure:row.fidelity,presentation:row.presentation,error:row.error,evidence:row.evidence},null,2);detail.append(summary,audit);pane.append(detail);if(row.response){const link=document.createElement('a');link.href=row.response;link.textContent='Original response receipt';pane.append(link)}}panes.append(pane)}const dialog=document.getElementById('detail');if(!dialog.open)dialog.showModal()}
 function render(){const get=id=>document.getElementById(id).value.toLowerCase();const rows=data.rows.filter(r=>(!get('suite')||r.suite===get('suite'))&&(!get('version')||String(r.version)===get('version'))&&(!get('debug')||String(r.debug)===get('debug'))&&r.status.includes(get('status'))&&(r.name+' '+r.id+' '+r.provider).toLowerCase().includes(get('search')));document.getElementById('count').textContent=rows.length+' matching profiles; showing '+Math.min(limit,rows.length);const body=document.getElementById('cases');body.replaceChildren();for(const r of rows.slice(0,limit)){const tr=document.createElement('tr');for(const value of [r.name,r.provider,'v'+r.version+' O'+r.opt+' g'+r.debug,r.status,r.fidelity?.raw_structural_ratio?.toFixed(4)??'—']){const td=document.createElement('td');td.textContent=value;tr.append(td)}const td=document.createElement('td'),button=document.createElement('button');button.textContent='Compare';button.onclick=()=>show(r.id);td.append(button);tr.append(td);body.append(tr)}document.getElementById('more').hidden=limit>=rows.length}
 for(const id of ['suite','version','debug','status','search'])document.getElementById(id).addEventListener('input',()=>{limit=100;render()});document.getElementById('more').onclick=()=>{limit+=100;render()};document.getElementById('close').onclick=()=>document.getElementById('detail').close();render();
+if(location.hash)show(decodeURIComponent(location.hash.slice(1)));
 </script></html>'''
     page=page.replace('__GROUPS__',table).replace('__PAIRS__',pair_table).replace('__TIMING__',timing_table)
     page=page.replace('__CANARIES__',canary_table).replace('__SEEDS__',str(plan['generated_clusters']))

@@ -128,7 +128,9 @@ class BenchmarkTests(unittest.TestCase):
             page = (root/'index.html').read_text(encoding='utf-8')
             self.assertNotIn('</script><script>alert', page)
             data = page.split('<script id="data" type="application/json">')[1].split('</script>')[0]
-            self.assertEqual(json.loads(data)['texts']['output.luau'], hostile)
+            decoded = json.loads(data)
+            self.assertEqual(decoded['texts'][decoded['rows'][0]['output_text']], hostile)
+            self.assertEqual(len(decoded['texts']), 1)
             save('results.json',dict(plan_sha256='different',rows=[row]))
             with self.assertRaisesRegex(ValueError, 'another plan'): report(root)
 
