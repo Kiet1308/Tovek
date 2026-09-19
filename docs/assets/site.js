@@ -168,32 +168,6 @@ document.documentElement.classList.add('js');
     });
   });
 
-  const search = document.querySelector('#history-search');
-  if (search) {
-    const rows = [...document.querySelectorAll('#commit-list li')];
-    const more = document.querySelector('#history-more');
-    const counter = document.querySelector('#history-count');
-    let limit = 12;
-    function filterHistory() {
-      const query = search.value.toLocaleLowerCase().trim();
-      const matches = rows.filter(row => row.textContent.toLocaleLowerCase().includes(query) || row.dataset.hash.includes(query));
-      const visible = new Set(matches.slice(0, limit));
-      rows.forEach(row => { row.hidden = !visible.has(row); });
-      counter.textContent = `${matches.length} ${matches.length === 1 ? 'commit' : 'commits'}${query ? ' found' : ''} · ${Math.min(matches.length, limit)} shown`;
-      more.hidden = matches.length <= limit;
-      more.textContent = `Show ${Math.min(12, Math.max(0, matches.length - limit))} more commits`;
-      document.querySelector('#history-empty').hidden = matches.length !== 0;
-    }
-    search.addEventListener('input', () => { limit = 12; filterHistory(); });
-    more.addEventListener('click', () => {
-      const firstNew = rows.filter(row => row.hidden && (row.textContent.toLowerCase().includes(search.value.trim().toLowerCase()) || row.dataset.hash.includes(search.value.trim().toLowerCase())))[0];
-      limit += 12;
-      filterHistory();
-      firstNew?.querySelector('a')?.focus({ preventScroll: true });
-    });
-    filterHistory();
-  }
-
   // An original, deterministic 3D point field. No external renderer or artwork.
   const canvas = document.querySelector('#cosmos');
   if (!canvas) return;

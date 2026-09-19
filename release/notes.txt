@@ -1,0 +1,32 @@
+Tovek V2 v0.1 is the first release of the V2 generation.
+
+Download the Windows ZIP or Linux tar.gz below. Each package contains
+luau-lifter, web-server, executor client scripts, README and quick-start instructions.
+SHA256SUMS.txt provides checksums for both downloads.
+
+What's new
+- Native Roblox bytecode v12 support: size-delimited prototypes, 64-bit cost
+  metadata, call feedback and CALLFB, with native and wasm32 reader checks.
+- A major large-function performance fix: the measured v12 sample drops from
+  15.30 s to 1.02 s (five-run interleaved medians), with identical output.
+  This is a sample-specific 15x improvement over the earlier V2 build.
+- Clearer inferred names and retained parameter types, stronger source-binding
+  preservation, structured control flow and safer evaluation order.
+- More coherent module exports and nested UI constructors; fewer redundant
+  import relays, improved helper recovery, returns and expression formatting.
+- Optional provenance sidecars, compact annotations and a bounded artifact cache.
+- Local CLI and HTTP workflows. AI remains disabled; no models are included.
+
+Validation and limits
+The v12 suite passes 246 runtime profiles, nine controls, 27 structural cases
+and six wasm32 reader cases. The performance change preserves all tested output
+bytes across 3,978 private paths and 513 public profiles. The private application
+was not executed as a complete Roblox experience.
+Runtime-mutated CMPPROTO guards are explicitly rejected. Truncated bytecode must
+be exported again in full. v13 double-vector serialization has targeted coverage;
+v14 is unsupported. Some complex expressions still contain more temporaries than
+beta, and decompilation cannot uniquely recover original source.
+
+Detailed changelog: https://kiet1308.github.io/Tovek/changelog.html
+Usage: https://github.com/Kiet1308/Tovek/blob/main/README.md
+Source: https://github.com/Kiet1308/Tovek/tree/v2-v0.1

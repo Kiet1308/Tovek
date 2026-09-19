@@ -1,0 +1,35 @@
+Tovek V2 v0.1
+https://github.com/Kiet1308/Tovek
+
+This package contains the local Luau decompiler CLI and HTTP server.
+AI is disabled. No model, network service or account is required to decompile.
+
+CLI (Windows: use .\luau-lifter.exe; Linux: use ./luau-lifter)
+  luau-lifter script.luac > script.luau
+  luau-lifter script.luac -e > script.luau
+  luau-lifter decompile-folder ./dump ./output
+
+Use -e for raw Roblox client bytecode (encoding key 203). Folder mode reads
+saved-bytecode text files and defaults to that key. Use --key 1 in folder mode
+for unencoded bytecode. --help describes the remaining options.
+
+HTTP SERVER
+Start web-server.exe (Windows) or ./web-server (Linux).
+The server listens locally at http://127.0.0.1:3000.
+POST /decompile accepts base64 bytecode; /decompile/raw accepts raw bytes.
+The included decompile.client.luau and decompile-batch.client.luau connect an
+executor to the local server. See README.md for usage and endpoint formats.
+
+COMPATIBILITY
+Windows x86_64, or Linux x86_64 with glibc 2.35 or newer (Ubuntu 22.04+).
+Roblox bytecode v12 is supported, including CALLFB and wide cost metadata.
+Runtime-mutated CMPPROTO guards and malformed/truncated inputs are rejected.
+Decompilation cannot recover stripped comments or guarantee original names.
+
+VERIFY THE DOWNLOAD
+SHA256SUMS.txt is attached to the GitHub release.
+Windows PowerShell: Get-FileHash .\Tovek-V2-v0.1-windows-x86_64.zip -Algorithm SHA256
+Linux: sha256sum --check --ignore-missing SHA256SUMS.txt
+
+The source code is MIT licensed; see LICENSE.txt. Builds use the pinned
+nightly-2024-12-15 Rust toolchain. No AI model files are included.

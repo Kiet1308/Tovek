@@ -1,6 +1,0 @@
-{
- "status": "passed",
- "configurations_per_platform": 14,
- "source_hashes_identical_across_platforms": true,
- "contract": "Source paths hash in explicit UTF-8 order. Same selected inputs and source bytes across Windows native and WSL Linux; no claim of identical machine-specific tool manifests."
-}

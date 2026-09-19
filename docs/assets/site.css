@@ -1347,80 +1347,6 @@ th:last-child {
   color: #fff;
   padding-bottom: 12px;
 }
-.history-tools {
-  display: flex;
-  gap: 12px;
-  margin: 28px 0 16px;
-}
-.history-tools input {
-  background: #ffffff06;
-  border: 1px solid #36434f;
-  border-radius: 6px;
-  padding: 13px 16px;
-  color: #fff;
-  min-width: 0;
-  flex: 1;
-  font-size: 13px;
-}
-.history-tools input::placeholder {
-  color: #8c9aa6;
-}
-.history-count {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: #98a9b5;
-  display: flex;
-  justify-content: space-between;
-}
-.commit-list {
-  list-style: none;
-  padding: 0;
-  margin: 18px 0;
-}
-.commit-list li {
-  border-top: 1px solid #222f38;
-  padding: 18px 0;
-  display: grid;
-  grid-template-columns: 70px 1fr;
-  gap: 18px;
-}
-.commit-list a {
-  text-decoration: none !important;
-  display: contents;
-}
-.commit-list time {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: #9baab5;
-  line-height: 1.8;
-}
-.commit-title {
-  font-size: 12px;
-  line-height: 1.7;
-  color: #dae3ea;
-}
-.commit-title small {
-  display: block;
-  font-size: 10px;
-  color: #92a5b4;
-  font-family: var(--mono);
-  margin-top: 5px;
-}
-.commit-list li:hover .commit-title {
-  color: #a0d9ff;
-}
-.history-more {
-  width: 100%;
-  background: transparent;
-  border: 1px solid #374855;
-  border-radius: 7px;
-  padding: 14px;
-  color: #dce7ef;
-  font-size: 12px;
-}
-.history-more:hover {
-  background: #ffffff09;
-}
 .article-end {
   padding: 90px 0 100px;
   text-align: center;
@@ -2006,19 +1932,6 @@ th:last-child {
   .article-end h2 {
     font-size: 34px;
   }
-  .history-tools input {
-    font-size: 12px;
-  }
-  .commit-list li {
-    grid-template-columns: 62px 1fr;
-    gap: 12px;
-  }
-  .commit-title {
-    font-size: 11px;
-  }
-  .commit-list time {
-    font-size: 9px;
-  }
   .space-background {
     background-size: 900px;
     opacity: 0.45;
@@ -2109,12 +2022,6 @@ th:last-child {
   .scroll-link {
     white-space: nowrap;
   }
-  .commit-title {
-    font-size: 12px;
-  }
-  .commit-list time {
-    font-size: 10px;
-  }
   .hero-copy h2 {
     font-size: clamp(32px, 10vw, 42px);
     letter-spacing: -0.07em;
@@ -2155,8 +2062,5 @@ th:last-child {
   }
   .article-intro h2 {
     font-size: 34px;
-  }
-  .history-count {
-    font-size: 8px;
   }
 }

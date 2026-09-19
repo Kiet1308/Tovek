@@ -1,0 +1,629 @@
+{
+  "schema_version": 1,
+  "manifest_sha256": "bfd98a9fba874e42351ed544d76081923988fcb528f7ec23ff2dbfecb45dafbf",
+  "tools": {
+    "lifter": {
+      "sha256": "82a4cd944a94483b8dda3ed2a153da4fad8d36e3ef013705d8187d52b0f0196f"
+    }
+  },
+  "evaluation_use": "initial-holdout",
+  "rows": [
+    {
+      "family": "helper_let",
+      "opt": 2,
+      "debug": 1,
+      "status": "passed",
+      "source_sha256": "3cdc850183183e9a844d9893727b85cd293eb983240279facd794261869b77ae",
+      "output_sha256": "0ed00b986944d8a7dbd9eda80fc57daa4a74493f4226296368097f0df1713936",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 5,
+              "helper_prototype": 1,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 1,
+              "end_pc_exclusive": 8,
+              "helper_prototype": 0,
+              "start_pc": 0
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "helper_let",
+      "opt": 2,
+      "debug": 2,
+      "status": "passed",
+      "source_sha256": "3cdc850183183e9a844d9893727b85cd293eb983240279facd794261869b77ae",
+      "output_sha256": "1b8beac4048aab96b8bbbd49213eca7896ce888f09eb53f4892fb78a2b1bb694",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 5,
+              "helper_prototype": 1,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 1,
+              "end_pc_exclusive": 8,
+              "helper_prototype": 0,
+              "start_pc": 0
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "helper_phi",
+      "opt": 2,
+      "debug": 1,
+      "status": "passed",
+      "source_sha256": "638c462d8a32a15cac23be21d6a41eae0946e9251dadd46b88e97d8ad3e333a8",
+      "output_sha256": "9c1630b141a1d0c681f1b43b76b27ee939056644d257fa6a46d0d7632cfcdf0d",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 10,
+              "helper_prototype": 1,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 1,
+              "end_pc_exclusive": 15,
+              "helper_prototype": 0,
+              "start_pc": 0
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "helper_phi",
+      "opt": 2,
+      "debug": 2,
+      "status": "passed",
+      "source_sha256": "638c462d8a32a15cac23be21d6a41eae0946e9251dadd46b88e97d8ad3e333a8",
+      "output_sha256": "1e09b076ffcb768230fe27ee4cda10c5bd7435dbe37d1032a0ca2ed096d94036",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 10,
+              "helper_prototype": 1,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 1,
+              "end_pc_exclusive": 15,
+              "helper_prototype": 0,
+              "start_pc": 0
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "helper_guard",
+      "opt": 2,
+      "debug": 1,
+      "status": "passed",
+      "source_sha256": "97c5c9cc5029fdf7889367b21d8d0b073b91ef04cbac15a6ba09492a2850afdb",
+      "output_sha256": "5719fa24ad7aeededafc2d8345056c99cebfb60ef6c95e98487abd3504b85302",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 9,
+              "helper_prototype": 1,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 1,
+              "end_pc_exclusive": 11,
+              "helper_prototype": 0,
+              "start_pc": 0
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "helper_guard",
+      "opt": 2,
+      "debug": 2,
+      "status": "passed",
+      "source_sha256": "97c5c9cc5029fdf7889367b21d8d0b073b91ef04cbac15a6ba09492a2850afdb",
+      "output_sha256": "19939beef77dbf28a7a25664fa8c6dc386137a3ccccb15b3c5b7988eff6a70d8",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 9,
+              "helper_prototype": 1,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 1,
+              "end_pc_exclusive": 11,
+              "helper_prototype": 0,
+              "start_pc": 0
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "handwritten_shape",
+      "opt": 2,
+      "debug": 1,
+      "status": "passed",
+      "source_sha256": "cc9b97f41bea2924dfdb4f110c1d924b4fcfdfc918b4aeefa939b01f31e4f7bb",
+      "output_sha256": "bc88906cbfdc01357fba5e5a5090301b380447ec342719984c84bd572cb6dd54",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "handwritten_shape",
+      "opt": 2,
+      "debug": 2,
+      "status": "passed",
+      "source_sha256": "cc9b97f41bea2924dfdb4f110c1d924b4fcfdfc918b4aeefa939b01f31e4f7bb",
+      "output_sha256": "1038c3fd985621c3f6e6983ccb319b7146a01be62a49eb80dce8f633af7c8cb5",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [
+          {
+            "callee_binding_at_creation": "b17",
+            "callee_prototype": 0,
+            "event_id": 1,
+            "evidence": "equivalent_call_inference",
+            "producer": "arithmetic_deinline"
+          },
+          {
+            "callee_binding_at_creation": "b17",
+            "callee_prototype": 0,
+            "event_id": 2,
+            "evidence": "equivalent_call_inference",
+            "producer": "arithmetic_deinline"
+          }
+        ],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [
+          {
+            "current_callee_binding": "b17",
+            "event_id": 1,
+            "span": {
+              "end": {
+                "byte_offset": 235,
+                "column_one_based": 29,
+                "line_one_based": 7
+              },
+              "start": {
+                "byte_offset": 222,
+                "column_one_based": 16,
+                "line_one_based": 7
+              }
+            }
+          },
+          {
+            "current_callee_binding": "b17",
+            "event_id": 2,
+            "span": {
+              "end": {
+                "byte_offset": 265,
+                "column_one_based": 30,
+                "line_one_based": 8
+              },
+              "start": {
+                "byte_offset": 252,
+                "column_one_based": 17,
+                "line_one_based": 8
+              }
+            }
+          }
+        ],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "missing_prototype",
+      "opt": 2,
+      "debug": 1,
+      "status": "passed",
+      "source_sha256": "e5f4dae26c20feac96d9c941a38543e285e608fc521e1da69c242621810e6ce4",
+      "output_sha256": "7a7554fc13d60aaa0b6caee8cbcd36588e0885c2c949901a4ff632feae1611af",
+      "helper_prototypes": [],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "missing_prototype",
+      "opt": 2,
+      "debug": 2,
+      "status": "passed",
+      "source_sha256": "e5f4dae26c20feac96d9c941a38543e285e608fc521e1da69c242621810e6ce4",
+      "output_sha256": "5e67f39755ecfb7ea7c66e8876fd8c3976e00785a868337f4c8e96dd58a4e668",
+      "helper_prototypes": [],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "ambiguous_helpers",
+      "opt": 2,
+      "debug": 1,
+      "status": "passed",
+      "source_sha256": "5bfca0371fd2ab3b1f0b6de8f5f6a76d072ad01066f154069fc1bedad9eedf45",
+      "output_sha256": "d4010bf61cd047f30363f10e32c90454a15450d4d3d3028e21739a4bb52ae56e",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 5,
+              "helper_prototype": 2,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 5,
+              "helper_prototype": 3,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 1,
+              "end_pc_exclusive": 5,
+              "helper_prototype": 3,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 2,
+              "end_pc_exclusive": 9,
+              "helper_prototype": 0,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 2,
+              "end_pc_exclusive": 9,
+              "helper_prototype": 3,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 3,
+              "end_pc_exclusive": 2,
+              "helper_prototype": 0,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 3,
+              "end_pc_exclusive": 2,
+              "helper_prototype": 2,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 3,
+              "end_pc_exclusive": 3,
+              "helper_prototype": 1,
+              "start_pc": 2
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "family": "ambiguous_helpers",
+      "opt": 2,
+      "debug": 2,
+      "status": "passed",
+      "source_sha256": "5bfca0371fd2ab3b1f0b6de8f5f6a76d072ad01066f154069fc1bedad9eedf45",
+      "output_sha256": "d50590b141c94723ecf1c30b0f9eafa09c409b937028dacb783f34a9ff9ccc1d",
+      "helper_prototypes": [
+        0
+      ],
+      "call_events": {
+        "callees_limit": 50000,
+        "contract": "Producer events record committed call creation, not original source callsites or a final equivalence certificate. Callee prototype identity is separate from caller instruction origin, which remains unknown. AST copies may emit the same event more than once. No occurrence means removed, replaced, opaque or omitted; absence does not identify which. New Call construction starts unattributed. Events never transfer source/SSA/close/capture evidence.",
+        "event_limit": 4096,
+        "events": [
+          {
+            "callee_binding_at_creation": "b23",
+            "callee_prototype": 0,
+            "event_id": 1,
+            "evidence": "equivalent_call_inference",
+            "producer": "arithmetic_deinline"
+          }
+        ],
+        "model": "committed-call-reconstruction-events-v2",
+        "occurrence_limit": 100000,
+        "occurrences": [
+          {
+            "current_callee_binding": "b23",
+            "event_id": 1,
+            "span": {
+              "end": {
+                "byte_offset": 218,
+                "column_one_based": 22,
+                "line_one_based": 7
+              },
+              "start": {
+                "byte_offset": 205,
+                "column_one_based": 9,
+                "line_one_based": 7
+              }
+            }
+          }
+        ],
+        "omitted_callee_registrations": 0,
+        "omitted_events": 0,
+        "omitted_occurrences": 0,
+        "schema_version": 2,
+        "search_hints": {
+          "contract": "Shared input instruction lines prioritize helper comparisons within a caller prototype. PC intervals can include auxiliary words. All rivals still require structural/capture/arity proofs. These hints do not map an emitted call to an original source callsite.",
+          "pc_limit": 200000,
+          "region_limit": 8192,
+          "regions": [
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 5,
+              "helper_prototype": 2,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 0,
+              "end_pc_exclusive": 5,
+              "helper_prototype": 3,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 1,
+              "end_pc_exclusive": 5,
+              "helper_prototype": 3,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 2,
+              "end_pc_exclusive": 9,
+              "helper_prototype": 0,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 2,
+              "end_pc_exclusive": 9,
+              "helper_prototype": 3,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 3,
+              "end_pc_exclusive": 2,
+              "helper_prototype": 0,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 3,
+              "end_pc_exclusive": 2,
+              "helper_prototype": 2,
+              "start_pc": 0
+            },
+            {
+              "caller_prototype": 3,
+              "end_pc_exclusive": 3,
+              "helper_prototype": 1,
+              "start_pc": 2
+            }
+          ],
+          "truncated": false
+        }
+      }
+    }
+  ]
+}

@@ -1,6 +1,10 @@
 # Tovek
 
-**A high-readability, high-performance Luau decompiler.** `v0.9.0-beta`
+**A high-readability, high-performance Luau decompiler.** **Tovek V2 v0.1**
+
+[**Download V2 v0.1 for Windows or Linux**](https://github.com/Kiet1308/Tovek/releases/tag/v2-v0.1) · [What’s new in V2](https://kiet1308.github.io/Tovek/changelog.html)
+
+Each package includes the CLI, the local HTTP server, client scripts and quick-start instructions. The release tag is `v2-v0.1`; Rust package versions are `0.1.0` within the V2 generation.
 
 [**💬 Join the Tovek Discord →**](https://discord.gg/phY6VUDSF7)
 
@@ -13,8 +17,7 @@ source a human would have written — without sacrificing correctness.
 It also happens to be a lot faster.
 
 AI features are disabled. The current decompiler uses deterministic rules and
-does not load or download models or call AI services. Roadmap R9 is paused;
-enabling AI requires an explicit future decision. Model weights and model caches
+does not load or download models or call AI services. AI is not part of this release. Model weights and model caches
 stay local and must not be committed or uploaded to GitHub, including release
 assets, workflow artifacts or Git LFS.
 
@@ -67,7 +70,7 @@ A few of the things Tovek does that upstream medal does not:
   wasm32 reader tests. v13 double-vector serialization has targeted coverage; v14 is
   unsupported. Runtime-mutated `CMPPROTO` guards are explicitly rejected because their
   prototype-identity predicate cannot be faithfully reconstructed in source. See the
-  [v12 validation and limits](docs/v12_optimization_validation.md).
+  [v12 validation and limits](https://kiet1308.github.io/Tovek/changelog.html#bytecode-v12).
 - **Validated output.** The full regression corpus (262/262 files) re-parses cleanly under
   Luau's own front end (`luau-analyze`), so readability gains never come at the cost of
   producing source that won't parse.
@@ -98,58 +101,16 @@ A few of the things Tovek does that upstream medal does not:
 
 ---
 
-## How Tovek stacks up against the field
+## Output and validation
 
-medal is the open-source upstream Tovek forks. **[lua.expert](https://lua.expert/)** — a
-closed-source, API-only service — is the strongest *free* decompiler around and the bar most
-people actually compare against. We ran the **same code** through all four (Source, medal,
-lua.expert, Tovek) and read the output side by side. The
-[landing page](https://kiet1308.github.io/Tovek/#duel) lets you flip between them on each
-example; every panel is real, unedited output.
+The [V2 release article](https://kiet1308.github.io/Tovek/changelog.html#evaluation)
+compares the validated V2 output with v0.9 beta, including readability gains,
+runtime checks and remaining regressions. The [interactive examples](https://kiet1308.github.io/Tovek/#output)
+illustrate module exports, naming and direct returns.
 
-A note on medal: it **can't read the v9 bytecode used in this comparison** (it stops at version 6),
-so its column is the same source compiled with standard Luau (`-O2 -g1`) and decompiled — its
-raw style is unchanged. lua.expert and Tovek both read the real v9 bytecode directly.
-
-lua.expert is genuinely good — it recovers function names and modern `for` loops. But it stops
-where Tovek keeps going:
-
-| | Source | medal | lua.expert | **Tovek** |
-|---|---|---|---|---|
-| Reads Roblox v9 bytecode | — | **no** | yes | yes |
-| Local & parameter names | real | `v1, v_u_3` | `p1, v1` + some | inferred + handle names |
-| OOP `:` methods & `self` | yes | `.m(_, …)` | `.m(p1, …)` + colon-call mismatch | `:m(…)`, real `self` |
-| Luau `-O2` inlined helpers | — | left inlined | **inlined & duplicated** | **de-inlined + marked** |
-| Redundant `x = nil` stores | none | kept | kept | removed |
-| `math.huge` / `math.pi` | symbolic | `(1 / 0)` | `(1 / 0)` / raw float | `math.huge` / `math.pi` |
-| Dead `if x then true else false` | none | — | **dozens** (47 in one file) | normalized away (0) |
-| Compound assignment | `x += 1` | `x = x + 1` | `x = x + 1` | `x += 1` |
-| Per-function comment noise | none | `-- upvalues:` | `--[[ name｜Line｜Upvalues ]]` **every fn** | none |
-| Tool watermark in output | none | none | `-- https://lua.expert/` every file | none |
-| Source / license | — | open | **closed — API only** | **open — MIT** |
-
-Concrete, verified examples:
-
-- **It un-inlines the optimizer.** In `ShovelHighlight`, the compiler inlined `clearHighlight`
-  into `updateTarget`. lua.expert copy-pastes the teardown body **7×**, nested four branches
-  deep (227-line file); Tovek restores six `clearHighlight(p)` calls and flattens it with
-  guard-returns (177 lines — the original is 144).
-- **Smart names + no dead stores.** For the inlined `getMainGui` in `InitNpcQuest`, Tovek names
-  the result `main` (from `FindFirstChild("Main")`) and drops the dead `= nil` stores. medal and
-  lua.expert leave it `v35`/`v1` and write `= nil` in two branches where it is already nil.
-- **`math.huge`, not `(1 / 0)`.** In one file Tovek collapses **47** pointless
-  `if x then true else false` ternaries to **0** and restores every `(1 / 0)` to `math.huge`.
-- **Real methods.** lua.expert emits `function t.DisableCollision(p1, p2)` then calls it
-  `t:DisableCollision(v2)` — a dot/colon mismatch that wouldn't round-trip; medal leaks `self`
-  as `_`. Tovek recovers the real `function X:DisableCollision(folder)`.
-- **It even catches what lua.expert gets *wrong*.** In `ChatTipsClient`, lua.expert folds away
-  a captured version snapshot, leaving `t._configVersion == t._configVersion` — always true, so
-  a config-reload guard becomes dead code. Tovek keeps the snapshot.
-
-lua.expert keeps a few rational constants (`1/60`) Tovek currently prints as a decimal, and
-occasionally guesses a local name Tovek leaves as `v*` — but the wins above are *structural*
-(un-inlining, real methods, killed dead ternaries and nil-stores, restored idioms, correctness)
-and hold across the whole sample, not one cherry-picked file.
+Public regression fixtures, pinned corpus manifests and the CI workflow remain in
+this repository. Private bytecode, generated output and internal research reports
+stay local. No fresh matched comparison with hosted decompilers is claimed for V2.
 
 ---
 
@@ -179,14 +140,12 @@ luau-lifter decompile-folder ./dump ./out          # -e/--key 203 is the default
 For repeated folder runs, add `--cache-dir ./tovek-cache`. The optional cache
 keys artifacts by the exact binary, bytecode, options and module naming context;
 it rebuilds path-specific metadata on each run. Keep the cache outside the input
-and output trees. `--cache-max-mib` defaults to 512. See the
-[cache contract and measurements](docs/artifact_cache.md).
+and output trees. `--cache-max-mib` defaults to 512.
 
 Add `--emit-binding-provenance --compact-annotations` to use short reconstruction
 comments while retaining their complete diagnostics and reconstructed-call
 locations in sidecars. Default comments remain unchanged. These locations
-identify emitted calls; they do not prove original source call sites. See the
-[annotation and call-event contract](docs/call_reconstruction_annotations.md).
+identify emitted calls; they do not prove original source call sites.
 
 Volt/static-analysis mode writes clean `.lua` source directly and keeps all
 upvalue metadata in hidden sidecars. The Volt export manifest is authoritative,
@@ -229,8 +188,7 @@ use it only when inputs cannot be NaN, because the two forms differ for NaN.
 `--synthesize-arithmetic-loops` enables an experimental presentation of exact
 4-8-term arithmetic accumulations as finite loops. It is off by default and
 labels generated loops as synthesis: the original source may have contained
-a written-out expression. Available in single-file and folder modes; see the
-[eligibility, evidence and limits](docs/arithmetic_reroll.md).
+a written-out expression. Available in single-file and folder modes.
 
 ### Web server + executor
 
@@ -281,12 +239,12 @@ Tovek uses nightly Rust feature gates and pins a specific toolchain — stable w
 
 ```sh
 rustup toolchain install nightly-2024-12-15
-cargo +nightly-2024-12-15 build --release -p web-server -p luau-lifter
+cargo +nightly-2024-12-15 build --release --locked -p web-server -p luau-lifter
 ```
 
 The release profile is tuned for distribution: fat LTO, a single codegen unit, no debug
 info, and stripped symbols — maximum runtime speed and the smallest possible binary.
-Prebuilt binaries are attached to each [release](../../releases).
+Prebuilt binaries are attached to each [release](https://github.com/Kiet1308/Tovek/releases/latest).
 
 ---
 

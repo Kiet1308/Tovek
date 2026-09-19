@@ -172,6 +172,22 @@ jobs:
             --report "$RUNNER_TEMP/roadmap-v2-lineage.json" \
             --keep "$RUNNER_TEMP/roadmap-v2-lineage" --cache --compact-annotations
 
+      - name: Roblox bytecode v12 runtime and determinism
+        run: |
+          python3 scripts/roadmap_v2.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --lifter target/release/luau-lifter \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --bytecode-version 12 --determinism \
+            --report "$RUNNER_TEMP/bytecode-v12.json" \
+            --keep "$RUNNER_TEMP/bytecode-v12"
+
+      - name: Execute v12 reader in wasm32
+        run: |
+          rustup target add wasm32-unknown-unknown --toolchain nightly-2024-12-15
+          python3 scripts/check_v12_wasm.py --keep "$RUNNER_TEMP/v12-wasm"
+
       - name: V2 binding preservation VM controls
         run: |
           python3 scripts/binding_preservation_controls.py \
@@ -261,8 +277,8 @@ jobs:
       - name: V2 source-known reconstruction site review
         run: |
           python3 scripts/reconstruction_study_review.py \
-            --initial docs/roadmap_v2_acceptance/ordered_reconstruction/initial-study.json \
-            --initial-work docs/roadmap_v2_acceptance/ordered_reconstruction/initial-gallery \
+            --initial docs/failure_fixtures/reconstruction_baseline/manifest.json \
+            --initial-work docs/failure_fixtures/reconstruction_baseline \
             --current "$RUNNER_TEMP/reconstruction-holdout-default.json" \
             --ast "$RUNNER_TEMP/luau-build/luau-ast" \
             --report "$RUNNER_TEMP/reconstruction-site-review.json"
@@ -396,6 +412,7 @@ jobs:
             ${{ runner.temp }}/bytecode-roundtrip-*.md
             ${{ runner.temp }}/output-size.json
             ${{ runner.temp }}/roadmap-v2.json
+            ${{ runner.temp }}/bytecode-v12.json
             ${{ runner.temp }}/roadmap-v2-lineage.json
             ${{ runner.temp }}/binding-preservation-controls.json
             ${{ runner.temp }}/roadmap-v2-public-lineage.json
