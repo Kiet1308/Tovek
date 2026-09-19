@@ -62,7 +62,7 @@ import tempfile
 import time
 
 # --------------------------------------------------------------------------
-# Luau bytecode deserialiser (versions 4..11, types 0..3), key-aware.
+# Luau bytecode deserialiser (versions 4..12, types 0..3), key-aware.
 # --------------------------------------------------------------------------
 
 OPCODES = (
@@ -118,18 +118,19 @@ class Reader:
         self.pos += 4
         return v
 
-    def varint(self) -> int:
+    def varint(self, bits: int = 32) -> int:
         result = 0
-        shift = 0
-        while True:
+        for shift in range(0, bits, 7):
             b = self.u8()
             result |= (b & 0x7F) << shift
-            shift += 7
+            if result >= 1 << bits:
+                raise BytecodeError(f"varint exceeds {bits} bits")
             if not b & 0x80:
                 return result
+        raise BytecodeError(f"varint exceeds {bits} bits")
 
     def bytes(self, n: int) -> bytes:
-        if self.pos + n > len(self.data):
+        if n < 0 or self.pos + n > len(self.data):
             raise BytecodeError("truncated (bytes)")
         v = self.data[self.pos : self.pos + n]
         self.pos += n
@@ -144,16 +145,20 @@ class Proto:
         "id", "max_stack", "num_params", "num_upvalues", "is_vararg", "code",
         "constants", "children", "line_defined", "name", "insns", "stream", "sig",
         "debug_locals", "debug_upvalue_names",
+        "flags", "cost", "extension_bytes",
     )
 
     def __init__(self):
         self.insns = []  # list of (pc, op, a, b, c, d, e, aux)
         self.debug_locals = []
         self.debug_upvalue_names = []
+        self.flags = 0
+        self.cost = None
+        self.extension_bytes = b""
 
 
 class Chunk:
-    __slots__ = ("version", "types_version", "strings", "protos", "main")
+    __slots__ = ("version", "types_version", "strings", "protos", "main", "trailing_bytes")
 
 
 def _decode_insn(word: int, key: int):
@@ -175,7 +180,7 @@ def parse_chunk(data: bytes, key: int) -> Chunk:
     version = r.u8()
     if version == 0:
         raise BytecodeError("compile error: " + data[1:].decode("utf-8", "replace")[:200])
-    if not 4 <= version <= 11:
+    if not 4 <= version <= 12:
         raise BytecodeError(f"unsupported bytecode version {version}")
     ch = Chunk()
     ch.version = version
@@ -191,7 +196,12 @@ def parse_chunk(data: bytes, key: int) -> Chunk:
             r.varint()
     nprotos = r.varint()
     ch.protos = []
+    chunk_reader = r
     for pid in range(nprotos):
+        if version >= 12:
+            # Each prototype is bounded independently. Required fields cannot
+            # consume the next prototype or main ID even if its size is wrong.
+            r = Reader(chunk_reader.bytes(chunk_reader.varint()))
         p = Proto()
         p.id = pid
         p.max_stack = r.u8()
@@ -199,7 +209,7 @@ def parse_chunk(data: bytes, key: int) -> Chunk:
         p.num_upvalues = r.u8()
         p.is_vararg = r.u8() != 0
         if version >= 4:
-            r.u8()  # flags
+            p.flags = r.u8()
             r.bytes(r.varint())  # type info
         ncode = r.varint()
         code = [r.u32() for _ in range(ncode)]
@@ -222,6 +232,12 @@ def parse_chunk(data: bytes, key: int) -> Chunk:
                 if r.u8() != 0:
                     raise BytecodeError("unknown feedback slot")
                 r.varint()
+        if version >= 12:
+            if p.flags & 8:  # LPF_INLINABLE, readVarInt64 in the VM
+                p.cost = r.varint(64)
+            # Upstream reserves the remainder of the size-delimited body for
+            # future fields. Retain it explicitly instead of decoding it as code.
+            p.extension_bytes = r.bytes(len(r.data) - r.pos)
         # decode instructions
         pc = 0
         insns = p.insns
@@ -239,7 +255,15 @@ def parse_chunk(data: bytes, key: int) -> Chunk:
             insns.append((pc, op, a, b, c, d, e, aux))
             pc += length
         ch.protos.append(p)
+    r = chunk_reader
     ch.main = r.varint()
+    if ch.main >= len(ch.protos):
+        raise BytecodeError(f"main prototype {ch.main} is out of range")
+    for p in ch.protos:
+        if any(child >= len(ch.protos) for child in p.children):
+            raise BytecodeError(f"child prototype is out of range in prototype {p.id}")
+    # Some Roblox captures append an opaque trailer; it is not a prototype.
+    ch.trailing_bytes = r.bytes(len(r.data) - r.pos)
     return ch
 
 
@@ -270,7 +294,7 @@ def _parse_constant(r: Reader, version: int):
         return ("tablek", tuple(pairs))
     if tag == 9:
         neg = r.u8()
-        mag = r.varint()
+        mag = r.varint(64)
         if mag >= 1 << 64:
             raise BytecodeError("integer magnitude exceeds 64 bits")
         bits = (-mag if neg else mag) & ((1 << 64) - 1)

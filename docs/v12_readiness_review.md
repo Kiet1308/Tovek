@@ -107,12 +107,12 @@ The upstream loader reads cost with `readVarInt64`; `Function::parse` currently 
 
 README still advertises bytecode coverage through v11, while the Rust reader accepts through v13. Documentation needs to distinguish implemented serialization support from semantic coverage and known runtime-only opcode limitations. The out-of-SSA performance regression on this sample also remains unresolved.
 
-## Follow-up work
+## Follow-up work (implementation in progress)
 
-- [ ] Replace the inaccurate CMPPROTO lowering with proven semantics, or explicitly reject unsupported guards before emitting output; add the VM-backed counterexample as a regression.
-- [ ] Read v12 cost metadata as u64 and cover wide values on a 32-bit target.
-- [ ] Extend the independent Python reader and comparison tests for v12 boundaries and cost fields.
+- [x] Reject CMPPROTO before lifting with prototype/PC diagnostics in both strict and permissive modes; remove the inaccurate lowering. The VM-backed nil counterexample, false/number variants and D=0/1/3 guards are regression cases across v11/v12/v13.
+- [x] Read v12 cost metadata as u64. Native tests preserve next-prototype alignment through `u64::MAX`; `scripts/check_v12_wasm.py` compiles the production reader modules to wasm32 and executes all six wide-cost cases in Node (pointer width verified as 32).
+- [x] Extend the independent Python reader for v12 bounded bodies, explicit u64 cost, extensions and trailers. Regressions cover both decode keys, feedback/AUX alignment, previous versions and malformed boundaries. `scripts/roadmap_v2.py --bytecode-version 12` enables actual v12 compilation with feedback/type metadata and verifies both input and output versions.
 - [ ] Profile out-of-SSA subphases and optimize binding compatibility without removing its correctness constraints; repeat the exact-hash benchmark and semantic gates.
 - [ ] Update compatibility documentation after the above fixes and distinguish standard compiler output from runtime-mutated bytecode.
 
-These items are findings of this review. No decompiler behavior was changed while measuring them.
+The measurements and counterexample above describe the pre-fix baseline. Implementation validation so far: 56 lifter tests, 131 Python tests, and six executed wasm32 reader cases pass. Optimization and its acceptance measurements follow separately.

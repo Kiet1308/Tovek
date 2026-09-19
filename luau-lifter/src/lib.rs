@@ -420,6 +420,7 @@ fn try_decompile_bytecode_internal(
         Bytecode::Chunk(chunk) => {
             validate_prototype_graph(&chunk.functions, chunk.main)
                 .map_err(DecompileFailure::message)?;
+            validate_source_opcodes(&chunk.functions).map_err(DecompileFailure::message)?;
             if std::env::var_os("MEDAL_DUMP_TYPES").is_some() {
                 debug_dump_types(&chunk);
             }
@@ -974,6 +975,24 @@ fn try_decompile_bytecode_internal(
             })
         }
     }
+}
+
+fn validate_source_opcodes(functions: &[deserializer::function::Function]) -> Result<(), String> {
+    for (prototype, function) in functions.iter().enumerate() {
+        for (pc, instruction) in function.instructions.iter().enumerate() {
+            if matches!(instruction, crate::instruction::Instruction::AD {
+                op_code: crate::op_code::OpCode::LOP_CMPPROTO, ..
+            }) {
+                // Runtime prototype identity cannot be reconstructed as a
+                // truthiness test. Reject before lifting, even in permissive
+                // mode, instead of silently changing which branch executes.
+                return Err(format!(
+                    "unsupported runtime opcode CMPPROTO at prototype {prototype}, pc {pc}: runtime prototype identity has no faithful source predicate"
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn validate_prototype_graph(
@@ -1868,8 +1887,7 @@ mod option_tests {
 mod v11_fixtures {
     //! Hand-crafted Luau v11 bytecode fixtures.
     //!
-    //! Roblox ships v9 and the open-source compiler targets v7, so no real v10/v11
-    //! blob exists to test against. These build minimal-but-valid v11 chunks by hand
+    //! These build minimal serialized chunks by hand
     //! to exercise: the per-proto feedback-vector read, the new aux-bearing opcodes
     //! (GETUDATAKS/SETUDATAKS/NAMECALLUDATA/NEWCLASSMEMBER/CALLFB) and the AD-form
     //! CMPPROTO. `encode_key = 1` makes the per-opcode `wrapping_mul` descramble an
@@ -2000,6 +2018,7 @@ mod v11_fixtures {
         function_name: usize,
         /// v11 feedback slots: (slot_type, pc). slot_type 0 == LFT_CALLTARGET.
         feedback: Vec<(u8, u64)>,
+        cost: u64,
     }
 
     fn build_proto(p: &Proto, version: u8) -> Vec<u8> {
@@ -2034,7 +2053,7 @@ mod v11_fixtures {
             }
         }
         if version >= 12 && p.flags & 8 != 0 {
-            out.extend(leb128(0)); // inlinable cost
+            out.extend(leb128(p.cost));
         }
         out
     }
@@ -2055,6 +2074,9 @@ mod v11_fixtures {
         for s in strings {
             out.extend(leb128(s.len() as u64));
             out.extend(s.as_bytes());
+        }
+        if types_version == 3 {
+            out.push(0); // empty userdata type remapping table
         }
         out.extend(leb128(protos.len() as u64));
         for p in protos {
@@ -2452,23 +2474,55 @@ mod v11_fixtures {
     }
 
     #[test]
-    fn v11_cmpproto_lowers_to_fallthrough_without_panic() {
-        // LOADN r0,1; CMPPROTO r0 (guard, ignored); return — must not panic.
-        let proto = Proto {
-            max_stack: 1,
-            words: vec![
-                ad(LOADN, 0, 1),
-                ad(CMPPROTO, 0, 0),
-                0, // aux: proto id
-                abc(RETURN, 0, 1, 0),
-            ],
-            ..Default::default()
-        };
-        let blob = build_chunk(11, 1, &[], &[proto], 0);
-        let out = decompile(&blob, 1, None).expect("CMPPROTO chunk must deserialize+lift");
-        // No assertion on content — CMPPROTO has no source form; it must simply
-        // lower to a fall-through and not panic / not desync.
-        let _ = out;
+    fn cmpproto_refuses_inaccurate_source_in_all_modes() {
+        // VM-backed counterexample: nil is not a Luau closure, so the real
+        // guard jumps to 222. The former truthiness lowering emitted 111.
+        for version in [11, 12, 13] {
+            for value in [abc(2, 0, 0, 0), abc(3, 0, 0, 0), ad(LOADN, 0, 1)] {
+                for offset in [0, 1, 3] {
+                    let proto = Proto {
+                        max_stack: 2,
+                        words: vec![value, ad(CMPPROTO, 0, offset), 0,
+                            ad(LOADN, 1, 111), ad(23, 0, 1),
+                            ad(LOADN, 1, 222), abc(RETURN, 1, 2, 0)],
+                        ..Default::default()
+                    };
+                    let blob = build_chunk(version, 3, &[], &[proto], 0);
+                    for allow_dispatcher in [false, true] {
+                        let error = super::try_decompile_bytecode_with_options(
+                            &blob, 1, None, super::DecompileOptions {
+                                control_flow_policy: if allow_dispatcher {
+                                    super::ControlFlowOutputPolicy::AllowCertifiedDispatcher
+                                } else {
+                                    super::ControlFlowOutputPolicy::StrictNoSyntheticControl
+                                },
+                                ..Default::default()
+                            },
+                        ).unwrap_err();
+                        assert!(error.contains("unsupported runtime opcode CMPPROTO"), "{error}");
+                        assert!(error.contains("prototype 0, pc 1"), "{error}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn v12_wide_cost_preserves_next_prototype() {
+        for cost in [0, 127, 128, 1u64 << 32, 1u64 << 63, u64::MAX] {
+            let proto = Proto {
+                max_stack: 1, flags: 8, cost,
+                words: vec![abc(RETURN, 0, 1, 0)],
+                ..Default::default()
+            };
+            let main = Proto {
+                max_stack: 1,
+                words: vec![ad(LOADN, 0, 43), abc(RETURN, 0, 2, 0)],
+                ..Default::default()
+            };
+            let blob = build_chunk(12, 3, &[], &[proto, main], 1);
+            assert_eq!(decompile(&blob, 1, None).unwrap().trim(), "return 43");
+        }
     }
 
     #[test]

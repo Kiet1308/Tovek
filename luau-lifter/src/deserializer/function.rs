@@ -2,7 +2,7 @@ use nom::{
     IResult,
     number::complete::{le_u8, le_u32},
 };
-use nom_leb128::leb128_usize;
+use nom_leb128::{leb128_u64, leb128_usize};
 
 use super::{
     constant::Constant,
@@ -360,7 +360,9 @@ impl Function {
         // v12+ stores a cost-model varint for inlinable prototypes. It has no
         // source-level meaning, but must be consumed before the next prototype.
         let input = if version >= 12 && flags & LPF_INLINABLE != 0 {
-            let (input, _) = leb128_usize(input)?;
+            // Upstream readVarInt64: metadata width is independent of the host
+            // pointer width (in particular the wasm32 worker).
+            let (input, _) = leb128_u64(input)?;
             input
         } else {
             input

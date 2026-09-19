@@ -53,11 +53,18 @@ def observation(command, **kwargs):
             "seconds": elapsed}
 
 
+def compiler_flags(args):
+    if getattr(args, "bytecode_version", 9) == 12:
+        return ["--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true", "-t1"]
+    return ["--fflags=false"]
+
+
 def compile_source(args, path, opt, debug):
     raw, _ = checked([args.compiler, "--binary", f"-O{opt}", f"-g{debug}",
-                      "--fflags=false", path], timeout=args.timeout)
-    if not raw or raw[0] != 9:
-        raise RuntimeError("expected nonempty bytecode v9 from the pinned compiler")
+                      *compiler_flags(args), path], timeout=args.timeout)
+    version = getattr(args, "bytecode_version", 9)
+    if not raw or raw[0] != version:
+        raise RuntimeError(f"expected nonempty bytecode v{version} from the pinned compiler")
     return raw
 
 
@@ -118,7 +125,8 @@ def check_case(args, case, root, work, opt, debug):
                 # do not depend on require's separate module compiler settings.
                 subject = (directory / f"{variant}.luau").read_text(encoding="utf-8")
                 prefix = "local f = (function()\n" + subject + "\nend)()\n"
-                runtime_command = [args.luau, f"-O{opt}", f"-g{debug}", "--fflags=false", runner]
+                runtime_command = [args.luau, f"-O{opt}", f"-g{debug}",
+                                   compiler_flags(args)[0], runner]
                 row["runtime_compilation"] = "inline_body_at_matrix_profile"
             else:
                 prefix = f'local f = require("./{variant}")\n'
@@ -168,6 +176,8 @@ def main():
     parser.add_argument("--report", required=True, type=pathlib.Path)
     parser.add_argument("--keep", type=pathlib.Path, help="parent for a fresh work directory (never deleted)")
     parser.add_argument("--timeout", type=float, default=30)
+    parser.add_argument("--bytecode-version", type=int, choices=(9, 12), default=9,
+                        help="v12 enables cost metadata, CALLFB and type info; checks input/output headers")
     parser.add_argument("--determinism", action="store_true")
     parser.add_argument("--lifter-arg", action="append", default=[], help="extra CLI flag, e.g. --lifter-arg=--synthesize-arithmetic-loops")
     parser.add_argument("--ast", type=pathlib.Path, help="pinned luau-ast executable for binding-aware metrics")
@@ -187,7 +197,8 @@ def main():
               "compiler_commit_expected": manifest["compiler_commit"],
               "tools": {name: {"path": str(getattr(args, name)), "sha256": sha256(getattr(args, name))}
                         for name in ("compiler", "luau", "lifter")},
-              "compiler_flags": ["--binary", "--fflags=false"], "lifter_args": args.lifter_arg,
+              "compiler_flags": ["--binary", *compiler_flags(args)],
+              "bytecode_version": args.bytecode_version, "lifter_args": args.lifter_arg,
               "work": str(work), "split": manifest["split"], "cases": [], "controls": []}
     if args.ast:
         report["tools"]["ast"] = {"path": str(args.ast), "sha256": sha256(args.ast)}
