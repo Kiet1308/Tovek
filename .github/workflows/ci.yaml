@@ -91,6 +91,15 @@ jobs:
           cmake -S "$RUNNER_TEMP/luau" -B "$RUNNER_TEMP/luau-build" -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/luau-build" --target Luau.Compile.CLI Luau.Repl.CLI Luau.Ast.CLI --parallel 2
 
+      - name: Check isolated benchmark VM (offline)
+        run: |
+          cmake -S scripts/benchmark_vm -B "$RUNNER_TEMP/benchmark-vm" \
+            -DCMAKE_BUILD_TYPE=Release -DLUAU_SOURCE_DIR="$RUNNER_TEMP/luau"
+          cmake --build "$RUNNER_TEMP/benchmark-vm" --target benchmark-vm --parallel 2
+          python3 scripts/check_benchmark_vm.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --vm "$RUNNER_TEMP/benchmark-vm/benchmark-vm"
+
       - name: Run residual-control fixtures in strict modes
         run: |
           set -euo pipefail

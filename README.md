@@ -242,6 +242,58 @@ Prebuilt binaries are attached to each [release](https://github.com/Kiet1308/Tov
 
 ---
 
+## Reproducible decompiler benchmark
+
+`scripts/decompiler_benchmark.py` compares local CLI binaries and the optional
+[lua.expert API](https://lua.expert/docs) using identical compiler-produced bytes.
+It separates bytecode support, recompilation, tested runtime behavior, source
+structure and latency. There is no AI judge or combined winner score.
+
+Build the compiler, AST parser and isolated VM from Luau commit
+`c2ec0d4e5ca50796ba174a7565298f59aa572268`:
+
+```sh
+cmake -S /path/to/luau -B out/luau-build -DCMAKE_BUILD_TYPE=Release
+cmake --build out/luau-build --target Luau.Compile.CLI Luau.Ast.CLI --parallel 4
+cmake -S scripts/benchmark_vm -B out/benchmark-vm -DCMAKE_BUILD_TYPE=Release -DLUAU_SOURCE_DIR=/path/to/luau
+cmake --build out/benchmark-vm --target benchmark-vm --parallel 4
+```
+
+Stage the licensed public repositories using `public_source_roundtrip.py
+--checkout` (see its `--help`). Then run the stages below, substituting tool paths
+and adding `.exe` on Windows as needed:
+
+```sh
+python scripts/decompiler_benchmark.py prepare --out out/comparison --vendor out/vendor --compiler out/luau-build/luau-compile --ast out/luau-build/luau-ast --vm out/benchmark-vm/benchmark-vm
+python scripts/decompiler_benchmark.py collect --out out/comparison --native tovek-v2=target/release/luau-lifter --native beta-v09=/path/to/beta-v0.9 --online
+python scripts/decompiler_benchmark.py evaluate --out out/comparison
+python scripts/decompiler_benchmark.py timing --out out/comparison --native tovek-v2=target/release/luau-lifter --native beta-v09=/path/to/beta-v0.9 --online
+python scripts/decompiler_benchmark.py report --out out/comparison
+```
+
+Open `out/comparison/index.html` to inspect every outcome and compare untouched
+outputs against the original source. The frozen plan, binary hashes, HTTP
+receipts and raw timing attempts remain beside the report. Collection resumes
+from verified responses; use a new directory for a new provider snapshot.
+
+Only `collect --online` and `timing --online` contact lua.expert, at 120 requests
+per minute by default. They upload the benchmark's owned fixtures, generated
+programs and pinned public sources; private dumps are not part of this corpus.
+CI runs offline controls only. Reports and collected outputs stay under ignored
+`out/`; no model downloads or AI features are enabled.
+
+The default plan covers 41 development regressions, all 171 selected public
+files and 24 fresh generated seeds with alpha-renamed variants, across v9/v12
+and optimization/debug profiles. Six capability probes are excluded from quality
+scores. Existing fixtures and generator grammar have Tovek development exposure;
+fresh seeds are not an independent language-family holdout. Public Roblox modules
+receive syntax/structural checks, not full experience execution. Runtime checks
+prove only the supplied observations. Profile variants are clustered by original
+program/seed for paired uncertainty estimates. API latency includes the network;
+CLI latency includes process startup, so their ratio is not engine throughput.
+
+---
+
 ## Community
 
 Questions, bug reports, or want to follow development? **[Join the Tovek Discord](https://discord.gg/phY6VUDSF7).**
