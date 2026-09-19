@@ -1,8 +1,14 @@
 # Bytecode v12 readiness and performance review
 
-Reviewed 2026-09-19 against source `c8eb88995e3c4619d37526198f5a65e6e5bc413e` and the unchanged F8 native executable. This is an audit, not a claim that the findings below have been fixed.
+Originally reviewed 2026-09-19 against source `c8eb88995e3c4619d37526198f5a65e6e5bc413e` and the unchanged F8 executable. The historical measurements and counterexample below are retained; all five follow-ups are now implemented and validated.
 
-## Result
+## Current result
+
+The large v12 sample now takes **1.018 s**, versus **15.296 s** for the old executable in a fresh five-round interleaved benchmark: **15.03× faster**, with identical output bytes. The old three-round result of 18.182 s below belongs to the earlier measurement session. All 3,978 private corpus outputs and 513 public profiles also remain byte-identical. v12 runtime validation passes 246/246 profiles and 9/9 controls.
+
+CMPPROTO is rejected before emitting source; it is not claimed to be reconstructed. Cost metadata uses a u64 reader verified on native x64 and executed wasm32. The independent Python reader accepts bounded v12 bodies. See [implementation, measurements and remaining limits](v12_optimization_validation.md).
+
+## Original audit result
 
 The native x64 decompiler handles the v12 serialization used by the complete user samples and the tested compiler-generated fixtures. It is **not correct for every accepted opcode**: a runtime `CMPPROTO` guard has a reproduced semantic mismatch. A separate portability issue affects large cost-model varints on 32-bit targets, and the independent Python comparison tooling still rejects v12 directly.
 
@@ -73,7 +79,7 @@ The v12 definition adds per-prototype serialized size and an inlinable-prototype
 
 The two complete user samples decompile and recompile successfully. The incomplete sample remains blocked by missing input bytes, not by a demonstrated v12 incompatibility.
 
-## Open findings
+## Findings at the audit baseline
 
 ### 1. CMPPROTO guard semantics are wrong — confirmed runtime mismatch
 
@@ -107,12 +113,12 @@ The upstream loader reads cost with `readVarInt64`; `Function::parse` currently 
 
 README still advertises bytecode coverage through v11, while the Rust reader accepts through v13. Documentation needs to distinguish implemented serialization support from semantic coverage and known runtime-only opcode limitations. The out-of-SSA performance regression on this sample also remains unresolved.
 
-## Follow-up work (implementation in progress)
+## Follow-up work (completed)
 
 - [x] Reject CMPPROTO before lifting with prototype/PC diagnostics in both strict and permissive modes; remove the inaccurate lowering. The VM-backed nil counterexample, false/number variants and D=0/1/3 guards are regression cases across v11/v12/v13.
 - [x] Read v12 cost metadata as u64. Native tests preserve next-prototype alignment through `u64::MAX`; `scripts/check_v12_wasm.py` compiles the production reader modules to wasm32 and executes all six wide-cost cases in Node (pointer width verified as 32).
 - [x] Extend the independent Python reader for v12 bounded bodies, explicit u64 cost, extensions and trailers. Regressions cover both decode keys, feedback/AUX alignment, previous versions and malformed boundaries. `scripts/roadmap_v2.py --bytecode-version 12` enables actual v12 compilation with feedback/type metadata and verifies both input and output versions.
-- [ ] Profile out-of-SSA subphases and optimize binding compatibility without removing its correctness constraints; repeat the exact-hash benchmark and semantic gates.
-- [ ] Update compatibility documentation after the above fixes and distinguish standard compiler output from runtime-mutated bytecode.
+- [x] Profile out-of-SSA subphases: copy coalescing in prototype 220 takes 15.313 s before the fix and 0.022 s after. Replace pairwise binding scans with invalidated-on-membership-change summaries, retaining identity exceptions and internally conflicting classes. Five benchmark rounds, full output equality gates and all 246 v12 runtime profiles pass.
+- [x] Update README compatibility coverage and explicitly distinguish v12 compiler output, targeted v13 serialization support and rejected runtime CMPPROTO guards.
 
-The measurements and counterexample above describe the pre-fix baseline. Implementation validation so far: 56 lifter tests, 131 Python tests, and six executed wasm32 reader cases pass. Optimization and its acceptance measurements follow separately.
+The original measurements and counterexample above describe the pre-fix baseline. Final evidence is recorded in [the validation report](v12_optimization_validation.md) and [the machine-readable acceptance record](roadmap_v2_acceptance/v12_optimization.json). Private inputs, outputs and raw profiling remain local.

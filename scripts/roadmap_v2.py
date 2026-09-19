@@ -119,14 +119,22 @@ def check_case(args, case, root, work, opt, debug):
         row["runtime"] = {}
         for variant in ("source", "output"):
             runner = directory / f"{variant}_runner.luau"
-            runtime_command = [args.luau, runner]
+            # CALLFB emission and VM execution have separate feature flags in
+            # the pinned upstream build. Disabling the VM half leaves NAMECALL
+            # looking at the AUX word as an opcode and can crash the reference.
+            runtime_flags = compiler_flags(args)[0]
+            if getattr(args, "bytecode_version", 9) == 12:
+                runtime_flags += ",LuauCallFeedback=true"
+            runtime_command = ([args.luau, runtime_flags, runner]
+                               if getattr(args, "bytecode_version", 9) == 12
+                               else [args.luau, runner])
             if case.get("runtime_compile_inline"):
                 # Compile this subject body under the actual matrix profile;
                 # do not depend on require's separate module compiler settings.
                 subject = (directory / f"{variant}.luau").read_text(encoding="utf-8")
                 prefix = "local f = (function()\n" + subject + "\nend)()\n"
                 runtime_command = [args.luau, f"-O{opt}", f"-g{debug}",
-                                   compiler_flags(args)[0], runner]
+                                   runtime_flags, runner]
                 row["runtime_compilation"] = "inline_body_at_matrix_profile"
             else:
                 prefix = f'local f = require("./{variant}")\n'

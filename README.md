@@ -61,16 +61,23 @@ A few of the things Tovek does that upstream medal does not:
   function-heavy returned tables recover a named module shape. Oversized truthy-selection
   chains return to `if`/`elseif`, while long left-associated concatenations become a named
   accumulator with `..=` updates instead of a parenthesized one-line wall.
-- **Modern bytecode coverage.** Reads every Luau bytecode version up to **v11** — including
-  the v10/v11 format extensions (the per-proto feedback vector and the `CALLFB` / `CMPPROTO` /
-  class-member opcodes) on top of the **v9** Roblox ships today, plus the previously-missing
-  userdata opcodes. (medal stops at version 6 and can't read Roblox at all.)
+- **Modern bytecode coverage.** Reads Luau serialization **v4–v13**, including v12
+  size-delimited prototypes, 64-bit cost metadata, call feedback and `CALLFB`.
+  v12 is covered by 246 compiler/runtime profiles, malformed-input checks and executed
+  wasm32 reader tests. v13 double-vector serialization has targeted coverage; v14 is
+  unsupported. Runtime-mutated `CMPPROTO` guards are explicitly rejected because their
+  prototype-identity predicate cannot be faithfully reconstructed in source. See the
+  [v12 validation and limits](docs/v12_optimization_validation.md).
 - **Validated output.** The full regression corpus (262/262 files) re-parses cleanly under
   Luau's own front end (`luau-analyze`), so readability gains never come at the cost of
   producing source that won't parse.
 
 ### Substantially faster
 
+- **15× faster on the large v12 regression sample:** 15.296 s → 1.018 s median of
+  five interleaved runs, with byte-identical output. Cached binding summaries remove
+  the out-of-SSA cross-product scan while retaining source-binding constraints.
+  This is a measured sample result, not a speedup claim for every script.
 - **~2× faster** on a single file, and up to **32× faster** across a corpus (some files 80×+).
 - **mimalloc** global allocator — the decompiler is allocation-bound, and per-thread
   free-lists replace the slow system allocator.
@@ -100,7 +107,7 @@ lua.expert, Tovek) and read the output side by side. The
 [landing page](https://kiet1308.github.io/Tovek/#duel) lets you flip between them on each
 example; every panel is real, unedited output.
 
-A note on medal: it **can't read Roblox's current v9 bytecode at all** (it stops at version 6),
+A note on medal: it **can't read the v9 bytecode used in this comparison** (it stops at version 6),
 so its column is the same source compiled with standard Luau (`-O2 -g1`) and decompiled — its
 raw style is unchanged. lua.expert and Tovek both read the real v9 bytecode directly.
 

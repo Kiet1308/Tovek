@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
+use std::{cell::{OnceCell, RefCell}, collections::BTreeMap, ops::Deref, rc::Rc};
 
 use ast::{LocalRw, RcLocal};
 use indexmap::IndexMap;
@@ -18,7 +18,9 @@ use crate::{
 };
 
 mod liveness;
+mod bindings;
 
+use bindings::BindingSummary;
 use self::liveness::{LiveSets, Liveness};
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
@@ -33,7 +35,66 @@ enum RedOrBlue {
     Blue,
 }
 
-type CongruenceClass = BTreeMap<(usize, ParamOrStatIndex), RcLocal>;
+#[derive(Default)]
+struct CongruenceClass {
+    members: BTreeMap<(usize, ParamOrStatIndex), RcLocal>,
+    bindings: OnceCell<BindingSummary>,
+}
+
+impl CongruenceClass {
+    fn insert(&mut self, key: (usize, ParamOrStatIndex), local: RcLocal) {
+        self.bindings.take();
+        self.members.insert(key, local);
+    }
+
+    fn extend(&mut self, other: Self) {
+        self.bindings.take();
+        self.members.extend(other.members);
+    }
+
+    fn bindings(&self) -> &BindingSummary {
+        self.bindings.get_or_init(|| BindingSummary::from_locals(self.members.values()))
+    }
+}
+
+impl Deref for CongruenceClass {
+    type Target = BTreeMap<(usize, ParamOrStatIndex), RcLocal>;
+    fn deref(&self) -> &Self::Target { &self.members }
+}
+
+impl PartialEq for CongruenceClass {
+    fn eq(&self, other: &Self) -> bool { self.members == other.members }
+}
+impl Eq for CongruenceClass {}
+
+#[cfg(test)]
+mod class_cache_tests {
+    use super::*;
+
+    #[test]
+    fn membership_changes_invalidate_binding_summary() {
+        let parameter = RcLocal::default();
+        parameter.0.lock().4.parameter = true;
+        let separate = RcLocal::default();
+        separate.0.lock().4.separate_from_parameter = true;
+        let neutral = RcLocal::default();
+        let key = (0, ParamOrStatIndex::Stat(0));
+        let mut class = CongruenceClass::default();
+        class.insert(key, parameter.clone());
+        assert!(class.bindings().compatible(class.bindings()));
+        // A replacement can change constraints without changing class length.
+        class.insert(key, separate.clone());
+        assert!(!class.bindings().compatible(&BindingSummary::from_locals([&parameter].into_iter())));
+        class.insert(key, neutral);
+        assert!(class.bindings().compatible(&BindingSummary::from_locals([&parameter].into_iter())));
+        let mut other = CongruenceClass::default();
+        other.insert((1, ParamOrStatIndex::Stat(0)), separate);
+        class.extend(other);
+        assert!(!class.bindings().compatible(&BindingSummary::from_locals([&parameter].into_iter())));
+        class.insert((2, ParamOrStatIndex::Stat(0)), parameter);
+        assert!(!class.bindings().compatible(class.bindings()));
+    }
+}
 
 // Benoit Boissinot, Alain Darte, Fabrice Rastello, Benoît Dupont de Dinechin, Christophe Guillon.
 // Revisiting Out-of-SSA Translation for Correctness, Code Quality, and Efficiency. [Research Report]
@@ -88,26 +149,41 @@ impl<'a> Destructor<'a> {
     }
 
     pub fn destruct(mut self) {
+        let phase = ast::telemetry::Span::new("SSA_LIFT_PARAMS");
         self.lift_params();
         self.sort_params();
+        drop(phase);
 
+        let phase = ast::telemetry::Span::new("SSA_LIVENESS");
         self.liveness = Liveness::calculate(self.function);
+        drop(phase);
         // this is for debugging :)
         //self.add_liveness_comments();
         //crate::dot::render_to(self.function, &mut std::io::stdout()).unwrap();
 
+        let phase = ast::telemetry::Span::new("SSA_DEF_USE");
         self.build_def_use();
+        drop(phase);
 
+        let phase = ast::telemetry::Span::new("SSA_VALUE_INTERFERENCE");
         self.compute_value_interference();
+        drop(phase);
 
+        let phase = ast::telemetry::Span::new("SSA_COALESCE_MANDATORY");
         self.coalesce_upvalues();
         self.coalesce_params();
+        drop(phase);
+        let phase = ast::telemetry::Span::new("SSA_COALESCE_COPIES");
         self.coalesce_copies();
+        drop(phase);
 
+        let phase = ast::telemetry::Span::new("SSA_APPLY_LOCAL_MAP");
         super::construct::apply_local_map(self.function, self.build_local_map());
+        drop(phase);
 
         //crate::dot::render_to(self.function, &mut std::io::stdout()).unwrap();
 
+        let _phase = ast::telemetry::Span::new("SSA_SEQUENTIALIZE");
         self.sequentialize();
     }
 
@@ -419,7 +495,7 @@ impl<'a> Destructor<'a> {
         self.congruence_classes
             .entry(local.clone())
             .or_insert_with(|| {
-                let mut congruence_class = BTreeMap::default();
+                let mut congruence_class = CongruenceClass::default();
                 let (dominator_index, _, stat_index) = self.local_defs[&local];
                 congruence_class.insert((dominator_index, stat_index), local);
                 Rc::new(RefCell::new(congruence_class))
@@ -520,8 +596,11 @@ impl<'a> Destructor<'a> {
         let left_con_class = self.get_congruence_class(left).clone();
         let right_con_class = self.get_congruence_class(right).clone();
 
-        if left_con_class.borrow().values().any(|left|
-            right_con_class.borrow().values().any(|right| !left.source_bindings_compatible(right))) {
+        // Exact equivalent of the former pairwise cross-product, including
+        // internally conflicting mandatory classes. Never accept a same-class
+        // copy before checking these constraints. Cache invalidates on every
+        // membership change; source metadata stays immutable during coalescing.
+        if !left_con_class.borrow().bindings().compatible(right_con_class.borrow().bindings()) {
             return false;
         }
 
