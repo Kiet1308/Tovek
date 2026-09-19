@@ -1,17 +1,19 @@
 # Tiến độ sửa output V2
 
-Goal đang chạy: hoàn thành [ROADMAP_V2_FIX.md](ROADMAP_V2_FIX.md), kiểm chứng từng phần và đồng bộ output/HTML khi nghiệm thu. Theo yêu cầu người dùng, commit và push từng phần đã kiểm tra lên `roadmap-v2`. R9 dừng, AI tắt mặc định; model và corpus/output private không được đưa vào commit.
+**Đã hoàn thành F1–F8 ngày 19/09/2026:** [ROADMAP_V2_FIX.md](ROADMAP_V2_FIX.md) đã tick đủ, kiểm chứng từng phần và đồng bộ output/HTML với executable cuối. Theo yêu cầu người dùng, commit và push từng phần đã kiểm tra lên `roadmap-v2`. R9 dừng, AI tắt mặc định; model và corpus/output private không được đưa vào commit.
 
 | Mục | Trạng thái |
 |---|---|
 | F1 import → field và output polish | Xong; commit `c08a908`, đã push |
-| F8 nền kiểm tra chất lượng | Đã triển khai và nghiệm thu, commit `f1059d9` đã push; gate cuối roadmap vẫn còn |
-| F2 biểu thức toán/đối số | Xong phạm vi sửa và nghiệm thu đủ năm nhóm; proof hẹp, snapshot chưa đủ proof vẫn giữ với tên rõ hơn khi có ngữ cảnh |
-| F3 helper điều kiện | Xong và đã nghiệm thu; return cuối nhánh, chuỗi scalar ngắn, giữ arity và binding được bảo vệ |
+| F8 nền và bàn giao cuối | Xong; nền `f1059d9`, gate cuối 246 runtime/513 public/3.978 private qua; folder V2, HTML và 25 trang đồng bộ; beta giữ nguyên |
+| F2 biểu thức toán/đối số | Xong phạm vi sửa; bước cuối `a2048e5` đã push, nghiệm thu đủ năm nhóm; proof hẹp, snapshot chưa đủ proof vẫn giữ với tên rõ hơn khi có ngữ cảnh |
+| F3 helper điều kiện | Xong; `401c393` đã push và nghiệm thu; return cuối nhánh, chuỗi scalar ngắn, giữ arity và binding được bảo vệ |
 | F4 constructor trước capture | Xong, commit `e1f1131` đã push; gom init trước lần quan sát đầu tiên |
 | F5 tên suy luận | Xong; commit `b66a186` đã push, giữ role/confidence, tên đa kiểu và số lần lặp chuỗi |
 | F6 helper/scope/pass cuối | Xong, commit `65dc97f` đã push; placement có proof trong constructor đang trộn callback inline và helper riêng |
 | F7 annotation/discard | Xong, commit `f5fb317` đã push; bounded discard effects, kiểm compact/fallback/mapping đầy đủ |
+
+Các mục dưới ghi lại từng lần nghiệm thu. Những câu “còn mở/chưa đồng bộ” mô tả thời điểm của mục đó; trạng thái cuối nằm ở bảng trên và mục **F8 bàn giao** cuối tài liệu.
 
 ## F8 nền — 12/09/2026
 
@@ -124,3 +126,28 @@ Public có **2 output đổi**, đều prettyPrint: O1 **0,5933 → 0,5979**, O2
 Nghiệm thu: **761 AST tests**, **1.050 workspace tests chính + 1 test con**, **240 runtime hiện có + 6 completed-snapshot profiles**, **513 public** qua. Fixture mới có **153 tình huống/profile**; ba g1 đổi output, ba g2 giữ hash nguồn. Kiểm recursion, reassign/setter, capture trước init, conditional init, identity/cell trong loop, length/metamethod/error, callback và tuple. Lineage/emission/capture, source spans và deterministic thread 1/4 qua, không token local chưa giải thích được; symbolic dataflow vẫn unknown. Manifest mặc định lên **246 profiles**. [Bằng chứng và hash VM contract](roadmap_v2_acceptance/fix_completed_snapshots.json).
 
 Output F2 cuối: `out/v2-fix-all/f2-final`, SHA `c78895cd804593dfcf35c7bd711af87bf1ea7a4730898a75b4262dcb822bfa77`. F1–F7 đã chốt; còn đồng bộ output/HTML và kiểm bàn giao F8.
+
+## F8 bàn giao — 19/09/2026
+
+Toàn bộ F1–F8 đã nghiệm thu. Code cuối là `a2048e529502e087aaab713da026e845bf2832d1`, executable SHA-256 `c78895cd804593dfcf35c7bd711af87bf1ea7a4730898a75b4262dcb822bfa77`. Bằng chứng cuối nằm trong `out/v2-fix-all/f8`; [bản nghiệm thu gọn](roadmap_v2_acceptance/fix_final_delivery.json) lưu hash source-state, report, executable, 25 trang đối chiếu và các lần nghiệm thu trước, không chứa private source/output.
+
+Đã cập nhật `D:/Medal/V2-vs-beta-v0.9-20260912/index.html`, `BAO_CAO.md`, folder `V2`, diff, CSV và 25 trang đọc song song. So lần bàn giao F1, **1.348 private, 29 public và 1 runtime output đổi**. Đã đọc lại 25 ví dụ ưu tiên: 14 đổi và 11 giữ hash; nhận xét theo output cuối, kể cả điểm còn kém. Mỗi folder beta/V2 có cùng **4.689 output**: 3.978 private, 513 public, 198 runtime chung. 48 runtime mới được kiểm riêng trong bộ 246, không thêm lệch vào một bên so sánh.
+
+| Chỉ số bản cuối | Beta | V2 |
+|---|---:|---:|
+| Private parse/compile | 3.975/3.978 | 3.978/3.978 |
+| Tổng dòng private | 493.350 | 508.870 |
+| Tổng byte private, LF | 12.951.033 | 13.622.799 |
+| Dòng dài trên 180 ký tự | 382 | 98 |
+| Binding p/v, cùng 3.975 file parse được | 54.058 | 36.826 |
+| Public raw ratio trung bình, 405 profile chung | 0,8265 | 0,8660 |
+| Public normalized ratio trung bình | 0,8260 | 0,8648 |
+| Runtime của 198 profile chung | 138 qua, 60 khác hành vi | 198 qua |
+
+Private có 3.047 file đổi và 931 giữ hash so beta. Public raw ratio: **217 tăng / 59 giảm / 129 bằng**; normalized: **215 tăng / 61 giảm / 129 bằng**; **108 profile alignment unknown** vẫn được giữ trong report. Không dùng điểm trung bình để che các ca giảm. F2 cải thiện độ gọn còn nhỏ; Geometry/prettyPrint vẫn dài hơn beta vì còn snapshot lookup/metamethod chưa đủ proof. Tên suy luận rõ hơn không được xem là khôi phục đúng tên tác giả.
+
+Gate cuối chạy toàn bộ **246/246 runtime** bằng executable cuối; **513/513 public** và **3.978/3.978 private** parse/compile qua, có tái sử dụng artifact đã nghiệm thu khi hash trùng. Lineage/emission/capture và deterministic thread 1/4 qua; runtime compact mode giữ AST/span/full-text mapping. Test source gần nhất: **761 AST** trong **1.050 test workspace chính + 1 test con**; **126 Python tests** ở F7, source Python giữ nguyên sau đó. Corpus vẫn **0 relay require→field** đã nhận diện. Đây là kiểm thử hữu hạn, không phải chạy toàn bộ private game trong Roblox.
+
+Bàn giao đã xác minh **9.378 output**, hash 171 source public, 166 link HTML tĩnh và 12.558 link động. Browser kiểm filter đường dẫn Unicode, sort, phân trang, 25 trang source comparison; không lỗi JavaScript. Beta executable và toàn bộ inventory giữ nguyên, digest inventory `fe7c6061350aa867293d408fd4dd7f3d1dbfc17589ffd08e838a1fe8fc974ec8`. Snapshot thống kê lần bàn giao trước lấy đúng từ backup F1, tránh dùng dictionary đã bị refresh thay đổi.
+
+Output chính vẫn dùng diagnostic đầy đủ; lợi ích 39.064 byte của compact mode thuộc phép đo opt-in F7, không cộng vào bản mặc định. R9 tiếp tục dừng, AI tắt mặc định, không tải model và không đưa model/private source/output lên GitHub. R7 performance vẫn để sau theo yêu cầu.

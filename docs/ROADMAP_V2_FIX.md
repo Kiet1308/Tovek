@@ -1,6 +1,6 @@
 # Roadmap sửa chất lượng output V2
 
-Ngày chốt bằng chứng nghiên cứu: **12/09/2026**. Trạng thái triển khai: **F1–F7 và F8 nền đã nghiệm thu; F8 bàn giao còn mở**. F2 có cải thiện trong đủ năm nhóm mục tiêu, gồm proof di chuyển và tên cho snapshot phải giữ; chưa khôi phục toàn bộ công thức gọn như beta. Checkbox và commit cập nhật ở mục 4. Đây là roadmap bổ sung cho [ROADMAP_V2.md](ROADMAP_V2.md), không thay trạng thái R1–R9 đã ghi trong [implementation record](roadmap_v2_implementation.md).
+Ngày chốt bằng chứng nghiên cứu: **12/09/2026**. Trạng thái triển khai: **F1–F8 đã hoàn thành và nghiệm thu ngày 19/09/2026; output V2/HTML đã đồng bộ**. F2 có cải thiện trong đủ năm nhóm mục tiêu, gồm proof di chuyển và tên cho snapshot phải giữ; chưa khôi phục toàn bộ công thức gọn như beta. Checkbox và commit cập nhật ở mục 4. Đây là roadmap bổ sung cho [ROADMAP_V2.md](ROADMAP_V2.md), không thay trạng thái R1–R9 đã ghi trong [implementation record](roadmap_v2_implementation.md).
 
 **Kết luận:** V2 hiện cải thiện rõ tên biến, cây UI và nhiều ca bảo toàn hành vi, nhưng còn làm công thức toán và một số helper ngắn khó đọc hơn beta. Ví dụ `local styledTextLabel = require(...); v.StyledTextLabel = styledTextLabel` là vấn đề chung của cả hai bản, không phải lỗi riêng V2. Vấn đề này đã được sửa trong source V2 và xuất lại toàn bộ output. Những điểm lùi còn lại cần sửa theo từng loại biểu thức và bằng chứng thứ tự đánh giá; không thể an toàn bằng cách xóa mọi biến dùng một lần.
 
@@ -154,13 +154,13 @@ Chưa phát hiện lỗi runtime mới trong các phép thử đã chạy cho F1
 | Mục | Ưu tiên / trạng thái | Kết quả cần đạt | Điều kiện và độ khó |
 |---|---|---|---|
 | **F1 — import → field** | P0, **xong** | Gộp relay một lần tại vị trí an toàn, giữ import callee hữu ích | Đã chạy source/runtime/metadata/corpus; không cần AI |
-| **F2 — biểu thức toán và đối số** | P1, **xong phạm vi sửa** | Proof số/length/callee ổn định; đặt tên snapshot còn phải giữ ở đủ năm nhóm | Bước đầu `2add294`; bước cuối 26 private, 2 public đổi; [nghiệm thu và giới hạn](roadmap_v2_acceptance/fix_completed_snapshots.json) |
+| **F2 — biểu thức toán và đối số** | P1, **xong phạm vi sửa** | Proof số/length/callee ổn định; đặt tên snapshot còn phải giữ ở đủ năm nhóm | Bước đầu `2add294`; bước cuối `a2048e5` đã push, 26 private và 2 public đổi; [nghiệm thu và giới hạn](roadmap_v2_acceptance/fix_completed_snapshots.json) |
 | **F3 — helper điều kiện ngắn** | P1, **xong** | Ít binding phi/flag hơn, guard và return gọn trong chế độ statement | 754 test AST, 222+6 runtime, 513 public và metadata qua; 79 file private cải thiện, không tăng dòng dài |
 | **F4 — constructor trước capture** | P1, **xong** | Gom bảng component/export chỉ capture sau init khi chưa escape | Commit `e1f1131` đã push; 1.215 file private được gom field, runtime/metadata qua |
 | **F5 — chất lượng tên suy luận** | P1, **xong** | Hết plural sai và tên bị một nhánh sử dụng chi phối | Commit `b66a186` đã push; 744 test AST; 222 runtime, 513 public, metadata qua; 86 file private cải thiện tên, khôi phục `size` ở Write |
 | **F6 — scope/helper và pass cuối** | P2, **xong** | Helper dùng một lần vào constructor đã có callback inline; giữ danh sách helper riêng | Trace 11 stage; 4 public output đổi, private giữ nguyên; [nghiệm thu](roadmap_v2_acceptance/fix_helper_placement.json) |
 | **F7 — annotation/discard** | P2, **xong** | Kiểm compact mode sẵn có với đầy đủ metadata/fallback; bỏ 7 discard total-pure | 232 private annotation files, 240 runtime và 513 public qua; [nghiệm thu](roadmap_v2_acceptance/fix_annotation_discard.json) |
-| **F8 — gate chất lượng output** | **Nền đã xong**, gate bàn giao còn mở | Phát hiện lùi theo file/nhóm, giữ unknown và baseline bất biến | Commit `f1059d9` đã push; scanner tích hợp report, fixture mặc định hiện có 228 profiles |
+| **F8 — gate chất lượng output** | **Xong cả nền và bàn giao** | Phát hiện lùi theo file/nhóm, giữ unknown và baseline bất biến | Nền `f1059d9`; gate cuối 246 runtime, 513 public, 3.978 private qua; HTML/25 trang và 9.378 output kiểm hash; [nghiệm thu](roadmap_v2_acceptance/fix_final_delivery.json) |
 
 Trình tự đề xuất: **F1 đã hoàn thành → phần gate tối thiểu F8 → F2 → F3 → F4 → F5 → F6 → F7**, chạy F8 sau mỗi thay đổi. Ưu tiên output theo yêu cầu; R7 performance để sau. **R9 tiếp tục dừng; AI tắt mặc định; không tải model, không đưa output/private source lên GitHub.**
 
@@ -174,9 +174,11 @@ Checklist triển khai:
 - [x] **F5:** lưu độ tin cậy và loại vai trò xuyên các lần suy luận; sửa tên collection/polytype tổng quát; không còn `serializeds`/`deserializeds` do heuristic trong source benchmark hiện tại; bảo vệ tên nguồn và các ví dụ người dùng đã duyệt. [Bằng chứng](roadmap_v2_acceptance/fix_naming_roles.json).
 - [x] **F6:** trace 11 stage cho createSignal/prettyPrint/castToGraph; sửa đúng gate helper cùng tên và hai capture-read. Kiểm identity, recursion, capture, callback và tần suất tạo closure; không thêm cleanup lặp khi trace không cho thấy alias mới. 234 runtime, 513 public qua; không regression ratio đo được; private giữ nguyên. [Bằng chứng](roadmap_v2_acceptance/fix_helper_placement.json).
 - [x] **F7:** bounded effect summary cho discard; 7 private output cải thiện, public giữ nguyên. Đã kiểm compact mode, mapping/span/AST, metadata thiếu/hết budget và thread/cache; 531 marker suy luận vẫn được nhận diện sau thu gọn. 240 runtime qua. [Bằng chứng](roadmap_v2_acceptance/fix_annotation_discard.json).
-- [ ] **F8 bàn giao:** chạy gate cuối, đồng bộ folder V2/HTML và 25 trang đối chiếu với executable cuối; kiểm browser, hash và beta bất biến.
+- [x] **F8 bàn giao:** gate cuối qua; folder V2/HTML, diff và 25 trang đối chiếu đã đồng bộ với executable `c78895cd8045…` từ code `a2048e5`. Kiểm browser không lỗi JS, hash đủ 9.378 output, beta bất biến. [Bằng chứng bàn giao](roadmap_v2_acceptance/fix_final_delivery.json).
 
-**Cập nhật triển khai 19/09/2026:** F1–F7 đã nghiệm thu; F6 đã push `65dc97f`, F7 `f5fb317`; còn bàn giao F8. F2 được chốt bằng các proof hẹp và cách đặt tên cho snapshot giữ lại theo hướng đã nêu ở 2.2; mức cải thiện gọn code còn nhỏ, đặc biệt prettyPrint/Geometry vẫn dài hơn beta. Chi tiết từng bước và giới hạn tại [file tiến độ](roadmap_v2_fix_implementation.md); các số đo F1 trong phần nghiên cứu bên dưới là baseline lịch sử, không phải số đo bản đang phát triển.
+**Cập nhật triển khai 19/09/2026:** F1–F8 đã nghiệm thu và bàn giao; F6 đã push `65dc97f`, F7 `f5fb317`, F2 cuối `a2048e5`. F2 được chốt bằng các proof hẹp và cách đặt tên cho snapshot giữ lại theo hướng đã nêu ở 2.2; mức cải thiện gọn code còn nhỏ, đặc biệt prettyPrint/Geometry vẫn dài hơn beta. Chi tiết từng bước và giới hạn tại [file tiến độ](roadmap_v2_fix_implementation.md); các số đo F1 trong phần nghiên cứu bên dưới là baseline lịch sử, không phải số đo bản đang phát triển.
+
+**Bản bàn giao cuối:** private beta → V2 có 3.047 file đổi, 931 file giữ nguyên; binding `p/v` trên 3.975 file cùng parse giảm **54.058 → 36.826**, dòng dài giảm **382 → 98**. Tổng dòng vẫn tăng **493.350 → 508.870**. Public raw ratio trung bình tăng **0,8265 → 0,8660** (217 tăng, 59 giảm, 129 bằng; 108 unknown); normalized ratio tăng **0,8260 → 0,8648** (215 tăng, 61 giảm, 129 bằng). Đã chạy **246/246 runtime**, kiểm public **513/513** và hash **9.378 output**. Đây là số bản cuối, khác baseline F1 trong phần nghiên cứu. [Chi tiết và giới hạn](roadmap_v2_acceptance/fix_final_delivery.json).
 
 Không chốt mục tiêu kiểu “xóa 100% local dùng một lần” hoặc “AST phải đạt 1,0”. Mỗi đợt cần danh sách cụ thể các ca cải thiện, các ca không đổi vì an toàn và mọi ca giảm điểm; chỉ sửa nhận xét đánh giá khi đã xem output mới.
 
@@ -185,7 +187,7 @@ Không chốt mục tiêu kiểu “xóa 100% local dùng một lần” hoặc 
 | Gate | Điều kiện qua |
 |---|---|
 | Parser/compiler | 3.978/3.978 private và 513/513 public vẫn parse/recompile được với toolchain đã pin; output không đổi có thể tái dùng bằng hash |
-| Hành vi | 228 cấu hình chuẩn hiện có qua; mỗi proof mới có ca đối chứng mutation/metamethod/error/multret/capture phù hợp |
+| Hành vi | 246 cấu hình chuẩn hiện có qua; mỗi proof mới có ca đối chứng mutation/metamethod/error/multret/capture phù hợp |
 | F1 không tái phát | Corpus hiện tại vẫn 0 cặp relay đã nhận diện; fixture giữ được source binding, multi-use, nested receiver và mutable captured receiver |
 | Source/debug identity | Binding debug/source, arity và capture epoch không bị đổi chỉ để giảm số local; tên ghi nhận mạnh hơn heuristic |
 | Metadata | Source analysis/trace giống nhau; thread 1/4 deterministic; không thêm identifier occurrence không giải thích được; lineage của binding đã inline được theo dõi |
