@@ -20,7 +20,8 @@ fn primitive(value: &RValue, numbers: &FxHashSet<RcLocal>, remaining: &mut usize
             if primitive(&binary.left, numbers, remaining, depth + 1)? != Primitive::Number
                 || primitive(&binary.right, numbers, remaining, depth + 1)? != Primitive::Number { return None; }
             match binary.operation {
-                BinaryOperation::Add | BinaryOperation::Sub | BinaryOperation::Mul | BinaryOperation::Div => Some(Primitive::Number),
+                BinaryOperation::Add | BinaryOperation::Sub | BinaryOperation::Mul | BinaryOperation::Div
+                | BinaryOperation::IDiv | BinaryOperation::Mod | BinaryOperation::Pow => Some(Primitive::Number),
                 op if op.is_comparator() => Some(Primitive::Boolean),
                 _ => None,
             }
@@ -33,6 +34,15 @@ pub(crate) fn total(value: &RValue, numbers: &FxHashSet<RcLocal>) -> bool {
     primitive(value, numbers, &mut 1024, 0).is_some()
 }
 
+fn number_result(value: &RValue, numbers: &FxHashSet<RcLocal>) -> bool {
+    // Luau's LEN instruction either produces a number or raises; the VM checks
+    // the result of __len too (pinned lvmutils.cpp, luaV_dolen). The evaluation
+    // itself remains effectful. Only a completed single-write snapshot seeds
+    // this fact; it never grants motion/deletion permission to the LEN node.
+    matches!(value, RValue::Unary(unary) if unary.operation == UnaryOperation::Length)
+        || primitive(value, numbers, &mut 1024, 0) == Some(Primitive::Number)
+}
+
 pub(crate) fn collect(block: &Block, usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>) -> FxHashSet<RcLocal> {
     fn visit(block: &Block, usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>, numbers: &mut FxHashSet<RcLocal>) {
         for statement in &block.0 {
@@ -40,7 +50,7 @@ pub(crate) fn collect(block: &Block, usage: &FxHashMap<RcLocal, crate::inline_te
                 && assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1
                 && let LValue::Local(local) = &assign.left[0]
                 && usage.get(local).is_some_and(|u| u.writes == 1)
-                && primitive(&assign.right[0], numbers, &mut 1024, 0) == Some(Primitive::Number)
+                && number_result(&assign.right[0], numbers)
             { numbers.insert(local.clone()); }
             if let Statement::NumericFor(loop_) = statement
                 && usage.get(&loop_.counter).is_some_and(|u| u.writes == 1)

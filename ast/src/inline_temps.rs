@@ -98,6 +98,24 @@ fn collect_stable_declared_locals(
     usage: &FxHashMap<RcLocal, Usage>,
     stable: &mut FxHashSet<RcLocal>,
 ) {
+    // A recursive function has a nil predeclaration followed immediately by
+    // closure installation. There is no executed expression between the two
+    // writes, and constructing the closure does not run its body. With no
+    // further writes, every later read sees that installed function. Keep
+    // non-adjacent, conditional, loop-carried and reassigned cells unknown.
+    if !crate::simplify_gotos::function_tree_has_goto_or_label(block) {
+        for pair in block.0.windows(2) {
+            let (Statement::Assign(decl), Statement::Assign(init)) = (&pair[0], &pair[1]) else { continue; };
+            if !decl.prefix || decl.parallel || decl.left.len() != 1
+                || !(decl.right.is_empty() || matches!(decl.right.as_slice(), [RValue::Literal(crate::Literal::Nil)]))
+                || init.prefix || init.parallel || init.left.len() != 1
+                || !matches!(init.right.as_slice(), [RValue::Closure(_)]) { continue; }
+            let LValue::Local(local) = &decl.left[0] else { continue; };
+            if init.left[0].as_local() == Some(local) && usage.get(local).is_some_and(|u| u.writes == 2) {
+                stable.insert(local.clone());
+            }
+        }
+    }
     for statement in &block.0 {
         if let Statement::Assign(assign) = statement
             && assign.prefix
@@ -1337,6 +1355,64 @@ mod tests {
             let output = block.to_string();
             if mutate { assert_eq!(output, before); }
             else { assert!(!output.contains("local v9"), "{output}"); assert!(output.contains("consume(i + 1)"), "{output}"); }
+        }
+    }
+
+    #[test]
+    fn completed_length_snapshot_proves_arithmetic_but_keeps_length_effects() {
+        for operation in [BinaryOperation::Add, BinaryOperation::IDiv, BinaryOperation::Mod, BinaryOperation::Pow] {
+            for overwritten in [false, true] {
+                let count = local("count");
+                let temp = local("v9");
+                let length: RValue = crate::Unary::new(global("input"), crate::UnaryOperation::Length).into();
+                let mut block = Block(vec![declare(&count, length.clone())]);
+                if overwritten { block.0.push(assign(count.clone().into(), global("replacement"))); }
+                block.0.push(declare(&temp, Binary::new(local_value(&count), number(2.0), operation).into()));
+                block.0.push(Call::new(global("consume"), vec![local_value(&temp)]).into());
+                let facts = super::collect_motion_facts(&block);
+                assert!(!crate::numeric_facts::total(&length, &facts.numbers));
+                assert_eq!(facts.numbers.contains(&count), !overwritten);
+                let before = block.to_string();
+                assert_eq!(super::rebuild_ui_expression_trees(&mut block), !overwritten);
+                if overwritten { assert_eq!(before, block.to_string()); }
+                else { assert!(block.to_string().contains("local count = #input")); assert!(!block.to_string().contains("local v9")); }
+            }
+        }
+    }
+
+    #[test]
+    fn recursive_callee_snapshot_requires_adjacent_unconditional_final_installation() {
+        for barrier in 0..5 {
+            let helper = local("helper");
+            let temp = local("v9");
+            let function = Arc::new(Mutex::new(Function {
+                body: Block(vec![declare(&temp, local_value(&helper)),
+                    Call::new(global("consume"), vec![local_value(&temp)]).into()]),
+                ..Function::default()
+            }));
+            let closure = RValue::Closure(Closure {
+                node_origin: Default::default(), function: ByAddress(function.clone()), upvalues: vec![Upvalue::Ref(helper.clone())],
+            });
+            let mut declaration = Assign::new(vec![helper.clone().into()], vec![]); declaration.prefix = true;
+            let mut block = Block(vec![declaration.into()]);
+            if barrier == 1 { block.0.push(Call::new(global("observe"), vec![]).into()); }
+            let install = assign(helper.clone().into(), closure);
+            if barrier == 2 { block.0.push(If::new(global("enabled"), Block(vec![install]), Block::default()).into()); }
+            else { block.0.push(install); }
+            if barrier == 3 { block.0.push(assign(helper.clone().into(), global("replacement"))); }
+            if barrier == 4 {
+                block.0.push(declare(&local("setter"), RValue::Closure(Closure {
+                    node_origin: Default::default(), upvalues: vec![Upvalue::Ref(helper.clone())],
+                    function: ByAddress(Arc::new(Mutex::new(Function {
+                        body: Block(vec![assign(helper.clone().into(), global("replacement"))]), ..Function::default()
+                    }))),
+                })));
+            }
+            block.0.push(Return::new(vec![local_value(&helper)]).into());
+            let facts = super::collect_motion_facts(&block);
+            assert_eq!(facts.stable_captured.contains(&helper), barrier == 0);
+            super::rebuild_ui_expression_trees(&mut block);
+            assert_eq!(function.lock().body.to_string().contains("local v9"), barrier != 0);
         }
     }
 

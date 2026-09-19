@@ -159,6 +159,42 @@ fn local_id(value: &RValue) -> Option<u64> {
     value.as_local().map(RcLocal::stable_id)
 }
 
+/// Describe a retained arithmetic snapshot after motion has finished. These
+/// names describe syntax, not recovered source names or runtime numeric facts.
+/// Keep this deliberately small: generic `sum/product/value` labels obscure
+/// dependencies, while midpoint and half-of-a-named-quantity carry a role.
+fn arithmetic_snapshot_role(value: &RValue) -> Option<String> {
+    let RValue::Binary(binary) = value else { return None; };
+    if binary.operation != crate::BinaryOperation::Div
+        || !matches!(&*binary.right, RValue::Literal(Literal::Number(n)) if *n == 2.0) { return None; }
+    if let RValue::Binary(sum) = &*binary.left && sum.operation == crate::BinaryOperation::Add {
+        let axis = |value: &RValue| -> Option<char> {
+            let name = match value {
+                RValue::Local(local) => local.0.lock().0.clone(),
+                RValue::Index(index) => string(&index.right).map(str::to_owned),
+                _ => None,
+            }?;
+            let mut chars = name.chars(); let first = chars.next()?;
+            (matches!(first, 'X' | 'Y' | 'Z' | 'x' | 'y' | 'z') && chars.all(|c| c.is_ascii_digit()))
+                .then_some(first.to_ascii_uppercase())
+        };
+        if let Some(first) = axis(&sum.left) && axis(&sum.right) == Some(first) {
+            return Some(format!("midpoint{first}"));
+        }
+        return Some("midpoint".into());
+    }
+    let subject = match &*binary.left {
+        RValue::Local(local) => local.0.lock().0.clone(),
+        RValue::Index(index) => string(&index.right).and_then(field_role),
+        _ => None,
+    }?;
+    if !useful(&subject) || subject.len() > 32 { return None; }
+    let stem = subject.trim_end_matches(|c: char| c.is_ascii_digit());
+    if matches!(stem, "vector" | "number" | "value" | "data" | "object" | "item" | "result") { return None; }
+    let mut chars = subject.chars();
+    Some(format!("half{}{}", chars.next()?.to_ascii_uppercase(), chars.as_str()))
+}
+
 fn as_call(value: &RValue) -> Option<&Call> {
     match value {
         RValue::Call(c) | RValue::Select(Select::Call(c)) => Some(c),
@@ -531,6 +567,15 @@ impl Graph {
                                 if let RValue::Local(source) = right {
                                     self.copies.push((local.stable_id(), source.stable_id()));
                                 }
+                                if assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1
+                                    && let Some(name) = arithmetic_snapshot_role(right)
+                                {
+                                    self.candidate(local.stable_id(), Candidate {
+                                        name, priority: 40, reason: "retained_arithmetic_snapshot",
+                                        witness: "final expression shape; naming context only, not a numeric or motion proof".into(),
+                                        from_binding: None,
+                                    });
+                                }
                                 if let Some(node) = self.nodes.get_mut(&local.stable_id()) {
                                     node.module_leaf = module_leaf(right);
                                 }
@@ -832,13 +877,13 @@ impl Graph {
                 let best = node
                     .candidates
                     .iter()
-                    .filter(|c| c.priority >= 40)
+                    .filter(|c| c.priority >= 40 && (c.reason != "retained_arithmetic_snapshot" || node.writes == 1))
                     .map(|c| c.priority)
                     .max();
                 let names: BTreeSet<_> = node
                     .candidates
                     .iter()
-                    .filter(|c| Some(c.priority) == best)
+                    .filter(|c| Some(c.priority) == best && (c.reason != "retained_arithmetic_snapshot" || node.writes == 1))
                     .map(|c| &c.name)
                     .collect();
                 if best.is_none() {
@@ -942,6 +987,36 @@ mod tests {
 
     fn local(name: &str) -> RcLocal {
         RcLocal::new(Local::new(Some(name.into())))
+    }
+
+    #[test]
+    fn retained_arithmetic_names_are_weak_final_roles_with_source_and_collision_guards() {
+        use crate::{Binary, BinaryOperation as Op};
+        let half = |value: RValue| -> RValue { Binary::new(value, Literal::Number(2.0).into(), Op::Div).into() };
+        let axes = half(Binary::new(local("X").into(), local("X2").into(), Op::Add).into());
+        assert_eq!(arithmetic_snapshot_role(&axes).as_deref(), Some("midpointX"));
+        let size = local("extentsSize");
+        let first = local("v"); let middle = local("v2"); let written = local("v3"); let sourced = local("v4");
+        let generic = local("v5");
+        sourced.0.lock().add_source_binding(crate::SourceBinding {
+            name: "v4".into(), origin: crate::BindingOrigin::DebugLocal { prototype: 0, register: 4, start_pc: 0, end_pc: 30 },
+        });
+        let sum = Binary::new(global("low"), global("high"), Op::Add).into();
+        let block = Block(vec![
+            declare(&size, global("extent")), declare(&first, half(size.clone().into())),
+            declare(&middle, half(sum)), declare(&written, half(size.clone().into())),
+            Assign::new(vec![written.clone().into()], vec![Literal::Number(7.0).into()]).into(),
+            declare(&sourced, half(size.clone().into())), declare(&generic, half(local("vector2").into())),
+            Call::new(global("halfExtentsSize"), vec![first.clone().into(), middle.clone().into()]).into(),
+        ]);
+        let report = refine_final_names(&block, Options { emit_report: true, ..Default::default() });
+        assert_eq!(first.to_string(), "halfExtentsSize2");
+        assert_eq!(middle.to_string(), "midpoint");
+        assert_eq!(written.to_string(), "v3");
+        assert_eq!(sourced.to_string(), "v4");
+        assert_eq!(generic.to_string(), "v5");
+        let candidates = &report.bindings.iter().find(|b| b.id == middle.stable_id()).unwrap().candidates;
+        assert!(candidates.iter().any(|c| c.priority == 40 && c.reason == "retained_arithmetic_snapshot"));
     }
     fn text(value: &str) -> RValue {
         Literal::String(value.as_bytes().to_vec()).into()

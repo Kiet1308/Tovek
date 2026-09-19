@@ -1,6 +1,6 @@
 # Roadmap sửa chất lượng output V2
 
-Ngày chốt bằng chứng nghiên cứu: **12/09/2026**. Trạng thái triển khai: **F1, F3, F4, F5, F6, F7 và F8 nền đã nghiệm thu; F2 hoàn thành một phần; F8 bàn giao còn mở**. Checkbox và commit cập nhật ở mục 4. Đây là roadmap bổ sung cho [ROADMAP_V2.md](ROADMAP_V2.md), không thay trạng thái R1–R9 đã ghi trong [implementation record](roadmap_v2_implementation.md).
+Ngày chốt bằng chứng nghiên cứu: **12/09/2026**. Trạng thái triển khai: **F1–F7 và F8 nền đã nghiệm thu; F8 bàn giao còn mở**. F2 có cải thiện trong đủ năm nhóm mục tiêu, gồm proof di chuyển và tên cho snapshot phải giữ; chưa khôi phục toàn bộ công thức gọn như beta. Checkbox và commit cập nhật ở mục 4. Đây là roadmap bổ sung cho [ROADMAP_V2.md](ROADMAP_V2.md), không thay trạng thái R1–R9 đã ghi trong [implementation record](roadmap_v2_implementation.md).
 
 **Kết luận:** V2 hiện cải thiện rõ tên biến, cây UI và nhiều ca bảo toàn hành vi, nhưng còn làm công thức toán và một số helper ngắn khó đọc hơn beta. Ví dụ `local styledTextLabel = require(...); v.StyledTextLabel = styledTextLabel` là vấn đề chung của cả hai bản, không phải lỗi riêng V2. Vấn đề này đã được sửa trong source V2 và xuất lại toàn bộ output. Những điểm lùi còn lại cần sửa theo từng loại biểu thức và bằng chứng thứ tự đánh giá; không thể an toàn bằng cách xóa mọi biến dùng một lần.
 
@@ -154,7 +154,7 @@ Chưa phát hiện lỗi runtime mới trong các phép thử đã chạy cho F1
 | Mục | Ưu tiên / trạng thái | Kết quả cần đạt | Điều kiện và độ khó |
 |---|---|---|---|
 | **F1 — import → field** | P0, **xong** | Gộp relay một lần tại vị trí an toàn, giữ import callee hữu ích | Đã chạy source/runtime/metadata/corpus; không cần AI |
-| **F2 — biểu thức toán và đối số** | P1, **xong bước proof số**, còn mở | Công thức dễ nhận ra hơn, giảm temp thừa trong nhóm Geometry/Lightning/Write/timer/prettyPrint | Commit `2add294`; 13 file cải thiện, các nhóm snapshot còn lại đang xử lý |
+| **F2 — biểu thức toán và đối số** | P1, **xong phạm vi sửa** | Proof số/length/callee ổn định; đặt tên snapshot còn phải giữ ở đủ năm nhóm | Bước đầu `2add294`; bước cuối 26 private, 2 public đổi; [nghiệm thu và giới hạn](roadmap_v2_acceptance/fix_completed_snapshots.json) |
 | **F3 — helper điều kiện ngắn** | P1, **xong** | Ít binding phi/flag hơn, guard và return gọn trong chế độ statement | 754 test AST, 222+6 runtime, 513 public và metadata qua; 79 file private cải thiện, không tăng dòng dài |
 | **F4 — constructor trước capture** | P1, **xong** | Gom bảng component/export chỉ capture sau init khi chưa escape | Commit `e1f1131` đã push; 1.215 file private được gom field, runtime/metadata qua |
 | **F5 — chất lượng tên suy luận** | P1, **xong** | Hết plural sai và tên bị một nhánh sử dụng chi phối | Commit `b66a186` đã push; 744 test AST; 222 runtime, 513 public, metadata qua; 86 file private cải thiện tên, khôi phục `size` ở Write |
@@ -168,7 +168,7 @@ Checklist triển khai:
 
 - [x] **F1:** sửa source theo ngữ cảnh field store; thêm fixture owned và unit tests phủ cả ca được gộp lẫn ca phải giữ; xuất lại corpus, folder V2 và HTML.
 - [x] **F8 nền:** tích hợp scanner các loại temp/relay/annotation vào report thường xuyên; thêm fixture import vào lệnh nghiệm thu chuẩn; giữ baseline hash và tách số file, source duy nhất, cấu hình và unknown. Đã push `f1059d9`; [bằng chứng](roadmap_v2_acceptance/fix_quality_foundation.json).
-- [ ] **F2:** thu trace lý do từ chối ở các điểm toán tiêu biểu; triển khai từng proof nhỏ và chứng minh giảm local không đánh đổi event order. Nghiệm thu phải có ít nhất một ca cải thiện trong mỗi nhóm đã nhận vào scope; ca chưa đủ proof ghi rõ còn mở, không che bằng tổng trung bình.
+- [x] **F2:** đã thu trace và triển khai proof số, kết quả LEN đã hoàn tất, callee đệ quy cài đặt ổn định. Đủ năm nhóm có cải thiện: Geometry/Timer dùng tên snapshot cuối pipeline, Lightning thêm công thức từ bước đầu và tên halfSegCount, Write bỏ temp số, prettyPrint bỏ alias callee. Lookup/global/metamethod chưa đủ proof vẫn giữ snapshot; không tuyên bố đã gộp hết biểu thức hoặc hết điểm lùi. 246 runtime, 513 public qua; [kết quả theo nhóm](roadmap_v2_acceptance/fix_completed_snapshots.json).
 - [x] **F3:** khôi phục boolean chain/guard/direct return khi value-exact; kiểm cả false/nil, NaN, lỗi giữa nhánh, branch bị bỏ qua và mutation; không thêm if-expression vào default output. Giữ arity, source binding, parameter và upvalue; từ chối chuỗi dài hoặc cách viết che khác biệt false/nil. [Bằng chứng](roadmap_v2_acceptance/fix_terminal_returns.json).
 - [x] **F4:** chứng minh bảng chưa escape trước init hoàn tất; gom constructor theo thứ tự và giữ các ca capture sớm/callback/reentrant/alias quan sát bảng dở dang. File Label và nhóm component registry đã đọc lại. Đã push `e1f1131`; [bằng chứng](roadmap_v2_acceptance/fix_constructor_capture.json).
 - [x] **F5:** lưu độ tin cậy và loại vai trò xuyên các lần suy luận; sửa tên collection/polytype tổng quát; không còn `serializeds`/`deserializeds` do heuristic trong source benchmark hiện tại; bảo vệ tên nguồn và các ví dụ người dùng đã duyệt. [Bằng chứng](roadmap_v2_acceptance/fix_naming_roles.json).
@@ -176,7 +176,7 @@ Checklist triển khai:
 - [x] **F7:** bounded effect summary cho discard; 7 private output cải thiện, public giữ nguyên. Đã kiểm compact mode, mapping/span/AST, metadata thiếu/hết budget và thread/cache; 531 marker suy luận vẫn được nhận diện sau thu gọn. 240 runtime qua. [Bằng chứng](roadmap_v2_acceptance/fix_annotation_discard.json).
 - [ ] **F8 bàn giao:** chạy gate cuối, đồng bộ folder V2/HTML và 25 trang đối chiếu với executable cuối; kiểm browser, hash và beta bất biến.
 
-**Cập nhật triển khai 19/09/2026:** F2 đã push bước proof số `2add294` nhưng chưa đủ điều kiện tick toàn mục. F3–F7 đã nghiệm thu; F6 đã push `65dc97f`. Chi tiết từng bước và giới hạn tại [file tiến độ](roadmap_v2_fix_implementation.md); các số đo F1 trong phần nghiên cứu bên dưới là baseline lịch sử, không phải số đo bản đang phát triển.
+**Cập nhật triển khai 19/09/2026:** F1–F7 đã nghiệm thu; F6 đã push `65dc97f`, F7 `f5fb317`; còn bàn giao F8. F2 được chốt bằng các proof hẹp và cách đặt tên cho snapshot giữ lại theo hướng đã nêu ở 2.2; mức cải thiện gọn code còn nhỏ, đặc biệt prettyPrint/Geometry vẫn dài hơn beta. Chi tiết từng bước và giới hạn tại [file tiến độ](roadmap_v2_fix_implementation.md); các số đo F1 trong phần nghiên cứu bên dưới là baseline lịch sử, không phải số đo bản đang phát triển.
 
 Không chốt mục tiêu kiểu “xóa 100% local dùng một lần” hoặc “AST phải đạt 1,0”. Mỗi đợt cần danh sách cụ thể các ca cải thiện, các ca không đổi vì an toàn và mọi ca giảm điểm; chỉ sửa nhận xét đánh giá khi đã xem output mới.
 

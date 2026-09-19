@@ -6,12 +6,12 @@ Goal đang chạy: hoàn thành [ROADMAP_V2_FIX.md](ROADMAP_V2_FIX.md), kiểm c
 |---|---|
 | F1 import → field và output polish | Xong; commit `c08a908`, đã push |
 | F8 nền kiểm tra chất lượng | Đã triển khai và nghiệm thu, commit `f1059d9` đã push; gate cuối roadmap vẫn còn |
-| F2 biểu thức toán/đối số | Bước proof số đã nghiệm thu; các nhóm snapshot còn lại vẫn mở |
+| F2 biểu thức toán/đối số | Xong phạm vi sửa và nghiệm thu đủ năm nhóm; proof hẹp, snapshot chưa đủ proof vẫn giữ với tên rõ hơn khi có ngữ cảnh |
 | F3 helper điều kiện | Xong và đã nghiệm thu; return cuối nhánh, chuỗi scalar ngắn, giữ arity và binding được bảo vệ |
 | F4 constructor trước capture | Xong, commit `e1f1131` đã push; gom init trước lần quan sát đầu tiên |
 | F5 tên suy luận | Xong; commit `b66a186` đã push, giữ role/confidence, tên đa kiểu và số lần lặp chuỗi |
 | F6 helper/scope/pass cuối | Xong, commit `65dc97f` đã push; placement có proof trong constructor đang trộn callback inline và helper riêng |
-| F7 annotation/discard | Xong và đã nghiệm thu; bounded discard effects, kiểm compact/fallback/mapping đầy đủ |
+| F7 annotation/discard | Xong, commit `f5fb317` đã push; bounded discard effects, kiểm compact/fallback/mapping đầy đủ |
 
 ## F8 nền — 12/09/2026
 
@@ -108,3 +108,19 @@ Compact mode vốn có được kiểm đầy đủ, không ghi nhận như tín
 Nghiệm thu: **758 AST tests**, **1.047 workspace tests chính + 1 test con**, **126 Python tests**, **234 runtime hiện có + 6 discard profiles**, **513 public** qua. Fixture mới chạy **88 tình huống/profile** với nil/false/string/number/NaN, cùng/khác table, `__eq`, `__index`, `__add`, callback, tuple và lỗi theo event; cả sáu profile thay output và qua VM. Acyclic use-def fingerprint vẫn báo **different** ở fixture này cả trước và sau sửa, nên không coi đó là proof tương đương; runtime hữu hạn là bằng chứng riêng. Lineage/emission/capture, compact AST/span/full-text mapping và thread/cache checks đều qua, không token local chưa giải thích được. Manifest mặc định thêm discard, lên **240 profiles**. [Bằng chứng](roadmap_v2_acceptance/fix_annotation_discard.json).
 
 Output F7: `out/v2-fix-all/f7`, SHA `5d7b18d87a273dc07b2ba5517f8bcd10976f6e52ae7dbdd2e5bd1b7cebe63608`. Chỉ còn F2 và bàn giao F8; V2/HTML chính chưa đồng bộ bản này.
+
+## F2 bước cuối — snapshot hoàn tất và tên biểu thức, 19/09/2026
+
+Một local chỉ ghi một lần từ `#input` có giá trị số sau khi LEN hoàn tất: VM Luau đã pin kiểm cả return của `__len`, sai kiểu thì raise. Proof mới chỉ dùng kết quả đã lưu đó; không cho rằng việc chạy `#input` thuần hoặc được di chuyển. Các phép `//`, `%`, `^` trên toán hạng đã chứng minh là số dùng arithmetic của VM; không lấy annotation, tên math/buffer hoặc giả định môi trường làm proof. Bộ test gồm length callback, return sai kiểu, NaN/infinity/signed zero, số 0 ở mẫu và cell bị setter ghi lại.
+
+Callee đệ quy được xem là ổn định khi có đúng cặp liền nhau `local f` rồi `f = function...`, tổng cộng đúng hai lần ghi và không có goto/label. Tạo closure không chạy thân hàm nên không có quan sát giữa hai bước cài đặt này. Cặp cách nhau bởi statement, init trong nhánh, gán lại hoặc setter trong closure vẫn bị từ chối. Nhờ đó alias callee không cần giữ chỉ vì cell đã có predeclaration nil.
+
+Sau mọi phép biến đổi biểu thức, graph tên bổ sung hint yếu cho `(a+b)/2` và `quantity/2`: `midpoint`, `midpointX/Y/Z`, `halfExtentsSize`, `halfSegCount`. Hint chỉ áp dụng local ghi một lần, không lấn vai trò mạnh/source binding, không lan truyền thành proof kiểu hoặc purity; collision vẫn được resolver scope xử lý. Đặt tên ở cuối tránh làm temp có thể inline bị giữ lại chỉ vì vừa nhận tên đẹp.
+
+So F7: **26 private file đổi** (24 chỉ tên, 2 cấu trúc), **giảm 36 binding p/v, 3 dòng**, tăng 597 byte do tên rõ hơn; không file nào tăng p/v, dòng hay dòng dài. Đã đọc 25 cặp diff nội dung khác nhau. Geometry có halfExtentsSize và midpointX/Y/Z; Timer có midpoint; LightningCore có halfSegCount và vẫn giữ công thức đã gộp ở bước đầu. Write bỏ hai temp `count2 + 1` từ kết quả length, HyperText Util bỏ alias deepCopy.
+
+Public có **2 output đổi**, đều prettyPrint: O1 **0,5933 → 0,5979**, O2 **0,4248 → 0,4281** ở cả raw/normalized ratio; 403 profile đo được còn lại giữ điểm. Các ca này bỏ alias của prettyPrint nhưng vẫn giữ snapshot arithmetic/callee lookup khác. So beta, prettyPrint và Geometry vẫn kém gọn rõ rệt. Việc hoàn tất F2 nghĩa là đã triển khai và kiểm đủ các hướng sửa đã nhận, gồm fallback tên cho snapshot chưa đủ proof; không có nghĩa đã xóa toàn bộ temp hay khôi phục công thức beta.
+
+Nghiệm thu: **761 AST tests**, **1.050 workspace tests chính + 1 test con**, **240 runtime hiện có + 6 completed-snapshot profiles**, **513 public** qua. Fixture mới có **153 tình huống/profile**; ba g1 đổi output, ba g2 giữ hash nguồn. Kiểm recursion, reassign/setter, capture trước init, conditional init, identity/cell trong loop, length/metamethod/error, callback và tuple. Lineage/emission/capture, source spans và deterministic thread 1/4 qua, không token local chưa giải thích được; symbolic dataflow vẫn unknown. Manifest mặc định lên **246 profiles**. [Bằng chứng và hash VM contract](roadmap_v2_acceptance/fix_completed_snapshots.json).
+
+Output F2 cuối: `out/v2-fix-all/f2-final`, SHA `c78895cd804593dfcf35c7bd711af87bf1ea7a4730898a75b4262dcb822bfa77`. F1–F7 đã chốt; còn đồng bộ output/HTML và kiểm bàn giao F8.

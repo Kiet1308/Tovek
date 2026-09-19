@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "scope": "F2 completed length snapshots, numeric operators, stable recursive callees, final arithmetic roles",
+  "base_commit": "f5fb317",
+  "baseline_binary_sha256": "5d7b18d87a273dc07b2ba5517f8bcd10976f6e52ae7dbdd2e5bd1b7cebe63608",
+  "binary_sha256": "c78895cd804593dfcf35c7bd711af87bf1ea7a4730898a75b4262dcb822bfa77",
+  "rust_primary_tests": 1050,
+  "rust_child_repeat": 1,
+  "ast_tests": 761,
+  "runtime_profiles": 240,
+  "snapshot_profiles": 6,
+  "snapshot_scenarios_per_profile": 153,
+  "snapshot_output_profiles_changed": [
+    {
+      "opt": 0,
+      "debug": 1
+    },
+    {
+      "opt": 1,
+      "debug": 1
+    },
+    {
+      "opt": 2,
+      "debug": 1
+    }
+  ],
+  "public_profiles": 513,
+  "public_outputs_changed": [
+    {
+      "key": [
+        "Rodux",
+        "src/prettyPrint.lua",
+        1
+      ],
+      "before": 0.5932611311672683,
+      "after": 0.5979381443298969,
+      "delta": 0.004677013162628585,
+      "normalized_before": 0.5932611311672683,
+      "normalized_after": 0.5979381443298969,
+      "normalized_delta": 0.004677013162628585
+    },
+    {
+      "key": [
+        "Rodux",
+        "src/prettyPrint.lua",
+        2
+      ],
+      "before": 0.42478941034897716,
+      "after": 0.42813826561552454,
+      "delta": 0.003348855266547379,
+      "normalized_before": 0.42478941034897716,
+      "normalized_after": 0.42813826561552454,
+      "normalized_delta": 0.003348855266547379
+    }
+  ],
+  "private": {
+    "files": 3978,
+    "changed": 26,
+    "unchanged": 3952,
+    "categories": {
+      "names_or_trivia": 24,
+      "structure_or_types": 2
+    },
+    "delta_bytes": 597,
+    "delta_lines": -3,
+    "delta_generated_bindings": -36,
+    "delta_long_lines": 0,
+    "errors": []
+  },
+  "target_groups": [
+    {
+      "group": "Geometry",
+      "path": "ReplicatedStorage/Shared/Zone/Geometry/init.luau",
+      "before_sha256": "91a51358a21c80ce4b5820e094691ec090b863b15a545f85bd18b9367d1420a6",
+      "after_sha256": "0c608ccfcd3795b1afcf09a998feca776c3d5c9128c873e32a1f439ef6609586",
+      "delta_lines": 0,
+      "generated_before": 163,
+      "generated_after": 158
+    },
+    {
+      "group": "Lightning",
+      "path": "ReplicatedStorage/DivergentVFX/LightningCore.luau",
+      "before_sha256": "59b7ddb4251e034dbffb3f1e232d0d5dbbda2fce70ed53f772e85a87d4678624",
+      "after_sha256": "a3d1585e008bb06a7c99ff9a1b9daa3b82a27af8feb739e9a7900595f6382ca9",
+      "delta_lines": 0,
+      "generated_before": 488,
+      "generated_after": 487
+    },
+    {
+      "group": "Write",
+      "path": "ReplicatedStorage/Shared/Network/BufferEncoder/Write.luau",
+      "before_sha256": "90aec0ca2f1b48273984f8f8e499b69a19e541698e714d09a517e54bc8e5dcf6",
+      "after_sha256": "12c8235cbdad1d29b09aa90942023d2a2d6d88b5275a7fd1606f19e65e2f1f0e",
+      "delta_lines": -2,
+      "generated_before": 203,
+      "generated_after": 201
+    },
+    {
+      "group": "Timer",
+      "path": "ReplicatedStorage/Shared/Utils/Timer.luau",
+      "before_sha256": "4cb35ed6e1105a5e9d12ac6873545d9a95238b4cc543fc5ecb56c2b0cbd5dc90",
+      "after_sha256": "2dde65e9965da866e9ee986baa755630f9b54d6e881777b380ecb69374bb37bb",
+      "delta_lines": 0,
+      "generated_before": 31,
+      "generated_after": 30
+    },
+    {
+      "group": "prettyPrint",
+      "repo": "Rodux",
+      "path": "src/prettyPrint.lua",
+      "opt": 2,
+      "after_sha256": "d9d06ad829ffb84a7655b0a813e559b9dc096eede6532278d7bea645f0eb1bba"
+    }
+  ],
+  "quality_gate": {
+    "metric": "sole_use_require_field_relays",
+    "status": "passed"
+  },
+  "metadata": {
+    "runtime": {
+      "lineage": {
+        "scripts": 240,
+        "source_files": 240,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 240
+        },
+        "annotation_spans": 6,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 622,
+        "definitions": 14368,
+        "definitions_with_final_binding_ancestry": 7933,
+        "dropped_records": 0,
+        "final_bindings": 2800,
+        "functions": 1296,
+        "identifier_spans": 8048,
+        "incomplete_lineages": 0,
+        "lifted_statements": 12446,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 12,
+        "statements_with_pc": 12446,
+        "unlocated_final_bindings": 112
+      },
+      "emission": {
+        "scripts": 240,
+        "status": {
+          "passed": 240
+        },
+        "parser_local_tokens": 8156,
+        "mapped_local_tokens": 8048,
+        "opaque_local_tokens": 108,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 2824,
+        "mapped_parser_bindings": 2800,
+        "storage_ids_with_multiple_parser_bindings": 0
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 240,
+        "readonly_slots": 258,
+        "analysis_status": {
+          "complete": 240
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "deterministic_threads_1_4": true
+    },
+    "snapshot": {
+      "lineage": {
+        "scripts": 6,
+        "source_files": 6,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 6
+        },
+        "annotation_spans": 0,
+        "bindings_without_identifier_tokens": 0,
+        "conditional_result_records": 15,
+        "definitions": 780,
+        "definitions_with_final_binding_ancestry": 429,
+        "dropped_records": 0,
+        "final_bindings": 183,
+        "functions": 102,
+        "identifier_spans": 525,
+        "incomplete_lineages": 0,
+        "lifted_statements": 720,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 0,
+        "statements_with_pc": 720,
+        "unlocated_final_bindings": 3
+      },
+      "emission": {
+        "scripts": 6,
+        "status": {
+          "passed": 6
+        },
+        "parser_local_tokens": 525,
+        "mapped_local_tokens": 525,
+        "opaque_local_tokens": 0,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 183,
+        "mapped_parser_bindings": 183,
+        "storage_ids_with_multiple_parser_bindings": 0
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 6,
+        "readonly_slots": 18,
+        "analysis_status": {
+          "complete": 6
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "deterministic_threads_1_4": true
+    },
+    "public": {
+      "lineage": {
+        "scripts": 513,
+        "source_files": 513,
+        "source_set_equal": true,
+        "source_files_changed": 0,
+        "status": {
+          "passed": 513
+        },
+        "annotation_spans": 36,
+        "bindings_without_identifier_tokens": 21,
+        "conditional_result_records": 3542,
+        "definitions": 97176,
+        "definitions_with_final_binding_ancestry": 46939,
+        "dropped_records": 0,
+        "final_bindings": 13122,
+        "functions": 3961,
+        "identifier_spans": 45261,
+        "incomplete_lineages": 0,
+        "lifted_statements": 77329,
+        "omitted_output_occurrences": 0,
+        "opaque_output_regions": 150,
+        "statements_with_pc": 77329,
+        "unlocated_final_bindings": 68
+      },
+      "emission": {
+        "scripts": 513,
+        "status": {
+          "passed": 513
+        },
+        "parser_local_tokens": 45512,
+        "mapped_local_tokens": 45261,
+        "opaque_local_tokens": 251,
+        "unexplained_local_tokens": 0,
+        "parser_bindings": 13104,
+        "mapped_parser_bindings": 13104,
+        "storage_ids_with_multiple_parser_bindings": 3
+      },
+      "capture_effects": {
+        "schema_version": 1,
+        "scripts": 513,
+        "readonly_slots": 4597,
+        "analysis_status": {
+          "complete": 513
+        },
+        "contract": "Certificates verified from original bytecode by the independent Python parser, including every constructor and descendant UPVAL write. No alias/purity/source-binding claim."
+      },
+      "deterministic_threads_1_4": true
+    }
+  },
+  "source_hashes": {
+    "ast/src/inline_temps.rs": "d079f10d0ead2a9a82f59d4c3dd83820355661d39e22672641fe4825d1db56aa",
+    "ast/src/numeric_facts.rs": "c68be88f9f78926d1abbc74e4231354ce139f7e4e91a157b9f5496ec462935a3",
+    "ast/src/refine_names.rs": "8065d6dead69cadbd6dbfd05e93b90d0c9720856df2e0e06395832756e40f258"
+  },
+  "fixture_hashes": {
+    "docs/failure_fixtures/roadmap_v2/completed_snapshots.luau": "74135e8f324234ccdaac138d4131108ad3c3666c6adffe7fc045a48ca0c2fa2e",
+    "docs/failure_fixtures/roadmap_v2/completed_snapshots.driver.luau": "04853b8ad8988d25f29f9f87c06ecd0292f3c6394738b09405b0f6f9f4f4d79b",
+    "docs/failure_fixtures/roadmap_v2/completed_snapshots.manifest.json": "7c4f6157929c7868eab399d758c1f3754477d352d5e751b8f4c4856938955fae",
+    "docs/failure_fixtures/roadmap_v2/manifest.json": "5b664c30744a58045661b3d6b8df4455a0576fa2f7e953bd7d67a907398c9c1d"
+  },
+  "vm_contract_sources": {
+    "D:\\Medal\\luau-tools-src\\VM\\src\\lvmutils.cpp": "b2f1636495dbd16eadc225db8f74919206d377ddbbc950404019f9f5f5b0de05",
+    "D:\\Medal\\luau-tools-src\\VM\\src\\lnumutils.h": "c441a8e9a50dddb585a9262060e4e4c9e76462c14be1b84348afe1b4e88e2686"
+  },
+  "evidence_hashes": {
+    "out/v2-fix-all/f2-final/workspace-tests.log": "254af9339ab42dfb056399fb36dd173a5af4028d0411fffc9ba98a6436037c73",
+    "out/v2-fix-all/f2-final/build.log": "3bce1c51d27b68c61f44ffd3e3559846089f4ead9a8c5c9941b6105d845097bf",
+    "out/v2-fix-all/f2-final/private-review.json": "87286f46c345df7bcf2d3fb500c1a2b123a70ca2c23b5bf966822b4db82f33e4",
+    "out/v2-fix-all/f2-final/public-review.json": "2a8132fd8a0a23e9a123fb4ae1e0d04d888018b9146a81cc9c9dd08f77ef8350",
+    "out/v2-fix-all/f2-final/runtime.json": "59f4f47b4c897924746203a577780f8aa502e1e58385dc2222e004d0b39c129d",
+    "out/v2-fix-all/f2-final/snapshot-runtime.json": "172eccdf17651ee135d17ba5cb783d13cd27fcd592ba56ab680b963234a9fe34",
+    "out/v2-fix-all/f2-final/snapshot-runtime-before.json": "53c03820626480207e8936b50dfdaf70080d2bf1daf28e3cc1530486e67d9e79",
+    "out/v2-fix-all/f2-final/public.json": "97ec5adbf7d1ab820de3005f6a692f68bd9d7bbf392ee6eefb8e391f722a8876",
+    "out/v2-fix-all/f2-final/runtime-traces.json": "7e9128f6824738670608698149b0b24907aa169d71d1d6bd8f52783491df665f",
+    "out/v2-fix-all/f2-final/snapshot-traces.json": "dc1e82f7d8251f435cbbbb831f60e77e8024b4458c36179c13e5b9560ecd47f6",
+    "out/v2-fix-all/f2-final/public-traces.json": "9015c7edd8fe8db7d4eed51862f55f4e398bc2b2d5eb5bff5869b035a63e727b",
+    "out/v2-fix-all/f2-final/quality.json": "63303956071099c0f046cfa2aac791c5f92dc309554f53a98b9fe7bc1918d3c0"
+  },
+  "limitations": [
+    "LEN itself remains effectful; only its completed single-write numeric result proves later arithmetic.",
+    "Recursive callee proof requires adjacent nil declaration and closure installation with no further writes or unstructured control.",
+    "Final midpoint/half names are low-priority expression descriptions, not recovered names or runtime type proofs.",
+    "Geometry/Timer improvements include retained-snapshot naming; no claim of restoring all beta formulas or removing all temporaries.",
+    "Global/field lookups, mutable captures and unknown metamethod arithmetic retain evaluation-order barriers; no API purity whitelist introduced.",
+    "Private-game execution and unknown symbolic dataflow remain unproven."
+  ]
+}
