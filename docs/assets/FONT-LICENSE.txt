@@ -1,3 +1,16 @@
+Fonts bundled in docs/assets (all under the SIL Open Font License 1.1, reproduced below):
+
+- Inter (assets/inter-v2-latin.woff2)
+  Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
+- Fraunces (assets/fonts/fraunces-*.woff2)
+  Copyright 2020 The Fraunces Project Authors (https://github.com/undercasetype/Fraunces)
+- Schibsted Grotesk (assets/fonts/schibsted-*.woff2)
+  Copyright 2022 The Schibsted Grotesk Project Authors (https://github.com/schibsted/schibsted-grotesk)
+- IBM Plex Mono (assets/fonts/plexmono-*.woff2)
+  Copyright 2017 IBM Corp. (https://github.com/IBM/plex)
+
+-----------------------------------------------------------
+
 Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

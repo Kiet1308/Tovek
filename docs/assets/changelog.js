@@ -1,50 +1,23 @@
 'use strict';
 
-document.documentElement.classList.add('js');
-
 (() => {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let paused = reduceMotion.matches;
   const motionListeners = [];
-  const motionButton = document.querySelector('[data-motion]');
 
   function updateMotion() {
     document.body.classList.toggle('paused', paused);
-    if (motionButton) {
-      motionButton.setAttribute('aria-pressed', String(paused));
-      motionButton.textContent = paused ? 'Enable motion' : 'Pause motion';
-    }
     motionListeners.forEach(listener => listener(paused));
   }
-  motionButton?.addEventListener('click', () => { paused = !paused; updateMotion(); });
   reduceMotion.addEventListener('change', event => { paused = event.matches; updateMotion(); });
   updateMotion();
 
-  // Content remains visible if script loading fails or JavaScript is disabled.
-  if ('IntersectionObserver' in window && !reduceMotion.matches) {
-    const reveal = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.remove('pending');
-          reveal.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.08 });
-    document.querySelectorAll('.reveal').forEach(element => {
-      if (element.getBoundingClientRect().top > innerHeight) element.classList.add('pending');
-      reveal.observe(element);
-    });
-  }
-
-  const hero = document.querySelector('.hero');
-  const art = document.querySelector('.hero-art');
   const progress = document.querySelector('.reading-progress');
   let scrollFrame = 0;
   function onScroll() {
     if (scrollFrame) return;
     scrollFrame = requestAnimationFrame(() => {
       scrollFrame = 0;
-      if (art) art.style.setProperty('--art-drift', paused ? '0px' : `${Math.min(scrollY * .11, 85)}px`);
       if (progress) {
         const range = document.documentElement.scrollHeight - innerHeight;
         progress.style.width = `${range > 0 ? Math.min(100, scrollY / range * 100) : 0}%`;
@@ -53,14 +26,6 @@ document.documentElement.classList.add('js');
   }
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll, { passive: true });
-  motionListeners.push(onScroll);
-  hero?.addEventListener('pointermove', event => {
-    if (paused || event.pointerType === 'touch') return;
-    const bounds = hero.getBoundingClientRect();
-    art.style.setProperty('--art-angle', `${(event.clientX / bounds.width - .5) * 6}deg`);
-  }, { passive: true });
-  hero?.addEventListener('pointerleave', () => art.style.setProperty('--art-angle', '0deg'));
-
   function bindTabs(selector, onSelect) {
     const tabs = [...document.querySelectorAll(selector)];
     function select(tab, focus = false) {
@@ -86,47 +51,6 @@ document.documentElement.classList.add('js');
       });
     });
   }
-
-  const examples = {
-    imports: {
-      before: 'local components = {}\nlocal label = require(package.Label)\ncomponents.Label = label\nlocal button = require(package.Button)\ncomponents.Button = button\n\nreturn components',
-      after: 'local components = {\n    Label = require(package.Label),\n    Button = require(package.Button),\n}\n\nreturn components',
-      explanation: 'Illustrative, shortened example. Single-use import relays can join an unobserved table’s constructor. Capture and evaluation-order checks decide when this is safe.'
-    },
-    names: {
-      before: '-- measure returns .Width, .Height\nlocal v, v2 = measure(widget)\n\nreturn v, v2',
-      after: '-- Roles follow the returned fields\nlocal width, height = measure(widget)\n\nreturn width, height',
-      explanation: 'Illustrative, shortened example. Tuple roles can carry field evidence back to the receiving locals. Inferred names describe usage; they are not a claim to recover stripped source names.'
-    },
-    returns: {
-      before: 'local v\nif condition then\n    v = true\nelse\n    v = false\nend\nreturn v',
-      after: 'return not not condition',
-      explanation: 'Illustrative, shortened example. A private, uncaptured terminal result can become an exact scalar return. Here the double negation preserves a boolean result for every input value.'
-    }
-  };
-
-  function highlight(text, target) {
-    target.replaceChildren();
-    const code = document.createElement('code');
-    const pattern = /(--[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b(?:local|return|function|end|if|then|else|not|true|false|require)\b)/g;
-    let cursor = 0;
-    for (const match of text.matchAll(pattern)) {
-      code.append(document.createTextNode(text.slice(cursor, match.index)));
-      const span = document.createElement('span');
-      span.className = match[0].startsWith('--') ? 'syntax-comment' : /^['"]/.test(match[0]) ? 'syntax-string' : 'syntax-key';
-      span.textContent = match[0];
-      code.append(span);
-      cursor = match.index + match[0].length;
-    }
-    code.append(document.createTextNode(text.slice(cursor)));
-    target.append(code);
-  }
-  bindTabs('[data-example]', tab => {
-    const example = examples[tab.dataset.example];
-    highlight(example.before, document.querySelector('#example-before'));
-    highlight(example.after, document.querySelector('#example-after'));
-    document.querySelector('#example-explanation').textContent = example.explanation;
-  });
 
   const metrics = {
     names: { title: 'Anonymous bindings · lower is better', beta: '54,058', v2: '36,826', widths: [90.0967,61.3767], mid: '30,000', max: '60,000', note: 'Bindings with generated p/v names fell 31.9% across the same 3,975 parseable private files. This measures fewer anonymous names, not recovery of the author’s original identifiers.' },

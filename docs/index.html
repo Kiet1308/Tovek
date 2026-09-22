@@ -3,108 +3,562 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tovek V2 — Code, reassembled.</title>
-  <meta name="description" content="A new generation of Luau decompilation. Tovek V2 reconstructs readable names, control flow and UI trees while protecting the meaning of your code. Open source. Runs locally.">
-  <meta name="theme-color" content="#eef0e8">
-  <meta property="og:title" content="Tovek V2 — Code, reassembled.">
-  <meta property="og:description" content="From compiled Luau to code you can follow. Explore the next generation of Tovek.">
+  <title>Tovek — give bytecode its names back</title>
+  <meta name="description" content="Tovek is a Luau decompiler for Roblox that turns stripped -O2 bytecode into readable source: inferred names, rebuilt helpers, reconstructed UI trees, recovered methods and types — validated against Luau's own compiler and VM.">
+  <meta name="theme-color" content="#070a08">
+  <meta property="og:title" content="Tovek — give bytecode its names back">
+  <meta property="og:description" content="A Luau decompiler that reconstructs names, helpers, UI trees and loops from stripped Roblox bytecode. Open source, deterministic, runs locally.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://kiet1308.github.io/Tovek/">
+  <link rel="canonical" href="https://kiet1308.github.io/Tovek/">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="assets/inter-v2-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/site.css?v=5">
-  <script src="assets/site.js?v=4" defer></script>
+  <link rel="preload" href="assets/fonts/fraunces-italic-300-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/plexmono-normal-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/landing.css?v=1">
+  <script src="assets/landing.js?v=1" defer></script>
 </head>
-<body class="landing">
+<body>
 <a class="skip" href="#main">Skip to content</a>
-<header class="site-header">
-  <a class="brand" href="index.html" aria-label="Tovek home"><svg class="brand-mark" viewBox="0 0 28 30" aria-hidden="true"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg>tovek<small>V2</small></a>
-  <nav class="primary-nav" aria-label="Main navigation"><a href="index.html" aria-current="page">Overview</a><a href="changelog.html">Changelog <span aria-hidden="true">↗</span></a><a class="optional-nav" href="https://github.com/Kiet1308/Tovek/tree/main">GitHub</a></nav>
-  <a class="header-link" href="#get-started">Get Tovek <span aria-hidden="true">↗</span></a>
+<div class="bg" aria-hidden="true"><div class="bg-lens"></div><div class="bg-grid"></div><div class="bg-grain"></div></div>
+
+<header class="top">
+  <a class="brand" href="index.html" aria-label="Tovek home">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M10 10h28v8H28v21h-8V18H10z"/></svg></span>
+    tovek <small>v2</small>
+  </a>
+  <nav class="tabs" aria-label="Site sections">
+    <span class="tab-pill" aria-hidden="true"></span>
+    <a href="index.html" aria-current="page">Overview</a>
+    <a href="changelog.html"><span class="dot" aria-hidden="true"></span>Changelog</a>
+  </nav>
+  <div class="top-right">
+    <a class="btn sm ghost-icon" href="https://github.com/Kiet1308/Tovek" aria-label="Tovek on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+    <a class="btn sm primary" href="https://github.com/Kiet1308/Tovek/releases/latest">Download V2 <span class="arr" aria-hidden="true">↗</span></a>
+  </div>
 </header>
+
 <main id="main">
+
+  <!-- ============ HERO ============ -->
   <section class="hero" aria-labelledby="hero-title">
-    <h1 class="hero-title" id="hero-title">TOVEK<span>V2</span></h1>
-    <div class="hero-eyebrow small-label"><span>The Luau decompiler, reimagined.</span><span><i class="status-dot" aria-hidden="true"></i> Open source / Built in Rust</span></div>
-    <div class="hero-art" aria-hidden="true"><img src="assets/reconstruction.svg?v=2" alt="" width="1000" height="850" fetchpriority="high"><span class="art-caption">FIG. 02 — STRUCTURE, RECONSTRUCTED</span></div>
-    <div class="hero-copy"><h2>Code,<br>reassembled.</h2><p>Bring names, structure and meaning back into focus. A new generation of readable Luau.</p><a class="action dark" href="#output">See the difference <span class="arrow" aria-hidden="true">↗</span></a></div>
-    <div class="hero-bottom"><a class="scroll-link" href="#approach"><span aria-hidden="true">↓</span> A closer look</a><button class="motion-toggle" type="button" aria-pressed="false" data-motion>Pause motion</button><span class="small-label">Bytecode → Human-readable Luau</span></div>
-  </section>
-
-  <section class="manifesto" id="approach">
-    <div class="section-inner">
-      <div class="manifesto-top reveal"><span class="small-label">01 / Find the signal</span><h2>There’s a program<br>inside the bytecode.<br><span>Make it readable again.</span></h2></div>
-      <div class="manifesto-note reveal"><a class="text-link" href="changelog.html">Meet the new Tovek <span class="arrow" aria-hidden="true">↗</span></a><p>Follow the logic, the relationships, the intent. Tovek rebuilds the pieces a compiler takes apart, with the program’s behavior at the center.</p></div>
-      <div class="capability-strip"><span>Names with context</span><span>Structured control flow</span><span>Rebuilt UI trees</span><span>Traceable output</span></div>
-    </div>
-  </section>
-
-  <section class="output-section" id="output">
-    <div class="section-inner">
-      <div class="section-heading reveal"><div><span class="small-label">02 / Less decoding. More understanding.</span><h2>The difference<br>is in the details.</h2></div><p>Fewer anonymous steps. Clearer relationships. Explore three of the transformations behind V2.</p></div>
-      <div class="example-selector" role="tablist" aria-label="Output examples">
-        <button id="example-imports" role="tab" aria-selected="true" aria-controls="example-panel" tabindex="0" data-example="imports">01 &nbsp; Module exports</button>
-        <button id="example-names" role="tab" aria-selected="false" aria-controls="example-panel" tabindex="-1" data-example="names">02 &nbsp; Meaningful names</button>
-        <button id="example-returns" role="tab" aria-selected="false" aria-controls="example-panel" tabindex="-1" data-example="returns">03 &nbsp; Direct returns</button>
-      </div>
-      <div id="example-panel" role="tabpanel" aria-labelledby="example-imports" tabindex="0">
-        <div class="code-comparison">
-          <div class="code-pane"><div class="pane-label"><span>BEFORE</span><span>Temporary-based form</span></div><pre class="code-before" id="example-before"><code>local components = {}
-local label = require(package.Label)
-components.Label = label
-local button = require(package.Button)
-components.Button = button
-
-return components</code></pre></div>
-          <div class="code-pane"><div class="pane-label"><strong>TOVEK V2</strong><em>Structure restored</em></div><pre class="code-after" id="example-after"><code><span class="syntax-key">local</span> components = {
-    Label = <span class="syntax-key">require</span>(package.Label),
-    Button = <span class="syntax-key">require</span>(package.Button),
-}
-
-<span class="syntax-key">return</span> components</code></pre></div>
+    <div class="wrap hero-grid">
+      <div class="stagger">
+        <p class="eyebrow"><b>Luau decompiler</b> · V2 v0.1 · bytecode v4–v13</p>
+        <h1 id="hero-title">
+          <span class="w" style="animation-delay:.05s">Give</span>
+          <span class="w" style="animation-delay:.14s">bytecode</span>
+          <span class="w" style="animation-delay:.23s">its</span>
+          <span class="w" style="animation-delay:.32s"><em>names</em></span>
+          <span class="w" style="animation-delay:.41s">back.</span>
+        </h1>
+        <p class="lede">Tovek turns stripped Roblox bytecode into Luau you can actually read. It <strong>infers identifiers</strong> from how values are used, <strong>rebuilds the helpers and UI trees</strong> the <code>-O2</code> optimizer flattened, and checks every result against Luau's own compiler and VM. No <code>v1, v2, v3</code>.</p>
+        <div class="cta">
+          <a class="btn primary" href="https://github.com/Kiet1308/Tovek/releases/latest">Download for Windows · Linux <span class="arr" aria-hidden="true">↗</span></a>
+          <a class="btn" href="#fig-deinline">See what it rebuilds <span class="arr" aria-hidden="true">↓</span></a>
         </div>
-        <div class="example-caption"><p id="example-explanation">Illustrative, shortened example. Single-use import relays can join an unobserved table’s constructor. Capture and evaluation-order checks decide when this is safe.</p><a id="example-source" href="changelog.html#ui-trees">Explore the changes ↗</a></div>
+        <div class="trust"><span>MIT licensed</span><span>Runs locally, nothing uploaded</span><span>Deterministic rules, no AI</span><span>Built on medal</span></div>
+      </div>
+
+      <div class="recon" id="recon">
+        <div class="panel" role="img" aria-label="Animated demonstration: a listing of Luau bytecode instructions is scanned top to bottom and rewritten, line by line, into readable decompiled source with inferred names such as player, character, humanoid, clone and speed.">
+          <div class="panel-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="file">PlayerAdded.client.lua</span><span class="tag">luau -O2 -g1</span><span class="tag" id="ro-tag">reading</span></div>
+          <div class="rows"><div class="beam" aria-hidden="true"></div></div>
+          <div class="readout">
+            <div class="in-s"><span class="lbl">input</span><span class="val" id="ro-in">701 B · v9 bytecode</span><span class="val" id="ro-in2">debug names stripped (-g1)</span></div>
+            <span class="arrow" aria-hidden="true"></span>
+            <div class="out-s"><span class="lbl">output</span><span class="val dim" id="ro-out">—</span><span class="val dim" id="ro-out2">waiting</span></div>
+          </div>
+          <div class="recon-ctl"><button type="button" id="recon-pause" aria-label="Pause animation" aria-pressed="false">❚❚</button><button type="button" id="recon-replay" aria-label="Replay animation">↻</button></div>
+        </div>
+        <p class="recon-cap">Real run: <b>luau-compile -O2 -g1</b> → <b>luau-lifter</b>. Every name on screen was inferred; the bytecode contains none of them.</p>
+      </div>
+    </div>
+
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        <ul>
+          <li><span class="ev">x:Connect(fn)</span><span class="to">→</span><span class="nm">connection</span></li>
+          <li><span class="ev">:Clone()</span><span class="to">→</span><span class="nm">clone</span></li>
+          <li><span class="ev">animator:LoadAnimation(…)</span><span class="to">→</span><span class="nm">track</span></li>
+          <li><span class="ev">TweenService:Create(…)</span><span class="to">→</span><span class="nm">tween</span></li>
+          <li><span class="ev">:GetAttribute("Speed")</span><span class="to">→</span><span class="nm">speed</span></li>
+          <li><span class="ev">Color3.fromRGB(…)</span><span class="to">→</span><span class="nm">color</span></li>
+          <li><span class="ev">RenderStepped:Connect(function(_)</span><span class="to">→</span><span class="nm">dt</span></li>
+          <li><span class="ev">InputBegan:Connect(function(_, _)</span><span class="to">→</span><span class="nm">input, gameProcessed</span></li>
+          <li><span class="ev">table.sort(t, function(_, _)</span><span class="to">→</span><span class="nm">a, b</span></li>
+          <li><span class="ev">typeof(x)</span><span class="to">→</span><span class="nm">typeName</span></li>
+          <li><span class="ev">getmetatable(x)</span><span class="to">→</span><span class="nm">metatable</span></li>
+          <li><span class="ev">workspace:Raycast(…)</span><span class="to">→</span><span class="nm">raycastResult</span></li>
+          <li><span class="ev">setmetatable({}, Class)</span><span class="to">→</span><span class="nm">self</span></li>
+          <li><span class="ev">v = v + dt</span><span class="to">→</span><span class="nm">total</span></li>
+          <li><span class="ev">#t, read twice</span><span class="to">→</span><span class="nm">count</span></li>
+          <li><span class="ev">scope:New("Frame")</span><span class="to">→</span><span class="nm">frame</span></li>
+          <li><span class="ev">table.find(t, x)</span><span class="to">→</span><span class="nm">index</span></li>
+          <li><span class="ev">require(script.Parent)</span><span class="to">→</span><span class="nm">parentModule</span></li>
+          <li><span class="ev">x = x + 1</span><span class="to">→</span><span class="nm">x += 1</span></li>
+          <li><span class="ev">T.method(self, …)</span><span class="to">→</span><span class="nm">function T:method()</span></li>
+        </ul>
+        <ul>
+          <li><span class="ev">x:Connect(fn)</span><span class="to">→</span><span class="nm">connection</span></li>
+          <li><span class="ev">:Clone()</span><span class="to">→</span><span class="nm">clone</span></li>
+          <li><span class="ev">animator:LoadAnimation(…)</span><span class="to">→</span><span class="nm">track</span></li>
+          <li><span class="ev">TweenService:Create(…)</span><span class="to">→</span><span class="nm">tween</span></li>
+          <li><span class="ev">:GetAttribute("Speed")</span><span class="to">→</span><span class="nm">speed</span></li>
+          <li><span class="ev">Color3.fromRGB(…)</span><span class="to">→</span><span class="nm">color</span></li>
+          <li><span class="ev">RenderStepped:Connect(function(_)</span><span class="to">→</span><span class="nm">dt</span></li>
+          <li><span class="ev">InputBegan:Connect(function(_, _)</span><span class="to">→</span><span class="nm">input, gameProcessed</span></li>
+          <li><span class="ev">table.sort(t, function(_, _)</span><span class="to">→</span><span class="nm">a, b</span></li>
+          <li><span class="ev">typeof(x)</span><span class="to">→</span><span class="nm">typeName</span></li>
+          <li><span class="ev">getmetatable(x)</span><span class="to">→</span><span class="nm">metatable</span></li>
+          <li><span class="ev">workspace:Raycast(…)</span><span class="to">→</span><span class="nm">raycastResult</span></li>
+          <li><span class="ev">setmetatable({}, Class)</span><span class="to">→</span><span class="nm">self</span></li>
+          <li><span class="ev">v = v + dt</span><span class="to">→</span><span class="nm">total</span></li>
+          <li><span class="ev">#t, read twice</span><span class="to">→</span><span class="nm">count</span></li>
+          <li><span class="ev">scope:New("Frame")</span><span class="to">→</span><span class="nm">frame</span></li>
+          <li><span class="ev">table.find(t, x)</span><span class="to">→</span><span class="nm">index</span></li>
+          <li><span class="ev">require(script.Parent)</span><span class="to">→</span><span class="nm">parentModule</span></li>
+          <li><span class="ev">x = x + 1</span><span class="to">→</span><span class="nm">x += 1</span></li>
+          <li><span class="ev">T.method(self, …)</span><span class="to">→</span><span class="nm">function T:method()</span></li>
+        </ul>
       </div>
     </div>
   </section>
 
-  <section class="architecture" id="capabilities">
-    <div class="section-inner">
-      <div class="architecture-head reveal"><span class="small-label">03 / Built to look deeper</span><h2>Readable on the surface.<br>Rigorous underneath.</h2></div>
-      <div class="structure-glyph" aria-hidden="true"><svg viewBox="0 0 220 260" fill="none" stroke="currentColor" stroke-width="1"><path d="M110 20v50M40 120V70h140v50M40 150v55M180 150v55M40 205h35M180 205h-35M110 100v75"/><rect x="94" y="4" width="32" height="32" class="core"/><rect x="24" y="120" width="32" height="32"/><rect x="164" y="120" width="32" height="32"/><rect x="94" y="175" width="32" height="32" class="core"/><path d="M74 195v20M144 195v20M100 230h20M110 220v20"/></svg></div>
-      <div class="feature-rows">
-        <article class="feature-row reveal"><span class="index">01</span><h3>Names that tell<br>you something.</h3><p>Retain recorded names and types. Infer roles from how values are used, across calls, branches and returned tuples.</p></article>
-        <article class="feature-row reveal"><span class="index">02</span><h3>See the tree.<br>Follow the flow.</h3><p>Reconstruct loops, guards, modules and nested UI tables. Bring related code back together where the evidence allows.</p></article>
-        <article class="feature-row reveal"><span class="index">03</span><h3>Keep the meaning<br>intact.</h3><p>Protect closure cells, evaluation order and return counts. A cleaner expression earns its place through explicit checks.</p></article>
-        <article class="feature-row reveal"><span class="index">04</span><h3>Your code.<br>Your machine.</h3><p>Run the Rust CLI locally, one file or a whole folder. Deterministic rules. No model download or AI service required.</p></article>
+  <!-- ============ PROOF ============ -->
+  <section class="proof" aria-label="Measured results">
+    <div class="wrap">
+      <div class="proof-grid">
+        <div class="stat"><div class="n"><span data-to="36826">0</span></div><div class="l">anonymous <code>p</code>/<code>v</code> bindings left across 3,975 private files</div><div class="d"><s>54,058</s> in v0.9 beta · <b>−31.9%</b></div></div>
+        <div class="stat"><div class="n"><span data-to="198">0</span><small>/198</small></div><div class="l">shared runtime profiles passing on Luau's VM</div><div class="d"><s>138</s> in v0.9 beta · <b>60 fixed</b></div></div>
+        <div class="stat"><div class="n"><span data-to="98">0</span></div><div class="l">output lines longer than 180 characters</div><div class="d"><s>382</s> in v0.9 beta · <b>−74%</b></div></div>
+        <div class="stat"><div class="n"><span data-to="1.67" data-dec="2">0</span><small>s</small></div><div class="l">to decompile a 3,978-file game dump</div><div class="d">16 threads, CLI incl. startup · <b>18.1 s</b> single-thread</div></div>
+      </div>
+      <p class="proof-note">Readability counts use the same 3,975 files parseable in both versions. Timing is the accepted Windows workload. Scope, methodology and the remaining regressions are in the <a href="changelog.html#evaluation" style="color:var(--bone-2);text-decoration:underline dotted;text-underline-offset:3px">release evaluation</a>.</p>
+    </div>
+  </section>
+
+  <!-- ============ FIG 01 — DE-INLINER ============ -->
+  <section class="fig" id="fig-deinline" aria-labelledby="t-deinline">
+    <span class="fig-num" aria-hidden="true">01</span>
+    <div class="wrap">
+      <div class="fig-head reveal">
+        <div>
+          <p class="eyebrow">Fig. 01 · <b>de-inliner</b></p>
+          <h2 id="t-deinline">The optimizer erased the helper. Tovek <em>rebuilt the call.</em></h2>
+        </div>
+        <p>Luau <code>-O2</code> inlines small functions at every call site, so the shipped bytecode contains no <code>CALL</code> to them at all. Tovek keeps the helper, matches its body against the expanded code and restores the call — only when body, arguments, captures and result arity line up exactly.</p>
+      </div>
+
+      <div class="flow3">
+        <div class="step reveal" data-d="1">
+          <div class="step-l"><i>1</i> the author wrote</div>
+          <div class="code"><div class="code-bar"><span class="file">Zone.server.lua</span><span class="tag">source</span></div>
+<pre data-lang="luau">
+local function isNear(a, b, range)
+	return (a.Position - b.Position).Magnitude &lt;= range
+end
+
+-- …
+if root and isNear(root, zone, range) then
+</pre></div>
+          <span class="link" aria-hidden="true"></span>
+        </div>
+
+        <div class="step is-noise reveal" data-d="2">
+          <div class="step-l"><i>2</i> the compiler shipped</div>
+          <div class="code bc"><div class="code-bar"><span class="file">luau-compile --text -O2</span><span class="tag coral">bytecode</span></div>
+<pre data-lang="bc">
+JUMPIFNOT R9 L3
+REMARK inlining succeeded (cost 5, profit 1.60x)
+GETUPVAL R11 1
+GETTABLEKS R13 R9 K6 ['Position']
+GETTABLEKS R14 R11 K6 ['Position']
+SUB R12 R13 R14
+GETTABLEKS R12 R12 K7 ['Magnitude']
+JUMPIFLE R12 R0 L1
+LOADB R10 0 +1
+L1: LOADB R10 1
+L2: JUMPIFNOT R10 L3
+</pre></div>
+          <div class="nocall">no CALL to isNear anywhere in the prototype</div>
+          <span class="link" aria-hidden="true"></span>
+        </div>
+
+        <div class="step is-meaning reveal" data-d="3">
+          <div class="step-l"><i>3</i> tovek returns</div>
+          <div class="code"><div class="code-bar"><span class="file">Zone.server.luau</span><span class="tag lime">reconstructed</span></div>
+<pre data-lang="luau">
+--  equivalent calls inferred from this helper; original call sites unknown
+local function isNear(p, p2, p3)
+	return (p.Position - p2.Position).Magnitude &lt;= p3
+end
+
+-- …
+if not (humanoidRootPart and isNear(humanoidRootPart, zone, p)) then
+	continue
+end
+</pre></div>
+        </div>
+      </div>
+      <p class="cap reveal">The rebuilt helper carries that comment on purpose: a matching body proves the call is <b>equivalent</b>, not that the author wrote it there. A pure-arithmetic helper in the same file, <code>scaled(value, factor)</code>, stays expanded because the proof didn't go through. Tovek never guesses.</p>
+
+      <div class="cmp-wrap reveal">
+        <p class="eyebrow" style="margin-bottom:14px">Drag to compare · <b>the same loop</b></p>
+        <div class="cmp" style="--x:40%">
+          <span class="lbl left">as compiled</span><span class="lbl right">tovek</span>
+          <div class="pane under"><pre data-lang="luau">
+for _, v in ipairs(Players:GetPlayers()) do
+	local character = v.Character
+	if not character then
+		continue
+	end
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not (humanoidRootPart and ⟪(humanoidRootPart.Position - zone.Position).Magnitude &lt;= p⟫) then
+		continue
+	end
+	result[#result + 1] = v
+	v:SetAttribute("Score", #result * p2 + 1)
+end
+</pre></div>
+          <div class="pane over"><pre data-lang="luau">
+for _, v in ipairs(Players:GetPlayers()) do
+	local character = v.Character
+	if not character then
+		continue
+	end
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not (humanoidRootPart and ⟪isNear(humanoidRootPart, zone, p)⟫) then
+		continue
+	end
+	result[#result + 1] = v
+	v:SetAttribute("Score", #result * p2 + 1)
+end
+</pre></div>
+          <span class="handle" aria-hidden="true"></span>
+          <input type="range" min="8" max="92" value="40" aria-label="Reveal Tovek output versus the expanded compiled form">
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="proof-section">
-    <div class="section-inner">
-      <div class="proof-top reveal"><span class="small-label">04 / Put to the test</span><h2>Good output should<br>stand up to a closer look.</h2></div>
-      <div class="proof-numbers">
-        <div class="proof-number reveal"><strong>31.9<span class="sr-only"> percent</span><sup aria-hidden="true" style="font-size:.36em;vertical-align:super">%</sup></strong><span>Fewer anonymous bindings</span><p>Names matching p/v patterns, across 3,975 commonly parsed files, versus v0.9 beta.</p></div>
-        <div class="proof-number reveal"><strong>513<span aria-hidden="true" style="font-size:.36em">/513</span></strong><span>Public profiles recompile</span><p>171 pinned source files, each compiled at O0, O1 and O2.</p></div>
-        <div class="proof-number reveal"><strong>246<span aria-hidden="true" style="font-size:.36em">/246</span></strong><span>Runtime profiles pass</span><p>Targeted tests for values, effects, errors, captures and multiple returns.</p></div>
+  <!-- ============ FIG 02 — NAMING ============ -->
+  <section class="fig" id="fig-naming" aria-labelledby="t-naming">
+    <span class="fig-num" aria-hidden="true">02</span>
+    <div class="wrap">
+      <div class="fig-head reveal">
+        <div>
+          <p class="eyebrow">Fig. 02 · <b>name inference</b></p>
+          <h2 id="t-naming">Every name has <em>a reason.</em></h2>
+        </div>
+        <p>Roblox strips local names before a script reaches the client. Tovek doesn't recover them — nothing can — it infers them from evidence: which method produced a value, which field it was stored to, which event slot it fills. <strong>Hover a name</strong> to see its evidence. Flip the switch to see what the bytecode actually records.</p>
       </div>
-      <div class="proof-bottom reveal"><p>Measured on the validated V2 output. Naming counts measure readability signals; passing tests does not prove every program equivalent.</p><a class="text-link" href="changelog.html#evaluation">Explore the evidence <span class="arrow" aria-hidden="true">↗</span></a></div>
+
+      <div class="name-grid">
+        <div class="reveal" data-d="1">
+          <div class="code" id="name-code">
+            <div class="code-bar"><span class="file">PlayerAdded.client.luau</span>
+              <span class="switch" style="margin-left:auto"><span class="off">registers</span><button type="button" id="name-switch" role="switch" aria-checked="true" aria-label="Toggle between inferred names and anonymous registers"></button><span class="on">inferred</span></span>
+            </div>
+<pre data-lang="luau">
+local ⟦Players|v1|Service handle kept as a header local. The name is the `game:GetService("Players")` argument.⟧ = game:GetService("Players")
+local ⟦ReplicatedStorage|v2|Same rule: `game:GetService("ReplicatedStorage")` is preserved instead of being folded into every use.⟧ = game:GetService("ReplicatedStorage")
+local ⟦coin|v3|The result of `:WaitForChild("Coin")` is named after the child, lower-camel.⟧ = ⟦ReplicatedStorage|v2|⟧:WaitForChild("Coin")
+⟦Players|v1|⟧.PlayerAdded:Connect(function(⟦player|p1|The first argument of a `PlayerAdded` handler is the joining Player.⟧)
+	⟦player|p1|⟧.CharacterAdded:Connect(function(⟦character|p2|`CharacterAdded` passes the new character model.⟧)
+		local ⟦humanoid|v4|`:WaitForChild("Humanoid")` — the child's name.⟧ = ⟦character|p2|⟧:WaitForChild("Humanoid")
+		local ⟦clone|v5|The result of `:Clone()` is a clone.⟧ = ⟦coin|v3|⟧:Clone()
+		⟦clone|v5|⟧.Parent = workspace
+		local ⟦speed|v6|`:GetAttribute("Speed")` — the attribute key, lower-camel.⟧ = ⟦clone|v5|⟧:GetAttribute("Speed")
+		⟦humanoid|v4|⟧.WalkSpeed = ⟦speed|v6|⟧
+		⟦humanoid|v4|⟧.JumpPower = ⟦speed|v6|⟧ * 2
+		⟦humanoid|v4|⟧.Died:Connect(function()
+			⟦clone|v5|⟧:Destroy()
+		end)
+	end)
+end)
+</pre>
+          </div>
+          <p class="cap">The bytecode of this file records no local names at all — only registers (<code>R0</code>, <code>R1</code>, …) and constants. Eight of its nine locals and parameters got a name from usage; <code>_</code> and index variables keep their idiomatic forms.</p>
+        </div>
+
+        <div class="rules reveal" data-d="2">
+          <div class="rule"><span class="ev">x:Connect(fn)</span><span class="to">connection</span></div>
+          <div class="rule"><span class="ev">template:Clone()</span><span class="to">clone</span></div>
+          <div class="rule"><span class="ev">TweenService:Create(…)</span><span class="to">tween</span></div>
+          <div class="rule"><span class="ev">animator:LoadAnimation(…)</span><span class="to">track</span></div>
+          <div class="rule"><span class="ev">:GetAttribute("Speed")</span><span class="to">speed</span></div>
+          <div class="rule"><span class="ev">Color3.fromRGB(…) · Vector3.new(…)</span><span class="to">color · vector</span></div>
+          <div class="rule"><span class="ev">RenderStepped:Connect(function(_)</span><span class="to">dt</span></div>
+          <div class="rule"><span class="ev">table.sort(t, function(_, _)</span><span class="to">a, b</span></div>
+          <div class="rule"><span class="ev">return setmetatable({}, Class)</span><span class="to">self</span></div>
+          <div class="rule"><span class="ev">v = v + step, nothing else</span><span class="to">total</span></div>
+          <div class="rule"><span class="ev">#t read more than once</span><span class="to">count</span></div>
+          <div class="rule"><span class="ev">workspace:Raycast(…)</span><span class="to">raycastResult</span></div>
+          <p class="rules-note">Every rule refuses on contradicting evidence. Recorded debug names, when a script still has them, always win over inference; bytecode type tags fill in as the lowest-priority hint.</p>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section class="get-started" id="get-started">
-    <div class="section-inner start-top">
-      <div class="reveal"><span class="small-label">05 / Take a closer look</span><h2>Back to code.<br>Forward from here.</h2></div>
-      <div class="start-content reveal"><p>Download Tovek V2 v0.1, bring your bytecode, and see what’s underneath.</p><div class="start-actions"><a class="action dark" href="https://github.com/Kiet1308/Tovek/releases/latest">Download Tovek V2 <span class="arrow" aria-hidden="true">↗</span></a><a class="text-link" href="https://github.com/Kiet1308/Tovek/tree/main">Explore the source ↗</a></div><div class="command-line"><code id="quick-command">luau-lifter decompile-folder ./dump ./output</code><button class="copy-button" data-copy="quick-command" type="button">Copy</button></div><p class="build-note">V2 v0.1 · Windows &amp; Linux builds · Source available on main.</p></div>
+  <!-- ============ FIG 03 — UI TREES ============ -->
+  <section class="fig" id="fig-ui" aria-labelledby="t-ui">
+    <span class="fig-num" aria-hidden="true">03</span>
+    <div class="wrap">
+      <div class="fig-head reveal">
+        <div>
+          <p class="eyebrow">Fig. 03 · <b>ui reconstruction</b></p>
+          <h2 id="t-ui">Scattered writes. <em>One declarative tree.</em></h2>
+        </div>
+        <p>At <code>-O2</code> a React or Fusion element becomes table allocations, field stores, a computed event key and a callback, spread across registers. Tovek folds them back — leaves first — into the nested constructor the author wrote, while keeping every observable operation in its original order.</p>
+      </div>
+
+      <div class="tree-grid">
+        <div class="code reveal" id="ui-code" data-d="1"><div class="code-bar"><span class="file">Button.luau</span><span class="tag lime">reconstructed · -O2 -g1</span></div>
+<pre data-lang="luau">
+local react = require(script.Parent.Parent.React)
+local createElement = react.createElement
+
+local function Button(p)
+	return createElement("TextButton", {
+		Text = p.text,
+		Size = UDim2.fromOffset(160, 44),
+		BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+		[react.Event.Activated] = p.onClick
+	}, {
+		Corner = createElement("UICorner", {
+			CornerRadius = UDim.new(0, 8)
+		}),
+		Stroke = createElement("UIStroke", {
+			Thickness = 1,
+			Color = Color3.fromRGB(80, 80, 80)
+		})
+	})
+end
+
+return Button
+</pre></div>
+        <div class="reveal" data-d="2">
+          <div class="tree" aria-label="Element tree, hover to highlight the matching lines">
+            <div class="tt">element tree · hover</div>
+            <ul>
+              <li><span class="node" tabindex="0" data-lines="5-18"><span class="hd"><span class="cls">TextButton</span></span><span class="props">3 props · 1 event · 2 children</span></span>
+                <ul>
+                  <li><span class="node ev" tabindex="0" data-lines="9-9"><span class="hd"><span class="key">[Event.Activated]</span></span><span class="props">computed key · p.onClick</span></span></li>
+                  <li><span class="node" tabindex="0" data-lines="11-13"><span class="hd"><span class="key">Corner =</span><span class="cls">UICorner</span></span><span class="props">CornerRadius</span></span></li>
+                  <li><span class="node" tabindex="0" data-lines="14-17"><span class="hd"><span class="key">Stroke =</span><span class="cls">UIStroke</span></span><span class="props">Thickness · Color</span></span></li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <p class="tree-cap">Computed event keys such as <code>[react.Event.Activated]</code> and drained <code>children</code> tables are rebuilt too. A table only absorbs initialization that no other code could have observed in between — anything already visible stays where it was.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FIG 04 — METHODS & TYPES ============ -->
+  <section class="fig" id="fig-oop" aria-labelledby="t-oop">
+    <span class="fig-num" aria-hidden="true">04</span>
+    <div class="wrap">
+      <div class="fig-head reveal">
+        <div>
+          <p class="eyebrow">Fig. 04 · <b>methods &amp; types</b></p>
+          <h2 id="t-oop">Colons and types, <em>back where they were.</em></h2>
+        </div>
+        <p>Method tables written with an explicit <code>self</code> come back as <code>function T:method()</code>. Bytecode compiled with type information keeps its parameter tags, and Tovek writes them back as annotations — never inventing a spelling the bytecode doesn't hold.</p>
+      </div>
+      <div class="two">
+        <div class="reveal" data-d="1">
+          <h3>OOP <em>recovery</em></h3>
+          <div class="code"><div class="code-bar"><span class="file">Inventory.luau</span><span class="tag lime">-O2 -g1</span></div>
+<pre data-lang="luau">
+function class:Add(p)
+	if self.count &gt;= self.capacity then
+		return false
+	end
+
+	local items = self.items
+	table.insert(items, p)
+	self:Refresh()
+	return true
+end
+
+function class:Refresh()
+	self.count = #self.items
+	self.owner:SetAttribute("ItemCount", self.count)
+end
+</pre></div>
+          <p class="cap"><code>self</code> is recognised from how the first parameter is used — method calls, field writes, the <code>setmetatable</code> constructor — not from a name the bytecode no longer has. A method that only reads fields stays in dot form rather than being guessed.</p>
+        </div>
+        <div class="reveal" data-d="2">
+          <h3>Type <em>annotations</em></h3>
+          <div class="code"><div class="code-bar"><span class="file">Module.luau</span><span class="tag lime">-O2 -g1 -t1</span></div>
+<pre data-lang="luau">
+scale = function(p: number, value: number?, p2: string)
+	local v2 = p * (value or 1)
+	return p2 .. "=" .. tostring(v2)
+end,
+configure = function(p, flag: boolean, callback, list, vector: Vector3, buf: buffer)
+	if flag then
+		callback(#list)
+	end
+
+	return p, vector, buf
+end
+</pre></div>
+          <p class="cap"><code>table</code>, <code>function</code> and untagged userdata stay unannotated: the bytecode doesn't keep their spelling. Recompiling the output reproduces the same type tags — and the tags double as a last-resort naming hint (<code>vector</code>, <code>buf</code>, <code>flag</code>, <code>callback</code>).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FIG 05 — CONTROL FLOW ============ -->
+  <section class="fig" id="fig-flow" aria-labelledby="t-flow">
+    <span class="fig-num" aria-hidden="true">05</span>
+    <div class="wrap">
+      <div class="fig-head reveal">
+        <div>
+          <p class="eyebrow">Fig. 05 · <b>control flow</b></p>
+          <h2 id="t-flow">Loops you would <em>have written.</em></h2>
+        </div>
+        <p>V2's structurer rebuilds source-like loops from explicit ownership, edge-transfer and iterator-protocol checks: <code>continue</code> guards, early returns, <code>repeat … until</code>, shared tails emitted once. Underneath, evaluation order, closure identity and result counts are protected — when a rewrite can't be justified, Tovek keeps the snapshot.</p>
+      </div>
+      <div class="flow-grid">
+        <div class="code reveal" data-d="1"><div class="code-bar"><span class="file">Module.luau</span><span class="tag lime">-O2 -g1</span></div>
+<pre data-lang="luau">
+function Module.collect(list, p, p2)
+	local parts = {}
+
+	for _, part in ipairs(list) do
+		if not part:IsA("BasePart") or p2 &lt; (part.Position - p).Magnitude then
+			continue
+		end
+
+		parts[#parts + 1] = part
+	end
+
+	return parts
+end
+
+function Module.countdown(p)
+	local v = p
+
+	repeat
+		task.wait(1)
+		p -= 1
+		print("T-" .. p)
+	until p &lt;= 0
+
+	return string.format("%d seconds elapsed", v)
+end
+</pre></div>
+        <div class="reveal" data-d="2">
+          <div class="checks">
+            <div class="check"><i>✓</i><span><b>198 / 198</b> shared runtime profiles pass, executed on Luau's VM and compared with the original. v0.9 beta passed 138.</span></div>
+            <div class="check"><i>✓</i><span><b>513 / 513</b> public parse-and-recompile profiles: 171 source files at <code>O0</code>, <code>O1</code> and <code>O2</code>.</span></div>
+            <div class="check"><i>✓</i><span><b>Evaluation order</b> of global and field lookups, equality metamethod arguments, repeated indexing and nested assignments is preserved.</span></div>
+            <div class="check"><i>✓</i><span><b>Exact result counts</b> for calls and varargs, including trailing <code>nil</code> values — a call that contributed one result still contributes one.</span></div>
+            <div class="check"><i>✓</i><span><b>NaN-safe</b> condition normalization by default; <code>--assume-no-nan</code> opts into <code>not (a &lt; b)</code> → <code>a &gt;= b</code>.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPEC SHEET ============ -->
+  <section class="spec" aria-labelledby="t-spec">
+    <div class="wrap">
+      <div class="fig-head reveal">
+        <div>
+          <p class="eyebrow">Engine sheet</p>
+          <h2 id="t-spec">Built for whole games, <em>not single files.</em></h2>
+        </div>
+        <p>A Rust CLI that eats a SaveInstance dump in parallel, a local HTTP server for the executor workflow, and a batch API — all producing byte-identical output no matter how many threads you throw at it.</p>
+      </div>
+      <div class="sheet reveal" data-d="1">
+        <div class="sheet-head"><span>Tovek V2 · v0.1</span><span><b>luau-lifter</b> · web-server · luau-worker</span></div>
+        <dl>
+          <div class="cell"><dt>Bytecode</dt><dd>Luau serialization <b>v4 – v13</b>. v12 native: size-delimited prototypes, 64-bit cost metadata, call feedback and <code>CALLFB</code>. <span class="no">v14 unsupported.</span></dd></div>
+          <div class="cell"><dt>Encoding</dt><dd>Roblox key <code>203</code> by default in folder mode; <code>-e</code> / <code>--key</code> for single files. Raw Luau bytecode works as is.</dd></div>
+          <div class="cell"><dt>Validation</dt><dd>Public fixtures parsed, recompiled and executed with the pinned Luau toolchain in CI. <b>246 / 246</b> v12 runtime profiles, 27 structural cases, 6 WebAssembly reader cases.</dd></div>
+          <div class="cell"><dt>Determinism</dt><dd><b>Byte-identical</b> output across thread counts and runs. Stable local IDs, deterministic de-inline canon.</dd></div>
+          <div class="cell"><dt>Speed</dt><dd>Parallel per-function lifting and folder decompilation (rayon) on <b>mimalloc</b>. 3,978 files in 1.67 s at 16 threads, 18.1 s single-threaded.</dd></div>
+          <div class="cell"><dt>Cache</dt><dd>Optional bounded artifact cache (<code>--cache-dir</code>) keyed by binary, bytecode, options and module naming context; integrity-checked before reuse.</dd></div>
+          <div class="cell"><dt>CLI</dt><dd><code>decompile-folder</code>, <code>validate-folder</code> (decompile + parse-check in one pass), <code>--emit-upvalue-analysis</code> sidecars, <code>--emit-binding-provenance</code>.</dd></div>
+          <div class="cell"><dt>Server</dt><dd><code>POST /decompile</code> (base64), <code>/decompile/raw</code>, <code>/decompile/batch</code> — JSON or binary MDB1 framing, one bad script never fails the batch. Cloudflare Worker target included.</dd></div>
+          <div class="cell"><dt>Provenance</dt><dd>Optional sidecars trace every emitted identifier to its binding and input evidence; reconstructed calls carry event IDs. Unknown origins stay unknown.</dd></div>
+          <div class="cell"><dt>AI</dt><dd><b>None.</b> Deterministic rules only. Nothing is uploaded, no model is downloaded, no service is called.</dd></div>
+          <div class="cell"><dt>Platforms</dt><dd>Windows and Linux binaries on GitHub Releases. Builds from source with Rust <code>nightly-2024-12-15</code>.</dd></div>
+          <div class="cell"><dt>License</dt><dd><b>MIT.</b> A fork of the medal decompiler; public fixtures and CI live in the repository.</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LIMITS ============ -->
+  <section class="limits" aria-labelledby="t-limits">
+    <div class="wrap limits-grid">
+      <div class="reveal">
+        <p class="eyebrow">Straight talk</p>
+        <h2 id="t-limits">What Tovek <em>won't pretend.</em></h2>
+        <p class="intro">Bytecode does not uniquely determine source. The point of V2 is to make the remaining evidence as useful as possible — and to be explicit about where evidence ends.</p>
+      </div>
+      <ul class="limit-list reveal" data-d="1">
+        <li><i>—</i><span><b>Names are inferred, not recovered.</b> The author's identifiers, comments and erased types are gone from the bytecode. Tovek reports evidence-based names and labels reconstructed calls as inferred.</span></li>
+        <li><i>—</i><span><b>Runtime-mutated <code>CMPPROTO</code> guards</b> are reported with their prototype and instruction location instead of rendered as a guessed condition.</span></li>
+        <li><i>—</i><span><b>v14 bytecode is not supported yet.</b> Malformed or truncated v12 input is rejected rather than decoded on a best-effort basis.</span></li>
+        <li><i>—</i><span><b>Recompiling is not equivalence.</b> Fixtures are executed and compared, which proves the tested inputs — not every program.</span></li>
+        <li><i>—</i><span><b>Some math-heavy code still carries extra intermediates</b> compared with the original. The release article lists every measured regression alongside the gains.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ GET STARTED ============ -->
+  <section class="start" id="get" aria-labelledby="t-start">
+    <div class="wrap">
+      <div class="start-card reveal">
+        <div class="start-grid">
+          <div>
+            <p class="eyebrow">Get Tovek V2</p>
+            <h2 id="t-start">Bring your <em>bytecode.</em></h2>
+            <p class="p">One binary. Feed it a file, a SaveInstance dump or a whole game and get back code you can read. Windows and Linux builds are on GitHub Releases; the source builds with one pinned nightly.</p>
+            <div class="cta">
+              <a class="btn primary" href="https://github.com/Kiet1308/Tovek/releases/latest">Download V2 v0.1 <span class="arr" aria-hidden="true">↗</span></a>
+              <a class="btn" href="https://github.com/Kiet1308/Tovek">GitHub</a>
+              <a class="btn" href="https://discord.gg/phY6VUDSF7">Discord</a>
+            </div>
+            <div class="meta"><span>release tag <code>v2-v0.1</code> · September 2026</span><span>read the <a href="changelog.html" style="color:var(--lime)">V2 release article →</a></span></div>
+          </div>
+          <div>
+            <div class="code cmd"><div class="code-bar"><span class="file">usage</span><span class="tag">luau-lifter</span></div><button class="copy" type="button" data-copy="cmd-use">copy</button>
+<pre id="cmd-use"><span class="cm"># raw Luau bytecode</span>
+<span class="bin">luau-lifter</span> <span class="arg">script.luac</span>
+
+<span class="cm"># Roblox client bytecode (encoded, key 203)</span>
+<span class="bin">luau-lifter</span> <span class="arg">script.lua</span> <span class="flag">-e</span> <span class="flag">--script-name</span> <span class="arg">"Workspace.Script"</span>
+
+<span class="cm"># a whole SaveInstance dump, in parallel · then validate every output</span>
+<span class="bin">luau-lifter</span> <span class="arg">decompile-folder ./dump ./out</span>
+<span class="bin">luau-lifter</span> <span class="arg">validate-folder ./dump ./out</span></pre></div>
+            <div class="code cmd"><div class="code-bar"><span class="file">build from source</span><span class="tag">rust · windows / linux</span></div><button class="copy" type="button" data-copy="cmd-build">copy</button>
+<pre id="cmd-build"><span class="bin">git</span> <span class="arg">clone --branch main https://github.com/Kiet1308/Tovek.git</span> &amp;&amp; <span class="bin">cd</span> <span class="arg">Tovek</span>
+<span class="bin">rustup</span> <span class="arg">toolchain install nightly-2024-12-15</span>
+<span class="bin">cargo</span> <span class="arg">+nightly-2024-12-15 build</span> <span class="flag">--release --locked</span> <span class="flag">-p</span> <span class="arg">luau-lifter</span> <span class="flag">-p</span> <span class="arg">web-server</span></pre></div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 </main>
-<footer class="site-footer">
-  <div class="footer-top"><a class="brand" href="index.html">tovek<small>V2</small></a><nav aria-label="Footer"><a href="changelog.html">Changelog</a><a href="https://github.com/Kiet1308/Tovek">GitHub ↗</a><a href="https://discord.gg/phY6VUDSF7">Discord ↗</a></nav></div>
-  <div class="footer-credit"><p>Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>.<br>In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality).</p><p>© 2026 Tovek &nbsp; / &nbsp; <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a><br>Open source, down to the last instruction.</p></div>
-  <div class="footer-word" aria-hidden="true">TOVEK↗</div>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <nav aria-label="Footer"><a href="index.html">Overview</a><a href="changelog.html">Changelog</a><a href="https://github.com/Kiet1308/Tovek">GitHub ↗</a><a href="https://github.com/Kiet1308/Tovek/releases/latest">Releases ↗</a><a href="https://discord.gg/phY6VUDSF7">Discord ↗</a></nav>
+      <p class="credit">Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>. <span class="memory">In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality).</span></p>
+    </div>
+    <div class="legal">© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a><br>Tovek V2 v0.1 · September 2026<br>Type: Fraunces · Schibsted Grotesk · IBM Plex Mono (OFL)</div>
+  </div>
 </footer>
-<span id="copy-status" class="sr-only" role="status" aria-live="polite"></span>
 </body>
 </html>

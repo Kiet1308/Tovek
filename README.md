@@ -99,8 +99,8 @@ for scope, methodology and remaining regressions.
 
 The [V2 release article](https://kiet1308.github.io/Tovek/changelog.html#evaluation)
 compares the validated V2 output with v0.9 beta, including readability gains,
-runtime checks and remaining regressions. The [interactive examples](https://kiet1308.github.io/Tovek/#output)
-illustrate module exports, naming and direct returns.
+runtime checks and remaining regressions. The [UI reconstruction example](https://kiet1308.github.io/Tovek/changelog.html#ui-trees)
+illustrates how module exports can be reconstructed into a table.
 
 Public regression fixtures, pinned corpus manifests and the CI workflow remain in
 this repository. Private bytecode, generated output and internal research reports
