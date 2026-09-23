@@ -19,11 +19,12 @@ impl Bytecode {
                     Bytecode::Error(String::from_utf8_lossy(error_msg).to_string()),
                 ))
             }
-            // 4..=13: bytecode versions 4 through 13. v10 adds
+            // 4..=14: bytecode versions 4 through 14. v10 adds
             // LBC_CONSTANT_CLASS_SHAPE + NEWCLASSMEMBER; v11 adds CALLFB/CMPPROTO
             // and a per-proto feedback-vector section; v12 adds size-prefixed
-            // prototypes and v13 adds double-precision vector constants.
-            4..=13 => {
+            // prototypes, v13 adds double-precision vector constants and v14
+            // adds FASTPCALL (no serialization change beyond v12/v13).
+            4..=14 => {
                 let (input, chunk) = Chunk::parse(input, encode_key, status_code)?;
                 Ok((input, Bytecode::Chunk(chunk)))
             }

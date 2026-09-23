@@ -58,6 +58,33 @@ fn rvalue_blocks_reorder(rvalue: &ast::RValue) -> bool {
     }
 }
 
+/// Global callees of `Call`s lifted from a FASTPCALL fallback. The bytecode
+/// fetches such an importable global after evaluating the arguments, so it is
+/// not an ordering barrier for them.
+fn late_global_callees(statement: &ast::Statement) -> Vec<*const ast::RValue> {
+    fn mark(call: &ast::Call, out: &mut Vec<*const ast::RValue>) {
+        if call.callee_after_arguments && matches!(call.value.as_ref(), ast::RValue::Global(_)) {
+            out.push(call.value.as_ref() as *const _);
+        }
+    }
+    fn visit(rvalue: &ast::RValue, out: &mut Vec<*const ast::RValue>) {
+        if let ast::RValue::Call(call) | ast::RValue::Select(ast::Select::Call(call)) = rvalue {
+            mark(call, out);
+        }
+        for child in rvalue.rvalues() {
+            visit(child, out);
+        }
+    }
+    let mut out = Vec::new();
+    if let ast::Statement::Call(call) = statement {
+        mark(call, &mut out);
+    }
+    for rvalue in statement.rvalues() {
+        visit(rvalue, &mut out);
+    }
+    out
+}
+
 /// Returns whether `read` occurs in a subexpression that may not be evaluated
 /// on every execution of `rvalue`. A side-effecting definition cannot be moved
 /// into such a position: `local x = effect(); return flag and x` must not become
@@ -161,6 +188,7 @@ impl<'a> Inliner<'a> {
         new_rvalue_has_side_effects: bool,
         upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
         readonly_capture_ids: &FxHashSet<u64>,
+        late_callees: &[*const ast::RValue],
     ) -> bool {
         let candidate_may_write_capture = new_rvalue_has_side_effects
             && ast::effects::may_write_capture(new_rvalue.as_ref().unwrap());
@@ -232,6 +260,7 @@ impl<'a> Inliner<'a> {
                                 _ => {}
                             }
                             if new_rvalue_has_side_effects
+                                && !late_callees.contains(&(rvalue as *const ast::RValue))
                                 && (rvalue_blocks_reorder(rvalue)
                                     || (candidate_may_write_capture
                                         && ast::effects::intrinsic(rvalue, &|local| upvalue_to_group.contains_key(local)
@@ -352,6 +381,10 @@ impl<'a> Inliner<'a> {
                                         .pop()
                                         .unwrap(),
                                 );
+                                // A FASTPCALL callee is an import fetched after the
+                                // arguments (`Call::callee_after_arguments`), so an
+                                // argument definition does not move across it.
+                                let late_callees = late_global_callees(&block[index]);
                                 if Self::try_inline(
                                     &mut block[index],
                                     read.as_ref().unwrap(),
@@ -359,6 +392,7 @@ impl<'a> Inliner<'a> {
                                     new_rvalue_has_side_effects,
                                     self.upvalue_to_group,
                                     self.readonly_capture_ids,
+                                    &late_callees,
                                 ) {
                                     assert!(new_rvalue.is_none());
 
@@ -575,6 +609,7 @@ impl<'a> Inliner<'a> {
                                     new_rvalue_has_side_effects,
                                     self.upvalue_to_group,
                                     self.readonly_capture_ids,
+                                    &[],
                                 ) {
                                     assert!(new_rvalue.is_none());
                                     let block = self.function.block_mut(node).unwrap();

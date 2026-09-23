@@ -192,6 +192,17 @@ jobs:
             --report "$RUNNER_TEMP/bytecode-v12.json" \
             --keep "$RUNNER_TEMP/bytecode-v12"
 
+      - name: Luau bytecode v14 (FASTPCALL) runtime and determinism
+        run: |
+          python3 scripts/roadmap_v2.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --lifter target/release/luau-lifter \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --bytecode-version 14 --determinism \
+            --report "$RUNNER_TEMP/bytecode-v14.json" \
+            --keep "$RUNNER_TEMP/bytecode-v14"
+
       - name: Execute v12 reader in wasm32
         run: |
           rustup target add wasm32-unknown-unknown --toolchain nightly-2024-12-15

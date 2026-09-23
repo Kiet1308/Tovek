@@ -52,6 +52,8 @@ def main():
     parser.add_argument("--lifter-arg", action="append", default=[])
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=30)
+    parser.add_argument("--bytecode-version", type=int, choices=(9, 12, 14), default=9,
+                        help="compile profile, as in roadmap_v2.py")
     args = parser.parse_args()
     for name in ("compiler", "lifter", "ast"):
         if getattr(args, name):
@@ -140,7 +142,7 @@ def main():
                          "dataflow": dict(collections.Counter(r["dataflow"]["status"] for r in subset)),
                          "ast": dict(collections.Counter(r["source_fidelity"]["status"] for r in subset))}
     report = {"schema_version": 1, "manifest_sha256": sha256(args.manifest), "summary": groups,
-              "lifter_args": args.lifter_arg,
+              "lifter_args": args.lifter_arg, "bytecode_version": args.bytecode_version,
               "tools": {name: {"path": str(getattr(args, name)), "sha256": sha256(getattr(args, name))}
                         for name in ("compiler", "lifter", "ast") if getattr(args, name)},
               "compiler_commit_expected": manifest["compiler_commit"], "rows": rows,

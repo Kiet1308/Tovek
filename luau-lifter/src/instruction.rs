@@ -146,7 +146,10 @@ impl Instruction {
             // a runtime/JIT pseudo-op and does not appear in serialized v9 bytecode,
             // so this is correctness hardening (the v9 corpus is byte-identical).
             | 62
-            | 87 => {
+            | 87
+            // FASTPCALL(89, v14): ABC-form like FASTCALL (A=pcall/xpcall id,
+            // B=explicit argument count, C=skip to the following CALL).
+            | 89 => {
                 let (a, b, c) = Self::parse_abc(insn);
 
                 Ok(Self::BC {

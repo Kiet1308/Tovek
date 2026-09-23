@@ -63,6 +63,7 @@ fn dc_call(call: &Call) -> Call {
         value: Box::new(dc_rvalue(&call.value)),
         arguments: call.arguments.iter().map(dc_rvalue).collect(),
         reconstruction_event: call.reconstruction_event,
+        callee_after_arguments: call.callee_after_arguments,
     }
 }
 

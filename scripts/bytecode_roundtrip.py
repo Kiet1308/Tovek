@@ -62,7 +62,7 @@ import tempfile
 import time
 
 # --------------------------------------------------------------------------
-# Luau bytecode deserialiser (versions 4..12, types 0..3), key-aware.
+# Luau bytecode deserialiser (versions 4..14, types 0..3), key-aware.
 # --------------------------------------------------------------------------
 
 OPCODES = (
@@ -74,7 +74,7 @@ OPCODES = (
     "FORNPREP FORNLOOP FORGLOOP FORGPREP_INEXT FASTCALL3 FORGPREP_NEXT NATIVECALL "
     "GETVARARGS DUPCLOSURE PREPVARARGS LOADKX JUMPX FASTCALL COVERAGE CAPTURE SUBRK DIVRK "
     "FASTCALL1 FASTCALL2 FASTCALL2K FORGPREP JUMPXEQKNIL JUMPXEQKB JUMPXEQKN JUMPXEQKS "
-    "IDIV IDIVK GETUDATAKS SETUDATAKS NAMECALLUDATA NEWCLASSMEMBER CALLFB CMPPROTO"
+    "IDIV IDIVK GETUDATAKS SETUDATAKS NAMECALLUDATA NEWCLASSMEMBER CALLFB CMPPROTO FASTPCALL"
 ).split()
 OP_INDEX = {name: i for i, name in enumerate(OPCODES)}
 
@@ -180,7 +180,7 @@ def parse_chunk(data: bytes, key: int) -> Chunk:
     version = r.u8()
     if version == 0:
         raise BytecodeError("compile error: " + data[1:].decode("utf-8", "replace")[:200])
-    if not 4 <= version <= 12:
+    if not 4 <= version <= 14:
         raise BytecodeError(f"unsupported bytecode version {version}")
     ch = Chunk()
     ch.version = version
@@ -304,6 +304,9 @@ def _parse_constant(r: Reader, version: int):
         for _ in range(np_ + nm):
             r.varint()
         return ("class",)
+    if tag == 11:
+        # v13 double-precision vector; normalised like the float form.
+        return ("vec", struct.unpack("<4d", r.bytes(32)))
     raise BytecodeError(f"unknown constant tag {tag}")
 
 
@@ -365,7 +368,7 @@ _DROP_IN_SIG = {
     OP_INDEX[n]
     for n in (
         "NOP BREAK MOVE JUMP JUMPBACK JUMPX COVERAGE CLOSEUPVALS PREPVARARGS "
-        "FASTCALL FASTCALL1 FASTCALL2 FASTCALL2K FASTCALL3 NATIVECALL"
+        "FASTCALL FASTCALL1 FASTCALL2 FASTCALL2K FASTCALL3 NATIVECALL FASTPCALL"
     ).split()
 }
 _CANON = {

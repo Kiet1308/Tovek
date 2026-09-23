@@ -53,9 +53,21 @@ def observation(command, **kwargs):
             "seconds": elapsed}
 
 
+# Compiler flags per target version. v14 keeps the v12/v13 emitters on (as a
+# current Roblox build would) and adds FASTPCALL.
+COMPILER_FLAGS = {
+    12: "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true",
+    14: "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true,"
+        "LuauCompileEmitVectorDouble=true,LuauCompileFastpcall=true",
+}
+# VM-side flags that execute the new instructions instead of their fallbacks.
+RUNTIME_FLAGS = {12: ",LuauCallFeedback=true", 14: ",LuauCallFeedback=true,LuauFastpcall=true"}
+
+
 def compiler_flags(args):
-    if getattr(args, "bytecode_version", 9) == 12:
-        return ["--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true", "-t1"]
+    version = getattr(args, "bytecode_version", 9)
+    if version in COMPILER_FLAGS:
+        return [COMPILER_FLAGS[version], "-t1"]
     return ["--fflags=false"]
 
 
@@ -123,10 +135,10 @@ def check_case(args, case, root, work, opt, debug):
             # the pinned upstream build. Disabling the VM half leaves NAMECALL
             # looking at the AUX word as an opcode and can crash the reference.
             runtime_flags = compiler_flags(args)[0]
-            if getattr(args, "bytecode_version", 9) == 12:
-                runtime_flags += ",LuauCallFeedback=true"
+            version = getattr(args, "bytecode_version", 9)
+            runtime_flags += RUNTIME_FLAGS.get(version, "")
             runtime_command = ([args.luau, runtime_flags, runner]
-                               if getattr(args, "bytecode_version", 9) == 12
+                               if version in RUNTIME_FLAGS
                                else [args.luau, runner])
             if case.get("runtime_compile_inline"):
                 # Compile this subject body under the actual matrix profile;
@@ -184,8 +196,9 @@ def main():
     parser.add_argument("--report", required=True, type=pathlib.Path)
     parser.add_argument("--keep", type=pathlib.Path, help="parent for a fresh work directory (never deleted)")
     parser.add_argument("--timeout", type=float, default=30)
-    parser.add_argument("--bytecode-version", type=int, choices=(9, 12), default=9,
-                        help="v12 enables cost metadata, CALLFB and type info; checks input/output headers")
+    parser.add_argument("--bytecode-version", type=int, choices=(9, 12, 14), default=9,
+                        help="v12 enables cost metadata, CALLFB and type info; v14 adds double "
+                             "vectors and FASTPCALL; checks input/output headers")
     parser.add_argument("--determinism", action="store_true")
     parser.add_argument("--lifter-arg", action="append", default=[], help="extra CLI flag, e.g. --lifter-arg=--synthesize-arithmetic-loops")
     parser.add_argument("--ast", type=pathlib.Path, help="pinned luau-ast executable for binding-aware metrics")

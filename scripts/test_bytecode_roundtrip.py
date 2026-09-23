@@ -63,6 +63,29 @@ class V12ReaderTests(unittest.TestCase):
             self.assertEqual(ch.protos[0].insns[1][1], OP_INDEX["CMPPROTO"])
             self.assertEqual(ch.protos[0].insns[1][7], 123)
 
+    def test_v14_fastpcall_is_a_plain_abc_instruction(self):
+        # FASTPCALL (A=0 pcall, B=2 explicit args, C=1) then RETURN; decoding only.
+        words = [89 | (2 << 16) | (1 << 24), 22 | (1 << 16)]
+        for key in (1, 203):
+            ch = parse_chunk(chunk_bytes([proto_body(version=14, key=key, words=words)], version=14), key)
+            self.assertEqual(ch.version, 14)
+            self.assertEqual([i[1] for i in ch.protos[0].insns], [OP_INDEX["FASTPCALL"], OP_INDEX["RETURN"]])
+            self.assertEqual(ch.protos[0].insns[0][4], 1)
+
+    def test_v13_double_vector_constant(self):
+        body = bytearray(proto_body(version=13))
+        # Replace the empty constant list (first of the six trailing zero bytes
+        # before the feedback vector) with one VECTORD constant.
+        constants_at = len(body) - 7
+        vector = struct.pack("<4d", 1e300, -2.5, 16777217.0, 0.0)
+        body[constants_at:constants_at + 1] = b"" + vector
+        ch = parse_chunk(chunk_bytes([bytes(body)], version=13), 1)
+        self.assertEqual(ch.protos[0].constants, [("vec", (1e300, -2.5, 16777217.0, 0.0))])
+
+    def test_version_after_14_is_rejected(self):
+        with self.assertRaises(BytecodeError):
+            parse_chunk(chunk_bytes([proto_body(version=14)], version=15), 1)
+
     def test_previous_serializations_still_parse_without_size_or_cost(self):
         for version in range(4, 12):
             ch = parse_chunk(chunk_bytes([proto_body(version=version)], version=version), 1)

@@ -61,11 +61,14 @@ for scope, methodology and remaining regressions.
   function-heavy returned tables recover a named module shape. Oversized truthy-selection
   chains return to `if`/`elseif`, while long left-associated concatenations become a named
   accumulator with `..=` updates instead of a parenthesized one-line wall.
-- **Modern bytecode coverage.** Reads Luau serialization **v4–v13**, including v12
-  size-delimited prototypes, 64-bit cost metadata, call feedback and `CALLFB`.
-  v12 is covered by 246 compiler/runtime profiles, malformed-input checks and executed
-  wasm32 reader tests. v13 double-vector serialization has targeted coverage; v14 is
-  unsupported. Runtime-mutated `CMPPROTO` guards are explicitly rejected because their
+- **Modern bytecode coverage.** Reads Luau serialization **v4–v14**, including v12
+  size-delimited prototypes, 64-bit cost metadata, call feedback and `CALLFB`, and the
+  v14 `FASTPCALL` fast path for `pcall`/`xpcall`, which decompiles to the same source as
+  v9 (`pcall(require, script.Parent.Config)`, not a hoisted `local require2 = require`).
+  v12 and v14 are each covered by 252 compiler/runtime profiles and the 513 public
+  recompile profiles; v12 also has malformed-input checks and executed wasm32 reader
+  tests. v13 double-vector serialization has targeted coverage; v15 and the experimental
+  class opcodes (`NEWCLASS`) are unsupported. Runtime-mutated `CMPPROTO` guards are explicitly rejected because their
   prototype-identity predicate cannot be faithfully reconstructed in source. See the
   [v12 validation and limits](https://kiet1308.github.io/Tovek/changelog.html#bytecode-v12).
 - **Validated output.** Public regression fixtures are checked with Luau's own

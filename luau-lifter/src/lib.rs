@@ -2172,6 +2172,56 @@ mod v11_fixtures {
         assert!(out.contains("16777217"), "got: {out:?}");
     }
 
+    /// `return pcall(g, h.k)` as compiled with FASTPCALL (v14): the arguments
+    /// are evaluated first and the importable `pcall` is fetched last, in the
+    /// fallback between FASTPCALL and CALL.
+    fn fastpcall_proto(with_fastpcall: bool) -> Proto {
+        const GETTABLEKS: u8 = 15;
+        const FASTPCALL: u8 = crate::op_code::OpCode::LOP_FASTPCALL as u8;
+        let mut words = vec![
+            abc(GETGLOBAL, 1, 0, 0), 0,
+            abc(GETGLOBAL, 2, 0, 0), 1,
+            abc(GETTABLEKS, 2, 2, 0), 2,
+        ];
+        if with_fastpcall {
+            words.push(abc(FASTPCALL, 0, 2, 2));
+        }
+        words.extend([abc(GETGLOBAL, 0, 0, 0), 3, abc(CALL, 0, 3, 0), abc(RETURN, 0, 0, 0)]);
+        Proto {
+            max_stack: 3,
+            words,
+            constants: (1..=4).map(const_string).collect(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn v14_fastpcall_restores_source_callee_order() {
+        let strings = ["g", "h", "k", "pcall"];
+        let blob = build_chunk(14, 3, &strings, &[fastpcall_proto(true)], 0);
+        let out = decompile(&blob, 1, None).expect("v14 FASTPCALL chunk must decompile");
+        assert_eq!(out.trim(), "return pcall(g, h.k)");
+    }
+
+    #[test]
+    fn late_global_callee_without_fastpcall_stays_ordered() {
+        // The same instruction order without FASTPCALL is not an import
+        // fallback: fetching the callee global remains an ordering barrier.
+        let strings = ["g", "h", "k", "pcall"];
+        let blob = build_chunk(14, 3, &strings, &[fastpcall_proto(false)], 0);
+        let out = decompile(&blob, 1, None).expect("chunk must decompile");
+        assert_ne!(out.trim(), "return pcall(g, h.k)", "got: {out}");
+        assert!(out.contains("pcall("), "got: {out}");
+    }
+
+    #[test]
+    fn v15_is_rejected() {
+        super::install_quiet_panic_hook();
+        let blob = build_chunk(15, 3, &[], &[simple_return_proto(vec![])], 0);
+        let result = std::panic::catch_unwind(|| decompile(&blob, 1, None));
+        assert!(result.map_or(true, |out| out.is_err()));
+    }
+
     #[test]
     fn cyclic_prototype_graph_is_rejected_before_lifting() {
         let mut self_cycle = simple_return_proto(vec![]);
