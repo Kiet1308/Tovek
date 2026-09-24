@@ -3,562 +3,746 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tovek — give bytecode its names back</title>
-  <meta name="description" content="Tovek is a Luau decompiler for Roblox that turns stripped -O2 bytecode into readable source: inferred names, rebuilt helpers, reconstructed UI trees, recovered methods and types — validated against Luau's own compiler and VM.">
-  <meta name="theme-color" content="#070a08">
-  <meta property="og:title" content="Tovek — give bytecode its names back">
-  <meta property="og:description" content="A Luau decompiler that reconstructs names, helpers, UI trees and loops from stripped Roblox bytecode. Open source, deterministic, runs locally.">
+  <title>Tovek — See through bytecode</title>
+  <meta name="description" content="Tovek is a Luau decompiler for Roblox bytecode. It un-inlines Luau -O2 helpers, recovers names from evidence, and rebuilds loops into source you can read. Local, deterministic, MIT licensed.">
+  <meta name="theme-color" content="#eeebe4">
+  <meta property="og:title" content="Tovek — See through bytecode">
+  <meta property="og:description" content="A Luau decompiler that puts inlined helpers back, names values from evidence and rebuilds real control flow.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://kiet1308.github.io/Tovek/">
-  <link rel="canonical" href="https://kiet1308.github.io/Tovek/">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="assets/fonts/fraunces-italic-300-700.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/fonts/plexmono-normal-400.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/landing.css?v=1">
-  <script src="assets/landing.js?v=1" defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,400..800;1,62..125,400..800&family=Instrument+Sans:ital,wdth,wght@0,75..100,400..700;1,75..100,400..700&family=Martian+Mono:wdth,wght@75..112.5,400..600&display=swap">
+  <link rel="stylesheet" href="assets/overview.css?v=1">
+  <link rel="prefetch" href="changelog.html">
+  <script>document.documentElement.classList.add('js')</script>
+  <script src="assets/overview.js?v=1" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<div class="bg" aria-hidden="true"><div class="bg-lens"></div><div class="bg-grid"></div><div class="bg-grain"></div></div>
+<div class="grain" aria-hidden="true"></div>
 
-<header class="top">
-  <a class="brand" href="index.html" aria-label="Tovek home">
-    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M10 10h28v8H28v21h-8V18H10z"/></svg></span>
-    tovek <small>v2</small>
+<header class="top" id="top">
+  <a class="brand" href="index.html" aria-label="Tovek overview">
+    <span class="brand-mark"><svg viewBox="0 0 28 30" aria-hidden="true"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg></span>
+    <span class="brand-name">tovek</span>
   </a>
-  <nav class="tabs" aria-label="Site sections">
-    <span class="tab-pill" aria-hidden="true"></span>
-    <a href="index.html" aria-current="page">Overview</a>
-    <a href="changelog.html"><span class="dot" aria-hidden="true"></span>Changelog</a>
+  <nav class="tabs" aria-label="Pages">
+    <span class="tab-thumb" aria-hidden="true"></span>
+    <a class="tab" href="index.html" aria-current="page">Overview</a>
+    <a class="tab" href="changelog.html" data-iris>Changelog</a>
   </nav>
-  <div class="top-right">
-    <a class="btn sm ghost-icon" href="https://github.com/Kiet1308/Tovek" aria-label="Tovek on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
-    <a class="btn sm primary" href="https://github.com/Kiet1308/Tovek/releases/latest">Download V2 <span class="arr" aria-hidden="true">↗</span></a>
+  <div class="top-actions">
+    <a class="link-quiet" href="https://github.com/Kiet1308/Tovek">GitHub ↗</a>
+    <a class="btn" href="https://github.com/Kiet1308/Tovek/releases/latest"><span class="pip" aria-hidden="true"></span><span>Download<span class="lbl-long"> V2</span></span></a>
   </div>
 </header>
 
 <main id="main">
 
-  <!-- ============ HERO ============ -->
-  <section class="hero" aria-labelledby="hero-title">
-    <div class="wrap hero-grid">
-      <div class="stagger">
-        <p class="eyebrow"><b>Luau decompiler</b> · V2 v0.1 · bytecode v4–v13</p>
-        <h1 id="hero-title">
-          <span class="w" style="animation-delay:.05s">Give</span>
-          <span class="w" style="animation-delay:.14s">bytecode</span>
-          <span class="w" style="animation-delay:.23s">its</span>
-          <span class="w" style="animation-delay:.32s"><em>names</em></span>
-          <span class="w" style="animation-delay:.41s">back.</span>
-        </h1>
-        <p class="lede">Tovek turns stripped Roblox bytecode into Luau you can actually read. It <strong>infers identifiers</strong> from how values are used, <strong>rebuilds the helpers and UI trees</strong> the <code>-O2</code> optimizer flattened, and checks every result against Luau's own compiler and VM. No <code>v1, v2, v3</code>.</p>
-        <div class="cta">
-          <a class="btn primary" href="https://github.com/Kiet1308/Tovek/releases/latest">Download for Windows · Linux <span class="arr" aria-hidden="true">↗</span></a>
-          <a class="btn" href="#fig-deinline">See what it rebuilds <span class="arr" aria-hidden="true">↓</span></a>
-        </div>
-        <div class="trust"><span>MIT licensed</span><span>Runs locally, nothing uploaded</span><span>Deterministic rules, no AI</span><span>Built on medal</span></div>
-      </div>
+  <!-- ============================================================ HERO -->
+  <section class="hero" id="hero" aria-labelledby="hero-title">
+    <div class="hx" id="hx" aria-hidden="true"></div>
 
-      <div class="recon" id="recon">
-        <div class="panel" role="img" aria-label="Animated demonstration: a listing of Luau bytecode instructions is scanned top to bottom and rewritten, line by line, into readable decompiled source with inferred names such as player, character, humanoid, clone and speed.">
-          <div class="panel-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="file">PlayerAdded.client.lua</span><span class="tag">luau -O2 -g1</span><span class="tag" id="ro-tag">reading</span></div>
-          <div class="rows"><div class="beam" aria-hidden="true"></div></div>
-          <div class="readout">
-            <div class="in-s"><span class="lbl">input</span><span class="val" id="ro-in">701 B · v9 bytecode</span><span class="val" id="ro-in2">debug names stripped (-g1)</span></div>
-            <span class="arrow" aria-hidden="true"></span>
-            <div class="out-s"><span class="lbl">output</span><span class="val dim" id="ro-out">—</span><span class="val dim" id="ro-out2">waiting</span></div>
-          </div>
-          <div class="recon-ctl"><button type="button" id="recon-pause" aria-label="Pause animation" aria-pressed="false">❚❚</button><button type="button" id="recon-replay" aria-label="Replay animation">↻</button></div>
-        </div>
-        <p class="recon-cap">Real run: <b>luau-compile -O2 -g1</b> → <b>luau-lifter</b>. Every name on screen was inferred; the bytecode contains none of them.</p>
+    <div class="ht" id="ht">
+      <div class="ht-top">
+        <p class="ht-eyebrow"><span>Tovek V2</span><span class="rule"></span><span>Luau decompiler for Roblox</span></p>
+        <p class="ht-file"><span class="f-paper">Sprint.client.luau · 1,557 bytes · Luau -O2</span><span class="f-film">Decompiled by Tovek V2 · 41 lines</span></p>
       </div>
+      <h1 id="hero-title"><span class="l"><span>See through</span></span><span class="l"><span><em>bytecode.</em></span></span></h1>
     </div>
 
-    <div class="ticker" aria-hidden="true">
-      <div class="ticker-track">
-        <ul>
-          <li><span class="ev">x:Connect(fn)</span><span class="to">→</span><span class="nm">connection</span></li>
-          <li><span class="ev">:Clone()</span><span class="to">→</span><span class="nm">clone</span></li>
-          <li><span class="ev">animator:LoadAnimation(…)</span><span class="to">→</span><span class="nm">track</span></li>
-          <li><span class="ev">TweenService:Create(…)</span><span class="to">→</span><span class="nm">tween</span></li>
-          <li><span class="ev">:GetAttribute("Speed")</span><span class="to">→</span><span class="nm">speed</span></li>
-          <li><span class="ev">Color3.fromRGB(…)</span><span class="to">→</span><span class="nm">color</span></li>
-          <li><span class="ev">RenderStepped:Connect(function(_)</span><span class="to">→</span><span class="nm">dt</span></li>
-          <li><span class="ev">InputBegan:Connect(function(_, _)</span><span class="to">→</span><span class="nm">input, gameProcessed</span></li>
-          <li><span class="ev">table.sort(t, function(_, _)</span><span class="to">→</span><span class="nm">a, b</span></li>
-          <li><span class="ev">typeof(x)</span><span class="to">→</span><span class="nm">typeName</span></li>
-          <li><span class="ev">getmetatable(x)</span><span class="to">→</span><span class="nm">metatable</span></li>
-          <li><span class="ev">workspace:Raycast(…)</span><span class="to">→</span><span class="nm">raycastResult</span></li>
-          <li><span class="ev">setmetatable({}, Class)</span><span class="to">→</span><span class="nm">self</span></li>
-          <li><span class="ev">v = v + dt</span><span class="to">→</span><span class="nm">total</span></li>
-          <li><span class="ev">#t, read twice</span><span class="to">→</span><span class="nm">count</span></li>
-          <li><span class="ev">scope:New("Frame")</span><span class="to">→</span><span class="nm">frame</span></li>
-          <li><span class="ev">table.find(t, x)</span><span class="to">→</span><span class="nm">index</span></li>
-          <li><span class="ev">require(script.Parent)</span><span class="to">→</span><span class="nm">parentModule</span></li>
-          <li><span class="ev">x = x + 1</span><span class="to">→</span><span class="nm">x += 1</span></li>
-          <li><span class="ev">T.method(self, …)</span><span class="to">→</span><span class="nm">function T:method()</span></li>
-        </ul>
-        <ul>
-          <li><span class="ev">x:Connect(fn)</span><span class="to">→</span><span class="nm">connection</span></li>
-          <li><span class="ev">:Clone()</span><span class="to">→</span><span class="nm">clone</span></li>
-          <li><span class="ev">animator:LoadAnimation(…)</span><span class="to">→</span><span class="nm">track</span></li>
-          <li><span class="ev">TweenService:Create(…)</span><span class="to">→</span><span class="nm">tween</span></li>
-          <li><span class="ev">:GetAttribute("Speed")</span><span class="to">→</span><span class="nm">speed</span></li>
-          <li><span class="ev">Color3.fromRGB(…)</span><span class="to">→</span><span class="nm">color</span></li>
-          <li><span class="ev">RenderStepped:Connect(function(_)</span><span class="to">→</span><span class="nm">dt</span></li>
-          <li><span class="ev">InputBegan:Connect(function(_, _)</span><span class="to">→</span><span class="nm">input, gameProcessed</span></li>
-          <li><span class="ev">table.sort(t, function(_, _)</span><span class="to">→</span><span class="nm">a, b</span></li>
-          <li><span class="ev">typeof(x)</span><span class="to">→</span><span class="nm">typeName</span></li>
-          <li><span class="ev">getmetatable(x)</span><span class="to">→</span><span class="nm">metatable</span></li>
-          <li><span class="ev">workspace:Raycast(…)</span><span class="to">→</span><span class="nm">raycastResult</span></li>
-          <li><span class="ev">setmetatable({}, Class)</span><span class="to">→</span><span class="nm">self</span></li>
-          <li><span class="ev">v = v + dt</span><span class="to">→</span><span class="nm">total</span></li>
-          <li><span class="ev">#t, read twice</span><span class="to">→</span><span class="nm">count</span></li>
-          <li><span class="ev">scope:New("Frame")</span><span class="to">→</span><span class="nm">frame</span></li>
-          <li><span class="ev">table.find(t, x)</span><span class="to">→</span><span class="nm">index</span></li>
-          <li><span class="ev">require(script.Parent)</span><span class="to">→</span><span class="nm">parentModule</span></li>
-          <li><span class="ev">x = x + 1</span><span class="to">→</span><span class="nm">x += 1</span></li>
-          <li><span class="ev">T.method(self, …)</span><span class="to">→</span><span class="nm">function T:method()</span></li>
-        </ul>
-      </div>
-    </div>
-  </section>
+    <div class="hf" id="hf" aria-hidden="true">
+      <div class="fc">
+        <div class="fc-col">
+          <div class="fc-tab"><b>Sprint.client.luau</b><span>decompiled</span></div>
+          <pre>local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+local currentCamera = workspace.CurrentCamera
+localPlayer.CharacterAdded:Connect(function(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	local track = humanoid:WaitForChild("Animator"):LoadAnimation(script.Sprint)
+	local walkSpeed = humanoid:GetAttribute("WalkSpeed") or 16
+	local clone = script.Trail:Clone()
+	clone.Parent = character:WaitForChild("HumanoidRootPart")
+	local v = 100
+	local connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed or input.KeyCode ~= Enum.KeyCode.LeftShift then
+			return
+		end
 
-  <!-- ============ PROOF ============ -->
-  <section class="proof" aria-label="Measured results">
-    <div class="wrap">
-      <div class="proof-grid">
-        <div class="stat"><div class="n"><span data-to="36826">0</span></div><div class="l">anonymous <code>p</code>/<code>v</code> bindings left across 3,975 private files</div><div class="d"><s>54,058</s> in v0.9 beta · <b>−31.9%</b></div></div>
-        <div class="stat"><div class="n"><span data-to="198">0</span><small>/198</small></div><div class="l">shared runtime profiles passing on Luau's VM</div><div class="d"><s>138</s> in v0.9 beta · <b>60 fixed</b></div></div>
-        <div class="stat"><div class="n"><span data-to="98">0</span></div><div class="l">output lines longer than 180 characters</div><div class="d"><s>382</s> in v0.9 beta · <b>−74%</b></div></div>
-        <div class="stat"><div class="n"><span data-to="1.67" data-dec="2">0</span><small>s</small></div><div class="l">to decompile a 3,978-file game dump</div><div class="d">16 threads, CLI incl. startup · <b>18.1 s</b> single-thread</div></div>
-      </div>
-      <p class="proof-note">Readability counts use the same 3,975 files parseable in both versions. Timing is the accepted Windows workload. Scope, methodology and the remaining regressions are in the <a href="changelog.html#evaluation" style="color:var(--bone-2);text-decoration:underline dotted;text-underline-offset:3px">release evaluation</a>.</p>
-    </div>
-  </section>
-
-  <!-- ============ FIG 01 — DE-INLINER ============ -->
-  <section class="fig" id="fig-deinline" aria-labelledby="t-deinline">
-    <span class="fig-num" aria-hidden="true">01</span>
-    <div class="wrap">
-      <div class="fig-head reveal">
-        <div>
-          <p class="eyebrow">Fig. 01 · <b>de-inliner</b></p>
-          <h2 id="t-deinline">The optimizer erased the helper. Tovek <em>rebuilt the call.</em></h2>
-        </div>
-        <p>Luau <code>-O2</code> inlines small functions at every call site, so the shipped bytecode contains no <code>CALL</code> to them at all. Tovek keeps the helper, matches its body against the expanded code and restores the call — only when body, arguments, captures and result arity line up exactly.</p>
-      </div>
-
-      <div class="flow3">
-        <div class="step reveal" data-d="1">
-          <div class="step-l"><i>1</i> the author wrote</div>
-          <div class="code"><div class="code-bar"><span class="file">Zone.server.lua</span><span class="tag">source</span></div>
-<pre data-lang="luau">
-local function isNear(a, b, range)
-	return (a.Position - b.Position).Magnitude &lt;= range
-end
-
--- …
-if root and isNear(root, zone, range) then
-</pre></div>
-          <span class="link" aria-hidden="true"></span>
-        </div>
-
-        <div class="step is-noise reveal" data-d="2">
-          <div class="step-l"><i>2</i> the compiler shipped</div>
-          <div class="code bc"><div class="code-bar"><span class="file">luau-compile --text -O2</span><span class="tag coral">bytecode</span></div>
-<pre data-lang="bc">
-JUMPIFNOT R9 L3
-REMARK inlining succeeded (cost 5, profit 1.60x)
-GETUPVAL R11 1
-GETTABLEKS R13 R9 K6 ['Position']
-GETTABLEKS R14 R11 K6 ['Position']
-SUB R12 R13 R14
-GETTABLEKS R12 R12 K7 ['Magnitude']
-JUMPIFLE R12 R0 L1
-LOADB R10 0 +1
-L1: LOADB R10 1
-L2: JUMPIFNOT R10 L3
-</pre></div>
-          <div class="nocall">no CALL to isNear anywhere in the prototype</div>
-          <span class="link" aria-hidden="true"></span>
-        </div>
-
-        <div class="step is-meaning reveal" data-d="3">
-          <div class="step-l"><i>3</i> tovek returns</div>
-          <div class="code"><div class="code-bar"><span class="file">Zone.server.luau</span><span class="tag lime">reconstructed</span></div>
-<pre data-lang="luau">
---  equivalent calls inferred from this helper; original call sites unknown
-local function isNear(p, p2, p3)
-	return (p.Position - p2.Position).Magnitude &lt;= p3
-end
-
--- …
-if not (humanoidRootPart and isNear(humanoidRootPart, zone, p)) then
-	continue
-end
-</pre></div>
-        </div>
-      </div>
-      <p class="cap reveal">The rebuilt helper carries that comment on purpose: a matching body proves the call is <b>equivalent</b>, not that the author wrote it there. A pure-arithmetic helper in the same file, <code>scaled(value, factor)</code>, stays expanded because the proof didn't go through. Tovek never guesses.</p>
-
-      <div class="cmp-wrap reveal">
-        <p class="eyebrow" style="margin-bottom:14px">Drag to compare · <b>the same loop</b></p>
-        <div class="cmp" style="--x:40%">
-          <span class="lbl left">as compiled</span><span class="lbl right">tovek</span>
-          <div class="pane under"><pre data-lang="luau">
-for _, v in ipairs(Players:GetPlayers()) do
-	local character = v.Character
-	if not character then
-		continue
-	end
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not (humanoidRootPart and ⟪(humanoidRootPart.Position - zone.Position).Magnitude &lt;= p⟫) then
-		continue
-	end
-	result[#result + 1] = v
-	v:SetAttribute("Score", #result * p2 + 1)
-end
-</pre></div>
-          <div class="pane over"><pre data-lang="luau">
-for _, v in ipairs(Players:GetPlayers()) do
-	local character = v.Character
-	if not character then
-		continue
-	end
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not (humanoidRootPart and ⟪isNear(humanoidRootPart, zone, p)⟫) then
-		continue
-	end
-	result[#result + 1] = v
-	v:SetAttribute("Score", #result * p2 + 1)
-end
-</pre></div>
-          <span class="handle" aria-hidden="true"></span>
-          <input type="range" min="8" max="92" value="40" aria-label="Reveal Tovek output versus the expanded compiled form">
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ FIG 02 — NAMING ============ -->
-  <section class="fig" id="fig-naming" aria-labelledby="t-naming">
-    <span class="fig-num" aria-hidden="true">02</span>
-    <div class="wrap">
-      <div class="fig-head reveal">
-        <div>
-          <p class="eyebrow">Fig. 02 · <b>name inference</b></p>
-          <h2 id="t-naming">Every name has <em>a reason.</em></h2>
-        </div>
-        <p>Roblox strips local names before a script reaches the client. Tovek doesn't recover them — nothing can — it infers them from evidence: which method produced a value, which field it was stored to, which event slot it fills. <strong>Hover a name</strong> to see its evidence. Flip the switch to see what the bytecode actually records.</p>
-      </div>
-
-      <div class="name-grid">
-        <div class="reveal" data-d="1">
-          <div class="code" id="name-code">
-            <div class="code-bar"><span class="file">PlayerAdded.client.luau</span>
-              <span class="switch" style="margin-left:auto"><span class="off">registers</span><button type="button" id="name-switch" role="switch" aria-checked="true" aria-label="Toggle between inferred names and anonymous registers"></button><span class="on">inferred</span></span>
-            </div>
-<pre data-lang="luau">
-local ⟦Players|v1|Service handle kept as a header local. The name is the `game:GetService("Players")` argument.⟧ = game:GetService("Players")
-local ⟦ReplicatedStorage|v2|Same rule: `game:GetService("ReplicatedStorage")` is preserved instead of being folded into every use.⟧ = game:GetService("ReplicatedStorage")
-local ⟦coin|v3|The result of `:WaitForChild("Coin")` is named after the child, lower-camel.⟧ = ⟦ReplicatedStorage|v2|⟧:WaitForChild("Coin")
-⟦Players|v1|⟧.PlayerAdded:Connect(function(⟦player|p1|The first argument of a `PlayerAdded` handler is the joining Player.⟧)
-	⟦player|p1|⟧.CharacterAdded:Connect(function(⟦character|p2|`CharacterAdded` passes the new character model.⟧)
-		local ⟦humanoid|v4|`:WaitForChild("Humanoid")` — the child's name.⟧ = ⟦character|p2|⟧:WaitForChild("Humanoid")
-		local ⟦clone|v5|The result of `:Clone()` is a clone.⟧ = ⟦coin|v3|⟧:Clone()
-		⟦clone|v5|⟧.Parent = workspace
-		local ⟦speed|v6|`:GetAttribute("Speed")` — the attribute key, lower-camel.⟧ = ⟦clone|v5|⟧:GetAttribute("Speed")
-		⟦humanoid|v4|⟧.WalkSpeed = ⟦speed|v6|⟧
-		⟦humanoid|v4|⟧.JumpPower = ⟦speed|v6|⟧ * 2
-		⟦humanoid|v4|⟧.Died:Connect(function()
-			⟦clone|v5|⟧:Destroy()
-		end)
+		humanoid.WalkSpeed = walkSpeed * 1.6
+		clone.Enabled = true
+		TweenService:Create(currentCamera, TweenInfo.new(0.3), {
+			FieldOfView = 82
+		}):Play()
+		track:Play(0.2)
 	end)
-end)
-</pre>
-          </div>
-          <p class="cap">The bytecode of this file records no local names at all — only registers (<code>R0</code>, <code>R1</code>, …) and constants. Eight of its nine locals and parameters got a name from usage; <code>_</code> and index variables keep their idiomatic forms.</p>
+	local connection2 = RunService.Heartbeat:Connect(function(dt)
+		if track.IsPlaying then
+			local v2 = v - dt * 20
+			v = math.max(v2, 0)
+			return
+		else
+			local v2 = v + dt * 12
+			v = math.min(v2, 100)
+			return
+		end
+	end)
+	humanoid.Died:Once(function()
+		connection:Disconnect()
+		connection2:Disconnect()
+	end)
+end)</pre>
         </div>
+        <div class="fc-col">
+          <div class="fc-tab"><b>Inventory.luau</b><span>decompiled</span></div>
+          <pre>local function summarize(items, p)
+	local total = 0
+	local values = {}
 
-        <div class="rules reveal" data-d="2">
-          <div class="rule"><span class="ev">x:Connect(fn)</span><span class="to">connection</span></div>
-          <div class="rule"><span class="ev">template:Clone()</span><span class="to">clone</span></div>
-          <div class="rule"><span class="ev">TweenService:Create(…)</span><span class="to">tween</span></div>
-          <div class="rule"><span class="ev">animator:LoadAnimation(…)</span><span class="to">track</span></div>
-          <div class="rule"><span class="ev">:GetAttribute("Speed")</span><span class="to">speed</span></div>
-          <div class="rule"><span class="ev">Color3.fromRGB(…) · Vector3.new(…)</span><span class="to">color · vector</span></div>
-          <div class="rule"><span class="ev">RenderStepped:Connect(function(_)</span><span class="to">dt</span></div>
-          <div class="rule"><span class="ev">table.sort(t, function(_, _)</span><span class="to">a, b</span></div>
-          <div class="rule"><span class="ev">return setmetatable({}, Class)</span><span class="to">self</span></div>
-          <div class="rule"><span class="ev">v = v + step, nothing else</span><span class="to">total</span></div>
-          <div class="rule"><span class="ev">#t read more than once</span><span class="to">count</span></div>
-          <div class="rule"><span class="ev">workspace:Raycast(…)</span><span class="to">raycastResult</span></div>
-          <p class="rules-note">Every rule refuses on contradicting evidence. Recorded debug names, when a script still has them, always win over inference; bytecode type tags fill in as the lowest-priority hint.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ FIG 03 — UI TREES ============ -->
-  <section class="fig" id="fig-ui" aria-labelledby="t-ui">
-    <span class="fig-num" aria-hidden="true">03</span>
-    <div class="wrap">
-      <div class="fig-head reveal">
-        <div>
-          <p class="eyebrow">Fig. 03 · <b>ui reconstruction</b></p>
-          <h2 id="t-ui">Scattered writes. <em>One declarative tree.</em></h2>
-        </div>
-        <p>At <code>-O2</code> a React or Fusion element becomes table allocations, field stores, a computed event key and a callback, spread across registers. Tovek folds them back — leaves first — into the nested constructor the author wrote, while keeping every observable operation in its original order.</p>
-      </div>
-
-      <div class="tree-grid">
-        <div class="code reveal" id="ui-code" data-d="1"><div class="code-bar"><span class="file">Button.luau</span><span class="tag lime">reconstructed · -O2 -g1</span></div>
-<pre data-lang="luau">
-local react = require(script.Parent.Parent.React)
-local createElement = react.createElement
-
-local function Button(p)
-	return createElement("TextButton", {
-		Text = p.text,
-		Size = UDim2.fromOffset(160, 44),
-		BackgroundColor3 = Color3.fromRGB(30, 30, 30),
-		[react.Event.Activated] = p.onClick
-	}, {
-		Corner = createElement("UICorner", {
-			CornerRadius = UDim.new(0, 8)
-		}),
-		Stroke = createElement("UIStroke", {
-			Thickness = 1,
-			Color = Color3.fromRGB(80, 80, 80)
-		})
-	})
-end
-
-return Button
-</pre></div>
-        <div class="reveal" data-d="2">
-          <div class="tree" aria-label="Element tree, hover to highlight the matching lines">
-            <div class="tt">element tree · hover</div>
-            <ul>
-              <li><span class="node" tabindex="0" data-lines="5-18"><span class="hd"><span class="cls">TextButton</span></span><span class="props">3 props · 1 event · 2 children</span></span>
-                <ul>
-                  <li><span class="node ev" tabindex="0" data-lines="9-9"><span class="hd"><span class="key">[Event.Activated]</span></span><span class="props">computed key · p.onClick</span></span></li>
-                  <li><span class="node" tabindex="0" data-lines="11-13"><span class="hd"><span class="key">Corner =</span><span class="cls">UICorner</span></span><span class="props">CornerRadius</span></span></li>
-                  <li><span class="node" tabindex="0" data-lines="14-17"><span class="hd"><span class="key">Stroke =</span><span class="cls">UIStroke</span></span><span class="props">Thickness · Color</span></span></li>
-                </ul>
-              </li>
-            </ul>
-          </div>
-          <p class="tree-cap">Computed event keys such as <code>[react.Event.Activated]</code> and drained <code>children</code> tables are rebuilt too. A table only absorbs initialization that no other code could have observed in between — anything already visible stays where it was.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ FIG 04 — METHODS & TYPES ============ -->
-  <section class="fig" id="fig-oop" aria-labelledby="t-oop">
-    <span class="fig-num" aria-hidden="true">04</span>
-    <div class="wrap">
-      <div class="fig-head reveal">
-        <div>
-          <p class="eyebrow">Fig. 04 · <b>methods &amp; types</b></p>
-          <h2 id="t-oop">Colons and types, <em>back where they were.</em></h2>
-        </div>
-        <p>Method tables written with an explicit <code>self</code> come back as <code>function T:method()</code>. Bytecode compiled with type information keeps its parameter tags, and Tovek writes them back as annotations — never inventing a spelling the bytecode doesn't hold.</p>
-      </div>
-      <div class="two">
-        <div class="reveal" data-d="1">
-          <h3>OOP <em>recovery</em></h3>
-          <div class="code"><div class="code-bar"><span class="file">Inventory.luau</span><span class="tag lime">-O2 -g1</span></div>
-<pre data-lang="luau">
-function class:Add(p)
-	if self.count &gt;= self.capacity then
-		return false
-	end
-
-	local items = self.items
-	table.insert(items, p)
-	self:Refresh()
-	return true
-end
-
-function class:Refresh()
-	self.count = #self.items
-	self.owner:SetAttribute("ItemCount", self.count)
-end
-</pre></div>
-          <p class="cap"><code>self</code> is recognised from how the first parameter is used — method calls, field writes, the <code>setmetatable</code> constructor — not from a name the bytecode no longer has. A method that only reads fields stays in dot form rather than being guessed.</p>
-        </div>
-        <div class="reveal" data-d="2">
-          <h3>Type <em>annotations</em></h3>
-          <div class="code"><div class="code-bar"><span class="file">Module.luau</span><span class="tag lime">-O2 -g1 -t1</span></div>
-<pre data-lang="luau">
-scale = function(p: number, value: number?, p2: string)
-	local v2 = p * (value or 1)
-	return p2 .. "=" .. tostring(v2)
-end,
-configure = function(p, flag: boolean, callback, list, vector: Vector3, buf: buffer)
-	if flag then
-		callback(#list)
-	end
-
-	return p, vector, buf
-end
-</pre></div>
-          <p class="cap"><code>table</code>, <code>function</code> and untagged userdata stay unannotated: the bytecode doesn't keep their spelling. Recompiling the output reproduces the same type tags — and the tags double as a last-resort naming hint (<code>vector</code>, <code>buf</code>, <code>flag</code>, <code>callback</code>).</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ FIG 05 — CONTROL FLOW ============ -->
-  <section class="fig" id="fig-flow" aria-labelledby="t-flow">
-    <span class="fig-num" aria-hidden="true">05</span>
-    <div class="wrap">
-      <div class="fig-head reveal">
-        <div>
-          <p class="eyebrow">Fig. 05 · <b>control flow</b></p>
-          <h2 id="t-flow">Loops you would <em>have written.</em></h2>
-        </div>
-        <p>V2's structurer rebuilds source-like loops from explicit ownership, edge-transfer and iterator-protocol checks: <code>continue</code> guards, early returns, <code>repeat … until</code>, shared tails emitted once. Underneath, evaluation order, closure identity and result counts are protected — when a rewrite can't be justified, Tovek keeps the snapshot.</p>
-      </div>
-      <div class="flow-grid">
-        <div class="code reveal" data-d="1"><div class="code-bar"><span class="file">Module.luau</span><span class="tag lime">-O2 -g1</span></div>
-<pre data-lang="luau">
-function Module.collect(list, p, p2)
-	local parts = {}
-
-	for _, part in ipairs(list) do
-		if not part:IsA("BasePart") or p2 &lt; (part.Position - p).Magnitude then
+	for _, item in items do
+		if item.Locked or not (not p or string.find(item.Name, p, 1, true)) then
 			continue
 		end
 
-		parts[#parts + 1] = part
+		total += item.Count
+
+		if not (item.Rarity &gt;= 4) then
+			continue
+		end
+
+		local formatted = `{item.Name} x{item.Count}`
+		table.insert(values, formatted)
+
+		if #values &gt;= 5 then
+			break
+		end
 	end
 
-	return parts
+	return total, table.concat(values, ", ")
 end
 
-function Module.countdown(p)
-	local v = p
+return summarize</pre>
+          <div class="fc-tab"><b>Timer.luau</b><span>decompiled</span></div>
+          <pre>local Timer = {}
+Timer.__index = Timer
 
-	repeat
-		task.wait(1)
-		p -= 1
-		print("T-" .. p)
-	until p &lt;= 0
-
-	return string.format("%d seconds elapsed", v)
+function Timer.new(p, onComplete)
+	local self = setmetatable({}, Timer)
+	self.Duration = p
+	self.Remaining = p
+	self.Running = false
+	self.OnComplete = onComplete
+	return self
 end
-</pre></div>
-        <div class="reveal" data-d="2">
-          <div class="checks">
-            <div class="check"><i>✓</i><span><b>198 / 198</b> shared runtime profiles pass, executed on Luau's VM and compared with the original. v0.9 beta passed 138.</span></div>
-            <div class="check"><i>✓</i><span><b>513 / 513</b> public parse-and-recompile profiles: 171 source files at <code>O0</code>, <code>O1</code> and <code>O2</code>.</span></div>
-            <div class="check"><i>✓</i><span><b>Evaluation order</b> of global and field lookups, equality metamethod arguments, repeated indexing and nested assignments is preserved.</span></div>
-            <div class="check"><i>✓</i><span><b>Exact result counts</b> for calls and varargs, including trailing <code>nil</code> values — a call that contributed one result still contributes one.</span></div>
-            <div class="check"><i>✓</i><span><b>NaN-safe</b> condition normalization by default; <code>--assume-no-nan</code> opts into <code>not (a &lt; b)</code> → <code>a &gt;= b</code>.</span></div>
-          </div>
+
+function Timer:Start()
+	self.Running = true
+	self.Remaining = self.Duration
+end
+
+function Timer:Tick(p)
+	if not self.Running then
+		return
+	end
+
+	self.Remaining -= p
+
+	if self.Remaining &lt;= 0 then
+		self.Running = false
+		self.OnComplete(self)
+	end
+end
+
+return Timer</pre>
         </div>
       </div>
     </div>
+
+    <div class="lens" id="lens" aria-hidden="true">
+      <div class="lens-ticks"></div>
+      <div class="lens-ring"></div>
+      <div class="lens-cross"></div>
+      <div class="lens-ro lens-ro--a"><span>offset</span><b id="ro-a">0x0000</b></div>
+      <div class="lens-ro lens-ro--b"><span id="ro-b-k">move</span><b id="ro-b">to x-ray</b></div>
+    </div>
+
+    <div class="hc" id="hc">
+      <p class="hc-lede"><strong>Tovek turns compiled Luau back into source a person can read</strong> — inlined helpers put back, names recovered from evidence, loops rebuilt — without guessing at what the program does.</p>
+      <dl class="spec">
+        <div><dt>Reads</dt><dd>Luau bytecode · Roblox v12 ready</dd></div>
+        <div><dt>Writes</dt><dd>Readable, recompilable Luau</dd></div>
+        <div><dt>Runs</dt><dd>Locally · deterministic · MIT</dd></div>
+      </dl>
+      <div class="hc-cta">
+        <a class="btn" href="https://github.com/Kiet1308/Tovek/releases/latest"><span class="pip" aria-hidden="true"></span>Download V2</a>
+        <a class="btn btn--ghost" href="https://github.com/Kiet1308/Tovek">Source <span class="arr" aria-hidden="true">↗</span></a>
+      </div>
+      <button class="xray-toggle" id="xray-toggle" type="button" aria-pressed="false"><i aria-hidden="true"></i>X-ray the whole file</button>
+    </div>
   </section>
 
-  <!-- ============ SPEC SHEET ============ -->
-  <section class="spec" aria-labelledby="t-spec">
+  <div class="ribbon" aria-label="Release highlights">
+    <div class="ribbon-track">
+      <div class="ribbon-set">
+        <span><em>246 / 246</em> runtime profiles pass</span>
+        <span><em>513 / 513</em> public profiles recompile</span>
+        <span>Roblox bytecode <em>v12</em> · CALLFB</span>
+        <span><em>−31.9%</em> anonymous names vs v0.9</span>
+        <span>Byte-identical output at any thread count</span>
+        <span>No AI · no network · <em>MIT</em></span>
+      </div>
+      <div class="ribbon-set" aria-hidden="true">
+        <span><em>246 / 246</em> runtime profiles pass</span>
+        <span><em>513 / 513</em> public profiles recompile</span>
+        <span>Roblox bytecode <em>v12</em> · CALLFB</span>
+        <span><em>−31.9%</em> anonymous names vs v0.9</span>
+        <span>Byte-identical output at any thread count</span>
+        <span>No AI · no network · <em>MIT</em></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 01 DE-INLINE -->
+  <section class="chapter" id="deinline" aria-labelledby="di-title">
     <div class="wrap">
-      <div class="fig-head reveal">
-        <div>
-          <p class="eyebrow">Engine sheet</p>
-          <h2 id="t-spec">Built for whole games, <em>not single files.</em></h2>
+      <header class="ch-head">
+        <p class="ch-index" data-reveal><b>01</b><span>De-inlining</span><span class="r"></span><span>Luau -O2 · helper recovery</span></p>
+        <h2 class="ch-title" id="di-title" data-reveal style="--d:80">Put the helpers <em>back.</em></h2>
+        <div class="ch-body" data-reveal style="--d:200">
+          <p>At <code>-O2</code>, Luau pastes small local functions straight into their callers. The call disappears; the helper’s body turns up again and again, in places nobody wrote it.</p>
+          <p>Tovek unifies each pasted region with the helper that survived — operators, fields, upvalues and literals must all line up — and only then writes the call back. Anything it can’t prove stays exactly as compiled.</p>
         </div>
-        <p>A Rust CLI that eats a SaveInstance dump in parallel, a local HTTP server for the executor workflow, and a batch API — all producing byte-identical output no matter how many threads you throw at it.</p>
+      </header>
+
+      <div class="spec-di" id="spec-di" data-reveal style="--d:120">
+        <figure class="panel panel--asm">
+          <figcaption class="panel-bar"><span class="k"><i aria-hidden="true"></i>Bytecode · QuestComplete</span><span class="meta">44 ops · no call to award</span></figcaption>
+          <pre class="code code--asm" data-lang="asm" id="di-asm" data-bands="5-22:a:inlined award · copy 1|23-39:b:inlined award · copy 2" data-map="1-4:18|5-22:19|23-39:20|40-43:21|44:22" data-target="di-out">LOADK R5 K1 ['Streak']
+NAMECALL R3 R0 K2 ['GetAttribute']
+CALL R3 2 1
+ORK R2 R3 K0 [1]
+LOADN R4 250
+MUL R3 R4 R2
+LOADK R6 K3 ['leaderstats']
+NAMECALL R4 R0 K4 ['FindFirstChild']
+CALL R4 2 1
+JUMPIF R4 L0
+JUMP L1
+L0: GETTABLEKS R5 R4 K5 ['Coins']
+GETTABLEKS R6 R5 K6 ['Value']
+ADD R6 R6 R3
+SETTABLEKS R6 R5 K6 ['Value']
+GETUPVAL R5 0
+GETTABLEKS R5 R5 K7 ['Popup']
+MOVE R7 R0
+LOADK R8 K5 ['Coins']
+MOVE R9 R3
+NAMECALL R5 R5 K8 ['FireClient']
+CALL R5 4 0
+L1: MULK R3 R1 K9 [10]
+LOADK R6 K3 ['leaderstats']
+NAMECALL R4 R0 K4 ['FindFirstChild']
+CALL R4 2 1
+JUMPIF R4 L2
+JUMP L3
+L2: GETTABLEKS R5 R4 K10 ['XP']
+GETTABLEKS R6 R5 K6 ['Value']
+ADD R6 R6 R3
+SETTABLEKS R6 R5 K6 ['Value']
+GETUPVAL R5 0
+GETTABLEKS R5 R5 K7 ['Popup']
+MOVE R7 R0
+LOADK R8 K10 ['XP']
+MOVE R9 R3
+NAMECALL R5 R5 K8 ['FireClient']
+CALL R5 4 0
+L3: LOADK R5 K1 ['Streak']
+ADDK R6 R2 K0 [1]
+NAMECALL R3 R0 K11 ['SetAttribute']
+CALL R3 3 0
+RETURN R0 0</pre>
+        </figure>
+        <svg class="links" id="di-links" aria-hidden="true"></svg>
+        <figure class="panel panel--tovek">
+          <figcaption class="panel-bar">
+            <span class="k"><i aria-hidden="true"></i>Rewards.server.luau</span>
+            <span class="seg" role="tablist" aria-label="Compare output">
+              <button type="button" role="tab" id="di-tab-out" aria-selected="true" aria-controls="di-pane-out">Tovek output</button>
+              <button type="button" role="tab" id="di-tab-src" aria-selected="false" aria-controls="di-pane-src" tabindex="-1">Original source</button>
+            </span>
+          </figcaption>
+          <div class="pane" id="di-pane-out" role="tabpanel" aria-labelledby="di-tab-out">
+            <pre class="code" data-lang="luau" id="di-out" data-marks="19:a|20:b|25:c|4:d" tabindex="0">local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local remotes = ReplicatedStorage:WaitForChild("Remotes")
+--  equivalent calls inferred from this helper; original call sites unknown
+local function award(instance, p, p2)
+	local leaderstats = instance:FindFirstChild("leaderstats")
+
+	if not leaderstats then
+		return
+	end
+
+	local leaderstat = leaderstats[p]
+	leaderstat.Value += p2
+	remotes.Popup:FireClient(instance, p, p2)
+end
+
+remotes.QuestComplete.OnServerEvent:Connect(function(instance, p)
+	local streak = instance:GetAttribute("Streak") or 1
+	award(instance, "Coins", 250 * streak) -- equivalent call inferred; original call site unknown
+	award(instance, "XP", p * 10) -- equivalent call inferred; original call site unknown
+	instance:SetAttribute("Streak", streak + 1)
+end)
+Players.PlayerAdded:Connect(function(player)
+	player:SetAttribute("Joined", (os.time()))
+	award(player, "Coins", 50) -- equivalent call inferred; original call site unknown
+end)</pre>
+          </div>
+          <div class="pane" id="di-pane-src" role="tabpanel" aria-labelledby="di-tab-src" hidden>
+            <pre class="code" data-lang="luau" id="di-src" data-marks="18:a|19:b|26:c" tabindex="0">local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local QUEST_REWARD = 250
+
+local function award(player, stat, amount)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if not leaderstats then
+		return
+	end
+	leaderstats[stat].Value += amount
+	Remotes.Popup:FireClient(player, stat, amount)
+end
+
+Remotes.QuestComplete.OnServerEvent:Connect(function(player, questId)
+	local streak = player:GetAttribute("Streak") or 1
+	award(player, "Coins", QUEST_REWARD * streak)
+	award(player, "XP", questId * 10)
+	player:SetAttribute("Streak", streak + 1)
+end)
+
+Players.PlayerAdded:Connect(function(player)
+	local joined = os.time()
+	player:SetAttribute("Joined", joined)
+	award(player, "Coins", 50)
+end)</pre>
+          </div>
+        </figure>
       </div>
-      <div class="sheet reveal" data-d="1">
-        <div class="sheet-head"><span>Tovek V2 · v0.1</span><span><b>luau-lifter</b> · web-server · luau-worker</span></div>
-        <dl>
-          <div class="cell"><dt>Bytecode</dt><dd>Luau serialization <b>v4 – v13</b>. v12 native: size-delimited prototypes, 64-bit cost metadata, call feedback and <code>CALLFB</code>. <span class="no">v14 unsupported.</span></dd></div>
-          <div class="cell"><dt>Encoding</dt><dd>Roblox key <code>203</code> by default in folder mode; <code>-e</code> / <code>--key</code> for single files. Raw Luau bytecode works as is.</dd></div>
-          <div class="cell"><dt>Validation</dt><dd>Public fixtures parsed, recompiled and executed with the pinned Luau toolchain in CI. <b>246 / 246</b> v12 runtime profiles, 27 structural cases, 6 WebAssembly reader cases.</dd></div>
-          <div class="cell"><dt>Determinism</dt><dd><b>Byte-identical</b> output across thread counts and runs. Stable local IDs, deterministic de-inline canon.</dd></div>
-          <div class="cell"><dt>Speed</dt><dd>Parallel per-function lifting and folder decompilation (rayon) on <b>mimalloc</b>. 3,978 files in 1.67 s at 16 threads, 18.1 s single-threaded.</dd></div>
-          <div class="cell"><dt>Cache</dt><dd>Optional bounded artifact cache (<code>--cache-dir</code>) keyed by binary, bytecode, options and module naming context; integrity-checked before reuse.</dd></div>
-          <div class="cell"><dt>CLI</dt><dd><code>decompile-folder</code>, <code>validate-folder</code> (decompile + parse-check in one pass), <code>--emit-upvalue-analysis</code> sidecars, <code>--emit-binding-provenance</code>.</dd></div>
-          <div class="cell"><dt>Server</dt><dd><code>POST /decompile</code> (base64), <code>/decompile/raw</code>, <code>/decompile/batch</code> — JSON or binary MDB1 framing, one bad script never fails the batch. Cloudflare Worker target included.</dd></div>
-          <div class="cell"><dt>Provenance</dt><dd>Optional sidecars trace every emitted identifier to its binding and input evidence; reconstructed calls carry event IDs. Unknown origins stay unknown.</dd></div>
-          <div class="cell"><dt>AI</dt><dd><b>None.</b> Deterministic rules only. Nothing is uploaded, no model is downloaded, no service is called.</dd></div>
-          <div class="cell"><dt>Platforms</dt><dd>Windows and Linux binaries on GitHub Releases. Builds from source with Rust <code>nightly-2024-12-15</code>.</dd></div>
-          <div class="cell"><dt>License</dt><dd><b>MIT.</b> A fork of the medal decompiler; public fixtures and CI live in the repository.</dd></div>
-        </dl>
+      <div class="di-legend" data-reveal>
+        <span><i style="background:var(--lime)"></i>Inlined copies of <code>award</code> → recovered calls</span>
+        <span><i style="background:var(--ink-4)"></i>A third site, in the PlayerAdded handler</span>
+      </div>
+      <p class="note" data-reveal>Real output, not a mock-up: the script was compiled with <code>luau-compile -O2 -g1</code> and decompiled by the Tovek V2 v0.1 release. Recovered calls are labelled because bytecode can’t say where the original call sites were — only that these regions are exact copies of <code>award</code>.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 02 NAMES -->
+  <section class="chapter" id="names" aria-labelledby="nm-title">
+    <div class="wrap">
+      <header class="ch-head">
+        <p class="ch-index" data-reveal><b>02</b><span>Naming</span><span class="r"></span><span>Evidence, not guesswork</span></p>
+        <h2 class="ch-title" id="nm-title" data-reveal style="--d:80">Names, <em>declassified.</em></h2>
+        <div class="ch-body" data-reveal style="--d:200">
+          <p>Shipped bytecode keeps registers, not local names. Tovek reads what the program leaves behind — the service a value came from, the event that handed it over, the method called on it, the attribute key it was read with — and names each binding for the role it plays.</p>
+          <p>When the evidence runs out, it says so: plain <code>v</code> and <code>p</code>, never a confident-sounding guess.</p>
+        </div>
+      </header>
+
+      <div class="names-grid">
+        <div class="sheet-wrap" data-reveal>
+          <div class="stamp" aria-hidden="true">
+            <svg viewBox="0 0 132 132"><defs><path id="stamp-path" d="M66 66m-50 0a50 50 0 1 1 100 0a50 50 0 1 1 -100 0"/></defs><text><textPath href="#stamp-path">Recovered from evidence · not guessed · </textPath></text></svg>
+            <div class="stamp-core"><b>16/19</b><span>named</span></div>
+          </div>
+          <article class="sheet" id="sheet" aria-label="Decompiled Sprint.client.luau with recovered names highlighted">
+            <div class="sheet-head"><span><b>Sprint.client.luau</b> · decompiled from -O2 -g1</span><button class="sheet-replay" id="sheet-replay" type="button">↺ Redact again</button></div>
+            <pre class="code" data-lang="luau" id="nm-code" tabindex="0">local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+local currentCamera = workspace.CurrentCamera
+localPlayer.CharacterAdded:Connect(function(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	local track = humanoid:WaitForChild("Animator"):LoadAnimation(script.Sprint)
+	local walkSpeed = humanoid:GetAttribute("WalkSpeed") or 16
+	local clone = script.Trail:Clone()
+	clone.Parent = character:WaitForChild("HumanoidRootPart")
+	local v = 100
+	local connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed or input.KeyCode ~= Enum.KeyCode.LeftShift then
+			return
+		end
+
+		humanoid.WalkSpeed = walkSpeed * 1.6
+		clone.Enabled = true
+		TweenService:Create(currentCamera, TweenInfo.new(0.3), {
+			FieldOfView = 82
+		}):Play()
+		track:Play(0.2)
+	end)
+	local connection2 = RunService.Heartbeat:Connect(function(dt)
+		if track.IsPlaying then
+			local v2 = v - dt * 20
+			v = math.max(v2, 0)
+			return
+		else
+			local v2 = v + dt * 12
+			v = math.min(v2, 100)
+			return
+		end
+	end)
+	humanoid.Died:Once(function()
+		connection:Disconnect()
+		connection2:Disconnect()
+	end)
+end)</pre>
+          </article>
+        </div>
+
+        <aside class="names-side" data-reveal style="--d:160" aria-label="Evidence behind each name">
+          <ol class="evi" id="evi">
+            <li data-names="Players UserInputService TweenService RunService"><div class="nms"><span>Players</span><span>UserInputService</span><span>TweenService</span><span>RunService</span></div><p class="why">Service handles kept as named locals from <code>game:GetService("…")</code>, so the script’s dependencies read at a glance.</p></li>
+            <li data-names="localPlayer currentCamera"><div class="nms"><span>localPlayer</span><span>currentCamera</span></div><p class="why">Named for the field they were read from: <code>Players.LocalPlayer</code>, <code>workspace.CurrentCamera</code>.</p></li>
+            <li data-names="character input gameProcessed dt"><div class="nms"><span>character</span><span>input</span><span>gameProcessed</span><span>dt</span></div><p class="why">Callback parameters named from the event signature: <code>CharacterAdded</code>, <code>InputBegan</code>, <code>Heartbeat</code>.</p></li>
+            <li data-names="humanoid walkSpeed"><div class="nms"><span>humanoid</span><span>walkSpeed</span></div><p class="why">Taken from the lookup key: <code>:WaitForChild("Humanoid")</code>, <code>:GetAttribute("WalkSpeed")</code>.</p></li>
+            <li data-names="track clone connection connection2"><div class="nms"><span>track</span><span>clone</span><span>connection</span><span>connection2</span></div><p class="why">Named for what the method returns: <code>:LoadAnimation()</code>, <code>:Clone()</code>, <code>:Connect()</code>.</p></li>
+            <li class="fb" data-names="v v2"><div class="nms"><span>v</span><span>v2</span></div><p class="why">A stamina counter, a number and nothing else. With no evidence, it stays anonymous rather than getting a guessed name.</p></li>
+          </ol>
+        </aside>
       </div>
     </div>
   </section>
 
-  <!-- ============ LIMITS ============ -->
-  <section class="limits" aria-labelledby="t-limits">
-    <div class="wrap limits-grid">
-      <div class="reveal">
-        <p class="eyebrow">Straight talk</p>
-        <h2 id="t-limits">What Tovek <em>won't pretend.</em></h2>
-        <p class="intro">Bytecode does not uniquely determine source. The point of V2 is to make the remaining evidence as useful as possible — and to be explicit about where evidence ends.</p>
-      </div>
-      <ul class="limit-list reveal" data-d="1">
-        <li><i>—</i><span><b>Names are inferred, not recovered.</b> The author's identifiers, comments and erased types are gone from the bytecode. Tovek reports evidence-based names and labels reconstructed calls as inferred.</span></li>
-        <li><i>—</i><span><b>Runtime-mutated <code>CMPPROTO</code> guards</b> are reported with their prototype and instruction location instead of rendered as a guessed condition.</span></li>
-        <li><i>—</i><span><b>v14 bytecode is not supported yet.</b> Malformed or truncated v12 input is rejected rather than decoded on a best-effort basis.</span></li>
-        <li><i>—</i><span><b>Recompiling is not equivalence.</b> Fixtures are executed and compared, which proves the tested inputs — not every program.</span></li>
-        <li><i>—</i><span><b>Some math-heavy code still carries extra intermediates</b> compared with the original. The release article lists every measured regression alongside the gains.</span></li>
+  <!-- ============================================================ 03 CONTROL FLOW -->
+  <section class="chapter" id="structure" aria-labelledby="cf-title">
+    <div class="wrap">
+      <header class="ch-head">
+        <p class="ch-index" data-reveal><b>03</b><span>Control flow</span><span class="r"></span><span>Loops · guards · continue · break</span></p>
+        <h2 class="ch-title" id="cf-title" data-reveal style="--d:80">Jumps in. <em>Loops</em> out.</h2>
+        <div class="ch-body" data-reveal style="--d:200">
+          <p>Compiled Luau is a flat list of instructions and jumps. Tovek rebuilds the <code>for</code> loops, guards, <code>continue</code> and <code>break</code> a person would write — checking loop ownership, iterator protocol and evaluation order before it commits to a shape.</p>
+          <p>Hover an instruction to see where it landed.</p>
+        </div>
+      </header>
+
+      <ul class="cf-chips" data-reveal aria-label="Summary">
+        <li>41 instructions</li>
+        <li>8 jumps</li>
+        <li class="hl"><b>→</b> 1 for-loop · 2 continue · 1 break</li>
       </ul>
+      <div class="spec-cf" id="spec-cf" data-reveal style="--d:100">
+        <figure class="panel panel--asm">
+          <figcaption class="panel-bar"><span class="k"><i aria-hidden="true"></i>Bytecode · summarize()</span><span class="meta">Hover a line to map it</span></figcaption>
+          <pre class="code code--asm code--arcs" data-lang="asm" id="cf-asm" data-arcs data-map="1:2|2:3|3-5:5|6:5,22|7:6|8:6,7|9:6|10-15:6|16:6,7|17-18:10|19-20:12|21:12,13|22-26:16|27-31:17|32-33:19|34:19,20|35:5,22|36-41:24" data-target="cf-out">LOADN R2 0
+NEWTABLE R3 0 0
+MOVE R4 R0
+LOADNIL R5
+LOADNIL R6
+FORGPREP R4 L3
+L0: GETTABLEKS R9 R8 K0 ['Locked']
+JUMPIF R9 L3
+JUMPIFNOT R1 L1
+GETIMPORT R9 3 [string.find]
+GETTABLEKS R10 R8 K4 ['Name']
+MOVE R11 R1
+LOADN R12 1
+LOADB R13 1
+CALL R9 4 1
+JUMPIFNOT R9 L3
+L1: GETTABLEKS R9 R8 K5 ['Count']
+ADD R2 R2 R9
+GETTABLEKS R9 R8 K6 ['Rarity']
+LOADN R10 4
+JUMPIFNOTLE R10 R9 L3
+LOADK R12 K7 ['%* x%*']
+GETTABLEKS R14 R8 K4 ['Name']
+GETTABLEKS R15 R8 K5 ['Count']
+NAMECALL R12 R12 K8 ['format']
+CALL R12 3 1
+MOVE R11 R12
+FASTCALL2 52 R3 R11 L2
+MOVE R10 R3
+GETIMPORT R9 11 [table.insert]
+CALL R9 2 0
+L2: LENGTH R9 R3
+LOADN R10 5
+JUMPIFLE R10 R9 L4
+L3: FORGLOOP R4 L0 2
+L4: MOVE R4 R2
+GETIMPORT R5 13 [table.concat]
+MOVE R6 R3
+LOADK R7 K14 [', ']
+CALL R5 2 -1
+RETURN R4 -1</pre>
+        </figure>
+        <figure class="panel panel--tovek">
+          <figcaption class="panel-bar"><span class="k"><i aria-hidden="true"></i>Tovek output · Inventory.luau</span><span class="meta">27 lines</span></figcaption>
+          <pre class="code" data-lang="luau" id="cf-out" tabindex="0">local function summarize(items, p)
+	local total = 0
+	local values = {}
+
+	for _, item in items do
+		if item.Locked or not (not p or string.find(item.Name, p, 1, true)) then
+			continue
+		end
+
+		total += item.Count
+
+		if not (item.Rarity &gt;= 4) then
+			continue
+		end
+
+		local formatted = `{item.Name} x{item.Count}`
+		table.insert(values, formatted)
+
+		if #values &gt;= 5 then
+			break
+		end
+	end
+
+	return total, table.concat(values, ", ")
+end
+
+return summarize</pre>
+        </figure>
+      </div>
+      <p class="note" data-reveal>If a function can’t be given source-like structure faithfully, the folder driver fails closed instead of inventing control flow. The condition <code>not (item.Rarity &gt;= 4)</code> is kept as written because flipping it to <code>&lt; 4</code> is only safe when NaN is ruled out.</p>
     </div>
   </section>
 
-  <!-- ============ GET STARTED ============ -->
-  <section class="start" id="get" aria-labelledby="t-start">
+  <!-- ============================================================ 04 CRAFT -->
+  <section class="chapter craft" id="craft" aria-labelledby="cr-title">
     <div class="wrap">
-      <div class="start-card reveal">
-        <div class="start-grid">
-          <div>
-            <p class="eyebrow">Get Tovek V2</p>
-            <h2 id="t-start">Bring your <em>bytecode.</em></h2>
-            <p class="p">One binary. Feed it a file, a SaveInstance dump or a whole game and get back code you can read. Windows and Linux builds are on GitHub Releases; the source builds with one pinned nightly.</p>
-            <div class="cta">
-              <a class="btn primary" href="https://github.com/Kiet1308/Tovek/releases/latest">Download V2 v0.1 <span class="arr" aria-hidden="true">↗</span></a>
-              <a class="btn" href="https://github.com/Kiet1308/Tovek">GitHub</a>
-              <a class="btn" href="https://discord.gg/phY6VUDSF7">Discord</a>
-            </div>
-            <div class="meta"><span>release tag <code>v2-v0.1</code> · September 2026</span><span>read the <a href="changelog.html" style="color:var(--lime)">V2 release article →</a></span></div>
-          </div>
-          <div>
-            <div class="code cmd"><div class="code-bar"><span class="file">usage</span><span class="tag">luau-lifter</span></div><button class="copy" type="button" data-copy="cmd-use">copy</button>
-<pre id="cmd-use"><span class="cm"># raw Luau bytecode</span>
-<span class="bin">luau-lifter</span> <span class="arg">script.luac</span>
+      <header class="ch-head">
+        <p class="ch-index" data-reveal><b>04</b><span>Craft</span><span class="r"></span><span>The rest of the reconstruction</span></p>
+        <h2 class="ch-title" id="cr-title" data-reveal style="--d:80">The details, <em>restored.</em></h2>
+        <div class="ch-body" data-reveal style="--d:200">
+          <p>Readable output is a thousand small decisions: colons on methods, UI trees that nest, string interpolation instead of format calls. Tovek makes them — and keeps every one of them checkable.</p>
+        </div>
+      </header>
 
-<span class="cm"># Roblox client bytecode (encoded, key 203)</span>
-<span class="bin">luau-lifter</span> <span class="arg">script.lua</span> <span class="flag">-e</span> <span class="flag">--script-name</span> <span class="arg">"Workspace.Script"</span>
+      <div class="bento">
+        <article class="card card--tall span-5" data-reveal>
+          <span class="kick">Methods</span>
+          <h3>Colons come <em>back.</em></h3>
+          <p>Method tables with an explicit <code>self</code> are written back as <code>function Timer:Tick()</code>, the way they were authored.</p>
+          <pre class="code" data-lang="luau">local Timer = {}
+Timer.__index = Timer
 
-<span class="cm"># a whole SaveInstance dump, in parallel · then validate every output</span>
-<span class="bin">luau-lifter</span> <span class="arg">decompile-folder ./dump ./out</span>
-<span class="bin">luau-lifter</span> <span class="arg">validate-folder ./dump ./out</span></pre></div>
-            <div class="code cmd"><div class="code-bar"><span class="file">build from source</span><span class="tag">rust · windows / linux</span></div><button class="copy" type="button" data-copy="cmd-build">copy</button>
-<pre id="cmd-build"><span class="bin">git</span> <span class="arg">clone --branch main https://github.com/Kiet1308/Tovek.git</span> &amp;&amp; <span class="bin">cd</span> <span class="arg">Tovek</span>
-<span class="bin">rustup</span> <span class="arg">toolchain install nightly-2024-12-15</span>
-<span class="bin">cargo</span> <span class="arg">+nightly-2024-12-15 build</span> <span class="flag">--release --locked</span> <span class="flag">-p</span> <span class="arg">luau-lifter</span> <span class="flag">-p</span> <span class="arg">web-server</span></pre></div>
-          </div>
+function Timer.new(p, onComplete)
+	local self = setmetatable({}, Timer)
+	self.Duration = p
+	self.Remaining = p
+	self.Running = false
+	self.OnComplete = onComplete
+	return self
+end
+
+function Timer:Start()
+	self.Running = true
+	self.Remaining = self.Duration
+end
+
+function Timer:Tick(p)
+	if not self.Running then
+		return
+	end
+
+	self.Remaining -= p
+
+	if self.Remaining &lt;= 0 then
+		self.Running = false
+		self.OnComplete(self)
+	end
+end
+
+return Timer</pre>
+        </article>
+        <article class="card card--tall span-7" data-reveal style="--d:120">
+          <span class="kick">UI trees</span>
+          <h3>Declarative UI, <em>rebuilt.</em></h3>
+          <p>Element trees come back nested — props, children and computed event keys in place.</p>
+          <pre class="code" data-lang="luau">local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local react = require(ReplicatedStorage.Packages.React)
+local createElement = react.createElement
+return function(p)
+	return createElement("Frame", {
+		Size = UDim2.fromScale(1, 0.1),
+		BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+	}, {
+		Layout = createElement("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 8)
+		}),
+		Title = createElement("TextLabel", {
+			Text = p.title,
+			TextSize = 24
+		}),
+		Close = createElement("TextButton", {
+			Text = "Close",
+			[react.Event.Activated] = p.onClose
+		})
+	})
+end</pre>
+          <ul class="tree" aria-label="Element tree">
+            <li><b>Frame</b><i>Size · BackgroundColor3</i>
+              <ul>
+                <li><b>UIListLayout</b><i>Layout</i></li>
+                <li><b>TextLabel</b><i>Title · Text = p.title</i></li>
+                <li><b>TextButton</b><i>Close</i><em>[Event.Activated]</em></li>
+              </ul>
+            </li>
+          </ul>
+        </article>
+        <article class="card" data-reveal>
+          <span class="kick">Modern Luau</span>
+          <h3>Idioms, not <em>opcodes.</em></h3>
+          <ul class="idioms">
+            <li><span class="from">LOADK '%* x%*' · NAMECALL format</span><span class="to">`{item.Name} x{item.Count}`</span></li>
+            <li><span class="from">GETTABLEKS Count · ADD R2 R2 R9</span><span class="to">total += item.Count</span></li>
+            <li><span class="from">JUMPIF R9 L3 → FORGLOOP</span><span class="to">continue</span></li>
+          </ul>
+        </article>
+        <article class="card" data-reveal style="--d:100">
+          <span class="kick">Formats</span>
+          <p class="big-v">v12<small>ready</small></p>
+          <p>Reads Roblox bytecode v12 natively — size-delimited prototypes, 64-bit cost metadata, call feedback.</p>
+          <ul class="tags"><li>CALLFB</li><li>246/246 v12 profiles</li><li>wasm32 reader</li></ul>
+        </article>
+        <article class="card" data-reveal style="--d:200">
+          <span class="kick">Dependencies</span>
+          <h3>Services stay <em>on top.</em></h3>
+          <p><code>GetService</code> and <code>require</code> handles survive as named locals instead of being folded into every use.</p>
+          <pre class="code" data-lang="luau">local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")</pre>
+        </article>
+        <article class="card span-7" data-reveal>
+          <span class="kick">Scale</span>
+          <h3>A whole place, <em>at once.</em></h3>
+          <p><code>decompile-folder</code> lifts an entire SaveInstance dump across every core. The output is byte-identical at any thread count, so diffs mean something.</p>
+          <div class="term" aria-label="Terminal example"><span class="pr">$</span> luau-lifter decompile-folder ./dump ./out
+<span class="dim">  mirrors ./dump into ./out, .lua → .luau</span>
+<span class="pr">$</span> <span class="caret" aria-hidden="true"></span></div>
+        </article>
+        <article class="card span-5" style="--d:120" data-reveal>
+          <span class="kick">Principles</span>
+          <h3>Local. Deterministic. <em>No AI.</em></h3>
+          <p>Core decompilation runs on your machine with deterministic rules. It doesn’t load models, download weights or call AI services.</p>
+          <ul class="principles"><li><span>Network calls</span><span>0</span></li><li><span>Models loaded</span><span>0</span></li><li><span>License</span><span>MIT</span></li></ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 05 PROOF -->
+  <section class="chapter on-dark" id="proof" aria-labelledby="pr-title">
+    <div class="wrap">
+      <header class="ch-head">
+        <p class="ch-index" data-reveal><b>05</b><span>Evidence</span><span class="r"></span><span>V2 v0.1 vs v0.9 beta</span></p>
+        <h2 class="ch-title" id="pr-title" data-reveal style="--d:80">Measured, <em>not promised.</em></h2>
+        <div class="ch-body" data-reveal style="--d:200">
+          <p>V2 is checked with Luau’s own parser, compiler and VM. Readability is counted on the same files for both versions.</p>
+        </div>
+      </header>
+      <div class="stats">
+        <div class="stat" data-reveal>
+          <div class="num"><span data-count="246">246</span><small>/ 246</small></div>
+          <h3>Runtime profiles pass</h3>
+          <p>The expanded V2 suite executes decompiled output against the original. Of the 198 profiles shared with v0.9, beta passed 138.</p>
+        </div>
+        <div class="stat" data-reveal style="--d:120">
+          <div class="num"><span data-count="3978">3,978</span><small>/ 3,978</small></div>
+          <h3>Private files recompile</h3>
+          <p>Every file in the private corpus parses and recompiles; so do all 513 public parse/recompile profiles.</p>
+        </div>
+        <div class="stat" data-reveal>
+          <div class="num"><span class="acc">−</span><span data-count="31.9" data-dec="1">31.9</span><small>%</small></div>
+          <h3>Fewer anonymous names</h3>
+          <p>Generated <code>p</code>/<code>v</code> bindings fell from 54,058 to 36,826 across the same 3,975 files.</p>
+        </div>
+        <div class="stat" data-reveal style="--d:120">
+          <div class="num"><span data-count="98">98</span><small>from 382</small></div>
+          <h3>Lines over 180 characters</h3>
+          <p>Group-aware formatting breaks wide expressions without changing what they parse to.</p>
+        </div>
+      </div>
+      <div class="proof-foot">
+        <p class="note">These checks cover the tested inputs; they don’t prove equivalence for every program. Bytecode doesn’t uniquely determine source — stripped names, comments and erased types can’t be recovered with certainty.</p>
+        <a class="link-arrow" href="changelog.html#evaluation" data-iris>Full methodology <span aria-hidden="true">→</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 06 GET -->
+  <section class="chapter on-dark" id="get" aria-labelledby="get-title">
+    <div class="wrap get-grid">
+      <div data-reveal>
+        <p class="ch-index" style="margin-bottom:40px"><b>06</b><span>Get Tovek</span><span class="r"></span></p>
+        <h2 class="get-title" id="get-title">Read what <em>shipped.</em></h2>
+        <p class="get-lede">Download the V2 release for Windows or Linux — CLI, local HTTP server and client scripts included — or build it from source with Rust.</p>
+        <a class="link-arrow" href="https://github.com/Kiet1308/Tovek/blob/main/README.md#usage">Usage guide <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="get-cards">
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/latest" data-reveal>
+          <span>
+            <span class="kick">GitHub Releases</span>
+            <strong>Tovek V2 v0.1</strong>
+            <span class="os">Windows · Linux · MIT licensed</span>
+          </span>
+          <span class="go" aria-hidden="true">↓</span>
+        </a>
+        <div class="shell" data-reveal style="--d:100">
+          <div class="panel-bar"><span class="k">Build from source</span><button class="copy" type="button" data-copy="build-cmd">Copy</button></div>
+<pre id="build-cmd">git clone --branch main https://github.com/Kiet1308/Tovek.git
+cd Tovek
+rustup toolchain install nightly-2024-12-15
+cargo +nightly-2024-12-15 build --release --locked -p luau-lifter -p web-server</pre>
+        </div>
+        <div class="shell" data-reveal style="--d:200">
+          <div class="panel-bar"><span class="k">Run it</span><button class="copy" type="button" data-copy="run-cmd">Copy</button></div>
+<pre id="run-cmd"><span class="cm"># one file of raw Luau bytecode</span>
+luau-lifter script.luac
+<span class="cm"># Roblox client bytecode (encoded)</span>
+luau-lifter script.lua -e
+<span class="cm"># a whole SaveInstance dump, in parallel</span>
+luau-lifter decompile-folder ./dump ./out</pre>
         </div>
       </div>
     </div>
   </section>
 </main>
 
-<footer>
-  <div class="wrap foot">
-    <div>
-      <nav aria-label="Footer"><a href="index.html">Overview</a><a href="changelog.html">Changelog</a><a href="https://github.com/Kiet1308/Tovek">GitHub ↗</a><a href="https://github.com/Kiet1308/Tovek/releases/latest">Releases ↗</a><a href="https://discord.gg/phY6VUDSF7">Discord ↗</a></nav>
-      <p class="credit">Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>. <span class="memory">In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality).</span></p>
-    </div>
-    <div class="legal">© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a><br>Tovek V2 v0.1 · September 2026<br>Type: Fraunces · Schibsted Grotesk · IBM Plex Mono (OFL)</div>
+<footer class="foot on-dark">
+  <div class="foot-top">
+    <p>Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>. In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality).</p>
+    <nav aria-label="Footer">
+      <a href="index.html" aria-current="page">Overview</a>
+      <a href="changelog.html" data-iris>Changelog</a>
+      <a href="https://github.com/Kiet1308/Tovek">GitHub ↗</a>
+      <a href="https://github.com/Kiet1308/Tovek/releases/latest">Releases ↗</a>
+      <a href="https://discord.gg/phY6VUDSF7">Discord ↗</a>
+    </nav>
+  </div>
+  <p class="foot-mark" aria-hidden="true">tovek<span>.</span></p>
+  <div class="foot-bottom">
+    <span>© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a></span>
+    <span>Tovek V2 v0.1 · September 2026</span>
   </div>
 </footer>
+
+<div class="iris" id="iris" aria-hidden="true"></div>
+<span class="sr-only" id="live" role="status" aria-live="polite"></span>
+<script id="hero-bytes" type="application/octet-stream">CQMpB0tleUNvZGUERW51bQlMZWZ0U2hpZnQJV2Fsa1NwZWVkB0VuYWJsZWQJVHdlZW5JbmZvA25ldwtGaWVsZE9mVmlldwZDcmVhdGUEUGxheQlJc1BsYXlpbmcEbWF0aANtYXgDbWluCkRpc2Nvbm5lY3QISHVtYW5vaWQMV2FpdEZvckNoaWxkCEFuaW1hdG9yBnNjcmlwdAZTcHJpbnQNTG9hZEFuaW1hdGlvbgxHZXRBdHRyaWJ1dGUFVHJhaWwFQ2xvbmUQSHVtYW5vaWRSb290UGFydAZQYXJlbnQKSW5wdXRCZWdhbgdDb25uZWN0CUhlYXJ0YmVhdAREaWVkBE9uY2UEZ2FtZQdQbGF5ZXJzCkdldFNlcnZpY2UQVXNlcklucHV0U2VydmljZQxUd2VlblNlcnZpY2UKUnVuU2VydmljZQtMb2NhbFBsYXllcgl3b3Jrc3BhY2UNQ3VycmVudENhbWVyYQ5DaGFyYWN0ZXJBZGRlZAAFBwIGAAAAJBkBBgAPAgCzAAAAAAwDAwACABDAGwICAAMAAAAWAAEACQIAAAkEAQApAwQEEAMCjgUAAAAJAgIAAwMBABADAvAGAAAACQIDAAkEBAAMBQkAACBwgAUGCgAVBQICNgYNABQCApYOAAAAFQIFAhQCAu4PAAAAFQICAQkCBQAFBBAAFAIC7g8AAAAVAgMBFgABABEDAQMCAwMEAgAQwAKamZmZmZn5PwMEAwUDBgMHBAAgcIACMzMzMzMz0z8DCAIAAAAAAIBUQAgBCwwAAAADCQMKApqZmZmZmck/ABEAARgAAAAAAAAAAQIAAAAAAQAAAAEAAAAAAAAAAAAAAAABAAAAAAESAAAAAAUBAgAAABoJAQAADwEBnAAAAAAaAQsACQMBACkEAAEiAgMESxICBAIAAAAFAwIADAEFAAAQMIAVAQMCCgEBABYAAQAJAwEAKQQABiECAwRLEwIEBwAAAAUDBwAMAQkAACAwgBUBAwIKAQEAFgABAAoDCwIAAAAAAAA0QAIAAAAAAAAAAAMMAw0EABAwgAIAAAAAAAAoQAIAAAAAAABZQAMOBAAgMIAAGwABGAAAAAABAAAAAAAAAAAAAAIAAAAAAAAAAAACHAAAAAACAAIAAAAJCQAAABQAABoAAAAAFQACAQkAAQAUAAAaAAAAABUAAgEWAAEAAQMPACMAARgAAAAAAQAAAAEkAAAAAAsBBAAAAD4FAwAAFAEA0wEAAAAVAQMCBQQCABQCAdMBAAAAFQIDAgwEBQAAEDCAFAIClAYAAAAVAgMCBQYIABQEARIJAAAAFQQDAjADBAcMBAsAACgwgBQEBDoMAAAAFQQCAgUHDQAUBQDTAQAAABUFAwIQBQQkDgAAAAQFZAAJBgAADwYGgg8AAAATCAAARgABAEYAAwBGAAQARgIBAEYCAgBGAAIAFAYGxxAAAAAVBgMCCQcDAA8HB/0RAAAAEwkBAEYAAgBGAQUAFAcHxxAAAAAVBwMCDwgBxxIAAAATCgIARgAGAEYABwAUCAg9EwAAABUIAwELBQAAFgABABQDEAMRAxIDEwMUBAAQMIADFQIAAAAAAAAwQAMEAxYDFwQAKDCAAxgDGQMaAxsDHAMdAx4DHwMAAQIJAAEYAAAAAAEAAAAAAAAAAAEAAAAAAQAAAAABAAAAAAABAgAAAAAAAAAAAAAAAAoAAAAAAAAAAAgAAAAAAAAABAAKAAAAAAkAAAECAChBAAAADAABAAAAAEAFAgIAFAAAFgMAAAAVAAMCDAEBAAAAAEAFAwQAFAEBFgMAAAAVAQMCDAIBAAAAAEAFBAUAFAICFgMAAAAVAgMCDAMBAAAAAEAFBQYAFAMDFgMAAAAVAwMCDwQAMQcAAAAMBQoAACSAgA8GBJcLAAAAQAgMAEYAAQBGAAIARgAFAEYAAwAUBgbHDQAAABUGAwEWAAEADgMgBAAAAEADIQMiAyMDJAMlAyYDJwMoBAAkgIADKQYDAxwBAwEAARgAAAAAAAAAAQAAAAAAAQAAAAAAAQAAAAAAAgABAAIAAAAAAAAAAAAfAQAAAAAE</script>
 </body>
 </html>
