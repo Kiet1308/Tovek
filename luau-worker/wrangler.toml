@@ -1,22 +1,13 @@
 name = "luau-worker"
-type = "rust"
+main = "build/index.js"
 workers_dev = true
-compatibility_date = "2022-01-20"
-
-[vars]
-WORKERS_RS_VERSION = "0.0.9"
+compatibility_date = "2026-06-15"
 
 [build]
-command = "cargo install -q worker-build && worker-build --release" # required
+command = "cargo install worker-build --version 0.8.7 --locked && worker-build --release --panic-unwind --no-opt"
 
-[build.upload]
-dir = "build/worker"
-format = "modules"
-main = "./shim.mjs"
-
-[[build.upload.rules]]
-globs = ["**/*.wasm"]
-type = "CompiledWasm"
+# Configure with `wrangler secret put AUTH_SECRET` before deployment. Never
+# put credentials in [vars] or commit them to source control.
 
 # read more about configuring your Worker via wrangler.toml at:
 # https://developers.cloudflare.com/workers/cli-wrangler/configuration

@@ -9,7 +9,7 @@ wasm-opt = false
 
 [dependencies]
 console_error_panic_hook = "0.1.7"
-worker = "0.3.2"
+worker = "=0.8.7"
 futures-util = "0.3.30"
 luau-lifter = { path = "../luau-lifter" }
 base64 = "0.22.1"

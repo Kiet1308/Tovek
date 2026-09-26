@@ -1874,7 +1874,7 @@ fn deinline_block(
     targets: &[Target],
     decl_map: &FxHashMap<RcLocal, usize>,
     outer_active: &[usize],
-    outer_continuation: &[Statement],
+    outer_continuation: &[&[Statement]],
     current_func: Option<FnPtr>,
     is_func_tail: bool,
     is_func_body_top: bool,
@@ -1884,17 +1884,6 @@ fn deinline_block(
     //    A child block/closure only sees targets whose declaration lexically
     //    precedes it — `active` grows as we pass each declaration in THIS block.
     let n = stmts.len();
-    // A site at the end of an `if` arm continues after the enclosing `if`, not
-    // at the end of the arm's Vec.  Preserve that lexical continuation while we
-    // recurse so the CPS verifier can compare loop-return clones at any nesting
-    // depth.  Statement clones keep block/closure Arcs shared and are only built
-    // for branch statements; no quadratic canonicalization is done here.
-    let branch_continuations: Vec<Option<Vec<Statement>>> = (0..n)
-        .map(|index| {
-            matches!(stmts[index], Statement::If(_))
-                .then(|| semantic_continuation(&stmts[index + 1..], outer_continuation))
-        })
-        .collect();
     // A child block is in tail-control position when nothing of the function runs
     // after it: it belongs to the block's LAST statement of a tail block, or — at
     // any nesting depth, loop bodies included — the statements after it are exactly
@@ -1906,8 +1895,15 @@ fn deinline_block(
         .map(|j| (is_func_tail && j == n - 1) || continues_with_void_return_only(&stmts[j + 1..]))
         .collect();
     {
+        let snapshot = (targets.iter().any(|target| target.cps_loop_return)
+            && stmts.iter().any(|statement| matches!(statement, Statement::If(_))))
+            .then(|| stmts.clone());
         let mut active: Vec<usize> = outer_active.to_vec();
         for (j, s) in stmts.iter_mut().enumerate() {
+            let continuation = if matches!(s, Statement::If(_)) {
+                snapshot.as_ref().map(|snapshot|
+                    continuation_segments(&snapshot[j + 1..], outer_continuation)).unwrap_or_default()
+            } else { Vec::new() };
             let child_tail = child_tails[j];
             match s {
                 Statement::If(f) => {
@@ -1916,7 +1912,7 @@ fn deinline_block(
                         targets,
                         decl_map,
                         &active,
-                        branch_continuations[j].as_deref().unwrap_or_default(),
+                        &continuation,
                         current_func,
                         child_tail,
                         false,
@@ -1927,7 +1923,7 @@ fn deinline_block(
                         targets,
                         decl_map,
                         &active,
-                        branch_continuations[j].as_deref().unwrap_or_default(),
+                        &continuation,
                         current_func,
                         child_tail,
                         false,
@@ -2457,7 +2453,7 @@ fn try_match_at(
     current_func: Option<FnPtr>,
     is_func_tail: bool,
     is_func_body_top: bool,
-    outer_continuation: &[Statement],
+    outer_continuation: &[&[Statement]],
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
     canon_cache: &mut CanonCache,
 ) -> Option<Hit> {
@@ -2564,7 +2560,7 @@ fn match_void(
     t: &Target,
     is_func_tail: bool,
     is_func_body_top: bool,
-    outer_continuation: &[Statement],
+    outer_continuation: &[&[Statement]],
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
     canon_cache: &mut CanonCache,
 ) -> Option<Hit> {
@@ -3760,15 +3756,15 @@ fn has_depth_zero_loop_control(stmts: &[Statement], loop_depth: usize) -> bool {
 /// Compose the statements executed after a site in the current block with the
 /// continuation inherited from enclosing `if` arms.  The outer segment is
 /// unreachable when the local segment definitely transfers control.
-fn semantic_continuation(local: &[Statement], outer: &[Statement]) -> Vec<Statement> {
-    if local.is_empty() {
-        return outer.to_vec();
-    }
-    let mut result = local.to_vec();
-    if !sequence_has_terminal_tail(local) {
-        result.extend_from_slice(outer);
-    }
+fn continuation_segments<'a>(local: &'a [Statement], outer: &[&'a [Statement]]) -> Vec<&'a [Statement]> {
+    let mut result = Vec::with_capacity(outer.len() + 1);
+    if !local.is_empty() { result.push(local); }
+    if !sequence_has_terminal_tail(local) { result.extend_from_slice(outer); }
     result
+}
+
+fn semantic_continuation(local: &[Statement], outer: &[&[Statement]]) -> Vec<Statement> {
+    continuation_segments(local, outer).into_iter().flat_map(|segment| segment.iter().cloned()).collect()
 }
 
 /// `stmts[i]` is an init-less `local R` declaration -> returns R.

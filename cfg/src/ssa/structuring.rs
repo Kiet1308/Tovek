@@ -320,11 +320,15 @@ pub fn structure_conditionals(function: &mut Function) -> bool {
                 .arguments
                 .iter()
                 .any(|(k, v)| {
-                    matches!(v, ast::RValue::Literal(_))
-                        && second_to_sc_args
+                    second_to_sc_args
                             .iter()
                             .find(|(k2, _)| k2 == k)
                             .is_some_and(|(_, v2)| v2 != v)
+                        // The only differing value an and/or merge can retain
+                        // is its own short-circuit operand. An unrelated local
+                        // is just as observable as a differing literal.
+                        && pattern.final_condition.as_binary()
+                            .is_none_or(|binary| binary.left.as_ref() != v)
                 });
             if !clobber_destroys_value {
                 for arg in &mut function
@@ -1020,12 +1024,12 @@ fn is_for_next(function: &Function, node: NodeIndex) -> bool {
         .unwrap_or(false)
 }
 
-fn is_generic_for_body_edge(function: &Function, before: NodeIndex, body: NodeIndex) -> bool {
+fn is_for_body_edge(function: &Function, before: NodeIndex, body: NodeIndex) -> bool {
     function
         .block(before)
         .and_then(|block| block.first())
-        .is_some_and(|statement| matches!(statement, ast::Statement::GenericForNext(_)))
-        && function.edges(before).any(|edge| edge.target() == body)
+        .is_some_and(|statement| matches!(statement, ast::Statement::GenericForNext(_) | ast::Statement::NumForNext(_)))
+        && function.edges(before).any(|edge| edge.target() == body && edge.weight().branch_type == BranchType::Then)
 }
 
 // TODO: REFACTOR: same as match_jump in restructure, maybe can use some common code?
@@ -1046,13 +1050,13 @@ pub fn structure_jumps(function: &mut Function, dominators: &Dominators<NodeInde
             if block.is_empty() {
                 let mut remove = true;
                 for pred in function.predecessor_blocks(node).collect_vec() {
-                    // An empty block immediately after FORGLOOP is the
+                    // An empty block immediately after FORGLOOP/FORNLOOP is the
                     // compiler's unconditional-break body.  Collapsing it
                     // rewires the Then arm to the follow block and erases the
                     // source-level `break` port before provenance-aware loop
                     // structuring sees it.  Keep this adapter intact; the
                     // region pass will consume it as a body-side break.
-                    let did = if is_generic_for_body_edge(function, pred, node) {
+                    let did = if is_for_body_edge(function, pred, node) {
                         false
                     } else {
                         skip_over_node(function, pred, jump_edge)
@@ -1256,5 +1260,77 @@ mod tests {
         let x = rclocal("x");
         let glob = || RValue::Global(ast::Global::from("g"));
         assert_eq!(run(glob(), lv(&x), glob()), None);
+    }
+}
+
+#[cfg(test)]
+mod edge_argument_regressions {
+    use super::*;
+    #[test]
+    fn review_nonliteral_edge_argument() {
+        // Valid SSA: if a then t=b; if t then return 99 else return t
+        //            else return x. x is not the first condition a.
+        let [a, b, x, t, p] = std::array::from_fn::<_, 5, _>(|_| ast::RcLocal::default());
+        let mut f = Function::new(0);
+        f.parameters = vec![a.clone(), b.clone(), x.clone()];
+        let first = f.new_block();
+        let second = f.new_block();
+        let sc = f.new_block();
+        let other = f.new_block();
+        f.set_entry(first);
+        f.block_mut(first)
+            .unwrap()
+            .push(ast::If::new(a.clone().into(), Default::default(), Default::default()).into());
+        f.block_mut(second)
+            .unwrap()
+            .push(ast::Assign::new(vec![t.clone().into()], vec![b.clone().into()]).into());
+        f.block_mut(second)
+            .unwrap()
+            .push(ast::If::new(t.clone().into(), Default::default(), Default::default()).into());
+        f.block_mut(sc)
+            .unwrap()
+            .push(ast::Return::new(vec![p.clone().into()]).into());
+        f.block_mut(other)
+            .unwrap()
+            .push(ast::Return::new(vec![ast::Literal::Number(99.0).into()]).into());
+        f.set_edges(
+            first,
+            vec![
+                (second, BlockEdge::new(BranchType::Then)),
+                (
+                    sc,
+                    BlockEdge {
+                        branch_type: BranchType::Else,
+                        arguments: vec![(p.clone(), x.clone().into())],
+                    },
+                ),
+            ],
+        );
+        f.set_edges(
+            second,
+            vec![
+                (other, BlockEdge::new(BranchType::Then)),
+                (
+                    sc,
+                    BlockEdge {
+                        branch_type: BranchType::Else,
+                        arguments: vec![(p.clone(), t.clone().into())],
+                    },
+                ),
+            ],
+        );
+        let candidate = match_conditional_sequence(&f, first).is_some();
+        let changed = structure_conditionals(&mut f);
+        let edge = f.edges(first).find(|e| e.target() == sc).unwrap();
+        let overwritten = edge.weight().arguments[0].1 != x.clone().into();
+        println!(
+            "REVIEW conditional candidate={candidate} changed={changed} first_arg_overwritten={overwritten}"
+        );
+        println!("REVIEW merged block: {}", f.block(first).unwrap());
+        assert!(candidate);
+        assert!(
+            !overwritten,
+            "short-circuit merge discarded an unrelated local"
+        );
     }
 }

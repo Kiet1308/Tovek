@@ -29,6 +29,38 @@ pub struct Lifter<'a, 'b> {
     lifted_functions: &'b mut Vec<(Arc<Mutex<ast::Function>>, Function, Vec<RcLocal>)>,
 }
 
+#[cfg(test)]
+mod setlist_regressions {
+    use super::*;
+
+    #[test]
+    fn parsed_setlist_reaches_the_original_array_index() {
+        for block in [255u32, 256, 257, 511, 512] {
+            // NEWTABLE r0; LOADK r1, 42; SETLIST r0, 1, block;
+            // RETURN r0. C=0 uses an extra raw word above the 9-bit range.
+            let mut words = vec![10, 1 | (1 << 6), 34 | (1 << 23)];
+            if block > 511 { words.push(block); }
+            else { words[2] |= block << 14; }
+            words.push(30 | (2 << 23));
+            let mut bytes = vec![0; 12]; // name and line ranges
+            bytes.extend([0, 0, 0, 2]); // upvalues, parameters, vararg, stack
+            bytes.extend((words.len() as u32).to_le_bytes());
+            bytes.extend(words.into_iter().flat_map(u32::to_le_bytes));
+            bytes.extend(1u32.to_le_bytes()); // one number constant
+            bytes.push(3);
+            bytes.extend(42f64.to_le_bytes());
+            bytes.extend([0; 16]); // closures, positions, locals, upvalues
+            let (_, prototype) = BytecodeFunction::parse(&bytes).unwrap();
+            let (function, _) = Lifter::lift(&prototype, &mut Vec::new());
+            let indices: Vec<_> = function.graph().node_weights()
+                .flat_map(|body| body.iter())
+                .filter_map(|statement| statement.as_set_list().map(|list| list.index))
+                .collect();
+            assert_eq!(indices, vec![(block as usize - 1) * 50 + 1]);
+        }
+    }
+}
+
 impl<'a, 'b> Lifter<'a, 'b> {
     fn allocate_locals(&mut self) {
         self.upvalues
@@ -55,12 +87,7 @@ impl<'a, 'b> Lifter<'a, 'b> {
         self.nodes.insert(0, self.function.new_block());
         for (insn_index, insn) in self.bytecode.code.iter().enumerate() {
             match *insn {
-                Instruction::SetList {
-                    block_number: 0, ..
-                } => {
-                    // TODO: skip next instruction
-                    todo!();
-                }
+                Instruction::ExtraArgument => {}
                 Instruction::LoadBoolean {
                     skip_next: true, ..
                 } => {
@@ -160,6 +187,7 @@ impl<'a, 'b> Lifter<'a, 'b> {
         let mut iter = self.bytecode.code[start..=end].iter();
         while let Some(instruction) = iter.next() {
             match instruction {
+                Instruction::ExtraArgument => {}
                 Instruction::Move {
                     destination,
                     source,

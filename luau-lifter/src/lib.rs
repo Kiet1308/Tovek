@@ -5,6 +5,7 @@ mod op_code;
 mod source_recovery;
 mod value_provenance;
 mod capture_effects;
+mod bytecode_validate;
 mod reconstruction_candidates;
 pub mod profile;
 pub mod upvalue_analysis;
@@ -394,6 +395,23 @@ fn try_decompile_bytecode_internal(
     options: DecompileOptions,
     emit_upvalue_analysis: bool,
 ) -> Result<DecompileArtifact, DecompileFailure> {
+    // All fallible APIs share the same recovery boundary, including parsing,
+    // lifting and final formatting. Worker builds must use panic=unwind too.
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis)
+    }))
+    .unwrap_or_else(|payload| Err(DecompileFailure::message(format!(
+        "panicked: {}", panic_payload_message(payload.as_ref())
+    ))))
+}
+
+fn decompile_bytecode_internal(
+    bytecode: &[u8],
+    encode_key: u8,
+    script_name: Option<&str>,
+    options: DecompileOptions,
+    emit_upvalue_analysis: bool,
+) -> Result<DecompileArtifact, DecompileFailure> {
     // Reset the per-thread local-id sequence so this decompilation's `RcLocal`
     // ids (and thus the FxHash-iteration order that depends on them, and the
     // generated local names) are independent of any earlier work this thread
@@ -421,6 +439,7 @@ fn try_decompile_bytecode_internal(
             validate_prototype_graph(&chunk.functions, chunk.main)
                 .map_err(DecompileFailure::message)?;
             validate_source_opcodes(&chunk.functions).map_err(DecompileFailure::message)?;
+            bytecode_validate::validate(&chunk).map_err(DecompileFailure::message)?;
             if std::env::var_os("MEDAL_DUMP_TYPES").is_some() {
                 debug_dump_types(&chunk);
             }
@@ -1163,7 +1182,7 @@ pub fn decompile_batch_with_options(
             }));
             match caught {
                 Ok(result) => result,
-                Err(payload) => Err(format!("panicked: {}", panic_payload_message(&payload))),
+                Err(payload) => Err(format!("panicked: {}", panic_payload_message(payload.as_ref()))),
             }
         })
         .collect()
@@ -1511,17 +1530,33 @@ fn decompile_function(
         debug_dump_cfg(&function, "pre-inline");
     }
     let mut changed = true;
+    let mut dominator_cache = None;
+    // Each normal round consumes CFG nodes or phi transports. A size-derived
+    // budget also bounds an accidental rewrite cycle without imposing a small
+    // fixed limit on legitimate large functions.
+    let mut rounds_left = (function.graph().node_count()
+        + function.graph().edge_weights().map(|edge| edge.arguments.len()).sum::<usize>()
+        + 1).saturating_mul(4).max(64);
     while changed {
+        if rounds_left == 0 {
+            ast_function.lock().body = unsupported_structuring_sentinel();
+            return (ByAddress(ast_function), upvalues_in, Some(DecompileDiagnostic {
+                stage: "ssa_cleanup".into(), code: "rewrite_budget_exhausted".into(),
+                function: function_identity, message: "CFG simplification exceeded its size-derived iteration budget".into(),
+            }), function.provenance.take());
+        }
+        rounds_left -= 1;
         changed = false;
 
-        let dominators = {
+        let dominators = dominator_cache.get_or_insert_with(|| {
             ptime!(F_SIMPLE_FAST);
             simple_fast(function.graph(), function.entry().unwrap())
-        };
-        {
+        });
+        let topology_changed = {
             ptime!(F_STRUCTURE_JUMPS);
-            changed |= structure_jumps(&mut function, &dominators);
-        }
+            structure_jumps(&mut function, dominators)
+        };
+        changed |= topology_changed;
 
         {
             ptime!(F_SSA_INLINE);
@@ -1533,6 +1568,7 @@ fn decompile_function(
             ptime!(F_STRUCTURE_CONDS);
             structure_conditionals(&mut function)
         };
+        if topology_changed || sc { dominator_cache = None; }
         if sc
         // || {
         //     let post_dominators = post_dominators(function.graph_mut());

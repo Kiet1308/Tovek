@@ -1,11 +1,11 @@
 //! Optional folder cache. The executable, decoded bytes, key, every option,
 //! output naming context and analysis mode are part of the key. Output paths
 //! and export identities are applied afresh by decompile_core after each hit.
-use crate::decompile_core::{atomic_write_contained, sha256_hex};
+use crate::decompile_core::{atomic_write_contained, atomic_write_contained_guarded, sha256_hex};
 use luau_lifter::{DecompileArtifact, DecompileOptions};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -45,6 +45,7 @@ struct Record {
 #[derive(Default)]
 struct Inventory {
     records: BTreeMap<String, Record>,
+    recency: BTreeSet<(u64, String)>,
     bytes: u64,
     clock: u64,
 }
@@ -155,6 +156,7 @@ impl Cache {
         for (_, name, size) in rows {
             inventory.clock += 1;
             inventory.bytes = inventory.bytes.saturating_add(size);
+            inventory.recency.insert((inventory.clock, name.clone()));
             inventory.records.insert(
                 name,
                 Record {
@@ -280,7 +282,10 @@ impl Cache {
                 inventory.clock += 1;
                 let clock = inventory.clock;
                 if let Some(record) = inventory.records.get_mut(name) {
+                    let old = record.touched;
                     record.touched = clock;
+                    inventory.recency.remove(&(old, name.to_string()));
+                    inventory.recency.insert((clock, name.to_string()));
                 }
                 Some(artifact)
             }
@@ -317,23 +322,27 @@ impl Cache {
             return Ok(());
         };
         let size = bytes.len() as u64;
-        let mut inventory = self.inventory.lock();
-        let old_size = inventory.records.get(name).map(|r| r.size).unwrap_or(0);
-        let added_entry = usize::from(!inventory.records.contains_key(name));
-        while inventory
-            .bytes
-            .saturating_sub(old_size)
-            .saturating_add(size)
-            > self.max_bytes
-            || inventory.records.len() + added_entry > ENTRY_COUNT_LIMIT
-        {
-            self.evict_one(&mut inventory, Some(name))?;
-        }
         let path = self.root.join(name);
         reject_link(&path).map_err(|e| e.to_string())?;
-        atomic_write_contained(&self.root, &path, &bytes, true).map_err(|e| e.to_string())?;
+        let mut inventory = atomic_write_contained_guarded(&self.root, &path, &bytes, true, || {
+            let mut inventory = self.inventory.lock();
+            let old_size = inventory.records.get(name).map(|r| r.size).unwrap_or(0);
+            let added = usize::from(!inventory.records.contains_key(name));
+            while inventory.bytes.saturating_sub(old_size).saturating_add(size) > self.max_bytes
+                || inventory.records.len() + added > ENTRY_COUNT_LIMIT
+            {
+                self.evict_one(&mut inventory, Some(name)).map_err(std::io::Error::other)?;
+            }
+            reject_link(&path)?;
+            Ok(inventory)
+        }).map_err(|e| e.to_string())?;
+        let old_size = inventory.records.get(name).map(|r| r.size).unwrap_or(0);
+        if let Some(old) = inventory.records.get(name).map(|record| record.touched) {
+            inventory.recency.remove(&(old, name.to_string()));
+        }
         inventory.clock += 1;
         let touched = inventory.clock;
+        inventory.recency.insert((touched, name.to_string()));
         inventory
             .records
             .insert(name.to_string(), Record { size, touched });
@@ -347,11 +356,10 @@ impl Cache {
 
     fn evict_one(&self, inventory: &mut Inventory, retain: Option<&str>) -> Result<(), String> {
         let oldest = inventory
-            .records
+            .recency
             .iter()
-            .filter(|(key, _)| Some(key.as_str()) != retain)
-            .min_by_key(|(name, record)| (record.touched, *name))
-            .map(|(name, _)| name.clone())
+            .find(|(_, key)| Some(key.as_str()) != retain)
+            .map(|(_, name)| name.clone())
             .ok_or("cache quota cannot be satisfied")?;
         let target = self.root.join(&oldest);
         reject_link(&target).map_err(|e| e.to_string())?;
@@ -362,7 +370,9 @@ impl Cache {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => return Err(e.to_string()),
         }
-        inventory.bytes -= inventory.records.remove(&oldest).unwrap().size;
+        let record = inventory.records.remove(&oldest).unwrap();
+        inventory.bytes -= record.size;
+        inventory.recency.remove(&(record.touched, oldest));
         self.counters.evictions.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }

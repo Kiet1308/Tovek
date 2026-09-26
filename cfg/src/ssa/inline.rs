@@ -992,6 +992,9 @@ pub fn inline_with_readonly_captures(
             for i in 1..block.len() {
                 if let ast::Statement::SetList(set_list) = &block[i] {
                     let object_local = set_list.object_local.clone();
+                    let expected_entries = set_list.index.checked_sub(1);
+                    let has_multret_value = set_list.values.last().is_some_and(|value|
+                        matches!(value, ast::RValue::VarArg(_) | ast::RValue::Call(_) | ast::RValue::MethodCall(_)));
                     if upvalue_to_group.contains_key(&object_local) {
                         continue;
                     }
@@ -1010,8 +1013,16 @@ pub fn inline_with_readonly_captures(
                         block.insert(i - 1, decl);
                         changed = true;
                     }
-                    if let Some(assign) = block[i - 1].as_assign_mut()
+                    if let Some(assign) = block[i - 1].as_assign()
                         && assign.left == [object_local.into()]
+                        && assign.right.len() == 1
+                        && assign.right[0].as_table().is_some_and(|table| {
+                            expected_entries
+                                == Some(table.0.iter().filter(|(key, _)| key.is_none()).count())
+                                && !table.0.last().is_some_and(|(key, value)| key.is_none()
+                                    && matches!(value, ast::RValue::VarArg(_) | ast::RValue::Call(_) | ast::RValue::MethodCall(_)))
+                                && !has_multret_value
+                        })
                     {
                         let set_list = std::mem::replace(&mut block[i], ast::Empty {}.into())
                             .into_set_list()
@@ -1019,22 +1030,9 @@ pub fn inline_with_readonly_captures(
                         *local_usages.get_mut(&set_list.object_local).unwrap() -= 1;
                         let assign = block.get_mut(i - 1).unwrap().as_assign_mut().unwrap();
                         let table = assign.right[0].as_table_mut().unwrap();
-                        assert!(
-                            table.0.iter().filter(|(k, _)| k.is_none()).count()
-                                == set_list.index - 1
-                        );
                         for value in set_list.values {
                             table.0.push((None, value));
                         }
-                        // table already has tail?
-                        // TODO: REFACTOR: is_some_and
-                        assert!(!table.0.last().map_or(false, |(k, v)| k.is_none()
-                            && matches!(
-                                v,
-                                ast::RValue::VarArg(_)
-                                    | ast::RValue::Call(_)
-                                    | ast::RValue::MethodCall(_)
-                            )));
                         if let Some(tail) = set_list.tail {
                             table.0.push((None, tail));
                         }

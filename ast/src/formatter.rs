@@ -649,7 +649,7 @@ mod tests {
             .into(),
         ]);
 
-        assert_eq!(block.to_string(), "return math.huge, -math.huge");
+        assert_eq!(block.to_string(), "return 1e999, -1e999");
     }
 
     #[test]
@@ -665,7 +665,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "return Vector3.new(math.huge, -math.huge, 1)"
+            "return vector.create(1e999, -1e999, 1)"
         );
     }
 
@@ -680,7 +680,7 @@ mod tests {
             .into(),
         ]);
 
-        assert_eq!(block.to_string(), "return 2 ^ (-math.huge)");
+        assert_eq!(block.to_string(), "return 2 ^ (-1e999)");
     }
 
     #[test]
@@ -1679,6 +1679,13 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     // (function() end)()
     // (function() end)[1]
     fn should_wrap_left_rvalue(value: &RValue) -> bool {
+        // A format call can be printed as a backtick literal, which is not a
+        // prefix expression in Luau. Classify the emitted syntax, not just
+        // the original Select::MethodCall node.
+        if matches!(value, RValue::Select(Select::MethodCall(call))
+            if call.method == "format" && matches!(call.value.as_ref(), RValue::Literal(Literal::String(_)))) {
+            return true;
+        }
         !matches!(
             value,
             RValue::Local(_)
@@ -2749,7 +2756,16 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                         let arg = arguments.get(arg_index)?;
                         arg_index += 1;
                         out.push('{');
-                        out.push_str(&self.render_rvalue_to_string(arg)?);
+                        let expression = self.render_rvalue_to_string(arg)?;
+                        // `{{` starts an invalid token in a backtick string.
+                        // Parentheses delimit a table constructor unambiguously.
+                        if expression.starts_with('{') {
+                            out.push('(');
+                            out.push_str(&expression);
+                            out.push(')');
+                        } else {
+                            out.push_str(&expression);
+                        }
                         out.push('}');
                     }
                     // Any other specifier (`%s` `%d` `%.2f` `%q` `%x` ...) — abort.

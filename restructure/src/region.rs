@@ -111,7 +111,7 @@ struct NumericLoopInfo {
 struct Analysis {
     reachable: FxHashSet<NodeIndex>,
     nodes: Vec<NodeIndex>,
-    post_dominators: FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
+    post_dominators: PostDominators,
     live_in: FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
     live_out: FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
     loops_by_init: FxHashMap<NodeIndex, LoopInfo>,
@@ -119,6 +119,150 @@ struct Analysis {
     numeric_loops_by_init: FxHashMap<NodeIndex, LoopInfo>,
     numeric_loops_by_header: FxHashMap<NodeIndex, LoopInfo>,
     while_loops_by_header: FxHashMap<NodeIndex, LoopInfo>,
+}
+
+/// Immediate post-dominators of nodes whose paths cannot enter a closed,
+/// non-terminating component. A virtual exit joins the real terminal blocks.
+/// This preserves the previous fail-closed semantics without V squared sets.
+struct PostDominators {
+    parent: FxHashMap<NodeIndex, Option<NodeIndex>>,
+    depth: FxHashMap<NodeIndex, usize>,
+}
+
+impl PostDominators {
+    fn new(function: &Function, nodes: &[NodeIndex], reachable: &FxHashSet<NodeIndex>) -> Self {
+        let terminals = nodes.iter().copied().filter(|node|
+            !function.successor_blocks(*node).any(|next| reachable.contains(&next))).collect_vec();
+        let mut reaches_exit = FxHashSet::default();
+        let mut work = terminals.clone();
+        while let Some(node) = work.pop() {
+            if reaches_exit.insert(node) {
+                work.extend(function.predecessor_blocks(node).filter(|prev| reachable.contains(prev)));
+            }
+        }
+        // The old dataflow solution propagates an empty set through any edge
+        // to a node that cannot reach an exit. Do that once before computing
+        // the tree, rather than silently ignoring divergent successor paths.
+        let mut divergent = FxHashSet::default();
+        work.extend(nodes.iter().copied().filter(|node| !reaches_exit.contains(node)));
+        while let Some(node) = work.pop() {
+            if divergent.insert(node) {
+                work.extend(function.predecessor_blocks(node).filter(|prev| reachable.contains(prev)));
+            }
+        }
+        let mut reverse = petgraph::graphmap::DiGraphMap::<Option<NodeIndex>, ()>::new();
+        reverse.add_node(None);
+        for &node in nodes.iter().filter(|node| !divergent.contains(node)) {
+            reverse.add_node(Some(node));
+            for next in function.successor_blocks(node).filter(|next| reachable.contains(next)) {
+                reverse.add_edge(Some(next), Some(node), ());
+            }
+        }
+        for node in terminals { reverse.add_edge(None, Some(node), ()); }
+        let tree = simple_fast(&reverse, None);
+        let mut parent = FxHashMap::default();
+        let mut children = FxHashMap::<Option<NodeIndex>, Vec<NodeIndex>>::default();
+        for &node in nodes {
+            if let Some(above) = tree.immediate_dominator(Some(node)) {
+                parent.insert(node, above);
+                children.entry(above).or_default().push(node);
+            }
+        }
+        let mut depth = FxHashMap::default();
+        let mut stack = vec![(None, 0)];
+        while let Some((node, level)) = stack.pop() {
+            if let Some(node) = node { depth.insert(node, level); }
+            if let Some(below) = children.get(&node) {
+                stack.extend(below.iter().map(|&child| (Some(child), level + 1)));
+            }
+        }
+        Self { parent, depth }
+    }
+
+    fn common(&self, mut a: NodeIndex, mut b: NodeIndex) -> Option<NodeIndex> {
+        let mut da = *self.depth.get(&a)?;
+        let mut db = *self.depth.get(&b)?;
+        while a != b {
+            if da >= db { a = self.parent[&a]?; da -= 1; }
+            else { b = self.parent[&b]?; db -= 1; }
+        }
+        Some(a)
+    }
+}
+
+#[cfg(test)]
+mod postdom_regressions {
+    use super::*;
+
+    // Deliberately retain the former set-based definition as a small-graph
+    // oracle, independent of the new reversed-graph tree implementation.
+    fn reference(function: &Function, nodes: &[NodeIndex]) -> FxHashMap<NodeIndex, FxHashSet<NodeIndex>> {
+        let universe: FxHashSet<_> = nodes.iter().copied().collect();
+        let mut reaches = FxHashSet::default();
+        let mut work: Vec<_> = nodes.iter().copied().filter(|&node| function.successor_blocks(node).next().is_none()).collect();
+        while let Some(node) = work.pop() {
+            if reaches.insert(node) { work.extend(function.predecessor_blocks(node)); }
+        }
+        let mut sets: FxHashMap<_, _> = nodes.iter().map(|&node|
+            (node, if reaches.contains(&node) { universe.clone() } else { FxHashSet::default() })).collect();
+        loop {
+            let mut changed = false;
+            for &node in nodes {
+                let next: Vec<_> = function.successor_blocks(node).collect();
+                let mut result = if next.is_empty() { [node].into_iter().collect() }
+                    else if next.iter().any(|n| sets[n].is_empty()) { FxHashSet::default() }
+                    else {
+                        let mut result = sets[&next[0]].clone();
+                        for other in next.iter().skip(1) { result.retain(|n| sets[other].contains(n)); }
+                        result.insert(node); result
+                    };
+                if !reaches.contains(&node) { result.clear(); }
+                if result != sets[&node] { sets.insert(node, result); changed = true; }
+            }
+            if !changed { return sets; }
+        }
+    }
+
+    #[test]
+    fn tree_matches_dataflow_on_branching_cycles_and_closed_components() {
+        for seed in 0..96usize {
+            let mut function = Function::new(0);
+            let n = 2 + seed % 11;
+            let all: Vec<_> = (0..n).map(|_| function.new_block()).collect();
+            function.set_entry(all[0]);
+            for i in 0..n {
+                let mut edges = Vec::new();
+                if (i * 13 + seed) % 4 != 0 { edges.push((all[(i + 1) % n], BlockEdge::new(BranchType::Then))); }
+                if (i * 7 + seed) % 3 == 0 { edges.push((all[(i * 3 + seed) % n], BlockEdge::new(BranchType::Else))); }
+                function.set_edges(all[i], edges);
+            }
+            let mut reachable = FxHashSet::default(); let mut work = vec![all[0]];
+            while let Some(node) = work.pop() { if reachable.insert(node) { work.extend(function.successor_blocks(node)); } }
+            let nodes: Vec<_> = all.into_iter().filter(|node| reachable.contains(node)).collect();
+            let tree = PostDominators::new(&function, &nodes, &reachable);
+            let sets = reference(&function, &nodes);
+            assert!(tree.parent.len() <= nodes.len());
+            for &a in &nodes { for &b in &nodes {
+                let expected = if a == b { Some(a) } else {
+                    let common: FxHashSet<_> = sets[&a].intersection(&sets[&b]).copied().collect();
+                    common.iter().copied().find(|candidate| common.iter().all(|other| sets[candidate].contains(other)))
+                };
+                assert_eq!(common_postdominator(&[a,b], &tree), expected, "seed={seed}, nodes={a:?}/{b:?}");
+            } }
+        }
+    }
+
+    #[test]
+    fn long_chain_uses_one_parent_and_depth_per_node() {
+        let mut function = Function::new(0);
+        let nodes: Vec<_> = (0..4096).map(|_| function.new_block()).collect();
+        function.set_entry(nodes[0]);
+        for pair in nodes.windows(2) { function.set_edges(pair[0], vec![(pair[1], BlockEdge::default())]); }
+        let tree = PostDominators::new(&function, &nodes, &nodes.iter().copied().collect());
+        assert_eq!(tree.parent.len(), nodes.len());
+        assert_eq!(tree.depth.len(), nodes.len());
+        assert_eq!(tree.common(nodes[0], nodes[2048]), Some(nodes[2048]));
+    }
 }
 
 fn collect_closure_captures(
@@ -137,7 +281,8 @@ fn collect_closure_captures(
     if !seen_closures.insert(identity) {
         return;
     }
-    let body = closure.function.lock().body.clone();
+    let function = closure.function.lock();
+    let body = &function.body;
     collect_block_captures_with_seen(&body, captured, seen_closures);
 }
 
@@ -165,8 +310,7 @@ fn collect_rvalue_captures_with_seen(
     if let RValue::Closure(closure) = value {
         collect_closure_captures(closure, captured, seen_closures);
     }
-    let mut value_copy = value.clone();
-    value_copy.traverse_rvalues(&mut |nested| {
+    value.traverse_rvalues_ref(&mut |nested| {
         if let RValue::Closure(closure) = nested {
             collect_closure_captures(closure, captured, seen_closures);
         }
@@ -183,8 +327,7 @@ fn collect_statement_captures_with_seen(
     captured: &mut FxHashSet<RcLocal>,
     seen_closures: &mut FxHashSet<usize>,
 ) {
-    let mut statement_copy = statement.clone();
-    statement_copy.traverse_rvalues(&mut |value| {
+    statement.traverse_rvalues_ref(&mut |value| {
         if let RValue::Closure(closure) = value {
             collect_closure_captures(closure, captured, seen_closures);
         }
@@ -251,7 +394,8 @@ fn collect_closure_ref_captures(
     if !seen_closures.insert(identity) {
         return;
     }
-    let body = closure.function.lock().body.clone();
+    let function = closure.function.lock();
+    let body = &function.body;
     collect_block_ref_captures_with_seen(&body, captured, seen_closures);
 }
 
@@ -270,8 +414,7 @@ fn collect_statement_ref_captures_with_seen(
     captured: &mut FxHashSet<RcLocal>,
     seen_closures: &mut FxHashSet<usize>,
 ) {
-    let mut statement_copy = statement.clone();
-    statement_copy.traverse_rvalues(&mut |value| {
+    statement.traverse_rvalues_ref(&mut |value| {
         if let RValue::Closure(closure) = value {
             collect_closure_ref_captures(closure, captured, seen_closures);
         }
@@ -302,8 +445,7 @@ fn collect_rvalue_ref_captures(value: &RValue, captured: &mut FxHashSet<RcLocal>
     if let RValue::Closure(closure) = value {
         collect_closure_ref_captures(closure, captured, &mut seen_closures);
     }
-    let mut value_copy = value.clone();
-    value_copy.traverse_rvalues(&mut |nested| {
+    value.traverse_rvalues_ref(&mut |nested| {
         if let RValue::Closure(closure) = nested {
             collect_closure_ref_captures(closure, captured, &mut seen_closures);
         }
@@ -331,7 +473,8 @@ fn closure_contains_close(closure: &ast::Closure, seen_closures: &mut FxHashSet<
     if !seen_closures.insert(identity) {
         return false;
     }
-    let body = closure.function.lock().body.clone();
+    let function = closure.function.lock();
+    let body = &function.body;
     block_contains_close_with_seen(&body, seen_closures)
 }
 
@@ -350,9 +493,8 @@ fn rvalue_contains_close_with_seen(value: &RValue, seen_closures: &mut FxHashSet
             return true;
         }
     }
-    let mut value_copy = value.clone();
     let mut nested_close = false;
-    value_copy.traverse_rvalues(&mut |nested| {
+    value.traverse_rvalues_ref(&mut |nested| {
         if !nested_close {
             if let RValue::Closure(closure) = nested {
                 nested_close = closure_contains_close(closure, seen_closures);
@@ -375,9 +517,8 @@ fn statement_contains_close_with_seen(
     if matches!(statement, Statement::Close(_)) {
         return true;
     }
-    let mut statement_copy = statement.clone();
     let mut nested_close = false;
-    statement_copy.traverse_rvalues(&mut |value| {
+    statement.traverse_rvalues_ref(&mut |value| {
         if !nested_close {
             if let RValue::Closure(closure) = value {
                 nested_close = closure_contains_close(closure, seen_closures);
@@ -414,7 +555,8 @@ fn closure_contains_unlowered_control(
     if !seen_closures.insert(identity) {
         return false;
     }
-    let body = closure.function.lock().body.clone();
+    let function = closure.function.lock();
+    let body = &function.body;
     block_contains_unlowered_control_with_seen(&body, seen_closures)
 }
 
@@ -432,9 +574,8 @@ fn rvalue_contains_unlowered_control_with_seen(
             return true;
         }
     }
-    let mut value_copy = value.clone();
     let mut nested_control = false;
-    value_copy.traverse_rvalues(&mut |nested| {
+    value.traverse_rvalues_ref(&mut |nested| {
         if !nested_control {
             if let RValue::Closure(closure) = nested {
                 nested_control = closure_contains_unlowered_control(closure, seen_closures);
@@ -484,9 +625,8 @@ fn statement_contains_unlowered_control_with_seen_mode(
     // may contain a closure.  Scan nested values before applying the
     // root-marker exception so hidden protocol markers cannot bypass the
     // preflight.
-    let mut statement_copy = statement.clone();
     let mut nested_control = false;
-    statement_copy.traverse_rvalues(&mut |value| {
+    statement.traverse_rvalues_ref(&mut |value| {
         if !nested_control {
             if let RValue::Closure(closure) = value {
                 nested_control = closure_contains_unlowered_control(closure, seen_closures);
@@ -759,98 +899,8 @@ impl Analysis {
         function: &Function,
         nodes: &[NodeIndex],
         reachable: &FxHashSet<NodeIndex>,
-    ) -> FxHashMap<NodeIndex, FxHashSet<NodeIndex>> {
-        let universe = nodes.iter().copied().collect::<FxHashSet<_>>();
-        // A post-dominator is useful to this structurer only when the node
-        // can reach a real terminal block.  Without this filter, a closed
-        // SCC with no exit can retain the initial universe forever and look
-        // like a valid join (there is no synthetic exit node in the CFG).
-        let mut can_reach_terminal = FxHashSet::default();
-        let terminals = nodes
-            .iter()
-            .copied()
-            .filter(|node| {
-                !function
-                    .successor_blocks(*node)
-                    .any(|successor| reachable.contains(&successor))
-            })
-            .collect_vec();
-        let mut reverse_work = terminals.clone();
-        while let Some(node) = reverse_work.pop() {
-            if !can_reach_terminal.insert(node) {
-                continue;
-            }
-            reverse_work.extend(
-                function
-                    .predecessor_blocks(node)
-                    .filter(|predecessor| reachable.contains(predecessor)),
-            );
-        }
-        let mut result = nodes
-            .iter()
-            .copied()
-            .map(|node| {
-                (
-                    node,
-                    can_reach_terminal
-                        .contains(&node)
-                        .then(|| universe.clone())
-                        .unwrap_or_default(),
-                )
-            })
-            .collect::<FxHashMap<_, _>>();
-        // Fixed point with an implicit terminal.  A node with a successor in
-        // a non-terminating SCC has no useful post-dominator: all paths do
-        // not converge at a real exit, so its set is empty and the candidate
-        // is rejected fail-closed by common_postdominator().
-        // Re-evaluate only predecessors of a changed node.  The old full
-        // graph sweep was O(V) rounds in the worst case; this worklist keeps
-        // the same exact fixed point while avoiding repeated scans of large
-        // unrelated regions.
-        let mut work = VecDeque::from(nodes.to_vec());
-        let mut queued = nodes.iter().copied().collect::<FxHashSet<_>>();
-        while let Some(node) = work.pop_front() {
-            queued.remove(&node);
-            let successors = function
-                .successor_blocks(node)
-                .filter(|successor| reachable.contains(successor))
-                .collect_vec();
-            let mut next = if successors.is_empty() {
-                // Real terminal: the implicit exit is not materialized in the
-                // returned map, so the node post-dominates itself.
-                [node].into_iter().collect()
-            } else if successors
-                .iter()
-                .any(|successor| result[successor].is_empty())
-            {
-                FxHashSet::default()
-            } else {
-                let mut intersection = result[&successors[0]].clone();
-                for successor in successors.iter().skip(1) {
-                    intersection.retain(|candidate| result[successor].contains(candidate));
-                }
-                intersection.insert(node);
-                intersection
-            };
-            // Nodes which cannot reach a terminal remain empty even if a
-            // malformed graph presents them as a terminal through an
-            // unreachable edge.
-            if !can_reach_terminal.contains(&node) {
-                next.clear();
-            }
-            if next != result[&node] {
-                result.insert(node, next);
-                for predecessor in function
-                    .predecessor_blocks(node)
-                    .filter(|predecessor| reachable.contains(predecessor))
-                {
-                    if queued.insert(predecessor) {
-                        work.push_back(predecessor);
-                    }
-                }
-            }
-        }
-        result
+    ) -> PostDominators {
+        PostDominators::new(function, nodes, reachable)
     }
 
     fn find_generic_loops(
@@ -858,7 +908,7 @@ impl Analysis {
         nodes: &[NodeIndex],
         reachable: &FxHashSet<NodeIndex>,
         dominators: &Dominators<NodeIndex>,
-        post_dominators: &FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
+        post_dominators: &PostDominators,
     ) -> Option<(
         FxHashMap<NodeIndex, LoopInfo>,
         FxHashMap<NodeIndex, LoopInfo>,
@@ -1230,7 +1280,7 @@ impl Analysis {
         nodes: &[NodeIndex],
         reachable: &FxHashSet<NodeIndex>,
         dominators: &Dominators<NodeIndex>,
-        post_dominators: &FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
+        post_dominators: &PostDominators,
     ) -> FxHashMap<NodeIndex, LoopInfo> {
         let mut candidates = FxHashMap::<NodeIndex, FxHashSet<NodeIndex>>::default();
         for source in nodes {
@@ -1399,7 +1449,7 @@ impl Analysis {
         nodes: &[NodeIndex],
         reachable: &FxHashSet<NodeIndex>,
         dominators: &Dominators<NodeIndex>,
-        post_dominators: &FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
+        post_dominators: &PostDominators,
     ) -> (
         FxHashMap<NodeIndex, LoopInfo>,
         FxHashMap<NodeIndex, LoopInfo>,
@@ -1639,7 +1689,7 @@ impl Analysis {
 
 fn common_postdominator(
     targets: &[NodeIndex],
-    post_dominators: &FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
+    post_dominators: &PostDominators,
 ) -> Option<NodeIndex> {
     let first = *targets.first()?;
     // A single exit port is its own join, including in a non-terminating
@@ -1647,26 +1697,7 @@ fn common_postdominator(
     if targets.iter().all(|target| *target == first) {
         return Some(first);
     }
-    let mut common = post_dominators.get(&first)?.clone();
-    for target in targets.iter().skip(1) {
-        common.retain(|candidate| post_dominators[target].contains(candidate));
-    }
-    // Common post-dominators form a chain when a unique structured join
-    // exists.  The closest join is the candidate whose own post-dominator set
-    // contains every other common candidate.  This avoids a BFS from every
-    // target to every candidate (which made nested large CFGs unnecessarily
-    // expensive); incomparable candidates are ambiguous and fail closed.
-    let mut candidates = common.iter().copied().collect_vec();
-    candidates.sort_by_key(|candidate| candidate.index());
-    candidates.into_iter().find(|candidate| {
-        post_dominators
-            .get(candidate)
-            .is_some_and(|post_dominators_of_candidate| {
-                common.iter().all(|other| {
-                    *other == *candidate || post_dominators_of_candidate.contains(other)
-                })
-            })
-    })
+    targets.iter().skip(1).try_fold(first, |join, target| post_dominators.common(join, *target))
 }
 
 struct LoopContext<'a> {
@@ -2261,22 +2292,20 @@ impl<'a> Builder<'a> {
     }
 
     fn has_unsafe_captured_result_write(&self, info: &LoopInfo) -> bool {
+        let mut captures = FxHashSet::default();
+        let mut seen = FxHashSet::default();
+        for node in &info.nodes {
+            if let Some(block) = self.function.block(*node) {
+                collect_block_captures_with_seen(block, &mut captures, &mut seen);
+            }
+            for edge in self.function.edges(*node) {
+                for (_, value) in &edge.weight().arguments {
+                    collect_rvalue_captures_with_seen(value, &mut captures, &mut seen);
+                }
+            }
+        }
         info.res_locals.iter().any(|result| {
-            let captured_in_loop = info.nodes.iter().any(|node| {
-                self.function.block(*node).is_some_and(|block| {
-                    block.iter().any(|statement| {
-                        let mut captures = FxHashSet::default();
-                        collect_statement_captures(statement, &mut captures);
-                        captures.contains(result)
-                    })
-                }) || self.function.edges(*node).any(|edge| {
-                    edge.weight().arguments.iter().any(|(_, value)| {
-                        let mut captures = FxHashSet::default();
-                        collect_rvalue_captures(value, &mut captures);
-                        captures.contains(result)
-                    })
-                })
-            });
+            let captured_in_loop = captures.contains(result);
             captured_in_loop
                 && self.analysis.nodes.iter().any(|node| {
                     if info.nodes.contains(node) {
@@ -4185,21 +4214,14 @@ impl<'a> Builder<'a> {
                 return false;
             }
             self.function.block(*node).is_some_and(|block| {
-                block.iter().any(|statement| {
-                    let writes_result = *node == info.init
-                        && block.iter().skip(init_index + 1).any(|statement| {
-                            statement
-                                .values_written()
-                                .into_iter()
-                                .any(|local| info.res_locals.iter().any(|result| result == local))
-                        });
-                    let mut captures = FxHashSet::default();
-                    collect_statement_captures(statement, &mut captures);
-                    let captures_result = captures
-                        .iter()
-                        .any(|captured| info.res_locals.iter().any(|result| result == captured));
-                    writes_result || captures_result
-                })
+                let writes_result = *node == info.init
+                    && block.iter().skip(init_index + 1).any(|statement| {
+                        statement.values_written().into_iter()
+                            .any(|local| info.res_locals.contains(local))
+                    });
+                let mut captures = FxHashSet::default();
+                collect_block_captures_with_seen(block, &mut captures, &mut FxHashSet::default());
+                writes_result || info.res_locals.iter().any(|result| captures.contains(result))
             }) || (node != &info.init
                 && self.function.edges(*node).any(|edge| {
                     edge.weight().arguments.iter().any(|(_, value)| {
@@ -10068,8 +10090,8 @@ mod tests {
         )]);
 
         let analysis = Analysis::new(&function).expect("analysis itself should be total");
-        assert!(analysis.post_dominators[&infinite].is_empty());
-        assert!(analysis.post_dominators[&entry].is_empty());
+        assert!(!analysis.post_dominators.parent.contains_key(&infinite));
+        assert!(!analysis.post_dominators.parent.contains_key(&entry));
         // A terminal natural cycle has a direct source representation even
         // though it cannot supply a post-dominator for the returning arm.
         let output = lift(function)

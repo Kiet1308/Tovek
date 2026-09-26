@@ -3,6 +3,7 @@ use anyhow::Result;
 use by_address::ByAddress;
 
 use itertools::Itertools;
+use petgraph::visit::EdgeRef;
 use parking_lot::Mutex;
 use petgraph::stable_graph::NodeIndex;
 
@@ -466,6 +467,9 @@ impl<'a> Lifter<'a> {
                     OpCode::LOP_LOADB if *c != 0 => {
                         let dest_index = (insn_index + 1).checked_add_signed((*c).into()).unwrap();
                         self.blocks
+                            .entry(insn_index + 1)
+                            .or_insert_with(|| self.function.new_block());
+                        self.blocks
                             .entry(dest_index)
                             .or_insert_with(|| self.function.new_block());
                     }
@@ -661,6 +665,7 @@ impl<'a> Lifter<'a> {
                                 self.block_to_node(dest),
                                 BlockEdge::new(BranchType::Unconditional),
                             ));
+                            stop = true;
                         }
                     }
                     OpCode::LOP_NEWTABLE => {
@@ -1595,6 +1600,24 @@ impl<'a> Lifter<'a> {
                                     .ok()
                             })
                             .expect("FORNPREP: no matching NumForNext (FORNLOOP) block");
+                        // The compiler can thread FORNLOOP's backedge through
+                        // an empty `break` body, even when the step is dead.
+                        // FORNPREP still enters that body on its first trip.
+                        // Preserve this otherwise-erased body port so the
+                        // structurer can distinguish break from exhaustion.
+                        if body_node != loop_node
+                            && self.function.block(body_node).is_some_and(|block| block.is_empty())
+                            && self.function.unconditional_edge(body_node)
+                                .zip(self.function.conditional_edges(loop_node))
+                                .is_some_and(|(body_edge, (then_edge, _))|
+                                    then_edge.target() == body_edge.target() && then_edge.target() != body_node)
+                        {
+                            let mut loop_edges = self.function.remove_edges(loop_node);
+                            for (target, edge) in &mut loop_edges {
+                                if edge.branch_type == BranchType::Then { *target = body_node; }
+                            }
+                            self.function.set_edges(loop_node, loop_edges);
+                        }
                         edges.push((loop_node, BlockEdge::new(BranchType::Unconditional)));
                     }
                     OpCode::LOP_FORNLOOP => {

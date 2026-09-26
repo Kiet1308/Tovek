@@ -86,6 +86,10 @@ impl NumForInit {
 has_side_effects!(NumForInit);
 
 impl Traverse for NumForInit {
+    fn lvalues(&self) -> Vec<&LValue> {
+        vec![&self.counter.0, &self.limit.0, &self.step.0]
+    }
+
     fn lvalues_mut(&mut self) -> Vec<&mut LValue> {
         vec![&mut self.counter.0, &mut self.limit.0, &mut self.step.0]
     }
@@ -175,6 +179,10 @@ impl NumForNext {
 }
 
 impl Traverse for NumForNext {
+    fn lvalues(&self) -> Vec<&LValue> {
+        vec![&self.counter.0]
+    }
+
     fn lvalues_mut(&mut self) -> Vec<&mut LValue> {
         vec![&mut self.counter.0]
     }
@@ -363,6 +371,10 @@ impl SideEffects for GenericForInit {
 }
 
 impl Traverse for GenericForInit {
+    fn lvalues(&self) -> Vec<&LValue> {
+        self.0.lvalues()
+    }
+
     fn lvalues_mut(&mut self) -> Vec<&mut LValue> {
         self.0.lvalues_mut()
     }
@@ -459,6 +471,10 @@ impl GenericForNext {
 has_side_effects!(GenericForNext);
 
 impl Traverse for GenericForNext {
+    fn lvalues(&self) -> Vec<&LValue> {
+        self.res_locals.iter().collect()
+    }
+
     fn lvalues_mut(&mut self) -> Vec<&mut LValue> {
         self.res_locals.iter_mut().collect()
     }

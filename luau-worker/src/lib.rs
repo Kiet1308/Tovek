@@ -8,7 +8,6 @@ use luau_lifter::{
 use serde::{Deserialize, Serialize};
 use worker::*;
 
-const AUTH_SECRET: &str = "ymjKH2O3BbO3bDSsKmpo3ek3vHxIWYLQfj0";
 
 /// Roblox client bytecode decode key (`op = op * key % 256`).
 const CLIENT_KEY: u8 = 203;
@@ -171,24 +170,30 @@ fn parse_bool(raw: &str, field: &str) -> std::result::Result<bool, String> {
     }
 }
 
+fn authorize(req: &Request, env: &Env) -> Result<Option<Response>> {
+    let secret = match env.secret("AUTH_SECRET") {
+        Ok(secret) => secret.to_string(),
+        Err(_) => return Response::error("authentication is not configured", 503).map(Some),
+    };
+    if secret.is_empty() {
+        return Response::error("authentication is not configured", 503).map(Some);
+    }
+    let provided = req.headers().get("Authorization")?.unwrap_or_default();
+    if provided != secret {
+        return Response::error("invalid license", 403).map(Some);
+    }
+    Ok(None)
+}
+
 #[event(fetch, respond_with_errors)]
 pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
     console_error_panic_hook::set_once();
 
     let router = Router::new();
     router
-        .get_async("/decompile_ws", |req, _ctx| async move {
-            // A missing/invalid Authorization header must be a clean 403, not a
-            // panicked 500 — so read it without `.expect()`.
-            let license = req
-                .headers()
-                .get("Authorization")
-                .ok()
-                .flatten()
-                .unwrap_or_default();
-
-            if license != AUTH_SECRET {
-                return Response::error("invalid license", 403);
+        .get_async("/decompile_ws", |req, ctx| async move {
+            if let Some(response) = authorize(&req, &ctx.env)? {
+                return Ok(response);
             }
 
             let header_options = match request_options(&req) {
@@ -247,18 +252,9 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
             Response::from_websocket(pair.client)
         })
-        .post_async("/decompile", |mut req, _ctx| async move {
-            // A missing/invalid Authorization header must be a clean 403, not a
-            // panicked 500 — so read it without `.expect()`.
-            let license = req
-                .headers()
-                .get("Authorization")
-                .ok()
-                .flatten()
-                .unwrap_or_default();
-
-            if license != AUTH_SECRET {
-                return Response::error("invalid license", 403);
+        .post_async("/decompile", |mut req, ctx| async move {
+            if let Some(response) = authorize(&req, &ctx.env)? {
+                return Ok(response);
             }
 
             let script_name = req.headers().get("X-Script-Name").ok().flatten();
@@ -289,18 +285,9 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                 Err(reason) => Response::error(format!("decompile failed: {reason}"), 422),
             }
         })
-        .post_async("/decompile_batch", |mut req, _ctx| async move {
-            // A missing/invalid Authorization header must be a clean 403, not a
-            // panicked 500 — so read it without `.expect()`.
-            let license = req
-                .headers()
-                .get("Authorization")
-                .ok()
-                .flatten()
-                .unwrap_or_default();
-
-            if license != AUTH_SECRET {
-                return Response::error("invalid license", 403);
+        .post_async("/decompile_batch", |mut req, ctx| async move {
+            if let Some(response) = authorize(&req, &ctx.env)? {
+                return Ok(response);
             }
 
             let body = req.bytes().await?;
@@ -365,3 +352,5 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         .run(req, env)
         .await
 }
+#[cfg(all(target_arch = "wasm32", panic = "abort"))]
+compile_error!("Build the Worker with worker-build --panic-unwind; abort cannot isolate batch items.");

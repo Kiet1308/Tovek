@@ -16,13 +16,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install nightly Rust
-        # This repository still uses `box_patterns`, which was removed from
-        # the moving nightly channel after this known-good toolchain.  Pin the
-        # compiler so CI remains reproducible instead of failing before tests
-        # run whenever nightly advances.
+        # Pin the compiler used by the native workspace checks.
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2024-12-15
+          toolchain: nightly-2026-06-15
           components: rustfmt
 
       - name: Cache Cargo
@@ -34,23 +31,50 @@ jobs:
       # migrated in a dedicated, repository-wide change.
       - name: Report formatting status
         run: |
-          if cargo +nightly-2024-12-15 fmt --all -- --check; then
+          if cargo +nightly-2026-06-15 fmt --all -- --check; then
             echo "rustfmt: clean"
           else
             echo "::warning::rustfmt reports pre-existing repository-wide drift"
           fi
 
       - name: Run workspace tests
-        run: cargo +nightly-2024-12-15 test --workspace --all-targets
+        run: cargo +nightly-2026-06-15 test --workspace --all-targets
 
       - name: Check lifter
-        run: cargo +nightly-2024-12-15 check -p luau-lifter
+        run: cargo +nightly-2026-06-15 check -p luau-lifter
 
       - name: Check instrumented API benchmark
-        run: cargo +nightly-2024-12-15 check -p luau-lifter --example benchmark_api --features allocation-counts
+        run: cargo +nightly-2026-06-15 check -p luau-lifter --example benchmark_api --features allocation-counts
 
       - name: Build release lifter
-        run: cargo +nightly-2024-12-15 build --release -p luau-lifter
+        run: cargo +nightly-2026-06-15 build --release -p luau-lifter
+
+  worker:
+    name: Worker panic recovery in workerd
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-06-15
+          components: rust-src
+          targets: wasm32-unknown-unknown
+      # worker-build 0.8.7 explicitly invokes cargo +nightly for build-std.
+      - run: rustup toolchain install nightly --component rust-src --target wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: cargo install worker-build --version 0.8.7 --locked
+      - name: Build unwind-enabled Worker
+        working-directory: luau-worker
+        run: worker-build --release --panic-unwind --no-opt
+      - name: Check authentication and batch recovery in WASM
+        run: |
+          npm install --prefix "$RUNNER_TEMP/worker-runtime" --no-audit --no-fund miniflare@5.20260925.0-alpha
+          node scripts/check_worker_runtime.mjs luau-worker/build "$RUNNER_TEMP/worker-runtime"
 
   # Keep the representative bytecode fixtures and the official Luau parser in
   # the public CI contract.  Rust tests alone cannot catch a source-shaped
@@ -71,13 +95,13 @@ jobs:
       - name: Install nightly Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2024-12-15
+          toolchain: nightly-2026-06-15
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
       - name: Build lifter
-        run: cargo +nightly-2024-12-15 build --release -p luau-lifter
+        run: cargo +nightly-2026-06-15 build --release -p luau-lifter
 
       - name: Build official Luau compiler and runner (pinned)
         env:
@@ -99,6 +123,14 @@ jobs:
           python3 scripts/check_benchmark_vm.py \
             --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
             --vm "$RUNNER_TEMP/benchmark-vm/benchmark-vm"
+
+      - name: Run deep-review semantic regressions
+        run: |
+          python3 scripts/check_deep_review.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --vm "$RUNNER_TEMP/benchmark-vm/benchmark-vm" \
+            --lifter target/release/luau-lifter \
+            --work "$RUNNER_TEMP/deep-review"
 
       - name: Run residual-control fixtures in strict modes
         run: |
@@ -205,7 +237,7 @@ jobs:
 
       - name: Execute v12 reader in wasm32
         run: |
-          rustup target add wasm32-unknown-unknown --toolchain nightly-2024-12-15
+          rustup target add wasm32-unknown-unknown --toolchain nightly-2026-06-15
           python3 scripts/check_v12_wasm.py --keep "$RUNNER_TEMP/v12-wasm"
 
       - name: V2 binding preservation VM controls
@@ -233,7 +265,7 @@ jobs:
 
       - name: V2 existing conditional IR lowering and VM controls
         run: |
-          cargo +nightly-2024-12-15 run -p luau-lifter --example conditional_lowering -- "$RUNNER_TEMP/conditional-ir"
+          cargo +nightly-2026-06-15 run -p luau-lifter --example conditional_lowering -- "$RUNNER_TEMP/conditional-ir"
           python3 scripts/conditional_ir_audit.py \
             --fixtures "$RUNNER_TEMP/conditional-ir" \
             --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
@@ -243,7 +275,7 @@ jobs:
 
       - name: V2 rehoist register budget and literal fidelity
         run: |
-          cargo +nightly-2024-12-15 run -p luau-lifter --example rehoist_constants -- "$RUNNER_TEMP/rehoist-ir"
+          cargo +nightly-2026-06-15 run -p luau-lifter --example rehoist_constants -- "$RUNNER_TEMP/rehoist-ir"
           python3 scripts/rehoist_audit.py \
             --fixtures "$RUNNER_TEMP/rehoist-ir" \
             --lifter target/release/luau-lifter \

@@ -30,6 +30,9 @@ impl RawInstruction {
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
+    /// The raw word following SETLIST C=0. Keep its PC occupied so jumps and
+    /// debug ranges remain aligned, but never decode it as an opcode.
+    ExtraArgument,
     Move {
         destination: Register,
         source: Register,
@@ -190,7 +193,7 @@ pub enum Instruction {
     SetList {
         table: Register,
         number_of_elements: u8,
-        block_number: u8,
+        block_number: u32,
     },
     Close(Register),
     Closure {
@@ -383,7 +386,7 @@ impl Instruction {
             RawInstruction(OperationCode::SetList, Layout::BC { a, b, c }) => Self::SetList {
                 table: Register(a),
                 number_of_elements: b as u8,
-                block_number: c as u8,
+                block_number: c as u32,
             },
             RawInstruction(OperationCode::Close, Layout::BC { a, .. }) => Self::Close(Register(a)),
             RawInstruction(OperationCode::Closure, Layout::BX { a, b_x }) => Self::Closure {

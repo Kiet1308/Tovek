@@ -115,8 +115,9 @@ pub struct Destructor<'a> {
     local_defs: FxHashMap<RcLocal, (usize, NodeIndex, ParamOrStatIndex)>,
     local_last_use: FxHashMap<RcLocal, FxHashMap<NodeIndex, (usize, ParamOrStatIndex)>>,
     dominator_tree: DiGraphMap<NodeIndex, ()>,
-    // does not include the node itself, use the `dominates` function
-    dominators: FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
+    // Half-open DFS intervals provide ancestor queries in O(1), with O(V)
+    // storage instead of copying every ancestor on a deep dominator chain.
+    dominators: FxHashMap<NodeIndex, (usize, usize)>,
     liveness: FxHashMap<NodeIndex, LiveSets>,
     undesirable_blocks: FxHashSet<NodeIndex>,
 }
@@ -382,18 +383,17 @@ impl<'a> Destructor<'a> {
             }
         }
         self.dominators.reserve(self.dominator_tree.node_count());
-        for node in self.dominator_tree.nodes() {
-            let mut dominators = FxHashSet::default();
-            let mut parent_node = node;
-            while let Ok(next_parent_node) = self
-                .dominator_tree
-                .neighbors_directed(parent_node, Direction::Incoming)
-                .exactly_one()
-            {
-                parent_node = next_parent_node;
-                dominators.insert(parent_node);
+        let mut clock = 0;
+        let mut walk = vec![(self.function.entry().unwrap(), false)];
+        while let Some((node, exiting)) = walk.pop() {
+            if exiting {
+                self.dominators.get_mut(&node).unwrap().1 = clock;
+            } else {
+                self.dominators.insert(node, (clock, 0));
+                clock += 1;
+                walk.push((node, true));
+                walk.extend(self.dominator_tree.neighbors(node).map(|child| (child, false)));
             }
-            self.dominators.insert(node, dominators);
         }
 
         let mut dominator_index = 0;
@@ -547,8 +547,8 @@ impl<'a> Destructor<'a> {
                         continue;
                     }
 
-                    if self.try_coalesce_copy_by_value(right.clone(), left.clone())
-                        || self.try_coalesce_copy_by_sharing(&right, &left)
+                    if self.try_coalesce_copy_by_value(left.clone(), right.clone())
+                        || self.try_coalesce_copy_by_sharing(&left, &right)
                     {
                         to_remove.push(i);
                     }
@@ -607,7 +607,12 @@ impl<'a> Destructor<'a> {
         if *left_con_class.borrow() == *right_con_class.borrow() {
             true
         } else if left_con_class.borrow().len() == 1 && right_con_class.borrow().len() == 1 {
-            self.check_interfere_single(&left_con_class, &right_con_class)
+            if self.check_interfere_single(&left_con_class, &right_con_class) {
+                false
+            } else {
+                self.merge_congruence_classes(&left_con_class, &right_con_class);
+                true
+            }
         } else if !self.check_interfere(&left_con_class, &right_con_class) {
             self.merge_congruence_classes(&left_con_class, &right_con_class);
             true
@@ -616,7 +621,7 @@ impl<'a> Destructor<'a> {
         }
     }
 
-    // TODO: find a test for this
+    // Process the copy local_a = local_b (destination first).
     fn try_coalesce_copy_by_sharing(&mut self, local_a: &RcLocal, local_b: &RcLocal) -> bool {
         if !local_a.source_bindings_compatible(local_b) { return false; }
         let con_class_x = self.get_congruence_class(local_a.clone()).clone();
@@ -639,7 +644,6 @@ impl<'a> Destructor<'a> {
 
             let con_class_z = self.get_congruence_class(local_c.clone()).clone();
             if con_class_x == con_class_z && con_class_x != con_class_y {
-                println!("WOAH COPY SHARING");
                 return true;
             }
             if con_class_y != con_class_x
@@ -647,7 +651,6 @@ impl<'a> Destructor<'a> {
                 && con_class_x != con_class_z
                 && self.try_coalesce_copy_by_value(local_a.clone(), local_c)
             {
-                println!("WOAH COPY SHARING");
                 return true;
             }
         }
@@ -674,10 +677,6 @@ impl<'a> Destructor<'a> {
             true
         } else {
             self.equal_ancestor_in.insert(local_a, local_b.clone());
-            let (dom_index_b, _, stat_index_b) = self.local_defs[&local_b];
-            red.borrow_mut()
-                .insert((dom_index_b, stat_index_b), local_b.clone());
-            self.congruence_classes.insert(local_b, red.clone());
             false
         }
     }
@@ -711,7 +710,9 @@ impl<'a> Destructor<'a> {
             // same as check_pre_dom_order
             (a_dom_index, a_stat_index) < (b_dom_index, b_stat_index)
         } else {
-            self.dominators[&block_b].contains(&block_a)
+            let (start, end) = self.dominators[&block_a];
+            let (point, _) = self.dominators[&block_b];
+            start <= point && point < end
         }
     }
 
@@ -1160,5 +1161,227 @@ impl<'a> Destructor<'a> {
         }
         let non_empty = |assign: ast::Assign| (!assign.left.is_empty()).then_some(assign);
         (non_empty(before), non_empty(after))
+    }
+}
+
+#[cfg(test)]
+mod copy_sharing_regressions {
+    use super::*;
+
+    #[test]
+    fn singleton_copy_classes_merge_only_when_values_can_share_storage() {
+        for equal_values in [false, true] {
+            let (a, b) = (RcLocal::default(), RcLocal::default());
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            function.set_entry(entry);
+            let second = if equal_values {
+                ast::RValue::Local(a.clone())
+            } else {
+                ast::Literal::Number(2.0).into()
+            };
+            function.block_mut(entry).unwrap().extend([
+                ast::Assign::new(vec![a.clone().into()], vec![ast::Literal::Number(1.0).into()]).into(),
+                ast::Assign::new(vec![b.clone().into()], vec![second]).into(),
+                ast::Return::new(vec![a.clone().into(), b.clone().into()]).into(),
+            ]);
+            let mut destructor = Destructor::new(&mut function, IndexMap::new(), FxHashSet::default(), 2);
+            destructor.liveness = Liveness::calculate(destructor.function);
+            destructor.build_def_use();
+            destructor.compute_value_interference();
+            assert_eq!(destructor.try_coalesce_copy_by_value(b.clone(), a.clone()), equal_values);
+            let first = destructor.get_congruence_class(a).clone();
+            let second = destructor.get_congruence_class(b).clone();
+            assert_eq!(Rc::ptr_eq(&first, &second), equal_values);
+            assert_eq!(first.borrow().len(), if equal_values { 2 } else { 1 });
+        }
+    }
+
+    #[test]
+    fn deep_dominator_tree_uses_linear_storage() {
+        let mut function = Function::new(0);
+        let nodes: Vec<_> = (0..4096).map(|_| function.new_block()).collect();
+        function.set_entry(nodes[0]);
+        for pair in nodes.windows(2) {
+            function.set_edges(pair[0], vec![(pair[1], BlockEdge::default())]);
+        }
+        let mut destructor =
+            Destructor::new(&mut function, IndexMap::new(), FxHashSet::default(), 0);
+        destructor.build_def_use();
+        assert_eq!(destructor.dominators.len(), nodes.len());
+        for pair in nodes.windows(2) {
+            let (start, end) = destructor.dominators[&pair[0]];
+            let (child, _) = destructor.dominators[&pair[1]];
+            assert!(start < child && child < end);
+        }
+    }
+    #[derive(Clone, Debug, PartialEq)]
+    enum Value {
+        Number(f64),
+        Boolean(bool),
+    }
+    fn eval(f: &Function, input: &[Value]) -> Vec<Value> {
+        fn value(v: &ast::RValue, m: &FxHashMap<RcLocal, Value>) -> Value {
+            match v {
+                ast::RValue::Local(x) => m
+                    .get(x)
+                    .expect("read of unassigned local after SSA destruction")
+                    .clone(),
+                ast::RValue::Literal(ast::Literal::Number(n)) => Value::Number(*n),
+                _ => panic!("unexpected expression"),
+            }
+        }
+        let mut m: FxHashMap<_, _> = f
+            .parameters
+            .iter()
+            .cloned()
+            .zip(input.iter().cloned())
+            .collect();
+        let mut node = f.entry().unwrap();
+        for _ in 0..32 {
+            let mut branch = BranchType::Unconditional;
+            for stmt in f.block(node).unwrap().iter() {
+                match stmt {
+                    ast::Statement::Assign(a) => {
+                        let vals = a.right.iter().map(|v| value(v, &m)).collect::<Vec<_>>();
+                        for (l, v) in a.left.iter().zip(vals) {
+                            m.insert(l.as_local().unwrap().clone(), v);
+                        }
+                    }
+                    ast::Statement::If(i) => {
+                        branch = if value(&i.condition, &m) != Value::Boolean(false) {
+                            BranchType::Then
+                        } else {
+                            BranchType::Else
+                        }
+                    }
+                    ast::Statement::Return(r) => {
+                        return r.values.iter().map(|v| value(v, &m)).collect();
+                    }
+                    ast::Statement::Empty(_) => {}
+                    _ => panic!("unexpected statement"),
+                }
+            }
+            let e = f
+                .edges(node)
+                .find(|e| e.weight().branch_type == branch)
+                .unwrap();
+            let vals = e
+                .weight()
+                .arguments
+                .iter()
+                .map(|(k, v)| (k.clone(), value(v, &m)))
+                .collect::<Vec<_>>();
+            m.extend(vals);
+            node = e.target();
+        }
+        panic!("too many steps")
+    }
+    #[test]
+    fn review_full_destructor_phi_copies() {
+        let mut failures = 0;
+        for copies in 0..5 {
+            for keep in 0..8 {
+                let z = RcLocal::default();
+                let flag = RcLocal::default();
+                let p = RcLocal::default();
+                let q = RcLocal::default();
+                let mut f = Function::new(0);
+                f.parameters = vec![z.clone(), flag.clone()];
+                let entry = f.new_block();
+                let left = f.new_block();
+                let right = f.new_block();
+                let join = f.new_block();
+                f.set_entry(entry);
+                let mut chain = vec![z.clone()];
+                for _ in 0..copies {
+                    let x = RcLocal::default();
+                    f.block_mut(entry).unwrap().push(
+                        ast::Assign::new(
+                            vec![x.clone().into()],
+                            vec![chain.last().unwrap().clone().into()],
+                        )
+                        .into(),
+                    );
+                    chain.push(x);
+                }
+                f.block_mut(entry).unwrap().push(
+                    ast::If::new(flag.clone().into(), Default::default(), Default::default())
+                        .into(),
+                );
+                f.block_mut(right).unwrap().push(
+                    ast::Assign::new(
+                        vec![q.clone().into()],
+                        vec![ast::Literal::Number(42.0).into()],
+                    )
+                    .into(),
+                );
+                let mut out = vec![p.clone().into()];
+                if keep & 1 != 0 {
+                    out.push(z.clone().into());
+                }
+                if keep & 2 != 0 {
+                    out.push(chain.last().unwrap().clone().into());
+                }
+                if keep & 4 != 0 {
+                    let t = RcLocal::default();
+                    f.block_mut(left).unwrap().push(
+                        ast::Assign::new(
+                            vec![t.clone().into()],
+                            vec![chain.last().unwrap().clone().into()],
+                        )
+                        .into(),
+                    );
+                    chain.push(t);
+                }
+                f.block_mut(join)
+                    .unwrap()
+                    .push(ast::Return::new(out).into());
+                f.set_edges(
+                    entry,
+                    vec![
+                        (left, BlockEdge::new(BranchType::Then)),
+                        (right, BlockEdge::new(BranchType::Else)),
+                    ],
+                );
+                f.set_edges(
+                    left,
+                    vec![(
+                        join,
+                        BlockEdge {
+                            branch_type: BranchType::Unconditional,
+                            arguments: vec![(p.clone(), chain.last().unwrap().clone().into())],
+                        },
+                    )],
+                );
+                f.set_edges(
+                    right,
+                    vec![(
+                        join,
+                        BlockEdge {
+                            branch_type: BranchType::Unconditional,
+                            arguments: vec![(p.clone(), q.into())],
+                        },
+                    )],
+                );
+                let before = [
+                    eval(&f, &[Value::Number(11.0), Value::Boolean(false)]),
+                    eval(&f, &[Value::Number(11.0), Value::Boolean(true)]),
+                ];
+                Destructor::new(&mut f, IndexMap::new(), FxHashSet::default(), 32).destruct();
+                let after = [
+                    eval(&f, &[Value::Number(11.0), Value::Boolean(false)]),
+                    eval(&f, &[Value::Number(11.0), Value::Boolean(true)]),
+                ];
+                if before != after {
+                    failures += 1;
+                    println!(
+                        "REVIEW full SSA copies={copies} keep={keep} before={before:?} after={after:?}"
+                    );
+                }
+            }
+        }
+        println!("REVIEW full SSA variants=40 failures={failures}");
+        assert_eq!(failures, 0);
     }
 }

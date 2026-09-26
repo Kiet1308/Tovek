@@ -235,13 +235,57 @@ SynSaveInstance from the cached results.
 Tovek uses nightly Rust feature gates and pins a specific toolchain — stable will not build it:
 
 ```sh
-rustup toolchain install nightly-2024-12-15
-cargo +nightly-2024-12-15 build --release --locked -p web-server -p luau-lifter
+rustup toolchain install nightly-2026-06-15
+cargo +nightly-2026-06-15 build --release --locked -p web-server -p luau-lifter
 ```
 
 The release profile is tuned for distribution: fat LTO, a single codegen unit, no debug
 info, and stripped symbols — maximum runtime speed and the smallest possible binary.
 Prebuilt binaries are attached to each [release](https://github.com/Kiet1308/Tovek/releases/latest).
+
+### Worker: build và cấu hình xác thực
+
+Worker cần `worker-build 0.8.7` và chế độ `--panic-unwind` để lỗi của một script
+không dừng cả batch. Phiên bản công cụ này gọi `cargo +nightly` khi build lại std,
+nên cần cài thêm kênh `nightly` bên cạnh toolchain native được ghim ở trên.
+
+```sh
+rustup toolchain install nightly --component rust-src --target wasm32-unknown-unknown
+cargo install worker-build --version 0.8.7 --locked
+cd luau-worker
+worker-build --release --panic-unwind --no-opt
+```
+
+Không dùng bản WASM mặc định `panic=abort`; source Worker sẽ từ chối build cấu
+hình này. `--no-opt` giữ nguyên exception handling; profile Worker cũng giữ
+metadata mà wasm-bindgen cần. Kiểm tra runtime cục bộ từ thư mục gốc:
+
+```sh
+npm install --prefix out/worker-runtime --no-audit --no-fund miniflare@5.20260925.0-alpha
+node scripts/check_worker_runtime.mjs luau-worker/build out/worker-runtime
+```
+
+Các endpoint đọc `AUTH_SECRET` từ Worker secret binding. Trước khi triển khai,
+dùng `wrangler secret put AUTH_SECRET` trong `luau-worker` và nhập một giá trị
+mới; không tái sử dụng khóa từng được commit. Thiếu binding trả HTTP 503, sai
+khóa trả HTTP 403. Khóa cũ vẫn tồn tại trong lịch sử Git cho tới khi quản trị
+viên xử lý; xóa literal khỏi source không tự xoay khóa trên deployment đang chạy.
+
+### Kiểm thử hồi quy của đợt deep review
+
+`scripts/check_deep_review.py` biên dịch fixture bằng Luau 0.736, chạy bytecode
+gốc bằng VM, decompile, biên dịch lại và so sánh hành vi. Script bao gồm các
+fixture C1–C12 trong `_harness/_bugs`, với cả ba mức tối ưu. Các file `.dec.luau`
+cũ đã được bỏ vì không được harness kiểm tra và không còn phản ánh kết quả hiện tại.
+Kết quả mới được sinh vào `--work`, kèm bytecode và `result.json` từng ca.
+
+```sh
+python scripts/check_deep_review.py --compiler /path/to/luau-compile --vm /path/to/benchmark-vm --lifter target/release/luau-lifter --work out/deep-review
+```
+
+Manifest phân tích batch dùng `corpus_hash_algorithm: ordered-content-sha256-v2`:
+băm đường dẫn theo thứ tự cùng SHA-256 của chính dữ liệu mỗi worker đã đọc.
+Giá trị này khác thuật toán corpus cũ; chỉ so sánh hash khi cùng tên thuật toán.
 
 ---
 

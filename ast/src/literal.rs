@@ -101,23 +101,16 @@ impl Literal {
     pub(crate) fn format_number(value: f64) -> String {
         if value.is_infinite() {
             if value.is_sign_positive() {
-                "math.huge".to_string()
+                "1e999".to_string()
             } else {
-                "-math.huge".to_string()
+                "-1e999".to_string()
             }
         } else if value.is_nan() {
             "(0 / 0)".to_string()
-        } else if value.to_bits() == std::f64::consts::PI.to_bits() {
-            // The compiler folds `math.pi` to a raw f64. Only the atomic
-            // single-token forms are sound here: `format_number` returns a
-            // string treated as an atomic token (precedence 9), so compound
-            // forms (e.g. `math.pi * 2`) would mis-associate in larger
-            // expressions. `-math.pi` is a negative `Literal::Number`, so it
-            // gets precedence 7 and is parenthesized exactly like `-math.huge`.
-            "math.pi".to_string()
-        } else if value.to_bits() == (-std::f64::consts::PI).to_bits() {
-            "-math.pi".to_string()
         } else {
+            // Constants must not acquire a dependency on a shadowed or mutated
+            // global (including math.pi). An overflowing decimal exponent is
+            // also an atomic Luau number token for infinities above.
             Self::format_finite_f64(value)
         }
     }
@@ -125,9 +118,9 @@ impl Literal {
     fn format_vector_component(value: f32) -> String {
         if value.is_infinite() {
             if value.is_sign_positive() {
-                "math.huge".to_string()
+                "1e999".to_string()
             } else {
-                "-math.huge".to_string()
+                "-1e999".to_string()
             }
         } else if value.is_nan() {
             "(0 / 0)".to_string()
@@ -159,14 +152,14 @@ impl fmt::Display for Literal {
             }
             Literal::Vector(x, y, z) => write!(
                 f,
-                "Vector3.new({}, {}, {})",
+                "vector.create({}, {}, {})",
                 Self::format_vector_component(*x),
                 Self::format_vector_component(*y),
                 Self::format_vector_component(*z)
             ),
             Literal::VectorD(x, y, z) => write!(
                 f,
-                "Vector3.new({}, {}, {})",
+                "vector.create({}, {}, {})",
                 Self::format_vector_component_d(*x),
                 Self::format_vector_component_d(*y),
                 Self::format_vector_component_d(*z)
@@ -195,12 +188,12 @@ mod tests {
 
     #[test]
     fn format_number_pi() {
-        assert_eq!(Literal::format_number(std::f64::consts::PI), "math.pi");
+        assert_eq!(Literal::format_number(std::f64::consts::PI), "3.141592653589793");
     }
 
     #[test]
     fn format_number_negative_pi() {
-        assert_eq!(Literal::format_number(-std::f64::consts::PI), "-math.pi");
+        assert_eq!(Literal::format_number(-std::f64::consts::PI), "-3.141592653589793");
     }
 
     #[test]
@@ -238,12 +231,12 @@ mod tests {
         let value = Literal::VectorD(1.0000000000000002, 1e-300, 16777217.0);
         assert_eq!(
             value.to_string(),
-            "Vector3.new(1.0000000000000002, 1e-300, 16777217)"
+            "vector.create(1.0000000000000002, 1e-300, 16777217)"
         );
         let huge = Literal::VectorD(1e300, f64::INFINITY, f64::NAN);
         assert_eq!(
             huge.to_string(),
-            "Vector3.new(1e300, math.huge, (0 / 0))"
+            "vector.create(1e300, 1e999, (0 / 0))"
         );
     }
 }

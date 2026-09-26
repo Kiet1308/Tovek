@@ -312,6 +312,9 @@ pub fn remove_unnecessary_params(
     let mut changed = upvalue_to_group
         .is_some_and(|groups| remove_upvalue_param_sccs(function, local_map, groups));
     for node in function.blocks().map(|(i, _)| i).collect::<Vec<_>>() {
+        if !function.edges_to_block(node).any(|(_, edge)| !edge.arguments.is_empty()) {
+            continue;
+        }
         let mut dependency_graph = ParamDependencyGraph::new(function, node);
         let mut removable_params = FxHashMap::default();
         let edges = function
@@ -537,6 +540,9 @@ fn apply_local_map_to_values_referenced<T: LocalRw + Traverse>(
 
 // does not replace locals in child closures
 pub fn apply_local_map(function: &mut Function, local_map: FxHashMap<RcLocal, RcLocal>) {
+    if local_map.is_empty() {
+        return;
+    }
     if let Some(trace) = &mut function.provenance {
         let mut entries = local_map.iter().collect::<Vec<_>>();
         entries.sort_by_key(|(from, to)| (from.stable_id(), to.stable_id()));

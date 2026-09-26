@@ -1757,17 +1757,13 @@ fn structure_loop_entry_gotos(block: &mut Block) -> usize {
 // the loop), only up to the loop body's own top.
 // ===================================================================
 
-fn defined_directly(block: &Block, out: &mut FxHashSet<String>) {
-    for s in &block.0 {
-        if let Statement::Label(l) = s {
-            out.insert(l.0.clone());
+fn compute_needy(block: &Block, visible: &mut FxHashSet<String>, needy: &mut FxHashSet<String>) {
+    let mut inserted = Vec::new();
+    for statement in &block.0 {
+        if let Statement::Label(label) = statement {
+            if visible.insert(label.0.clone()) { inserted.push(label.0.clone()); }
         }
     }
-}
-
-fn compute_needy(block: &Block, enclosing: &FxHashSet<String>, needy: &mut FxHashSet<String>) {
-    let mut visible = enclosing.clone();
-    defined_directly(block, &mut visible);
     for s in &block.0 {
         match s {
             Statement::Goto(g) => {
@@ -1776,16 +1772,17 @@ fn compute_needy(block: &Block, enclosing: &FxHashSet<String>, needy: &mut FxHas
                 }
             }
             Statement::If(f) => {
-                compute_needy(&f.then_block.lock(), &visible, needy);
-                compute_needy(&f.else_block.lock(), &visible, needy);
+                compute_needy(&f.then_block.lock(), visible, needy);
+                compute_needy(&f.else_block.lock(), visible, needy);
             }
-            Statement::While(w) => compute_needy(&w.block.lock(), &visible, needy),
-            Statement::Repeat(r) => compute_needy(&r.block.lock(), &visible, needy),
-            Statement::NumericFor(nf) => compute_needy(&nf.block.lock(), &visible, needy),
-            Statement::GenericFor(gf) => compute_needy(&gf.block.lock(), &visible, needy),
+            Statement::While(w) => compute_needy(&w.block.lock(), visible, needy),
+            Statement::Repeat(r) => compute_needy(&r.block.lock(), visible, needy),
+            Statement::NumericFor(nf) => compute_needy(&nf.block.lock(), visible, needy),
+            Statement::GenericFor(gf) => compute_needy(&gf.block.lock(), visible, needy),
             _ => {}
         }
     }
+    for name in inserted { visible.remove(&name); }
 }
 
 // Raise one needy label one level up into `block`. Returns true if it did.
@@ -1803,64 +1800,57 @@ fn fresh_generated_label(
     }
 }
 
-fn raise_once(
+fn raise_needy_labels(
     block: &mut Block,
     needy: &FxHashSet<String>,
     counter: &mut usize,
     reserved: &mut FxHashSet<String>,
 ) -> bool {
-    // first, raise within nested blocks (deeper labels reach their branch top)
-    for s in block.0.iter_mut() {
-        let raised = match s {
-            Statement::If(f) => {
-                raise_once(&mut f.then_block.lock(), needy, counter, reserved)
-                    || raise_once(&mut f.else_block.lock(), needy, counter, reserved)
-            }
-            Statement::While(w) => raise_once(&mut w.block.lock(), needy, counter, reserved),
-            Statement::Repeat(r) => raise_once(&mut r.block.lock(), needy, counter, reserved),
-            Statement::NumericFor(nf) => raise_once(&mut nf.block.lock(), needy, counter, reserved),
-            Statement::GenericFor(gf) => raise_once(&mut gf.block.lock(), needy, counter, reserved),
-            _ => false,
-        };
-        if raised {
-            return true;
+    // Finish each subtree before visiting its parent. A deep label can rise
+    // through every enclosing If in this one walk; independent sibling labels
+    // no longer restart compute_needy and the entire root traversal.
+    let mut changed = false;
+    for statement in &mut block.0 {
+        match statement {
+            Statement::If(node) => {
+                changed |= raise_needy_labels(&mut node.then_block.lock(), needy, counter, reserved);
+                changed |= raise_needy_labels(&mut node.else_block.lock(), needy, counter, reserved);
+            },
+            Statement::While(node) => changed |= raise_needy_labels(&mut node.block.lock(), needy, counter, reserved),
+            Statement::Repeat(node) => changed |= raise_needy_labels(&mut node.block.lock(), needy, counter, reserved),
+            Statement::NumericFor(node) => changed |= raise_needy_labels(&mut node.block.lock(), needy, counter, reserved),
+            Statement::GenericFor(node) => changed |= raise_needy_labels(&mut node.block.lock(), needy, counter, reserved),
+            _ => {},
         }
     }
-
-    // then, raise a needy label out of a direct child `if` branch into `block`
-    let mut found: Option<(usize, Vec<Statement>, Statement)> = None;
-    'outer: for (j, s) in block.0.iter().enumerate() {
-        if let Statement::If(f) = s {
-            for branch in [&f.then_block, &f.else_block] {
-                let mut br = branch.lock();
-                if let Some(i_l) =
-                    br.0.iter()
-                        .position(|st| matches!(st, Statement::Label(l) if needy.contains(&l.0)))
-                {
-                    // [.. before .., ::L::, region ..]
-                    let mut region = br.0.split_off(i_l); // [::L::, region..]
-                    let label = region.remove(0); // ::L::
-                    let name = match &label {
-                        Statement::Label(l) => l.0.clone(),
-                        _ => unreachable!(),
-                    };
-                    br.0.push(crate::Goto::new(name.clone().into()).into());
-                    found = Some((j, region, label));
-                    break 'outer;
+    let mut index = 0;
+    while index < block.len() {
+        let mut found = None;
+        if let Statement::If(node) = &block[index] {
+            for branch in [&node.then_block, &node.else_block] {
+                let mut body = branch.lock();
+                if let Some(position) = body.iter().position(|statement|
+                    matches!(statement, Statement::Label(label) if needy.contains(&label.0))) {
+                    let mut region = body.0.split_off(position);
+                    let label = region.remove(0);
+                    let name = label.as_label().unwrap().0.clone();
+                    body.push(crate::Goto::new(name.into()).into());
+                    found = Some((label, region));
+                    break;
                 }
             }
         }
+        if let Some((label, region)) = found {
+            let after = fresh_generated_label("after", counter, reserved);
+            let mut insert = vec![crate::Goto::new(after.clone().into()).into(), label];
+            insert.extend(region);
+            insert.push(crate::Label(after).into());
+            block.0.splice(index + 1..index + 1, insert);
+            changed = true;
+            // The other arm can also contain labels; inspect this If again.
+        } else { index += 1; }
     }
-
-    if let Some((j, region, label)) = found {
-        let after = fresh_generated_label("after", counter, reserved);
-        let mut insert: Vec<Statement> = vec![crate::Goto::new(after.clone().into()).into(), label];
-        insert.extend(region);
-        insert.push(crate::Label(after).into());
-        block.0.splice(j + 1..j + 1, insert);
-        return true;
-    }
-    false
+    changed
 }
 
 // Convert `break`/`continue` that target THIS loop into gotos. Stops at nested
@@ -1978,11 +1968,11 @@ fn unstructure_one_loop(
 fn raise_labels(block: &mut Block, counter: &mut usize, reserved: &mut FxHashSet<String>) {
     for _ in 0..8192 {
         let mut needy = FxHashSet::default();
-        compute_needy(block, &FxHashSet::default(), &mut needy);
+        compute_needy(block, &mut FxHashSet::default(), &mut needy);
         if needy.is_empty() {
             break;
         }
-        if raise_once(block, &needy, counter, reserved) {
+        if raise_needy_labels(block, &needy, counter, reserved) {
             continue;
         }
         if unstructure_one_loop(block, &needy, counter, reserved) {

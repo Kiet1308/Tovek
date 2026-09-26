@@ -131,17 +131,6 @@ pub fn run_with_cache(
 
     size_pool(threads);
 
-    // Hash the exact sorted input set (relative path + bytes) once per run so
-    // an analysis manifest can be reproduced and compared without relying on
-    // stale output-directory contents.
-    let corpus_sha256 = match hash_corpus_inputs(&work) {
-        Ok(hash) => hash,
-        Err(error) => {
-            eprintln!("error: hash corpus inputs: {error}");
-            return 2;
-        }
-    };
-
     // Decompile in parallel. map_init gives each worker a reusable base64 scratch
     // buffer so we don't reallocate it per file.
     let outcomes: Vec<(
@@ -149,16 +138,26 @@ pub fn run_with_cache(
         Option<AnalysisManifestEntry>,
         Option<AnalysisUnavailable>,
         Option<GeneratedSourceRecord>,
+        Option<(u64, String)>,
     )> = work
         .par_iter()
         .map_init(Vec::<u8>::new, |b64, w| {
-            if emit_upvalue_analysis {
-                crate::decompile_core::process_one_with_analysis_cached(w, key, b64, verbose, options, &analysis_root, cache.as_ref())
-            } else {
-                (crate::decompile_core::process_one_cached(w, key, b64, verbose, options, cache.as_ref()), None, None, None)
-            }
+            let text = match std::fs::read(&w.input) {
+                Ok(text) => text,
+                Err(error) => return (Outcome::Fail(format!("read: {error}")), None, None, None, None),
+            };
+            let digest = emit_upvalue_analysis.then(|| (text.len() as u64, sha256_hex(&text)));
+            let (outcome, entry, unavailable, source) = crate::decompile_core::process_one_preloaded(
+                w, &text, key, b64, verbose, options,
+                emit_upvalue_analysis.then_some(analysis_root.as_path()), cache.as_ref(),
+            );
+            (outcome, entry, unavailable, source, digest)
         })
         .collect();
+
+    // Hash the bytes actually consumed by each worker, without a second read
+    // or a race between hashing an input and later decompiling a changed file.
+    let corpus_sha256 = hash_corpus_inputs(&work, outcomes.iter().map(|row| row.4.as_ref()));
 
     if let Some(cache) = &cache {
         eprintln!("TOVEK_CACHE {}", cache.report());
@@ -186,12 +185,12 @@ pub fn run_with_cache(
         .collect();
     let mut unavailable = 0usize;
     let mut generated_sources = Vec::new();
-    for (w, (o, entry, analysis_unavailable, source_record)) in work.iter().zip(&outcomes) {
+    for (w, (o, entry, analysis_unavailable, source_record, _)) in work.iter().zip(outcomes) {
         if let Some(source_record) = source_record {
-            generated_sources.push(source_record.clone());
+            generated_sources.push(source_record);
         }
         if let Some(entry) = entry {
-            entries.push(entry.clone());
+            entries.push(entry);
         }
         if let Some(analysis_unavailable) = analysis_unavailable {
             unavailable += 1;
@@ -203,7 +202,7 @@ pub fn run_with_cache(
                 script_path: w.rel.clone(),
                 status: "analysis_unavailable",
                 code: analysis_unavailable.code,
-                message: analysis_unavailable.message.clone(),
+                message: analysis_unavailable.message,
                 evidence: None,
             });
         }
@@ -378,6 +377,7 @@ struct CorpusAuditMetadata {
     audit_schema: &'static str,
     repo_head: String,
     corpus_sha256: String,
+    corpus_hash_algorithm: &'static str,
     input_count: usize,
     command: Vec<String>,
     encode_key: u8,
@@ -391,20 +391,27 @@ struct CorpusAuditMetadata {
     parser_failures: Vec<String>,
 }
 
-fn hash_corpus_inputs(work: &[crate::decompile_core::Work]) -> Result<String, String> {
+fn hash_corpus_inputs<'a>(
+    work: &[crate::decompile_core::Work],
+    records: impl Iterator<Item = Option<&'a (u64, String)>>,
+) -> String {
     use sha2::{Digest, Sha256};
 
     let mut digest = Sha256::new();
-    for item in work {
-        let bytes = std::fs::read(&item.input)
-            .map_err(|error| format!("read {}: {error}", item.input.display()))?;
+    digest.update(b"Tovek corpus: ordered SHA256 content digests v2\0");
+    for (item, record) in work.iter().zip(records) {
         let path = item.rel.as_bytes();
         digest.update((path.len() as u64).to_le_bytes());
         digest.update(path);
-        digest.update((bytes.len() as u64).to_le_bytes());
-        digest.update(bytes);
+        if let Some((size, hash)) = record {
+            digest.update([1]);
+            digest.update(size.to_le_bytes());
+            digest.update(hash.as_bytes());
+        } else {
+            digest.update([0]);
+        }
     }
-    Ok(format!("sha256:{:x}", digest.finalize()))
+    format!("sha256:{:x}", digest.finalize())
 }
 
 #[derive(Serialize)]
@@ -567,6 +574,7 @@ fn write_analysis_manifest_with_audit(
             audit_schema: "tovek-corpus-audit/v1",
             repo_head,
             corpus_sha256,
+            corpus_hash_algorithm: "ordered-content-sha256-v2",
             input_count: total_scripts,
             command: std::env::args().collect(),
             encode_key,

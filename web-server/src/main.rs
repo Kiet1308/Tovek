@@ -17,9 +17,10 @@ use axum::{
     body::{Body, Bytes},
     extract::{DefaultBodyLimit, State},
     http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::post,
-    Json, Router,
+    Extension, Json, Router,
 };
 use base64::prelude::*;
 use luau_lifter::{
@@ -28,7 +29,7 @@ use luau_lifter::{
 };
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tracing::info;
 
 // Global allocator for the server binary. The decompiler is allocation-bound, so
@@ -126,9 +127,18 @@ async fn main() -> Result<(), io::Error> {
         batch_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_BATCHES)),
     };
 
+    let app = app(state);
+
+    // Run the web server
+    let listener = TcpListener::bind(BIND_ADDR).await?;
+    info!("🚀 Listening on {}", listener.local_addr()?);
+    axum::serve(listener, app).await
+}
+
+fn app(state: AppState) -> Router {
     // Build our application with the routes. Per-route `DefaultBodyLimit` layers
     // raise the 2 MiB default ONLY for the new routes; `/decompile` is untouched.
-    let app = Router::new()
+    Router::new()
         .route("/decompile", post(decompile))
         .route(
             "/decompile/raw",
@@ -136,14 +146,26 @@ async fn main() -> Result<(), io::Error> {
         )
         .route(
             "/decompile/batch",
-            post(decompile_batch).layer(DefaultBodyLimit::max(BATCH_BODY_LIMIT)),
+            post(decompile_batch)
+                .layer(DefaultBodyLimit::max(BATCH_BODY_LIMIT))
+                .layer(middleware::from_fn_with_state(state.clone(), admit_batch)),
         )
-        .with_state(state);
+        .with_state(state)
+}
 
-    // Run the web server
-    let listener = TcpListener::bind(BIND_ADDR).await?;
-    info!("🚀 Listening on {}", listener.local_addr()?);
-    axum::serve(listener, app).await
+/// Reserve capacity before Axum's Bytes extractor reads the body. Reject excess
+/// work instead of building an unbounded queue of fully buffered requests.
+async fn admit_batch(
+    State(state): State<AppState>,
+    mut request: axum::extract::Request,
+    next: Next,
+) -> Response {
+    let Ok(permit) = Arc::clone(&state.batch_semaphore).try_acquire_owned() else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "batch capacity exhausted").into_response();
+    };
+    let permit = Arc::new(permit);
+    request.extensions_mut().insert(permit.clone());
+    next.run(request).await
 }
 
 /// `POST /decompile` — one script, base64-encoded body. UNCHANGED legacy path.
@@ -195,10 +217,10 @@ async fn decompile_raw(headers: HeaderMap, body: Bytes) -> Result<String, Error>
 ///
 /// `Content-Type: application/json` → JSON batch (base64 bytecode); anything else
 /// (e.g. `application/octet-stream`) → the binary `MDB1` framing (raw bytecode).
-/// Always responds 200 with a JSON results array; a malformed request framing is
-/// the only 4xx.
+/// Admitted batches respond 200 with a JSON results array; malformed framing
+/// returns 4xx and the admission middleware returns 503 when capacity is full.
 async fn decompile_batch(
-    State(state): State<AppState>,
+    Extension(permit): Extension<Arc<OwnedSemaphorePermit>>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, Error> {
@@ -206,14 +228,7 @@ async fn decompile_batch(
     // bad single item (e.g. un-decodable base64) becomes a deferred per-item error.
     let items = parse_batch_request(&headers, &body)?;
 
-    // Bound concurrent batches to cap peak memory. The permit is held across the
-    // blocking decompile below.
-    let _permit = Arc::clone(&state.batch_semaphore)
-        .acquire_owned()
-        .await
-        .map_err(|_| Error::Io(io::Error::new(io::ErrorKind::Other, "semaphore closed")))?;
-
-    let results = run_blocking(move || decompile_parsed_batch(items)).await?;
+    let results = run_admitted_batch(permit, move || decompile_parsed_batch(items)).await?;
     let ok_count = results.iter().filter(|r| r.ok).count();
     info!(
         "Batch decompiled {} scripts ({ok_count} ok).",
@@ -225,6 +240,19 @@ async fn decompile_batch(
         results,
     };
     Ok(Json(response).into_response())
+}
+
+async fn run_admitted_batch<F, T>(permit: Arc<OwnedSemaphorePermit>, work: F) -> Result<T, Error>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    run_blocking(move || {
+        // spawn_blocking continues even if the HTTP future is cancelled.
+        // The worker must retain admission until it releases its input/work.
+        let _permit = permit;
+        work()
+    }).await
 }
 
 // ---------------------------------------------------------------------------
@@ -702,5 +730,74 @@ mod tests {
         );
         let numeric = parse_flags_text(&STRICT_NO_SYNTHETIC_CONTROL.to_string()).unwrap();
         assert_eq!(numeric, named);
+    }
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use super::*;
+    use std::{
+        convert::Infallible,
+        pin::Pin,
+        task::{Context, Poll},
+    };
+    use tower::ServiceExt;
+
+    struct UnreadableBody;
+    impl http_body::Body for UnreadableBody {
+        type Data = Bytes;
+        type Error = Infallible;
+        fn poll_frame(
+            self: Pin<&mut Self>,
+            _: &mut Context<'_>,
+        ) -> Poll<Option<Result<http_body::Frame<Bytes>, Infallible>>> {
+            panic!("over-capacity request body was read before admission");
+        }
+    }
+
+    #[tokio::test]
+    async fn capacity_is_checked_before_the_body_extractor() {
+        let state = AppState {
+            batch_semaphore: Arc::new(Semaphore::new(1)),
+        };
+        let held = state.batch_semaphore.clone().acquire_owned().await.unwrap();
+        let request = axum::http::Request::post("/decompile/batch")
+            .header("content-type", "application/json")
+            .body(Body::new(UnreadableBody))
+            .unwrap();
+        let response = app(state.clone()).oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        drop(held);
+        let request = axum::http::Request::post("/decompile/batch")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"key":1,"scripts":[]}"#))
+            .unwrap();
+        let response = app(state.clone()).oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(state.batch_semaphore.available_permits(), 1);
+    }
+
+    #[tokio::test]
+    async fn cancelled_request_keeps_capacity_until_blocking_work_finishes() {
+        let semaphore = Arc::new(Semaphore::new(1));
+        let permit = Arc::new(semaphore.clone().acquire_owned().await.unwrap());
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let request = tokio::spawn(run_admitted_batch(permit, move || {
+            started_tx.send(()).unwrap();
+            release_rx
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .unwrap();
+        }));
+        started_rx.await.unwrap();
+        request.abort();
+        assert!(request.await.unwrap_err().is_cancelled());
+        assert_eq!(semaphore.available_permits(), 0);
+        release_tx.send(()).unwrap();
+        let _released =
+            tokio::time::timeout(std::time::Duration::from_secs(5), semaphore.acquire())
+                .await
+                .expect("worker did not release admission")
+                .unwrap();
     }
 }

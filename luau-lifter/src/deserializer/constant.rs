@@ -3,7 +3,7 @@ use nom::{
     IResult,
     number::complete::{le_f32, le_f64, le_i32, le_u8, le_u32},
 };
-use nom_leb128::leb128_usize;
+use nom_leb128::{leb128_u64, leb128_usize};
 
 const CONSTANT_NIL: u8 = 0;
 const CONSTANT_BOOLEAN: u8 = 1;
@@ -97,7 +97,22 @@ impl Constant {
             // isNegative byte, then varint magnitude
             CONSTANT_INTEGER => {
                 let (input, is_negative) = le_u8(input)?;
-                let (input, magnitude) = leb128_usize(input)?;
+                // nom-leb128 0.2 accepts overflowing payload bits in the last
+                // byte. Reject them before a truncated magnitude can pass the
+                // signed-range check (e.g. 2^64 becoming zero).
+                if input.iter().take(9).all(|byte| byte & 0x80 != 0)
+                    && input.get(9).is_some_and(|byte| *byte > 1)
+                {
+                    return Err(nom::Err::Failure(nom::error::Error::new(
+                        input, nom::error::ErrorKind::TooLarge,
+                    )));
+                }
+                let (input, magnitude) = leb128_u64(input)?;
+                if magnitude > (i64::MAX as u64) + u64::from(is_negative != 0) {
+                    return Err(nom::Err::Failure(nom::error::Error::new(
+                        input, nom::error::ErrorKind::TooLarge,
+                    )));
+                }
                 let value = if is_negative != 0 {
                     (magnitude as i64).wrapping_neg()
                 } else {
@@ -121,5 +136,33 @@ impl Constant {
                 nom::error::ErrorKind::Verify,
             ))),
         }
+    }
+}
+
+#[cfg(test)]
+mod integer_tests {
+    use super::*;
+
+    fn encoded(negative: u8, mut magnitude: u64) -> Vec<u8> {
+        let mut bytes = vec![9, negative];
+        loop {
+            let low = (magnitude & 127) as u8;
+            magnitude >>= 7;
+            bytes.push(low | if magnitude == 0 { 0 } else { 128 });
+            if magnitude == 0 { return bytes; }
+        }
+    }
+
+    #[test]
+    fn integer_width_and_signed_limits_do_not_depend_on_usize() {
+        for value in [0, 127, 128, 1 << 32, (1 << 32) + 1, i64::MAX as u64] {
+            assert!(matches!(Constant::parse(&encoded(0, value), 9),
+                Ok(([], Constant::Integer(parsed))) if parsed == value as i64));
+        }
+        assert!(matches!(Constant::parse(&encoded(1, 1 << 63), 9), Ok(([], Constant::Integer(i64::MIN)))));
+        assert!(Constant::parse(&encoded(0, 1 << 63), 9).is_err());
+        let mut overflow = vec![9, 0];
+        overflow.extend([0x80; 9]); overflow.push(2);
+        assert!(Constant::parse(&overflow, 9).is_err());
     }
 }

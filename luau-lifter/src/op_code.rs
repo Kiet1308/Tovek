@@ -427,3 +427,37 @@ const _: () = assert!(
         && OpCode::LOP_FASTPCALL as u8 == 89
         && OpCode::LOP__COUNT as u8 == 90
 );
+
+impl OpCode {
+    pub(crate) fn has_aux(self) -> bool {
+        matches!(self, Self::LOP_GETGLOBAL
+            | Self::LOP_SETGLOBAL
+            | Self::LOP_GETIMPORT
+            | Self::LOP_GETTABLEKS
+            | Self::LOP_SETTABLEKS
+            | Self::LOP_NAMECALL
+            | Self::LOP_JUMPIFEQ
+            | Self::LOP_JUMPIFLE
+            | Self::LOP_JUMPIFLT
+            | Self::LOP_JUMPIFNOTEQ
+            | Self::LOP_JUMPIFNOTLE
+            | Self::LOP_JUMPIFNOTLT
+            | Self::LOP_NEWTABLE
+            | Self::LOP_SETLIST
+            | Self::LOP_FORGLOOP
+            | Self::LOP_LOADKX
+            | Self::LOP_FASTCALL2
+            | Self::LOP_FASTCALL2K
+            | Self::LOP_FASTCALL3
+            | Self::LOP_JUMPXEQKNIL
+            | Self::LOP_JUMPXEQKB
+            | Self::LOP_JUMPXEQKN
+            | Self::LOP_JUMPXEQKS
+            | Self::LOP_GETUDATAKS
+            | Self::LOP_SETUDATAKS
+            | Self::LOP_NAMECALLUDATA
+            | Self::LOP_NEWCLASSMEMBER
+            | Self::LOP_CALLFB
+            | Self::LOP_CMPPROTO)
+    }
+}

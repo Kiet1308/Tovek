@@ -1143,6 +1143,15 @@ pub(crate) fn process_one_with_analysis_cached(
         Some(analysis_root),
         cache,
     );
+    finish_analysis(w, outcome, entry, source_record)
+}
+
+fn finish_analysis(
+    w: &Work,
+    outcome: Outcome,
+    entry: Option<AnalysisManifestEntry>,
+    source_record: Option<GeneratedSourceRecord>,
+) -> (Outcome, Option<AnalysisManifestEntry>, Option<AnalysisUnavailable>, Option<GeneratedSourceRecord>) {
     let unavailable = if matches!(outcome, Outcome::Ok) && entry.is_none() {
         Some(match w.kind {
             WorkKind::SourceFallback => AnalysisUnavailable {
@@ -1181,6 +1190,19 @@ pub(crate) fn process_one_capture(
     (outcome, source)
 }
 
+/// Process the exact bytes already read and hashed by a folder worker.
+pub(crate) fn process_one_preloaded(
+    w: &Work, text: &[u8], key: u8, b64: &mut Vec<u8>, verbose: bool,
+    options: DecompileOptions, analysis_root: Option<&Path>,
+    cache: Option<&crate::decompile_cache::Cache>,
+) -> (Outcome, Option<AnalysisManifestEntry>, Option<AnalysisUnavailable>, Option<GeneratedSourceRecord>) {
+    let (outcome, _, entry, source_record) = decode_preloaded(
+        w, text, key, b64, true, false, verbose, options, analysis_root, cache,
+    );
+    if analysis_root.is_some() { finish_analysis(w, outcome, entry, source_record) }
+    else { (outcome, None, None, None) }
+}
+
 /// The actual decode/decompile/write logic shared by both entry points.
 ///
 /// * `write_skipped` — write a zero-byte file for empty-payload inputs.
@@ -1210,6 +1232,21 @@ fn decode_and_decompile(
         Err(e) => return (Outcome::Fail(format!("read: {e}")), None, None, None),
     };
 
+    decode_preloaded(w, &text, key, b64, write_skipped, capture, verbose, options, analysis_root, cache)
+}
+
+fn decode_preloaded(
+    w: &Work,
+    text: &[u8],
+    key: u8,
+    b64: &mut Vec<u8>,
+    write_skipped: bool,
+    capture: bool,
+    verbose: bool,
+    options: DecompileOptions,
+    analysis_root: Option<&Path>,
+    cache: Option<&crate::decompile_cache::Cache>,
+) -> (Outcome, Option<String>, Option<AnalysisManifestEntry>, Option<GeneratedSourceRecord>) {
     // Replicate `grep -v '^--' | tr -d ' \t\r\n'`: drop lines starting with
     // "--" (start-of-line anchor — no trim), keep all non-whitespace bytes.
     b64.clear();
@@ -1672,6 +1709,11 @@ fn hex_digest(bytes: impl AsRef<[u8]>) -> String {
 
 #[cfg(any(test, not(windows)))]
 pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    atomic_write_with_guard(path, bytes, || Ok(()))
+}
+
+#[cfg(any(test, not(windows)))]
+fn atomic_write_with_guard<G>(path: &Path, bytes: &[u8], before_publish: impl FnOnce() -> std::io::Result<G>) -> std::io::Result<G> {
     let parent = path.parent().ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::InvalidInput, "path has no parent")
     })?;
@@ -1710,12 +1752,17 @@ pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
         return Err(error);
     }
 
+    let guard = match before_publish() {
+        Ok(guard) => guard,
+        Err(error) => { let _ = std::fs::remove_file(&temp_path); return Err(error); }
+    };
     let result = replace_file(&temp_path, path);
     if result.is_err() {
         let _ = std::fs::remove_file(&temp_path);
     }
     result?;
-    sync_parent_directory(&canonical_parent)
+    sync_parent_directory(&canonical_parent)?;
+    Ok(guard)
 }
 
 /// Atomically publishes a file below a trusted canonical root. Manifest-backed
@@ -1727,9 +1774,22 @@ pub(crate) fn atomic_write_contained(
     bytes: &[u8],
     replace_existing: bool,
 ) -> std::io::Result<()> {
+    atomic_write_contained_guarded(root, path, bytes, replace_existing, || Ok(()))
+}
+
+/// Write/sync the temporary file before acquiring a publication guard. Cache
+/// writers can prepare files concurrently while quota changes and the final
+/// atomic rename remain serialized and protected by the same guard.
+pub(crate) fn atomic_write_contained_guarded<G>(
+    root: &Path,
+    path: &Path,
+    bytes: &[u8],
+    replace_existing: bool,
+    before_publish: impl FnOnce() -> std::io::Result<G>,
+) -> std::io::Result<G> {
     #[cfg(windows)]
     {
-        windows_contained_fs::atomic_write(root, path, bytes, replace_existing)
+        windows_contained_fs::atomic_write(root, path, bytes, replace_existing, before_publish)
     }
     #[cfg(not(windows))]
     {
@@ -1777,12 +1837,17 @@ pub(crate) fn atomic_write_contained(
                 return Err(error);
             }
             drop(file);
+            let guard = match before_publish() {
+                Ok(guard) => guard,
+                Err(error) => { let _ = std::fs::remove_file(&temp_path); return Err(error); }
+            };
             let result = publish_new_file(&temp_path, path);
             let _ = std::fs::remove_file(&temp_path);
             result?;
-            return sync_parent_directory(&canonical_parent);
+            sync_parent_directory(&canonical_parent)?;
+            return Ok(guard);
         }
-        atomic_write(path, bytes)
+        atomic_write_with_guard(path, bytes, before_publish)
     }
 }
 
@@ -1941,12 +2006,13 @@ mod windows_contained_fs {
         }
     }
 
-    pub(super) fn atomic_write(
+    pub(super) fn atomic_write<G>(
         root: &Path,
         path: &Path,
         bytes: &[u8],
         replace_existing: bool,
-    ) -> io::Result<()> {
+        before_publish: impl FnOnce() -> io::Result<G>,
+    ) -> io::Result<G> {
         let (components, file_name) = split_contained_path(root, path)?;
         let chain = open_directory_chain(root, &components, true)
             .map_err(|error| contextual("open contained parent", error))?;
@@ -1957,6 +2023,10 @@ mod windows_contained_fs {
             let _ = delete_open_file(&temp);
             return Err(error);
         }
+        let guard = match before_publish() {
+            Ok(guard) => guard,
+            Err(error) => { let _ = delete_open_file(&temp); return Err(error); }
+        };
         #[cfg(test)]
         BEFORE_RENAME_HOOK.with(|hook| {
             if let Some(hook) = hook.borrow_mut().take() {
@@ -1969,7 +2039,7 @@ mod windows_contained_fs {
         }
         drop(temp);
         drop(chain);
-        Ok(())
+        Ok(guard)
     }
 
     #[cfg(test)]
@@ -2468,6 +2538,38 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_ID: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn concurrent_atomic_writes_prepare_before_serialized_publication() {
+        let directory = TestDir::new("parallel-publication");
+        let root = std::fs::canonicalize(&directory.0).unwrap();
+        let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+        let mut releases = Vec::new();
+        std::thread::scope(|scope| {
+            for index in 0..4 {
+                let root = &root;
+                let ready_tx = ready_tx.clone();
+                let (release_tx, release_rx) = std::sync::mpsc::channel();
+                releases.push(release_tx);
+                scope.spawn(move || {
+                    let path = root.join(format!("{index}.txt"));
+                    atomic_write_contained_guarded(root, &path, b"prepared", true, || {
+                        assert!(!path.exists(), "published before obtaining guard");
+                        ready_tx.send(()).unwrap();
+                        release_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+                        Ok(())
+                    }).unwrap();
+                    assert_eq!(std::fs::read(path).unwrap(), b"prepared");
+                });
+            }
+            // All four writers must reach the guard without waiting for any
+            // earlier writer to publish. No global lock covers file writes.
+            for _ in 0..4 {
+                ready_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+            }
+            for release in releases { release.send(()).unwrap(); }
+        });
+    }
 
     struct TestDir(PathBuf);
 

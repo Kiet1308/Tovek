@@ -35,3 +35,9 @@ codegen-units = 1
 # `panic = "abort"` stays FORBIDDEN — the per-function `catch_unwind` recovery
 # depends on unwinding.
 # panic = "abort"
+
+[profile.release.package.luau-worker]
+# wasm-bindgen needs the target-features/custom sections to select externref
+# tables and generate exception wrappers. Stripping the final wasm first loses
+# that metadata (and breaks panic-unwind packaging).
+strip = "none"

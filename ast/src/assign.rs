@@ -26,6 +26,9 @@ impl Assign {
 }
 
 impl Traverse for Assign {
+    fn lvalues(&self) -> Vec<&LValue> {
+        self.left.iter().collect()
+    }
     fn lvalues_mut(&mut self) -> Vec<&mut LValue> {
         self.left.iter_mut().collect()
     }

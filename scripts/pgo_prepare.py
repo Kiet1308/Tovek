@@ -21,7 +21,7 @@ def main():
         parser.add_argument('--' + name, type=pathlib.Path, required=True)
     parser.add_argument('--target', required=True, choices=('x86_64-pc-windows-msvc', 'x86_64-unknown-linux-gnu'))
     parser.add_argument('--commit', required=True, help='identity of the reviewed source checkout/archive')
-    parser.add_argument('--toolchain', default='nightly-2024-12-15')
+    parser.add_argument('--toolchain', default='nightly-2026-06-15')
     args = parser.parse_args()
     if (os.name == 'nt') != (args.target == 'x86_64-pc-windows-msvc'):
         parser.error('prepare and run on the native target platform')

@@ -9,6 +9,23 @@ pub enum PreOrPost {
 
 #[enum_dispatch]
 pub trait Traverse {
+    fn lvalues(&self) -> Vec<&LValue> {
+        Vec::new()
+    }
+
+    /// Borrow expressions for analysis; do not clone the AST to use a mutable
+    /// walker. As with the mutable walker, closure/block bodies are separate.
+    fn traverse_rvalues_ref<F>(&self, callback: &mut F)
+    where
+        F: FnMut(&RValue),
+    {
+        for lvalue in self.lvalues() { lvalue.traverse_rvalues_ref(callback); }
+        for rvalue in self.rvalues() {
+            callback(rvalue);
+            rvalue.traverse_rvalues_ref(callback);
+        }
+    }
+
     fn lvalues_mut(&mut self) -> Vec<&mut LValue> {
         Vec::new()
     }

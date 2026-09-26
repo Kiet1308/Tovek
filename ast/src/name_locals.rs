@@ -4183,6 +4183,11 @@ impl Namer {
             let mut functions = Vec::new();
             statement.post_traverse_values(&mut |value| -> Option<()> {
                 match value {
+                    Either::Right(RValue::Literal(crate::Literal::Vector(..) | crate::Literal::VectorD(..))) => {
+                        // Literal formatting introduces this builtin even when
+                        // the input bytecode contains no GETGLOBAL for it.
+                        globals.push("vector".to_string());
+                    }
                     Either::Right(RValue::Global(global)) => {
                         if let Ok(name) = std::str::from_utf8(&global.0) {
                             globals.push(name.to_string());
@@ -4790,7 +4795,15 @@ fn unique_visible_name(base: &str, visible: &FxHashMap<String, usize>) -> String
     }
 }
 
-fn reserve_without_shadow(local: &RcLocal, visible: &mut FxHashMap<String, usize>) {
+fn restore_visible_names(visible: &mut FxHashMap<String, usize>, undo: &mut Vec<(String, Option<usize>)>, checkpoint: usize) {
+    while undo.len() > checkpoint {
+        let (name, previous) = undo.pop().unwrap();
+        if let Some(ptr) = previous { visible.insert(name, ptr); }
+        else { visible.remove(&name); }
+    }
+}
+
+fn reserve_without_shadow(local: &RcLocal, visible: &mut FxHashMap<String, usize>, undo: &mut Vec<(String, Option<usize>)>) {
     let ptr = local_ptr(local);
     let Some(mut name) = current_name(local) else {
         return;
@@ -4810,7 +4823,8 @@ fn reserve_without_shadow(local: &RcLocal, visible: &mut FxHashMap<String, usize
         }
     }
 
-    visible.insert(name, ptr);
+    let previous = visible.insert(name.clone(), ptr);
+    undo.push((name, previous));
 }
 
 fn split_reused_loop_local(
@@ -4834,22 +4848,24 @@ fn split_reused_loop_local(
     *local = new_local;
 }
 
-fn avoid_shadowing_in_function(function: &mut crate::Function, visible: FxHashMap<String, usize>) {
-    let mut visible = visible;
+fn avoid_shadowing_in_function(function: &mut crate::Function, visible: &mut FxHashMap<String, usize>, undo: &mut Vec<(String, Option<usize>)>) {
+    let checkpoint = undo.len();
     for parameter in &function.parameters {
-        reserve_without_shadow(parameter, &mut visible);
+        reserve_without_shadow(parameter, visible, undo);
     }
-    avoid_shadowing(&mut function.body, visible);
+    avoid_shadowing(&mut function.body, visible, undo);
+    restore_visible_names(visible, undo, checkpoint);
 }
 
-fn avoid_shadowing(block: &mut Block, mut visible: FxHashMap<String, usize>) {
+fn avoid_shadowing(block: &mut Block, visible: &mut FxHashMap<String, usize>, undo: &mut Vec<(String, Option<usize>)>) {
+    let checkpoint = undo.len();
     for statement in &mut block.0 {
         if let Statement::Assign(assign) = &*statement
             && assign.prefix
         {
             for lvalue in &assign.left {
                 if let Some(local) = lvalue.as_local() {
-                    reserve_without_shadow(local, &mut visible);
+                    reserve_without_shadow(local, visible, undo);
                 }
             }
         }
@@ -4862,37 +4878,40 @@ fn avoid_shadowing(block: &mut Block, mut visible: FxHashMap<String, usize>) {
             None
         });
         for function in functions {
-            avoid_shadowing_in_function(&mut function.lock(), visible.clone());
+            avoid_shadowing_in_function(&mut function.lock(), visible, undo);
         }
 
         match statement {
             Statement::If(r#if) => {
-                avoid_shadowing(&mut r#if.then_block.lock(), visible.clone());
-                avoid_shadowing(&mut r#if.else_block.lock(), visible.clone());
+                avoid_shadowing(&mut r#if.then_block.lock(), visible, undo);
+                avoid_shadowing(&mut r#if.else_block.lock(), visible, undo);
             }
             Statement::While(r#while) => {
-                avoid_shadowing(&mut r#while.block.lock(), visible.clone())
+                avoid_shadowing(&mut r#while.block.lock(), visible, undo)
             }
-            Statement::Repeat(repeat) => avoid_shadowing(&mut repeat.block.lock(), visible.clone()),
+            Statement::Repeat(repeat) => avoid_shadowing(&mut repeat.block.lock(), visible, undo),
             Statement::NumericFor(numeric_for) => {
-                let mut loop_visible = visible.clone();
+                let loop_checkpoint = undo.len();
                 let mut body = numeric_for.block.lock();
-                split_reused_loop_local(&mut numeric_for.counter, &mut body, &loop_visible);
-                reserve_without_shadow(&numeric_for.counter, &mut loop_visible);
-                avoid_shadowing(&mut body, loop_visible);
+                split_reused_loop_local(&mut numeric_for.counter, &mut body, visible);
+                reserve_without_shadow(&numeric_for.counter, visible, undo);
+                avoid_shadowing(&mut body, visible, undo);
+                restore_visible_names(visible, undo, loop_checkpoint);
             }
             Statement::GenericFor(generic_for) => {
-                let mut loop_visible = visible.clone();
+                let loop_checkpoint = undo.len();
                 let mut body = generic_for.block.lock();
                 for res_local in &mut generic_for.res_locals {
-                    split_reused_loop_local(res_local, &mut body, &loop_visible);
-                    reserve_without_shadow(res_local, &mut loop_visible);
+                    split_reused_loop_local(res_local, &mut body, visible);
+                    reserve_without_shadow(res_local, visible, undo);
                 }
-                avoid_shadowing(&mut body, loop_visible);
+                avoid_shadowing(&mut body, visible, undo);
+                restore_visible_names(visible, undo, loop_checkpoint);
             }
             _ => {}
         }
     }
+    restore_visible_names(visible, undo, checkpoint);
 }
 
 pub fn name_locals(block: &mut Block, rename: bool) {
@@ -4998,7 +5017,7 @@ pub fn name_locals_with_evidence(
     namer.evidence_rule = "declaration_and_type_hint";
     namer.apply(block);
     if rename {
-        avoid_shadowing(block, FxHashMap::default());
+        avoid_shadowing(block, &mut FxHashMap::default(), &mut Vec::new());
     }
     namer.evidence.take().map(|evidence| evidence.finish(|ptr| {
         namer.hints.get(&ptr).map(|hint| (hint.name.clone(), hint.score))

@@ -25,6 +25,23 @@ fn varint(mut n: u64, out: &mut Vec<u8>) {
 #[unsafe(no_mangle)]
 pub extern "C" fn pointer_bits() -> u32 { usize::BITS }
 #[unsafe(no_mangle)]
+pub extern "C" fn check_integer_constants() -> u32 {
+    use deserializer::constant::Constant;
+    let values = [0i64, 1 << 32, (1 << 32) + 1, i64::MAX, i64::MIN];
+    for (index, value) in values.into_iter().enumerate() {
+        let mut bytes = vec![9, u8::from(value < 0)];
+        varint(value.unsigned_abs(), &mut bytes);
+        match Constant::parse(&bytes, 12) {
+            Ok(([], Constant::Integer(parsed))) if parsed == value => {},
+            _ => return 10 + index as u32,
+        }
+    }
+    let mut invalid = vec![9, 0];
+    varint(1 << 63, &mut invalid);
+    if Constant::parse(&invalid, 12).is_ok() { return 20; }
+    0
+}
+#[unsafe(no_mangle)]
 pub extern "C" fn check_v12_costs() -> u32 {
     let values = [0u64, 127, 128, 1 << 32, 1 << 63, u64::MAX];
     for (index, cost) in values.into_iter().enumerate() {
@@ -56,7 +73,7 @@ pub extern "C" fn check_v12_costs() -> u32 {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--toolchain", default="nightly-2024-12-15")
+    parser.add_argument("--toolchain", default="nightly-2026-06-15")
     parser.add_argument("--keep", type=pathlib.Path, required=True)
     args = parser.parse_args()
     args.keep.mkdir(parents=True, exist_ok=True)
@@ -88,9 +105,10 @@ const moduleBytes = fs.readFileSync(process.argv[2]);
 const mod = new WebAssembly.Module(moduleBytes);
 const instance = new WebAssembly.Instance(mod, {});
 const result = {pointer_bits: instance.exports.pointer_bits(),
-                result: instance.exports.check_v12_costs(), cost_cases: 6};
+                result: instance.exports.check_v12_costs(), cost_cases: 6,
+                integers: instance.exports.check_integer_constants(), integer_cases: 6};
 console.log(JSON.stringify(result));
-if (result.pointer_bits !== 32 || result.result !== 0) process.exit(1);
+if (result.pointer_bits !== 32 || result.result !== 0 || result.integers !== 0) process.exit(1);
 ''', encoding="utf-8")
     wasm = work / "target/wasm32-unknown-unknown/release/v12_reader_probe.wasm"
     result = subprocess.run(["node", str(runner), str(wasm)], capture_output=True, text=True, timeout=30)

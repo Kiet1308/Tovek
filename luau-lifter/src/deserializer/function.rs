@@ -72,7 +72,9 @@ impl FunctionTypeInfo {
             loop {
                 let byte = *input.get(*pos)?;
                 *pos += 1;
-                result |= usize::from(byte & 0x7f) << shift;
+                let part = usize::from(byte & 0x7f);
+                if shift >= usize::BITS || part > (usize::MAX >> shift) { return None; }
+                result |= part << shift;
                 shift += 7;
                 if byte & 0x80 == 0 {
                     return Some(result);
@@ -108,7 +110,7 @@ impl FunctionTypeInfo {
                 type_tag,
                 register,
                 start_pc,
-                end_pc: start_pc + length,
+                end_pc: start_pc.checked_add(length)?,
             });
         }
         Some(Self {
@@ -156,39 +158,7 @@ impl Function {
                 Instruction::E { op_code, .. } => op_code,
             };
 
-            // handle ops with aux values
-            match op {
-                OpCode::LOP_GETGLOBAL
-                | OpCode::LOP_SETGLOBAL
-                | OpCode::LOP_GETIMPORT
-                | OpCode::LOP_GETTABLEKS
-                | OpCode::LOP_SETTABLEKS
-                | OpCode::LOP_NAMECALL
-                | OpCode::LOP_JUMPIFEQ
-                | OpCode::LOP_JUMPIFLE
-                | OpCode::LOP_JUMPIFLT
-                | OpCode::LOP_JUMPIFNOTEQ
-                | OpCode::LOP_JUMPIFNOTLE
-                | OpCode::LOP_JUMPIFNOTLT
-                | OpCode::LOP_NEWTABLE
-                | OpCode::LOP_SETLIST
-                | OpCode::LOP_FORGLOOP
-                | OpCode::LOP_LOADKX
-                | OpCode::LOP_FASTCALL2
-                | OpCode::LOP_FASTCALL2K
-                | OpCode::LOP_FASTCALL3
-                | OpCode::LOP_JUMPXEQKNIL
-                | OpCode::LOP_JUMPXEQKB
-                | OpCode::LOP_JUMPXEQKN
-                | OpCode::LOP_JUMPXEQKS
-                // v9/v10/v11 aux-bearing opcodes (getOpLength == 2). Omitting any of
-                // these would desync the instruction stream of every proto that uses them.
-                | OpCode::LOP_GETUDATAKS
-                | OpCode::LOP_SETUDATAKS
-                | OpCode::LOP_NAMECALLUDATA
-                | OpCode::LOP_NEWCLASSMEMBER
-                | OpCode::LOP_CALLFB
-                | OpCode::LOP_CMPPROTO => {
+            if op.has_aux() {
                     let aux = *vec.get(pc + 1).ok_or(())?;
                     pc += 2;
                     match ins {
@@ -215,12 +185,11 @@ impl Function {
                         c: 0,
                         aux: 0,
                     });
-                }
-                _ => {
-                    v.push(ins);
-                    pc += 1;
-                }
+            } else {
+                v.push(ins);
+                pc += 1;
             }
+
         }
 
         Ok(v)
