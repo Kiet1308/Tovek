@@ -293,10 +293,19 @@ pub(crate) fn prepare_local_rewrite(
 /// local consumes one declaration and `extra_scratch` additional expression
 /// registers; declarations in disjoint scopes are counted conservatively.
 pub(crate) fn local_rewrite_frame(block: &Block, parameters: &[RcLocal], extra_scratch: usize) -> Frame {
+    local_rewrite_frame_with_bound(block, parameters, extra_scratch, value_register_bound)
+}
+
+/// Use a caller-proven upper bound for the emitted expression's peak scratch.
+/// The default remains the conservative node sum for existing rewrite passes.
+pub(crate) fn local_rewrite_frame_with_bound(
+    block: &Block, parameters: &[RcLocal], extra_scratch: usize,
+    value_bound: fn(&RValue) -> usize,
+) -> Frame {
     let mut locals = parameters.iter().map(RcLocal::stable_id).collect();
     let mut declarations = parameters.len();
     let (mut hidden, mut scratch) = (0, 0);
-    frame_locals(block, &mut locals, &mut declarations, &mut hidden, &mut scratch);
+    frame_locals(block, &mut locals, &mut declarations, &mut hidden, &mut scratch, value_bound);
     Frame {
         locals,
         headroom: LOCAL_LIMIT.saturating_sub(declarations).min(
@@ -323,6 +332,7 @@ fn frame_locals(
     declarations: &mut usize,
     hidden: &mut usize,
     scratch: &mut usize,
+    value_bound: fn(&RValue) -> usize,
 ) {
     for statement in &block.0 {
         // Sum expression nodes rather than assume that local headroom implies
@@ -337,8 +347,8 @@ fn frame_locals(
                         .iter()
                         .map(|left| match left {
                             LValue::Index(index) => {
-                                value_register_bound(&index.left)
-                                    + value_register_bound(&index.right)
+                                value_bound(&index.left)
+                                    + value_bound(&index.right)
                             }
                             _ => 0,
                         })
@@ -360,7 +370,7 @@ fn frame_locals(
                 + statement
                     .rvalues()
                     .into_iter()
-                    .map(value_register_bound)
+                    .map(value_bound)
                     .sum::<usize>(),
         );
         match statement {
@@ -394,6 +404,7 @@ fn frame_locals(
                     declarations,
                     hidden,
                     scratch,
+                    value_bound,
                 );
                 frame_locals(
                     &node.else_block.lock(),
@@ -401,19 +412,20 @@ fn frame_locals(
                     declarations,
                     hidden,
                     scratch,
+                    value_bound,
                 );
             }
             Statement::While(node) => {
-                frame_locals(&node.block.lock(), locals, declarations, hidden, scratch)
+                frame_locals(&node.block.lock(), locals, declarations, hidden, scratch, value_bound)
             }
             Statement::Repeat(node) => {
-                frame_locals(&node.block.lock(), locals, declarations, hidden, scratch)
+                frame_locals(&node.block.lock(), locals, declarations, hidden, scratch, value_bound)
             }
             Statement::NumericFor(node) => {
-                frame_locals(&node.block.lock(), locals, declarations, hidden, scratch)
+                frame_locals(&node.block.lock(), locals, declarations, hidden, scratch, value_bound)
             }
             Statement::GenericFor(node) => {
-                frame_locals(&node.block.lock(), locals, declarations, hidden, scratch)
+                frame_locals(&node.block.lock(), locals, declarations, hidden, scratch, value_bound)
             }
             _ => {}
         }

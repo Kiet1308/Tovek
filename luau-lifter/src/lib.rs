@@ -953,6 +953,16 @@ fn decompile_bytecode_internal(
                 ast::telemetry::count("select_budget_exhausted", u64::from(report.budget_exhausted));
                 emit_upvalue_analysis.then(|| serde_json::to_value(report).expect("finite select report"))
             } else { None };
+            if chunk.functions.iter().any(|function| function.constants.iter().any(|constant| {
+                matches!(constant, deserializer::constant::Constant::Vector(..)
+                    | deserializer::constant::Constant::VectorD(..))
+            })) {
+                if let Some(pass) = ast::materialize_vectors::materialize_vectors(&mut body)
+                    .map_err(DecompileFailure::message)?
+                {
+                    if options.emit_binding_provenance { local_producers.push(pass); }
+                }
+            }
             // No expression/condition mutation is permitted after this point.
             let name_inference = ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
                 dont_reuse_var: options.dont_reuse_var,
@@ -1566,7 +1576,7 @@ fn decompile_function(
 
         let sc = {
             ptime!(F_STRUCTURE_CONDS);
-            structure_conditionals(&mut function)
+            structure_conditionals(&mut function, &|local| protected_upvalue_locals.contains(local))
         };
         if topology_changed || sc { dominator_cache = None; }
         if sc
@@ -2773,8 +2783,10 @@ mod correctness_regressions {
 
         assert!(
             !output.lines().any(|line| {
-                let line = line.trim();
-                line.starts_with("local ") && line.ends_with(&stale_alias_suffix)
+                // A snapshot inside rebuild after it assigns the new table is
+                // valid (and can be required before a dynamic callee lookup).
+                // The stale-cell regression hoisted it into the enclosing run.
+                line.starts_with("\tlocal ") && line.ends_with(&stale_alias_suffix)
             }),
             "must not snapshot the captured table before the loop:\n{output}"
         );

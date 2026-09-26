@@ -2,22 +2,21 @@
 //!
 //! The individual rewrites are deliberately narrow: straight-line boolean
 //! propagation never crosses captured cells or loop back-edges; dead stores are
-//! removed only when their evaluation is disposable; API canonicalization is a
-//! literal lookup table; and module-table recovery accepts only static fields.
+//! removed only when their evaluation is disposable; and module-table recovery
+//! accepts only static fields.
 
 use std::collections::VecDeque;
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
-    Assign, Block, Break, Global, Index, LValue, Literal, Local, LocalRw, RValue, RcLocal, Reduce,
-    Select, Statement, Table, Traverse,
+    Assign, Block, Break, Index, LValue, Literal, Local, LocalRw, RValue, RcLocal, Reduce,
+    Statement, Table, Traverse,
 };
 
 const MAX_ACTIVE_LOCALS: usize = 200;
 
 pub fn cleanup_final(block: &mut Block, script_name: Option<&str>) {
-    canonicalize_api_in_block(block);
     let root_upvalues = FxHashSet::default();
     simplify_constants_in_tree(block, &root_upvalues);
     rewrite_tail_loop_returns_in_tree(block);
@@ -657,86 +656,6 @@ fn contains_structural_definition(value: &RValue) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// 5.7: canonical Roblox literal APIs
-
-fn canonicalize_api_in_block(block: &mut Block) {
-    for statement in &mut block.0 {
-        for value in crate::deinline::stmt_rvalues_mut(statement) {
-            canonicalize_api_value(value);
-        }
-        match statement {
-            Statement::If(node) => {
-                canonicalize_api_in_block(&mut node.then_block.lock());
-                canonicalize_api_in_block(&mut node.else_block.lock());
-            }
-            Statement::While(node) => canonicalize_api_in_block(&mut node.block.lock()),
-            Statement::Repeat(node) => canonicalize_api_in_block(&mut node.block.lock()),
-            Statement::NumericFor(node) => canonicalize_api_in_block(&mut node.block.lock()),
-            Statement::GenericFor(node) => canonicalize_api_in_block(&mut node.block.lock()),
-            _ => {}
-        }
-    }
-}
-
-fn canonicalize_api_value(value: &mut RValue) {
-    if let RValue::Closure(closure) = value {
-        canonicalize_api_in_block(&mut closure.function.lock().body);
-        return;
-    }
-    for child in value.rvalues_mut() {
-        canonicalize_api_value(child);
-    }
-    if let Some(property) = canonical_api_property(value) {
-        *value = property;
-    }
-}
-
-fn canonical_api_property(value: &RValue) -> Option<RValue> {
-    let call = match value {
-        RValue::Call(call) => call,
-        RValue::Select(Select::Call(call)) => call,
-        _ => return None,
-    };
-    let RValue::Index(callee) = call.value.as_ref() else {
-        return None;
-    };
-    let RValue::Global(class) = callee.left.as_ref() else {
-        return None;
-    };
-    if !matches!(callee.right.as_ref(), RValue::Literal(Literal::String(key)) if key == b"new") {
-        return None;
-    }
-
-    let property = if class.0 == b"Vector3" && all_exact_numbers(&call.arguments, 3, 0.0) {
-        "zero"
-    } else if class.0 == b"Vector3" && all_exact_numbers(&call.arguments, 3, 1.0) {
-        "one"
-    } else if class.0 == b"Vector2" && all_exact_numbers(&call.arguments, 2, 0.0) {
-        "zero"
-    } else if class.0 == b"Vector2" && all_exact_numbers(&call.arguments, 2, 1.0) {
-        "one"
-    } else if class.0 == b"CFrame" && call.arguments.is_empty() {
-        "identity"
-    } else {
-        return None;
-    };
-    Some(
-        Index::new(
-            RValue::Global(Global(class.0.clone())),
-            RValue::Literal(Literal::String(property.as_bytes().to_vec())),
-        )
-        .into(),
-    )
-}
-
-fn all_exact_numbers(values: &[RValue], count: usize, expected: f64) -> bool {
-    values.len() == count
-        && values.iter().all(
-            |value| matches!(value, RValue::Literal(Literal::Number(number)) if number.to_bits() == expected.to_bits()),
-        )
-}
-
-// ---------------------------------------------------------------------------
 // 5.9: a void return inside a function-tail loop is a break
 
 fn rewrite_tail_loop_returns_in_tree(block: &mut Block) {
@@ -1259,7 +1178,7 @@ mod tests {
     }
 
     #[test]
-    fn canonicalizes_vector_and_cframe_literals() {
+    fn preserves_calls_to_environment_provided_constructors() {
         let constructor = |class: &str, values: Vec<RValue>| {
             Call::new(
                 RValue::Index(Index::new(global(class), string("new"))),
@@ -1282,7 +1201,7 @@ mod tests {
 
         cleanup_final(&mut block, None);
 
-        assert_eq!(block.to_string(), "return Vector3.zero, CFrame.identity");
+        assert_eq!(block.to_string(), "return Vector3.new(0, 0, 0), CFrame.new()");
     }
 
     #[test]

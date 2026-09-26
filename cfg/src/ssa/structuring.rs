@@ -117,6 +117,7 @@ fn single_assign(block: &ast::Block) -> Option<&ast::Assign> {
 fn match_conditional_sequence(
     function: &Function,
     node: NodeIndex,
+    captured: &impl Fn(&ast::RcLocal) -> bool,
 ) -> Option<ConditionalSequencePattern> {
     // TODO: check if len() == 1?
     let block = function.block(node).unwrap();
@@ -140,10 +141,13 @@ fn match_conditional_sequence(
                 {
                     if second_block.len() == 2 {
                         if let ast::Statement::Assign(assign) = &second_block[0] {
-                            // TODO: make sure this variable isnt used anywhere but this block
-                            // and the args passed to other.
+                            // Ordinary SSA definitions cannot be read on the
+                            // skipped path except through the checked phi edge.
+                            // Captured versions share storage: hoisting this
+                            // write would change the cell even when skipped.
                             let values_written = assign.values_written();
                             if values_written.len() == 1
+                                && !captured(values_written[0])
                                 && second_conditional_if.condition
                                     == values_written[0].clone().into()
                             {
@@ -268,7 +272,7 @@ fn match_conditional_sequence(
     }
 }
 
-pub fn structure_conditionals(function: &mut Function) -> bool {
+pub fn structure_conditionals(function: &mut Function, captured: &impl Fn(&ast::RcLocal) -> bool) -> bool {
     let mut did_structure = false;
     // TODO: does this need to be in dfs post order?
     let mut dfs = DfsPostOrder::new(function.graph(), function.entry().unwrap());
@@ -280,7 +284,7 @@ pub fn structure_conditionals(function: &mut Function) -> bool {
             did_structure = true;
         }
 
-        if let Some(pattern) = match_conditional_sequence(function, node)
+        if let Some(pattern) = match_conditional_sequence(function, node, captured)
             // TODO: can we continue?
             && &Some(pattern.second_node) != function.entry()
         {
@@ -1319,8 +1323,8 @@ mod edge_argument_regressions {
                 ),
             ],
         );
-        let candidate = match_conditional_sequence(&f, first).is_some();
-        let changed = structure_conditionals(&mut f);
+        let candidate = match_conditional_sequence(&f, first, &|_| false).is_some();
+        let changed = structure_conditionals(&mut f, &|_| false);
         let edge = f.edges(first).find(|e| e.target() == sc).unwrap();
         let overwritten = edge.weight().arguments[0].1 != x.clone().into();
         println!(

@@ -54,10 +54,10 @@ for scope, methodology and remaining regressions.
   leaves upward into declarative UI trees, with the original inlining points left as unobtrusive
   trailing comments.
 - **Idiomatic cleanup.** Compound assignments, backtick string interpolation,
-  left-associated `and`/`or` (far fewer redundant parentheses), atomic `math.pi`, dropped
+  left-associated `and`/`or` (far fewer redundant parentheses), exact numeric literals, dropped
   needless `\'` escapes, and removal of redundant local copies, constant-only branches and
-  discarded pure expressions. Roblox zero/one/identity constructors use their canonical
-  properties, callback fields keep assignment syntax, long identifiers stay intact, and
+  discarded pure expressions. Roblox constructors retain their calls because global
+  bindings can be replaced. Callback fields keep assignment syntax, long identifiers stay intact, and
   function-heavy returned tables recover a named module shape. Oversized truthy-selection
   chains return to `if`/`elseif`, while long left-associated concatenations become a named
   accumulator with `..=` updates instead of a parenthesized one-line wall.
@@ -71,6 +71,13 @@ for scope, methodology and remaining regressions.
   class opcodes (`NEWCLASS`) are unsupported. Runtime-mutated `CMPPROTO` guards are explicitly rejected because their
   prototype-identity predicate cannot be faithfully reconstructed in source. See the
   [v12 validation and limits](https://kiet1308.github.io/Tovek/changelog.html#bytecode-v12).
+- **Literal and runtime fidelity.** Integer constants retain their signed 64-bit value
+  and `i` suffix; recompilation requires Luau's `LuauIntegerType2` feature. Vector
+  constants capture the standard `vector.create` function at chunk entry, preserving
+  their behavior across later environment changes and O0/O1/O2 recompilation. The
+  Lua 5.1 lifter emits Luau and preserves both `...` and the legacy `arg` table,
+  including nil holes and `arg.n`; this compatibility path captures standard `select`
+  at chunk entry. These generated helpers require those standard bindings at entry.
 - **Validated output.** Public regression fixtures are checked with Luau's own
   parser, compiler and VM. V2 passes all 513 public parse/recompile profiles and
   the expanded suite of 246 runtime profiles. These checks cover the tested

@@ -215,6 +215,10 @@ fn reads_local_deep(statement: &Statement, local: &RcLocal) -> bool {
     if statement.values_read().iter().any(|r| *r == local) {
         return true;
     }
+    reads_local_nested(statement, local)
+}
+
+fn reads_local_nested(statement: &Statement, local: &RcLocal) -> bool {
     let any = |block: &Block| block.0.iter().any(|s| reads_local_deep(s, local));
     match statement {
         Statement::If(r#if) => any(&r#if.then_block.lock()) || any(&r#if.else_block.lock()),
@@ -242,12 +246,11 @@ fn captured_src_mutated_before_use(block: &Block, decl_index: usize, dst: &RcLoc
     if (decl_index + 1..bound).any(|i| crate::statement_is_observable(&block.0[i])) {
         return true;
     }
-    // If the read is NESTED inside a compound statement (not a direct top-level
-    // read), a side effect earlier in that same statement could precede the read,
-    // which the window above cannot see. Conservatively block when that statement
-    // itself has a side effect.
-    !block.0[bound].values_read().iter().any(|r| *r == dst)
-        && crate::statement_is_observable(&block.0[bound])
+    // Check every read in the terminal statement, including reads after calls,
+    // indexing and operator metamethods. Direct and nested reads can coexist;
+    // the direct order model does not prove safety across a nested region.
+    reads_local_nested(&block.0[bound], dst)
+        || !crate::evaluation_order::can_reuse_capture(&block.0[bound], dst)
 }
 
 /// Gate 6 — anti-swap / anti-stale-copy: `src` must NOT be reassigned anywhere
@@ -515,13 +518,13 @@ mod tests {
         let mut block = Block(vec![
             declare(&handler, closure_capturing(&src)),
             declare(&dst, local_value(&src)),
-            print(local_value(&dst)),
+            crate::Return::new(vec![local_value(&dst)]).into(),
         ]);
 
         copy_cleanup(&mut block);
 
         assert_eq!(block.0.len(), 2);
-        assert_eq!(block.0[1].to_string(), "print(v9)");
+        assert_eq!(block.0[1].to_string(), "return v9");
     }
 
     #[test]
@@ -637,10 +640,10 @@ mod tests {
         let function = Arc::new(Mutex::new(Function::default()));
         function.lock().body = Block(vec![
             declare(&dst, local_value(&src)),
-            print(RValue::Index(Index::new(
+            crate::Return::new(vec![RValue::Index(Index::new(
                 local_value(&dst),
                 string("floors"),
-            ))),
+            ))]).into(),
         ]);
         let closure = RValue::Closure(Closure {
             node_origin: Default::default(),
@@ -652,7 +655,7 @@ mod tests {
 
         copy_cleanup(&mut block);
 
-        assert_eq!(function.lock().body.to_string(), "print(v9.floors)");
+        assert_eq!(function.lock().body.to_string(), "return v9.floors");
     }
 
     #[test]

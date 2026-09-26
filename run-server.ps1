@@ -17,13 +17,18 @@ param(
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Manifest  = Join-Path $ScriptDir 'Cargo.toml'
-$Toolchain = 'nightly-2024-12-15'   # required: stable/bootstrap fail on feature gates
 $Exe       = Join-Path $ScriptDir 'target\release\web-server.exe'
 
 if ($Build -or -not (Test-Path $Exe)) {
-    Write-Host "==> Building web-server (release, +$Toolchain) ..." -ForegroundColor Cyan
-    cargo "+$Toolchain" build --release -p web-server --manifest-path $Manifest
-    if ($LASTEXITCODE -ne 0) { throw "cargo build failed (exit $LASTEXITCODE)" }
+    Write-Host "==> Building web-server (release, workspace toolchain) ..." -ForegroundColor Cyan
+    # Rustup resolves rust-toolchain.toml from cwd, not --manifest-path.
+    Push-Location -LiteralPath $ScriptDir
+    try {
+        cargo build --locked --release -p web-server --manifest-path $Manifest
+        if ($LASTEXITCODE -ne 0) { throw "cargo build failed (exit $LASTEXITCODE)" }
+    } finally {
+        Pop-Location
+    }
 }
 
 Write-Host "==> Starting decompiler server on http://127.0.0.1:3000/decompile" -ForegroundColor Green

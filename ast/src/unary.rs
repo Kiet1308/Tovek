@@ -182,6 +182,11 @@ impl Reduce for Unary {
     }
 
     fn reduce_condition(self) -> RValue {
+        // Only `not` consumes a condition. __unm consumes the original value
+        // and may return any type or raise; retain value-context reduction.
+        if self.operation == UnaryOperation::Negate {
+            return self.reduce();
+        }
         // `#X` evaluates X as a VALUE (not a condition) and, when it succeeds,
         // yields a number — always truthy. But it can run a `__len` metamethod,
         // raise on a non-lengthable X (`#5`, `#nil`), and X itself may have side
@@ -341,6 +346,9 @@ impl Unary {
                     *self.value,
                     RValue::Literal(Literal::Number(value))
                         if value.is_sign_negative() && !value.is_nan()
+                ) || matches!(
+                    *self.value,
+                    RValue::Literal(Literal::Integer(value)) if value < 0 && value != i64::MIN
                 )))
     }
 }

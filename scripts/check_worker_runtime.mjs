@@ -59,7 +59,7 @@ try {
     assert.deepEqual(result.results.map(item=>item.ok),[true,false,true,true]);
     assert.match(result.results[1].error,/panicked:.*FORNPREP/);
     assert.equal(result.results[2].decompilation.trim(),'return 7');
-    assert.equal(result.results[3].decompilation.trim(),'return 4294967297');
+    assert.equal(result.results[3].decompilation.trim(),'return 4294967297i');
     console.log(JSON.stringify({vong:round+1,...result}));
   }
 } finally { await mf.dispose(); }

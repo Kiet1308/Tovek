@@ -29,6 +29,14 @@ pub struct Function<'a> {
 }
 
 impl<'a> Function<'a> {
+    pub fn is_variadic(&self) -> bool {
+        self.vararg_flag & 2 != 0 // VARARG_ISVARARG
+    }
+
+    pub fn needs_arg_table(&self) -> bool {
+        self.vararg_flag & 4 != 0 // VARARG_NEEDSARG (HASARG alone only reserves a slot)
+    }
+
     pub fn parse(input: &'a [u8]) -> IResult<&'a [u8], Self> {
         let (input, name) = value::parse_string(input)?;
         let (input, line_defined) = le_u32(input)?;

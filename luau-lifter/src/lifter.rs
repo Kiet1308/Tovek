@@ -1698,20 +1698,9 @@ impl<'a> Lifter<'a> {
                         ));
                     }
                     OpCode::LOP_DUPTABLE => {
-                        // DUPTABLE duplicates a constant template table. For
-                        // `TABLE_WITH_CONSTANTS` the field values are baked into
-                        // the constant (no following SETTABLE), so reconstruct
-                        // them; a plain `TABLE` only carries keys whose values
-                        // are filled by subsequent SETTABLEKS, so start empty.
-                        let template = match self.function_list[self.function.id]
-                            .constants
-                            .get(d as usize)
-                        {
-                            Some(BytecodeConstant::TableWithConstants(_)) => {
-                                self.constant_to_rvalue(d as usize)
-                            }
-                            _ => ast::Table::default().into(),
-                        };
+                        // Loader templates contain actual zero-valued fields,
+                        // observable even if no SETTABLE ever follows DUPTABLE.
+                        let template = self.constant_to_rvalue(d as usize);
                         statements.push(
                             ast::Assign::new(vec![self.register(a as _).into()], vec![template])
                                 .into(),
@@ -1890,7 +1879,7 @@ impl<'a> Lifter<'a> {
             }
             BytecodeConstant::Vector(x, y, z, _) => ast::Literal::Vector(*x, *y, *z),
             BytecodeConstant::VectorD(x, y, z, _) => ast::Literal::VectorD(*x, *y, *z),
-            BytecodeConstant::Integer(v) => ast::Literal::Number(*v as f64),
+            BytecodeConstant::Integer(v) => ast::Literal::Integer(*v),
             _ => unimplemented!(),
         };
         self.constant_map
@@ -1910,7 +1899,7 @@ impl<'a> Lifter<'a> {
         let shape = match self.function_list[self.function.id].constants.get(index) {
             Some(BytecodeConstant::Boolean(v)) => Shape::Literal(ast::Literal::Boolean(*v)),
             Some(BytecodeConstant::Number(v)) => Shape::Literal(ast::Literal::Number(*v)),
-            Some(BytecodeConstant::Integer(v)) => Shape::Literal(ast::Literal::Number(*v as f64)),
+            Some(BytecodeConstant::Integer(v)) => Shape::Literal(ast::Literal::Integer(*v)),
             Some(BytecodeConstant::String(v)) => Shape::Literal(if *v == 0 {
                 ast::Literal::String(Vec::new())
             } else {
@@ -1923,7 +1912,10 @@ impl<'a> Lifter<'a> {
                 Shape::Literal(ast::Literal::VectorD(*x, *y, *z))
             }
             Some(BytecodeConstant::TableWithConstants(pairs)) => Shape::Table(pairs.clone()),
-            // Nil, plain Table (keys only, values set later), Import, Closure
+            Some(BytecodeConstant::Table(keys)) => {
+                Shape::Table(keys.iter().map(|&key| (key, -1)).collect())
+            }
+            // Nil, Import, Closure
             _ => Shape::Literal(ast::Literal::Nil),
         };
         match shape {
@@ -1933,7 +1925,11 @@ impl<'a> Lifter<'a> {
                     .into_iter()
                     .map(|(key, value)| {
                         let key = self.constant_to_rvalue(key);
-                        let value = self.constant_to_rvalue(value as usize);
+                        let value = if value < 0 {
+                            ast::Literal::Number(0.0).into()
+                        } else {
+                            self.constant_to_rvalue(value as usize)
+                        };
                         (Some(key), value)
                     })
                     .collect();

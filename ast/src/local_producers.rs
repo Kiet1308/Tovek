@@ -15,6 +15,7 @@ pub enum Role {
     EvaluationSnapshot,
     ConstructorPropertyValue,
     ConstructorInitializerSnapshot,
+    VectorConstructor,
 }
 
 #[derive(Clone, Debug, Serialize)]

@@ -26,12 +26,40 @@ pub struct Lifter<'a, 'b> {
     constants: FxHashMap<usize, ast::Literal>,
     function: Function,
     upvalues: Vec<RcLocal>,
+    vararg_counter: Option<RcLocal>,
     lifted_functions: &'b mut Vec<(Arc<Mutex<ast::Function>>, Function, Vec<RcLocal>)>,
 }
 
 #[cfg(test)]
 mod setlist_regressions {
     use super::*;
+
+    #[test]
+    fn vararg_flags_initialize_only_the_compatibility_slot() {
+        for flags in [0, 1, 2, 3, 7] {
+            let mut bytes = vec![0; 12];
+            bytes.extend([0, 1, flags, 3]); // one fixed parameter, three registers
+            bytes.extend(1u32.to_le_bytes());
+            bytes.extend((30u32 | (1 << 23)).to_le_bytes()); // RETURN no values
+            bytes.extend([0; 20]); // constants, closures, positions, locals, upvalues
+            let (_, prototype) = BytecodeFunction::parse(&bytes).unwrap();
+            let (function, _) = Lifter::lift(&prototype, &mut Vec::new());
+            assert_eq!(function.is_variadic, flags & 2 != 0);
+            assert_eq!(function.parameters.len(), 1);
+            let entry = function.block(function.entry().unwrap()).unwrap();
+            assert_eq!(entry.len(), 2 + usize::from(flags & 4 != 0));
+            assert!(entry.iter().flat_map(|s| ast::LocalRw::values_written(s))
+                .all(|local| !function.parameters.contains(local)));
+            let tables: Vec<_> = entry.iter().filter_map(|s| s.as_assign())
+                .filter_map(|a| a.right[0].as_table()).collect();
+            assert_eq!(tables.len(), usize::from(flags & 4 != 0));
+            if let Some(table) = tables.first() {
+                assert_eq!(table.0.len(), 2);
+                assert_eq!(table.0[0].0, Some(ast::Literal::String(b"n".to_vec()).into()));
+                assert!(matches!(table.0[1], (None, ast::RValue::VarArg(_))));
+            }
+        }
+    }
 
     #[test]
     fn parsed_setlist_reaches_the_original_array_index() {
@@ -637,7 +665,9 @@ impl<'a, 'b> Lifter<'a, 'b> {
 
                     let ast_function = Arc::<Mutex<_>>::default();
 
-                    let (function, upvalues) = Lifter::lift(closure, self.lifted_functions);
+                    let (function, upvalues) = Lifter::lift_function(
+                        closure, self.lifted_functions, self.vararg_counter.clone(), false,
+                    );
                     self.lifted_functions
                         .push((ast_function.clone(), function, upvalues));
 
@@ -650,6 +680,7 @@ impl<'a, 'b> Lifter<'a, 'b> {
                                 upvalues: upvalues_passed
                                     .into_iter()
                                     .map(ast::Upvalue::Ref)
+                                    .chain(self.vararg_counter.iter().cloned().map(ast::Upvalue::Copy))
                                     .collect(),
                             }
                             .into()],
@@ -909,6 +940,20 @@ impl<'a, 'b> Lifter<'a, 'b> {
         bytecode: &'a BytecodeFunction,
         lifted_functions: &'b mut Vec<(Arc<Mutex<ast::Function>>, Function, Vec<RcLocal>)>,
     ) -> (Function, Vec<RcLocal>) {
+        fn needs_counter(function: &BytecodeFunction) -> bool {
+            function.needs_arg_table() || function.closures.iter().any(needs_counter)
+        }
+        let counter = needs_counter(bytecode)
+            .then(|| RcLocal::new(ast::Local::new(Some("selectVarargs".into()))));
+        Self::lift_function(bytecode, lifted_functions, counter, true)
+    }
+
+    fn lift_function(
+        bytecode: &'a BytecodeFunction,
+        lifted_functions: &'b mut Vec<(Arc<Mutex<ast::Function>>, Function, Vec<RcLocal>)>,
+        vararg_counter: Option<RcLocal>,
+        root: bool,
+    ) -> (Function, Vec<RcLocal>) {
         let mut context = Self {
             bytecode,
             nodes: FxHashMap::default(),
@@ -917,11 +962,15 @@ impl<'a, 'b> Lifter<'a, 'b> {
             constants: FxHashMap::default(),
             function: Function::new(0),
             upvalues: Vec::new(),
+            vararg_counter,
             lifted_functions,
         };
 
         context.create_block_map();
+        // Lua 5.1 encodes HASARG=1, ISVARARG=2 and NEEDSARG=4 separately.
+        context.function.is_variadic = bytecode.is_variadic();
         context.allocate_locals();
+        if !root { context.upvalues.extend(context.vararg_counter.iter().cloned()); }
         context.lift_blocks();
 
         // TODO: STYLE: instead of naming NodeIndex vars `{}_node`, we should name them
@@ -929,11 +978,34 @@ impl<'a, 'b> Lifter<'a, 'b> {
         let stack_init_node = context.function.new_block();
         let stack_init_block = context.function.block_mut(stack_init_node).unwrap();
         stack_init_block.reserve(context.locals.len());
-        for (_, local) in context.locals {
+        if root && let Some(counter) = &context.vararg_counter {
+            // The VM creates arg without consulting globals. Capture the
+            // standard runtime helper before recovered code can replace select.
+            stack_init_block.push(ast::Assign::new(vec![counter.clone().into()],
+                vec![ast::Global(b"select".to_vec()).into()]).into());
+        }
+        for (register, local) in context.locals {
             if !context.function.parameters.contains(&local) {
                 let stack_init_block = context.function.block_mut(stack_init_node).unwrap();
+                let value = if bytecode.needs_arg_table()
+                    && register.0 == bytecode.number_of_parameters
+                {
+                    // The compatibility slot is initialized by the VM, not nil.
+                    // A constructor preserves holes and select counts trailing
+                    // nils, unlike #arg. Keep varargs in the open tail position.
+                    ast::Table::new(vec![
+                        (Some(ast::Literal::String(b"n".to_vec()).into()),
+                         ast::Select::Call(ast::Call::new(
+                            context.vararg_counter.as_ref().unwrap().clone().into(),
+                            vec![ast::Literal::String(b"#".to_vec()).into(), ast::VarArg.into()],
+                         )).into()),
+                        (None, ast::VarArg.into()),
+                    ]).into()
+                } else {
+                    ast::Literal::Nil.into()
+                };
                 stack_init_block.push(
-                    ast::Assign::new(vec![local.into()], vec![ast::Literal::Nil.into()]).into(),
+                    ast::Assign::new(vec![local.into()], vec![value]).into(),
                 )
             }
         }

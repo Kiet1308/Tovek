@@ -398,7 +398,9 @@ impl<'a> Destructor<'a> {
 
         let mut dominator_index = 0;
         let mut dominator_dfs = Dfs::new(&self.dominator_tree, self.function.entry().unwrap());
-        while let Some(node) = dominator_dfs.next(self.function.graph()) {
+        // Interference's ancestor stack requires dominator-tree preorder.
+        // CFG DFS can visit an exit sibling before a dominated loop branch.
+        while let Some(node) = dominator_dfs.next(&self.dominator_tree) {
             if node == self.function.entry().unwrap() {
                 assert!(dominator_index == 0);
                 assert!(!self

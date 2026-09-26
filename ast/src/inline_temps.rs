@@ -878,7 +878,7 @@ fn can_move_between(replacement: &RValue, statements: &[Statement], facts: &Moti
         if reads_global && statement_may_mutate_global_or_environment(statement) {
             return false;
         }
-        if reads_captured_local && statement.has_side_effects() {
+        if reads_captured_local && crate::statement_is_observable(statement) {
             return false;
         }
         if has_effects && statement_evaluation_order_barrier(statement, facts) {
@@ -1015,7 +1015,7 @@ fn block_writes_any_local(block: &Block, locals: &FxHashSet<RcLocal>) -> bool {
 }
 
 fn statement_may_mutate_global_or_environment(statement: &Statement) -> bool {
-    if statement.has_side_effects() {
+    if crate::statement_is_observable(statement) {
         return true;
     }
     match statement {

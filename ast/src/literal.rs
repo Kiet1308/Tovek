@@ -12,6 +12,8 @@ pub enum Literal {
     Nil,
     Boolean(bool),
     Number(f64),
+    /// Preserve Luau's signed integer type and all 64 bits (the `i` suffix).
+    Integer(i64),
     String(Vec<u8>),
     Vector(f32, f32, f32),
     /// A Luau vector constant whose components were encoded as doubles.
@@ -31,6 +33,7 @@ impl Reduce for Literal {
             Literal::Boolean(false) | Literal::Nil => false,
             Literal::Boolean(true)
             | Literal::Number(_)
+            | Literal::Integer(_)
             | Literal::String(_)
             | Literal::Vector(..)
             | Literal::VectorD(..) => true,
@@ -45,6 +48,7 @@ impl Infer for Literal {
             Literal::Nil => Type::Nil,
             Literal::Boolean(_) => Type::Boolean,
             Literal::Number(_) => Type::Number,
+            Literal::Integer(_) => Type::Integer,
             Literal::String(_) => Type::String,
             Literal::Vector(..) | Literal::VectorD(..) => Type::Vector,
         }
@@ -140,6 +144,10 @@ impl fmt::Display for Literal {
             Literal::Nil => write!(f, "nil"),
             Literal::Boolean(value) => write!(f, "{}", value),
             &Literal::Number(value) => write!(f, "{}", Self::format_number(value)),
+            // Decimal tokens are parsed as positive i64 before unary minus;
+            // MIN's magnitude overflows. Hex tokens preserve all 64 bits.
+            Literal::Integer(i64::MIN) => write!(f, "0x8000000000000000i"),
+            Literal::Integer(value) => write!(f, "{value}i"),
             Literal::String(value) => {
                 if let Some(long) = Self::long_string(value) {
                     return write!(f, "{long}");
@@ -171,6 +179,15 @@ impl fmt::Display for Literal {
 #[cfg(test)]
 mod tests {
     use super::Literal;
+
+    #[test]
+    fn integer_tokens_preserve_type_precision_and_signed_boundaries() {
+        assert_eq!(Literal::Integer(9007199254740993).to_string(), "9007199254740993i");
+        assert_eq!(Literal::Integer(i64::MIN).to_string(), "0x8000000000000000i");
+        assert_eq!(Literal::Integer(i64::MAX).to_string(), "9223372036854775807i");
+        let value = crate::Unary::new(Literal::Integer(-42).into(), crate::UnaryOperation::Negate);
+        assert_eq!(value.to_string(), "-(-42i)");
+    }
 
     #[test]
     fn long_strings_keep_leading_newline_and_choose_delimiters() {

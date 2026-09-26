@@ -619,7 +619,7 @@ mod tests {
     }
 
     #[test]
-    fn format_interpolation_renders_call_argument() {
+    fn format_interpolation_preserves_open_call_argument() {
         // `("%* [%*kg]"):format(fruit, tostring(weight))` matches the real corpus
         // shape: the call argument is rendered via the normal rvalue path.
         let fruit = local("fruit");
@@ -636,7 +636,8 @@ mod tests {
             .into(),
         ]);
 
-        assert_eq!(block.to_string(), "return `{fruit} [{tostring(weight)}kg]`");
+        // A global named tostring is not proof of a one-result builtin.
+        assert_eq!(block.to_string(), "return (\"%* [%*kg]\"):format(fruit, tostring(weight))");
     }
 
     #[test]
@@ -2741,6 +2742,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     /// `%*`/`%%`, on an arity mismatch, or on a static byte that cannot be safely
     /// represented inside backticks.
     fn try_format_interpolation(&self, bytes: &[u8], arguments: &[RValue]) -> Option<String> {
+        // An open tail may supply zero values. A placeholder would scalarize
+        // it to nil and suppress format's missing-argument error.
+        if matches!(arguments.last(), Some(RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))) {
+            return None;
+        }
         // Static text re-lexes inside backticks; bytes must be valid UTF-8 so we
         // can reason about each character (invalid UTF-8 aborts).
         let text = std::str::from_utf8(bytes).ok()?;

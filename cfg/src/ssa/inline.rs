@@ -827,7 +827,7 @@ fn fold_table_constructor_field_assignments(
             let table = block[table_index].as_assign_mut().unwrap().right[0]
                 .as_table_mut()
                 .unwrap();
-            // Replacing a nil placeholder moves this evaluation across the
+            // Replacing a nil/zero template field moves this evaluation across the
             // rest of the constructor. Cross only total fields without
             // mutable-cell snapshots; otherwise append in the original order.
             match table
@@ -837,8 +837,8 @@ fn fold_table_constructor_field_assignments(
                 .position(|(k, _)| k.as_ref() == Some(&new_key))
             {
                 Some(p)
-                    if matches!(&table.0[p].1, ast::RValue::Literal(ast::Literal::Nil))
-                        && table.0[p..initial_len].iter().all(|(key, value)| {
+                    if matches!(&table.0[p].1, ast::RValue::Literal(ast::Literal::Nil | ast::Literal::Number(0.0)))
+                        && table.0[p..].iter().all(|(key, value)| {
                             key.as_ref().is_some_and(ast::is_total_table_key)
                                 && ast::is_total_pure(value)
                                 && !value
@@ -851,7 +851,7 @@ fn fold_table_constructor_field_assignments(
                     table.0[p].1 = new_value;
                 }
                 Some(p)
-                    if matches!(&table.0[p].1, ast::RValue::Literal(ast::Literal::Nil))
+                    if matches!(&table.0[p].1, ast::RValue::Literal(ast::Literal::Nil | ast::Literal::Number(0.0)))
                         && ast::is_total_table_key(&new_key) =>
                 {
                     table.0.remove(p);

@@ -12,6 +12,7 @@ pub enum Type {
     Nil,
     Boolean,
     Number,
+    Integer,
     String,
     Table {
         indexer: Box<(Type, Type)>,
@@ -64,6 +65,7 @@ impl Type {
             Self::Nil => 0,
             Self::Boolean => 0,
             Self::Number => 0,
+            Self::Integer => 0,
             Self::String => 0,
             Self::Table { .. } => 1,
             Self::Function(_, _) => 1,
@@ -86,6 +88,7 @@ impl Display for Type {
                 Type::Nil => Cow::Borrowed("nil"),
                 Type::Boolean => Cow::Borrowed("boolean"),
                 Type::Number => Cow::Borrowed("number"),
+                Type::Integer => Cow::Borrowed("integer"),
                 Type::String => Cow::Borrowed("string"),
                 Type::Table { indexer, fields } => {
                     let (indexer_type, element_type) = indexer.as_ref();

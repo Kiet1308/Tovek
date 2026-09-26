@@ -60,6 +60,7 @@ pub mod local_declarations;
 pub mod lower_conditionals;
 pub mod materialize_call_receivers;
 pub mod materialize_value_captures;
+pub mod materialize_vectors;
 pub mod name_locals;
 pub mod naming_evidence;
 pub mod naming_api;
@@ -212,6 +213,7 @@ impl RValue {
             RValue::Literal(Literal::Number(n)) if n.is_sign_negative() && !n.is_nan() => {
                 return 7;
             }
+            RValue::Literal(Literal::Integer(n)) if *n < 0 && *n != i64::MIN => 7,
             _ => 9,
         }
     }

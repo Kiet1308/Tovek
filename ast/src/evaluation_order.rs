@@ -158,6 +158,24 @@ pub fn can_sink(statement_: &Statement, local: &RcLocal, replacement: &RValue, c
     can_sink_with_summary(statement_, local, replacement, capture, candidate)
 }
 
+/// A captured-cell snapshot can replace every direct read only when no earlier
+/// operation can change that cell. Unlike `can_sink`, aliases may have multiple
+/// reads in one statement. Nested control flow is checked by the caller.
+pub fn can_reuse_capture(statement_: &Statement, local: &RcLocal) -> bool {
+    let order = statement(statement_, &|_| false);
+    if order.exhausted { return false; }
+    let mut may_write = false;
+    let mut found = false;
+    for event in &order.events {
+        if event.read == Some(local.stable_id()) {
+            if may_write { return false; }
+            found = true;
+        }
+        may_write |= event.effects.contains(Effects::CAPTURE_WRITE);
+    }
+    found
+}
+
 /// The supplied summary must describe the current candidate under caller-owned
 /// runtime facts. Capture/write/conditional and destination order gates remain.
 pub(crate) fn can_sink_with_summary(statement_: &Statement, local: &RcLocal, replacement: &RValue,
@@ -187,6 +205,21 @@ mod tests {
     use crate::{Assign, Call, Index, Literal, Local, MethodCall, Return, Table};
     fn local(name: &str) -> RcLocal { RcLocal::new(Local::new(Some(name.into()))) }
     fn field(base: &RcLocal) -> RValue { Index::new(base.clone().into(), Literal::String(b"field".to_vec()).into()).into() }
+
+    #[test]
+    fn capture_alias_checks_every_read_but_not_effects_after_the_last() {
+        let snapshot = local("snapshot");
+        let mutate = local("mutate");
+        let call: RValue = Call::new(mutate.into(), vec![]).into();
+        let read: RValue = snapshot.clone().into();
+        assert!(can_reuse_capture(&Return::new(vec![read.clone(), call.clone()]).into(), &snapshot));
+        assert!(!can_reuse_capture(&Return::new(vec![call.clone(), read.clone()]).into(), &snapshot));
+        assert!(!can_reuse_capture(&Return::new(vec![read.clone(), call, read]).into(), &snapshot));
+        assert!(can_reuse_capture(&Return::new(vec![field(&snapshot)]).into(), &snapshot));
+        // A global callee lookup may dispatch __index before its argument read.
+        let global = crate::Global(b"print".to_vec()).into();
+        assert!(!can_reuse_capture(&Call::new(global, vec![snapshot.clone().into()]).into(), &snapshot));
+    }
 
     #[test]
     fn address_reads_precede_rhs_but_terminal_stores_follow_it() {
