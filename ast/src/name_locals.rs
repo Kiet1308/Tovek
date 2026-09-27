@@ -5377,7 +5377,7 @@ mod tests {
             use_local(&hum),
             declare(&cfg, cfg_value),
             use_local(&cfg),
-            Statement::NumericFor(numeric_for),
+            Statement::NumericFor(Box::new(numeric_for)),
             declare(&callback, RValue::Closure(closure)),
             use_local(&callback),
         ]);
@@ -6445,20 +6445,20 @@ mod tests {
         let i_a = RcLocal::default();
         let i_b = RcLocal::default();
 
-        let for_a = Statement::NumericFor(NumericFor::new(
+        let for_a = Statement::NumericFor(Box::new(NumericFor::new(
             number(1.0),
             number(10.0),
             number(1.0),
             i_a.clone(),
             Block(vec![use_local(&i_a)]),
-        ));
-        let for_b = Statement::NumericFor(NumericFor::new(
+        )));
+        let for_b = Statement::NumericFor(Box::new(NumericFor::new(
             number(1.0),
             number(10.0),
             number(1.0),
             i_b.clone(),
             Block(vec![use_local(&i_b)]),
-        ));
+        )));
 
         let mut block = Block(vec![for_a, for_b]);
         name_locals(&mut block, true);
@@ -6476,20 +6476,20 @@ mod tests {
         let k_b = RcLocal::default();
         let v_b = RcLocal::default();
 
-        let for_a = Statement::NumericFor(NumericFor::new(
+        let for_a = Statement::NumericFor(Box::new(NumericFor::new(
             number(1.0),
             number(10.0),
             number(1.0),
             i_a.clone(),
             Block(vec![use_local(&i_a)]),
-        ));
-        let for_b = Statement::NumericFor(NumericFor::new(
+        )));
+        let for_b = Statement::NumericFor(Box::new(NumericFor::new(
             number(1.0),
             number(10.0),
             number(1.0),
             i_b.clone(),
             Block(vec![use_local(&i_b)]),
-        ));
+        )));
         let generic_a = Statement::GenericFor(GenericFor::new(
             vec![k_a.clone(), v_a.clone()],
             vec![global("pairs")],
@@ -6691,13 +6691,13 @@ mod tests {
         name_assign.prefix = false;
         let s3 = Statement::Assign(name_assign);
         // for i = 1, 5 do print(i) end
-        let s4 = Statement::NumericFor(NumericFor::new(
+        let s4 = Statement::NumericFor(Box::new(NumericFor::new(
             number(1.0),
             number(5.0),
             number(1.0),
             i.clone(),
             Block(vec![use_local(&i)]),
-        ));
+        )));
         // local handler = function(hit) print(hit) end
         let mut function = Function::default();
         function.parameters = vec![hit.clone()];
@@ -7276,7 +7276,7 @@ mod tests {
         );
         let mut block = Block(vec![
             declare(&out, RValue::Table(Table::default())),
-            Statement::NumericFor(numeric_for),
+            Statement::NumericFor(Box::new(numeric_for)),
             ret(vec![RValue::Local(out.clone())]),
         ]);
         name_locals(&mut block, true);

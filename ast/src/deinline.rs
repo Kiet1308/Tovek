@@ -1182,13 +1182,13 @@ fn canon_children_owned(s: Statement, tail: bool) -> Statement {
             r.condition,
             Block(canon_tail(&r.block.lock().0, false)),
         )),
-        Statement::NumericFor(nf) => Statement::NumericFor(NumericFor {
+        Statement::NumericFor(nf) => Statement::NumericFor(Box::new(NumericFor {
             block: Arc::new(Mutex::new(Block(canon_tail(&nf.block.lock().0, false)))),
             initial: nf.initial,
             limit: nf.limit,
             step: nf.step,
             counter: nf.counter,
-        }),
+        })),
         Statement::GenericFor(gf) => Statement::GenericFor(GenericFor {
             res_locals: gf.res_locals,
             right: gf.right,
@@ -2433,7 +2433,7 @@ fn rewrite_return_to_void(stmts: &[Statement], ret: &RValue) -> Vec<Statement> {
                 r.condition.clone(),
                 Block(rewrite_return_to_void(&r.block.lock().0, ret)),
             )),
-            Statement::NumericFor(nf) => Statement::NumericFor(NumericFor {
+            Statement::NumericFor(nf) => Statement::NumericFor(Box::new(NumericFor {
                 initial: nf.initial.clone(),
                 limit: nf.limit.clone(),
                 step: nf.step.clone(),
@@ -2442,7 +2442,7 @@ fn rewrite_return_to_void(stmts: &[Statement], ret: &RValue) -> Vec<Statement> {
                     &nf.block.lock().0,
                     ret,
                 )))),
-            }),
+            })),
             Statement::GenericFor(gf) => Statement::GenericFor(GenericFor {
                 res_locals: gf.res_locals.clone(),
                 right: gf.right.clone(),
@@ -3042,13 +3042,13 @@ fn subst_reads_owned(s: Statement, old: &RcLocal, new: &RcLocal) -> Statement {
             nf.limit.replace_values_read(old, new);
             nf.step.replace_values_read(old, new);
             let block = sub_block(&nf.block);
-            Statement::NumericFor(NumericFor {
+            Statement::NumericFor(Box::new(NumericFor {
                 block: Arc::new(Mutex::new(block)),
                 initial: nf.initial,
                 limit: nf.limit,
                 step: nf.step,
                 counter: nf.counter,
-            })
+            }))
         }
         Statement::GenericFor(mut gf) => {
             for rv in &mut gf.right {

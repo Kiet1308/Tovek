@@ -308,9 +308,9 @@ mod tests {
             number(3.0),
             number(1.0),
             outer_counter.clone(),
-            Block(vec![Statement::NumericFor(inner).into()]),
+            Block(vec![Statement::NumericFor(Box::new(inner)).into()]),
         );
-        let mut block = Block(vec![Statement::NumericFor(outer).into()]);
+        let mut block = Block(vec![Statement::NumericFor(Box::new(outer)).into()]);
 
         materialize_value_captures(&mut block);
 
@@ -377,7 +377,7 @@ mod tests {
             counter.clone(),
             loop_body,
         );
-        let mut block = Block(vec![Statement::NumericFor(loop_statement).into()]);
+        let mut block = Block(vec![Statement::NumericFor(Box::new(loop_statement)).into()]);
 
         materialize_value_captures(&mut block);
 

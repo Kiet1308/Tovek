@@ -148,13 +148,13 @@ fn dc_stmt(statement: &Statement) -> Statement {
             condition: dc_rvalue(&repeat.condition),
             block: dc_arc(&repeat.block),
         }),
-        Statement::NumericFor(numeric_for) => Statement::NumericFor(NumericFor {
+        Statement::NumericFor(numeric_for) => Statement::NumericFor(Box::new(NumericFor {
             initial: dc_rvalue(&numeric_for.initial),
             limit: dc_rvalue(&numeric_for.limit),
             step: dc_rvalue(&numeric_for.step),
             counter: numeric_for.counter.clone(),
             block: dc_arc(&numeric_for.block),
-        }),
+        })),
         Statement::GenericFor(generic_for) => Statement::GenericFor(GenericFor {
             res_locals: generic_for.res_locals.clone(),
             right: generic_for.right.iter().map(dc_rvalue).collect(),

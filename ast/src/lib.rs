@@ -14,6 +14,7 @@ use std::{
 
 mod assign;
 mod binary;
+mod boxed_statement;
 mod r#break;
 mod call;
 pub mod call_origins;
@@ -368,11 +369,11 @@ pub enum Statement {
     Label(Label),
     While(While),
     Repeat(Repeat),
-    NumForInit(NumForInit),
-    NumForNext(NumForNext),
-    NumericFor(NumericFor),
+    NumForInit(Box<NumForInit>),
+    NumForNext(Box<NumForNext>),
+    NumericFor(Box<NumericFor>),
     GenericForInit(GenericForInit),
-    GenericForNext(GenericForNext),
+    GenericForNext(Box<GenericForNext>),
     GenericFor(GenericFor),
     Return(Return),
     Continue(Continue),
