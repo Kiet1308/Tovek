@@ -7,6 +7,41 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 mod facts;
 
+/// Candidate definitions cannot move during one block visit: successful
+/// substitution only empties a producer or rewrites a consumer's expressions.
+/// Remember the first assignment that could produce each local, including
+/// multi-destination result packs. An obsolete entry after emptying is merely
+/// conservative. This also preserves behavior for hand-built, non-SSA blocks
+/// containing more than one definition of the same local.
+struct ProducerIndex(FxHashMap<u64, usize>);
+
+impl ProducerIndex {
+    fn new(block: &ast::Block) -> Self {
+        let mut definitions = FxHashMap::default();
+        for (index, statement) in block.iter().enumerate() {
+            if let ast::Statement::Assign(assign) = statement
+                && assign.right.len() == 1
+            {
+                for local in assign.left.iter().filter_map(|left| left.as_local()) {
+                    definitions.entry(local.stable_id()).or_insert(index);
+                }
+            }
+        }
+        Self(definitions)
+    }
+
+    fn first(&self, reads: &[Option<ast::RcLocal>], before: usize) -> Option<usize> {
+        #[cfg(test)]
+        if tests::REFERENCE_SCAN.with(std::cell::Cell::get) {
+            return (before != 0).then_some(0);
+        }
+        reads.iter().flatten()
+            .filter_map(|local| self.0.get(&local.stable_id()).copied())
+            .filter(|&index| index < before)
+            .min()
+    }
+}
+
 /// Relational reversal changes both operand positions and the operator, leaving
 /// the VM's ordered comparison intact. Equality has no reversed operator: its
 /// __eq call must retain the original argument order. A primitive literal on
@@ -291,6 +326,7 @@ impl<'a> Inliner<'a> {
         for node in node_indices {
             let block = self.function.block_mut(node).unwrap();
             let mut facts = facts::Cache::new(block.len(), self.local_to_group, self.upvalue_to_group);
+            let producers = ProducerIndex::new(block);
 
             // TODO: rename values_read to locals_read
             let mut stat_to_values_read = Vec::with_capacity(block.len());
@@ -316,9 +352,13 @@ impl<'a> Inliner<'a> {
             // TODO: push multiple use local assignments forward to their first use
             let mut index = 0;
             'w: while index < block.len() {
+                let Some(first_producer) = producers.first(&stat_to_values_read[index], index) else {
+                    index += 1;
+                    continue;
+                };
                 let mut groups_written = FxHashSet::default();
                 let mut allow_side_effects = true;
-                for stat_index in (0..index).rev() {
+                for stat_index in (first_producer..index).rev() {
                     let mut values_read = stat_to_values_read[index]
                         .iter_mut()
                         .filter(|l| l.is_some())
@@ -539,8 +579,13 @@ impl<'a> Inliner<'a> {
 
                 let mut index = 0;
                 'w: while index < arg_to_values_read.len() {
+                    let end = self.function.block(node).unwrap().len();
+                    let Some(first_producer) = producers.first(&arg_to_values_read[index], end) else {
+                        index += 1;
+                        continue;
+                    };
                     let mut groups_written = FxHashSet::default();
-                    for stat_index in (0..self.function.block(node).unwrap().len()).rev() {
+                    for stat_index in (first_producer..end).rev() {
                         let mut values_read = arg_to_values_read[index]
                             .iter_mut()
                             .filter(|l| l.is_some())
@@ -1054,6 +1099,22 @@ pub fn inline_with_readonly_captures(
 
 #[cfg(test)]
 mod tests {
+    thread_local! {
+        // Run the unchanged full-prefix search as a differential oracle. The
+        // flag is thread-local so other unit tests cannot see the override.
+        pub(super) static REFERENCE_SCAN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+
+    struct ReferenceScan;
+    impl ReferenceScan {
+        fn enter() -> Self {
+            REFERENCE_SCAN.with(|flag| assert!(!flag.replace(true)));
+            Self
+        }
+    }
+    impl Drop for ReferenceScan {
+        fn drop(&mut self) { REFERENCE_SCAN.with(|flag| flag.set(false)); }
+    }
     use super::{
         fold_table_constructor_field_assignments, inline, local_is_conditionally_evaluated,
         rvalue_blocks_reorder,
@@ -1132,6 +1193,83 @@ mod tests {
         inline(&mut function, &FxHashMap::default(), &IndexMap::new());
 
         function.block(entry).unwrap().clone()
+    }
+
+    #[test]
+    fn indexed_search_matches_full_prefix_with_effects_groups_and_edge_arguments() {
+        for seed in 0..96usize {
+            let mut random = seed + 1;
+            let mut next = || {
+                random = random.wrapping_mul(1664525).wrapping_add(1013904223);
+                random
+            };
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            let exit = function.new_block();
+            function.set_entry(entry);
+            let mut locals: Vec<_> = (0..4).map(|_| RcLocal::default()).collect();
+            function.parameters = locals.clone();
+            for _ in 0..40 {
+                let read = locals[next() % locals.len()].clone();
+                let rhs = match next() % 6 {
+                    0 => number((next() % 8) as f64),
+                    1 => read.clone().into(),
+                    2 => ast::Call::new(global("effect"), vec![read.clone().into()]).into(),
+                    3 => Index::new(read.clone().into(), string("field")).into(),
+                    4 => Binary::new(read.clone().into(), number(1.0), ast::BinaryOperation::Add).into(),
+                    _ => RValue::Table(Table::default()),
+                };
+                // Repeated definitions are intentional: public hand-built
+                // CFGs need the same conservative behavior as the old scan.
+                let target = if next() % 7 == 0 { read } else { RcLocal::default() };
+                function.block_mut(entry).unwrap().push(Assign::new(vec![target.clone().into()], vec![rhs]).into());
+                locals.push(target);
+                if next() % 3 == 0 {
+                    let arg = locals[next() % locals.len()].clone();
+                    function.block_mut(entry).unwrap().push(ast::Call::new(global("barrier"), vec![arg.into()]).into());
+                }
+            }
+            let params = [RcLocal::default(), RcLocal::default()];
+            let arguments = params.iter().map(|param| (param.clone(), locals[next() % locals.len()].clone().into())).collect();
+            function.set_edges(entry, vec![(exit, crate::block::BlockEdge { arguments, ..Default::default() })]);
+            function.block_mut(exit).unwrap().push(Return::new(params.into_iter().map(RValue::from).collect()).into());
+            let groups = locals.iter().enumerate().map(|(index, local)| (local.clone(), index % 5)).collect();
+            let captures = locals.iter().enumerate().filter(|(index, _)| index % 11 == seed % 11)
+                .map(|(_, local)| (local.clone(), local.clone())).collect();
+            let mut reference = function.clone();
+            inline(&mut function, &groups, &captures);
+            {
+                let _reference = ReferenceScan::enter();
+                inline(&mut reference, &groups, &captures);
+            }
+            for (node, block) in function.blocks() {
+                assert_eq!(block, reference.block(node).unwrap(), "seed={seed}, node={node:?}");
+                let actual: Vec<_> = function.edges(node).map(|edge| edge.weight().arguments.clone()).collect();
+                let expected: Vec<_> = reference.edges(node).map(|edge| edge.weight().arguments.clone()).collect();
+                assert_eq!(actual, expected, "edge arguments, seed={seed}");
+            }
+        }
+    }
+
+    #[test]
+    fn indexed_scan_stays_local_for_long_effect_barrier_blocks() {
+        let mut block = Block::default();
+        let mut reads = Vec::new();
+        for _ in 0..6_000 {
+            let value = RcLocal::default();
+            block.push(Assign::new(vec![value.clone().into()], vec![ast::Call::new(global("f"), vec![]).into()]).into());
+            block.push(ast::Call::new(global("g"), vec![]).into());
+            block.push(ast::Call::new(global("h"), vec![value.clone().into()]).into());
+            reads.push(value);
+        }
+        let producers = super::ProducerIndex::new(&block);
+        let scans: usize = reads.iter().enumerate().map(|(index, local)| {
+            let consumer = 3 * index + 2;
+            consumer - producers.first(&[Some(local.clone())], consumer).unwrap()
+        }).sum();
+        assert_eq!(scans, 12_000, "two barriers per consumer, independent of prefix length");
+        let output = inline_block(block);
+        assert_eq!(output.len(), 18_000, "all effectful statements retain their order");
     }
 
     #[test]

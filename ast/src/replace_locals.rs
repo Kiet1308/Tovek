@@ -9,12 +9,23 @@ pub fn replace_locals<H: std::hash::BuildHasher>(
     map: &HashMap<RcLocal, RcLocal, H>,
 ) {
     for statement in &mut block.0 {
-        for local in statement.values_read_mut() {
+        replace_locals_in_statement(statement, map);
+    }
+}
+
+/// Rewrite one indexed statement, including its nested blocks and closures.
+/// Callers with occurrence information need not revisit unrelated statements.
+pub(crate) fn replace_locals_in_statement<H: std::hash::BuildHasher>(
+    statement: &mut Statement,
+    map: &HashMap<RcLocal, RcLocal, H>,
+) {
+        statement.visit_local_reads_mut(&mut |local| {
             if let Some(new_local) = map.get(local) {
                 new_local.inherit_source_bindings(local);
                 *local = new_local.clone();
             }
-        }
+            true
+        });
         for local in statement.values_written_mut() {
             if let Some(new_local) = map.get(local) {
                 new_local.inherit_source_bindings(local);
@@ -47,5 +58,4 @@ pub fn replace_locals<H: std::hash::BuildHasher>(
             }
             _ => {}
         }
-    }
 }

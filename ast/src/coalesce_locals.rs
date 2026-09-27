@@ -79,15 +79,28 @@ impl LocalInfo {
     }
 }
 
-/// Coalesce generated locals when the function is above the register-pressure
-/// threshold.  The pass is intentionally a no-op for functions containing a
-/// closure: closure capture lifetime is represented separately from the
-/// shallow `LocalRw` view and must not be guessed here.
+/// Coalesce generated locals above Luau's 200-local source limit. Captured
+/// cells keep their identities for the full closure lifetime; unrelated local
+/// values may still reuse storage after their last lexical occurrence.
 pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLocal>) {
+    coalesce_generated_locals_in_function(block, protected, &[], &[]);
+}
+
+/// Explicit frame ownership keeps unused parameters in the root pressure count
+/// and excludes incoming upvalues, which do not consume local binding slots.
+pub fn coalesce_generated_locals_in_function(
+    block: &mut Block,
+    protected: &FxHashSet<RcLocal>,
+    parameters: &[RcLocal],
+    upvalues: &[RcLocal],
+) {
+    const LOCAL_LIMIT: usize = 200;
+    let parameter_set: FxHashSet<_> = parameters.iter().cloned().collect();
+    let external_set: FxHashSet<_> = upvalues.iter().cloned().collect();
     let mut position = 0;
     let mut branch_id = 0;
     let mut loop_id = 0;
-    let mut has_closure = false;
+    let mut captured = FxHashSet::default();
     let mut infos: FxHashMap<RcLocal, LocalInfo> = FxHashMap::default();
     collect_block(
         block,
@@ -96,12 +109,15 @@ pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLoca
         &mut loop_id,
         &mut Vec::new(),
         &mut Vec::new(),
-        &mut has_closure,
+        &mut captured,
         &mut infos,
         protected,
     );
-    if has_closure || infos.len() <= 240 {
-        return;
+    let owned_bindings = infos.keys().filter(|local|
+        !parameter_set.contains(*local) && !external_set.contains(*local)).count();
+    if owned_bindings.saturating_add(parameters.len()) <= LOCAL_LIMIT { return; }
+    for (local, info) in &mut infos {
+        info.blocked |= captured.contains(local) || parameter_set.contains(local) || external_set.contains(local);
     }
 
     // Count declarations along a lexical scope chain, not across the entire
@@ -109,23 +125,14 @@ pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLoca
     // registers at the same time. Coalescing those functions needlessly makes
     // unrelated computations share identities and hides inline helper shapes.
     let mut scope_sizes: FxHashMap<(Vec<usize>, Vec<(usize, bool)>), usize> = FxHashMap::default();
-    for info in infos.values() {
+    for info in infos.values().filter(|info|
+        !parameter_set.contains(&info.local) && !external_set.contains(&info.local)) {
         *scope_sizes
             .entry((info.loop_scope.clone(), info.branch_scope.clone()))
             .or_default() += 1;
     }
-    if scope_sizes.keys().all(|(loops, branches)| {
-        scope_sizes
-            .iter()
-            .filter(|((parent_loops, parent_branches), _)| {
-                loops.starts_with(parent_loops) && branches.starts_with(parent_branches)
-            })
-            .map(|(_, count)| count)
-            .sum::<usize>()
-            <= 240
-    }) {
-        return;
-    }
+    *scope_sizes.entry((Vec::new(), Vec::new())).or_default() += parameters.len();
+    if !scope_pressure_exceeds(&scope_sizes, LOCAL_LIMIT) { return; }
 
     // Do not split branch-private identities here.  That transformation needs
     // block/region liveness and definite-assignment facts; a local may be live
@@ -136,25 +143,119 @@ pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLoca
 
     let mut values = infos.into_values().collect::<Vec<_>>();
     values.sort_by_key(|info| (info.first, info.last, info.local.stable_id()));
-    let mut groups: Vec<CoalesceGroup> = Vec::new();
-    let mut replacements = FxHashMap::default();
-    for info in values {
-        if info.blocked || !is_unnamed(&info.local) {
-            continue;
-        }
-        let Some(group) = groups.iter_mut().find(|group| can_join_group(group, &info)) else {
-            groups.push(CoalesceGroup {
-                representative: info.clone(),
-                members: vec![info],
-            });
-            continue;
-        };
-        replacements.insert(info.local.clone(), group.representative.local.clone());
-        group.members.push(info);
-    }
+    let replacements = coalesce_values(values);
     if !replacements.is_empty() {
         crate::replace_locals::replace_locals(block, &replacements);
     }
+}
+
+type ScopeKey = (Vec<usize>, Vec<(usize, bool)>);
+
+fn scope_pressure_exceeds(sizes: &FxHashMap<ScopeKey, usize>, limit: usize) -> bool {
+    let mut by_loops: FxHashMap<&[usize], FxHashMap<&[(usize, bool)], usize>> = FxHashMap::default();
+    for ((loops, branches), &count) in sizes {
+        by_loops.entry(loops).or_default().insert(branches, count);
+    }
+    sizes.keys().any(|(loops, branches)| {
+        let mut pressure = 0;
+        for loop_depth in 0..=loops.len() {
+            if let Some(scopes) = by_loops.get(&loops[..loop_depth]) {
+                for branch_depth in 0..=branches.len() {
+                    pressure += scopes.get(&branches[..branch_depth]).copied().unwrap_or(0);
+                    if pressure > limit { return true; }
+                }
+            }
+        }
+        false
+    })
+}
+
+/// Minimum eligible position over source-ordered groups. A group containing a
+/// member first used directly in its declaration scope certainly interferes
+/// until that member's last use: its first occurrence shares the scope prefix
+/// with every later candidate. Other branch-sensitive groups still undergo the
+/// unchanged all-member proof; the index only skips certified conflicts.
+#[derive(Default)]
+struct GroupAvailability {
+    size: usize,
+    len: usize,
+    minimum: Vec<usize>,
+}
+
+impl GroupAvailability {
+    fn push(&mut self, ready: usize) {
+        if self.len == self.size {
+            let size = (self.size * 2).max(1);
+            let mut minimum = vec![usize::MAX; size * 2];
+            for index in 0..self.len { minimum[size + index] = self.minimum[self.size + index]; }
+            for node in (1..size).rev() { minimum[node] = minimum[node * 2].min(minimum[node * 2 + 1]); }
+            self.minimum = minimum;
+            self.size = size;
+        }
+        let index = self.len;
+        self.len += 1;
+        self.set(index, ready);
+    }
+
+    fn set(&mut self, index: usize, ready: usize) {
+        let mut node = self.size + index;
+        self.minimum[node] = ready;
+        while node > 1 {
+            node /= 2;
+            self.minimum[node] = self.minimum[node * 2].min(self.minimum[node * 2 + 1]);
+        }
+    }
+
+    fn first_ready(&self, start: usize, position: usize) -> Option<usize> {
+        if self.len == 0 { return None; }
+        self.search(1, 0, self.size, start, position)
+    }
+
+    fn search(&self, node: usize, left: usize, right: usize, start: usize, position: usize) -> Option<usize> {
+        if right <= start || self.minimum[node] > position { return None; }
+        if right - left == 1 { return Some(left); }
+        let middle = (left + right) / 2;
+        self.search(node * 2, left, middle, start, position)
+            .or_else(|| self.search(node * 2 + 1, middle, right, start, position))
+    }
+}
+
+#[derive(Default)]
+struct ScopeGroups {
+    groups: Vec<CoalesceGroup>,
+    available: GroupAvailability,
+}
+
+fn coalesce_values(values: Vec<LocalInfo>) -> FxHashMap<RcLocal, RcLocal> {
+    let mut scopes: FxHashMap<ScopeKey, ScopeGroups> = FxHashMap::default();
+    let mut replacements = FxHashMap::default();
+    for info in values {
+        if info.blocked || !is_unnamed(&info.local) { continue; }
+        let ready = if info.occurrences.iter().any(|occurrence|
+            occurrence.position == info.first && occurrence.branches == info.branch_scope)
+        { info.last + 1 } else { 0 };
+        let scope = scopes.entry((info.loop_scope.clone(), info.branch_scope.clone())).or_default();
+        let mut start = 0;
+        let mut selected = None;
+        while let Some(index) = scope.available.first_ready(start, info.first) {
+            let group = &mut scope.groups[index];
+            // First positions are monotone. Expired intervals cannot interfere
+            // with this or any later candidate, even on conditional branches.
+            group.members.retain(|member| member.last >= info.first);
+            if can_join_group(group, &info) { selected = Some(index); break; }
+            start = index + 1;
+        }
+        if let Some(index) = selected {
+            let group = &mut scope.groups[index];
+            replacements.insert(info.local.clone(), group.representative.local.clone());
+            group.members.push(info);
+            scope.available.set(index, ready.max(scope.available.minimum[scope.available.size + index]));
+        } else {
+            scope.groups.push(CoalesceGroup { representative: info.clone(), members: vec![info] });
+            scope.available.push(ready);
+        }
+    }
+    replacements
 }
 
 fn can_join_group(group: &CoalesceGroup, info: &LocalInfo) -> bool {
@@ -171,21 +272,18 @@ fn can_join_group(group: &CoalesceGroup, info: &LocalInfo) -> bool {
             .all(|member| !ranges_interfere(member, info))
 }
 
-fn rvalue_contains_closure(value: &RValue) -> bool {
-    matches!(value, RValue::Closure(_)) || value.rvalues().into_iter().any(rvalue_contains_closure)
-}
-
-/// `Statement::rvalues()` intentionally reports only RHS expressions.  An
-/// indexed assignment can put an arbitrary expression (including a closure)
-/// in its LHS index, so closure detection for this pass must traverse both
-/// lvalues and rvalues.
-fn statement_contains_closure(statement: &Statement) -> bool {
-    let mut copy = statement.clone();
-    let mut found = false;
-    copy.traverse_rvalues(&mut |value| {
-        found |= rvalue_contains_closure(value);
+/// Capture records are reads at closure construction, but their cells can
+/// remain live after the last shallow read. Protect Copy and Ref captures and
+/// include closures in indexed assignment targets; never descend into a child
+/// function's body as though that body executed in this lexical scope.
+fn collect_statement_captures(statement: &Statement, captured: &mut FxHashSet<RcLocal>) {
+    statement.traverse_rvalues_ref(&mut |value| {
+        if let RValue::Closure(closure) = value {
+            captured.extend(closure.upvalues.iter().map(|upvalue| match upvalue {
+                crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local) => local.clone(),
+            }));
+        }
     });
-    found
 }
 
 fn is_unnamed(local: &RcLocal) -> bool {
@@ -264,16 +362,14 @@ fn collect_block(
     loop_id: &mut usize,
     branches: &mut Vec<(usize, bool)>,
     loop_scope: &mut Vec<usize>,
-    has_closure: &mut bool,
+    captured: &mut FxHashSet<RcLocal>,
     infos: &mut FxHashMap<RcLocal, LocalInfo>,
     protected: &FxHashSet<RcLocal>,
 ) {
     for statement in block.iter_mut() {
         let current_position = *position;
         *position += 1;
-        if statement_contains_closure(statement) {
-            *has_closure = true;
-        }
+        collect_statement_captures(statement, captured);
         record_statement(
             statement,
             current_position,
@@ -295,7 +391,7 @@ fn collect_block(
                     loop_id,
                     branches,
                     loop_scope,
-                    has_closure,
+                    captured,
                     infos,
                     protected,
                 );
@@ -308,7 +404,7 @@ fn collect_block(
                     loop_id,
                     branches,
                     loop_scope,
-                    has_closure,
+                    captured,
                     infos,
                     protected,
                 );
@@ -325,7 +421,7 @@ fn collect_block(
                     loop_id,
                     branches,
                     loop_scope,
-                    has_closure,
+                    captured,
                     infos,
                     protected,
                 );
@@ -342,7 +438,7 @@ fn collect_block(
                     loop_id,
                     branches,
                     loop_scope,
-                    has_closure,
+                    captured,
                     infos,
                     protected,
                 );
@@ -360,7 +456,7 @@ fn collect_block(
                     loop_id,
                     branches,
                     loop_scope,
-                    has_closure,
+                    captured,
                     infos,
                     protected,
                 );
@@ -380,7 +476,7 @@ fn collect_block(
                     loop_id,
                     branches,
                     loop_scope,
-                    has_closure,
+                    captured,
                     infos,
                     protected,
                 );
@@ -407,6 +503,58 @@ mod tests {
     use by_address::ByAddress;
     use parking_lot::Mutex;
     use triomphe::Arc;
+
+    #[test]
+    fn indexed_groups_match_all_members_first_fit() {
+        for seed in 1..100u64 {
+            let mut random = seed;
+            let mut next = || { random ^= random << 13; random ^= random >> 7; random ^= random << 17; random as usize };
+            let mut values = Vec::new();
+            for _ in 0..150 {
+                let first = next() % 100;
+                let last = first + next() % 40;
+                let path = |choice: usize| match choice {
+                    0 => vec![],
+                    1 => vec![(0, true)],
+                    2 => vec![(0, false)],
+                    3 => vec![(0, true), (1, true)],
+                    4 => vec![(0, true), (1, false)],
+                    _ => vec![(0, false), (2, true)],
+                };
+                let mut info = LocalInfo::new(RcLocal::default(), Occurrence {
+                    position: first, branches: path(next() % 6), read: true, written: false,
+                }, &[], false);
+                info.add(Occurrence { position: last, branches: path(next() % 6), read: true, written: false }, &[], false);
+                values.push(info);
+            }
+            values.sort_by_key(|info| (info.first, info.last, info.local.stable_id()));
+            let mut expected = FxHashMap::default();
+            let mut groups: Vec<CoalesceGroup> = Vec::new();
+            for info in values.iter().cloned() {
+                if let Some(group) = groups.iter_mut().find(|group| can_join_group(group, &info)) {
+                    expected.insert(info.local.clone(), group.representative.local.clone());
+                    group.members.push(info);
+                } else { groups.push(CoalesceGroup { representative: info.clone(), members: vec![info] }); }
+            }
+            assert_eq!(coalesce_values(values), expected, "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn indexed_scope_pressure_matches_full_prefix_scan() {
+        let mut sizes = FxHashMap::default();
+        for index in 0..200 {
+            let loops = if index % 3 == 0 { vec![] } else { vec![index % 5] };
+            let branches = if index % 4 == 0 { vec![] } else { vec![(index % 8, index % 2 == 0)] };
+            *sizes.entry((loops, branches)).or_default() += 1;
+            for limit in [0, 10, 30, 80, 240] {
+                let expected = sizes.keys().any(|(loops, branches)| sizes.iter()
+                    .filter(|((parent_loops, parent_branches), _)| loops.starts_with(parent_loops) && branches.starts_with(parent_branches))
+                    .map(|(_, count)| count).sum::<usize>() > limit);
+                assert_eq!(scope_pressure_exceeds(&sizes, limit), expected);
+            }
+        }
+    }
 
     fn synthetic_info(first: usize, last: usize) -> LocalInfo {
         let local = RcLocal::default();
@@ -572,13 +720,66 @@ mod tests {
     }
 
     #[test]
-    fn closure_in_indexed_lhs_disables_pressure_rewrite() {
+    fn source_binding_pressure_counts_parameters_and_excludes_upvalues() {
+        fn locals_block(count: usize) -> Block {
+            Block((0..count).map(|index| Assign::new(vec![RcLocal::default().into()],
+                vec![Literal::Number(index as f64).into()]).into()).collect())
+        }
+        let parameters: Vec<_> = (0..180).map(|_| RcLocal::default()).collect();
+        let mut at_limit = locals_block(20);
+        let unchanged = at_limit.clone();
+        coalesce_generated_locals_in_function(&mut at_limit, &FxHashSet::default(), &parameters, &[]);
+        assert_eq!(at_limit, unchanged, "200 bindings are legal even with unused parameters");
+        let mut over_limit = locals_block(21);
+        coalesce_generated_locals_in_function(&mut over_limit, &FxHashSet::default(), &parameters, &[]);
+        let written: FxHashSet<_> = over_limit.iter().flat_map(|statement| statement.values_written()).collect();
+        assert_eq!(written.len(), 1, "the 201st binding triggers conservative reuse");
+        let upvalues: Vec<_> = (0..100).map(|_| RcLocal::default()).collect();
+        let mut block = locals_block(150);
+        block.push(Call::new(Global::from("use").into(), upvalues.iter().cloned().map(RValue::from).collect()).into());
+        let unchanged = block.clone();
+        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &upvalues);
+        assert_eq!(block, unchanged, "incoming upvalues are not local binding slots");
+    }
+
+    #[test]
+    fn copy_and_ref_capture_cells_outlive_last_shallow_occurrence() {
+        let copy = RcLocal::default(); let reference = RcLocal::default();
+        let child_local = RcLocal::default();
+        let function = ByAddress(Arc::new(Mutex::new(Function { body: Block(vec![
+            Assign::new(vec![child_local.clone().into()], vec![Literal::Number(7.0).into()]).into(),
+            crate::Return::new(vec![copy.clone().into(), reference.clone().into()]).into(),
+        ]), ..Function::default() })));
+        let closure = Closure { node_origin: Default::default(), function: function.clone(),
+            upvalues: vec![Upvalue::Copy(copy.clone()), Upvalue::Ref(reference.clone())] };
+        let mut block = Block(vec![
+            Assign::new(vec![copy.clone().into()], vec![Literal::Number(1.0).into()]).into(),
+            Assign::new(vec![reference.clone().into()], vec![Literal::Number(2.0).into()]).into(),
+            Call::new(Global::from("save").into(), vec![closure.into()]).into(),
+        ]);
+        for index in 0..205 {
+            let temp = RcLocal::default();
+            block.push(Assign::new(vec![temp.clone().into()], vec![Literal::Number(index as f64).into()]).into());
+            block.push(Call::new(Global::from("callback").into(), vec![temp.into()]).into());
+        }
+        let child_before = function.lock().body.clone();
+        coalesce_generated_locals(&mut block, &FxHashSet::default());
+        let written: FxHashSet<_> = block.iter().flat_map(|statement| statement.values_written()).cloned().collect();
+        assert!(written.contains(&copy) && written.contains(&reference));
+        assert_eq!(written.len(), 3, "only the uncaptured sequential temporaries share a third cell");
+        assert_eq!(function.lock().body, child_before, "child function locals are a separate execution frame");
+        let captures = &block[2].as_call().unwrap().arguments[0].as_closure().unwrap().upvalues;
+        assert_eq!(captures, &vec![Upvalue::Copy(copy), Upvalue::Ref(reference)]);
+    }
+
+    #[test]
+    fn closure_in_indexed_lhs_protects_capture_without_disabling_unrelated_reuse() {
         let captured = RcLocal::default();
         let value = RcLocal::default();
         let closure = RValue::Closure(Closure {
             node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
-            upvalues: vec![Upvalue::Ref(captured)],
+            upvalues: vec![Upvalue::Ref(captured.clone())],
         });
         let indexed_store = Assign::new(
             vec![LValue::Index(Index::new(
@@ -619,12 +820,15 @@ mod tests {
             Statement::Assign(assign) => assign.left[0].as_local().cloned(),
             _ => None,
         };
-        assert_eq!(first, Some(value));
+        assert_eq!(first, Some(value.clone()));
         let pressure = match &block.0[2] {
             Statement::Assign(assign) => assign.left[0].as_local().cloned(),
             _ => None,
         };
-        assert_eq!(pressure, Some(pressure_local));
+        assert_eq!(pressure, Some(value.clone()));
+        let closure = block[1].as_assign().unwrap().left[0].as_index().unwrap().right.as_closure().unwrap();
+        assert_eq!(closure.upvalues, vec![Upvalue::Ref(captured.clone())]);
+        assert_ne!(value, captured);
     }
 
     #[test]

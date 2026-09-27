@@ -146,12 +146,11 @@ pub struct Function {
 }
 
 impl Function {
-    fn parse_instructions(vec: &[u32], encode_key: u8) -> Result<Vec<Instruction>, ()> {
-        let mut v: Vec<Instruction> = Vec::new();
-        let mut pc = 0;
+    fn parse_instructions(mut words: impl ExactSizeIterator<Item = u32>, encode_key: u8) -> Result<Vec<Instruction>, ()> {
+        let mut v: Vec<Instruction> = Vec::with_capacity(words.len());
 
-        while pc < vec.len() {
-            let ins = Instruction::parse(vec[pc], encode_key).map_err(|_| ())?;
+        while let Some(word) = words.next() {
+            let ins = Instruction::parse(word, encode_key).map_err(|_| ())?;
             let op = match ins {
                 Instruction::BC { op_code, .. } => op_code,
                 Instruction::AD { op_code, .. } => op_code,
@@ -159,8 +158,7 @@ impl Function {
             };
 
             if op.has_aux() {
-                    let aux = *vec.get(pc + 1).ok_or(())?;
-                    pc += 2;
+                    let aux = words.next().ok_or(())?;
                     match ins {
                         Instruction::BC {
                             op_code, a, b, c, ..
@@ -187,7 +185,6 @@ impl Function {
                     });
             } else {
                 v.push(ins);
-                pc += 1;
             }
 
         }
@@ -202,19 +199,26 @@ impl Function {
         let (input, is_vararg) = le_u8(input)?;
 
         let (input, flags) = le_u8(input)?;
-        let (input, raw_type_info) = parse_list(input, le_u8)?;
-        let type_info = FunctionTypeInfo::parse(&raw_type_info);
+        let (input, type_info_len) = nom_leb128::leb128_usize(input)?;
+        let (input, raw_type_info) = nom::bytes::complete::take(type_info_len)(input)?;
+        let type_info = FunctionTypeInfo::parse(raw_type_info);
 
-        let (input, u32_instructions) = parse_list(input, le_u32)?;
-        if u32_instructions.is_empty() {
+        let (input, instruction_count) = nom_leb128::leb128_usize(input)?;
+        if instruction_count == 0 {
             return Err(nom::Err::Failure(nom::error::Error::new(
                 input,
                 nom::error::ErrorKind::Verify,
             )));
         }
-        //let (input, instructions) = parse_list(input, Function::parse_instrution)?;
+        let byte_count = instruction_count.checked_mul(4).ok_or_else(|| {
+            nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Count))
+        })?;
+        let (input, raw_instructions) = nom::bytes::complete::take(byte_count)(input)?;
+        let words = raw_instructions.chunks_exact(4).map(|bytes| {
+            u32::from_le_bytes(bytes.try_into().unwrap())
+        });
         let instructions =
-            Self::parse_instructions(&u32_instructions, encode_key).map_err(|_| {
+            Self::parse_instructions(words, encode_key).map_err(|_| {
                 nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Verify))
             })?;
         let (input, constants) = parse_list(input, |i| Constant::parse(i, version))?;
@@ -239,7 +243,7 @@ impl Function {
             0 => (input, None),
             _ => {
                 let (input, line_info_delta) =
-                    parse_list_len(input, le_u8, u32_instructions.len())?;
+                    parse_list_len(input, le_u8, instruction_count)?;
                 (input, Some(line_info_delta))
             }
         };
@@ -249,7 +253,7 @@ impl Function {
                 let (input, abs_line_info_delta) = parse_list_len(
                     input,
                     le_u32,
-                    ((u32_instructions.len() - 1) >> line_gap_log2.unwrap()) + 1,
+                    ((instruction_count - 1) >> line_gap_log2.unwrap()) + 1,
                 )?;
                 (input, Some(abs_line_info_delta))
             }
@@ -458,12 +462,12 @@ mod tests {
     #[test]
     fn rejects_truncated_aux_instruction() {
         // GETGLOBAL has a two-word encoding, but only its opcode word is present.
-        assert!(Function::parse_instructions(&[7], 1).is_err());
+        assert!(Function::parse_instructions([7].into_iter(), 1).is_err());
     }
 
     #[test]
     fn rejects_invalid_opcode_without_panicking() {
-        assert!(Function::parse_instructions(&[96], 1).is_err());
+        assert!(Function::parse_instructions([96].into_iter(), 1).is_err());
     }
 
     #[test]

@@ -66,7 +66,7 @@ def validate(profile, expected_scripts):
             if not required <= cache.keys() or any(type(v) is not int or v < 0 for v in cache.values()):
                 errors.append('invalid SSA cache counters')
             elif (cache['invalidations'] > cache['misses']
-                  or cache['misses'] > cache['slots'] + cache['invalidations']
+                  or cache['misses'] > cache['slots'] + cache['invalidations'] + cache.get('evictions', 0)
                   or (cache['hits'] and not cache['misses'])):
                 errors.append('SSA cache accounting mismatch')
             if row['pass'] != 'F_SSA_INLINE' or row['prototype'] is None:

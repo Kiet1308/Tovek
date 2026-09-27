@@ -17,7 +17,7 @@ pub const MAX_COLLAPSED_EXPRESSION_COST: usize = 25;
 
 /// Return whether a newly collapsed scalar expression remains readable.
 pub fn collapse_allowed(value: &RValue) -> bool {
-    expression_cost(value) <= MAX_COLLAPSED_EXPRESSION_COST
+    cost(value, None, false, MAX_COLLAPSED_EXPRESSION_COST + 1) <= MAX_COLLAPSED_EXPRESSION_COST
 }
 
 /// Structural readability cost:
@@ -26,10 +26,10 @@ pub fn collapse_allowed(value: &RValue) -> bool {
 /// * two extra points when an `and`/`or` edge changes operator;
 /// * three extra points for a comparison nested under short-circuit logic.
 pub fn expression_cost(value: &RValue) -> usize {
-    cost(value, None, false)
+    cost(value, None, false, usize::MAX)
 }
 
-fn cost(value: &RValue, parent_logic: Option<BinaryOperation>, inside_logic: bool) -> usize {
+fn cost(value: &RValue, parent_logic: Option<BinaryOperation>, inside_logic: bool, limit: usize) -> usize {
     let (logic, comparison) = match value {
         RValue::Binary(binary) => (
             matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or)
@@ -53,13 +53,15 @@ fn cost(value: &RValue, parent_logic: Option<BinaryOperation>, inside_logic: boo
     let child_parent = logic.or(parent_logic.filter(|_| inside_logic));
     let child_inside_logic = inside_logic || logic.is_some();
 
-    1 + mixed_logic
-        + nested_comparison
-        + value
-            .rvalues()
-            .into_iter()
-            .map(|child| cost(child, child_parent, child_inside_logic))
-            .sum::<usize>()
+    let mut total = 1 + mixed_logic + nested_comparison;
+    if total < limit {
+        value.visit_rvalues(&mut |child| {
+            total = total.saturating_add(cost(child, child_parent, child_inside_logic, limit - total));
+            total < limit
+        });
+    }
+    total
+
 }
 
 /// Heavier operational cost retained for guard-merging. Calls and closures are
@@ -107,10 +109,10 @@ pub fn guard_expression_cost(value: &RValue) -> usize {
         }
         RValue::Closure(_) => 100,
         RValue::Select(select) => match select {
-            Select::VarArg(var_arg) => guard_expression_cost(&RValue::VarArg(var_arg.clone())),
-            Select::Call(call) => guard_expression_cost(&RValue::Call(call.clone())),
+            Select::VarArg(_) => 1,
+            Select::Call(call) => 8 + guard_expression_cost(&call.value) + call.arguments.iter().map(guard_expression_cost).sum::<usize>(),
             Select::MethodCall(method_call) => {
-                guard_expression_cost(&RValue::MethodCall(method_call.clone()))
+                8 + guard_expression_cost(&method_call.value) + method_call.arguments.iter().map(guard_expression_cost).sum::<usize>()
             }
         },
     }

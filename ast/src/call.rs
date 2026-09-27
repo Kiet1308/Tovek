@@ -71,6 +71,14 @@ has_side_effects!(Call);
 // }
 
 impl Traverse for Call {
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        visit(&self.value) && self.arguments.iter().all(visit)
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        visit(&mut self.value) && self.arguments.iter_mut().all(visit)
+    }
+
     fn rvalues_mut(&mut self) -> Vec<&mut RValue> {
         std::iter::once(self.value.as_mut())
             .chain(self.arguments.iter_mut())
@@ -85,20 +93,22 @@ impl Traverse for Call {
 }
 
 impl LocalRw for Call {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.value.visit_local_reads(visit)
+            && self.arguments.iter().all(|value| value.visit_local_reads(visit))
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.value
-            .values_read()
-            .into_iter()
-            .chain(self.arguments.iter().flat_map(|r| r.values_read()))
-            .collect()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.value.visit_local_reads_mut(visit)
+            && self.arguments.iter_mut().all(|value| value.visit_local_reads_mut(visit))
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.value
-            .values_read_mut()
-            .into_iter()
-            .chain(self.arguments.iter_mut().flat_map(|r| r.values_read_mut()))
-            .collect()
+        crate::local::collect_reads_mut(self)
     }
 }
 
@@ -108,7 +118,7 @@ impl fmt::Display for Call {
             indentation_level: 0,
             indentation_mode: Default::default(),
             output: f,
-            colon_method_calls: Vec::new(),
+            colon_method_calls: Default::default(),
             position_query: None,
             closure_observer: None,
             emission_map: None,
@@ -143,6 +153,14 @@ impl MethodCall {
 has_side_effects!(MethodCall);
 
 impl Traverse for MethodCall {
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        visit(&self.value) && self.arguments.iter().all(visit)
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        visit(&mut self.value) && self.arguments.iter_mut().all(visit)
+    }
+
     fn rvalues_mut(&mut self) -> Vec<&mut RValue> {
         std::iter::once(self.value.as_mut())
             .chain(self.arguments.iter_mut())
@@ -157,20 +175,22 @@ impl Traverse for MethodCall {
 }
 
 impl LocalRw for MethodCall {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.value.visit_local_reads(visit)
+            && self.arguments.iter().all(|value| value.visit_local_reads(visit))
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.value
-            .values_read()
-            .into_iter()
-            .chain(self.arguments.iter().flat_map(|r| r.values_read()))
-            .collect()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.value.visit_local_reads_mut(visit)
+            && self.arguments.iter_mut().all(|value| value.visit_local_reads_mut(visit))
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.value
-            .values_read_mut()
-            .into_iter()
-            .chain(self.arguments.iter_mut().flat_map(|r| r.values_read_mut()))
-            .collect()
+        crate::local::collect_reads_mut(self)
     }
 }
 
@@ -180,7 +200,7 @@ impl fmt::Display for MethodCall {
             indentation_level: 0,
             indentation_mode: Default::default(),
             output: f,
-            colon_method_calls: Vec::new(),
+            colon_method_calls: Default::default(),
             position_query: None,
             closure_observer: None,
             emission_map: None,

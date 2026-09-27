@@ -101,6 +101,14 @@ pub struct Binary {
 }
 
 impl Traverse for Binary {
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        visit(&self.left) && visit(&self.right)
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        visit(&mut self.left) && visit(&mut self.right)
+    }
+
     fn rvalues_mut(&mut self) -> Vec<&mut RValue> {
         vec![&mut self.left, &mut self.right]
     }
@@ -367,20 +375,20 @@ impl Binary {
 }
 
 impl LocalRw for Binary {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.left.visit_local_reads(visit) && self.right.visit_local_reads(visit)
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.left
-            .values_read()
-            .into_iter()
-            .chain(self.right.values_read().into_iter())
-            .collect()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.left.visit_local_reads_mut(visit) && self.right.visit_local_reads_mut(visit)
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.left
-            .values_read_mut()
-            .into_iter()
-            .chain(self.right.values_read_mut().into_iter())
-            .collect()
+        crate::local::collect_reads_mut(self)
     }
 }
 

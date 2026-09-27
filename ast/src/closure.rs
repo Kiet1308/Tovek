@@ -87,7 +87,7 @@ impl fmt::Display for Closure {
             indentation_level: 0,
             indentation_mode: Default::default(),
             output: f,
-            colon_method_calls: Vec::new(),
+            colon_method_calls: Default::default(),
             position_query: None,
             closure_observer: None,
             emission_map: None,
@@ -99,22 +99,24 @@ impl fmt::Display for Closure {
 }
 
 impl LocalRw for Closure {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.upvalues.iter().all(|upvalue| match upvalue {
+            Upvalue::Copy(local) | Upvalue::Ref(local) => visit(local),
+        })
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.upvalues
-            .iter()
-            .map(|u| match u {
-                Upvalue::Copy(l) | Upvalue::Ref(l) => l,
-            })
-            .collect()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.upvalues.iter_mut().all(|upvalue| match upvalue {
+            Upvalue::Copy(local) | Upvalue::Ref(local) => visit(local),
+        })
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.upvalues
-            .iter_mut()
-            .map(|u| match u {
-                Upvalue::Copy(l) | Upvalue::Ref(l) => l,
-            })
-            .collect()
+        crate::local::collect_reads_mut(self)
     }
 }
 

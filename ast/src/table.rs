@@ -65,24 +65,42 @@ impl Reduce for Table {
 }*/
 
 impl LocalRw for Table {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.0.iter().all(|(key, value)| {
+            key.as_ref().is_none_or(|key| key.visit_local_reads(visit))
+                && value.visit_local_reads(visit)
+        })
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.0
-            .iter()
-            .flat_map(|(k, v)| k.iter().chain(iter::once(v)))
-            .flat_map(|v| v.values_read())
-            .collect()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.0.iter_mut().all(|(key, value)| {
+            key.as_mut().is_none_or(|key| key.visit_local_reads_mut(visit))
+                && value.visit_local_reads_mut(visit)
+        })
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.0
-            .iter_mut()
-            .flat_map(|(k, v)| k.iter_mut().chain(iter::once(v)))
-            .flat_map(|v| v.values_read_mut())
-            .collect()
+        crate::local::collect_reads_mut(self)
     }
 }
 
 impl Traverse for Table {
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        self.0.iter().all(|(key, value)| {
+            key.as_ref().is_none_or(|key| visit(key)) && visit(value)
+        })
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        self.0.iter_mut().all(|(key, value)| {
+            key.as_mut().is_none_or(|key| visit(key)) && visit(value)
+        })
+    }
+
     fn rvalues_mut(&mut self) -> Vec<&mut RValue> {
         self.0
             .iter_mut()
@@ -129,7 +147,7 @@ impl fmt::Display for Table {
             indentation_level: 0,
             indentation_mode: Default::default(),
             output: f,
-            colon_method_calls: Vec::new(),
+            colon_method_calls: Default::default(),
             position_query: None,
             closure_observer: None,
             emission_map: None,

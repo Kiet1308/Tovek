@@ -8,7 +8,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 
 const MIN_CACHED_STATEMENTS: usize = 4;
-const MAX_CACHED_STATEMENTS: usize = 16_384;
+const MAX_CACHED_SLOTS: usize = 16_384;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct StatementFacts {
@@ -61,6 +61,7 @@ pub(super) struct Statistics {
     pub misses: u64,
     pub uncached: u64,
     pub invalidations: u64,
+    pub evictions: u64,
     pub slots: u64,
 }
 
@@ -70,6 +71,7 @@ impl Statistics {
         self.misses += other.misses;
         self.uncached += other.uncached;
         self.invalidations += other.invalidations;
+        self.evictions += other.evictions;
         self.slots += other.slots;
     }
 
@@ -79,6 +81,7 @@ impl Statistics {
             ast::telemetry::count("ssa_fact_cache_misses", self.misses);
             ast::telemetry::count("ssa_fact_cache_uncached", self.uncached);
             ast::telemetry::count("ssa_fact_cache_invalidations", self.invalidations);
+            ast::telemetry::count("ssa_fact_cache_evictions", self.evictions);
             ast::telemetry::count("ssa_fact_cache_slots", self.slots);
         }
     }
@@ -87,7 +90,7 @@ impl Statistics {
 pub(super) struct Cache<'a> {
     local_to_group: &'a FxHashMap<RcLocal, usize>,
     upvalue_to_group: &'a IndexMap<RcLocal, RcLocal>,
-    slots: Vec<Option<StatementFacts>>,
+    slots: Vec<Option<(usize, StatementFacts)>>,
     scratch: Option<StatementFacts>,
     statistics: Statistics,
 }
@@ -100,7 +103,7 @@ impl<'a> Cache<'a> {
     ) -> Self {
         Self::with_limit(
             statements,
-            MAX_CACHED_STATEMENTS,
+            MAX_CACHED_SLOTS,
             local_to_group,
             upvalue_to_group,
         )
@@ -112,8 +115,8 @@ impl<'a> Cache<'a> {
         local_to_group: &'a FxHashMap<RcLocal, usize>,
         upvalue_to_group: &'a IndexMap<RcLocal, RcLocal>,
     ) -> Self {
-        let count = if (MIN_CACHED_STATEMENTS..=limit).contains(&statements) {
-            statements
+        let count = if statements >= MIN_CACHED_STATEMENTS {
+            statements.min(limit)
         } else {
             0
         };
@@ -129,26 +132,38 @@ impl<'a> Cache<'a> {
         }
     }
 
+    /// Large blocks retain the same bounded cache budget as smaller ones.
+    /// Tags distinguish positions sharing a slot; eviction changes cost only.
+    /// The common within-budget block avoids the modulo operation entirely.
+    fn slot_index(&self, index: usize) -> Option<usize> {
+        let count = self.slots.len();
+        if count == 0 { None }
+        else if index < count { Some(index) }
+        else { Some(index % count) }
+    }
+
     pub fn get(&mut self, index: usize, statement: &Statement) -> &StatementFacts {
-        if let Some(slot) = self.slots.get_mut(index) {
-            if slot.is_some() {
+        if let Some(slot_index) = self.slot_index(index) {
+            let slot = &mut self.slots[slot_index];
+            if slot.as_ref().is_some_and(|(cached_index, _)| *cached_index == index) {
                 self.statistics.hits += 1;
                 // Exercise the invalidation contract on every real cache hit
                 // in debug/CI runs. Release builds do not recompute the facts.
                 debug_assert_eq!(
-                    slot.as_ref().unwrap(),
+                    &slot.as_ref().unwrap().1,
                     &StatementFacts::new(statement, self.local_to_group, self.upvalue_to_group),
                     "SSA inline statement facts were not invalidated",
                 );
             } else {
+                self.statistics.evictions += u64::from(slot.is_some());
                 self.statistics.misses += 1;
-                *slot = Some(StatementFacts::new(
+                *slot = Some((index, StatementFacts::new(
                     statement,
                     self.local_to_group,
                     self.upvalue_to_group,
-                ));
+                )));
             }
-            slot.as_ref().unwrap()
+            &slot.as_ref().unwrap().1
         } else {
             self.statistics.uncached += 1;
             self.scratch = Some(StatementFacts::new(
@@ -161,8 +176,10 @@ impl<'a> Cache<'a> {
     }
 
     pub fn invalidate(&mut self, index: usize) {
-        if let Some(slot) = self.slots.get_mut(index) {
-            if slot.take().is_some() {
+        if let Some(slot_index) = self.slot_index(index) {
+            let slot = &mut self.slots[slot_index];
+            if slot.as_ref().is_some_and(|(cached_index, _)| *cached_index == index) {
+                *slot = None;
                 self.statistics.invalidations += 1;
             }
         }
@@ -229,17 +246,27 @@ mod tests {
     }
 
     #[test]
-    fn size_limit_uses_fresh_facts_without_cached_slots() {
+    fn bounded_cache_tags_evictions_and_invalidations_on_large_blocks() {
         let groups = FxHashMap::default();
         let captures = IndexMap::new();
         let mut cache = Cache::with_limit(5, 4, &groups, &captures);
         let mut statement: Statement = ast::Return::new(vec![Literal::Nil.into()]).into();
-        assert_eq!(cache.statistics().slots, 0);
+        assert_eq!(cache.statistics().slots, 4);
         assert!(cache.get(0, &statement).single_rhs_observable.is_none());
         statement =
             Assign::new(vec![local("a").into()], vec![Global::from("lookup").into()]).into();
-        assert_eq!(cache.get(0, &statement).single_rhs_observable, Some(true));
-        assert_eq!(cache.statistics().uncached, 2);
+        // Position 4 aliases position 0, but must compute its own facts.
+        assert_eq!(cache.get(4, &statement).single_rhs_observable, Some(true));
+        assert_eq!(cache.statistics().evictions, 1);
+        cache.invalidate(0); // must not invalidate position 4's replacement
+        assert_eq!(cache.get(4, &statement).single_rhs_observable, Some(true));
+        assert_eq!(cache.statistics().hits, 1);
+        cache.invalidate(4);
+        statement = ast::Return::new(vec![Literal::Nil.into()]).into();
+        assert!(cache.get(4, &statement).single_rhs_observable.is_none());
+        assert_eq!(cache.statistics().invalidations, 1);
+        assert_eq!(cache.statistics().uncached, 0);
+        assert_eq!(cache.statistics().misses, 3);
     }
 
     #[test]

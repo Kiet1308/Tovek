@@ -38,6 +38,9 @@ pub struct Lifter<'a> {
     function_list: &'a Vec<BytecodeFunction>,
     string_table: &'a Vec<Vec<u8>>,
     typed_locals: &'a [TypedLocalHint],
+    debug_ranges: crate::metadata_index::RegisterRanges,
+    typed_ranges: crate::metadata_index::RegisterRanges,
+    debug_bindings: Vec<Option<ast::SourceBinding>>,
     bytecode_version: u8,
     blocks: FxHashMap<usize, NodeIndex>,
     function: Function,
@@ -49,6 +52,7 @@ pub struct Lifter<'a> {
     child_functions: Vec<(ByAddress<Arc<Mutex<ast::Function>>>, usize, Option<String>)>,
     static_function_id: Option<String>,
     register_map: FxHashMap<usize, ast::RcLocal>,
+    register_of: FxHashMap<u64, u8>,
     constant_map: FxHashMap<usize, ast::Literal>,
     // Provenance indexed by FORGLOOP PC.  Prep discovery already resolves the
     // target step PC, so keeping the pair here avoids rescanning the complete
@@ -86,12 +90,18 @@ impl<'a> Lifter<'a> {
             function_list: f_list,
             string_table: str_list,
             typed_locals,
+            debug_ranges: crate::metadata_index::RegisterRanges::new(f_list[function_id].debug_locals.iter()
+                .map(|local| (local.register, local.start_pc, local.end_pc))),
+            typed_ranges: crate::metadata_index::RegisterRanges::new(typed_locals.iter()
+                .map(|local| (local.register, local.start_pc, local.end_pc))),
+            debug_bindings: Vec::new(),
             bytecode_version,
             blocks: FxHashMap::default(),
             function: Function::new(function_id),
             child_functions: Vec::new(),
             static_function_id,
             register_map: FxHashMap::default(),
+            register_of: FxHashMap::default(),
             constant_map: FxHashMap::default(),
             for_origins_by_step: FxHashMap::default(),
             current_node: None,
@@ -105,6 +115,8 @@ impl<'a> Lifter<'a> {
             context.source_lines = crate::upvalue_analysis::decode_source_lines(&f_list[function_id]);
         }
 
+        context.debug_bindings = f_list[function_id].debug_locals.iter()
+            .map(|local| context.debug_binding(local)).collect();
         context.lift_function();
         (context.function, context.upvalues, context.child_functions)
     }
@@ -156,14 +168,18 @@ impl<'a> Lifter<'a> {
 
         for i in 0..self.function_list[self.function.id].num_parameters {
             let parameter = ast::RcLocal::default();
-            let names = self.function_list[self.function.id].debug_locals.iter()
-                .filter(|local| local.register == i && local.start_pc == 0)
-                .filter_map(|local| self.debug_binding(local)).collect::<Vec<_>>();
-            if let [binding] = names.as_slice() {
+            let mut ranges = Vec::new();
+            self.debug_ranges.covering(i, 0, &mut ranges);
+            let mut names = ranges.into_iter()
+                .filter_map(|index| self.debug_bindings[index].as_ref());
+            if let (Some(binding), None) = (names.next(), names.next()) {
                 parameter.0.lock().add_source_binding(binding.clone());
             }
             self.function.parameters.push(parameter.clone());
             if let Some(trace) = &mut self.function.provenance { trace.register(&parameter, i as usize, "parameter"); }
+            if !self.debug_bindings.is_empty() || !self.typed_locals.is_empty() {
+                self.register_of.insert(parameter.stable_id(), i);
+            }
             self.register_map.insert(i as usize, parameter);
         }
 
@@ -253,58 +269,58 @@ impl<'a> Lifter<'a> {
         let debug_locals = &self.function_list[self.function.id].debug_locals;
         if self.typed_locals.is_empty() && debug_locals.is_empty() { return; }
         let block_start = self.function.block_pc_range(node).unwrap().start;
-        for debug in debug_locals {
-            if debug.start_pc <= block_start && block_start < debug.end_pc {
-                if debug_locals.iter().filter(|other| other.register == debug.register
-                    && other.start_pc <= block_start && block_start < other.end_pc).count() != 1 { continue; }
-                if let (Some(local), Some(binding)) = (self.register_map.get(&(debug.register as usize)), self.debug_binding(debug)) {
-                    self.function.entry_source_bindings.insert((node, local.clone()), binding);
+        let mut ranges = Vec::new();
+        for register in 0..self.debug_ranges.register_count() {
+            ranges.clear();
+            self.debug_ranges.covering(register as u8, block_start, &mut ranges);
+            if let [index] = ranges.as_slice() {
+                let debug = &debug_locals[*index];
+                if let (Some(local), Some(binding)) = (self.register_map.get(&(debug.register as usize)), self.debug_bindings[*index].as_ref()) {
+                    self.function.entry_source_bindings.insert((node, local.clone()), binding.clone());
                 }
             }
         }
-        let register_of: FxHashMap<ast::RcLocal, u8> = self
-            .register_map
-            .iter()
-            .filter_map(|(&register, local)| u8::try_from(register).ok().map(|r| (local.clone(), r)))
-            .collect();
+        // Enumerate local writes once, preserving PC/statement/write order.
+        let mut writes = Vec::new();
         let mut definitions: FxHashMap<u8, Vec<(usize, usize, usize)>> = FxHashMap::default();
-        if !debug_locals.is_empty() {
-            for (index, (statement, &pc)) in statements.iter().zip(pcs).enumerate() {
-                for (written, local) in statement.values_written().iter().enumerate() {
-                    if let Some(&register) = register_of.get(*local) {
+        for (index, (statement, &pc)) in statements.iter().zip(pcs).enumerate() {
+            for (written, local) in statement.values_written().iter().enumerate() {
+                if let Some(&register) = self.register_of.get(&local.stable_id()) {
+                    writes.push((pc, index, written, register));
+                    if !debug_locals.is_empty() {
                         definitions.entry(register).or_default().push((pc, index, written));
                     }
                 }
             }
         }
         let block_end = self.function.block_pc_range(node).unwrap().end + 1;
-        for (index, (statement, &pc)) in statements.iter().zip(pcs).enumerate() {
-            for (written_index, local) in statement.values_written().into_iter().enumerate() {
-                let Some(&register) = register_of.get(local) else {
-                    continue;
-                };
+        for (pc, index, written_index, register) in writes {
                 // A debug interval starts AFTER initialization. Use the last
                 // reaching write within this block; never guess across CFG edges.
-                let bindings = debug_locals.iter().filter(|debug| {
-                    if debug.register != register { return false; }
-                    if debug.start_pc <= pc && pc < debug.end_pc { return true; }
-                    if debug.start_pc > block_end { return false; }
+                ranges.clear();
+                self.debug_ranges.covering(register, pc, &mut ranges);
+                if !debug_locals.is_empty() {
                     let defs = &definitions[&register];
-                    let count = defs.partition_point(|(def_pc, _, _)| *def_pc < debug.start_pc);
-                    count > 0 && defs[count - 1] == (pc, index, written_index)
-                }).filter_map(|debug| self.debug_binding(debug)).collect::<Vec<_>>();
-                if let [binding] = bindings.as_slice() {
+                    let after = defs.partition_point(|(def_pc, _, _)| *def_pc <= pc);
+                    // Only the last write at this PC reaches a later start;
+                    // starts at the next write's PC still refer to this write.
+                    if after > 0 && defs[after - 1] == (pc, index, written_index) {
+                        let through = defs.get(after).map_or(block_end, |&(next_pc, _, _)| next_pc.min(block_end));
+                        self.debug_ranges.starting_after_through(register, pc, through, &mut ranges);
+                    }
+                }
+                let mut bindings = ranges.iter().filter_map(|&index| self.debug_bindings[index].as_ref());
+                if let (Some(binding), None) = (bindings.next(), bindings.next()) {
                     self.function.local_source_bindings.entry((node, base + index, written_index)).or_default().push(binding.clone());
                 }
-                let Some(hint) = self.typed_locals.iter().find(|typed| {
-                    typed.register == register && typed.start_pc <= pc && pc < typed.end_pc
-                }) else {
+                ranges.clear();
+                self.typed_ranges.covering(register, pc, &mut ranges);
+                let Some(hint) = ranges.iter().min().map(|&index| &self.typed_locals[index]) else {
                     continue;
                 };
                 self.function
                     .local_type_hints
                     .insert((node, base + index, written_index), hint.name.clone());
-            }
         }
     }
 
@@ -1852,13 +1868,25 @@ impl<'a> Lifter<'a> {
     }
 
     fn register(&mut self, index: usize) -> ast::RcLocal {
-        let local = self.register_map.entry(index).or_default().clone();
+        let local = match self.register_map.entry(index) {
+            std::collections::hash_map::Entry::Occupied(entry) => entry.get().clone(),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let local = ast::RcLocal::default();
+                if !self.debug_bindings.is_empty() || !self.typed_locals.is_empty() {
+                    if let Ok(register) = u8::try_from(index) {
+                        self.register_of.insert(local.stable_id(), register);
+                    }
+                }
+                entry.insert(local.clone());
+                local
+            }
+        };
         if let Some(trace) = &mut self.function.provenance { trace.register(&local, index, "register"); }
         local
     }
 
     fn constant(&mut self, index: usize) -> ast::Literal {
-        let converted_constant = match self.function_list[self.function.id]
+        self.constant_map.entry(index).or_insert_with(|| match self.function_list[self.function.id]
             .constants
             .get(index)
             .unwrap()
@@ -1881,11 +1909,7 @@ impl<'a> Lifter<'a> {
             BytecodeConstant::VectorD(x, y, z, _) => ast::Literal::VectorD(*x, *y, *z),
             BytecodeConstant::Integer(v) => ast::Literal::Integer(*v),
             _ => unimplemented!(),
-        };
-        self.constant_map
-            .entry(index)
-            .or_insert(converted_constant)
-            .clone()
+        }).clone()
     }
 
     // Reconstructs an arbitrary constant (including nested constant tables) as an
@@ -1990,6 +2014,66 @@ mod tests {
 
     fn instruction(op_code: OpCode, a: u8, b: u8, c: u8) -> Instruction {
         Instruction::BC { op_code, a, b, c, aux: 0 }
+    }
+
+    #[test]
+    fn indexed_metadata_matches_linear_initializers_and_first_typed_hint() {
+        use crate::deserializer::function::DebugLocal;
+        for seed in 0..12 {
+            let mut instructions = (0..24).map(|pc| Instruction::AD {
+                op_code: OpCode::LOP_LOADN, a: (pc % 3) as u8, d: pc, aux: 0,
+            }).collect::<Vec<_>>();
+            instructions.push(instruction(OpCode::LOP_RETURN, 0, 4, 0));
+            let mut proto = prototype(2, instructions);
+            // Unsorted, overlapping, out-of-bounds and zero-length metadata.
+            proto.debug_locals = (0..20).rev().map(|i| DebugLocal {
+                name_index: 1 + i % 3, register: ((i + seed) % 5) as u8,
+                start_pc: (i * 5 + seed) % 27,
+                end_pc: (i * 5 + seed) % 27 + i % 7,
+            }).collect();
+            let typed = (0..24).rev().map(|i| super::TypedLocalHint {
+                register: (i % 3) as u8, start_pc: i / 2,
+                end_pc: i + 4, name: format!("type{i}"),
+            }).collect::<Vec<_>>();
+            let protos = vec![proto];
+            let strings = vec![b"first".to_vec(), b"second".to_vec(), b"for".to_vec()];
+            let (function, _, _) = Lifter::lift(&protos, &strings, 9, 0, Some("root:p0".into()), &typed, true);
+            let trace = function.provenance.as_ref().unwrap();
+            let valid = |debug: &&DebugLocal| debug.start_pc < debug.end_pc
+                && debug.end_pc <= 25 && debug.register < 8 && debug.name_index != 3;
+            for site in trace.lifted.values() {
+                let node = petgraph::stable_graph::NodeIndex::new(site.block);
+                let pc = site.pcs[0];
+                for (write, id) in site.written_registers.iter().enumerate() {
+                    let register = trace.registers[id].slot as u8;
+                    let expected = protos[0].debug_locals.iter().filter(|debug| {
+                        if debug.register != register { return false; }
+                        if debug.start_pc <= pc && pc < debug.end_pc { return true; }
+                        if debug.start_pc > 25 { return false; }
+                        trace.lifted.values().filter(|def| def.block == site.block
+                            && def.pcs[0] < debug.start_pc
+                            && def.written_registers.contains(id)).last()
+                            .is_some_and(|def| def.index == site.index)
+                    }).filter(valid).map(|debug| ast::SourceBinding {
+                        origin: ast::BindingOrigin::DebugLocal { prototype: 0, register,
+                            start_pc: debug.start_pc, end_pc: debug.end_pc },
+                        name: String::from_utf8(strings[debug.name_index - 1].clone()).unwrap(),
+                    }).collect::<Vec<_>>();
+                    let actual = function.local_source_bindings.get(&(node, site.index, write));
+                    if expected.len() == 1 { assert_eq!(actual, Some(&expected)); }
+                    else { assert!(actual.is_none(), "ambiguous metadata must not bind"); }
+                    let expected_type = typed.iter().find(|hint| hint.register == register
+                        && hint.start_pc <= pc && pc < hint.end_pc).map(|hint| &hint.name);
+                    assert_eq!(function.local_type_hints.get(&(node, site.index, write)), expected_type);
+                }
+            }
+            for (register, parameter) in function.parameters.iter().enumerate() {
+                let expected = protos[0].debug_locals.iter().filter(|debug|
+                    debug.register as usize == register && debug.start_pc == 0)
+                    .filter(valid).collect::<Vec<_>>();
+                assert_eq!(parameter.0.lock().2.len(), usize::from(expected.len() == 1));
+            }
+        }
     }
 
     #[test]

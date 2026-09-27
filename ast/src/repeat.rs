@@ -30,6 +30,14 @@ impl Repeat {
 }
 
 impl Traverse for Repeat {
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        visit(&self.condition)
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        visit(&mut self.condition)
+    }
+
     fn rvalues_mut(&mut self) -> Vec<&mut RValue> {
         vec![&mut self.condition]
     }
@@ -40,12 +48,20 @@ impl Traverse for Repeat {
 }
 
 impl LocalRw for Repeat {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.condition.visit_local_reads(visit)
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.condition.values_read()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.condition.visit_local_reads_mut(visit)
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.condition.values_read_mut()
+        crate::local::collect_reads_mut(self)
     }
 }
 
@@ -55,7 +71,7 @@ impl fmt::Display for Repeat {
             indentation_level: 0,
             indentation_mode: Default::default(),
             output: f,
-            colon_method_calls: Vec::new(),
+            colon_method_calls: Default::default(),
             position_query: None,
             closure_observer: None,
             emission_map: None,

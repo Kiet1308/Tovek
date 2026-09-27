@@ -79,11 +79,22 @@ fn rebuild_closures_in_statement(
 }
 
 fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>, single_write: &rustc_hash::FxHashSet<RcLocal>) -> bool {
-    let mut index = 0;
+    // Keep a compacted prefix and consume the untouched suffix in source order.
+    // Accepted stores become empty slots; each surviving statement moves at
+    // most once, instead of shifting the suffix after every field assignment.
+    let mut read = 0;
+    let mut write = 0;
     let mut changed = false;
-    while index + 1 < block.0.len() {
+    while read < block.0.len() {
+        if read != write {
+            debug_assert!(matches!(block.0[write], Statement::Empty(_)));
+            block.0.swap(write, read);
+        }
+        let index = write;
+        write += 1;
+        read += 1;
+        if read == block.0.len() { break; }
         let Some(object_local) = table_constructor_local(&block.0[index]) else {
-            index += 1;
             continue;
         };
 
@@ -100,30 +111,28 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
             || (single_write.contains(&object_local)
                 && !observed_before(&block.0[..index], &object_local, &mut 8192, 0));
         if private && captured.contains(&object_local) && initial_len == 0
-            && lone_callback_field(&block.0[index + 1..], &object_local)
+            && lone_callback_field(&block.0[read..], &object_local)
         {
             // A one-field wrapper around a callback adds nesting without
             // grouping a registry. Retain the readable statement layout.
-            index += 1;
             continue;
         }
-
-        while index + 1 < block.0.len() {
-            if let Statement::SetList(set_list) = &block.0[index + 1] {
-                let table = block.0[index].as_assign().unwrap().right[0]
-                    .as_table()
-                    .unwrap();
-                if !private
-                    || !can_append_set_list(table, set_list, &object_local)
-                {
+        if !private { continue; }
+        let (prefix, remaining) = block.0.split_at_mut(read);
+        let table = prefix[index].as_assign_mut().unwrap().right[0]
+            .as_table_mut().unwrap();
+        let mut array_len = table.0.iter().filter(|(key, _)| key.is_none()).count();
+        let mut entries = PlaceholderEntries::new(table);
+        for statement in remaining {
+            if let Statement::SetList(set_list) = statement {
+                if let Some(entries) = entries.take() { entries.finish(table); }
+                if !can_append_set_list_at(table, array_len, set_list, &object_local) {
                     break;
                 }
-                let Statement::SetList(set_list) = block.0.remove(index + 1) else {
+                let Statement::SetList(set_list) = std::mem::replace(statement, crate::Empty {}.into()) else {
                     unreachable!()
                 };
-                let table = block.0[index].as_assign_mut().unwrap().right[0]
-                    .as_table_mut()
-                    .unwrap();
+                array_len += set_list.values.len() + usize::from(set_list.tail.is_some());
                 table.0.extend(
                     set_list
                         .values
@@ -134,20 +143,16 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
                     table.0.push((None, tail));
                 }
                 changed = true;
+                read += 1;
                 continue;
             }
-            let Some((key, value)) = block.0[index + 1]
+            let Some((key, value)) = statement
                 .as_assign()
                 .and_then(|assign| field_assignment_parts(assign, &object_local))
             else {
                 break;
             };
-
-            let table = block.0[index].as_assign().unwrap().right[0]
-                .as_table()
-                .unwrap();
-            if !private
-                || table
+            if table
                     .0
                     .last()
                     .is_some_and(|(key, value)| key.is_none() && expands(value))
@@ -156,17 +161,22 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
                 break;
             }
 
-            let field_assign = block.0.remove(index + 1).into_assign().unwrap();
+            let field_assign = std::mem::replace(statement, crate::Empty {}.into()).into_assign().unwrap();
             let (key, value) = field_assignment_key_value(field_assign);
-            let table = block.0[index].as_assign_mut().unwrap().right[0]
-                .as_table_mut()
-                .unwrap();
-            insert_table_entry(table, initial_len, key, value);
+            if !matches!(&key, RValue::Literal(crate::Literal::String(_))) {
+                if let Some(entries) = entries.take() { entries.finish(table); }
+            }
+            if let Some(entries) = &mut entries {
+                entries.insert(table, key, value);
+            } else {
+                insert_table_entry(table, initial_len, key, value);
+            }
             changed = true;
+            read += 1;
         }
-
-        index += 1;
+        if let Some(entries) = entries { entries.finish(table); }
     }
+    block.0.truncate(write);
     changed
 }
 
@@ -222,8 +232,12 @@ fn single_value(value: RValue) -> RValue {
 }
 
 fn can_append_set_list(table: &Table, list: &crate::SetList, object: &RcLocal) -> bool {
+    can_append_set_list_at(table, table.0.iter().filter(|(key, _)| key.is_none()).count(), list, object)
+}
+
+fn can_append_set_list_at(table: &Table, array_len: usize, list: &crate::SetList, object: &RcLocal) -> bool {
     list.object_local == *object
-        && list.index == 1 + table.0.iter().filter(|(key, _)| key.is_none()).count()
+        && list.index == 1 + array_len
         && !table.0.last().is_some_and(|(key, value)| key.is_none() && expands(value))
         // Luau flushes array entries before every keyed field. Appending at
         // the exact next list index therefore retains numeric-key overwrites,
@@ -659,6 +673,67 @@ fn insert_table_entry(table: &mut Table, initial_len: usize, key: RValue, value:
     }
 }
 
+/// DUPTABLE templates are keyed nil placeholders. Keep their logical order
+/// while replacing/removing entries, without repeatedly scanning or shifting
+/// the prefix. The old algorithm searches exactly the first `initial_len`
+/// *live* entries, including appended entries that enter that window after a
+/// removal; `boundary` tracks that same moving window in stable slot indices.
+/// Uncommon dynamic keys and SETLIST flush back to the general implementation.
+#[cfg_attr(test, derive(Clone))]
+struct PlaceholderEntries {
+    positions: rustc_hash::FxHashMap<Vec<u8>, std::collections::VecDeque<usize>>,
+    non_inert: std::collections::BTreeSet<usize>,
+    removed: Vec<bool>,
+    boundary: usize,
+}
+
+impl PlaceholderEntries {
+    fn new(table: &Table) -> Option<Self> {
+        if table.0.len() < 16 || !table.0.iter().all(|(key, value)| {
+            matches!(key, Some(RValue::Literal(crate::Literal::String(_))))
+                && matches!(value, RValue::Literal(crate::Literal::Nil))
+        }) { return None; }
+        let mut positions: rustc_hash::FxHashMap<_, std::collections::VecDeque<_>> = Default::default();
+        for (index, (key, _)) in table.0.iter().enumerate() {
+            let Some(RValue::Literal(crate::Literal::String(key))) = key else { unreachable!() };
+            positions.entry(key.clone()).or_default().push_back(index);
+        }
+        Some(Self { positions, non_inert: Default::default(),
+            removed: vec![false; table.0.len()], boundary: table.0.len() - 1 })
+    }
+
+    fn insert(&mut self, table: &mut Table, key: RValue, value: RValue) {
+        let RValue::Literal(crate::Literal::String(bytes)) = &key else { unreachable!() };
+        let position = self.positions.get(bytes).and_then(|positions| positions.front().copied())
+            .filter(|position| *position <= self.boundary);
+        let inert_value = matches!(&value, RValue::Literal(crate::Literal::Nil));
+        if let Some(position) = position {
+            if self.non_inert.range(position..=self.boundary).next().is_none() {
+                table.0[position].1 = value;
+                if !inert_value { self.non_inert.insert(position); }
+                return;
+            }
+            if matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil)) {
+                self.removed[position] = true;
+                self.positions.get_mut(bytes).unwrap().pop_front();
+                // Removed slots are always inside the window. The immediately
+                // following slot therefore remains live, or is appended below.
+                self.boundary += 1;
+            }
+        }
+        let index = table.0.len();
+        self.positions.entry(bytes.clone()).or_default().push_back(index);
+        self.removed.push(false);
+        if !inert_value { self.non_inert.insert(index); }
+        table.0.push((Some(key), value));
+    }
+
+    fn finish(self, table: &mut Table) {
+        let mut removed = self.removed.into_iter();
+        table.0.retain(|_| !removed.next().expect("one marker per stable entry"));
+    }
+}
+
 fn inert_nil_placeholder_suffix(table: &Table, position: usize, initial_len: usize) -> bool {
     table.0[position..initial_len].iter().all(|(key, value)| {
         key.as_ref()
@@ -720,12 +795,130 @@ mod tests {
         Call::new(global("print"), vec![value]).into()
     }
 
+    #[test]
+    fn indexed_placeholders_preserve_the_moving_prefix_and_evaluation_order() {
+        for seed in 0..256usize {
+            let initial_len = 16 + seed % 33;
+            let initial = Table((0..initial_len).map(|index| {
+                // Include duplicate template keys: the first matching live
+                // entry must remain the selected one even after removals.
+                (Some(string(&format!("field{}", index % (initial_len - seed % 7)))), nil())
+            }).collect(), Default::default());
+            let mut expected = initial.clone();
+            let mut actual = initial;
+            let mut index = super::PlaceholderEntries::new(&actual).unwrap();
+            let mut state = seed as u64 + 1;
+            for step in 0..128 {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                let key = string(&format!("field{}", (state >> 32) as usize % (initial_len + 8)));
+                let value = match step % 5 {
+                    0 | 1 => nil(),
+                    2 => Call::new(global("effect"), vec![number(step as f64)]).into(),
+                    _ => number(step as f64),
+                };
+                super::insert_table_entry(&mut expected, initial_len, key.clone(), value.clone());
+                index.insert(&mut actual, key, value);
+                let mut compacted = actual.clone();
+                index.clone().finish(&mut compacted);
+                assert_eq!(compacted, expected, "seed={seed}, step={step}");
+            }
+        }
+    }
+
+    #[test]
+    fn indexed_placeholders_flush_before_dynamic_keys_and_setlist() {
+        for with_setlist in [false, true] {
+            let object = local("record");
+            let initial = Table((0..32).map(|i| (Some(string(&format!("f{i}"))), nil())).collect(), Default::default());
+            let mut expected = initial.clone();
+            let mut statements = vec![declare(&object, initial.into())];
+            for i in (0..32).rev() {
+                let key = string(&format!("f{i}"));
+                let value: RValue = Call::new(global("effect"), vec![number(i as f64)]).into();
+                super::insert_table_entry(&mut expected, 32, key.clone(), value.clone());
+                statements.push(assign_field(&object, key, value));
+            }
+            if with_setlist {
+                let list = crate::SetList { object_local: object.clone(), index: 1,
+                    values: vec![number(7.0)], tail: None, node_origin: Default::default() };
+                statements.push(list.into());
+                expected.0.push((None, number(7.0)));
+            } else {
+                let key: RValue = Call::new(global("key"), vec![]).into();
+                super::insert_table_entry(&mut expected, 32, key.clone(), number(7.0));
+                statements.push(assign_field(&object, key, number(7.0)));
+            }
+            statements.push(Return::new(vec![object.into()]).into());
+            let mut block = Block(statements);
+            assert!(rebuild_table_literals(&mut block));
+            assert_eq!(block[0].as_assign().unwrap().right[0].as_table().unwrap(), &expected);
+            assert_eq!(block.len(), 2);
+        }
+    }
+
     fn closure_capturing(local: &RcLocal) -> RValue {
         RValue::Closure(Closure {
             node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function::default()))),
             upvalues: vec![Upvalue::Ref(local.clone())],
         })
+    }
+
+    #[test]
+    fn compacts_multiple_constructors_without_reordering_effects() {
+        let first = local("first");
+        let second = local("second");
+        let call = |name: &str| Call::new(global(name), vec![]).into();
+        let mut block = Block(vec![
+            declare(&first, Table::default().into()),
+            assign_field(&first, string("a"), call("a")),
+            assign_field(&first, string("b"), call("b")),
+            print(local_value(&first)),
+            declare(&second, Table::default().into()),
+            assign_field(&second, string("c"), call("c")),
+            assign_field(&second, string("self"), local_value(&second)),
+            assign_field(&second, string("d"), call("d")),
+            Return::new(vec![local_value(&first), local_value(&second)]).into(),
+        ]);
+        assert!(rebuild_table_literals(&mut block));
+        let expected = Block(vec![
+            declare(&first, Table::new(vec![
+                (Some(string("a")), call("a")), (Some(string("b")), call("b")),
+            ]).into()),
+            print(local_value(&first)),
+            declare(&second, Table::new(vec![(Some(string("c")), call("c"))]).into()),
+            assign_field(&second, string("self"), local_value(&second)),
+            assign_field(&second, string("d"), call("d")),
+            Return::new(vec![local_value(&first), local_value(&second)]).into(),
+        ]);
+        assert_eq!(block, expected);
+        assert!(!rebuild_table_literals(&mut block));
+        assert_eq!(block, expected);
+    }
+
+    #[test]
+    fn many_setlist_batches_keep_array_indices_and_keyed_overwrites() {
+        let object = local("values");
+        let mut block = Block(vec![declare(&object, Table::default().into())]);
+        let n = 2048;
+        for index in 1..=n {
+            block.push(crate::SetList::new(object.clone(), index, vec![number(index as f64)], None).into());
+            if index % 127 == 0 {
+                block.push(assign_field(&object, number(index as f64), number(-1.0)));
+            }
+        }
+        block.push(Return::new(vec![local_value(&object)]).into());
+        assert!(rebuild_table_literals(&mut block));
+        assert_eq!(block.len(), 2);
+        let table = block[0].as_assign().unwrap().right[0].as_table().unwrap();
+        let mut entries = table.0.iter();
+        for index in 1..=n {
+            assert_eq!(entries.next(), Some(&(None, number(index as f64))));
+            if index % 127 == 0 {
+                assert_eq!(entries.next(), Some(&(Some(number(index as f64)), number(-1.0))));
+            }
+        }
+        assert!(entries.next().is_none());
     }
 
     #[test]

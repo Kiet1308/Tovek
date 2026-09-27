@@ -37,8 +37,10 @@ impl<'a> Liveness<'a> {
         function: &'a Function,
         node: NodeIndex,
         variable: &'a RcLocal,
+        stack: &mut Vec<NodeIndex>,
     ) {
-        let mut stack = vec![node];
+        debug_assert!(stack.is_empty());
+        stack.push(node);
         while let Some(node) = stack.pop() {
             let block_liveness = liveness.block_liveness.get_mut(&node).unwrap();
             if block_liveness.defs.contains(variable)
@@ -94,6 +96,7 @@ impl<'a> Liveness<'a> {
                     .extend(edge.arguments.iter().flat_map(|(_, v)| v.values_read()));
             }
         }
+        let mut stack = Vec::new();
         for node in function.graph().node_indices() {
             let block_liveness = liveness.block_liveness.get_mut(&node).unwrap();
             block_liveness.live_sets.live_in.reserve(
@@ -111,11 +114,11 @@ impl<'a> Liveness<'a> {
             for variable in arg_out_uses {
                 let block_liveness = liveness.block_liveness.get_mut(&node).unwrap();
                 block_liveness.live_sets.live_out.insert(variable.clone());
-                Self::explore_all_paths(&mut liveness, function, node, variable);
+                Self::explore_all_paths(&mut liveness, function, node, variable, &mut stack);
             }
             let block_liveness = liveness.block_liveness.get_mut(&node).unwrap();
-            for variable in block_liveness.uses.clone() {
-                Self::explore_all_paths(&mut liveness, function, node, variable);
+            for variable in std::mem::take(&mut block_liveness.uses) {
+                Self::explore_all_paths(&mut liveness, function, node, variable, &mut stack);
             }
         }
         liveness

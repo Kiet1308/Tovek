@@ -22,6 +22,14 @@ impl IfExpression {
 }
 
 impl Traverse for IfExpression {
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        visit(&self.condition) && visit(&self.then_value) && visit(&self.else_value)
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        visit(&mut self.condition) && visit(&mut self.then_value) && visit(&mut self.else_value)
+    }
+
     fn rvalues_mut(&mut self) -> Vec<&mut RValue> {
         vec![
             &mut self.condition,
@@ -36,22 +44,24 @@ impl Traverse for IfExpression {
 }
 
 impl LocalRw for IfExpression {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.condition.visit_local_reads(visit)
+            && self.then_value.visit_local_reads(visit)
+            && self.else_value.visit_local_reads(visit)
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.condition
-            .values_read()
-            .into_iter()
-            .chain(self.then_value.values_read())
-            .chain(self.else_value.values_read())
-            .collect()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.condition.visit_local_reads_mut(visit)
+            && self.then_value.visit_local_reads_mut(visit)
+            && self.else_value.visit_local_reads_mut(visit)
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.condition
-            .values_read_mut()
-            .into_iter()
-            .chain(self.then_value.values_read_mut())
-            .chain(self.else_value.values_read_mut())
-            .collect()
+        crate::local::collect_reads_mut(self)
     }
 }
 
@@ -91,7 +101,7 @@ impl fmt::Display for IfExpression {
             indentation_level: 0,
             indentation_mode: Default::default(),
             output: f,
-            colon_method_calls: Vec::new(),
+            colon_method_calls: Default::default(),
             position_query: None,
             closure_observer: None,
             emission_map: None,

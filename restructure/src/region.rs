@@ -14,12 +14,12 @@ use cfg::block::{BlockEdge, BranchType};
 use cfg::function::Function;
 use itertools::Itertools;
 use petgraph::{
-    algo::dominators::{Dominators, simple_fast},
-    stable_graph::NodeIndex,
-    visit::EdgeRef,
+    algo::dominators::simple_fast,
+    stable_graph::{EdgeIndex, NodeIndex},
+    visit::{EdgeRef, NodeIndexable},
 };
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::{collections::VecDeque, fmt};
+use std::{cell::OnceCell, collections::VecDeque, fmt};
 
 /// A proof obligation whose failure makes it unsafe to try a weaker
 /// source-shaping matcher on the same CFG.
@@ -119,6 +119,389 @@ struct Analysis {
     numeric_loops_by_init: FxHashMap<NodeIndex, LoopInfo>,
     numeric_loops_by_header: FxHashMap<NodeIndex, LoopInfo>,
     while_loops_by_header: FxHashMap<NodeIndex, LoopInfo>,
+    // Built only if exhaustion-path proof asks about a copied nil value.
+    nil_definitions: OnceCell<FxHashMap<RcLocal, Option<NodeIndex>>>,
+    proof_census: OnceCell<ProofCensus>,
+    dominators: DominanceIndex,
+}
+
+const PROOF_READ: u8 = 1;
+const PROOF_WRITE: u8 = 2;
+const PROOF_CAPTURE: u8 = 4;
+const PROOF_REF_CAPTURE: u8 = 8;
+
+#[derive(Clone, Copy)]
+enum ProofSite {
+    Statement(NodeIndex, usize),
+    Edge(NodeIndex, EdgeIndex, usize),
+}
+
+impl ProofSite {
+    fn node(self) -> NodeIndex {
+        match self { Self::Statement(node, _) | Self::Edge(node, _, _) => node }
+    }
+}
+
+/// Only the outer CFG's owned values are immutable. Descendant closure and
+/// structured-block bodies may be published through Arc<Mutex<_>> by another
+/// function worker, so their capture answers are deliberately never cached.
+#[derive(Default)]
+struct ProofCensus {
+    reads: FxHashMap<u64, Vec<NodeIndex>>,
+    writes: FxHashMap<u64, Vec<NodeIndex>>,
+    captures: FxHashMap<u64, Vec<NodeIndex>>,
+    ref_captures: FxHashMap<u64, Vec<NodeIndex>>,
+    dynamic_captures: Vec<ProofSite>,
+    dynamic_nodes: Vec<NodeIndex>,
+}
+
+impl ProofCensus {
+    fn record_node(index: &mut FxHashMap<u64, Vec<NodeIndex>>, local: u64, node: NodeIndex) {
+        let nodes = index.entry(local).or_default();
+        // Analysis visits nodes in index order; repeated reads within a block
+        // need only one node for these boolean membership queries.
+        if nodes.last() != Some(&node) { nodes.push(node); }
+    }
+
+    fn record_dynamic(&mut self, site: ProofSite) {
+        self.dynamic_captures.push(site);
+        if self.dynamic_nodes.last() != Some(&site.node()) { self.dynamic_nodes.push(site.node()); }
+    }
+
+    fn record_closure(&mut self, site: ProofSite, closure: &ast::Closure) {
+        for upvalue in &closure.upvalues {
+            let (local, by_ref) = match upvalue {
+                ast::Upvalue::Copy(local) => (local, false),
+                ast::Upvalue::Ref(local) => (local, true),
+            };
+            Self::record_node(&mut self.captures, local.stable_id(), site.node());
+            if by_ref {
+                Self::record_node(&mut self.ref_captures, local.stable_id(), site.node());
+            }
+        }
+    }
+
+    fn new(function: &Function, nodes: &[NodeIndex]) -> Self {
+        let mut census = Self::default();
+        for &node in nodes {
+            if let Some(block) = function.block(node) {
+                for (index, statement) in block.iter().enumerate() {
+                    let site = ProofSite::Statement(node, index);
+                    statement.visit_local_reads(&mut |local| {
+                        Self::record_node(&mut census.reads, local.stable_id(), node);
+                        true
+                    });
+                    for local in statement.values_written() {
+                        Self::record_node(&mut census.writes, local.stable_id(), node);
+                    }
+                    let mut dynamic = matches!(statement, Statement::If(_) | Statement::While(_)
+                        | Statement::Repeat(_) | Statement::NumericFor(_) | Statement::GenericFor(_));
+                    statement.traverse_rvalues_ref(&mut |value| {
+                        if let RValue::Closure(closure) = value {
+                            census.record_closure(site, closure);
+                            dynamic = true;
+                        }
+                    });
+                    if dynamic { census.record_dynamic(site); }
+                }
+            }
+            for edge in function.edges(node) {
+                for (index, (destination, value)) in edge.weight().arguments.iter().enumerate() {
+                    let site = ProofSite::Edge(node, edge.id(), index);
+                    Self::record_node(&mut census.writes, destination.stable_id(), node);
+                    value.visit_local_reads(&mut |local| {
+                        Self::record_node(&mut census.reads, local.stable_id(), node);
+                        true
+                    });
+                    let mut dynamic = false;
+                    let mut visit = |value: &RValue| {
+                        if let RValue::Closure(closure) = value {
+                            census.record_closure(site, closure);
+                            dynamic = true;
+                        }
+                    };
+                    visit(value);
+                    value.traverse_rvalues_ref(&mut visit);
+                    if dynamic { census.record_dynamic(site); }
+                }
+            }
+        }
+        census
+    }
+
+    fn nodes(&self, locals: impl IntoIterator<Item = u64>, access: u8) -> Vec<NodeIndex> {
+        let mut nodes = Vec::new();
+        let mut queried = false;
+        for local in locals {
+            queried = true;
+            for (bit, index) in [(PROOF_READ, &self.reads), (PROOF_WRITE, &self.writes),
+                (PROOF_CAPTURE, &self.captures), (PROOF_REF_CAPTURE, &self.ref_captures)] {
+                if access & bit != 0 {
+                    if let Some(sites) = index.get(&local) {
+                        nodes.extend(sites.iter().copied());
+                    }
+                }
+            }
+        }
+        if queried && access & (PROOF_CAPTURE | PROOF_REF_CAPTURE) != 0 {
+            nodes.extend(self.dynamic_nodes.iter().copied());
+        }
+        // Used only to narrow boolean membership searches, never to allocate
+        // exports or select an owner. Preserve Analysis's original node order.
+        nodes.sort_unstable_by_key(|node| node.index());
+        nodes.dedup();
+        nodes
+    }
+}
+
+#[cfg(test)]
+mod proof_census_regressions {
+    use super::*;
+
+    fn closure(local: &RcLocal, by_ref: bool) -> ast::Closure {
+        ast::Closure {
+            node_origin: Default::default(), function: Default::default(),
+            upvalues: vec![if by_ref { ast::Upvalue::Ref(local.clone()) } else { ast::Upvalue::Copy(local.clone()) }],
+        }
+    }
+
+    #[test]
+    fn no_capture_fast_path_matches_original_reverse_scan() {
+        let mut function = Function::new(0);
+        let nodes: Vec<_> = (0..128).map(|_| function.new_block()).collect();
+        function.set_entry(nodes[0]);
+        for pair in nodes.windows(2) {
+            function.set_edges(pair[0], vec![(pair[1], BlockEdge::default())]);
+        }
+        let analysis = Analysis::new(&function).unwrap();
+        for &init in &nodes {
+            assert_eq!(analysis.ref_captured_locals_before_init(&function, init),
+                analysis.ref_captured_locals_before_init_reference(&function, init));
+        }
+        assert!(analysis.proof_census(&function).dynamic_captures.is_empty());
+    }
+
+    #[test]
+    fn descendant_and_embedded_body_publication_cannot_stale_capture_candidates() {
+        for embedded in [false, true] {
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            let init = function.new_block();
+            function.set_entry(entry);
+            function.set_edges(entry, vec![(init, BlockEdge::default())]);
+            let (copy, hidden) = (RcLocal::default(), RcLocal::default());
+            let child = closure(&copy, false);
+            let branch = If::new(Literal::Boolean(true).into(), Block::default(), Block::default());
+            if embedded {
+                function.block_mut(entry).unwrap().push(branch.clone().into());
+            } else {
+                function.block_mut(entry).unwrap().push(
+                    Assign::new(vec![RcLocal::default().into()], vec![child.clone().into()]).into());
+            }
+            let analysis = Analysis::new(&function).unwrap();
+            assert!(analysis.ref_captured_locals_before_init(&function, init).is_empty());
+            // Build and reuse the index before publication. Even an empty child
+            // or structured block remains a dynamic candidate, never a cached
+            // negative answer about its future nested reference captures.
+            let initial = analysis.proof_nodes(&function, [hidden.stable_id()], PROOF_REF_CAPTURE);
+            assert!(initial.contains(&entry));
+            let published: Statement = Assign::new(vec![RcLocal::default().into()], vec![closure(&hidden, true).into()]).into();
+            if embedded {
+                branch.then_block.lock().push(published);
+            } else {
+                child.function.lock().body.push(published);
+            }
+            let captured = analysis.ref_captured_locals_before_init(&function, init);
+            assert_eq!(captured, [hidden.clone()].into_iter().collect());
+            assert!(analysis.proof_nodes(&function, [hidden.stable_id()], PROOF_REF_CAPTURE).contains(&entry));
+        }
+    }
+
+    #[test]
+    fn pre_init_prefix_edges_and_capture_kind_match_original_reverse_query() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let init = function.new_block();
+        let unrelated = function.new_block();
+        function.set_entry(entry);
+        let locals: Vec<_> = (0..6).map(|_| RcLocal::default()).collect();
+        let assign_capture = |local: &RcLocal, by_ref| -> Statement {
+            Assign::new(vec![RcLocal::default().into()], vec![closure(local, by_ref).into()]).into()
+        };
+        function.block_mut(entry).unwrap().push(assign_capture(&locals[0], false));
+        function.block_mut(init).unwrap().push(assign_capture(&locals[1], true));
+        let mut marker = ast::GenericForInit::new(RcLocal::default(), RcLocal::default(), RcLocal::default());
+        marker.0.right = vec![ast::Global::from("items").into()];
+        function.block_mut(init).unwrap().push(marker.into());
+        function.block_mut(init).unwrap().push(assign_capture(&locals[2], true));
+        function.set_edges(entry, vec![
+            (init, BlockEdge { arguments: vec![(RcLocal::default(), closure(&locals[3], true).into())], ..Default::default() }),
+            (unrelated, BlockEdge { arguments: vec![(RcLocal::default(), closure(&locals[4], true).into())], ..Default::default() }),
+        ]);
+        function.block_mut(unrelated).unwrap().push(assign_capture(&locals[5], true));
+        let analysis = Analysis::new(&function).unwrap();
+        assert_eq!(analysis.ref_captured_locals_before_init(&function, init),
+            [locals[1].clone(), locals[3].clone()].into_iter().collect());
+        assert!(analysis.proof_nodes(&function, [locals[0].stable_id()], PROOF_CAPTURE).contains(&entry));
+    }
+}
+
+/// Dominance is an ancestor query in the immediate-dominator tree. Walking
+/// the parents for every CFG edge is quadratic even on an acyclic chain.
+/// Half-open DFS intervals answer the same query in constant time. Missing
+/// nodes (unreachable nodes and holes in StableDiGraph) never dominate a node.
+struct DominanceIndex {
+    intervals: Vec<Option<(usize, usize)>>,
+}
+
+impl DominanceIndex {
+    fn new(function: &Function, entry: NodeIndex) -> Self {
+        let tree = simple_fast(function.graph(), entry);
+        let mut children = vec![Vec::new(); function.graph().node_bound()];
+        for node in function.graph().node_indices() {
+            if let Some(parent) = tree.immediate_dominator(node) {
+                children[parent.index()].push(node);
+            }
+        }
+        let mut intervals: Vec<Option<(usize, usize)>> = vec![None; children.len()];
+        let mut stack = vec![(entry, false)];
+        let mut clock = 0;
+        while let Some((node, exiting)) = stack.pop() {
+            if exiting {
+                intervals[node.index()].as_mut().unwrap().1 = clock;
+            } else {
+                intervals[node.index()] = Some((clock, 0));
+                clock += 1;
+                stack.push((node, true));
+                stack.extend(children[node.index()].iter().map(|&child| (child, false)));
+            }
+        }
+        Self { intervals }
+    }
+
+    fn dominates(&self, ancestor: NodeIndex, node: NodeIndex) -> bool {
+        match (
+            self.intervals.get(ancestor.index()).copied().flatten(),
+            self.intervals.get(node.index()).copied().flatten(),
+        ) {
+            (Some((start, end)), Some((point, _))) => start <= point && point < end,
+            _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod dominance_regressions {
+    use super::*;
+
+    #[test]
+    fn intervals_match_parent_walk_with_cycles_unreachable_nodes_and_holes() {
+        for seed in 0..96usize {
+            let mut function = Function::new(0);
+            let nodes: Vec<_> = (0..18).map(|_| function.new_block()).collect();
+            function.set_entry(nodes[0]);
+            function.remove_block(nodes[7]);
+            let mut random = seed + 1;
+            for &source in &nodes[..15] {
+                if source == nodes[7] { continue; }
+                for _ in 0..3 {
+                    random = random.wrapping_mul(1664525).wrapping_add(1013904223);
+                    let target = nodes[random % 15];
+                    if target != nodes[7] {
+                        function.graph_mut().add_edge(source, target, BlockEdge::default());
+                    }
+                }
+            }
+            let reference = simple_fast(function.graph(), nodes[0]);
+            let index = DominanceIndex::new(&function, nodes[0]);
+            for &ancestor in &nodes {
+                for &node in &nodes {
+                    let expected = reference.dominators(node)
+                        .is_some_and(|mut parents| parents.any(|parent| parent == ancestor));
+                    assert_eq!(index.dominates(ancestor, node), expected,
+                        "seed={seed}, ancestor={ancestor:?}, node={node:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn liveness_and_nil_index_match_reference_with_cycles_and_parallel_transfers() {
+        for seed in 1..=192u64 {
+            let mut state = seed;
+            let mut random = |limit: usize| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                ((state >> 32) as usize) % limit
+            };
+            let mut function = Function::new(0);
+            let nodes: Vec<_> = (0..9).map(|_| function.new_block()).collect();
+            function.set_entry(nodes[0]);
+            let locals: Vec<_> = (0..6).map(|_| RcLocal::default()).collect();
+            for &node in &nodes {
+                for _ in 0..random(6) {
+                    let destination = locals[random(locals.len())].clone();
+                    let value: RValue = if random(2) == 0 {
+                        Literal::Nil.into()
+                    } else {
+                        locals[random(locals.len())].clone().into()
+                    };
+                    function.block_mut(node).unwrap().push(
+                        Assign::new(vec![destination.into()], vec![value]).into());
+                }
+                for _ in 0..random(4) {
+                    let target = nodes[random(nodes.len())];
+                    let mut edge = BlockEdge::default();
+                    if random(2) == 0 {
+                        let a = locals[random(locals.len())].clone();
+                        let b = locals[random(locals.len())].clone();
+                        edge.arguments = vec![(a.clone(), b.clone().into()), (b, a.into())];
+                    }
+                    function.graph_mut().add_edge(node, target, edge);
+                }
+            }
+            let reachable = nodes.iter().copied().collect();
+            assert_eq!(Analysis::liveness(&function, &nodes, &reachable),
+                Analysis::liveness_reference(&function, &nodes, &reachable), "seed={seed}");
+            let index = Analysis::nil_definition_index(&function, &nodes);
+            for local in &locals {
+                for &init in &nodes {
+                    let mut saw_nil = false;
+                    let mut invalid = false;
+                    for &node in &nodes {
+                        for statement in function.block(node).unwrap().iter() {
+                            if statement.values_written().into_iter().any(|written| written == local) {
+                                if node == init && Builder::is_nil_assignment(statement, local) {
+                                    saw_nil = true;
+                                } else {
+                                    invalid = true;
+                                }
+                            }
+                        }
+                        invalid |= function.edges(node).any(|edge| edge.weight().arguments.iter()
+                            .any(|(destination, _)| destination == local));
+                    }
+                    assert_eq!(index.get(local) == Some(&Some(init)), saw_nil && !invalid,
+                        "nil seed={seed}, init={init:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn deep_chain_has_one_interval_per_node_and_iterative_construction() {
+        let mut function = Function::new(0);
+        let nodes: Vec<_> = (0..20_000).map(|_| function.new_block()).collect();
+        function.set_entry(nodes[0]);
+        for pair in nodes.windows(2) {
+            function.graph_mut().add_edge(pair[0], pair[1], BlockEdge::default());
+        }
+        let index = DominanceIndex::new(&function, nodes[0]);
+        assert_eq!(index.intervals.len(), nodes.len());
+        for pair in nodes.windows(2) {
+            assert!(index.dominates(pair[0], pair[1]));
+            assert!(!index.dominates(pair[1], pair[0]));
+        }
+    }
 }
 
 /// Immediate post-dominators of nodes whose paths cannot enter a closed,
@@ -734,7 +1117,7 @@ impl Analysis {
             }
         }
 
-        let dominators = simple_fast(function.graph(), entry);
+        let dominators = DominanceIndex::new(function, entry);
         let post_dominators = Self::post_dominators(function, &nodes, &reachable);
         let (live_in, live_out) = Self::liveness(function, &nodes, &reachable);
         let (loops_by_init, loops_by_header) =
@@ -754,7 +1137,86 @@ impl Analysis {
             numeric_loops_by_init,
             numeric_loops_by_header,
             while_loops_by_header,
+            nil_definitions: OnceCell::new(),
+            proof_census: OnceCell::new(),
+            dominators,
         })
+    }
+
+    fn proof_census(&self, function: &Function) -> &ProofCensus {
+        self.proof_census.get_or_init(|| ProofCensus::new(function, &self.nodes))
+    }
+
+    fn proof_nodes(&self, function: &Function, locals: impl IntoIterator<Item = u64>, access: u8) -> Vec<NodeIndex> {
+        #[cfg(test)]
+        if REFERENCE_VISITED.with(std::cell::Cell::get) { return self.nodes.clone(); }
+        #[cfg(test)]
+        let locals = locals.into_iter().collect_vec();
+        #[cfg(test)]
+        let nodes = self.proof_census(function).nodes(locals.iter().copied(), access);
+        #[cfg(not(test))]
+        let nodes = self.proof_census(function).nodes(locals, access);
+        #[cfg(test)]
+        self.assert_proof_nodes_cover_queries(function, &locals, access, &nodes);
+        nodes
+    }
+
+    #[cfg(test)]
+    fn assert_proof_nodes_cover_queries(&self, function: &Function, locals: &[u64], access: u8, candidates: &[NodeIndex]) {
+        let contains = |local: &RcLocal| locals.contains(&local.stable_id());
+        for &node in &self.nodes {
+            if candidates.contains(&node) { continue; }
+            let block_match = function.block(node).is_some_and(|block| block.iter().any(|statement| {
+                (access & PROOF_READ != 0 && statement.values_read().into_iter().any(contains))
+                    || (access & PROOF_WRITE != 0 && statement.values_written().into_iter().any(contains))
+                    || {
+                        let mut captures = FxHashSet::default();
+                        if access & PROOF_CAPTURE != 0 { collect_statement_captures(statement, &mut captures); }
+                        if access & PROOF_REF_CAPTURE != 0 {
+                            collect_statement_ref_captures_with_seen(statement, &mut captures, &mut FxHashSet::default());
+                        }
+                        captures.iter().any(contains)
+                    }
+            }));
+            let edge_match = function.edges(node).any(|edge| edge.weight().arguments.iter().any(|(destination, value)| {
+                (access & PROOF_WRITE != 0 && contains(destination))
+                    || (access & PROOF_READ != 0 && value.values_read().into_iter().any(contains))
+                    || {
+                        let mut captures = FxHashSet::default();
+                        if access & PROOF_CAPTURE != 0 { collect_rvalue_captures(value, &mut captures); }
+                        if access & PROOF_REF_CAPTURE != 0 { collect_rvalue_ref_captures(value, &mut captures); }
+                        captures.iter().any(contains)
+                    }
+            }));
+            assert!(!block_match && !edge_match, "proof census omitted node {node:?}, access={access}");
+        }
+    }
+
+    fn nil_definition_index(
+        function: &Function,
+        nodes: &[NodeIndex],
+    ) -> FxHashMap<RcLocal, Option<NodeIndex>> {
+        let mut definitions = FxHashMap::default();
+        for &node in nodes {
+            if let Some(block) = function.block(node) {
+                for candidate in block.iter() {
+                    for written in candidate.values_written() {
+                        let definition = Builder::is_nil_assignment(candidate, written).then_some(node);
+                        definitions.entry(written.clone())
+                            .and_modify(|previous| {
+                                if *previous != definition { *previous = None; }
+                            })
+                            .or_insert(definition);
+                    }
+                }
+            }
+            for edge in function.edges(node) {
+                for (destination, _) in &edge.weight().arguments {
+                    definitions.insert(destination.clone(), None);
+                }
+            }
+        }
+        definitions
     }
 
     /// Standard backwards liveness over the complete reachable CFG.  Unlike
@@ -762,6 +1224,87 @@ impl Analysis {
     /// Edge arguments are parallel transfers: their destinations are defined
     /// on the edge and their right-hand sides are read after branch selection.
     fn liveness(
+        function: &Function,
+        nodes: &[NodeIndex],
+        reachable: &FxHashSet<NodeIndex>,
+    ) -> (
+        FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
+        FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
+    ) {
+        let mut uses = FxHashMap::default();
+        let mut defs = FxHashMap::default();
+        for node in nodes {
+            let mut node_uses = FxHashSet::default();
+            let mut node_defs = FxHashSet::default();
+            if let Some(block) = function.block(*node) {
+                for statement in block.iter() {
+                    for read in statement.values_read() {
+                        if !node_defs.contains(read) {
+                            node_uses.insert(read.clone());
+                        }
+                    }
+                    node_defs.extend(statement.values_written().into_iter().cloned());
+                }
+            }
+            uses.insert(*node, node_uses);
+            defs.insert(*node, node_defs);
+        }
+
+        let mut live_in = nodes
+            .iter()
+            .copied()
+            .map(|node| (node, FxHashSet::default()))
+            .collect::<FxHashMap<_, _>>();
+        let mut live_out = live_in.clone();
+        let mut work = VecDeque::from(nodes.iter().rev().copied().collect_vec());
+        let mut queued = nodes.iter().copied().collect::<FxHashSet<_>>();
+        let mut next_out = FxHashSet::default();
+        let mut next_in = FxHashSet::default();
+        let mut edge_defs = FxHashSet::default();
+        while let Some(node) = work.pop_front() {
+            queued.remove(&node);
+            next_out.clear();
+            for edge in function
+                .edges(node)
+                .filter(|edge| reachable.contains(&edge.target()))
+            {
+                // Filter all parallel-copy destinations before adding any
+                // sources. This preserves swaps without cloning a complete
+                // successor live set for each edge on every worklist visit.
+                edge_defs.clear();
+                edge_defs.extend(edge.weight().arguments.iter().map(|(destination, _)| destination));
+                next_out.extend(live_in[&edge.target()].iter()
+                    .filter(|local| !edge_defs.contains(*local)).cloned());
+                for (_, value) in &edge.weight().arguments {
+                    next_out.extend(value.values_read().into_iter().cloned());
+                }
+            }
+            next_in.clear();
+            next_in.extend(uses[&node].iter().cloned());
+            next_in.extend(
+                next_out
+                    .iter()
+                    .filter(|local| !defs[&node].contains(*local))
+                    .cloned(),
+            );
+            if next_out != live_out[&node] || next_in != live_in[&node] {
+                std::mem::swap(live_out.get_mut(&node).unwrap(), &mut next_out);
+                std::mem::swap(live_in.get_mut(&node).unwrap(), &mut next_in);
+                for predecessor in function
+                    .predecessor_blocks(node)
+                    .filter(|predecessor| reachable.contains(predecessor))
+                {
+                    if queued.insert(predecessor) {
+                        work.push_back(predecessor);
+                    }
+                }
+            }
+        }
+        (live_in, live_out)
+    }
+
+    #[cfg(test)]
+    fn liveness_reference(
         function: &Function,
         nodes: &[NodeIndex],
         reachable: &FxHashSet<NodeIndex>,
@@ -850,6 +1393,59 @@ impl Analysis {
         function: &Function,
         init: NodeIndex,
     ) -> FxHashSet<RcLocal> {
+        #[cfg(test)]
+        if REFERENCE_VISITED.with(std::cell::Cell::get) {
+            return self.ref_captured_locals_before_init_reference(function, init);
+        }
+        let candidates = &self.proof_census(function).dynamic_captures;
+        if candidates.is_empty() { return FxHashSet::default(); }
+        // A dominating site certainly reaches init. Only ambiguous candidates
+        // require the old reverse walk; retain at most one temporary set per
+        // query, not a growing set for every loop preparation.
+        let pre_nodes = OnceCell::new();
+        let can_reach_init = |candidate| {
+            self.dominators.dominates(candidate, init) || pre_nodes.get_or_init(|| {
+                let mut nodes = FxHashSet::default();
+                let mut work = vec![init];
+                while let Some(node) = work.pop() {
+                    if !self.reachable.contains(&node) || !nodes.insert(node) { continue; }
+                    work.extend(function.predecessor_blocks(node)
+                        .filter(|predecessor| self.reachable.contains(predecessor)));
+                }
+                nodes
+            }).contains(&candidate)
+        };
+        let marker = function.block(init).map(|block| block.iter()
+            .position(|statement| statement.as_generic_for_init().is_some()).unwrap_or(block.len()));
+        let mut captured = FxHashSet::default();
+        for &site in candidates {
+            if !can_reach_init(site.node()) { continue; }
+            match site {
+                ProofSite::Statement(node, index) => {
+                    if node == init && marker.is_some_and(|marker| index >= marker) { continue; }
+                    collect_statement_ref_captures_with_seen(&function.block(node).unwrap()[index],
+                        &mut captured, &mut FxHashSet::default());
+                }
+                ProofSite::Edge(_, edge, index) => {
+                    let (_, target) = function.graph().edge_endpoints(edge).unwrap();
+                    if can_reach_init(target) {
+                        collect_rvalue_ref_captures(&function.graph().edge_weight(edge).unwrap()
+                            .arguments[index].1, &mut captured);
+                    }
+                }
+            }
+        }
+        #[cfg(test)]
+        assert_eq!(captured, self.ref_captured_locals_before_init_reference(function, init));
+        captured
+    }
+
+    #[cfg(test)]
+    fn ref_captured_locals_before_init_reference(
+        &self,
+        function: &Function,
+        init: NodeIndex,
+    ) -> FxHashSet<RcLocal> {
         let mut pre_nodes = FxHashSet::default();
         let mut work = vec![init];
         while let Some(node) = work.pop() {
@@ -907,7 +1503,7 @@ impl Analysis {
         function: &Function,
         nodes: &[NodeIndex],
         reachable: &FxHashSet<NodeIndex>,
-        dominators: &Dominators<NodeIndex>,
+        dominators: &DominanceIndex,
         post_dominators: &PostDominators,
     ) -> Option<(
         FxHashMap<NodeIndex, LoopInfo>,
@@ -918,9 +1514,7 @@ impl Analysis {
             for edge in function.edges(*source) {
                 let header = edge.target();
                 if !reachable.contains(&header)
-                    || !dominators
-                        .dominators(*source)
-                        .is_some_and(|mut ds| ds.any(|candidate| candidate == header))
+                    || !dominators.dominates(header, *source)
                 {
                     continue;
                 }
@@ -958,6 +1552,8 @@ impl Analysis {
         // be dominated by the body entry, and traversal stops at the
         // exhaustion/follow edge or at an outer target.  This prevents a
         // straight-line tail after the loop from being swallowed by the body.
+        let pc_index = OnceCell::new();
+        let block_at_pc = |pc| pc_index.get_or_init(|| function.block_start_pc_index()).get(&pc).copied();
         let mut candidates = natural;
         let semantic_headers = nodes
             .iter()
@@ -987,18 +1583,16 @@ impl Analysis {
                 // the CFG branch targets to agree with the provenance envelope
                 // whenever ranges are available; this is what distinguishes a
                 // direct outer exit from the source loop's own follow block.
-                if function
-                    .block_at_pc(origin.step_pc)
+                if block_at_pc(origin.step_pc)
                     .is_some_and(|node| node != header)
-                    || function.block_at_pc(origin.body_pc).is_some_and(|node| {
+                    || block_at_pc(origin.body_pc).is_some_and(|node| {
                         node != body_entry
                             && !(origin.body_pc == origin.step_pc
                                 && function
                                     .block(body_entry)
                                     .is_some_and(|block| block.is_empty()))
                     })
-                    || function
-                        .block_at_pc(origin.follow_pc)
+                    || block_at_pc(origin.follow_pc)
                         .is_some_and(|node| node != normal_exit)
                 {
                     return None;
@@ -1019,9 +1613,7 @@ impl Analysis {
                     // A body node with an incoming path that bypasses the
                     // FORGLOOP header is a shared/multi-entry region, not a
                     // single source-level loop body.
-                    if !dominators
-                        .dominators(node)
-                        .is_some_and(|mut ds| ds.any(|candidate| candidate == body_entry))
+                    if !dominators.dominates(body_entry, node)
                     {
                         return None;
                     }
@@ -1040,9 +1632,7 @@ impl Analysis {
                         {
                             continue;
                         }
-                        if dominators
-                            .dominators(target)
-                            .is_some_and(|mut ds| ds.any(|candidate| candidate == body_entry))
+                        if dominators.dominates(body_entry, target)
                         {
                             work.push(target);
                         }
@@ -1201,18 +1791,16 @@ impl Analysis {
             // natural candidates too: otherwise a malformed/transformed CFG
             // whose semantic ownership proof failed could still be accepted
             // by the older backedge-only set and swallow an outer tail.
-            if function
-                .block_at_pc(origin.step_pc)
+            if block_at_pc(origin.step_pc)
                 .is_some_and(|node| node != header)
-                || function.block_at_pc(origin.body_pc).is_some_and(|node| {
+                || block_at_pc(origin.body_pc).is_some_and(|node| {
                     node != body_entry
                         && !(origin.body_pc == origin.step_pc
                             && function
                                 .block(body_entry)
                                 .is_some_and(|block| block.is_empty()))
                 })
-                || function
-                    .block_at_pc(origin.follow_pc)
+                || block_at_pc(origin.follow_pc)
                     .is_some_and(|node| node != normal_exit)
                 || nodes_in_loop.iter().any(|node| {
                     *node != header
@@ -1279,7 +1867,7 @@ impl Analysis {
         function: &Function,
         nodes: &[NodeIndex],
         reachable: &FxHashSet<NodeIndex>,
-        dominators: &Dominators<NodeIndex>,
+        dominators: &DominanceIndex,
         post_dominators: &PostDominators,
     ) -> FxHashMap<NodeIndex, LoopInfo> {
         let mut candidates = FxHashMap::<NodeIndex, FxHashSet<NodeIndex>>::default();
@@ -1287,9 +1875,7 @@ impl Analysis {
             for edge in function.edges(*source) {
                 let header = edge.target();
                 if !reachable.contains(&header)
-                    || !dominators
-                        .dominators(*source)
-                        .is_some_and(|mut ds| ds.any(|candidate| candidate == header))
+                    || !dominators.dominates(header, *source)
                 {
                     continue;
                 }
@@ -1364,9 +1950,7 @@ impl Analysis {
                     if node == header
                         || node == normal_exit
                         || !seen.insert(node)
-                        || !dominators
-                            .dominators(node)
-                            .is_some_and(|mut ds| ds.any(|candidate| candidate == owner))
+                        || !dominators.dominates(owner, node)
                     {
                         continue;
                     }
@@ -1448,7 +2032,7 @@ impl Analysis {
         function: &Function,
         nodes: &[NodeIndex],
         reachable: &FxHashSet<NodeIndex>,
-        dominators: &Dominators<NodeIndex>,
+        dominators: &DominanceIndex,
         post_dominators: &PostDominators,
     ) -> (
         FxHashMap<NodeIndex, LoopInfo>,
@@ -1464,9 +2048,7 @@ impl Analysis {
                         .and_then(|block| block.last())
                         .and_then(|statement| statement.as_num_for_next())
                         .is_none()
-                    || !dominators
-                        .dominators(*source)
-                        .is_some_and(|mut ds| ds.any(|candidate| candidate == header))
+                    || !dominators.dominates(header, *source)
                 {
                     continue;
                 }
@@ -1535,9 +2117,7 @@ impl Analysis {
                 if node == header
                     || node == normal_exit
                     || !seen.insert(node)
-                    || !dominators
-                        .dominators(node)
-                        .is_some_and(|mut ds| ds.any(|candidate| candidate == body_entry))
+                    || !dominators.dominates(body_entry, node)
                 {
                     continue;
                 }
@@ -1727,10 +2307,378 @@ struct ReentryTailResult {
     terminates: bool,
 }
 
+/// A branch checkpoint needs only the length of the insertion trail. Coverage
+/// queries never iterate the visited set, so restoring/merging arm-local deltas
+/// preserves the ownership proof without copying the already-emitted prefix.
+struct Visited {
+    present: Vec<bool>,
+    inserted: Vec<NodeIndex>,
+    #[cfg(test)]
+    reference: Option<FxHashSet<NodeIndex>>,
+}
+
+struct VisitCheckpoint {
+    inserted: usize,
+    #[cfg(test)]
+    reference: Option<FxHashSet<NodeIndex>>,
+}
+
+enum VisitedBranch {
+    Empty,
+    One(NodeIndex),
+    Many(Vec<NodeIndex>),
+    #[cfg(test)]
+    Reference(FxHashSet<NodeIndex>),
+}
+
+#[cfg(test)]
+thread_local! {
+    static REFERENCE_VISITED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static VISITED_SNAPSHOT_ITEMS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_visited_snapshot_items(count: usize) {
+    VISITED_SNAPSHOT_ITEMS.with(|items| items.set(items.get() + count));
+}
+
+impl Visited {
+    fn new(bound: usize, capacity: usize) -> Self {
+        #[cfg(test)]
+        if REFERENCE_VISITED.with(std::cell::Cell::get) {
+            return Self { present: Vec::new(), inserted: Vec::new(), reference: Some(FxHashSet::default()) };
+        }
+        Self {
+            present: vec![false; bound],
+            inserted: Vec::with_capacity(capacity),
+            #[cfg(test)]
+            reference: None,
+        }
+    }
+
+    fn insert(&mut self, node: NodeIndex) -> bool {
+        #[cfg(test)]
+        if let Some(reference) = &mut self.reference { return reference.insert(node); }
+        if std::mem::replace(&mut self.present[node.index()], true) { return false; }
+        self.inserted.push(node);
+        true
+    }
+
+    fn contains(&self, node: &NodeIndex) -> bool {
+        #[cfg(test)]
+        if let Some(reference) = &self.reference { return reference.contains(node); }
+        self.present.get(node.index()).copied().unwrap_or(false)
+    }
+
+    fn extend(&mut self, nodes: impl IntoIterator<Item = NodeIndex>) {
+        for node in nodes { self.insert(node); }
+    }
+
+    /// The path walker tentatively owns a node, then delegates a just-found
+    /// loop to its loop builder. No visit/checkpoint occurs between that insert
+    /// and this undo; arbitrary removal is deliberately not exposed.
+    fn undo_insert(&mut self, node: NodeIndex) {
+        #[cfg(test)]
+        if let Some(reference) = &mut self.reference {
+            assert!(reference.remove(&node));
+            return;
+        }
+        assert_eq!(self.inserted.pop(), Some(node));
+        self.present[node.index()] = false;
+    }
+
+    fn checkpoint(&self) -> VisitCheckpoint {
+        #[cfg(test)]
+        if let Some(reference) = &self.reference {
+            record_visited_snapshot_items(reference.len());
+            return VisitCheckpoint { inserted: 0, reference: Some(reference.clone()) };
+        }
+        VisitCheckpoint {
+            inserted: self.inserted.len(),
+            #[cfg(test)]
+            reference: None,
+        }
+    }
+
+    fn restore(&mut self, checkpoint: &VisitCheckpoint) {
+        #[cfg(test)]
+        if let Some(reference) = &mut self.reference {
+            let saved = checkpoint.reference.as_ref().unwrap();
+            record_visited_snapshot_items(saved.len());
+            *reference = saved.clone();
+            return;
+        }
+        assert!(checkpoint.inserted <= self.inserted.len());
+        #[cfg(test)]
+        record_visited_snapshot_items(self.inserted.len() - checkpoint.inserted);
+        for node in self.inserted.drain(checkpoint.inserted..) {
+            self.present[node.index()] = false;
+        }
+    }
+
+    /// Save this arm and restore the shared branch entry. Empty and single-node
+    /// arms need no allocation, including each arm of a sequential diamond.
+    fn take_branch(&mut self, checkpoint: &VisitCheckpoint) -> VisitedBranch {
+        #[cfg(test)]
+        if let Some(reference) = &mut self.reference {
+            let saved = checkpoint.reference.as_ref().unwrap();
+            record_visited_snapshot_items(reference.len() + saved.len());
+            let branch = reference.clone();
+            *reference = saved.clone();
+            return VisitedBranch::Reference(branch);
+        }
+        let count = self.inserted.len().checked_sub(checkpoint.inserted).unwrap();
+        #[cfg(test)]
+        record_visited_snapshot_items(count);
+        match count {
+            0 => VisitedBranch::Empty,
+            1 => {
+                let node = self.inserted.pop().unwrap();
+                self.present[node.index()] = false;
+                VisitedBranch::One(node)
+            }
+            _ => {
+                let nodes = self.inserted.split_off(checkpoint.inserted);
+                for node in &nodes { self.present[node.index()] = false; }
+                VisitedBranch::Many(nodes)
+            }
+        }
+    }
+
+    fn merge(&mut self, branch: VisitedBranch) {
+        #[cfg(test)]
+        if let Some(reference) = &mut self.reference {
+            let VisitedBranch::Reference(branch) = branch else { unreachable!() };
+            record_visited_snapshot_items(branch.len());
+            reference.extend(branch);
+            return;
+        }
+        match branch {
+            VisitedBranch::Empty => {}
+            VisitedBranch::One(node) => {
+                #[cfg(test)]
+                record_visited_snapshot_items(1);
+                self.insert(node);
+            }
+            VisitedBranch::Many(nodes) => {
+                #[cfg(test)]
+                record_visited_snapshot_items(nodes.len());
+                self.extend(nodes);
+            }
+            #[cfg(test)]
+            VisitedBranch::Reference(_) => unreachable!(),
+        }
+    }
+
+    fn matches(&self, reachable: &FxHashSet<NodeIndex>) -> bool {
+        #[cfg(test)]
+        if let Some(reference) = &self.reference { return reference == reachable; }
+        self.inserted.len() == reachable.len() && reachable.iter().all(|node| self.contains(node))
+    }
+}
+
+#[cfg(test)]
+mod visited_regressions {
+    use super::*;
+
+    fn with_reference<T>(enabled: bool, run: impl FnOnce() -> T) -> T {
+        struct Restore(bool);
+        impl Drop for Restore {
+            fn drop(&mut self) { REFERENCE_VISITED.with(|flag| flag.set(self.0)); }
+        }
+        let _restore = Restore(REFERENCE_VISITED.with(|flag| flag.replace(enabled)));
+        run()
+    }
+
+    fn compare_with_work(
+        function: &Function,
+        protected: &FxHashSet<RcLocal>,
+    ) -> (StructureAttempt, usize, usize) {
+        let base = ast::current_local_id();
+        VISITED_SNAPSHOT_ITEMS.with(|items| items.set(0));
+        let expected = with_reference(true, || lift_attempt_borrowed_with_ignored_locals(function, protected));
+        let reference_end = ast::current_local_id();
+        let copied = VISITED_SNAPSHOT_ITEMS.with(std::cell::Cell::get);
+        ast::set_local_id_base(base);
+        VISITED_SNAPSHOT_ITEMS.with(|items| items.set(0));
+        let actual = with_reference(false, || lift_attempt_borrowed_with_ignored_locals(function, protected));
+        let touched = VISITED_SNAPSHOT_ITEMS.with(std::cell::Cell::get);
+        assert_eq!(ast::current_local_id(), reference_end, "visited state changed fresh-local allocation");
+        match (&expected, &actual) {
+            (StructureAttempt::Structured(expected), StructureAttempt::Structured(actual)) => {
+                // Several control AST nodes deliberately do not implement
+                // structural Eq. Formatting also checks deterministic output.
+                assert_eq!(actual.to_string(), expected.to_string());
+            }
+            (StructureAttempt::Unsupported, StructureAttempt::Unsupported) => {}
+            (StructureAttempt::Unsafe(expected), StructureAttempt::Unsafe(actual)) => assert_eq!(actual, expected),
+            _ => panic!("visited state changed proof outcome: expected {expected:?}, actual {actual:?}"),
+        }
+        (actual, copied, touched)
+    }
+
+    pub(super) fn compare(function: &Function, protected: &FxHashSet<RcLocal>) -> StructureAttempt {
+        compare_with_work(function, protected).0
+    }
+
+    fn call(name: &str) -> Statement {
+        ast::Call::new(ast::Global::from(name).into(), Vec::new()).into()
+    }
+
+    fn branch(function: &mut Function, node: NodeIndex, left: NodeIndex, right: NodeIndex) {
+        function.block_mut(node).unwrap().push(
+            If::new(ast::Global::from("condition").into(), Block::default(), Block::default()).into());
+        function.set_edges(node, vec![
+            (left, BlockEdge::new(BranchType::Then)),
+            (right, BlockEdge::new(BranchType::Else)),
+        ]);
+    }
+
+    fn diamonds(count: usize, nested: bool) -> Function {
+        let mut function = Function::new(0);
+        let mut header = function.new_block();
+        function.set_entry(header);
+        for _ in 0..count {
+            let left = function.new_block();
+            let right = function.new_block();
+            let join = function.new_block();
+            branch(&mut function, header, left, right);
+            if nested {
+                let inner_left = function.new_block();
+                let inner_right = function.new_block();
+                branch(&mut function, left, inner_left, inner_right);
+                for (node, name) in [(inner_left, "inner_left"), (inner_right, "inner_right")] {
+                    function.block_mut(node).unwrap().push(call(name));
+                    function.set_edges(node, vec![(join, BlockEdge::default())]);
+                }
+            } else {
+                function.block_mut(left).unwrap().push(call("left"));
+                function.set_edges(left, vec![(join, BlockEdge::default())]);
+            }
+            function.block_mut(right).unwrap().push(call("right"));
+            function.set_edges(right, vec![(join, BlockEdge::default())]);
+            header = join;
+        }
+        function.block_mut(header).unwrap().push(ast::Return::default().into());
+        function
+    }
+
+    #[test]
+    fn sequential_diamonds_match_full_snapshots_with_linear_arm_work() {
+        for count in [128, 512, 2048] {
+            let function = diamonds(count, false);
+            let (result, copied, touched) = compare_with_work(&function, &FxHashSet::default());
+            let StructureAttempt::Structured(block) = result else { panic!("diamond chain must structure") };
+            assert_eq!(block.len(), count + 1);
+            assert!(copied >= count * count, "oracle must reproduce growing-prefix work");
+            assert!(touched <= 4 * count, "only arm-local visits may be copied/merged");
+        }
+    }
+
+    #[test]
+    fn nested_diamonds_and_random_cyclic_graphs_match_full_snapshots() {
+        assert!(matches!(compare(&diamonds(128, true), &FxHashSet::default()), StructureAttempt::Structured(_)));
+        for seed in 1..=192u64 {
+            let mut state = seed;
+            let mut random = |limit: usize| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                ((state >> 32) as usize) % limit
+            };
+            let mut function = Function::new(0);
+            let mut nodes: Vec<_> = (0..12).map(|_| function.new_block()).collect();
+            function.set_entry(nodes[0]);
+            function.remove_block(nodes[7]);
+            nodes.remove(7);
+            for &node in &nodes {
+                function.block_mut(node).unwrap().push(call("effect"));
+                match random(3) {
+                    0 => function.block_mut(node).unwrap().push(ast::Return::default().into()),
+                    1 => { function.set_edges(node, vec![(nodes[random(nodes.len())], BlockEdge::default())]); }
+                    _ => {
+                        let left = nodes[random(nodes.len())];
+                        let right = nodes[random(nodes.len())];
+                        branch(&mut function, node, left, right);
+                    }
+                }
+            }
+            compare(&function, &FxHashSet::default());
+        }
+    }
+
+    #[test]
+    fn failed_branch_attempt_restores_exact_coverage_before_retry() {
+        let mut function = diamonds(1, false);
+        let source = function.entry().unwrap();
+        let (then_edge, else_edge) = function.conditional_edges(source).unwrap();
+        let (left, right) = (then_edge.target(), else_edge.target());
+        let join = function.successor_blocks(left).next().unwrap();
+        let impossible_join = function.new_block();
+        let analysis = Analysis::new(&function).unwrap();
+        let condition = function.block(source).unwrap().last().unwrap().as_if().unwrap();
+        let run = |reference| with_reference(reference, || {
+            let mut builder = Builder::new(&function, &analysis, FxHashSet::default());
+            builder.visited.insert(source);
+            let checkpoint = builder.visited.checkpoint();
+            assert!(builder.build_plain_conditional(source, condition, left, right, Some(impossible_join), false).is_none());
+            let failed: Vec<_> = function.graph().node_indices().filter(|node| builder.visited.contains(node)).collect();
+            builder.visited.restore(&checkpoint);
+            assert!(builder.visited.matches(&FxHashSet::from_iter([source])));
+            let result = builder.build_plain_conditional(source, condition, left, right, Some(join), false).unwrap();
+            let retried: Vec<_> = function.graph().node_indices().filter(|node| builder.visited.contains(node)).collect();
+            (failed, retried, result.next, result.block.to_string())
+        });
+        assert_eq!(run(false), run(true));
+    }
+
+    #[test]
+    fn nested_checkpoint_deltas_match_hashsets_after_cancel_failure_and_union() {
+        fn next(state: &mut u64) -> usize {
+            *state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (*state >> 32) as usize
+        }
+        fn add(left: &mut Visited, right: &mut Visited, state: &mut u64) {
+            let node = NodeIndex::new(next(state) % 64);
+            let inserted = left.insert(node);
+            assert_eq!(inserted, right.insert(node));
+            if inserted && next(state) % 4 == 0 {
+                left.undo_insert(node);
+                right.undo_insert(node);
+            }
+        }
+        fn walk(left: &mut Visited, right: &mut Visited, state: &mut u64, depth: usize) {
+            let a = left.checkpoint();
+            let b = right.checkpoint();
+            for _ in 0..4 { add(left, right, state); }
+            if depth != 0 { walk(left, right, state, depth - 1); }
+            match next(state) % 3 {
+                0 => { left.restore(&a); right.restore(&b); }
+                1 => {
+                    let a = left.take_branch(&a);
+                    let b = right.take_branch(&b);
+                    for _ in 0..4 { add(left, right, state); }
+                    if depth != 0 { walk(left, right, state, depth - 1); }
+                    left.merge(a);
+                    right.merge(b);
+                }
+                _ => {}
+            }
+            for index in 0..64 {
+                let node = NodeIndex::new(index);
+                assert_eq!(left.contains(&node), right.contains(&node));
+            }
+        }
+        for mut seed in 1..=192 {
+            let mut actual = with_reference(false, || Visited::new(64, 64));
+            let mut reference = with_reference(true, || Visited::new(64, 64));
+            walk(&mut actual, &mut reference, &mut seed, 5);
+        }
+    }
+}
+
 struct Builder<'a> {
     function: &'a Function,
-    analysis: Analysis,
-    visited: FxHashSet<NodeIndex>,
+    analysis: &'a Analysis,
+    visited: Visited,
     rewrite: FxHashMap<RcLocal, RcLocal>,
     protected_locals: FxHashSet<RcLocal>,
     unsafe_reason: Option<UnsafeStructureReason>,
@@ -1744,7 +2692,7 @@ struct Builder<'a> {
 impl<'a> Builder<'a> {
     fn new(
         function: &'a Function,
-        analysis: Analysis,
+        analysis: &'a Analysis,
         protected_locals: FxHashSet<RcLocal>,
     ) -> Self {
         let suffix_unsafe_reason = analysis
@@ -1835,7 +2783,7 @@ impl<'a> Builder<'a> {
         Self {
             function,
             analysis,
-            visited: FxHashSet::default(),
+            visited: Visited::new(function.graph().node_bound(), analysis.nodes.len()),
             rewrite: FxHashMap::default(),
             protected_locals,
             unsafe_reason,
@@ -2022,7 +2970,7 @@ impl<'a> Builder<'a> {
         info.res_locals
             .iter()
             .filter(|local| {
-                self.analysis.nodes.iter().any(|node| {
+                self.analysis.proof_nodes(self.function, [local.stable_id()], PROOF_READ | PROOF_CAPTURE).iter().any(|node| {
                     if info.nodes.contains(node) {
                         return false;
                     }
@@ -2079,35 +3027,10 @@ impl<'a> Builder<'a> {
         let RValue::Local(source) = &assign.right[0] else {
             return false;
         };
-        let mut saw_nil_definition = false;
-        for node in &self.analysis.nodes {
-            let Some(block) = self.function.block(*node) else {
-                continue;
-            };
-            for candidate in block.iter() {
-                if !candidate
-                    .values_written()
-                    .into_iter()
-                    .any(|written| written == source)
-                {
-                    continue;
-                }
-                if *node == info.init && Self::is_nil_assignment(candidate, source) {
-                    saw_nil_definition = true;
-                } else {
-                    return false;
-                }
-            }
-            if self.function.edges(*node).any(|edge| {
-                edge.weight()
-                    .arguments
-                    .iter()
-                    .any(|(destination, _)| destination == source)
-            }) {
-                return false;
-            }
-        }
-        saw_nil_definition
+        let definitions = self.analysis.nil_definitions.get_or_init(|| {
+            Analysis::nil_definition_index(self.function, &self.analysis.nodes)
+        });
+        definitions.get(source) == Some(&Some(info.init))
     }
 
     fn normal_adapter_nodes(
@@ -2240,6 +3163,7 @@ impl<'a> Builder<'a> {
         exports: &[(RcLocal, RcLocal)],
         adapters: &[NodeIndex],
     ) -> bool {
+        if exports.is_empty() { return false; }
         let adapters = adapters.iter().copied().collect::<FxHashSet<_>>();
         let direct_normal_exit = adapters.is_empty() && info.normal_exit == info.join;
         let mut pre_init_nodes = FxHashSet::default();
@@ -2258,7 +3182,7 @@ impl<'a> Builder<'a> {
             );
         }
         exports.iter().any(|(local, _)| {
-            self.analysis.nodes.iter().any(|node| {
+            self.analysis.proof_nodes(self.function, [local.stable_id()], PROOF_WRITE).iter().any(|node| {
                 // A value written before the preparation is the incoming
                 // value that a bypass arm must preserve.  Writes after the
                 // loop (other than the proven nil exhaustion adapter) remain
@@ -2294,7 +3218,8 @@ impl<'a> Builder<'a> {
     fn has_unsafe_captured_result_write(&self, info: &LoopInfo) -> bool {
         let mut captures = FxHashSet::default();
         let mut seen = FxHashSet::default();
-        for node in &info.nodes {
+        for node in self.analysis.proof_nodes(self.function, info.res_locals.iter().map(RcLocal::stable_id),
+            PROOF_CAPTURE).iter().filter(|node| info.nodes.contains(node)) {
             if let Some(block) = self.function.block(*node) {
                 collect_block_captures_with_seen(block, &mut captures, &mut seen);
             }
@@ -2307,7 +3232,7 @@ impl<'a> Builder<'a> {
         info.res_locals.iter().any(|result| {
             let captured_in_loop = captures.contains(result);
             captured_in_loop
-                && self.analysis.nodes.iter().any(|node| {
+                && self.analysis.proof_nodes(self.function, [result.stable_id()], PROOF_WRITE).iter().any(|node| {
                     if info.nodes.contains(node) {
                         return false;
                     }
@@ -2332,7 +3257,8 @@ impl<'a> Builder<'a> {
 
     /// Reference-capturing a generic-for result requires a per-iteration cell.
     fn has_ref_captured_result(&self, info: &LoopInfo) -> bool {
-        info.nodes.iter().any(|node| {
+        self.analysis.proof_nodes(self.function, info.res_locals.iter().map(RcLocal::stable_id), PROOF_REF_CAPTURE)
+            .iter().filter(|node| info.nodes.contains(node)).any(|node| {
             self.function.block(*node).is_some_and(|block| {
                 block
                     .iter()
@@ -2359,7 +3285,8 @@ impl<'a> Builder<'a> {
         exports: &[(RcLocal, RcLocal)],
     ) -> bool {
         info.res_locals.iter().all(|result| {
-            let captured = info.nodes.iter().any(|node| {
+            let captured = self.analysis.proof_nodes(self.function, [result.stable_id()], PROOF_REF_CAPTURE)
+            .iter().filter(|node| info.nodes.contains(node)).any(|node| {
                 self.function.block(*node).is_some_and(|block| {
                     block.iter().any(|statement| {
                         statement_has_ref_capture_of(statement, std::slice::from_ref(result))
@@ -2385,7 +3312,7 @@ impl<'a> Builder<'a> {
             {
                 return false;
             }
-            !self.analysis.nodes.iter().any(|node| {
+            !self.analysis.proof_nodes(self.function, [result.stable_id()], PROOF_READ | PROOF_WRITE | PROOF_CAPTURE).iter().any(|node| {
                 if info.nodes.contains(node) {
                     return false;
                 }
@@ -2410,7 +3337,7 @@ impl<'a> Builder<'a> {
     }
 
     fn has_unsafe_captured_result_escape(&self, info: &LoopInfo) -> bool {
-        self.analysis.nodes.iter().any(|node| {
+        self.analysis.proof_nodes(self.function, info.res_locals.iter().map(RcLocal::stable_id), PROOF_CAPTURE).iter().any(|node| {
             if info.nodes.contains(node) {
                 return false;
             }
@@ -2424,6 +3351,145 @@ impl<'a> Builder<'a> {
                     .iter()
                     .any(|(_, value)| rvalue_captures_any(value, &info.res_locals))
             })
+        })
+    }
+
+    fn has_unsafe_pre_init_result_capture(
+        &self, info: &LoopInfo, adapters: &[NodeIndex], init_index: usize,
+    ) -> bool {
+        #[cfg(test)]
+        if REFERENCE_VISITED.with(std::cell::Cell::get) {
+            return self.has_unsafe_pre_init_result_capture_reference(info, adapters, init_index);
+        }
+        let candidates = self.analysis.proof_nodes(self.function,
+            info.res_locals.iter().map(RcLocal::stable_id), PROOF_WRITE | PROOF_CAPTURE);
+        let pre_nodes = OnceCell::new();
+        let unsafe_capture = candidates.iter().filter(|node| **node == info.init || !info.nodes.contains(node)).any(|node| {
+            // Preserve reachability-before-deep-capture order: a future
+            // dynamic closure must not incur a new descendant-body traversal.
+            // Init itself is always in the original reverse set.
+            if *node != info.init {
+                let reachable = pre_nodes.get_or_init(|| {
+                    let mut pre_init_nodes = FxHashSet::default();
+                    pre_init_nodes.insert(info.init);
+                    let mut pre_init_work = vec![info.init];
+                    while let Some(node) = pre_init_work.pop() {
+                        for predecessor in self
+                            .function
+                            .predecessor_blocks(node)
+                            .filter(|predecessor| self.analysis.reachable.contains(predecessor))
+                        {
+                            if info.nodes.contains(&predecessor) || !pre_init_nodes.insert(predecessor) {
+                                continue;
+                            }
+                            pre_init_work.push(predecessor);
+                        }
+                    }
+                    pre_init_nodes
+                });
+                if !reachable.contains(node) { return false; }
+            }
+            let aliases = (|| {
+                // Reverse reachability from an inner init can pass through an
+                // enclosing loop's back edge and revisit the normal-exhaustion
+                // adapter.  Those nodes are validated separately above; their
+                // intentional nil writes are not pre-entry aliases.
+                if adapters.contains(node)
+                    || (*node == info.normal_exit
+                        && info.normal_exit == info.join
+                        && self.function.block(*node).is_some_and(|block| {
+                            block.iter().any(|statement| {
+                                info.res_locals
+                                    .iter()
+                                    .any(|local| Self::is_nil_assignment(statement, local))
+                            })
+                        }))
+                {
+                    return false;
+                }
+                self.function.block(*node).is_some_and(|block| {
+                    let writes_result = *node == info.init
+                        && block.iter().skip(init_index + 1).any(|statement| {
+                            statement.values_written().into_iter()
+                                .any(|local| info.res_locals.contains(local))
+                        });
+                    let mut captures = FxHashSet::default();
+                    collect_block_captures_with_seen(block, &mut captures, &mut FxHashSet::default());
+                    writes_result || info.res_locals.iter().any(|result| captures.contains(result))
+                }) || (node != &info.init
+                    && self.function.edges(*node).any(|edge| {
+                        edge.weight().arguments.iter().any(|(_, value)| {
+                            let mut captures = FxHashSet::default();
+                            collect_rvalue_captures(value, &mut captures);
+                            captures
+                                .iter()
+                                .any(|captured| info.res_locals.iter().any(|result| result == captured))
+                        })
+                    }))
+            })();
+            aliases
+        });
+        #[cfg(test)]
+        assert_eq!(unsafe_capture, self.has_unsafe_pre_init_result_capture_reference(info, adapters, init_index));
+        unsafe_capture
+    }
+
+    #[cfg(test)]
+    fn has_unsafe_pre_init_result_capture_reference(
+        &self, info: &LoopInfo, adapters: &[NodeIndex], init_index: usize,
+    ) -> bool {
+        let mut pre_init_nodes = FxHashSet::default();
+        pre_init_nodes.insert(info.init);
+        let mut pre_init_work = vec![info.init];
+        while let Some(node) = pre_init_work.pop() {
+            for predecessor in self
+                .function
+                .predecessor_blocks(node)
+                .filter(|predecessor| self.analysis.reachable.contains(predecessor))
+            {
+                if info.nodes.contains(&predecessor) || !pre_init_nodes.insert(predecessor) {
+                    continue;
+                }
+                pre_init_work.push(predecessor);
+            }
+        }
+        pre_init_nodes.iter().any(|node| {
+            // Reverse reachability from an inner init can pass through an
+            // enclosing loop's back edge and revisit the normal-exhaustion
+            // adapter.  Those nodes are validated separately above; their
+            // intentional nil writes are not pre-entry aliases.
+            if adapters.contains(node)
+                || (*node == info.normal_exit
+                    && info.normal_exit == info.join
+                    && self.function.block(*node).is_some_and(|block| {
+                        block.iter().any(|statement| {
+                            info.res_locals
+                                .iter()
+                                .any(|local| Self::is_nil_assignment(statement, local))
+                        })
+                    }))
+            {
+                return false;
+            }
+            self.function.block(*node).is_some_and(|block| {
+                let writes_result = *node == info.init
+                    && block.iter().skip(init_index + 1).any(|statement| {
+                        statement.values_written().into_iter()
+                            .any(|local| info.res_locals.contains(local))
+                    });
+                let mut captures = FxHashSet::default();
+                collect_block_captures_with_seen(block, &mut captures, &mut FxHashSet::default());
+                writes_result || info.res_locals.iter().any(|result| captures.contains(result))
+            }) || (node != &info.init
+                && self.function.edges(*node).any(|edge| {
+                    edge.weight().arguments.iter().any(|(_, value)| {
+                        let mut captures = FxHashSet::default();
+                        collect_rvalue_captures(value, &mut captures);
+                        captures
+                            .iter()
+                            .any(|captured| info.res_locals.iter().any(|result| result == captured))
+                    })
+                }))
         })
     }
 
@@ -2839,13 +3905,12 @@ impl<'a> Builder<'a> {
         // Put it on that exact edge inside the loop; a body-side break must
         // bypass it. Snapshot coverage because a different break edge can
         // legitimately reach the same adapter and needs its own copy.
-        let base_visited = self.visited.clone();
+        let base_visited = self.visited.checkpoint();
         let normal_adapter =
             self.build_exit_adapter(info.normal_exit, info.join, &context, Some(info.header))?;
-        let normal_visited = self.visited.clone();
-        self.visited = base_visited;
+        let normal_visited = self.visited.take_branch(&base_visited);
         let body_result = self.build_path(info.body_entry, Some(info.header), Some(&context))?;
-        self.visited.extend(normal_visited);
+        self.visited.merge(normal_visited);
         if body_result.next != Some(info.header)
             && body_result.next != Some(info.join)
             && body_result.next.is_some()
@@ -4043,7 +5108,8 @@ impl<'a> Builder<'a> {
         if !init_edges[0].weight().arguments.is_empty() {
             return self.reject_unsafe(UnsafeStructureReason::ForInitEdgeTransferOrder);
         }
-        if self.analysis.nodes.iter().any(|node| {
+        if self.analysis.proof_nodes(self.function, protocol_locals.iter().map(RcLocal::stable_id),
+            PROOF_READ | PROOF_WRITE | PROOF_CAPTURE).iter().any(|node| {
             self.function
                 .edges(*node)
                 .any(|edge| edge_touches_protocol(edge.weight()))
@@ -4134,7 +5200,8 @@ impl<'a> Builder<'a> {
                 .any(|local| protocol_locals.iter().any(|protocol| protocol == local))
                 || statement_captures_any(statement, &protocol_locals)
         };
-        if self.analysis.nodes.iter().any(|node| {
+        if self.analysis.proof_nodes(self.function, protocol_locals.iter().map(RcLocal::stable_id),
+            PROOF_READ | PROOF_WRITE | PROOF_CAPTURE).iter().any(|node| {
             *node != info.header
                 && *node != info.init
                 && self
@@ -4180,59 +5247,7 @@ impl<'a> Builder<'a> {
         // Walk backwards from the init rather than relying only on dominance:
         // a closure created on one branch of a preheader need not dominate the
         // init, but it is still able to retain the old register.
-        let mut pre_init_nodes = FxHashSet::default();
-        pre_init_nodes.insert(info.init);
-        let mut pre_init_work = vec![info.init];
-        while let Some(node) = pre_init_work.pop() {
-            for predecessor in self
-                .function
-                .predecessor_blocks(node)
-                .filter(|predecessor| self.analysis.reachable.contains(predecessor))
-            {
-                if info.nodes.contains(&predecessor) || !pre_init_nodes.insert(predecessor) {
-                    continue;
-                }
-                pre_init_work.push(predecessor);
-            }
-        }
-        if pre_init_nodes.iter().any(|node| {
-            // Reverse reachability from an inner init can pass through an
-            // enclosing loop's back edge and revisit the normal-exhaustion
-            // adapter.  Those nodes are validated separately above; their
-            // intentional nil writes are not pre-entry aliases.
-            if adapters.contains(node)
-                || (*node == info.normal_exit
-                    && info.normal_exit == info.join
-                    && self.function.block(*node).is_some_and(|block| {
-                        block.iter().any(|statement| {
-                            info.res_locals
-                                .iter()
-                                .any(|local| Self::is_nil_assignment(statement, local))
-                        })
-                    }))
-            {
-                return false;
-            }
-            self.function.block(*node).is_some_and(|block| {
-                let writes_result = *node == info.init
-                    && block.iter().skip(init_index + 1).any(|statement| {
-                        statement.values_written().into_iter()
-                            .any(|local| info.res_locals.contains(local))
-                    });
-                let mut captures = FxHashSet::default();
-                collect_block_captures_with_seen(block, &mut captures, &mut FxHashSet::default());
-                writes_result || info.res_locals.iter().any(|result| captures.contains(result))
-            }) || (node != &info.init
-                && self.function.edges(*node).any(|edge| {
-                    edge.weight().arguments.iter().any(|(_, value)| {
-                        let mut captures = FxHashSet::default();
-                        collect_rvalue_captures(value, &mut captures);
-                        captures
-                            .iter()
-                            .any(|captured| info.res_locals.iter().any(|result| result == captured))
-                    })
-                }))
-        }) {
+        if self.has_unsafe_pre_init_result_capture(info, &adapters, init_index) {
             return None;
         }
         // An exhaustion adapter is a post-loop CFG path.  Source-level
@@ -4521,7 +5536,7 @@ impl<'a> Builder<'a> {
                         return None;
                     }
                 }
-                self.visited.remove(&current);
+                self.visited.undo_insert(current);
                 let nested = match self.build_loop(&info, context) {
                     Some(nested) => nested,
                     None => return None,
@@ -5000,7 +6015,7 @@ impl<'a> Builder<'a> {
                 }
                 tried = Some(join);
                 let base_rewrite = self.rewrite.clone();
-                let base_visited = self.visited.clone();
+                let base_visited = self.visited.checkpoint();
                 if let Some(result) = self.build_inside_join_conditional(
                     source,
                     &statement,
@@ -5032,10 +6047,10 @@ impl<'a> Builder<'a> {
                     );
                 }
                 self.rewrite = base_rewrite;
-                self.visited = base_visited;
+                self.visited.restore(&base_visited);
             }
             let base_rewrite = self.rewrite.clone();
-            let base_visited = self.visited.clone();
+            let base_visited = self.visited.checkpoint();
             let then_edge = self
                 .function
                 .edges(source)
@@ -5048,8 +6063,7 @@ impl<'a> Builder<'a> {
             let then_result = self.build_transfer_arm(source, then_target, ctx)?;
             let mut then_rewrite = self.rewrite.clone();
             self.rewrite = base_rewrite.clone();
-            let then_visited = self.visited.clone();
-            self.visited = base_visited.clone();
+            let then_visited = self.visited.take_branch(&base_visited);
             let else_edge = self
                 .function
                 .edges(source)
@@ -5061,7 +6075,7 @@ impl<'a> Builder<'a> {
             let else_transfer = self.edge_transfer(&else_edge, &base_rewrite)?;
             let else_result = self.build_transfer_arm(source, else_target, ctx)?;
             let mut else_rewrite = self.rewrite.clone();
-            self.visited.extend(then_visited);
+            self.visited.merge(then_visited);
             let continuation = (then_result.next == Some(ctx.info.header)
                 || else_result.next == Some(ctx.info.header))
             .then_some(ctx.info.header);
@@ -5133,7 +6147,7 @@ impl<'a> Builder<'a> {
                     }
                     tried = Some(shared);
                     let base_rewrite = self.rewrite.clone();
-                    let base_visited = self.visited.clone();
+                    let base_visited = self.visited.checkpoint();
                     if let Some(result) = self.build_plain_conditional(
                         source,
                         &statement,
@@ -5161,7 +6175,7 @@ impl<'a> Builder<'a> {
                         );
                     }
                     self.rewrite = base_rewrite;
-                    self.visited = base_visited;
+                    self.visited.restore(&base_visited);
                 }
             }
             self.build_plain_conditional(source, &statement, then_target, else_target, join, false)
@@ -5185,7 +6199,7 @@ impl<'a> Builder<'a> {
         // not let a loop that is only present in one arm leak its
         // export mapping into the other arm (or into the join).
         let base_rewrite = self.rewrite.clone();
-        let base_visited = self.visited.clone();
+        let base_visited = self.visited.checkpoint();
         let then_transfer = self.edge_transfer(
             self.function
                 .edges(source)
@@ -5199,8 +6213,7 @@ impl<'a> Builder<'a> {
         let then_result = self.build_path(then_target, Some(join), Some(ctx))?;
         let mut then_rewrite = self.rewrite.clone();
         self.rewrite = base_rewrite.clone();
-        let then_visited = self.visited.clone();
-        self.visited = base_visited.clone();
+        let then_visited = self.visited.take_branch(&base_visited);
         let else_transfer = self.edge_transfer(
             self.function
                 .edges(source)
@@ -5233,7 +6246,7 @@ impl<'a> Builder<'a> {
             // into; leave this shape to the ordinary arm builder.
             return None;
         }
-        self.visited.extend(then_visited);
+        self.visited.merge(then_visited);
         let mut then_block = then_transfer;
         then_block.extend(then_result.block.0);
         let mut else_block = else_transfer;
@@ -5279,7 +6292,7 @@ impl<'a> Builder<'a> {
         shared_tail: bool,
     ) -> Option<PathResult> {
         let base_rewrite = self.rewrite.clone();
-        let base_visited = self.visited.clone();
+        let base_visited = self.visited.checkpoint();
         let then_transfer = self.edge_transfer(
             self.function
                 .edges(source)
@@ -5293,8 +6306,7 @@ impl<'a> Builder<'a> {
         let then_result = self.build_path(then_target, join, None)?;
         let mut then_rewrite = self.rewrite.clone();
         self.rewrite = base_rewrite.clone();
-        let then_visited = self.visited.clone();
-        self.visited = base_visited.clone();
+        let then_visited = self.visited.take_branch(&base_visited);
         let else_transfer = self.edge_transfer(
             self.function
                 .edges(source)
@@ -5315,7 +6327,7 @@ impl<'a> Builder<'a> {
         if shared_tail && !both_reach && then_rewrite != else_rewrite {
             return None;
         }
-        self.visited.extend(then_visited);
+        self.visited.merge(then_visited);
         let mut then_block = then_transfer;
         then_block.extend(then_result.block.0);
         let mut else_block = else_transfer;
@@ -6177,6 +7189,15 @@ pub fn lift_attempt_with_ignored_locals(
     function: Function,
     protected_locals: &FxHashSet<RcLocal>,
 ) -> StructureAttempt {
+    lift_attempt_borrowed_with_ignored_locals(&function, protected_locals)
+}
+
+/// Read-only proof and emission. The caller retains the original CFG for a
+/// possible certified fallback without cloning it for the speculative pass.
+pub fn lift_attempt_borrowed_with_ignored_locals(
+    function: &Function,
+    protected_locals: &FxHashSet<RcLocal>,
+) -> StructureAttempt {
     struct LocalIdTransaction {
         base: u64,
         committed: bool,
@@ -6198,7 +7219,7 @@ pub fn lift_attempt_with_ignored_locals(
         base: ast::current_local_id(),
         committed: false,
     };
-    if let Err(reason) = validate_for_origins(&function, protected_locals) {
+    if let Err(reason) = validate_for_origins(function, protected_locals) {
         return StructureAttempt::Unsafe(reason);
     }
     // A body write can split the marker result and its captured SSA version.
@@ -6218,8 +7239,11 @@ pub fn lift_attempt_with_ignored_locals(
     {
         return StructureAttempt::Unsafe(UnsafeStructureReason::CapturedLoopResultRef);
     }
+    let Some(analysis) = Analysis::new(function) else {
+        return StructureAttempt::Unsupported;
+    };
     let allow_shared_tail = std::env::var_os("MEDAL_NO_SHARED_TAIL").is_none();
-    let mut attempt = structure_once(&function, protected_locals, allow_shared_tail);
+    let mut attempt = structure_once(function, &analysis, protected_locals, allow_shared_tail);
     if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
         eprintln!(
             "source-like first attempt id={} -> {}",
@@ -6231,12 +7255,12 @@ pub fn lift_attempt_with_ignored_locals(
             }
         );
     }
-    if matches!(attempt, StructureAttempt::Unsupported) {
+    if allow_shared_tail && matches!(attempt, StructureAttempt::Unsupported) {
         // The shared-tail optimization is speculative: it commits to a join
         // before the rest of the enclosing region is proven.  Never let it
         // cost a function its structured output.
         ast::set_local_id_base(local_ids.base);
-        attempt = structure_once(&function, protected_locals, false);
+        attempt = structure_once(function, &analysis, protected_locals, false);
         if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
             eprintln!(
                 "source-like retry id={} -> {}",
@@ -6257,12 +7281,10 @@ pub fn lift_attempt_with_ignored_locals(
 
 fn structure_once(
     function: &Function,
+    analysis: &Analysis,
     protected_locals: &FxHashSet<RcLocal>,
     allow_shared_tail: bool,
 ) -> StructureAttempt {
-    let Some(analysis) = Analysis::new(function) else {
-        return StructureAttempt::Unsupported;
-    };
     let Some(entry) = function.entry().as_ref().copied() else {
         return StructureAttempt::Unsupported;
     };
@@ -6277,7 +7299,7 @@ fn structure_once(
     if let Some(reason) = builder.unsafe_reason {
         return StructureAttempt::Unsafe(reason);
     }
-    if result.next.is_some() || builder.visited != builder.analysis.reachable {
+    if result.next.is_some() || !builder.visited.matches(&builder.analysis.reachable) {
         return builder
             .unsafe_reason
             .map(StructureAttempt::Unsafe)
@@ -6303,8 +7325,7 @@ pub fn lift_with_ignored_locals(
 #[cfg(test)]
 mod tests {
     use super::{
-        Analysis, Builder, StructureAttempt, UnsafeStructureReason, lift as production_lift,
-        lift_attempt_with_ignored_locals as production_lift_attempt,
+        Analysis, Builder, StructureAttempt, UnsafeStructureReason,
     };
     use ast::{
         Assign, Block, Call, Close, Closure, ForOrigin, ForPrepKind, GenericFor, GenericForInit,
@@ -6379,7 +7400,7 @@ mod tests {
         ]);
 
         let analysis = Analysis::new(&function).expect("linear fixture is analyzable");
-        let builder = Builder::new(&function, analysis, FxHashSet::default());
+        let builder = Builder::new(&function, &analysis, FxHashSet::default());
         builder
             .move_reentry_reset_before_for(&mut generic_block, &tail)
             .expect("narrow exhaustion sentinel is source-safe");
@@ -6449,7 +7470,7 @@ mod tests {
         ]);
 
         let analysis = Analysis::new(&function).expect("linear fixture is analyzable");
-        let builder = Builder::new(&function, analysis, FxHashSet::default());
+        let builder = Builder::new(&function, &analysis, FxHashSet::default());
         builder
             .move_reentry_reset_before_for(&mut generic_block, &tail)
             .expect("private break sentinel is proven source-safe");
@@ -6508,7 +7529,7 @@ mod tests {
         ]);
 
         let analysis = Analysis::new(&function).expect("linear fixture is analyzable");
-        let builder = Builder::new(&function, analysis, FxHashSet::default());
+        let builder = Builder::new(&function, &analysis, FxHashSet::default());
         assert!(
             builder
                 .move_reentry_reset_before_for(&mut generic_block, &tail)
@@ -6603,6 +7624,23 @@ mod tests {
                 }
             }
         }
+    }
+
+    // Every production-entry fixture compares the full-snapshot backend too,
+    // including tests that intentionally bypass test-origin attachment.
+    fn production_lift(function: Function) -> Option<Block> {
+        let protected = function.parameters.iter().cloned().collect();
+        match super::visited_regressions::compare(&function, &protected) {
+            StructureAttempt::Structured(block) => Some(block),
+            StructureAttempt::Unsupported | StructureAttempt::Unsafe(_) => None,
+        }
+    }
+
+    fn production_lift_attempt(
+        function: Function,
+        protected_locals: &FxHashSet<RcLocal>,
+    ) -> StructureAttempt {
+        super::visited_regressions::compare(&function, protected_locals)
     }
 
     fn lift(mut function: Function) -> Option<Block> {
@@ -9261,7 +10299,7 @@ mod tests {
         let analysis = Analysis::new(&function).expect("cyclic CFG is analyzable");
         assert!(analysis.live_in[&join].contains(&last));
         assert!(analysis.live_out[&read].contains(&last));
-        let mut builder = Builder::new(&function, analysis, FxHashSet::default());
+        let mut builder = Builder::new(&function, &analysis, FxHashSet::default());
         builder.visited.insert(read);
         let exported = RcLocal::new(Local::new(Some("exported".into())));
         let then_map = [(last.clone(), exported)].into_iter().collect();
@@ -9298,7 +10336,7 @@ mod tests {
 
         let analysis = Analysis::new(&function).expect("linear CFG is analyzable");
         assert!(analysis.live_in[&join].contains(&raw));
-        let builder = Builder::new(&function, analysis, FxHashSet::default());
+        let builder = Builder::new(&function, &analysis, FxHashSet::default());
         let base = FxHashMap::default();
         let mut then_map = [(raw.clone(), export.clone())].into_iter().collect();
         let mut else_map = FxHashMap::default();
@@ -9355,7 +10393,7 @@ mod tests {
         );
 
         let analysis = Analysis::new(&function).expect("linear CFG is analyzable");
-        let builder = Builder::new(&function, analysis, FxHashSet::default());
+        let builder = Builder::new(&function, &analysis, FxHashSet::default());
         let base = FxHashMap::default();
         let mut then_map = [(raw.clone(), export.clone())].into_iter().collect();
         let mut else_map = FxHashMap::default();

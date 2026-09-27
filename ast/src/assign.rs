@@ -26,6 +26,22 @@ impl Assign {
 }
 
 impl Traverse for Assign {
+    fn visit_lvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::LValue) -> bool) -> bool {
+        self.left.iter().all(visit)
+    }
+
+    fn visit_lvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::LValue) -> bool) -> bool {
+        self.left.iter_mut().all(visit)
+    }
+
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        self.right.iter().all(visit)
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        self.right.iter_mut().all(visit)
+    }
+
     fn lvalues(&self) -> Vec<&LValue> {
         self.left.iter().collect()
     }
@@ -50,20 +66,22 @@ impl SideEffects for Assign {
 }
 
 impl LocalRw for Assign {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.left.iter().all(|value| value.visit_local_reads(visit))
+            && self.right.iter().all(|value| value.visit_local_reads(visit))
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.left
-            .iter()
-            .flat_map(|l| l.values_read())
-            .chain(self.right.iter().flat_map(|r| r.values_read()))
-            .collect()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.left.iter_mut().all(|value| value.visit_local_reads_mut(visit))
+            && self.right.iter_mut().all(|value| value.visit_local_reads_mut(visit))
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.left
-            .iter_mut()
-            .flat_map(|l| l.values_read_mut())
-            .chain(self.right.iter_mut().flat_map(|r| r.values_read_mut()))
-            .collect()
+        crate::local::collect_reads_mut(self)
     }
 
     fn values_written(&self) -> Vec<&RcLocal> {
@@ -84,7 +102,7 @@ impl fmt::Display for Assign {
             indentation_level: 0,
             indentation_mode: Default::default(),
             output: f,
-            colon_method_calls: Vec::new(),
+            colon_method_calls: Default::default(),
             position_query: None,
             closure_observer: None,
             emission_map: None,

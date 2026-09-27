@@ -39,6 +39,14 @@ impl SideEffects for Unary {
 }
 
 impl Traverse for Unary {
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        visit(&self.value)
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        visit(&mut self.value)
+    }
+
     fn rvalues_mut(&mut self) -> Vec<&mut RValue> {
         vec![&mut self.value]
     }
@@ -354,12 +362,20 @@ impl Unary {
 }
 
 impl LocalRw for Unary {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.value.visit_local_reads(visit)
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.value.values_read()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.value.visit_local_reads_mut(visit)
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.value.values_read_mut()
+        crate::local::collect_reads_mut(self)
     }
 }
 

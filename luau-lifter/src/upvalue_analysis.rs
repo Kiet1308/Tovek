@@ -1581,13 +1581,13 @@ fn resolve_string(string_table: &[Vec<u8>], index: usize) -> Option<String> {
 
 pub(crate) fn decode_source_lines(function: &Function) -> Vec<Option<u32>> {
     let Some(gap_log2) = function.line_gap_log2 else {
-        return vec![None; function.instructions.len()];
+        return Vec::new();
     };
     let (Some(line_deltas), Some(abs_deltas)) = (
         function.line_info_delta.as_ref(),
         function.abs_line_info_delta.as_ref(),
     ) else {
-        return vec![None; function.instructions.len()];
+        return Vec::new();
     };
 
     let mut offsets = Vec::with_capacity(line_deltas.len());

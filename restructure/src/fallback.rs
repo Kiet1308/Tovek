@@ -442,8 +442,7 @@ fn remember_globals_in_rvalue(
     if let RValue::Closure(closure) = value {
         remember_closure_names(closure, used_names, seen_closures, incomplete_closure);
     }
-    let mut value_copy = value.clone();
-    value_copy.traverse_rvalues(&mut |nested| {
+    value.traverse_rvalues_ref(&mut |nested| {
         match nested {
             RValue::Local(local) => remember_local_name(local, used_names),
             RValue::Global(global) => remember_global_name(global, used_names),
@@ -465,7 +464,7 @@ fn remember_ref_captures_in_rvalue(value: &RValue, captured_ref: &mut FxHashSet<
             }
         }
     }
-    let mut remember = |value: &mut RValue| {
+    let mut remember = |value: &RValue| {
         if let RValue::Closure(closure) = value {
             for upvalue in &closure.upvalues {
                 if let Upvalue::Ref(local) = upvalue {
@@ -474,8 +473,7 @@ fn remember_ref_captures_in_rvalue(value: &RValue, captured_ref: &mut FxHashSet<
             }
         }
     };
-    let mut value_copy = value.clone();
-    value_copy.traverse_rvalues(&mut remember);
+    value.traverse_rvalues_ref(&mut remember);
 }
 
 fn contains_ref_capture(
@@ -487,6 +485,10 @@ fn contains_ref_capture(
     persistent_locals: &[RcLocal],
     locals_to_ignore: &FxHashSet<RcLocal>,
 ) -> bool {
+    if facts.iter().all(|state| state.captured_ref.iter()
+        .all(|local| locals_to_ignore.contains(local))) {
+        return false;
+    }
     // Build the set of local values carried by each outgoing edge.  The
     // destination (`param`) is a write that does not appear in a source
     // statement, while RHS reads can be hidden by a same-state definition in
@@ -507,6 +509,8 @@ fn contains_ref_capture(
         .collect::<Vec<_>>();
 
     let persistent = persistent_locals.iter().collect::<FxHashSet<_>>();
+    let cyclic = std::cell::OnceCell::new();
+    let local_states = std::cell::OnceCell::new();
     for (capture_state, state) in facts.iter().enumerate() {
         for local in &state.captured_ref {
             // Parameters and already-linked upvalues have function scope, so
@@ -521,19 +525,22 @@ fn contains_ref_capture(
             // Such a shape is still ambiguous after CLOSEUPVALS was discarded,
             // so fail closed regardless of whether liveness selected it.
             if persistent.contains(local)
-                || state_is_cyclic(capture_state, successors, states)
+                || cyclic.get_or_init(|| cyclic_states(successors, states))[capture_state]
                 || edge_values
                     .get(capture_state)
                     .is_some_and(|values| values.contains(local))
-                || facts.iter().enumerate().any(|(other_state, other)| {
-                    other_state != capture_state
-                        && (other.captured_ref.contains(local)
-                            || other.use_before_def.contains(local)
-                            || other.defs.contains(local)
-                            || edge_values
-                                .get(other_state)
-                                .is_some_and(|values| values.contains(local)))
-                })
+                || local_states.get_or_init(|| {
+                    let mut index = FxHashMap::default();
+                    for (state, facts) in facts.iter().enumerate() {
+                        for local in facts.captured_ref.iter().chain(&facts.use_before_def)
+                            .chain(&facts.defs).chain(&edge_values[state]) {
+                            index.entry(local).and_modify(|owner| {
+                                if *owner != Some(state) { *owner = None; }
+                            }).or_insert(Some(state));
+                        }
+                    }
+                    index
+                }).get(local) == Some(&None)
             {
                 return true;
             }
@@ -542,39 +549,55 @@ fn contains_ref_capture(
     false
 }
 
-/// Return whether re-entering a dispatcher state is possible through one of
-/// its outgoing CFG paths.  A reference capture in such a state would create
-/// a fresh Lua cell on every dispatcher iteration; without preserved
-/// `CLOSEUPVALS` scope metadata the fallback cannot prove that this is the
-/// intended lifetime, so the caller must reject it.
-fn state_is_cyclic(
-    state: usize,
+/// Compute cyclic-state membership once, rather than searching every
+/// captured state's reachable suffix. Two iterative DFS passes compute SCCs;
+/// a singleton is cyclic exactly when it has a self edge. Unknown successors
+/// are ignored, matching the dispatcher-state reachability contract.
+fn cyclic_states(
     successors: &[Vec<NodeIndex>],
     states: &FxHashMap<NodeIndex, usize>,
-) -> bool {
-    let mut pending = successors
-        .get(state)
-        .into_iter()
-        .flatten()
-        .filter_map(|node| states.get(node).copied())
-        .collect::<Vec<_>>();
-    let mut seen = FxHashSet::default();
-    while let Some(candidate) = pending.pop() {
-        if candidate == state {
-            return true;
-        }
-        if !seen.insert(candidate) {
-            continue;
-        }
-        pending.extend(
-            successors
-                .get(candidate)
-                .into_iter()
-                .flatten()
-                .filter_map(|node| states.get(node).copied()),
-        );
+) -> Vec<bool> {
+    let edges: Vec<Vec<usize>> = successors.iter().map(|targets| {
+        targets.iter().filter_map(|node| states.get(node).copied()).collect()
+    }).collect();
+    let mut predecessors = vec![Vec::new(); edges.len()];
+    for (source, targets) in edges.iter().enumerate() {
+        for &target in targets { predecessors[target].push(source); }
     }
-    false
+    let mut visited = vec![false; edges.len()];
+    let mut order = Vec::with_capacity(edges.len());
+    let mut walk = Vec::new();
+    for start in 0..edges.len() {
+        walk.push((start, false));
+        while let Some((node, exiting)) = walk.pop() {
+            if exiting {
+                order.push(node);
+            } else if !visited[node] {
+                visited[node] = true;
+                walk.push((node, true));
+                walk.extend(edges[node].iter().filter(|&&target| !visited[target])
+                    .map(|&target| (target, false)));
+            }
+        }
+    }
+    visited.fill(false);
+    let mut cyclic = vec![false; edges.len()];
+    let mut work = Vec::new();
+    let mut component = Vec::new();
+    for start in order.into_iter().rev() {
+        if visited[start] { continue; }
+        component.clear();
+        work.push(start);
+        while let Some(node) = work.pop() {
+            if std::mem::replace(&mut visited[node], true) { continue; }
+            component.push(node);
+            work.extend(predecessors[node].iter().copied());
+        }
+        if component.len() > 1 || edges[start].contains(&start) {
+            for &node in &component { cyclic[node] = true; }
+        }
+    }
+    cyclic
 }
 
 fn reachable_nodes(function: &Function, entry: NodeIndex) -> Vec<NodeIndex> {
@@ -625,10 +648,9 @@ fn analyze_state(statements: &[Statement], edges: &[(NodeIndex, BlockEdge)]) -> 
             .extend(statement.values_written().into_iter().cloned());
 
         // Traverse all expression positions (including index l-values) while
-        // stopping at the child function body.  Clone the statement because
-        // this analysis runs before lowering and the traversal API is mutable.
-        let mut statement_copy = statement.clone();
-        statement_copy.traverse_rvalues(&mut |value| {
+        // stopping at the child function body. The read-only visitor retains
+        // the original AST while collecting captures without a speculative copy.
+        statement.traverse_rvalues_ref(&mut |value| {
             if let RValue::Closure(closure) = value {
                 for upvalue in &closure.upvalues {
                     if let Upvalue::Ref(local) = upvalue {
@@ -661,6 +683,163 @@ fn analyze_state(statements: &[Statement], edges: &[(NodeIndex, BlockEdge)]) -> 
 }
 
 fn persistent_locals(
+    facts: &[StateFacts],
+    successors: &[Vec<NodeIndex>],
+    states: &FxHashMap<NodeIndex, usize>,
+    locals_to_ignore: &FxHashSet<RcLocal>,
+) -> Vec<RcLocal> {
+    let mut live_in = facts
+        .iter()
+        .map(|state| state.use_before_def.clone())
+        .collect::<Vec<_>>();
+
+    let mut predecessors = vec![Vec::new(); facts.len()];
+    for (source, targets) in successors.iter().enumerate() {
+        for target in targets {
+            if let Some(&state) = states.get(target) {
+                predecessors[state].push(source);
+            }
+        }
+    }
+    let mut work = std::collections::VecDeque::from_iter((0..facts.len()).rev());
+    let mut queued = vec![true; facts.len()];
+    let mut live_out = FxHashSet::default();
+    while let Some(state) = work.pop_front() {
+        queued[state] = false;
+        live_out.clear();
+        for target in &successors[state] {
+            if let Some(&target_state) = states.get(target) {
+                live_out.extend(live_in[target_state].iter().cloned());
+            }
+        }
+        let before = live_in[state].len();
+        // This transfer is monotone: uses were seeded above, and facts never
+        // change. Revisit only predecessors of a state that gains a live local.
+        live_in[state].extend(live_out.drain()
+            .filter(|local| !facts[state].defs.contains(local)));
+        if live_in[state].len() != before {
+            for &predecessor in &predecessors[state] {
+                if !std::mem::replace(&mut queued[predecessor], true) {
+                    work.push_back(predecessor);
+                }
+            }
+        }
+    }
+
+    let mut result = live_in
+        .into_iter()
+        .flatten()
+        .filter(|local| !locals_to_ignore.contains(local))
+        .collect::<FxHashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    result.sort();
+    result
+}
+
+#[cfg(test)]
+fn contains_ref_capture_reference(
+    function: &Function,
+    nodes: &[NodeIndex],
+    facts: &[StateFacts],
+    successors: &[Vec<NodeIndex>],
+    states: &FxHashMap<NodeIndex, usize>,
+    persistent_locals: &[RcLocal],
+    locals_to_ignore: &FxHashSet<RcLocal>,
+) -> bool {
+    // Build the set of local values carried by each outgoing edge.  The
+    // destination (`param`) is a write that does not appear in a source
+    // statement, while RHS reads can be hidden by a same-state definition in
+    // `StateFacts`; both must participate in the ambiguity check below.
+    let edge_values = nodes
+        .iter()
+        .map(|&node| {
+            function
+                .edges(node)
+                .flat_map(|edge| {
+                    edge.weight().arguments.iter().flat_map(|(param, value)| {
+                        std::iter::once(param).chain(value.values_read().into_iter())
+                    })
+                })
+                .cloned()
+                .collect::<FxHashSet<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    let persistent = persistent_locals.iter().collect::<FxHashSet<_>>();
+    for (capture_state, state) in facts.iter().enumerate() {
+        for local in &state.captured_ref {
+            // Parameters and already-linked upvalues have function scope, so
+            // their cells are not recreated by the synthetic dispatcher.
+            if locals_to_ignore.contains(local) {
+                continue;
+            }
+            // Hoisting a reference capture is only safe when its cell is known
+            // to live across all dispatcher iterations.  `persistent_locals`
+            // is intentionally conservative, but it can miss a capture that
+            // is followed solely by a write (the write kills normal liveness).
+            // Such a shape is still ambiguous after CLOSEUPVALS was discarded,
+            // so fail closed regardless of whether liveness selected it.
+            if persistent.contains(local)
+                || state_is_cyclic_reference(capture_state, successors, states)
+                || edge_values
+                    .get(capture_state)
+                    .is_some_and(|values| values.contains(local))
+                || facts.iter().enumerate().any(|(other_state, other)| {
+                    other_state != capture_state
+                        && (other.captured_ref.contains(local)
+                            || other.use_before_def.contains(local)
+                            || other.defs.contains(local)
+                            || edge_values
+                                .get(other_state)
+                                .is_some_and(|values| values.contains(local)))
+                })
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Return whether re-entering a dispatcher state is possible through one of
+/// its outgoing CFG paths.  A reference capture in such a state would create
+/// a fresh Lua cell on every dispatcher iteration; without preserved
+/// `CLOSEUPVALS` scope metadata the fallback cannot prove that this is the
+/// intended lifetime, so the caller must reject it.
+#[cfg(test)]
+fn state_is_cyclic_reference(
+    state: usize,
+    successors: &[Vec<NodeIndex>],
+    states: &FxHashMap<NodeIndex, usize>,
+) -> bool {
+    let mut pending = successors
+        .get(state)
+        .into_iter()
+        .flatten()
+        .filter_map(|node| states.get(node).copied())
+        .collect::<Vec<_>>();
+    let mut seen = FxHashSet::default();
+    while let Some(candidate) = pending.pop() {
+        if candidate == state {
+            return true;
+        }
+        if !seen.insert(candidate) {
+            continue;
+        }
+        pending.extend(
+            successors
+                .get(candidate)
+                .into_iter()
+                .flatten()
+                .filter_map(|node| states.get(node).copied()),
+        );
+    }
+    false
+}
+
+#[cfg(test)]
+fn persistent_locals_reference(
     facts: &[StateFacts],
     successors: &[Vec<NodeIndex>],
     states: &FxHashMap<NodeIndex, usize>,
@@ -840,6 +1019,72 @@ mod tests {
         function
             .graph_mut()
             .add_edge(from, to, BlockEdge::new(branch_type));
+    }
+
+    #[test]
+    fn indexed_fallback_analyses_match_reference_on_randomized_graphs() {
+        for seed in 1..=384u64 {
+            let mut random_state = seed;
+            let mut random = |limit: usize| {
+                random_state = random_state.wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                ((random_state >> 32) as usize) % limit
+            };
+            let mut function = Function::new(0);
+            let nodes: Vec<_> = (0..2 + random(13)).map(|_| function.new_block()).collect();
+            function.set_entry(nodes[0]);
+            let states = nodes.iter().copied().enumerate().map(|(index, node)| (node, index)).collect();
+            let locals: Vec<_> = (0..8).map(|_| RcLocal::default()).collect();
+            let mut facts: Vec<_> = nodes.iter().map(|_| StateFacts::default()).collect();
+            let mut successors = vec![Vec::new(); nodes.len()];
+            for (index, &node) in nodes.iter().enumerate() {
+                for local in &locals {
+                    if random(4) == 0 { facts[index].use_before_def.insert(local.clone()); }
+                    if random(4) == 0 { facts[index].defs.insert(local.clone()); }
+                    if random(5) == 0 { facts[index].captured_ref.insert(local.clone()); }
+                }
+                for _ in 0..random(4) {
+                    let target = nodes[random(nodes.len())];
+                    successors[index].push(target);
+                    let mut edge = BlockEdge::default();
+                    if random(3) == 0 {
+                        edge.arguments.push((locals[random(locals.len())].clone(),
+                            locals[random(locals.len())].clone().into()));
+                    }
+                    function.graph_mut().add_edge(node, target, edge);
+                }
+            }
+            let ignored = locals.iter().filter(|_| random(4) == 0).cloned().collect();
+            let result = persistent_locals(&facts, &successors, &states, &ignored);
+            assert_eq!(result, persistent_locals_reference(&facts, &successors, &states, &ignored),
+                "persistent seed={seed}");
+            let cyclic = cyclic_states(&successors, &states);
+            for (state, &result) in cyclic.iter().enumerate() {
+                assert_eq!(result, state_is_cyclic_reference(state, &successors, &states),
+                    "cyclic seed={seed}, state={state}");
+            }
+            // Also test the rejection census without a liveness result so
+            // persistent cells cannot hide differences in the remaining proof.
+            for persistent in [result.as_slice(), &[]] {
+                assert_eq!(contains_ref_capture(&function, &nodes, &facts, &successors,
+                    &states, persistent, &ignored),
+                    contains_ref_capture_reference(&function, &nodes, &facts, &successors,
+                        &states, persistent, &ignored), "capture seed={seed}");
+            }
+        }
+    }
+
+    #[test]
+    fn deep_fallback_cycle_analysis_is_iterative_and_marks_only_cycle_members() {
+        let nodes: Vec<_> = (0..20_000).map(NodeIndex::new).collect();
+        let states = nodes.iter().copied().enumerate().map(|(index, node)| (node, index)).collect();
+        let mut successors: Vec<_> = (0..nodes.len()).map(|index| {
+            nodes.get(index + 1).copied().into_iter().collect()
+        }).collect();
+        successors[nodes.len() - 1] = vec![nodes[nodes.len() / 2]];
+        let cyclic = cyclic_states(&successors, &states);
+        assert!(cyclic[..nodes.len() / 2].iter().all(|&value| !value));
+        assert!(cyclic[nodes.len() / 2..].iter().all(|&value| value));
     }
 
     #[test]

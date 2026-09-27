@@ -65,7 +65,7 @@ pub fn intrinsic(value: &RValue, is_capture: &impl Fn(&RcLocal) -> bool) -> Effe
         | RValue::Select(Select::Call(_) | Select::MethodCall(_)) => Effects::DYNAMIC_CALL,
         RValue::Closure(closure) => {
             let mut effects = Effects::ALLOCATION;
-            if closure.values_read().into_iter().any(is_capture) {
+            if closure.any_local_read(&mut |local| is_capture(local)) {
                 effects = effects.union(Effects::CAPTURE_READ);
             }
             effects
@@ -136,12 +136,10 @@ pub fn summarize(value: &RValue, is_capture: &impl Fn(&RcLocal) -> bool) -> Summ
         }
         out.nodes += 1;
         out.effects = out.effects.union(intrinsic(value, capture));
-        for child in value.rvalues() {
-            if out.exhausted {
-                break;
-            }
+        value.visit_rvalues(&mut |child| {
             walk(child, capture, depth + 1, out);
-        }
+            !out.exhausted
+        });
     }
     let mut result = Summary {
         effects: Effects::default(),
@@ -173,10 +171,7 @@ pub fn may_write_capture(value: &RValue) -> bool {
         if intrinsic(value, &|_| false).contains(Effects::CAPTURE_WRITE) {
             return true;
         }
-        value
-            .rvalues()
-            .into_iter()
-            .any(|child| walk(child, remaining, depth + 1))
+        !value.visit_rvalues(&mut |child| !walk(child, remaining, depth + 1))
     }
     walk(value, &mut 8192, 0)
 }

@@ -2868,6 +2868,22 @@ fn collect_collapse_candidates(block: &mut Block, out: &mut FxHashSet<usize>) {
     }
 }
 
+fn rewind_scope_suffixes(cursors: &mut FxHashMap<String, usize>, released: &str) {
+    let bytes = released.as_bytes();
+    let mut split = bytes.len();
+    while split > 0 && bytes[split - 1].is_ascii_digit() {
+        split -= 1;
+        // `format!("{base}{suffix}")` never produces a leading zero.
+        if bytes[split] != b'0'
+            && let Ok(suffix) = released[split..].parse::<usize>()
+            && suffix >= 2
+            && let Some(cursor) = cursors.get_mut(&released[..split])
+        {
+            *cursor = (*cursor).min(suffix);
+        }
+    }
+}
+
 struct Namer {
     rename: bool,
     dont_reuse_var: bool,
@@ -2888,6 +2904,9 @@ struct Namer {
     /// Next suffix to try for a base in `dont_reuse_var` mode, avoiding repeated
     /// scans through `v2`, `v3`, ... in large files.
     next_file_suffix: FxHashMap<String, usize>,
+    /// Scope-reusable suffix cursors; releasing a spelling restores every
+    /// matching base's cursor, including bases that themselves end in digits.
+    next_scope_suffix: FxHashMap<String, usize>,
     /// Preferred base name for a local, keyed by `local_ptr`.
     hints: FxHashMap<usize, Hint>,
     evidence: Option<crate::naming_evidence::Collector>,
@@ -4074,13 +4093,14 @@ impl Namer {
                 }
             }
         } else {
-            let mut counter = 2;
+            let mut counter = self.next_scope_suffix.get(base).copied().unwrap_or(2);
             loop {
                 let candidate = format!("{}{}", base, counter);
+                counter += 1;
                 if !self.name_is_taken(&candidate, policy) {
+                    self.next_scope_suffix.insert(base.to_string(), counter);
                     break candidate;
                 }
-                counter += 1;
             }
         };
         self.reserved.insert(name.clone());
@@ -4096,6 +4116,7 @@ impl Namer {
     fn release(&mut self, scope: Vec<String>) {
         for name in scope {
             self.reserved.remove(&name);
+            rewind_scope_suffixes(&mut self.next_scope_suffix, &name);
         }
     }
 
@@ -4989,6 +5010,7 @@ pub fn name_locals_with_evidence(
         reserved: FxHashSet::default(),
         used_file_names: FxHashSet::default(),
         next_file_suffix: FxHashMap::default(),
+        next_scope_suffix: FxHashMap::default(),
         hints: FxHashMap::default(),
         evidence,
         evidence_rule: "expression_and_usage_hint",
@@ -5026,6 +5048,21 @@ pub fn name_locals_with_evidence(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn suffix_release_restores_all_numeric_base_splits() {
+        let mut cursors: rustc_hash::FxHashMap<String, usize> =
+            [("v", 100), ("v2", 80), ("v22", 70), ("v02", 90), ("x", 9)]
+                .into_iter().map(|(base, suffix)| (base.to_string(), suffix)).collect();
+        super::rewind_scope_suffixes(&mut cursors, "v222");
+        assert_eq!(cursors["v"], 100);
+        assert_eq!(cursors["v2"], 22);
+        assert_eq!(cursors["v22"], 2);
+        super::rewind_scope_suffixes(&mut cursors, "v022");
+        assert_eq!(cursors["v"], 100); // `v` + 022 is not canonical suffix spelling.
+        assert_eq!(cursors["v02"], 2);
+        assert_eq!(cursors["x"], 9);
+    }
+
     use super::{
         name_locals, name_locals_with_options, name_locals_with_script_name, pluralize,
         sanitize, sanitize_preserve,

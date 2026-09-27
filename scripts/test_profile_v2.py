@@ -33,6 +33,15 @@ class ProfileChecks(unittest.TestCase):
             profile['rows'][0][key] = value
             self.assertTrue(validate(profile, {'input.lua'}))
 
+    def test_shape_and_target_budgets_preserve_candidate_accounting(self):
+        profile = valid_profile()
+        row = next(r for r in profile['rows'] if r['pass'] == 'D_COLLECT_TARGETS')
+        row['counters'] = dict(candidate_binders=260, accepted_targets=257,
+                               reject_shape_budget=3, target_budget_exhausted=1)
+        self.assertEqual(validate(profile, {'input.lua'}), [])
+        row['counters']['reject_shape_budget'] = 2
+        self.assertIn('candidate/refusal accounting mismatch', validate(profile, {'input.lua'}))
+
     def test_dropped_or_unmeasured_work_cannot_pass_complete_gate(self):
         for key in ('dropped_records', 'misnested_spans'):
             profile = valid_profile()
@@ -73,6 +82,18 @@ class ProfileChecks(unittest.TestCase):
         row['counters']['tail_actions'] = 3
         row['pass'] = 'S_DEINLINE'
         self.assertIn('tail traversal counter context mismatch', validate(profile, {'input.lua'}))
+
+    def test_ssa_bounded_cache_evictions_account_for_recomputed_facts(self):
+        profile = valid_profile()
+        row = dict(profile['rows'][0], prototype=3, **{'pass': 'F_SSA_INLINE'})
+        row['counters'] = {f'ssa_fact_cache_{k}': v for k, v in
+                           dict(hits=8, misses=100, uncached=0, invalidations=2,
+                                evictions=90, slots=8).items()}
+        profile['rows'].append(row)
+        profile['rows_count'] += 1
+        self.assertEqual(validate(profile, {'input.lua'}), [])
+        row['counters']['ssa_fact_cache_evictions'] = 89
+        self.assertIn('SSA cache accounting mismatch', validate(profile, {'input.lua'}))
 
 
 if __name__ == '__main__':

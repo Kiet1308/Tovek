@@ -798,22 +798,6 @@ impl Graph {
         }
     }
 
-    fn interfere(&self, first: Option<usize>, second: Option<usize>) -> bool {
-        if self.options.dont_reuse_var || first.is_none() || second.is_none() {
-            return true;
-        }
-        let ancestor = |a, mut b| loop {
-            if a == b {
-                return true;
-            }
-            match self.scopes[b] {
-                Some(parent) => b = parent,
-                None => return false,
-            }
-        };
-        ancestor(first.unwrap(), second.unwrap()) || ancestor(second.unwrap(), first.unwrap())
-    }
-
     fn solve(mut self) -> Report {
         self.report.binding_count = self.nodes.len();
         self.report.scope_count = self.scopes.len();
@@ -903,37 +887,24 @@ impl Graph {
             };
             statuses.insert(id, status);
         }
+        if !proposals.is_empty() {
         // Reserve unchanged names first, including descendants and external
         // bindings. New names can never capture an existing global or local.
-        let mut reserved: BTreeMap<String, Vec<Option<usize>>> = BTreeMap::new();
+        let mut reserved = NameReservations::new(&self.scopes, &self.globals, self.options.dont_reuse_var);
         for (&id, node) in &self.nodes {
             if !proposals.contains_key(&id) {
-                reserved
-                    .entry(node.before.clone())
-                    .or_default()
-                    .push(node.scope);
+                reserved.reserve(node.before.clone(), node.scope);
             }
         }
         for id in &self.order {
             if let Some(base) = proposals.get(id) {
                 let node = &self.nodes[id];
-                let mut name = base.clone();
-                let mut suffix = 2;
-                while self.globals.contains(&name)
-                    || reserved.get(&name).is_some_and(|scopes| {
-                        scopes
-                            .iter()
-                            .any(|&scope| self.interfere(node.scope, scope))
-                    })
-                {
-                    name = format!("{base}{suffix}");
-                    suffix += 1;
-                }
-                node.local.0.lock().0 = Some(name.clone());
-                reserved.entry(name).or_default().push(node.scope);
+                let name = reserved.allocate(base, node.scope);
+                node.local.0.lock().0 = Some(name);
                 statuses.insert(*id, "renamed");
                 self.report.renamed += 1;
             }
+        }
         }
         if self.options.emit_report {
             for id in self.order {
@@ -952,6 +923,99 @@ impl Graph {
             }
         }
         self.report
+    }
+}
+
+/// Lexical scopes are laminar intervals in DFS order. A name's reservations
+/// are a union of disjoint maximal intervals, so both ancestor and descendant
+/// conflicts take logarithmic lookup without scanning siblings or parent links.
+#[derive(Default)]
+struct ReservedScopes {
+    universal: bool,
+    ranges: BTreeMap<usize, usize>,
+}
+
+impl ReservedScopes {
+    fn conflicts(&self, interval: (usize, usize)) -> bool {
+        self.universal
+            || self.ranges.range(..=interval.0).next_back().is_some_and(|(_, &end)| end > interval.0)
+            || self.ranges.range(interval.0..interval.1).next().is_some()
+    }
+
+    fn insert(&mut self, interval: (usize, usize)) {
+        if self.universal || self.ranges.range(..=interval.0).next_back().is_some_and(|(_, &end)| end >= interval.1) {
+            return;
+        }
+        while let Some((&start, _)) = self.ranges.range(interval.0..interval.1).next() {
+            self.ranges.remove(&start);
+        }
+        self.ranges.insert(interval.0, interval.1);
+    }
+}
+
+struct NameReservations<'a> {
+    globals: &'a BTreeSet<String>,
+    file_unique: bool,
+    intervals: Vec<(usize, usize)>,
+    names: BTreeMap<String, ReservedScopes>,
+    next_suffix: BTreeMap<(String, Option<usize>), usize>,
+}
+
+impl<'a> NameReservations<'a> {
+    fn new(parents: &[Option<usize>], globals: &'a BTreeSet<String>, file_unique: bool) -> Self {
+        let mut children = vec![Vec::new(); parents.len()];
+        let mut roots = Vec::new();
+        for (scope, parent) in parents.iter().enumerate() {
+            if let Some(parent) = parent { children[*parent].push(scope); }
+            else { roots.push(scope); }
+        }
+        let mut intervals = vec![(0, 0); parents.len()];
+        let mut stack: Vec<_> = roots.into_iter().rev().map(|scope| (scope, false)).collect();
+        let mut clock = 0;
+        while let Some((scope, exiting)) = stack.pop() {
+            if exiting { intervals[scope].1 = clock; }
+            else {
+                intervals[scope].0 = clock;
+                clock += 1;
+                stack.push((scope, true));
+                stack.extend(children[scope].iter().rev().map(|&child| (child, false)));
+            }
+        }
+        Self { globals, file_unique, intervals, names: BTreeMap::new(), next_suffix: BTreeMap::new() }
+    }
+
+    fn taken(&self, name: &str, scope: Option<usize>) -> bool {
+        self.globals.contains(name) || self.names.get(name).is_some_and(|reserved| {
+            self.file_unique || scope.is_none() || reserved.conflicts(self.intervals[scope.unwrap()])
+        })
+    }
+
+    fn reserve(&mut self, name: String, scope: Option<usize>) {
+        let reserved = self.names.entry(name).or_default();
+        if self.file_unique || scope.is_none() {
+            reserved.universal = true;
+            reserved.ranges.clear();
+        } else { reserved.insert(self.intervals[scope.unwrap()]); }
+    }
+
+    fn allocate(&mut self, base: &str, scope: Option<usize>) -> String {
+        let name = if !self.taken(base, scope) { base.to_string() }
+        else {
+            // Reservations only grow. Every smaller suffix previously tested
+            // for this exact scope remains unavailable, including global names.
+            let key = (base.to_string(), if self.file_unique { None } else { scope });
+            let mut suffix = self.next_suffix.get(&key).copied().unwrap_or(2);
+            loop {
+                let name = format!("{base}{suffix}");
+                suffix += 1;
+                if !self.taken(&name, scope) {
+                    self.next_suffix.insert(key, suffix);
+                    break name;
+                }
+            }
+        };
+        self.reserve(name.clone(), scope);
+        name
     }
 }
 
@@ -984,6 +1048,41 @@ mod tests {
     use by_address::ByAddress;
     use parking_lot::Mutex;
     use triomphe::Arc;
+
+    #[test]
+    fn indexed_scope_reservations_match_ancestor_scan_and_suffix_restart() {
+        for seed in 1..80u64 {
+            let mut random = seed;
+            let mut next = || { random ^= random << 13; random ^= random >> 7; random ^= random << 17; random as usize };
+            let mut parents = vec![None];
+            for scope in 1..30 { parents.push(Some(next() % scope)); }
+            let ancestor = |a, mut b| loop {
+                if a == b { break true; }
+                match parents[b] { Some(parent) => b = parent, None => break false }
+            };
+            let globals: BTreeSet<_> = ["value2".to_string(), "item".to_string(), "x23".to_string()].into();
+            for file_unique in [false, true] {
+                let mut index = NameReservations::new(&parents, &globals, file_unique);
+                let mut legacy: BTreeMap<String, Vec<Option<usize>>> = BTreeMap::new();
+                for iteration in 0..500 {
+                    let scope = if next() % 23 == 0 { None } else { Some(next() % parents.len()) };
+                    let base = ["value", "item", "x", "x2"][next() % 4];
+                    let mut expected = base.to_string();
+                    if iteration % 7 != 0 {
+                        let mut suffix = 2;
+                        while globals.contains(&expected) || legacy.get(&expected).is_some_and(|scopes| scopes.iter().any(|&other| {
+                            file_unique || scope.is_none() || other.is_none()
+                                || ancestor(scope.unwrap(), other.unwrap()) || ancestor(other.unwrap(), scope.unwrap())
+                        })) {
+                            expected = format!("{base}{suffix}"); suffix += 1;
+                        }
+                        assert_eq!(index.allocate(base, scope), expected, "seed {seed}, iteration {iteration}, unique {file_unique}");
+                    } else { index.reserve(expected.clone(), scope); }
+                    legacy.entry(expected).or_default().push(scope);
+                }
+            }
+        }
+    }
 
     fn local(name: &str) -> RcLocal {
         RcLocal::new(Local::new(Some(name.into())))

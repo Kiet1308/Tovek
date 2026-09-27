@@ -75,6 +75,7 @@ pub mod rehoist_constants;
 pub mod reroll_arithmetic;
 mod repeat;
 pub mod replace_locals;
+pub mod link_upvalues;
 mod r#return;
 mod set_list;
 mod side_effects;
@@ -257,20 +258,26 @@ pub enum LValue {
 }
 
 impl LocalRw for LValue {
-    fn values_read(&self) -> Vec<&RcLocal> {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
         match self {
-            LValue::Local(_) => Vec::new(),
-            LValue::Global(global) => global.values_read(),
-            LValue::Index(index) => index.values_read(),
+            LValue::Local(_) | LValue::Global(_) => true,
+            LValue::Index(index) => index.visit_local_reads(visit),
+        }
+    }
+
+    fn values_read(&self) -> Vec<&RcLocal> {
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        match self {
+            LValue::Local(_) | LValue::Global(_) => true,
+            LValue::Index(index) => index.visit_local_reads_mut(visit),
         }
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        match self {
-            LValue::Local(_) => Vec::new(),
-            LValue::Global(global) => global.values_read_mut(),
-            LValue::Index(index) => index.values_read_mut(),
-        }
+        crate::local::collect_reads_mut(self)
     }
 
     fn values_written(&self) -> Vec<&RcLocal> {
