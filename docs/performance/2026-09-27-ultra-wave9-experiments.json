@@ -1,0 +1,1811 @@
+{
+  "schema_version": 1,
+  "status": "REJECTED; no engine changes promoted. W7 remains production.",
+  "decision": [
+    "Four paired processes do not show stable speed improvement; every sample retained.",
+    "30 sources changed, with one unresolved presentation regression.",
+    "Confirmed source/provenance mode parity failure; compiler success is not semantic equivalence."
+  ],
+  "timing": {
+    "status": "Exploratory only, NOT promotion evidence. Candidate changes30 outputs and violates metadata/source parity; baseline goldens untouched.",
+    "contract": "Same3350distinct inputs and strict source-only options. Four independent process pairs, balanced AB/BA order. One first call and one repeated call per process; first calls retained separately. Candidate-specific UNACCEPTED expected hashes only check repeatability, not equivalence. No allocation tracing or MEDAL environment. No speed result can override failed quality gates.",
+    "binaries": {
+      "wave7": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\benchmark_api.exe",
+        "sha256": "2226a3225076d8993bd2118d19e296fa328610e2747879cbd7205cd53174b157"
+      },
+      "early": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+        "sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7"
+      }
+    },
+    "manifests": {
+      "wave7": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-experimental-manifest.json",
+        "sha256": "fc44b9f39a06510f2451d38ab89a1d74cb89e11e7b6fe0c4c0d609adf09be401"
+      },
+      "early": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-experimental-manifest.json",
+        "sha256": "069c11029f5b08229141f28b52953dc717f38d6e5556bd3976305076ded4bb77"
+      }
+    },
+    "affinity": {
+      "cpu_sets": [
+        {
+          "id": 256,
+          "group": 0,
+          "logical": 0,
+          "core": 0,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 257,
+          "group": 0,
+          "logical": 1,
+          "core": 1,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 258,
+          "group": 0,
+          "logical": 2,
+          "core": 2,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 259,
+          "group": 0,
+          "logical": 3,
+          "core": 3,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 260,
+          "group": 0,
+          "logical": 4,
+          "core": 4,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 261,
+          "group": 0,
+          "logical": 5,
+          "core": 5,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 262,
+          "group": 0,
+          "logical": 6,
+          "core": 6,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 263,
+          "group": 0,
+          "logical": 7,
+          "core": 7,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 264,
+          "group": 0,
+          "logical": 8,
+          "core": 8,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 265,
+          "group": 0,
+          "logical": 9,
+          "core": 9,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 266,
+          "group": 0,
+          "logical": 10,
+          "core": 10,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 267,
+          "group": 0,
+          "logical": 11,
+          "core": 11,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 268,
+          "group": 0,
+          "logical": 12,
+          "core": 12,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 269,
+          "group": 0,
+          "logical": 13,
+          "core": 13,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 270,
+          "group": 0,
+          "logical": 14,
+          "core": 14,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 271,
+          "group": 0,
+          "logical": 15,
+          "core": 15,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 272,
+          "group": 0,
+          "logical": 16,
+          "core": 16,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 273,
+          "group": 0,
+          "logical": 17,
+          "core": 17,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 274,
+          "group": 0,
+          "logical": 18,
+          "core": 18,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 275,
+          "group": 0,
+          "logical": 19,
+          "core": 19,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 276,
+          "group": 0,
+          "logical": 20,
+          "core": 20,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 277,
+          "group": 0,
+          "logical": 21,
+          "core": 21,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 278,
+          "group": 0,
+          "logical": 22,
+          "core": 22,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 279,
+          "group": 0,
+          "logical": 23,
+          "core": 23,
+          "efficiency_class": 1,
+          "flags": 0
+        }
+      ],
+      "single_thread_logical_processor": 23,
+      "one_thread_mask": 8388608,
+      "many_thread_mask": 16777215,
+      "reason": "Hybrid CPU and observed unrelated background load. Pin single-thread API samples to the same performance core; retain normal priority. Multi-thread samples use all logical processors. User processes are not modified.",
+      "documentation": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-system_cpu_set_information"
+    },
+    "samples": [
+      {
+        "variant": "wave7",
+        "threads": 1,
+        "process_round": 0,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-t1-r0.json",
+          "--group",
+          "unique",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "2226a3225076d8993bd2118d19e296fa328610e2747879cbd7205cd53174b157",
+          "group": "unique",
+          "manifest_sha256": "fc44b9f39a06510f2451d38ab89a1d74cb89e11e7b6fe0c4c0d609adf09be401",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 0,
+              "seconds": 7.955401
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 1,
+              "seconds": 8.0642696
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 1
+        }
+      },
+      {
+        "variant": "early",
+        "threads": 1,
+        "process_round": 0,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-t1-r0.json",
+          "--group",
+          "unique",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7",
+          "group": "unique",
+          "manifest_sha256": "069c11029f5b08229141f28b52953dc717f38d6e5556bd3976305076ded4bb77",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 0,
+              "seconds": 8.9646905
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 1,
+              "seconds": 11.0577835
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 1
+        }
+      },
+      {
+        "variant": "wave7",
+        "threads": 16,
+        "process_round": 0,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-t16-r0.json",
+          "--group",
+          "unique",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "2226a3225076d8993bd2118d19e296fa328610e2747879cbd7205cd53174b157",
+          "group": "unique",
+          "manifest_sha256": "fc44b9f39a06510f2451d38ab89a1d74cb89e11e7b6fe0c4c0d609adf09be401",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 0,
+              "seconds": 0.7360299
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 1,
+              "seconds": 0.7057321
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 16
+        }
+      },
+      {
+        "variant": "early",
+        "threads": 16,
+        "process_round": 0,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-t16-r0.json",
+          "--group",
+          "unique",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7",
+          "group": "unique",
+          "manifest_sha256": "069c11029f5b08229141f28b52953dc717f38d6e5556bd3976305076ded4bb77",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 0,
+              "seconds": 0.731446
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 1,
+              "seconds": 0.7135883
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 16
+        }
+      },
+      {
+        "variant": "early",
+        "threads": 16,
+        "process_round": 1,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-t16-r1.json",
+          "--group",
+          "unique",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7",
+          "group": "unique",
+          "manifest_sha256": "069c11029f5b08229141f28b52953dc717f38d6e5556bd3976305076ded4bb77",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 0,
+              "seconds": 0.8327555
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 1,
+              "seconds": 0.7764498
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 16
+        }
+      },
+      {
+        "variant": "wave7",
+        "threads": 16,
+        "process_round": 1,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-t16-r1.json",
+          "--group",
+          "unique",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "2226a3225076d8993bd2118d19e296fa328610e2747879cbd7205cd53174b157",
+          "group": "unique",
+          "manifest_sha256": "fc44b9f39a06510f2451d38ab89a1d74cb89e11e7b6fe0c4c0d609adf09be401",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 0,
+              "seconds": 0.7281041
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 1,
+              "seconds": 0.788415
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 16
+        }
+      },
+      {
+        "variant": "early",
+        "threads": 1,
+        "process_round": 1,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-t1-r1.json",
+          "--group",
+          "unique",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7",
+          "group": "unique",
+          "manifest_sha256": "069c11029f5b08229141f28b52953dc717f38d6e5556bd3976305076ded4bb77",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 0,
+              "seconds": 8.1492762
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 1,
+              "seconds": 8.0164416
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 1
+        }
+      },
+      {
+        "variant": "wave7",
+        "threads": 1,
+        "process_round": 1,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-t1-r1.json",
+          "--group",
+          "unique",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "2226a3225076d8993bd2118d19e296fa328610e2747879cbd7205cd53174b157",
+          "group": "unique",
+          "manifest_sha256": "fc44b9f39a06510f2451d38ab89a1d74cb89e11e7b6fe0c4c0d609adf09be401",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 0,
+              "seconds": 8.114304
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 1,
+              "seconds": 8.0989159
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 1
+        }
+      },
+      {
+        "variant": "wave7",
+        "threads": 1,
+        "process_round": 2,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-t1-r2.json",
+          "--group",
+          "unique",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "2226a3225076d8993bd2118d19e296fa328610e2747879cbd7205cd53174b157",
+          "group": "unique",
+          "manifest_sha256": "fc44b9f39a06510f2451d38ab89a1d74cb89e11e7b6fe0c4c0d609adf09be401",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 0,
+              "seconds": 8.020192399999999
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 1,
+              "seconds": 7.9712401
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 1
+        }
+      },
+      {
+        "variant": "early",
+        "threads": 1,
+        "process_round": 2,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-t1-r2.json",
+          "--group",
+          "unique",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7",
+          "group": "unique",
+          "manifest_sha256": "069c11029f5b08229141f28b52953dc717f38d6e5556bd3976305076ded4bb77",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 0,
+              "seconds": 8.1891787
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 1,
+              "seconds": 8.2973584
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 1
+        }
+      },
+      {
+        "variant": "wave7",
+        "threads": 16,
+        "process_round": 2,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-t16-r2.json",
+          "--group",
+          "unique",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "2226a3225076d8993bd2118d19e296fa328610e2747879cbd7205cd53174b157",
+          "group": "unique",
+          "manifest_sha256": "fc44b9f39a06510f2451d38ab89a1d74cb89e11e7b6fe0c4c0d609adf09be401",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 0,
+              "seconds": 0.7398703
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 1,
+              "seconds": 0.7035059
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 16
+        }
+      },
+      {
+        "variant": "early",
+        "threads": 16,
+        "process_round": 2,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-t16-r2.json",
+          "--group",
+          "unique",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7",
+          "group": "unique",
+          "manifest_sha256": "069c11029f5b08229141f28b52953dc717f38d6e5556bd3976305076ded4bb77",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 0,
+              "seconds": 0.7162456
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 1,
+              "seconds": 0.7380729
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 16
+        }
+      },
+      {
+        "variant": "early",
+        "threads": 16,
+        "process_round": 3,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-t16-r3.json",
+          "--group",
+          "unique",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7",
+          "group": "unique",
+          "manifest_sha256": "069c11029f5b08229141f28b52953dc717f38d6e5556bd3976305076ded4bb77",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 0,
+              "seconds": 0.797892
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 1,
+              "seconds": 0.8778552
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 16
+        }
+      },
+      {
+        "variant": "wave7",
+        "threads": 16,
+        "process_round": 3,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-t16-r3.json",
+          "--group",
+          "unique",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "2226a3225076d8993bd2118d19e296fa328610e2747879cbd7205cd53174b157",
+          "group": "unique",
+          "manifest_sha256": "fc44b9f39a06510f2451d38ab89a1d74cb89e11e7b6fe0c4c0d609adf09be401",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 0,
+              "seconds": 0.7239448
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 1,
+              "seconds": 0.7234807
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 16
+        }
+      },
+      {
+        "variant": "early",
+        "threads": 1,
+        "process_round": 3,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\early-t1-r3.json",
+          "--group",
+          "unique",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7",
+          "group": "unique",
+          "manifest_sha256": "069c11029f5b08229141f28b52953dc717f38d6e5556bd3976305076ded4bb77",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 0,
+              "seconds": 7.9832616
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12486654,
+              "output_tree_hash": "d8a8a8fbc2dc1a400ef10dac5a5cedc4d946303e2aa4374fd778ac5284b655e1",
+              "round": 1,
+              "seconds": 7.9844389
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 1
+        }
+      },
+      {
+        "variant": "wave7",
+        "threads": 1,
+        "process_round": 3,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-experimental-manifest.json",
+          "--input-root",
+          "D:\\Medal\\examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-exploratory-timing\\wave7-t1-r3.json",
+          "--group",
+          "unique",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "report": {
+          "allocation_contract": "Separate instrumented build: successful Rust global allocator calls and requested payload bytes, including full new sizes for reallocations. Live/peak requested payloads include preloaded inputs and retained API results. Allocator arenas, native allocations and OS working set are not inferred from these counts. Instrumented timings are not performance samples.",
+          "allocation_instrumented": false,
+          "api": "decompile_batch_with_options",
+          "contract": "Input loading/base64 decode, Rayon pool creation, hashing and caller result disposal are outside timing. Round zero is the first call, followed by repeated calls in the same process. All source bytes match the locked CLI hashes. This is not cold filesystem-cache timing.",
+          "decode_key": 203,
+          "decoded_input_bytes": 11910116,
+          "executable_sha256": "2226a3225076d8993bd2118d19e296fa328610e2747879cbd7205cd53174b157",
+          "group": "unique",
+          "manifest_sha256": "fc44b9f39a06510f2451d38ab89a1d74cb89e11e7b6fe0c4c0d609adf09be401",
+          "nonempty_scripts": 3350,
+          "option_bits": 8,
+          "rows": [
+            {
+              "allocations": null,
+              "first_call": true,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 0,
+              "seconds": 8.0125764
+            },
+            {
+              "allocations": null,
+              "first_call": false,
+              "output_bytes": 12487050,
+              "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+              "round": 1,
+              "seconds": 8.0932807
+            }
+          ],
+          "schema_version": 1,
+          "scripts": 3350,
+          "threads": 1
+        }
+      }
+    ],
+    "summary": [
+      {
+        "variant": "wave7",
+        "threads": 1,
+        "samples": 4,
+        "mean_seconds": 8.056926575,
+        "median_seconds": 8.078775149999998,
+        "values": [
+          8.0642696,
+          8.0989159,
+          7.9712401,
+          8.0932807
+        ]
+      },
+      {
+        "variant": "early",
+        "threads": 1,
+        "samples": 4,
+        "mean_seconds": 8.8390056,
+        "median_seconds": 8.1569,
+        "values": [
+          11.0577835,
+          8.0164416,
+          8.2973584,
+          7.9844389
+        ]
+      },
+      {
+        "variant": "wave7",
+        "threads": 16,
+        "samples": 4,
+        "mean_seconds": 0.730283425,
+        "median_seconds": 0.7146064,
+        "values": [
+          0.7057321,
+          0.788415,
+          0.7035059,
+          0.7234807
+        ]
+      },
+      {
+        "variant": "early",
+        "threads": 16,
+        "samples": 4,
+        "mean_seconds": 0.77649155,
+        "median_seconds": 0.75726135,
+        "values": [
+          0.7135883,
+          0.7764498,
+          0.7380729,
+          0.8778552
+        ]
+      }
+    ]
+  },
+  "source_screen": {
+    "binary": "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\luau-lifter.exe",
+    "binary_sha256": "ba90904468fb989dc298e4bbf98ae85946e65298cfdf4fd8002d987e90c2dc65",
+    "manifest_sha256": "723593ace1d09debe8a9e91e28610d169bd1b70f43ff5d82761285355e05eec0",
+    "command": [
+      "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\luau-lifter.exe",
+      "decompile-folder",
+      "D:\\Medal\\ultra-optimize-20260927\\wave8-coarse-w7\\input",
+      "D:\\Medal\\ultra-optimize-20260927\\wave9-source-screen\\output",
+      "--key",
+      "203",
+      "--threads",
+      "1",
+      "--strict-no-synthetic-control"
+    ],
+    "exit_code": 0,
+    "process_wall_seconds": 11.964287200011313,
+    "timing_use": "Quality screen only; no speed comparison.",
+    "matched": 3948,
+    "changed": 30,
+    "differences": [
+      {
+        "path": "RobloxProject/ReplicatedStorage/DivergentVFX/effects/lightning.lua",
+        "expected": "373d92c61c220948fb20ff27beb18046eb0e5de45a0976f3e971455c35ca2c71",
+        "actual": "790674abe9af27775fc1d6810ee433f845058f3785e6402b35b48ccd7564c65e"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/FusionPackage/Components/HUD/PlayerList/TrackedLeaderstats.lua",
+        "expected": "ddf5930fb58ae39abff554906cd4c104d3a34f38f62ad8d1f4428ad42e856875",
+        "actual": "98ab07ea154a27958a7f0f848b9f7aa0e155b310c12308b78ce10f6477871caa"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/FusionPackage/Components/Processors/Archetype.lua",
+        "expected": "5c617a7d2465d90933a66821a038a0ae0e06fe563dd87c8d1242136583935b58",
+        "actual": "e8a58be7a38fa12df21ccccedbae764ac2c0933e02d1cd367bd308e470303c2f"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/FusionPackage/Components/Processors/Element.lua",
+        "expected": "aa770b2d5e7b608b2aedcd521e80b45cca3fc9ff4834d0e756542f71167d7683",
+        "actual": "d59a56e5789c0088db8c754c184f07d75f93b951048b2e4a2744e8304ebe65ee"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/FusionPackage/Components/Processors/Sorters/Assets.lua",
+        "expected": "684383c3abace78f672143e7ffa614abfae3b1c62ca2887bc0b9f6c8dc4f1bc9",
+        "actual": "b7cb2a4dacf704c67ce64793ceecec0fabb905f5c7d81011bf80a190f6dba477"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/FusionPackage/Components/Prompts/AssetBuffs.lua",
+        "expected": "8fe20ffbdf134bbeb27f5ab5fcb4d5fa0d0bb030c2ad0254262fefe91eea8ddb",
+        "actual": "5f53d62e0116de1eaa73cd82fa72c570fddcba7990298fb184ae42deb7ab2e45"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/FusionPackage/Fusion/State/ComputedAsync/Promise/init.lua",
+        "expected": "612a37623ef1758bcd80e74d5e38d8bd0fed4558542a686d407074cbf8536d13",
+        "actual": "95b536544a132c962b88b3545bbf33616978e57f5874c5da1ea7529dac0b5b3d"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/FusionPackage/Utils/Promise/init.lua",
+        "expected": "612a37623ef1758bcd80e74d5e38d8bd0fed4558542a686d407074cbf8536d13",
+        "actual": "95b536544a132c962b88b3545bbf33616978e57f5874c5da1ea7529dac0b5b3d"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Part_Icles/AxisLinks.lua",
+        "expected": "0718238950aa8fb6ce5b70419b4efb92ed0789ad05ca8ae1009219b1b1d1a413",
+        "actual": "e3018a0a3af9acfd57ea5305cb473e6595114884a0da59317e6cf3662e810331"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Part_Icles/EventsPayload.lua",
+        "expected": "dff429a4490fe22594a488a1a199c30f61a863cd28ed879c646575b44468eb55",
+        "actual": "276838388b01580a0348948053ce7247848bbc94072d800e44e7a06bbfa7eb24"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Part_Icles/Graph.lua",
+        "expected": "d4293e13f64033eed7ba48eb4ad3c702686d499a6d9fac78c5b7038300600f3f",
+        "actual": "cb9d8e6557c77c8ed3123452d9b31d414daa12566786ee2ef6d79b87b47294b2"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Part_Icles/Orientation.lua",
+        "expected": "e346f183f077616b4397883cf9a9cfef870f52f1db5b6bc06a0bfa0c4bbec66c",
+        "actual": "5a4f1017dc5d7ae74a026c00e6f675c219f624066edfe567dc39cd536f617d37"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Part_Icles/PartConstants.lua",
+        "expected": "2e55c938ed4bb8a65266a7c4936627388170a8dcff3a755005a6be3934c4118e",
+        "actual": "544ddc232e8b0a91871159df422911d5e52976f42116f7b9567c1021f70ac7d0"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/ForgeVFX/obj/Promise.lua",
+        "expected": "dee92536afbfc7eeda5775114a19213a2f5fbc28c37d32bffb80f98ec5bc652a",
+        "actual": "90654f3b9f1e789450a0997fc010d7533393ca089a1d3625ee3b791e3d0f321a"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/ForgeVFXForCutscenes/pkg/Promise.lua",
+        "expected": "dee92536afbfc7eeda5775114a19213a2f5fbc28c37d32bffb80f98ec5bc652a",
+        "actual": "90654f3b9f1e789450a0997fc010d7533393ca089a1d3625ee3b791e3d0f321a"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/Information/AutoPlayUtils.lua",
+        "expected": "8304b627ac88f180cb881df8b981b0d89f7de523406594b579822e35577abe3d",
+        "actual": "dfc20f6faf9a4011ac75e44e4cd63f3c7a3bf0920e08b9f3826cd27d6337a2f6"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/Information/Expeditions/init.lua",
+        "expected": "1deb336b9c3ab35d0cf0847fb431c7ec0db0cf5f7d87c49c0577b0e482030c4f",
+        "actual": "c91eee116f6ddfa135226dcc5021f73a4ca97023751eb728a9a270628f04eac3"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/Information/Expeditions/StatAnvils/init.lua",
+        "expected": "8cb669b4097d82faa6776b438acf42517b70d26bab4dc27cd6de07f4ad6db47b",
+        "actual": "7a948621e0097fcbb825e802835e82efc3ed0c4724b3f64b3e52f7b430c54804"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/Information/Quests/BannerBlitz.lua",
+        "expected": "c3c21b7ba01d22cd70af7927a904a9b9f1281ef7953ddea597f304e16317b2c5",
+        "actual": "c28abb32c5dc25c5c3a7c2078c078ea8e9b311f93daf51f700592f2a2631a44f"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/LootPlan/init.lua",
+        "expected": "50d0692db89de7e062530d8836c2eeba0c6be3f60a1bf045ee2cd0ffa4f8b88b",
+        "actual": "0851fb94347e0f0824856973c39abf0852a2dfda38e2460321b9502ecc72c38b"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/Promise/init.lua",
+        "expected": "612a37623ef1758bcd80e74d5e38d8bd0fed4558542a686d407074cbf8536d13",
+        "actual": "95b536544a132c962b88b3545bbf33616978e57f5874c5da1ea7529dac0b5b3d"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/TimeManager/MeshEmitterV2/Graph.lua",
+        "expected": "482e249e856de006bbbe5932310f05ed6dac5c0c61c6024edc0428ed37fb894e",
+        "actual": "b328ee70f939729851d146a79a44f770c1d6f6d280b3ef234c85ff0fe88525c2"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/TimeManager/Part_Icles/AxisLinks.lua",
+        "expected": "0718238950aa8fb6ce5b70419b4efb92ed0789ad05ca8ae1009219b1b1d1a413",
+        "actual": "e3018a0a3af9acfd57ea5305cb473e6595114884a0da59317e6cf3662e810331"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/TimeManager/Part_Icles/EventsPayload.lua",
+        "expected": "dff429a4490fe22594a488a1a199c30f61a863cd28ed879c646575b44468eb55",
+        "actual": "276838388b01580a0348948053ce7247848bbc94072d800e44e7a06bbfa7eb24"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/TimeManager/Part_Icles/Graph.lua",
+        "expected": "d4293e13f64033eed7ba48eb4ad3c702686d499a6d9fac78c5b7038300600f3f",
+        "actual": "cb9d8e6557c77c8ed3123452d9b31d414daa12566786ee2ef6d79b87b47294b2"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/TimeManager/Part_Icles/Orientation.lua",
+        "expected": "e346f183f077616b4397883cf9a9cfef870f52f1db5b6bc06a0bfa0c4bbec66c",
+        "actual": "5a4f1017dc5d7ae74a026c00e6f675c219f624066edfe567dc39cd536f617d37"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/TimeManager/Part_Icles/PartConstants.lua",
+        "expected": "2e55c938ed4bb8a65266a7c4936627388170a8dcff3a755005a6be3934c4118e",
+        "actual": "544ddc232e8b0a91871159df422911d5e52976f42116f7b9567c1021f70ac7d0"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/Utils/init.lua",
+        "expected": "fe910404b85d3cf4e24a81a7ffc51793ab9e792113b357d22542e6a11608b1e2",
+        "actual": "7eba14eca2ab2a24f1bc3992ec4b4f3230688a30460bd6e8214d69da17e49763"
+      },
+      {
+        "path": "RobloxProject/ReplicatedStorage/Shared/Utils/Table/init.lua",
+        "expected": "9922b209d0c1dbfaa46a6c8483a71f002e98e4448a7be16763dcdd25f53aa60f",
+        "actual": "9de82d2437a0759a43affd297ae20b9351d0eadb1c8244b71389b731fda2f0d2"
+      },
+      {
+        "path": "RobloxProject/StarterPlayer/StarterPlayerScripts/ClientMapEffects/Gamemodes/Expedition.lua",
+        "expected": "cea1846584cd5da757ff4129efc950cae78ab77e423034ac5e3bcb5b4e84fc54",
+        "actual": "e3a3c696f06341f661d71adf12f3550f544efa15b0e16c42dc24a17b73207568"
+      }
+    ],
+    "baseline": "D:\\Medal\\ultra-optimize-20260927\\wave8-coarse-w7\\output",
+    "output": "D:\\Medal\\ultra-optimize-20260927\\wave9-source-screen\\output"
+  },
+  "compiler_smoke": {
+    "status": "passed",
+    "compiler_sha256": "fa98ec2c1f9227451a0c87e8272a72ed355743403c4e008a06f395b2265fc40d",
+    "flags": [
+      "--binary",
+      "-O2",
+      "-g1",
+      "--fflags=false"
+    ],
+    "calls": 60,
+    "successes": 60,
+    "failures": 0,
+    "contract": "Only30 changed files were compiled in both variants. Exact source hashes checked; no decompiler rerun, no runtime/semantic equivalence claim, no golden changes."
+  },
+  "crossmode": {
+    "schema_version": 1,
+    "input": "RobloxProject/ReplicatedStorage/DivergentVFX/effects/lightning.lua",
+    "input_sha256": "6b17cae982d162b66acca0d536c50af34c5ec6dcb640824786b0754386926110",
+    "binary_sha256": "ba90904468fb989dc298e4bbf98ae85946e65298cfdf4fd8002d987e90c2dc65",
+    "status": "source_parity_failed",
+    "rows": [
+      {
+        "label": "source",
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\luau-lifter.exe",
+          "decompile-folder",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-source-review\\crossmode-lightning\\input",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-source-review\\crossmode-lightning\\source",
+          "--key",
+          "203",
+          "--threads",
+          "1",
+          "--strict-no-synthetic-control"
+        ],
+        "exit_code": 0,
+        "source_sha256": "790674abe9af27775fc1d6810ee433f845058f3785e6402b35b48ccd7564c65e",
+        "matches_frozen_baseline": false,
+        "matches_screen_candidate": true
+      },
+      {
+        "label": "analysis",
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\luau-lifter.exe",
+          "decompile-folder",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-source-review\\crossmode-lightning\\input",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-source-review\\crossmode-lightning\\analysis",
+          "--key",
+          "203",
+          "--threads",
+          "1",
+          "--strict-no-synthetic-control",
+          "--emit-upvalue-analysis"
+        ],
+        "exit_code": 0,
+        "source_sha256": "790674abe9af27775fc1d6810ee433f845058f3785e6402b35b48ccd7564c65e",
+        "matches_frozen_baseline": false,
+        "matches_screen_candidate": true
+      },
+      {
+        "label": "provenance",
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\luau-lifter.exe",
+          "decompile-folder",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-source-review\\crossmode-lightning\\input",
+          "D:\\Medal\\ultra-optimize-20260927\\wave9-source-review\\crossmode-lightning\\provenance",
+          "--key",
+          "203",
+          "--threads",
+          "1",
+          "--strict-no-synthetic-control",
+          "--emit-binding-provenance"
+        ],
+        "exit_code": 0,
+        "source_sha256": "373d92c61c220948fb20ff27beb18046eb0e5de45a0976f3e971455c35ca2c71",
+        "matches_frozen_baseline": true,
+        "matches_screen_candidate": false
+      }
+    ],
+    "contract": "Only one bytecode input; source-only, plain analysis and full provenance use identical key/strict policy. Exact source bytes compared without changing goldens; no performance claim."
+  },
+  "corrected_oracle": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "cfg",
+      "--lib",
+      "--features",
+      "early-ssa-sealing",
+      "-j2",
+      "early_sealing",
+      "--",
+      "--nocapture"
+    ],
+    "source": "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing-tests-r2-source",
+    "test_only_changed_files": [
+      "cfg/src/ssa/construct/early_sealing/tests.rs"
+    ],
+    "source_files": 521,
+    "source_unchanged": true,
+    "seconds": 8.682650500006275,
+    "exit_code": 0
+  },
+  "build": {
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--locked",
+      "-j2",
+      "--message-format=json-render-diagnostics",
+      "-p",
+      "luau-lifter",
+      "--example",
+      "benchmark_api",
+      "--bin",
+      "luau-lifter",
+      "-p",
+      "lua51-lifter",
+      "--bin",
+      "lua51-lifter",
+      "--features",
+      "cfg/early-ssa-sealing"
+    ],
+    "rustc": "rustc 1.98.0-nightly (3daae5e42 2026-06-14)\nbinary: rustc\ncommit-hash: 3daae5e42ec9ba435212987331af1b7b8634fa90\ncommit-date: 2026-06-14\nhost: x86_64-pc-windows-msvc\nrelease: 1.98.0-nightly\nLLVM version: 22.1.6\n",
+    "build_environment": {
+      "RUSTFLAGS": null,
+      "CARGO_ENCODED_RUSTFLAGS": null,
+      "CARGO_BUILD_TARGET": null,
+      "CARGO_TARGET_DIR": "C:\\Users\\ADMIN\\.codex\\tmp\\medal-ultra-20260927-structural-target",
+      "RUSTUP_TOOLCHAIN": null,
+      "CARGO_PROFILE_RELEASE_OPT_LEVEL": null,
+      "CARGO_PROFILE_RELEASE_LTO": null,
+      "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": null,
+      "CARGO_PROFILE_RELEASE_DEBUG": null,
+      "CARGO_PROFILE_RELEASE_STRIP": null
+    },
+    "seconds": 219.4343099000107,
+    "exit_code": 0,
+    "binaries": {
+      "lua51-lifter": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\lua51-lifter.exe",
+        "sha256": "106271e9b88050fad85b1bcf110e431ca22563fe2ac31f135ba957695192de96"
+      },
+      "benchmark_api": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\benchmark_api.exe",
+        "sha256": "95c8c77748e54ac913cc08cbf82e7943e56b3452f7595e69b4127d1e2c4828c7"
+      },
+      "luau-lifter": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave9-early-sealing\\luau-lifter.exe",
+        "sha256": "ba90904468fb989dc298e4bbf98ae85946e65298cfdf4fd8002d987e90c2dc65"
+      }
+    }
+  },
+  "initializer_chain_probe": {
+    "schema_version": 1,
+    "experiment": "W9 bounded AST initializer-chain count-only probe",
+    "status": "AST probe passed; combined command failed one independent CFG early-sealing oracle",
+    "counts_only": true,
+    "production_algorithm_changed": false,
+    "new_execution_for_this_report": false,
+    "provenance": {
+      "run_record": "wave9-focused.json",
+      "log": "wave9-focused.log",
+      "source": "wave9-early-sealing-source",
+      "source_files": 521,
+      "source_unchanged": true,
+      "source_manifest_sha256": "61ad5e766735ed59bbeafb15c6838552a33a1341714bb0f35eca04b13ca4f1a5",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ast",
+        "-p",
+        "cfg",
+        "--lib",
+        "--features",
+        "cfg/early-ssa-sealing",
+        "-j2",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "CARGO_TARGET_DIR": "D:\\Medal\\ultra-optimize-20260927\\wave3-work\\target",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "RUSTFLAGS": null,
+        "CARGO_ENCODED_RUSTFLAGS": null,
+        "RUSTUP_TOOLCHAIN": null
+      },
+      "sha256_references": [
+        {
+          "path": "wave9-focused.log",
+          "sha256": "d7c2a284d78b9a56d79385c5ec1c3a26d2c3e291b2e0e007ada2966bf0ad4f38"
+        },
+        {
+          "path": "wave9-focused.json",
+          "sha256": "01bfd0624af22d5dacd0481e3ddad17f0a98b68992316314fb0c4dcdda1037fa"
+        },
+        {
+          "path": "wave9-early-sealing-source/ast/src/inline_temps.rs",
+          "sha256": "a8995cf5d04e653c4701ceb89b4fe152d737db07664aeee683d8ff5f520b7c2d"
+        },
+        {
+          "path": "wave9-early-sealing-source/ast/src/inline_temps/chain_probe.rs",
+          "sha256": "72a725e83afb43a3c6877946c45727bc2fde23a959ab626e117cdf8a17b3439f"
+        }
+      ]
+    },
+    "validation": {
+      "ast": {
+        "passed": 882,
+        "failed": 0,
+        "probe_tests_passed": 2
+      },
+      "combined_exit_code": 101,
+      "cfg": {
+        "passed": 115,
+        "failed": 1,
+        "ignored": 1,
+        "failed_test": "ssa::construct::early_sealing::tests::early_phi_elision_matches_legacy_chain_diamond_backedge_parallel_writes_and_undefined_reads"
+      },
+      "oracles": [
+        "observer enabled versus disabled",
+        "legacy restart-from-zero scheduler",
+        "source text, complete origin fields, numeric bits, stable local identities",
+        "final RcLocal owner counts",
+        "clone node selector excludes shared closure bodies and retains no owners"
+      ]
+    },
+    "definitions": {
+      "copied_rvalue_nodes": "Sum of RValue occurrences in each committed replacement.clone(); excludes shared closure bodies. Not bytes, allocations, wall time or all analysis visits.",
+      "attempted_initializer_nodes": "Sum of initializer RValue sizes observed at inline_at entry. Does not count every analysis traversal.",
+      "destination_visits": "Actual invocations of recursive replace_first_rvalue_use.",
+      "accepted_root_copies": "Committed replacement.clone calls; the current algorithm does not transfer initializer ownership.",
+      "largest_copy_depth": "Node-inclusive tree depth of the largest committed copy; existing depth refusal is unchanged."
+    },
+    "findings": {
+      "confirmed": "Quadratic clone-node volume on accepted growing initializer chains within existing depth budget; linear final tree size and linear destination-search visits.",
+      "accepted_region_measured_lengths": [
+        8,
+        16,
+        32,
+        64
+      ],
+      "constructor": {
+        "copied_nodes_formula": "n*(n+3)/2",
+        "final_nodes_formula": "n+1"
+      },
+      "scalar_method": {
+        "copied_nodes_formula": "n*(n+2)",
+        "final_nodes_formula": "2*n+1"
+      },
+      "destination_visits_formula": "2*n-1 for fully accepted measured chains",
+      "budget_boundary": {
+        "length128": {
+          "accepted": 127,
+          "remaining_declarations": 1,
+          "largest_copy_depth": 128
+        },
+        "length256": {
+          "accepted": 254,
+          "remaining_declarations": 2,
+          "largest_copy_depth": 128
+        },
+        "interpretation": "Budget segments longer inputs; this is not evidence of unbounded quadratic behavior as n tends to infinity under the fixed depth cap."
+      },
+      "limits": [
+        "Synthetic count-only fixtures; no time or overall-speed measurement.",
+        "No corpus prevalence, competitor ratio or whole-pipeline gain established.",
+        "Clone removal alone leaves repeated safety/read-set/origin walks and SSA reduction unchanged.",
+        "Combined CFG quality result remains failed in the preserved source/log; not relabeled as a full passing run."
+      ]
+    },
+    "samples": [
+      {
+        "kind": "Constructor",
+        "length": 8,
+        "initial_nodes": 17,
+        "final_nodes": 9,
+        "rounds": 2,
+        "attempts": 8,
+        "attempted_initializer_nodes": 44,
+        "accepted_root_copies": 8,
+        "copied_rvalue_nodes": 44,
+        "destination_visits": 15,
+        "largest_copy_depth": 9,
+        "remaining_declarations": 0
+      },
+      {
+        "kind": "Constructor",
+        "length": 16,
+        "initial_nodes": 33,
+        "final_nodes": 17,
+        "rounds": 2,
+        "attempts": 16,
+        "attempted_initializer_nodes": 152,
+        "accepted_root_copies": 16,
+        "copied_rvalue_nodes": 152,
+        "destination_visits": 31,
+        "largest_copy_depth": 17,
+        "remaining_declarations": 0
+      },
+      {
+        "kind": "Constructor",
+        "length": 32,
+        "initial_nodes": 65,
+        "final_nodes": 33,
+        "rounds": 2,
+        "attempts": 32,
+        "attempted_initializer_nodes": 560,
+        "accepted_root_copies": 32,
+        "copied_rvalue_nodes": 560,
+        "destination_visits": 63,
+        "largest_copy_depth": 33,
+        "remaining_declarations": 0
+      },
+      {
+        "kind": "Constructor",
+        "length": 64,
+        "initial_nodes": 129,
+        "final_nodes": 65,
+        "rounds": 2,
+        "attempts": 64,
+        "attempted_initializer_nodes": 2144,
+        "accepted_root_copies": 64,
+        "copied_rvalue_nodes": 2144,
+        "destination_visits": 127,
+        "largest_copy_depth": 65,
+        "remaining_declarations": 0
+      },
+      {
+        "kind": "Constructor",
+        "length": 128,
+        "initial_nodes": 257,
+        "final_nodes": 130,
+        "rounds": 2,
+        "attempts": 129,
+        "attempted_initializer_nodes": 8513,
+        "accepted_root_copies": 127,
+        "copied_rvalue_nodes": 8255,
+        "destination_visits": 254,
+        "largest_copy_depth": 128,
+        "remaining_declarations": 1
+      },
+      {
+        "kind": "Constructor",
+        "length": 256,
+        "initial_nodes": 513,
+        "final_nodes": 259,
+        "rounds": 2,
+        "attempts": 385,
+        "attempted_initializer_nodes": 33409,
+        "accepted_root_copies": 254,
+        "copied_rvalue_nodes": 16510,
+        "destination_visits": 508,
+        "largest_copy_depth": 128,
+        "remaining_declarations": 2
+      },
+      {
+        "kind": "ScalarMethod",
+        "length": 8,
+        "initial_nodes": 25,
+        "final_nodes": 17,
+        "rounds": 2,
+        "attempts": 8,
+        "attempted_initializer_nodes": 80,
+        "accepted_root_copies": 8,
+        "copied_rvalue_nodes": 80,
+        "destination_visits": 15,
+        "largest_copy_depth": 9,
+        "remaining_declarations": 0
+      },
+      {
+        "kind": "ScalarMethod",
+        "length": 16,
+        "initial_nodes": 49,
+        "final_nodes": 33,
+        "rounds": 2,
+        "attempts": 16,
+        "attempted_initializer_nodes": 288,
+        "accepted_root_copies": 16,
+        "copied_rvalue_nodes": 288,
+        "destination_visits": 31,
+        "largest_copy_depth": 17,
+        "remaining_declarations": 0
+      },
+      {
+        "kind": "ScalarMethod",
+        "length": 32,
+        "initial_nodes": 97,
+        "final_nodes": 65,
+        "rounds": 2,
+        "attempts": 32,
+        "attempted_initializer_nodes": 1088,
+        "accepted_root_copies": 32,
+        "copied_rvalue_nodes": 1088,
+        "destination_visits": 63,
+        "largest_copy_depth": 33,
+        "remaining_declarations": 0
+      },
+      {
+        "kind": "ScalarMethod",
+        "length": 64,
+        "initial_nodes": 193,
+        "final_nodes": 129,
+        "rounds": 2,
+        "attempts": 64,
+        "attempted_initializer_nodes": 4224,
+        "accepted_root_copies": 64,
+        "copied_rvalue_nodes": 4224,
+        "destination_visits": 127,
+        "largest_copy_depth": 65,
+        "remaining_declarations": 0
+      },
+      {
+        "kind": "ScalarMethod",
+        "length": 128,
+        "initial_nodes": 385,
+        "final_nodes": 258,
+        "rounds": 2,
+        "attempts": 129,
+        "attempted_initializer_nodes": 16897,
+        "accepted_root_copies": 127,
+        "copied_rvalue_nodes": 16383,
+        "destination_visits": 254,
+        "largest_copy_depth": 128,
+        "remaining_declarations": 1
+      },
+      {
+        "kind": "ScalarMethod",
+        "length": 256,
+        "initial_nodes": 769,
+        "final_nodes": 515,
+        "rounds": 2,
+        "attempts": 385,
+        "attempted_initializer_nodes": 66433,
+        "accepted_root_copies": 254,
+        "copied_rvalue_nodes": 32766,
+        "destination_visits": 508,
+        "largest_copy_depth": 128,
+        "remaining_declarations": 2
+      }
+    ],
+    "next_prototype": {
+      "status": "proposed only; blocked on root completing SSA work and explicitly authorizing implementation",
+      "scope": "ast/src/inline_temps.rs, existing reference tests and focused transfer oracle only",
+      "design": [
+        "Keep every current candidate, motion, effects, evaluation order, conditional and budget decision unchanged.",
+        "After those checks split declaration/use as currently; lend the initializer mutably to the existing destination search. No source detachment on entry or during a rejected search.",
+        "At the same successful leaf after the last guard, take the initializer with an inert placeholder and install it. Retain the moved descendants' existing origin data and mark only the installed root inlined. Immediately return success; retain current ordered declaration removal. This avoids a path-vector allocation, second destination traversal, and metadata compatibility walk.",
+        "Initially leave the small local/literal indexed-key specialization unchanged.",
+        "Apply the explicit movement lifecycle in node_origins::PASS_CONTRACTS: moved children retain their existing ancestry and cloned/inlined/synthesized/incomplete flags. Do not fabricate cloned=true for a copy that no longer happens. Shared closure bodies and function identity remain untouched. Metadata history can validly differ from legacy actual cloning while output quality remains exact.",
+        "Audit all calls between installation and old declaration removal for owner observations/publication. No claim that matching endpoint owners proves the transient window safe.",
+        "Retain the old clone commit as source/safety differential oracle and fallback for any unproven variant; validate the new movement ancestry with an independent specified-lifecycle oracle. Accept only this explicit actual-copy-history difference, never blanket metadata normalization. No new eligibility, pass skipping, budget changes or SSA reduce caching."
+      ],
+      "required_checks": [
+        "source, numeric bits, capture modes and shared-function identity exactly match legacy; independent full-origin lifecycle oracle preserves moved ancestry and existing flags, marks installed root inlined and invents no clone flags",
+        "refused search leaves initializer/destination and owners untouched",
+        "owner observations at every reachable safety/readability decision before/after commit",
+        "captured reads, dynamic effects, short circuit, if expressions, indexed LHS, multret tails and debug bindings",
+        "old logical depth/node boundary refusals and accepted order",
+        "updated deterministic counts distinguish transferred roots from cloned nodes; safety/read-set scans remain separately scoped",
+        "ordinary end-to-end comparison only after root-controlled quality gates"
+      ],
+      "metadata_policy_authority": "Root instruction after extraction: moved child origins are retained truthfully per PASS_CONTRACTS; root records inline; do not fabricate cloned flags to match obsolete incidental copy history."
+    }
+  },
+  "raw_sha256": {
+    "wave9-early-sealing-source-snapshot.json": "61ad5e766735ed59bbeafb15c6838552a33a1341714bb0f35eca04b13ca4f1a5",
+    "wave9-focused.json": "01bfd0624af22d5dacd0481e3ddad17f0a98b68992316314fb0c4dcdda1037fa",
+    "wave9-focused.log": "d7c2a284d78b9a56d79385c5ec1c3a26d2c3e291b2e0e007ada2966bf0ad4f38",
+    "wave9-oracle-r2.json": "5b9ff7b44bb60130a1c249b10a459be360e23a41c74c2966b8dc7d1207de47ec",
+    "wave9-oracle-r2.log": "08ccc82c60bc8c7322bb669a674f3619528e1d2ea6f8b25c8e8c3671dbd0537c",
+    "wave9-early-sealing-build.json": "af572ee1894f3686faf3492882f7ffa84d4e7a48fd3269f862f7d4cf90bcaad1",
+    "wave9-exploratory-timing/report.json": "27b7dfa8f5a268a30a5160b261f2e7631a141ffb86d93af68dbc4b8a79b6acce",
+    "wave9-source-review/vector-origin-review.json": "ecfd3970518fc0243524c4196a8200072c3f92f388047ca25ee82fc5c1d2a2c4",
+    "wave9-source-review/INDEPENDENT-REVIEW.md": "3e169bd195216ec2ea15bb3651bc18c6a65af684ecc97ee3950c49a46f472f86",
+    "wave9-early-sealing-decision.md": "a44ab39ff9e387da4c3200e529e87fb870cb16bfa80d882aab9def29fee7047c"
+  }
+}
