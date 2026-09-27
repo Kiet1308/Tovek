@@ -133,15 +133,14 @@ pub fn run_with_cache(
 
     // Decompile in parallel. map_init gives each worker a reusable base64 scratch
     // buffer so we don't reallocate it per file.
-    let outcomes: Vec<(
+    type Row = (
         Outcome,
         Option<AnalysisManifestEntry>,
         Option<AnalysisUnavailable>,
         Option<GeneratedSourceRecord>,
         Option<(u64, String)>,
-    )> = work
-        .par_iter()
-        .map_init(Vec::<u8>::new, |b64, w| {
+    );
+    let process = |w: &crate::decompile_core::Work, b64: &mut Vec<u8>| {
             let text = match std::fs::read(&w.input) {
                 Ok(text) => text,
                 Err(error) => return (Outcome::Fail(format!("read: {error}")), None, None, None, None),
@@ -152,8 +151,25 @@ pub fn run_with_cache(
                 emit_upvalue_analysis.then_some(analysis_root.as_path()), cache.as_ref(),
             );
             (outcome, entry, unavailable, source, digest)
-        })
-        .collect();
+        };
+    let outcomes: Vec<Row> = if cache.as_ref().is_some_and(|cache| cache.is_empty()) {
+        // Equal complete cache keys must have equal module hints. Scheduling
+        // each hint's files on one worker prevents duplicate cold computation
+        // without an extra input read/hash or waiting inside nested Rayon work.
+        // Cache lookup still verifies exact decoded bytes and the complete key.
+        // Only a freshly empty cache uses this coarse schedule. Existing caches
+        // keep per-file hit I/O parallel, without group vectors/scatter or
+        // serialization of unrelated files sharing a module hint.
+        let groups = cache_work_groups(work.iter().map(|item| item.rel.as_str()));
+        let grouped = groups.par_iter().map_init(Vec::<u8>::new, |b64, group| {
+            group.iter().map(|&index| (index, process(&work[index], b64))).collect::<Vec<_>>()
+        }).collect::<Vec<_>>();
+        let mut ordered = (0..work.len()).map(|_| None).collect::<Vec<_>>();
+        for (index, outcome) in grouped.into_iter().flatten() { ordered[index] = Some(outcome); }
+        ordered.into_iter().map(Option::unwrap).collect()
+    } else {
+        work.par_iter().map_init(Vec::<u8>::new, |b64, item| process(item, b64)).collect()
+    };
 
     // Hash the bytes actually consumed by each worker, without a second read
     // or a race between hashing an input and later decompiling a changed file.
@@ -305,6 +321,20 @@ struct FolderDiagnostic {
 /// any structured per-function diagnostics appended by the lifter.  The
 /// parser deliberately falls back to a coarse code for older/errors outside
 /// the structuring pipeline, so mixed-version corpus manifests remain useful.
+fn cache_work_groups<'a>(names: impl Iterator<Item = &'a str>) -> Vec<Vec<usize>> {
+    let mut contexts = rustc_hash::FxHashMap::default();
+    let mut groups: Vec<Vec<usize>> = Vec::new();
+    for (index, name) in names.enumerate() {
+        let hint = ast::name_locals::script_module_hint(name);
+        let group = *contexts.entry(hint).or_insert_with(|| {
+            groups.push(Vec::new());
+            groups.len() - 1
+        });
+        groups[group].push(index);
+    }
+    groups
+}
+
 fn classify_failure(reason: &str) -> (&'static str, Option<Vec<DecompileDiagnostic>>) {
     const MARKER: &str = " | diagnostics=";
     if let Some((_, payload)) = reason.split_once(MARKER) {
@@ -649,6 +679,11 @@ fn write_analysis_manifest_with_audit(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cached_schedule_groups_complete_naming_context_without_reordering_members() {
+        let names = ["A/Widget/init.lua", "B/Gadget.lua", "C/Widget.lua", "D/Gadget/init.lua", "Other.lua"];
+        assert_eq!(super::cache_work_groups(names.into_iter()), vec![vec![0, 2], vec![1, 3], vec![4]]);
+    }
     use super::*;
     use base64::prelude::*;
     use serde_json::{Value, json};

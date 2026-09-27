@@ -27,32 +27,24 @@ impl SetList {
 }
 
 impl LocalRw for SetList {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        visit(&self.object_local)
+            && self.values.iter().all(|value| value.visit_local_reads(visit))
+            && self.tail.as_ref().is_none_or(|value| value.visit_local_reads(visit))
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        let tail_locals = self
-            .tail
-            .as_ref()
-            .map(|t| t.values_read())
-            .unwrap_or_default();
-        std::iter::once(&self.object_local)
-            .chain(self.values.iter().flat_map(|rvalue| rvalue.values_read()))
-            .chain(tail_locals)
-            .collect()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        visit(&mut self.object_local)
+            && self.values.iter_mut().all(|value| value.visit_local_reads_mut(visit))
+            && self.tail.as_mut().is_none_or(|value| value.visit_local_reads_mut(visit))
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        let tail_locals = self
-            .tail
-            .as_mut()
-            .map(|t| t.values_read_mut())
-            .unwrap_or_default();
-        std::iter::once(&mut self.object_local)
-            .chain(
-                self.values
-                    .iter_mut()
-                    .flat_map(|rvalue| rvalue.values_read_mut()),
-            )
-            .chain(tail_locals)
-            .collect()
+        crate::local::collect_reads_mut(self)
     }
 }
 
@@ -66,6 +58,14 @@ impl SideEffects for SetList {
 }
 
 impl Traverse for SetList {
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        self.values.iter().chain(self.tail.iter()).all(visit)
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        self.values.iter_mut().chain(self.tail.iter_mut()).all(visit)
+    }
+
     fn rvalues(&self) -> Vec<&RValue> {
         self.values.iter().chain(self.tail.as_ref()).collect()
     }

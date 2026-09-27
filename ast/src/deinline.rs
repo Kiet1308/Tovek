@@ -129,6 +129,8 @@ enum RejectReason {
     EmptyPattern,
     /// Below the `anchors >= 2` readability floor (P3, kept refused).
     LowAnchorScore,
+    /// Capture shape cannot be proven within the deterministic target budget.
+    ShapeBudget,
 }
 
 impl RejectReason {
@@ -140,6 +142,7 @@ impl RejectReason {
             Self::UnsupportedReturnShape => "reject_return_shape",
             Self::EmptyPattern => "reject_empty_pattern",
             Self::LowAnchorScore => "reject_low_anchors",
+            Self::ShapeBudget => "reject_shape_budget",
         }
     }
 }
@@ -291,7 +294,12 @@ impl Target {
 // ===================================================================
 
 pub fn deinline(body: &mut Block) {
-    if !crate::deinline_safety::CaptureSafety::new(body).complete() { return; }
+    let captures = crate::deinline_safety::CaptureSafety::new(body);
+    if !captures.complete() { return; }
+    // The entry budget census describes the unchanged first iteration too.
+    // Later iterations rebuild it after rewriting; no mutable-tree facts are
+    // retained across a revision, and this summary owns only numeric IDs.
+    let mut initial_captures = Some(std::rc::Rc::new(captures));
     let search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
     let mut converted: FxHashSet<RcLocal> = FxHashSet::default();
     // P4 perf: the write-once census is INVARIANT across fixed-point iterations for
@@ -318,10 +326,15 @@ pub fn deinline(body: &mut Block) {
         let targets = {
             let _t = dprof::T::new(&dprof::COLLECT_TARGETS_US);
             let _span = crate::telemetry::Span::new("D_COLLECT_TARGETS");
-            let mut targets = collect_targets(body, &write_counts);
-            if targets.len() > 256 { break; }
-            for target in &mut targets { target.search = search.clone(); }
+            let captures = initial_captures.take().unwrap_or_else(||
+                std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
+            let mut targets = collect_targets(body, &write_counts, captures);
             crate::telemetry::count("accepted_targets", targets.len() as u64);
+            if targets.len() > 256 {
+                crate::telemetry::count("target_budget_exhausted", 1);
+                break;
+            }
+            for target in &mut targets { target.search = search.clone(); }
             targets
         };
         if targets.is_empty() {
@@ -3838,7 +3851,11 @@ fn has_loop_void_return(stmts: &[Statement], inside_loop: bool) -> bool {
 // Target collection + per-function gates
 // ===================================================================
 
-fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Vec<Target> {
+fn collect_targets(
+    body: &Block,
+    write_counts: &FxHashMap<RcLocal, usize>,
+    captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+) -> Vec<Target> {
     // P4: a write-once census (`write_counts`, computed once by the caller — see the
     // invariance note in `deinline`) replaces the old `Arc::count(&l) == 1` gate.
     // The refcount gate was both too STRICT (it dropped any helper that still has a
@@ -3858,7 +3875,6 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
         decls.push((l.clone(), fa.clone()));
     });
 
-    let captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body));
     let mut targets = Vec::new();
     for (f_local, func) in decls {
         crate::telemetry::count("candidate_binders", 1);
@@ -3903,7 +3919,10 @@ fn collect_targets(body: &Block, write_counts: &FxHashMap<RcLocal, usize>) -> Ve
             }
         };
         let shape = crate::deinline_safety::CaptureSafety::new(&g.body);
-        if !shape.complete() || shape.nodes() > 2048 { continue; }
+        if !shape.complete() || shape.nodes() > 2048 {
+            deinline_reject!(RejectReason::ShapeBudget, g.name.as_deref().unwrap_or("<anon>"));
+            continue;
+        }
         let pat = canon(&g.body.0);
         if pat.is_empty() {
             deinline_reject!(

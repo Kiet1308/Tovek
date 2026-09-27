@@ -1,4 +1,5 @@
 use rustc_hash::FxHashMap;
+use std::collections::BTreeSet;
 
 use crate::{
     Binary, BinaryOperation, Block, If, IfExpression, Index, LValue, Literal, LocalRw, RValue,
@@ -51,7 +52,7 @@ pub fn reconstruct_short_circuit_expressions(block: &mut Block) {
 
 fn reconstruct_with_style(block: &mut Block, allow_if_expression: bool) {
     reconstruct_nested_blocks(block, allow_if_expression);
-    while reconstruct_once(block, allow_if_expression) {}
+    reconstruct_current_block(block, allow_if_expression);
 }
 
 fn reconstruct_nested_blocks(block: &mut Block, allow_if_expression: bool) {
@@ -92,6 +93,95 @@ fn reconstruct_closures_in_statement(statement: &mut Statement, allow_if_express
     }
 }
 
+/// Successful rewrites remove only the candidate binder's one read and three
+/// writes. Every other local occurrence moves intact, including condition
+/// captures; short-circuit construction only discards literal boolean arms.
+/// Thus one usage census remains valid throughout this block's fixed point.
+fn reconstruct_current_block(block: &mut Block, allow_if_expression: bool) {
+    let len = block.len();
+    if len < 3 { return; }
+    let mut pending: BTreeSet<_> = block.iter().enumerate()
+        .filter_map(|(index, statement)| candidate_decl(statement).map(|_| index)).collect();
+    if pending.is_empty() { return; }
+    let usage = collect_usage(block);
+    let mut next: Vec<_> = (0..len).map(|index| (index + 1 < len).then_some(index + 1)).collect();
+    let mut previous: Vec<_> = (0..len).map(|index| index.checked_sub(1)).collect();
+    let mut removed = vec![false; len];
+    while let Some(declaration) = pending.pop_first() {
+        if removed[declaration] { continue; }
+        let Some(branch) = next[declaration] else { continue; };
+        let Some(use_index) = next[branch] else { continue; };
+        if !reconstruct_at(block, declaration, branch, use_index, &usage, allow_if_expression) { continue; }
+        removed[declaration] = true;
+        removed[branch] = true;
+        block[declaration] = crate::Empty {}.into();
+        block[branch] = crate::Empty {}.into();
+        let predecessor = previous[declaration];
+        if let Some(predecessor) = predecessor { next[predecessor] = Some(use_index); }
+        previous[use_index] = predecessor;
+        // Only triples that touch the new adjacency or edited use can change.
+        // Keep the former restart scheduler's earliest-declaration priority.
+        let mut affected = Some(use_index);
+        for _ in 0..3 {
+            let Some(index) = affected else { break; };
+            if candidate_decl(&block[index]).is_some() { pending.insert(index); }
+            affected = previous[index];
+        }
+    }
+    let mut index = 0;
+    block.0.retain(|_| { let keep = !removed[index]; index += 1; keep });
+}
+
+fn reconstruct_at(block: &mut Block, decl_index: usize, if_index: usize, use_index: usize,
+    usage: &FxHashMap<RcLocal, Usage>, allow_if_expression: bool) -> bool {
+    let Some(local) = candidate_decl(&block.0[decl_index]) else {
+        return false;
+    };
+
+    let Some(local_usage) = usage.get(&local) else {
+        return false;
+    };
+    if local_usage.reads != 1 || local_usage.writes != 3 || local_usage.captured {
+        return false;
+    }
+
+    let Statement::If(r#if) = &block.0[if_index] else {
+        return false;
+    };
+    let Some((condition, then_value, else_value)) = branch_assignments(r#if, &local) else {
+        return false;
+    };
+    if contains_unsupported_value(&then_value) || contains_unsupported_value(&else_value) {
+        return false;
+    }
+
+    if replaceable_direct_rvalue_read_count(&block.0[use_index], &local) != 1 {
+        return false;
+    }
+    let Some(use_context) = classify_replaceable_use(&block.0[use_index], &local) else {
+        return false;
+    };
+    if !is_generated_temp(&local) && use_context != UseContext::IndexReceiver {
+        return false;
+    }
+    if !complexity_allowed(&condition, &then_value, &else_value) {
+        return false;
+    }
+
+    let replacement = if allow_if_expression {
+        build_if_expression(condition, then_value, else_value)
+    } else if let Some(value) = build_short_circuit(condition, then_value, else_value) {
+        value
+    } else {
+        return false;
+    };
+    if !replace_direct_rvalue_use(&mut block.0[use_index], &local, replacement, &usage) {
+        return false;
+    }
+    true
+}
+
+#[cfg(test)]
 fn reconstruct_once(block: &mut Block, allow_if_expression: bool) -> bool {
     if block.0.len() < 3 {
         return false;
@@ -267,7 +357,7 @@ fn negate_condition(condition: RValue) -> RValue {
 fn contains_unsupported_value(value: &RValue) -> bool {
     match value {
         RValue::VarArg(_) | RValue::Select(Select::VarArg(_)) | RValue::Closure(_) => true,
-        _ => value.rvalues().into_iter().any(contains_unsupported_value),
+        _ => !value.visit_rvalues(&mut |child| !contains_unsupported_value(child)),
     }
 }
 
@@ -293,9 +383,7 @@ fn collect_usage_in_block(block: &Block, usage: &mut FxHashMap<RcLocal, Usage>) 
 }
 
 fn collect_usage_in_statement(statement: &Statement, usage: &mut FxHashMap<RcLocal, Usage>) {
-    for local in statement.values_read() {
-        usage.entry(local.clone()).or_default().reads += 1;
-    }
+    statement.visit_local_reads(&mut |local| { usage.entry(local.clone()).or_default().reads += 1; true });
     for local in statement.values_written() {
         usage.entry(local.clone()).or_default().writes += 1;
     }
@@ -332,9 +420,7 @@ fn collect_usage_in_statement(statement: &Statement, usage: &mut FxHashMap<RcLoc
 }
 
 fn collect_closures_in_statement(statement: &Statement, f: &mut impl FnMut(&crate::Closure)) {
-    for rvalue in statement.rvalues() {
-        collect_closures_in_rvalue(rvalue, f);
-    }
+    statement.visit_rvalues(&mut |rvalue| { collect_closures_in_rvalue(rvalue, f); true });
 }
 
 fn collect_closures_in_rvalue(rvalue: &RValue, f: &mut impl FnMut(&crate::Closure)) {
@@ -342,9 +428,7 @@ fn collect_closures_in_rvalue(rvalue: &RValue, f: &mut impl FnMut(&crate::Closur
         f(closure);
         return;
     }
-    for child in rvalue.rvalues() {
-        collect_closures_in_rvalue(child, f);
-    }
+    rvalue.visit_rvalues(&mut |child| { collect_closures_in_rvalue(child, f); true });
 }
 
 fn replaceable_direct_rvalue_read_count(statement: &Statement, local: &RcLocal) -> usize {
@@ -716,17 +800,14 @@ fn stable_index_component(value: &RValue, usage: &FxHashMap<RcLocal, Usage>) -> 
 }
 
 fn reads_captured_local(value: &RValue, usage: &FxHashMap<RcLocal, Usage>) -> bool {
-    value
-        .values_read()
-        .into_iter()
-        .any(|local| usage.get(local).is_some_and(|usage| usage.captured))
+    value.any_local_read(&mut |local| usage.get(local).is_some_and(|usage| usage.captured))
 }
 
 fn contains_global(value: &RValue) -> bool {
     if matches!(value, RValue::Global(_)) {
         return true;
     }
-    value.rvalues().into_iter().any(contains_global)
+    !value.visit_rvalues(&mut |child| !contains_global(child))
 }
 
 fn is_generated_temp(local: &RcLocal) -> bool {
@@ -746,6 +827,153 @@ mod tests {
         Assign, Binary, BinaryOperation, Block, Call, Global, If, Index, LValue, Literal, Local,
         RValue, RcLocal, Return, Select,
     };
+
+    #[test]
+    fn adjacency_worklist_matches_legacy_restarts() {
+        fn input(seed: u64) -> Block {
+            let mut random = seed + 1;
+            let mut next = || { random ^= random << 13; random ^= random >> 7; random ^= random << 17; random as usize };
+            let mut statements = Vec::new();
+            let consume = local("consume");
+            for index in 0..20 {
+                let outer = local(&format!("v{}", index * 2));
+                let inner = local(&format!("v{}", index * 2 + 1));
+                for (offset, binding) in [&outer, &inner].into_iter().enumerate() {
+                    let mut value = if next() % 3 == 0 { Literal::Nil.into() }
+                        else { Literal::Boolean(next() % 2 == 0).into() };
+                    let condition = if next() % 2 == 0 { global("flag") }
+                        else { Binary::new(global("left"), global("right"), BinaryOperation::Equal).into() };
+                    // Guarantee a successful pair in both styles, while retaining
+                    // the seeded mixture of accepted and refused later candidates.
+                    if index == 0 { value = Literal::Boolean(false).into(); }
+                    statements.push(declare_empty(binding));
+                    statements.push(If::new(condition,
+                        Block(vec![assign_local(binding, value)]),
+                        Block(vec![assign_local(binding, Literal::Boolean(offset == 0).into())])).into());
+                }
+                let mut reads = vec![local_value(&outer), local_value(&inner)];
+                let duplicate_read = next() % 4 == 0;
+                let prior_effect = next() % 5 == 0;
+                if index != 0 && duplicate_read { reads.push(local_value(&outer)); }
+                if index != 0 && prior_effect { reads.insert(0, Call::new(global("effect"), vec![]).into()); }
+                // A global callee would reject every moved global condition.
+                statements.push(Call::new(local_value(&consume), reads).into());
+            }
+            Block(statements)
+        }
+        for seed in 0..100 {
+            for allow_if_expression in [false, true] {
+                let mut expected = input(seed);
+                let mut actual = input(seed);
+                let original_len = actual.len();
+                let mut rewrites = 0;
+                while super::reconstruct_once(&mut expected, allow_if_expression) { rewrites += 1; }
+                assert!(rewrites >= 2, "seed {seed}, allow if {allow_if_expression}: no successful pair");
+                super::reconstruct_current_block(&mut actual, allow_if_expression);
+                assert_eq!(actual.len(), original_len - 2 * rewrites);
+                assert_eq!(actual.to_string(), expected.to_string(), "seed {seed}, allow if {allow_if_expression}");
+            }
+        }
+    }
+
+    #[test]
+    fn adjacency_worklist_reactivates_an_earlier_refused_candidate() {
+        fn input() -> Block {
+            let outer = local("v0");
+            let inner = local("v1");
+            let mut statements = Vec::new();
+            for binding in [&outer, &inner] {
+                statements.push(declare_empty(binding));
+                statements.push(If::new(global("flag"),
+                    Block(vec![assign_local(binding, Literal::Boolean(false).into())]),
+                    Block(vec![assign_local(binding, Literal::Boolean(true).into())])).into());
+            }
+            statements.push(Call::new(local_value(&local("consume")),
+                vec![local_value(&outer), local_value(&inner)]).into());
+            Block(statements)
+        }
+        for allow_if_expression in [false, true] {
+            let mut expected = input();
+            let first_declaration = expected[0].to_string();
+            // The outer declaration is visited first but cannot reach its use.
+            assert!(super::reconstruct_once(&mut expected, allow_if_expression));
+            assert_eq!(expected.len(), 3);
+            assert_eq!(expected[0].to_string(), first_declaration);
+            // Erasing the inner pair makes the earlier outer candidate adjacent.
+            assert!(super::reconstruct_once(&mut expected, allow_if_expression));
+            assert_eq!(expected.len(), 1);
+            assert!(!super::reconstruct_once(&mut expected, allow_if_expression));
+            let mut actual = input();
+            super::reconstruct_current_block(&mut actual, allow_if_expression);
+            assert_eq!(actual.len(), 1);
+            assert_eq!(actual.to_string(), expected.to_string());
+        }
+    }
+
+    #[test]
+    fn keeps_global_callee_before_a_moved_global_condition() {
+        for allow_if_expression in [false, true] {
+            let temp = local("v");
+            let mut block = Block(vec![declare_empty(&temp),
+                If::new(global("flag"),
+                    Block(vec![assign_local(&temp, Literal::Boolean(false).into())]),
+                    Block(vec![assign_local(&temp, Literal::Boolean(true).into())])).into(),
+                Call::new(global("consume"), vec![local_value(&temp)]).into()]);
+            let original = block.to_string();
+            assert!(!super::reconstruct_once(&mut block, allow_if_expression));
+            super::reconstruct_current_block(&mut block, allow_if_expression);
+            assert_eq!(block.to_string(), original);
+        }
+    }
+
+    #[test]
+    fn keeps_source_preserved_generated_binding() {
+        for allow_if_expression in [false, true] {
+            let temp = local("v9");
+            temp.0.lock().add_source_binding(crate::SourceBinding {
+                origin: crate::BindingOrigin::DebugLocal {
+                    prototype: 0, register: 0, start_pc: 0, end_pc: 8,
+                },
+                name: "v9".into(),
+            });
+            let mut block = Block(vec![declare_empty(&temp),
+                If::new(global("flag"),
+                    Block(vec![assign_local(&temp, Literal::Boolean(false).into())]),
+                    Block(vec![assign_local(&temp, Literal::Boolean(true).into())])).into(),
+                Call::new(local_value(&local("consume")), vec![local_value(&temp)]).into()]);
+            let original = block.to_string();
+            assert!(!super::reconstruct_once(&mut block, allow_if_expression));
+            super::reconstruct_current_block(&mut block, allow_if_expression);
+            assert_eq!(block.to_string(), original);
+        }
+    }
+
+    #[test]
+    fn keeps_captured_callee_before_a_moved_global_condition() {
+        for by_ref in [false, true] {
+            for allow_if_expression in [false, true] {
+                let temp = local("v");
+                let consume = local("consume");
+                let capture = if by_ref { crate::Upvalue::Ref(consume.clone()) }
+                    else { crate::Upvalue::Copy(consume.clone()) };
+                let closure = crate::Closure {
+                    node_origin: Default::default(),
+                    function: Default::default(),
+                    upvalues: vec![capture],
+                };
+                let mut block = Block(vec![declare_empty(&temp),
+                    If::new(global("flag"),
+                        Block(vec![assign_local(&temp, Literal::Boolean(false).into())]),
+                        Block(vec![assign_local(&temp, Literal::Boolean(true).into())])).into(),
+                    Call::new(local_value(&consume), vec![local_value(&temp)]).into(),
+                    Return::new(vec![closure.into()]).into()]);
+                let original = block.to_string();
+                assert!(!super::reconstruct_once(&mut block, allow_if_expression));
+                super::reconstruct_current_block(&mut block, allow_if_expression);
+                assert_eq!(block.to_string(), original);
+            }
+        }
+    }
 
     fn local(name: &str) -> RcLocal {
         RcLocal::new(Local::new(Some(name.to_string())))
@@ -1056,7 +1284,7 @@ mod tests {
             )
             .into(),
             Call::new(
-                global("use"),
+                local_value(&local("consume")),
                 vec![
                     Call::new(global("before"), vec![]).into(),
                     local_value(&temp),

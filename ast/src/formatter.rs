@@ -5,6 +5,8 @@ use std::{
 };
 
 use itertools::Itertools;
+use rustc_hash::{FxHashMap, FxHashSet};
+use std::rc::Rc;
 
 use crate::{
     Assign, Binary, BinaryOperation, Block, Call, Closure, GenericFor, If, IfExpression, Index,
@@ -1102,6 +1104,48 @@ mod tests {
     }
 
     #[test]
+    fn comment_runs_preserve_statement_disambiguation_and_attachment() {
+        let mut block = Block(vec![Call::new(global("f"), vec![]).into()]);
+        let mut expected = String::from("f();");
+        for i in 0..2048 {
+            let text = format!("note{i}");
+            if i % 5 == 0 {
+                block.push(crate::Comment::trailing(text.clone()).into());
+                expected.push_str(&format!(" -- {text}"));
+            } else {
+                block.push(crate::Comment::new(text.clone()).into());
+                expected.push_str(&format!("\n-- {text}"));
+            }
+        }
+        block.push(closure_call(Block::default()));
+        expected.push_str("\n(function() end)()");
+        assert_eq!(block.to_string(), expected);
+    }
+
+    #[test]
+    fn indexed_method_context_preserves_receiver_identity_without_ast_owners() {
+        let first = local("sameSpelling");
+        let second = local("sameSpelling");
+        let receiver: RValue = Index::new(local_value(&first), string("nested")).into();
+        let unrelated: RValue = Index::new(local_value(&second), string("nested")).into();
+        let block = Block(vec![
+            MethodCall::new(receiver.clone(), "run".into(), vec![]).into(),
+            MethodCall::new(receiver.clone(), "run".into(), vec![]).into(),
+            closure_call(Block(vec![MethodCall::new(unrelated.clone(), "run".into(), vec![]).into()])),
+        ]);
+        let owners = Arc::count(&first.0.0);
+        let context = collect_colon_method_calls(&block);
+        let index = context.0.as_ref().unwrap();
+        assert_eq!(index["run"].len(), 1);
+        assert!(index["run"].contains(&ReceiverKey::new(&receiver).unwrap()));
+        assert!(!index["run"].contains(&ReceiverKey::new(&unrelated).unwrap()));
+        assert_eq!(Arc::count(&first.0.0), owners);
+        let shared = context.clone();
+        assert!(std::rc::Rc::ptr_eq(index, shared.0.as_ref().unwrap()));
+        assert_eq!(Arc::count(&first.0.0), owners);
+    }
+
+    #[test]
     fn statement_after_a_trailing_comment_starts_a_fresh_indented_line() {
         let block = Block(vec![
             Call::new(global("a"), vec![]).into(),
@@ -1234,7 +1278,7 @@ mod tests {
             reason: "test", span: SourceSpan { start: position, end: position },
         }; crate::emission_map::OCCURRENCE_LIMIT];
         let mut formatter = super::Formatter { indentation_level: 0, indentation_mode: IndentationMode::Tab,
-            output: &mut output, colon_method_calls: vec![], position_query: None, closure_observer: None,
+            output: &mut output, colon_method_calls: Default::default(), position_query: None, closure_observer: None,
             emission_map: Some(&mut exhausted), layout_budget: None, compact_annotations: true };
         formatter.format_comment(&crate::Comment::new(known.into())).unwrap();
         assert!(output.contains(known));
@@ -1382,11 +1426,51 @@ pub(crate) fn format_arg_list(list: &[RValue]) -> String {
     s
 }
 
+#[derive(Debug, Eq, PartialEq, Hash)]
+enum ReceiverRoot {
+    Local(u64),
+    Global(Vec<u8>),
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
+struct ReceiverKey {
+    root: ReceiverRoot,
+    // Outermost field first; queries and inserted receivers use the same order.
+    fields: Vec<Vec<u8>>,
+}
+
+impl ReceiverKey {
+    fn new(mut value: &RValue) -> Option<Self> {
+        let mut fields = Vec::new();
+        let root = loop {
+            match value {
+                RValue::Local(local) => break ReceiverRoot::Local(local.stable_id()),
+                RValue::Global(global) => break ReceiverRoot::Global(global.0.clone()),
+                RValue::Index(index) => {
+                    let RValue::Literal(Literal::String(field)) = &*index.right else { return None; };
+                    fields.push(field.clone());
+                    value = &index.left;
+                }
+                // A named function prefix cannot have any other receiver shape.
+                _ => return None,
+            }
+        };
+        Some(Self { root, fields })
+    }
+}
+
+type MethodReceiverIndex = FxHashMap<String, FxHashSet<ReceiverKey>>;
+
+/// Immutable per-function evidence, shared by interpolation sub-renderers.
+/// Numeric local IDs retain no AST owners; empty contexts allocate nothing.
+#[derive(Clone, Default)]
+pub(crate) struct ColonMethodCalls(Option<Rc<MethodReceiverIndex>>);
+
 pub struct Formatter<'a, W: fmt::Write> {
     pub(crate) indentation_level: usize,
     pub(crate) indentation_mode: IndentationMode,
     pub(crate) output: &'a mut W,
-    pub(crate) colon_method_calls: Vec<(RValue, String)>,
+    pub(crate) colon_method_calls: ColonMethodCalls,
     pub(crate) position_query: Option<fn(&W) -> SourcePosition>,
     pub(crate) closure_observer: Option<&'a mut dyn ClosureObserver>,
     pub(crate) emission_map: Option<&'a mut crate::emission_map::EmissionMap>,
@@ -1549,13 +1633,13 @@ pub fn format_with_emission_map_options(
     Ok((output, occurrences, emission_map))
 }
 
-fn collect_colon_method_calls(block: &Block) -> Vec<(RValue, String)> {
-    let mut calls = Vec::new();
+fn collect_colon_method_calls(block: &Block) -> ColonMethodCalls {
+    let mut calls = MethodReceiverIndex::default();
     collect_colon_method_calls_in_block(block, &mut calls);
-    calls
+    ColonMethodCalls((!calls.is_empty()).then(|| Rc::new(calls)))
 }
 
-fn collect_colon_method_calls_in_block(block: &Block, calls: &mut Vec<(RValue, String)>) {
+fn collect_colon_method_calls_in_block(block: &Block, calls: &mut MethodReceiverIndex) {
     for statement in block.iter() {
         collect_colon_method_calls_in_statement(statement, calls);
     }
@@ -1563,7 +1647,7 @@ fn collect_colon_method_calls_in_block(block: &Block, calls: &mut Vec<(RValue, S
 
 fn collect_colon_method_calls_in_statement(
     statement: &Statement,
-    calls: &mut Vec<(RValue, String)>,
+    calls: &mut MethodReceiverIndex,
 ) {
     if let Statement::MethodCall(method_call) = statement {
         collect_colon_method_call(method_call, calls);
@@ -1593,7 +1677,7 @@ fn collect_colon_method_calls_in_statement(
     }
 }
 
-fn collect_colon_method_calls_in_rvalue(rvalue: &RValue, calls: &mut Vec<(RValue, String)>) {
+fn collect_colon_method_calls_in_rvalue(rvalue: &RValue, calls: &mut MethodReceiverIndex) {
     match rvalue {
         RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call)) => {
             collect_colon_method_call(method_call, calls);
@@ -1607,11 +1691,10 @@ fn collect_colon_method_calls_in_rvalue(rvalue: &RValue, calls: &mut Vec<(RValue
     }
 }
 
-fn collect_colon_method_call(method_call: &MethodCall, calls: &mut Vec<(RValue, String)>) {
-    calls.push((
-        method_call.value.as_ref().clone(),
-        method_call.method.clone(),
-    ));
+fn collect_colon_method_call(method_call: &MethodCall, calls: &mut MethodReceiverIndex) {
+    if let Some(receiver) = ReceiverKey::new(&method_call.value) {
+        calls.entry(method_call.method.clone()).or_default().insert(receiver);
+    }
 }
 
 impl<'a, W: fmt::Write> Formatter<'a, W> {
@@ -1658,7 +1741,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 IndentationMode::Tab => IndentationMode::Tab,
             },
             output: &mut width,
-            colon_method_calls: Vec::new(),
+            colon_method_calls: Default::default(),
             position_query: None,
             closure_observer: None,
             emission_map: None,
@@ -1756,6 +1839,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn format_block_no_indent(&mut self, block: &Block) -> fmt::Result {
+        let mut next_non_comment = 0;
         for (i, statement) in block.iter().enumerate() {
             // A trailing comment is appended to the PRECEDING statement's line
             // (` -- text`): no leading newline, no indentation. Guarded on `i != 0`
@@ -1778,9 +1862,13 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 }
             }
             self.format_statement(statement)?;
-            if let Some(next_statement) =
-                block.iter().skip(i + 1).find(|s| s.as_comment().is_none())
-            {
+            if next_non_comment <= i {
+                next_non_comment = i + 1;
+                while block.get(next_non_comment).is_some_and(|s| s.as_comment().is_some()) {
+                    next_non_comment += 1;
+                }
+            }
+            if let Some(next_statement) = block.get(next_non_comment) {
                 fn is_ambiguous(r: &RValue) -> bool {
                     match r {
                         RValue::Local(_)
@@ -2295,9 +2383,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn has_colon_call(&self, receiver: &RValue, method: &str) -> bool {
-        self.colon_method_calls
-            .iter()
-            .any(|(call_receiver, call_method)| call_method == method && call_receiver == receiver)
+        self.colon_method_calls.0.as_ref()
+            .and_then(|calls| calls.get(method))
+            .is_some_and(|receivers| ReceiverKey::new(receiver).is_some_and(|key| receivers.contains(&key)))
     }
 
     fn block_uses_local(block: &Block, local: &RcLocal) -> bool {

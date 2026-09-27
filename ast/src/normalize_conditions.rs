@@ -102,12 +102,6 @@ fn record_non_nan_assignments(
     let Statement::Assign(assign) = statement else {
         return;
     };
-    let before = facts.clone();
-    for left in &assign.left {
-        if let LValue::Local(local) = left {
-            facts.locals.remove(local);
-        }
-    }
     // Evaluate every RHS against the facts that existed before this parallel
     // assignment, then publish the proven destinations together. This mirrors
     // Luau's simultaneous-assignment semantics.
@@ -119,10 +113,15 @@ fn record_non_nan_assignments(
             let LValue::Local(local) = left else {
                 return None;
             };
-            (usage.get(local).is_some_and(|usage| usage.writes == 1) && before.proves(right))
+            (usage.get(local).is_some_and(|usage| usage.writes == 1) && facts.proves(right))
                 .then(|| local.clone())
         })
         .collect();
+    for left in &assign.left {
+        if let LValue::Local(local) = left {
+            facts.locals.remove(local);
+        }
+    }
     for local in additions {
         facts.locals.insert(local);
     }
@@ -221,10 +220,70 @@ fn normalize_in_statement(
     // any IfExpression/`not` nested arbitrarily deep. Post-order guarantees
     // children are normalized before their parent, so cascades resolve in one
     // pass.
-    statement.post_traverse_rvalues(&mut |rvalue: &mut RValue| -> Option<()> {
-        normalize_node(rvalue, assume_no_nan, facts);
-        None
-    });
+    normalize_expression_roots(statement, assume_no_nan, facts);
+}
+
+/// Keep reassociation pending while a parent will flatten the same spine anyway.
+/// Other rewrites still run in their original postorder. At an operator boundary
+/// (or a special ternary/boolean rule), materialize the child first so that the
+/// rule sees exactly the normalized shape it saw in the original traversal.
+fn normalize_expression(
+    value: &mut RValue,
+    assume_no_nan: bool,
+    facts: &NonNanFacts,
+) -> Option<BinaryOperation> {
+    if let RValue::Binary(binary) = value
+        && matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or)
+    {
+        let operation = binary.operation;
+        let left = normalize_expression(&mut binary.left, assume_no_nan, facts);
+        let right = normalize_expression(&mut binary.right, assume_no_nan, facts);
+        if left != Some(operation) {
+            finish_spine(&mut binary.left, left);
+        }
+        if right != Some(operation) {
+            finish_spine(&mut binary.right, right);
+        }
+        if !is_boolean_and_true_or(binary)
+            && !(facts.allow_if_expressions && is_exact_inverted_ternary(binary))
+        {
+            return Some(operation);
+        }
+        // These earlier match arms do not reassociate the newly created root.
+        // Finish their children, then retain that behavior and output shape.
+        if left == Some(operation) {
+            finish_spine(&mut binary.left, left);
+        }
+        if right == Some(operation) {
+            finish_spine(&mut binary.right, right);
+        }
+    } else {
+        normalize_expression_roots(value, assume_no_nan, facts);
+    }
+    normalize_node(value, assume_no_nan, facts);
+    None
+}
+
+fn normalize_expression_roots(
+    owner: &mut impl Traverse,
+    assume_no_nan: bool,
+    facts: &NonNanFacts,
+) {
+    for lvalue in owner.lvalues_mut() {
+        normalize_expression_roots(lvalue, assume_no_nan, facts);
+    }
+    for value in owner.rvalues_mut() {
+        let pending = normalize_expression(value, assume_no_nan, facts);
+        finish_spine(value, pending);
+    }
+}
+
+fn finish_spine(value: &mut RValue, operation: Option<BinaryOperation>) {
+    let Some(operation) = operation else { return; };
+    let RValue::Binary(binary) = std::mem::replace(value, RValue::Literal(Literal::Nil)) else {
+        unreachable!("only logical binary spines are deferred");
+    };
+    *value = reassociate_left(binary, operation);
 }
 
 fn normalize_closures_in_statement(statement: &mut Statement, assume_no_nan: bool, allow_if_expressions: bool) {
@@ -381,12 +440,15 @@ fn reassociate_left(binary: Binary, operation: BinaryOperation) -> RValue {
 /// Children were already normalized by the post-order walk, so this neither
 /// re-normalizes them nor needs a fixpoint.
 fn collect_spine(rvalue: RValue, operation: BinaryOperation, operands: &mut Vec<RValue>) {
-    match rvalue {
-        RValue::Binary(binary) if binary.operation == operation => {
-            collect_spine(*binary.left, operation, operands);
-            collect_spine(*binary.right, operation, operands);
+    let mut pending = vec![rvalue];
+    while let Some(value) = pending.pop() {
+        match value {
+            RValue::Binary(binary) if binary.operation == operation => {
+                pending.push(*binary.right);
+                pending.push(*binary.left);
+            }
+            other => operands.push(other),
         }
-        other => operands.push(other),
     }
 }
 
@@ -1556,5 +1618,79 @@ mod tests {
             render(ret(not(spine))),
             "return a ~= b and c ~= d and e ~= f"
         );
+    }
+
+    #[test]
+    fn deferred_spines_match_original_postorder_rewrites() {
+        use crate::Traverse;
+        fn expression(seed: &mut u64, depth: usize, locals: &[RcLocal]) -> RValue {
+            *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            let choice = (*seed >> 32) as usize;
+            if depth == 0 {
+                return match choice % 5 {
+                    0 => boolean(false),
+                    1 => boolean(true),
+                    2 => nil(),
+                    _ => lv(&locals[choice % locals.len()]),
+                };
+            }
+            let a = expression(seed, depth - 1, locals);
+            let b = expression(seed, depth - 1, locals);
+            match choice % 10 {
+                0 | 1 => and(a, b),
+                2 | 3 => or(a, b),
+                4 => not(a),
+                5 => eq(a, b),
+                6 => if_expr(a, boolean(true), b),
+                7 => if_expr(a, b, boolean(false)),
+                8 => or(and(eq(a, b.clone()), boolean(true)), b),
+                _ => or(and(not(a), number(7.0)), b),
+            }
+        }
+        let locals = [local("a"), local("b"), local("c")];
+        for initial_seed in 0..256u64 {
+            let input = expression(&mut (initial_seed + 1), 6, &locals);
+            for allow_if_expressions in [false, true] {
+                for assume_no_nan in [false, true] {
+                    let facts = super::NonNanFacts { allow_if_expressions, ..Default::default() };
+                    let mut expected = ret(input.clone());
+                    expected.post_traverse_rvalues(&mut |value| -> Option<()> {
+                        super::normalize_node(value, assume_no_nan, &facts);
+                        None
+                    });
+                    let mut actual = ret(input.clone());
+                    super::normalize_expression_roots(&mut actual, assume_no_nan, &facts);
+                    assert_eq!(actual, expected, "seed {initial_seed}, if={allow_if_expressions}, nan={assume_no_nan}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn long_logical_spines_keep_operand_order_in_both_directions() {
+        std::thread::Builder::new().stack_size(16 * 1024 * 1024).spawn(|| {
+            for operation in [BinaryOperation::And, BinaryOperation::Or] {
+                for left_leaning in [false, true] {
+                    let n = 4096;
+                    let mut value = number(if left_leaning { 0.0 } else { (n - 1) as f64 });
+                    if left_leaning {
+                        for i in 1..n { value = Binary::new(value, number(i as f64), operation).into(); }
+                    } else {
+                        for i in (0..n - 1).rev() { value = Binary::new(number(i as f64), value, operation).into(); }
+                    }
+                    let pending = super::normalize_expression(&mut value, false, &Default::default());
+                    super::finish_spine(&mut value, pending);
+                    // Consume iteratively: validate the complete canonical shape
+                    // without letting recursive formatting/drop dominate this case.
+                    for i in (1..n).rev() {
+                        let RValue::Binary(binary) = value else { panic!("missing spine node {i}"); };
+                        assert_eq!(binary.operation, operation);
+                        assert_eq!(*binary.right, number(i as f64));
+                        value = *binary.left;
+                    }
+                    assert_eq!(value, number(0.0));
+                }
+            }
+        }).unwrap().join().unwrap();
     }
 }

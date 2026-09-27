@@ -58,6 +58,12 @@ pub fn enter(lines: Vec<Vec<Option<u32>>>) -> Scope {
     Scope(STATE.with(|s| s.replace(state)), PhantomData)
 }
 
+/// Preserve the budget-refusal state without allocating a fake PC table.
+pub fn enter_truncated() -> Scope {
+    let state = State { truncated: true, ..State::default() };
+    Scope(STATE.with(|s| s.replace(state)), PhantomData)
+}
+
 pub fn register_function(identity: usize, prototype: usize) {
     STATE.with(|s| {
         let mut state = s.borrow_mut();
@@ -100,6 +106,10 @@ mod tests {
     fn missing_or_over_budget_lines_fall_back_to_structural_order() {
         let _scope = enter(vec![vec![None; PC_LIMIT + 1]]);
         assert!(report().1);
+        assert_eq!(prioritize(&[3, 1, 2], None, |i| i), vec![3, 1, 2]);
+        let _nested = enter_truncated();
+        assert!(report().1);
+        assert!(report().0.is_empty());
         assert_eq!(prioritize(&[3, 1, 2], None, |i| i), vec![3, 1, 2]);
     }
 }

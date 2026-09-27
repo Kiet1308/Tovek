@@ -31,10 +31,11 @@ struct Key {
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct Entry {
+struct Entry<'a> {
     key: Key,
     artifact_sha256: String,
-    artifact: DecompileArtifact,
+    #[serde(borrow)]
+    artifact: &'a serde_json::value::RawValue,
 }
 
 struct Record {
@@ -76,14 +77,16 @@ pub(crate) struct Cache {
 }
 
 pub(crate) fn diagnostic_environment() -> bool {
-    std::env::vars_os().any(|(name, _)| {
-        let name = name.to_string_lossy().to_ascii_uppercase();
-        (name.starts_with("MEDAL_") && name != "MEDAL_NO_SHARED_TAIL")
-            || name == "DEINLINE_ANCHOR_TRACE"
-    })
+    luau_lifter::requires_fresh_decompilation()
 }
 
 impl Cache {
+    /// Scheduling hint from the inventory already loaded by `open`, not a hit
+    /// guarantee. Warm/mixed caches retain normal per-file parallel scheduling.
+    pub fn is_empty(&self) -> bool {
+        self.inventory.lock().records.is_empty()
+    }
+
     pub fn open(path: &Path, max_bytes: u64, input: &Path, output: &Path) -> Result<Self, String> {
         if max_bytes == 0 {
             return Err("cache byte limit must be positive".into());
@@ -196,7 +199,9 @@ impl Cache {
         analysis: bool,
     ) -> Key {
         Key {
-            schema_version: 1,
+            // v2 verifies the exact embedded payload bytes before parsing it,
+            // so a warm hit never needs to reserialize an owned artifact.
+            schema_version: 2,
             executable_sha256: self.executable_sha256.clone(),
             bytecode_sha256: sha256_hex(bytecode),
             decode_key,
@@ -263,18 +268,17 @@ impl Cache {
                 return Err("oversized cache entry".into());
             }
             let entry: Entry = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-            let payload = serialize_bounded(&entry.artifact, ENTRY_LIMIT)?
-                .ok_or("cached payload exceeds serialization limit")?;
-            if entry.key != *key || entry.artifact_sha256 != sha256_hex(&payload) {
+            if entry.key != *key || entry.artifact_sha256 != sha256_hex(entry.artifact.get().as_bytes()) {
                 return Err("cache key or payload checksum mismatch".into());
             }
-            if !key.analysis && entry.artifact.upvalue_analysis.is_some() {
+            let artifact: DecompileArtifact = serde_json::from_str(entry.artifact.get()).map_err(|e| e.to_string())?;
+            if !key.analysis && artifact.upvalue_analysis.is_some() {
                 return Err("unexpected cached analysis".into());
             }
             // Best effort recency across processes. Failure to update file
             // timestamps does not invalidate the verified artifact.
             let _ = file.set_times(fs::FileTimes::new().set_modified(SystemTime::now()));
-            Ok(Some(entry.artifact))
+            Ok(Some(artifact))
         };
         match read() {
             Ok(Some(artifact)) => {
@@ -303,17 +307,16 @@ impl Cache {
             self.counters.bypasses.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         };
-        #[derive(Serialize)]
-        struct BorrowedEntry<'a> {
-            key: Key,
-            artifact_sha256: String,
-            artifact: &'a DecompileArtifact,
-        }
+        // RawValue embeds the already serialized payload verbatim. The bounded
+        // envelope writer still enforces the full entry limit, including key
+        // and checksum, without traversing/escaping the artifact a second time.
+        let raw_payload = serde_json::from_slice::<&serde_json::value::RawValue>(&payload)
+            .map_err(|e| e.to_string())?;
         let Some(bytes) = serialize_bounded(
-            &BorrowedEntry {
+            &Entry {
                 key,
                 artifact_sha256: sha256_hex(&payload),
-                artifact,
+                artifact: raw_payload,
             },
             limit,
         )?
@@ -380,7 +383,7 @@ impl Cache {
     pub fn report(&self) -> serde_json::Value {
         let read = |counter: &AtomicU64| counter.load(Ordering::Relaxed);
         let inventory = self.inventory.lock();
-        serde_json::json!({"schema_version": 1, "model": "executable-context-artifact-cache-v1",
+        serde_json::json!({"schema_version": 1, "model": "executable-context-artifact-cache-v2",
             "executable_sha256": self.executable_sha256, "hits": read(&self.counters.hits),
             "misses": read(&self.counters.misses), "writes": read(&self.counters.writes),
             "corrupt": read(&self.counters.corrupt), "evictions": read(&self.counters.evictions),
@@ -540,6 +543,7 @@ mod tests {
         let scratch = Scratch::new();
         {
             let cache = scratch.cache(4096);
+            assert!(cache.is_empty());
             cache
                 .get_or_compute(b"input", 1, "A/Widget.lua", defaults(), false, || {
                     Ok(artifact("return 7"))
@@ -547,6 +551,7 @@ mod tests {
                 .unwrap();
         }
         let cache = scratch.cache(4096);
+        assert!(!cache.is_empty());
         let hit = cache
             .get_or_compute(b"input", 1, "B/Widget/init.lua", defaults(), false, || {
                 panic!("disk entry should be reused")
@@ -573,6 +578,32 @@ mod tests {
             .unwrap();
         assert_eq!(repaired.source, "return 7");
         assert!(cache.report()["corrupt"].as_u64().unwrap() >= 1);
+    }
+
+    #[test]
+    fn payload_bytes_are_checksummed_before_deserialization() {
+        let scratch = Scratch::new();
+        let cache = scratch.cache(4096);
+        let expected = artifact("return \"\\t\\n\\\\\" -- unicode: λ");
+        let computed = cache.get_or_compute(b"raw-json", 1, "Widget", defaults(), false,
+            || Ok(expected.clone())).unwrap();
+        assert_eq!(computed, expected);
+        let name = cache.inventory.lock().records.keys().next().unwrap().clone();
+        let path = cache.root.join(name);
+        let bytes = fs::read(&path).unwrap();
+        let entry: Entry = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(entry.key.schema_version, 2);
+        assert_eq!(entry.artifact_sha256, sha256_hex(entry.artifact.get().as_bytes()));
+        // Valid JSON and the same semantic artifact, but different exact payload
+        // bytes. A payload checksum must detect this before accepting the hit.
+        let text = String::from_utf8(bytes).unwrap().replace("\"artifact\":{", "\"artifact\":{ ");
+        fs::write(&path, text).unwrap();
+        let mut recomputed = false;
+        assert_eq!(cache.get_or_compute(b"raw-json", 1, "Widget", defaults(), false, || {
+            recomputed = true;
+            Ok(expected.clone())
+        }).unwrap(), expected);
+        assert!(recomputed);
     }
 
     #[test]
@@ -775,10 +806,22 @@ mod tests {
             emit_binding_provenance: true,
             ..defaults()
         };
-        for (label, cached, threads) in [("plain", false, 1), ("cold", true, 4), ("warm", true, 1)]
+        for (label, cached, threads) in [
+            ("plain", false, 1), ("cold", true, 4), ("warm", true, 4),
+            ("partial_missing", true, 4), ("partial_corrupt", true, 4),
+        ]
         {
             let output = scratch.0.join(label);
             let cache_path = scratch.0.join("cache");
+            if label.starts_with("partial_") {
+                let entry = fs::read_dir(&cache_path).unwrap().map(Result::unwrap)
+                    .find(|e| entry_name(&e.file_name().to_string_lossy())).unwrap().path();
+                if label == "partial_missing" {
+                    fs::remove_file(entry).unwrap();
+                } else {
+                    fs::write(entry, b"invalid JSON").unwrap();
+                }
+            }
             assert_eq!(
                 crate::batch::run_with_cache(
                     &input,
@@ -821,7 +864,7 @@ mod tests {
             if relative.to_string_lossy().ends_with(".lock") {
                 continue;
             }
-            for label in ["cold", "warm"] {
+            for label in ["cold", "warm", "partial_missing", "partial_corrupt"] {
                 assert_eq!(
                     fs::read(item.path()).unwrap(),
                     fs::read(scratch.0.join(label).join(relative)).unwrap(),

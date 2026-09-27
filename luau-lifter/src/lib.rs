@@ -1,6 +1,7 @@
 mod deserializer;
 mod instruction;
 mod lifter;
+mod metadata_index;
 mod op_code;
 mod source_recovery;
 mod value_provenance;
@@ -15,7 +16,7 @@ use ast::{
     flatten_guards::flatten_guards,
     local_declarations::LocalDeclarer,
     name_locals::{NameLocalOptions, name_locals_with_evidence},
-    replace_locals::replace_locals,
+    link_upvalues::link_upvalues,
     simplify_gotos::{hoist_locals_for_gotos, simplify_gotos},
 };
 
@@ -445,11 +446,10 @@ fn decompile_bytecode_internal(
             }
             let raw_upvalue_analysis =
                 emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
-            let source_lines = if chunk.functions.len() <= 4096
+            let _reconstruction_search = if chunk.functions.len() <= 4096
                 && chunk.functions.iter().map(|p| p.instructions.len()).sum::<usize>() <= ast::reconstruction_search::PC_LIMIT {
-                chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect()
-            } else { vec![vec![None; ast::reconstruction_search::PC_LIMIT + 1]] };
-            let _reconstruction_search = ast::reconstruction_search::enter(source_lines);
+                ast::reconstruction_search::enter(chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect())
+            } else { ast::reconstruction_search::enter_truncated() };
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
             ast::telemetry::count("capture_readonly_slots", capture_effects.readonly.iter()
                 .flatten().filter(|&&readonly| readonly).count() as u64);
@@ -505,7 +505,7 @@ fn decompile_bytecode_internal(
                 stack.extend(children);
             }
 
-            let (main, ..) = lifted.first().unwrap().clone();
+            let main = Arc::clone(&lifted.first().unwrap().0);
             // Lifting (above) minted ids in `[0, id_base)`. Give each function a
             // disjoint, stride-spaced id range keyed by its position in the
             // deterministic lift order, so the ids it mints are independent of
@@ -964,11 +964,14 @@ fn decompile_bytecode_internal(
                 }
             }
             // No expression/condition mutation is permitted after this point.
-            let name_inference = ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
-                dont_reuse_var: options.dont_reuse_var,
-                emit_report: emit_upvalue_analysis,
-                ..Default::default()
-            });
+            let name_inference = {
+                let _span = ast::telemetry::Span::new("S_REFINE_NAMES");
+                ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
+                    dont_reuse_var: options.dont_reuse_var,
+                    emit_report: emit_upvalue_analysis,
+                    ..Default::default()
+                })
+            };
             let (out, source_occurrences, emission_map) = {
                 ptime!(S_FORMAT);
                 if emit_upvalue_analysis {
@@ -1173,9 +1176,7 @@ pub fn decompile_batch_with_options(
     options: DecompileOptions,
 ) -> Vec<Result<String, String>> {
     use rayon::prelude::*;
-    items
-        .par_iter()
-        .map(|item| {
+    let decompile = |item: &BatchInput<'_>| {
             // `try_decompile_bytecode_with_script_name` already catches per-function
             // panics internally; the outer guard here recovers the rarer panics in
             // lifting or the serial tail so one bad script can't poison the batch.
@@ -1194,8 +1195,53 @@ pub fn decompile_batch_with_options(
                 Ok(result) => result,
                 Err(payload) => Err(format!("panicked: {}", panic_payload_message(payload.as_ref()))),
             }
-        })
-        .collect()
+        };
+    // A diagnostic run must execute each requested item so traces/counters keep
+    // their input cardinality. Ordinary batches can share immutable results for
+    // identical complete contexts without waiting inside nested Rayon work.
+    if items.len() < 2 || requires_fresh_decompilation() {
+        return items.par_iter().map(decompile).collect();
+    }
+    let (representatives, slots, mut remaining) = batch_layout(items);
+    let mut results = representatives.par_iter().map(|&index| Some(decompile(&items[index])))
+        .collect::<Vec<_>>();
+    slots.into_iter().map(|slot| {
+        remaining[slot] -= 1;
+        if remaining[slot] == 0 { results[slot].take().unwrap() }
+        else { results[slot].as_ref().unwrap().clone() }
+    }).collect()
+}
+
+/// Diagnostic side effects need one full execution per input. Kept shared with
+/// the folder cache, whose artifact key already includes the semantic switch.
+#[doc(hidden)]
+pub fn requires_fresh_decompilation() -> bool {
+    std::env::vars_os().any(|(name, _)| {
+        let name = name.to_string_lossy().to_ascii_uppercase();
+        (name.starts_with("MEDAL_") && name != "MEDAL_NO_SHARED_TAIL")
+            || name == "DEINLINE_ANCHOR_TRACE"
+    })
+}
+
+fn batch_layout(items: &[BatchInput<'_>]) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
+    // Options, executable and semantic environment are constant for this call.
+    // Borrow exact bytecode; hash collisions still require byte equality.
+    let mut contexts = FxHashMap::default();
+    let mut representatives = Vec::new();
+    let mut slots = Vec::with_capacity(items.len());
+    let mut remaining = Vec::new();
+    for (index, item) in items.iter().enumerate() {
+        let context = (item.bytecode, item.encode_key,
+            item.script_name.and_then(ast::name_locals::script_module_hint));
+        let slot = *contexts.entry(context).or_insert_with(|| {
+            representatives.push(index);
+            remaining.push(0);
+            remaining.len() - 1
+        });
+        remaining[slot] += 1;
+        slots.push(slot);
+    }
+    (representatives, slots, remaining)
 }
 
 /// Extract a human-readable message from a caught-panic payload (mirrors the
@@ -1642,12 +1688,11 @@ fn decompile_function(
         debug_dump_cfg(&function, "post-destruct");
     }
     // The proof-driven pass is read-only: it never mutates CFG nodes or nested
-    // AST containers, so its speculative copy can stay shallow.  Keep the
+    // AST containers, so it can borrow the CFG for its proof. Keep the
     // original in an Option so the expensive recursive clone is created only
     // when source-like structuring actually rejects this function (or when a
     // later residual-control check needs a retry).
     let mut fallback_source = Some(function);
-    let source_like_function = fallback_source.as_ref().unwrap().clone();
     // Source-like structuring may mint temporary export locals while proving
     // nested-loop live-outs.  If that speculative attempt is rejected, rewind
     // the per-function allocator before building the fallback so failed
@@ -1659,16 +1704,17 @@ fn decompile_function(
         .chain(protected_upvalue_locals.iter())
         .cloned()
         .collect::<FxHashSet<_>>();
-    let params = std::mem::take(&mut fallback_source.as_mut().unwrap().parameters);
+    let params;
     let is_variadic = fallback_source.as_ref().unwrap().is_variadic;
     let mut fallback_function = None;
     let mut used_certified_dispatcher = false;
     let (mut lifted, used_source_like, source_like_rejection) = {
         ptime!(F_RESTRUCTURE);
-        let source_like_attempt = restructure::lift_source_like_attempt_with_ignored_locals(
-            source_like_function,
+        let source_like_attempt = restructure::lift_source_like_attempt_borrowed_with_ignored_locals(
+            fallback_source.as_ref().unwrap(),
             &source_like_protected_locals,
         );
+        params = std::mem::take(&mut fallback_source.as_mut().unwrap().parameters);
         match source_like_attempt {
             restructure::StructureAttempt::Structured(block) => (block, true, None),
             rejection => {
@@ -1714,14 +1760,16 @@ fn decompile_function(
     // into a common ancestor, and late factoring leaves those declarations
     // stranded outside the helper bodies the de-inliner should recognize.
     ast::factor_common_tails::factor_function_tails(&mut lifted, &source_like_protected_locals);
-    // Keep large source-like functions below Luau's 255-register ceiling by
+    // Keep large source-like functions below Luau's 200-local source limit by
     // coalescing only proven-disjoint generated temporaries.  This pass is
     // deliberately after structuring/fallback selection and before
     // `name_locals`, so it cannot affect CFG proofs or declaration naming.
     // Exhaustion adapters were already placed from CFG edge ownership.
     // Neither nil-seed history nor a ForOrigin alone would prove their
     // ordering in a later AST rewrite.
-    ast::coalesce_locals::coalesce_generated_locals(&mut lifted, &source_like_protected_locals);
+    ast::coalesce_locals::coalesce_generated_locals_in_function(
+        &mut lifted, &source_like_protected_locals, &params, &upvalues_in,
+    );
     if ast::simplify_gotos::block_has_goto_or_label(&lifted)
         || ast::simplify_gotos::block_has_unlowered_control(&lifted)
     {
@@ -2750,6 +2798,25 @@ mod v11_fixtures {
     fn batch_empty_is_empty() {
         assert!(super::decompile_batch(&[]).is_empty());
     }
+
+    #[test]
+    fn batch_dedup_uses_exact_bytes_decode_key_and_normalized_module_context() {
+        let good = build_chunk(11, 1, &[], &[simple_return_proto(vec![])], 0);
+        let items = [
+            super::BatchInput { bytecode: &good, encode_key: 1, script_name: Some("A/Widget/init.lua") },
+            super::BatchInput { bytecode: &good, encode_key: 1, script_name: Some("B/Widget.lua") },
+            super::BatchInput { bytecode: &good, encode_key: 1, script_name: Some("B/Gadget.lua") },
+            super::BatchInput { bytecode: &good, encode_key: 203, script_name: Some("B/Widget.lua") },
+            super::BatchInput { bytecode: &[99], encode_key: 1, script_name: Some("B/Widget.lua") },
+            super::BatchInput { bytecode: &[99], encode_key: 1, script_name: Some("C/Widget/init.lua") },
+        ];
+        let (representatives, slots, counts) = super::batch_layout(&items);
+        assert_eq!(representatives, [0, 2, 3, 4]);
+        assert_eq!(slots, [0, 0, 1, 2, 3, 3]);
+        assert_eq!(counts, [2, 1, 1, 2]);
+        let expected = items.iter().map(|item| decompile(item.bytecode, item.encode_key, item.script_name)).collect::<Vec<_>>();
+        assert_eq!(super::decompile_batch(&items), expected);
+    }
 }
 
 #[cfg(test)]
@@ -2797,55 +2864,6 @@ mod correctness_regressions {
             }),
             "the numeric loop must read the cell rebound by the child closure:\n{output}"
         );
-    }
-}
-
-fn link_upvalues(
-    body: &mut ast::Block,
-    upvalues: &mut FxHashMap<ByAddress<Arc<Mutex<ast::Function>>>, Vec<ast::RcLocal>>,
-) {
-    for stat in &mut body.0 {
-        stat.traverse_rvalues(&mut |rvalue| {
-            if let ast::RValue::Closure(closure) = rvalue {
-                let old_upvalues = &upvalues[&closure.function];
-                let mut function = closure.function.lock();
-                // TODO: inefficient, try constructing a map of all up -> new up first
-                // and then call replace_locals on main body
-                let mut local_map =
-                    FxHashMap::with_capacity_and_hasher(old_upvalues.len(), Default::default());
-                for (old, new) in
-                    old_upvalues
-                        .iter()
-                        .zip(closure.upvalues.iter().map(|u| match u {
-                            ast::Upvalue::Copy(l) | ast::Upvalue::Ref(l) => l,
-                        }))
-                {
-                    // println!("{} -> {}", old, new);
-                    local_map.insert(old.clone(), new.clone());
-                }
-                link_upvalues(&mut function.body, upvalues);
-                replace_locals(&mut function.body, &local_map);
-            }
-        });
-        match stat {
-            ast::Statement::If(r#if) => {
-                link_upvalues(&mut r#if.then_block.lock(), upvalues);
-                link_upvalues(&mut r#if.else_block.lock(), upvalues);
-            }
-            ast::Statement::While(r#while) => {
-                link_upvalues(&mut r#while.block.lock(), upvalues);
-            }
-            ast::Statement::Repeat(repeat) => {
-                link_upvalues(&mut repeat.block.lock(), upvalues);
-            }
-            ast::Statement::NumericFor(numeric_for) => {
-                link_upvalues(&mut numeric_for.block.lock(), upvalues);
-            }
-            ast::Statement::GenericFor(generic_for) => {
-                link_upvalues(&mut generic_for.block.lock(), upvalues);
-            }
-            _ => {}
-        }
     }
 }
 

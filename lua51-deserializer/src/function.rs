@@ -77,25 +77,25 @@ impl<'a> Function<'a> {
 }
 
 fn parse_code(input: &[u8], length: usize) -> IResult<&[u8], Vec<Instruction>> {
-    let (input, words) = count(le_u32, length)(input)?;
+    let byte_count = length.checked_mul(4).ok_or_else(|| {
+        nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Count))
+    })?;
+    let (input, raw_words) = nom::bytes::complete::take(byte_count)(input)?;
+    let mut words = raw_words.chunks_exact(4);
     let mut code = Vec::with_capacity(length);
-    let mut pc = 0;
-    while pc < words.len() {
-        let word = words[pc].to_le_bytes();
-        let mut instruction = Instruction::parse(&word)
+    while let Some(word) = words.next() {
+        let mut instruction = Instruction::parse(word)
             .map_err(|_| nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Verify)))?.1;
         if let Instruction::SetList { block_number, .. } = &mut instruction {
             if *block_number == 0 {
-                *block_number = *words.get(pc + 1).filter(|&&n| n != 0)
+                *block_number = words.next().map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap())).filter(|&n| n != 0)
                     .ok_or_else(|| nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Verify)))?;
                 code.push(instruction);
                 code.push(Instruction::ExtraArgument);
-                pc += 2;
                 continue;
             }
         }
         code.push(instruction);
-        pc += 1;
     }
     Ok((input, code))
 }

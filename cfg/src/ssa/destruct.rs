@@ -53,7 +53,11 @@ impl CongruenceClass {
     }
 
     fn bindings(&self) -> &BindingSummary {
-        self.bindings.get_or_init(|| BindingSummary::from_locals(self.members.values()))
+        self.bindings.get_or_init(|| {
+            ast::telemetry::count("destruct_binding_summary_builds", 1);
+            ast::telemetry::count("destruct_binding_summary_members", self.members.len() as u64);
+            BindingSummary::from_locals(self.members.values())
+        })
     }
 }
 
@@ -606,7 +610,9 @@ impl<'a> Destructor<'a> {
             return false;
         }
 
-        if *left_con_class.borrow() == *right_con_class.borrow() {
+        // Congruence classes form a partition: two live classes share members
+        // exactly when they share this owner. Avoid comparing growing maps.
+        if Rc::ptr_eq(&left_con_class, &right_con_class) {
             true
         } else if left_con_class.borrow().len() == 1 && right_con_class.borrow().len() == 1 {
             if self.check_interfere_single(&left_con_class, &right_con_class) {
@@ -645,12 +651,12 @@ impl<'a> Destructor<'a> {
             }
 
             let con_class_z = self.get_congruence_class(local_c.clone()).clone();
-            if con_class_x == con_class_z && con_class_x != con_class_y {
+            if Rc::ptr_eq(&con_class_x, &con_class_z) && !Rc::ptr_eq(&con_class_x, &con_class_y) {
                 return true;
             }
-            if con_class_y != con_class_x
-                && con_class_y != con_class_z
-                && con_class_x != con_class_z
+            if !Rc::ptr_eq(&con_class_y, &con_class_x)
+                && !Rc::ptr_eq(&con_class_y, &con_class_z)
+                && !Rc::ptr_eq(&con_class_x, &con_class_z)
                 && self.try_coalesce_copy_by_value(local_a.clone(), local_c)
             {
                 return true;
@@ -734,7 +740,13 @@ impl<'a> Destructor<'a> {
 
         self.equal_ancestor_out.remove(red_iter.peek().unwrap().1);
         self.equal_ancestor_out.remove(blue_iter.peek().unwrap().1);
+        // Keep the old per-iteration counter only as a test oracle. Release
+        // profiling derives exactly the consumed items from iterator lengths.
+        #[cfg(test)]
+        let mut reference_visits = 0;
         loop {
+            #[cfg(test)]
+            { reference_visits += 1; }
             let (curr, curr_class) = if blue_iter.peek().is_none()
                 || (red_iter.peek().is_some()
                     && self.check_pre_dom_order(
@@ -762,6 +774,12 @@ impl<'a> Destructor<'a> {
                     curr_class == dom.last().unwrap().1,
                 )
             {
+                #[cfg(test)]
+                assert_eq!(red.len() - red_iter.len() + blue.len() - blue_iter.len(), reference_visits);
+                if ast::telemetry::enabled() {
+                    let visits = red.len() - red_iter.len() + blue.len() - blue_iter.len();
+                    ast::telemetry::count("destruct_interference_visits", visits as u64);
+                }
                 return true;
             }
 
@@ -777,6 +795,12 @@ impl<'a> Destructor<'a> {
             break;
         }
 
+        #[cfg(test)]
+        assert_eq!(red.len() - red_iter.len() + blue.len() - blue_iter.len(), reference_visits);
+        if ast::telemetry::enabled() {
+            let visits = red.len() - red_iter.len() + blue.len() - blue_iter.len();
+            ast::telemetry::count("destruct_interference_visits", visits as u64);
+        }
         false
     }
 
@@ -825,12 +849,25 @@ impl<'a> Destructor<'a> {
     ) {
         // TODO: move out of con_class_b with con_class_b.unwrap()
         let con_class_b = std::mem::take(&mut *con_class_b.borrow_mut());
+        ast::telemetry::count("destruct_class_merges", 1);
+        ast::telemetry::count("destruct_moved_members", con_class_b.len() as u64);
         for local in con_class_b.values() {
             self.congruence_classes
                 .insert(local.clone(), con_class_a.clone());
         }
         con_class_a.borrow_mut().extend(con_class_b);
 
+        let merged_size = con_class_a.borrow().len();
+        ast::telemetry::count("destruct_ancestor_refresh_members", merged_size as u64);
+        if ast::telemetry::enabled() {
+            let bucket = match merged_size {
+                0..=15 => "destruct_merged_class_under_16",
+                16..=63 => "destruct_merged_class_16_63",
+                64..=255 => "destruct_merged_class_64_255",
+                _ => "destruct_merged_class_ge_256",
+            };
+            ast::telemetry::count(bucket, 1);
+        }
         for local in con_class_a.borrow().values() {
             let local_in = self.equal_ancestor_in.get(local);
             let local_out = self.equal_ancestor_out.get(local);
@@ -1169,6 +1206,42 @@ impl<'a> Destructor<'a> {
 #[cfg(test)]
 mod copy_sharing_regressions {
     use super::*;
+
+    #[test]
+    fn interference_visit_oracle_covers_early_conflict_and_complete_merge_walk() {
+        for equal_values in [false, true] {
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            function.set_entry(entry);
+            let locals: Vec<_> = (0..8).map(|_| RcLocal::default()).collect();
+            for (index, local) in locals.iter().enumerate() {
+                let value = if equal_values && index > 0 {
+                    ast::RValue::Local(locals[index - 1].clone())
+                } else {
+                    ast::Literal::Number(index as f64).into()
+                };
+                function.block_mut(entry).unwrap().push(
+                    ast::Assign::new(vec![local.clone().into()], vec![value]).into());
+            }
+            // All distinct values remain live, causing an early cross-class
+            // conflict. The equal-value variant permits the complete walk.
+            function.block_mut(entry).unwrap().push(
+                ast::Return::new(locals.iter().cloned().map(Into::into).collect()).into());
+            let mut destructor = Destructor::new(&mut function, IndexMap::new(), FxHashSet::default(), locals.len());
+            destructor.liveness = Liveness::calculate(destructor.function);
+            destructor.build_def_use();
+            destructor.compute_value_interference();
+            let mut classes = [CongruenceClass::default(), CongruenceClass::default()];
+            for (index, local) in locals.iter().enumerate() {
+                let (order, _, position) = destructor.local_defs[local];
+                classes[index % 2].insert((order, position), local.clone());
+            }
+            let [red, blue] = classes.map(|class| Rc::new(RefCell::new(class)));
+            // The actual routine asserts its new exit count against the old
+            // incrementing counter under cfg(test), for both return paths.
+            assert_eq!(destructor.check_interfere(&red, &blue), !equal_values);
+        }
+    }
 
     #[test]
     fn singleton_copy_classes_merge_only_when_values_can_share_storage() {

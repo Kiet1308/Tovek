@@ -36,12 +36,64 @@ enum DefKind {
     NotDef,
 }
 
+/// Dense handles keep reaching-open state constant-sized per register. Union
+/// by size and path compression bound union/find work; a separate minimum site
+/// preserves the old canonical label regardless of predecessor visitation order.
+#[derive(Default)]
+struct OpenLabels {
+    sites: FxHashMap<(ast::RcLocal, NodeIndex, usize), usize>,
+    cells: Vec<OpenCell>,
+}
+
+struct OpenCell {
+    parent: usize,
+    size: usize,
+    first: (NodeIndex, usize),
+}
+
+impl OpenLabels {
+    fn site(&mut self, local: ast::RcLocal, node: NodeIndex, index: usize) -> usize {
+        *self.sites.entry((local, node, index)).or_insert_with(|| {
+            let parent = self.cells.len();
+            self.cells.push(OpenCell { parent, size: 1, first: (node, index) });
+            parent
+        })
+    }
+
+    fn root(&mut self, mut label: usize) -> usize {
+        while self.cells[label].parent != label {
+            let parent = self.cells[label].parent;
+            self.cells[label].parent = self.cells[parent].parent;
+            label = parent;
+        }
+        label
+    }
+
+    fn union(&mut self, left: usize, right: usize) -> usize {
+        let mut left = self.root(left);
+        let mut right = self.root(right);
+        if left != right {
+            if self.cells[left].size < self.cells[right].size {
+                std::mem::swap(&mut left, &mut right);
+            }
+            self.cells[right].parent = left;
+            self.cells[left].size += self.cells[right].size;
+            self.cells[left].first = self.cells[left].first.min(self.cells[right].first);
+        }
+        left
+    }
+
+    fn representative(&mut self, label: usize) -> (NodeIndex, usize) {
+        let root = self.root(label);
+        self.cells[root].first
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct UpvaluesOpen {
-    // During dataflow these are deduplicated reaching `(block, statement)` open
-    // sites. Before consumption, overlapping opens of each register are reduced
-    // to a stable representative. `mark_upvalues` uses that first representative
-    // as the cell-group label; CLOSE is a transfer kill, not a name heuristic.
+    // Each interval carries the stable minimum `(block, statement)` open site.
+    // During dataflow, dense union-find handles replace growing sets of sites.
+    // `mark_upvalues` uses that representative as the cell-group label; CLOSE is a transfer kill, not a name heuristic.
     pub open: FxHashMap<
         NodeIndex,
         FxHashMap<ast::RcLocal, RangeInclusiveMap<usize, IndexSet<(NodeIndex, usize)>>>,
@@ -90,10 +142,205 @@ mod tests {
             assert_eq!(first == second, !close_before_join);
         }
     }
+
+    #[test]
+    fn close_at_join_entry_does_not_unify_killed_predecessor_cells() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let join = function.new_block();
+        let left = function.new_block();
+        let right = function.new_block();
+        function.set_entry(entry);
+        for (from, to) in [(entry, left), (entry, right), (left, join), (right, join)] {
+            function.graph_mut().add_edge(from, to, BlockEdge::default());
+        }
+        let register = ast::RcLocal::default();
+        let versions: Vec<_> = (0..3).map(|_| ast::RcLocal::default()).collect();
+        function.block_mut(left).unwrap().push(capture(versions[0].clone()));
+        function.block_mut(right).unwrap().push(capture(versions[1].clone()));
+        function.block_mut(join).unwrap().extend([
+            ast::Close { locals: vec![register.clone()] }.into(),
+            capture(versions[2].clone()),
+        ]);
+        let old_locals: FxHashMap<_, _> = versions.iter().cloned().map(|version| (version, register.clone())).collect();
+        let reference = UpvaluesOpen::new_reference(&function, old_locals.clone());
+        let result = UpvaluesOpen::new(&function, old_locals);
+        assert_eq!(result.open, reference.open);
+        let labels: Vec<_> = [(left, 0), (right, 0), (join, 1)].into_iter().map(|(node, index)| {
+            *result.open[&node][&register].get(&index).unwrap().first().unwrap()
+        }).collect();
+        assert_eq!(labels, [(left, 0), (right, 0), (join, 1)]);
+    }
+
+    #[test]
+    fn dense_labels_match_reaching_site_sets_on_randomized_cfgs() {
+        for seed in 1..=768u64 {
+            let mut state = seed;
+            let mut random = |limit: usize| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                ((state >> 32) as usize) % limit
+            };
+            let mut function = Function::new(0);
+            let nodes: Vec<_> = (0..4 + random(10)).map(|_| function.new_block()).collect();
+            function.set_entry(nodes[0]);
+            let registers: Vec<_> = (0..4).map(|_| ast::RcLocal::default()).collect();
+            let mut old_locals = FxHashMap::default();
+            for &node in &nodes {
+                for _ in 0..random(7) {
+                    let register = registers[random(registers.len())].clone();
+                    let statement = match random(5) {
+                        0 => ast::Close { locals: vec![register] }.into(),
+                        1 => ast::Comment::new("noop".into()).into(),
+                        kind => {
+                            let version = ast::RcLocal::default();
+                            old_locals.insert(version.clone(), register);
+                            if kind == 2 {
+                                ast::Assign::new(vec![version.into()], vec![ast::Literal::Nil.into()]).into()
+                            } else {
+                                capture(version)
+                            }
+                        }
+                    };
+                    function.block_mut(node).unwrap().push(statement);
+                }
+                for _ in 0..random(4) {
+                    let target = nodes[random(nodes.len())];
+                    function.graph_mut().add_edge(node, target, BlockEdge::default());
+                }
+            }
+            let reference = UpvaluesOpen::new_reference(&function, old_locals.clone());
+            let result = UpvaluesOpen::new(&function, old_locals);
+            assert_eq!(result.open, reference.open, "seed={seed}");
+        }
+    }
+
+    #[test]
+    fn repeated_captures_keep_one_interval_and_minimum_site() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        let register = ast::RcLocal::default();
+        let version = ast::RcLocal::default();
+        for _ in 0..10_000 {
+            function.block_mut(entry).unwrap().push(capture(version.clone()));
+        }
+        let result = UpvaluesOpen::new(&function, FxHashMap::from_iter([(version, register.clone())]));
+        let ranges = &result.open[&entry][&register];
+        assert_eq!(ranges.iter().count(), 1);
+        assert_eq!(ranges.get(&9_999).unwrap().first(), Some(&(entry, 0)));
+    }
+
 }
 
 impl UpvaluesOpen {
     pub fn new(function: &Function, old_locals: FxHashMap<ast::RcLocal, ast::RcLocal>) -> Self {
+        let phase = ast::telemetry::Span::new("SSA_UPVALUES_OPEN");
+        type Open = FxHashMap<ast::RcLocal, usize>;
+        let mut labels = OpenLabels::default();
+        let mut ranges_by_node = FxHashMap::default();
+        let entry = function.entry().unwrap();
+        let mut incoming: FxHashMap<NodeIndex, Open> = FxHashMap::default();
+        let mut work = VecDeque::from([entry]);
+        let mut queued = FxHashSet::from_iter([entry]);
+        let mut visited = FxHashSet::default();
+        incoming.insert(entry, Open::default());
+
+        // A CLOSE at statement zero erases the entire incoming interval. Its
+        // reaching sites never coexist in an output range, so merging them at
+        // the join would incorrectly identify cells from distinct close epochs.
+        let killed_at_entry: FxHashMap<_, FxHashSet<_>> = function.blocks()
+            .filter_map(|(node, block)| match block.first() {
+                Some(ast::Statement::Close(close)) =>
+                    Some((node, close.locals.iter().cloned().collect())),
+                _ => None,
+            })
+            .collect();
+        while let Some(node) = work.pop_front() {
+            queued.remove(&node);
+            visited.insert(node);
+            let block = function.block(node).unwrap();
+            let end = block.len().saturating_sub(1);
+            let mut current = incoming[&node].clone();
+            let mut ranges: FxHashMap<ast::RcLocal, RangeInclusiveMap<usize, usize>> =
+                FxHashMap::default();
+            for (local, &label) in &current {
+                ranges.entry(local.clone()).or_default().insert(0..=end, label);
+            }
+            for (index, statement) in block.iter().enumerate() {
+                for version in ref_upvalues(statement) {
+                    let local = old_locals[version].clone();
+                    let site = labels.site(local.clone(), node, index);
+                    let label = current.entry(local.clone()).or_insert(site);
+                    *label = labels.union(*label, site);
+                    ranges.entry(local).or_default().insert(index..=end, *label);
+                }
+                if let ast::Statement::Close(close) = statement {
+                    for local in &close.locals {
+                        current.remove(local);
+                        if let Some(ranges) = ranges.get_mut(local) {
+                            ranges.remove(index..=end);
+                        }
+                    }
+                }
+            }
+            ranges_by_node.insert(node, ranges);
+            let mut successors = function.successor_blocks(node).collect::<Vec<_>>();
+            successors.sort();
+            successors.dedup();
+            for successor in successors {
+                let next = incoming.entry(successor).or_default();
+                let killed = killed_at_entry.get(&successor);
+                let mut changed = false;
+                for (local, &label) in &current {
+                    match next.entry(local.clone()) {
+                        std::collections::hash_map::Entry::Vacant(slot) => {
+                            slot.insert(label);
+                            changed = true;
+                        }
+                        std::collections::hash_map::Entry::Occupied(mut slot) => {
+                            if !killed.is_some_and(|locals| locals.contains(local)) {
+                                let joined = labels.union(*slot.get(), label);
+                                slot.insert(joined);
+                            }
+                        }
+                    }
+                }
+                // Only newly open registers need propagation. All previously
+                // emitted ranges and successor states retain label handles;
+                // unioning a late predecessor updates their cells transitively.
+                if (changed || !visited.contains(&successor)) && queued.insert(successor) {
+                    work.push_back(successor);
+                }
+            }
+        }
+        drop(incoming);
+        drop(killed_at_entry);
+        drop(visited);
+        drop(queued);
+        drop(work);
+        labels.sites = FxHashMap::default();
+        drop(phase);
+        let phase = ast::telemetry::Span::new("SSA_UPVALUES_CANONICALIZE");
+        let open = ranges_by_node.into_iter().map(|(node, locals)| {
+            let locals = locals.into_iter().map(|(local, ranges)| {
+                let ranges = ranges.iter().map(|(range, &label)| {
+                    let site = labels.representative(label);
+                    (range.clone(), IndexSet::from_iter([site]))
+                }).collect();
+                (local, ranges)
+            }).collect();
+            (node, locals)
+        }).collect();
+        drop(labels);
+        let mut this = Self { open, old_locals };
+        drop(phase);
+        let _phase = ast::telemetry::Span::new("SSA_UPVALUES_EXTEND_BACKWARD");
+        this.extend_open_backward(function);
+        this
+    }
+
+    #[cfg(test)]
+    fn new_reference(function: &Function, old_locals: FxHashMap<ast::RcLocal, ast::RcLocal>) -> Self {
         type Sites = IndexSet<(NodeIndex, usize)>;
         type Open = FxHashMap<ast::RcLocal, Sites>;
         let mut this = Self { open: Default::default(), old_locals };
@@ -159,6 +406,7 @@ impl UpvaluesOpen {
     /// Two opens of the same VM register belong to one cell when a path reaches
     /// the latter without CLOSE. Unify their site labels transitively; a CLOSE
     /// kills the reaching set above and therefore keeps distinct epochs apart.
+    #[cfg(test)]
     fn canonicalize_overlapping_opens(&mut self) {
         use std::collections::BTreeMap;
         type Key = (ast::RcLocal, NodeIndex, usize);

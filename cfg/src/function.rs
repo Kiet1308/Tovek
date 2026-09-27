@@ -158,6 +158,18 @@ impl Function {
         })
     }
 
+    /// Build an immutable inverse index for a batch of provenance queries.
+    /// Duplicate starts retain exactly the same first entry as `block_at_pc`,
+    /// including hand-built CFGs with overlapping PC metadata.
+    pub fn block_start_pc_index(&self) -> FxHashMap<usize, NodeIndex> {
+        let mut index = FxHashMap::with_capacity_and_hasher(
+            self.block_pc_ranges.len(), Default::default());
+        for (&node, range) in &self.block_pc_ranges {
+            index.entry(range.start).or_insert(node);
+        }
+        index
+    }
+
     pub fn successor_blocks(&self, block: NodeIndex) -> Neighbors<BlockEdge> {
         self.graph.neighbors_directed(block, Direction::Outgoing)
     }
@@ -263,6 +275,21 @@ impl Function {
 mod tests {
     use super::Function;
     use ast::{Block, Comment, If, Literal, Statement};
+
+    #[test]
+    fn pc_index_matches_scan_with_duplicate_starts_and_range_updates() {
+        let mut function = Function::new(0);
+        let nodes: Vec<_> = (0..12).map(|_| function.new_block()).collect();
+        for (index, &node) in nodes.iter().enumerate() {
+            function.set_block_pc_range(node, index / 2, index + 20);
+        }
+        function.set_block_pc_range(nodes[0], 9, 30);
+        function.remove_block(nodes[3]);
+        let index = function.block_start_pc_index();
+        for pc in 0..32 {
+            assert_eq!(index.get(&pc).copied(), function.block_at_pc(pc));
+        }
+    }
 
     #[test]
     fn deep_clone_detaches_nested_structured_blocks() {

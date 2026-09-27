@@ -1,4 +1,5 @@
 use rustc_hash::{FxHashMap, FxHashSet};
+use std::collections::BTreeSet;
 
 use crate::{
     Block, Call, LValue, LocalRw, MethodCall, RValue, RcLocal, Select, SideEffects, Statement,
@@ -28,7 +29,7 @@ impl MotionFacts {
         let capture = |local: &RcLocal| self.captured.contains(local) && !self.stable_captured.contains(local);
         if self.total_numeric(value) {
             crate::effects::Summary {
-                effects: if value.values_read().into_iter().any(capture) { crate::effects::Effects::CAPTURE_READ }
+                effects: if value.any_local_read(&mut |local| capture(local)) { crate::effects::Effects::CAPTURE_READ }
                     else { crate::effects::Effects::default() },
                 nodes: 0, exhausted: false,
             }
@@ -163,10 +164,140 @@ fn collect_stable_declared_locals(
 
 fn inline_in_block(block: &mut Block, facts: &MotionFacts) -> bool {
     let mut changed = inline_nested_blocks(block, facts);
-    while inline_once(block, facts) {
+    changed |= inline_current_block(block, facts);
+    changed
+}
+
+/// Stable statement positions let us update the sole use without renumbering
+/// every later statement. A successful substitution moves its initializer
+/// exactly once: all *other* locals retain their read/write counts, including
+/// reads/captures inside a moved closure. Only the removed binder disappears.
+fn inline_current_block(block: &mut Block, facts: &MotionFacts) -> bool {
+    let usage = collect_usage(block);
+    let mut declarations = FxHashMap::default();
+    for (index, statement) in block.iter().enumerate() {
+        if let Some((local, _)) = candidate_decl(statement)
+            && usage.get(local).is_some_and(|u| u.reads == 1 && u.writes == 1)
+            && !facts.captured.contains(local)
+        {
+            declarations.insert(local.clone(), index);
+        }
+    }
+    if declarations.is_empty() { return false; }
+    let mut uses = FxHashMap::default();
+    for (index, statement) in block.iter().enumerate() {
+        for_each_inlineable_direct_rvalue(statement, &mut |value| {
+            collect_candidate_uses(value, index, &declarations, &mut uses);
+        });
+        if facts.rebuild_call_chains
+            && let Statement::Assign(assign) = statement
+            && !assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1
+            && let LValue::Index(indexed) = &assign.left[0]
+            && let RValue::Local(local) = indexed.right.as_ref()
+            && declarations.contains_key(local)
+        {
+            uses.insert(local.clone(), index);
+        }
+    }
+    let mut work = InlineWorklist::new(block.len());
+    for &index in declarations.values() { work.pending.insert(index); }
+    let mut removed = vec![false; block.len()];
+    let mut changed = false;
+    let mut motion = MotionQueries::new(block.len());
+    while let Some(index) = work.pending.pop_first() {
+        let Some((local, replacement)) = candidate_decl(&block[index]) else { continue; };
+        let local = local.clone();
+        let Some(&use_index) = uses.get(&local).filter(|&&at| at > index) else { continue; };
+        // Only sole-use candidate dependencies need a position update. Gather
+        // before mutating the destination; other reads retain their indices.
+        let moved: Vec<_> = replacement.values_read().into_iter()
+            .filter(|read| declarations.contains_key(*read) && uses.get(*read) == Some(&index))
+            .cloned().collect();
+        if !inline_at(block, index, use_index, facts, &mut motion) {
+            work.set_use(index, Some(use_index));
+            continue;
+        }
         changed = true;
+        removed[index] = true;
+        block[index] = crate::Empty {}.into();
+        motion.after_inline(block, index, use_index, &local, facts);
+        declarations.remove(&local);
+        uses.remove(&local);
+        work.set_use(index, None);
+        for read in moved {
+            uses.insert(read.clone(), use_index);
+            if let Some(&declaration) = declarations.get(&read) {
+                work.set_use(declaration, None);
+                work.pending.insert(declaration);
+            }
+        }
+        // A failed candidate can change only when its initializer, sole use,
+        // or intervening motion window changes. Query both touched positions,
+        // then retry in source order just like the former restart-from-zero.
+        work.changed_at(index);
+        work.changed_at(use_index);
+    }
+    if changed {
+        let mut index = 0;
+        block.0.retain(|_| { let keep = !removed[index]; index += 1; keep });
     }
     changed
+}
+
+fn collect_candidate_uses(
+    value: &RValue,
+    index: usize,
+    declarations: &FxHashMap<RcLocal, usize>,
+    uses: &mut FxHashMap<RcLocal, usize>,
+) {
+    if let RValue::Local(local) = value && declarations.contains_key(local) {
+        uses.insert(local.clone(), index);
+    }
+    value.visit_rvalues(&mut |child| { collect_candidate_uses(child, index, declarations, uses); true });
+}
+
+/// Max-endpoint segment tree over parked (previously refused) declarations.
+/// Pending candidates already observe the latest tree when they run, so they
+/// must not be enumerated again for every earlier rewrite. Point invalidation
+/// visits only refused declarations whose [declaration, use] interval covers the edit,
+/// rather than repeatedly rescanning every earlier, permanently refused temp.
+struct InlineWorklist {
+    pending: BTreeSet<usize>,
+    max_use: Vec<usize>,
+    size: usize,
+}
+
+impl InlineWorklist {
+    fn new(len: usize) -> Self {
+        let size = len.next_power_of_two();
+        Self { pending: BTreeSet::new(), max_use: vec![0; size * 2], size }
+    }
+
+    fn set_use(&mut self, declaration: usize, use_index: Option<usize>) {
+        let mut node = self.size + declaration;
+        let endpoint = use_index.filter(|&index| index > declaration).map_or(0, |index| index + 1);
+        if self.max_use[node] == endpoint { return; }
+        self.max_use[node] = endpoint;
+        while node > 1 {
+            node /= 2;
+            self.max_use[node] = self.max_use[node * 2].max(self.max_use[node * 2 + 1]);
+        }
+    }
+
+    fn changed_at(&mut self, index: usize) { self.visit(1, 0, self.size, index); }
+
+    fn visit(&mut self, node: usize, start: usize, end: usize, index: usize) {
+        if start > index || self.max_use[node] <= index { return; }
+        if end - start == 1 {
+            self.pending.insert(start);
+            self.max_use[node] = 0;
+            return;
+        }
+        let middle = (start + end) / 2;
+        self.visit(node * 2, start, middle, index);
+        self.visit(node * 2 + 1, middle, end, index);
+        self.max_use[node] = self.max_use[node * 2].max(self.max_use[node * 2 + 1]);
+    }
 }
 
 fn inline_nested_blocks(block: &mut Block, facts: &MotionFacts) -> bool {
@@ -206,103 +337,103 @@ fn inline_closures_in_statement(statement: &mut Statement, facts: &MotionFacts) 
     })
 }
 
-fn inline_once(block: &mut Block, facts: &MotionFacts) -> bool {
-    let usage = collect_usage(block);
-    for index in 0..block.0.len() {
-        let Some((local, replacement)) = candidate_decl(&block.0[index]) else {
-            continue;
-        };
-        let Some(local_usage) = usage.get(&local) else {
-            continue;
-        };
-        // Whole-program capture set (not the per-block `usage.captured`, which
-        // misses a capturing closure in a sibling/enclosing scope).
-        if local_usage.reads != 1 || local_usage.writes != 1 || facts.captured.contains(&local) {
-            continue;
-        }
-        let generated = is_generated_temp(&local);
-        let named_table = !generated && matches!(&replacement, RValue::Table(_));
-        if replacement.values_read().iter().any(|read| **read == local) {
-            continue;
-        }
+fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFacts, motion: &mut MotionQueries) -> bool {
+    let Some((local, replacement)) = candidate_decl(&block[index]) else { return false; };
+    let local = local.clone();
+    let generated = is_generated_temp(&local);
+    let named_table = !generated && matches!(&replacement, RValue::Table(_));
+    if replacement.any_local_read(&mut |read| *read == local) {
+        return false;
+    }
 
-        let Some(use_index) = (index + 1..block.0.len()).find(|&use_index| {
-            inlineable_direct_rvalue_read_count(&block.0[use_index], &local) > 0
-                || (facts.rebuild_call_chains
-                    && is_single_index_key_use(&block.0[use_index], &local))
-        }) else {
-            continue;
-        };
-        // A call used as another call's callee is always adjusted to one
-        // result, just like its original single-local initializer. Reuse the
-        // ordinary motion/order/conditional guards; never inline it into a
-        // multret argument or a branch that may not execute.
-        let call_callee = facts.rebuild_call_chains
-            && !is_service_or_require_handle(&replacement)
-            && matches!(
-                &replacement,
-                RValue::Call(_)
-                    | RValue::MethodCall(_)
-                    | RValue::Select(Select::Call(_) | Select::MethodCall(_))
-            )
-            && is_call_callee_use(&block.0[use_index], &local);
-        // Field aliases and scalar calls need the same evaluation-position
-        // proof as curried callees. Recorded bindings stay protected.
-        let ordered_alias = facts.rebuild_call_chains && !is_service_or_require_handle(&replacement) && matches!(&replacement,
-            RValue::Index(_) | RValue::Select(Select::Call(_) | Select::MethodCall(_)));
-        // Operators may throw or dispatch metamethods. A generated snapshot
-        // can still fold into its original evaluation position, using the same
-        // motion and conditional proofs as call/field aliases below. Meaningful
-        // names and recorded source bindings remain declarations.
-        let ordered_operator = facts.rebuild_call_chains && generated
-            && matches!(&replacement, RValue::Binary(_) | RValue::Unary(_));
-        // A sole-use import forwarded into a named table field gains no
-        // readable role from an extra alias: the destination already names it.
-        // This only admits a candidate; the ordinary source-binding, capture,
-        // motion and evaluation-position checks below still decide legality.
-        let import_field_store = facts.rebuild_call_chains
-            && is_service_or_require_handle(&replacement)
-            && is_named_field_store_use(&block.0[use_index], &local);
-        let named_function = crate::assignment_preserves_function_name(&block.0[use_index], &local)
-            || (matches!(&replacement, RValue::Closure(_))
-                && crate::local::constructor_preserves_function_name(&block.0[use_index], &local));
-        if local.preserve_binding() && !named_function {
-            crate::telemetry::count("inline_refused_source_binding", 1);
-            continue;
-        }
-        if !call_callee && !ordered_alias && !ordered_operator && !import_field_store && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
-        {
-            crate::telemetry::count("inline_refused_expression_role", 1);
-            continue;
-        }
-        if named_table && !is_declarative_table_use(&block.0[use_index], &local) {
-            continue;
-        }
-        if !can_move_between(&replacement, &block.0[index + 1..use_index], facts) {
-            crate::telemetry::count("inline_refused_intervening_statement", 1);
-            continue;
-        }
-        if !crate::evaluation_order::can_sink_with_summary(&block.0[use_index], &local, &replacement, &|l| {
-            facts.captured.contains(l) && !facts.stable_captured.contains(l)
-        }, facts.candidate_effects(&replacement)) {
-            crate::telemetry::count("inline_refused_evaluation_position", 1);
-            continue;
-        }
-        if facts.rebuild_call_chains
-            && matches!(&replacement, RValue::Local(_) | RValue::Literal(_))
-            && replace_single_index_key_use(&mut block.0[use_index], &local, &replacement, facts)
-        {
-            block.0.remove(index);
-            return true;
-        }
-        let numeric = facts.total_numeric(&replacement);
-        if replace_direct_rvalue_use(&mut block.0[use_index], &local, replacement, facts) {
-            crate::telemetry::count("inline_accepted", 1);
-            if numeric { crate::telemetry::count("inline_accepted_numeric_proof", 1); }
-            block.0.remove(index);
-            return true;
-        }
-        crate::telemetry::count("inline_refused_arity_or_context", 1);
+    // A call used as another call's callee is always adjusted to one
+    // result, just like its original single-local initializer. Reuse the
+    // ordinary motion/order/conditional guards; never inline it into a
+    // multret argument or a branch that may not execute.
+    let call_callee = facts.rebuild_call_chains
+        && !is_service_or_require_handle(&replacement)
+        && matches!(
+            &replacement,
+            RValue::Call(_)
+                | RValue::MethodCall(_)
+                | RValue::Select(Select::Call(_) | Select::MethodCall(_))
+        )
+        && is_call_callee_use(&block.0[use_index], &local);
+    // Field aliases and scalar calls need the same evaluation-position
+    // proof as curried callees. Recorded bindings stay protected.
+    let ordered_alias = facts.rebuild_call_chains && !is_service_or_require_handle(&replacement) && matches!(&replacement,
+        RValue::Index(_) | RValue::Select(Select::Call(_) | Select::MethodCall(_)));
+    // Operators may throw or dispatch metamethods. A generated snapshot
+    // can still fold into its original evaluation position, using the same
+    // motion and conditional proofs as call/field aliases below. Meaningful
+    // names and recorded source bindings remain declarations.
+    let ordered_operator = facts.rebuild_call_chains && generated
+        && matches!(&replacement, RValue::Binary(_) | RValue::Unary(_));
+    // A sole-use import forwarded into a named table field gains no
+    // readable role from an extra alias: the destination already names it.
+    // This only admits a candidate; the ordinary source-binding, capture,
+    // motion and evaluation-position checks below still decide legality.
+    let import_field_store = facts.rebuild_call_chains
+        && is_service_or_require_handle(&replacement)
+        && is_named_field_store_use(&block.0[use_index], &local);
+    let named_function = crate::assignment_preserves_function_name(&block.0[use_index], &local)
+        || (matches!(&replacement, RValue::Closure(_))
+            && crate::local::constructor_preserves_function_name(&block.0[use_index], &local));
+    if local.preserve_binding() && !named_function {
+        crate::telemetry::count("inline_refused_source_binding", 1);
+        return false;
+    }
+    if !call_callee && !ordered_alias && !ordered_operator && !import_field_store && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
+    {
+        crate::telemetry::count("inline_refused_expression_role", 1);
+        return false;
+    }
+    if named_table && !is_declarative_table_use(&block.0[use_index], &local) {
+        return false;
+    }
+    if !motion.allows(block, replacement, index + 1, use_index, facts) {
+        crate::telemetry::count("inline_refused_intervening_statement", 1);
+        return false;
+    }
+    if !crate::evaluation_order::can_sink_with_summary(&block.0[use_index], &local, &replacement, &|l| {
+        facts.captured.contains(l) && !facts.stable_captured.contains(l)
+    }, facts.candidate_effects(&replacement)) {
+        crate::telemetry::count("inline_refused_evaluation_position", 1);
+        return false;
+    }
+    let numeric = facts.total_numeric(replacement);
+    let (prefix, suffix) = block.0.split_at_mut(use_index);
+    let replacement = &prefix[index].as_assign().unwrap().right[0];
+    let statement = &mut suffix[0];
+    if facts.rebuild_call_chains
+        && matches!(&replacement, RValue::Local(_) | RValue::Literal(_))
+        && replace_single_index_key_use(statement, &local, replacement, facts)
+    {
+        return true;
+    }
+    if replace_direct_rvalue_use(statement, &local, replacement, facts) {
+        crate::telemetry::count("inline_accepted", 1);
+        if numeric { crate::telemetry::count("inline_accepted_numeric_proof", 1); }
+        return true;
+    }
+    crate::telemetry::count("inline_refused_arity_or_context", 1);
+    false
+}
+
+#[cfg(test)]
+fn inline_once_full_rescan(block: &mut Block, facts: &MotionFacts) -> bool {
+    let mut motion = MotionQueries::new(0);
+    motion.reference = true;
+    let usage = collect_usage(block);
+    for index in 0..block.len() {
+        let Some((local, _)) = candidate_decl(&block[index]) else { continue; };
+        if !usage.get(local).is_some_and(|u| u.reads == 1 && u.writes == 1)
+            || facts.captured.contains(local) { continue; }
+        let Some(use_index) = (index + 1..block.len()).find(|&use_index|
+            inlineable_direct_rvalue_read_count(&block[use_index], local) > 0
+                || (facts.rebuild_call_chains && is_single_index_key_use(&block[use_index], local)))
+        else { continue; };
+        if inline_at(block, index, use_index, facts, &mut motion) { block.0.remove(index); return true; }
     }
     false
 }
@@ -372,7 +503,7 @@ fn declarative_table_use_in_value(value: &RValue, local: &RcLocal) -> bool {
     }
 }
 
-fn candidate_decl(statement: &Statement) -> Option<(RcLocal, RValue)> {
+fn candidate_decl(statement: &Statement) -> Option<(&RcLocal, &RValue)> {
     let Statement::Assign(assign) = statement else {
         return None;
     };
@@ -382,7 +513,7 @@ fn candidate_decl(statement: &Statement) -> Option<(RcLocal, RValue)> {
     let LValue::Local(local) = &assign.left[0] else {
         return None;
     };
-    Some((local.clone(), assign.right[0].clone()))
+    Some((local, &assign.right[0]))
 }
 
 fn is_named_field_store_use(statement: &Statement, local: &RcLocal) -> bool {
@@ -459,10 +590,11 @@ fn collect_usage_in_block(block: &Block, usage: &mut FxHashMap<RcLocal, Usage>) 
     }
 }
 
-fn collect_usage_in_statement(statement: &Statement, usage: &mut FxHashMap<RcLocal, Usage>) {
-    for local in statement.values_read() {
+pub(crate) fn collect_usage_in_statement(statement: &Statement, usage: &mut FxHashMap<RcLocal, Usage>) {
+    statement.visit_local_reads(&mut |local| {
         usage.entry(local.clone()).or_default().reads += 1;
-    }
+        true
+    });
     for local in statement.values_written() {
         usage.entry(local.clone()).or_default().writes += 1;
     }
@@ -498,6 +630,7 @@ fn collect_usage_in_statement(statement: &Statement, usage: &mut FxHashMap<RcLoc
     }
 }
 
+#[cfg(test)]
 fn inlineable_direct_rvalue_read_count(statement: &Statement, local: &RcLocal) -> usize {
     let mut count = 0;
     for_each_inlineable_direct_rvalue(statement, &mut |rvalue| {
@@ -506,11 +639,10 @@ fn inlineable_direct_rvalue_read_count(statement: &Statement, local: &RcLocal) -
     count
 }
 
+#[cfg(test)]
 fn rvalue_read_count(rvalue: &RValue, local: &RcLocal) -> usize {
     let mut count = usize::from(matches!(rvalue, RValue::Local(read) if read == local));
-    for child in rvalue.rvalues() {
-        count += rvalue_read_count(child, local);
-    }
+    rvalue.visit_rvalues(&mut |child| { count += rvalue_read_count(child, local); true });
     count
 }
 
@@ -524,15 +656,13 @@ fn collect_closures_in_rvalue(rvalue: &RValue, f: &mut impl FnMut(&crate::Closur
     if let RValue::Closure(closure) = rvalue {
         f(closure);
     }
-    for child in rvalue.rvalues() {
-        collect_closures_in_rvalue(child, f);
-    }
+    rvalue.visit_rvalues(&mut |child| { collect_closures_in_rvalue(child, f); true });
 }
 
 fn replace_direct_rvalue_use(
     statement: &mut Statement,
     local: &RcLocal,
-    replacement: RValue,
+    replacement: &RValue,
     facts: &MotionFacts,
 ) -> bool {
     let mut before_side_effects = match &*statement {
@@ -550,7 +680,7 @@ fn replace_direct_rvalue_use(
         if replace_first_rvalue_use(
             rvalue,
             local,
-            replacement.clone(),
+            replacement,
             facts,
             &mut before_side_effects,
             false,
@@ -566,7 +696,7 @@ fn replace_direct_rvalue_use(
 fn replace_first_rvalue_use(
     rvalue: &mut RValue,
     local: &RcLocal,
-    replacement: RValue,
+    replacement: &RValue,
     facts: &MotionFacts,
     before_side_effects: &mut bool,
     conditionally_evaluated: bool,
@@ -583,7 +713,7 @@ fn replace_first_rvalue_use(
         {
             return false;
         }
-        *rvalue = replacement;
+        *rvalue = replacement.clone();
         crate::node_origins::inlined(rvalue);
         return true;
     }
@@ -602,7 +732,7 @@ fn replace_first_rvalue_use(
         if replace_first_rvalue_use(
             &mut binary.left,
             local,
-            replacement.clone(),
+            replacement,
             facts,
             before_side_effects,
             conditionally_evaluated,
@@ -626,7 +756,7 @@ fn replace_first_rvalue_use(
         if replace_first_rvalue_use(
             &mut if_expression.condition,
             local,
-            replacement.clone(),
+            replacement,
             facts,
             before_side_effects,
             conditionally_evaluated,
@@ -643,7 +773,7 @@ fn replace_first_rvalue_use(
         if replace_first_rvalue_use(
             &mut if_expression.then_value,
             local,
-            replacement.clone(),
+            replacement,
             facts,
             before_side_effects,
             true,
@@ -667,7 +797,7 @@ fn replace_first_rvalue_use(
         if replace_first_rvalue_use(
             child,
             local,
-            replacement.clone(),
+            replacement,
             facts,
             before_side_effects,
             conditionally_evaluated,
@@ -858,7 +988,157 @@ pub fn is_service_or_require_handle(rvalue: &RValue) -> bool {
     }
 }
 
-fn can_move_between(replacement: &RValue, statements: &[Statement], facts: &MotionFacts) -> bool {
+#[cfg(test)]
+thread_local! {
+    static MOTION_STATEMENTS_SCANNED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static MOTION_INDEX_STATEMENTS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+const MUTATES_ENVIRONMENT: u8 = 1;
+const OBSERVABLE_STATEMENT: u8 = 2;
+const EVALUATION_BARRIER: u8 = 4;
+
+struct MotionRequirements {
+    reads: FxHashSet<RcLocal>,
+    barriers: u8,
+}
+
+impl MotionRequirements {
+    fn new(value: &RValue, facts: &MotionFacts) -> Self {
+        let mut reads = FxHashSet::default();
+        value.visit_local_reads(&mut |local| { reads.insert(local.clone()); true });
+        let barriers = u8::from(contains_global(value)) * MUTATES_ENVIRONMENT
+            | u8::from(reads_motion_sensitive_capture(value, facts)) * OBSERVABLE_STATEMENT
+            | u8::from(!facts.total_numeric(value) && crate::is_observable(value)) * EVALUATION_BARRIER;
+        Self { reads, barriers }
+    }
+
+    fn allows_scan(&self, statements: &[Statement], facts: &MotionFacts) -> bool {
+        statements.iter().all(|statement| {
+            #[cfg(test)]
+            MOTION_STATEMENTS_SCANNED.with(|count| count.set(count.get() + 1));
+            !statement_writes_any_local(statement, &self.reads)
+                && (self.barriers & MUTATES_ENVIRONMENT == 0 || !statement_may_mutate_global_or_environment(statement))
+                && (self.barriers & OBSERVABLE_STATEMENT == 0 || !crate::statement_is_observable(statement))
+                && (self.barriers & EVALUATION_BARRIER == 0 || !statement_evaluation_order_barrier(statement, facts))
+        })
+    }
+}
+
+/// Pay at most two block-lengths of direct motion scans before constructing
+/// indexes. Adjacent/short windows stay cheap; many distant aliases cannot
+/// restart quadratic scans. Index predicates are exactly the legacy guards.
+struct MotionQueries {
+    remaining_scan: usize,
+    index: Option<MotionIndex>,
+    #[cfg(test)]
+    reference: bool,
+}
+
+impl MotionQueries {
+    fn new(len: usize) -> Self {
+        Self { remaining_scan: len.saturating_mul(2), index: None,
+            #[cfg(test)] reference: false }
+    }
+
+    fn allows(&mut self, block: &Block, value: &RValue, start: usize, end: usize, facts: &MotionFacts) -> bool {
+        #[cfg(test)]
+        if self.reference { return can_move_between_reference(value, &block.0[start..end], facts); }
+        if start == end { return true; }
+        let requirements = MotionRequirements::new(value, facts);
+        if requirements.reads.is_empty() && requirements.barriers == 0 { return true; }
+        if self.index.is_none() && end - start <= self.remaining_scan {
+            self.remaining_scan -= end - start;
+            return requirements.allows_scan(&block.0[start..end], facts);
+        }
+        self.index.get_or_insert_with(|| MotionIndex::new(block, facts)).allows(&requirements, start, end)
+    }
+
+    fn after_inline(&mut self, block: &Block, declaration: usize, use_index: usize, local: &RcLocal, facts: &MotionFacts) {
+        if let Some(index) = &mut self.index {
+            // A candidate has one write, its removed declaration. Inlining an
+            // RValue never introduces a runtime local write; closure bodies
+            // are separate execution scopes in both the old and indexed proof.
+            index.writes.remove(local);
+            index.set(declaration, 0);
+            index.set(use_index, MotionIndex::statement_barriers(&block[use_index], facts));
+        }
+    }
+}
+
+struct MotionIndex {
+    writes: FxHashMap<RcLocal, BTreeSet<usize>>,
+    barriers: Vec<u8>,
+    size: usize,
+}
+
+impl MotionIndex {
+    fn new(block: &Block, facts: &MotionFacts) -> Self {
+        let size = block.len().next_power_of_two();
+        let mut index = Self { writes: FxHashMap::default(), barriers: vec![0; size * 2], size };
+        for (position, statement) in block.iter().enumerate() {
+            index.record_writes(statement, position);
+            index.barriers[size + position] = Self::statement_barriers(statement, facts);
+        }
+        for node in (1..size).rev() { index.barriers[node] = index.barriers[node * 2] | index.barriers[node * 2 + 1]; }
+        index
+    }
+
+    fn record_writes(&mut self, statement: &Statement, position: usize) {
+        for local in statement.values_written() { self.writes.entry(local.clone()).or_default().insert(position); }
+        let mut child = |block: &Block| { for statement in &block.0 { self.record_writes(statement, position); } };
+        match statement {
+            Statement::If(node) => { child(&node.then_block.lock()); child(&node.else_block.lock()); }
+            Statement::While(node) => child(&node.block.lock()),
+            Statement::Repeat(node) => child(&node.block.lock()),
+            Statement::NumericFor(node) => child(&node.block.lock()),
+            Statement::GenericFor(node) => child(&node.block.lock()),
+            _ => {}
+        }
+    }
+
+    fn statement_barriers(statement: &Statement, facts: &MotionFacts) -> u8 {
+        #[cfg(test)]
+        MOTION_INDEX_STATEMENTS.with(|count| count.set(count.get() + 1));
+        u8::from(statement_may_mutate_global_or_environment(statement)) * MUTATES_ENVIRONMENT
+            | u8::from(crate::statement_is_observable(statement)) * OBSERVABLE_STATEMENT
+            | u8::from(statement_evaluation_order_barrier(statement, facts)) * EVALUATION_BARRIER
+    }
+
+    fn set(&mut self, position: usize, flags: u8) {
+        let mut node = self.size + position;
+        if self.barriers[node] == flags { return; }
+        self.barriers[node] = flags;
+        while node > 1 {
+            node /= 2;
+            self.barriers[node] = self.barriers[node * 2] | self.barriers[node * 2 + 1];
+        }
+    }
+
+    fn allows(&self, requirements: &MotionRequirements, start: usize, end: usize) -> bool {
+        if requirements.reads.iter().any(|local| self.writes.get(local)
+            .is_some_and(|sites| sites.range(start..end).next().is_some())) { return false; }
+        if requirements.barriers == 0 { return true; }
+        let mut left = self.size + start;
+        let mut right = self.size + end;
+        while left < right {
+            if left & 1 != 0 {
+                if self.barriers[left] & requirements.barriers != 0 { return false; }
+                left += 1;
+            }
+            if right & 1 != 0 {
+                right -= 1;
+                if self.barriers[right] & requirements.barriers != 0 { return false; }
+            }
+            left /= 2; right /= 2;
+        }
+        true
+    }
+}
+
+#[cfg(test)]
+fn can_move_between_reference(replacement: &RValue, statements: &[Statement], facts: &MotionFacts) -> bool {
+    if statements.is_empty() { return true; }
     let read_locals = replacement
         .values_read()
         .into_iter()
@@ -871,7 +1151,10 @@ fn can_move_between(replacement: &RValue, statements: &[Statement], facts: &Moti
     // expressions must not cross another evaluation barrier or their error is
     // reordered (and may be swallowed by a later control-flow path).
     let has_effects = !facts.total_numeric(replacement) && crate::is_observable(replacement);
+    if read_locals.is_empty() && !reads_global && !reads_captured_local && !has_effects { return true; }
     for statement in statements {
+        #[cfg(test)]
+        MOTION_STATEMENTS_SCANNED.with(|count| count.set(count.get() + 1));
         if statement_writes_any_local(statement, &read_locals) {
             return false;
         }
@@ -900,7 +1183,7 @@ fn can_replace_after_prior_effects(
 }
 
 fn reads_motion_sensitive_capture(rvalue: &RValue, facts: &MotionFacts) -> bool {
-    rvalue.values_read().into_iter().any(|local| {
+    rvalue.any_local_read(&mut |local| {
         facts.captured.contains(local)
             && !(facts.rebuild_call_chains && facts.stable_captured.contains(local))
     })
@@ -910,16 +1193,13 @@ fn contains_global(rvalue: &RValue) -> bool {
     if matches!(rvalue, RValue::Global(_)) {
         return true;
     }
-    rvalue.rvalues().into_iter().any(contains_global)
+    !rvalue.visit_rvalues(&mut |child| !contains_global(child))
 }
 
 fn rvalue_evaluation_order_barrier(rvalue: &RValue, facts: &MotionFacts) -> bool {
     (!facts.total_numeric(rvalue) && crate::is_observable(rvalue))
         || contains_global(rvalue)
-        || rvalue
-            .values_read()
-            .into_iter()
-            .any(|local| facts.captured.contains(local) && !facts.stable_captured.contains(local))
+        || rvalue.any_local_read(&mut |local| facts.captured.contains(local) && !facts.stable_captured.contains(local))
 }
 
 fn lvalue_evaluation_order_barrier(lvalue: &LValue, facts: &MotionFacts) -> bool {
@@ -986,6 +1266,7 @@ pub(crate) fn statement_writes_any_local(
     statement: &Statement,
     locals: &FxHashSet<RcLocal>,
 ) -> bool {
+    if locals.is_empty() { return false; }
     statement
         .values_written()
         .into_iter()
@@ -1057,6 +1338,152 @@ mod tests {
     use by_address::ByAddress;
     use parking_lot::Mutex;
     use triomphe::Arc;
+
+    #[test]
+    fn indexed_motion_matches_each_legacy_guard_and_runtime_scope() {
+        let source = local("source"); let captured = local("captured");
+        let mut statements = vec![
+            declare(&source, number(1.0)),
+            print(number(3.0)),
+            crate::If::new(global("condition"), Block(vec![assign(source.clone().into(), number(2.0))]), Block::default()).into(),
+            print(closure_capturing(&captured)),
+            assign(LValue::Index(Index::new(global("table"), string("key"))), source.clone().into()),
+            crate::Empty {}.into(),
+        ];
+        let mut block = Block(statements.clone());
+        let facts = super::collect_motion_facts(&block);
+        let replacements = vec![number(1.0), source.into(), captured.into(), global("global"),
+            crate::Index::new(global("table"), string("key")).into(),
+            crate::Table::new(vec![(Some(crate::Literal::Nil.into()), number(1.0))]).into()];
+        let mut index = super::MotionIndex::new(&block, &facts);
+        for revision in 0..2 {
+            for start in 0..=block.len() {
+                for end in start..=block.len() {
+                    for replacement in &replacements {
+                        let requirements = super::MotionRequirements::new(replacement, &facts);
+                        assert_eq!(index.allows(&requirements, start, end),
+                            super::can_move_between_reference(replacement, &block.0[start..end], &facts),
+                            "range {start}..{end}, revision {revision}, replacement {replacement:?}");
+                    }
+                }
+            }
+            statements[1] = crate::Empty {}.into();
+            block[1] = statements[1].clone();
+            index.set(1, super::MotionIndex::statement_barriers(&block[1], &facts));
+        }
+    }
+
+    #[test]
+    fn motion_scan_operation_counts_for_separated_sources() {
+        for count in [64, 128, 256] {
+            let source = local("source");
+            let locals: Vec<_> = (0..count).map(|index| local(&format!("v{index}"))).collect();
+            let mut input = Block::default();
+            for local in &locals { input.push(declare(local, source.clone().into())); }
+            for local in &locals { input.push(print(local.clone().into())); }
+            let facts = super::collect_motion_facts(&input);
+            let mut expected = input.clone();
+            super::MOTION_STATEMENTS_SCANNED.with(|scanned| scanned.set(0));
+            while super::inline_once_full_rescan(&mut expected, &facts) {}
+            let legacy_scans = super::MOTION_STATEMENTS_SCANNED.with(|scanned| scanned.get());
+            super::MOTION_STATEMENTS_SCANNED.with(|scanned| scanned.set(0));
+            super::MOTION_INDEX_STATEMENTS.with(|scanned| scanned.set(0));
+            super::inline_current_block(&mut input, &facts);
+            let scans = super::MOTION_STATEMENTS_SCANNED.with(|scanned| scanned.get());
+            let summaries = super::MOTION_INDEX_STATEMENTS.with(|scanned| scanned.get());
+            assert_eq!(input, expected);
+            assert_eq!(input.len(), count);
+            assert_eq!(legacy_scans, count * (count - 1));
+            assert!(scans <= count * 4);
+            assert!(summaries <= count * 3);
+            println!("MOTION_COUNT n={count} legacy_scans={legacy_scans} scanned_statements={scans} indexed_summaries={summaries}");
+        }
+    }
+
+    #[test]
+    fn invalidation_unparks_each_failed_candidate_only_once() {
+        let mut work = super::InlineWorklist::new(32);
+        work.pending.extend(0..20);
+        assert_eq!(work.max_use[1], 0, "pending entries do not participate in interval invalidation");
+        work.pending.clear();
+        work.set_use(2, Some(30)); work.set_use(4, Some(20));
+        work.changed_at(10);
+        assert_eq!(work.pending.iter().copied().collect::<Vec<_>>(), vec![2, 4]);
+        assert_eq!(work.max_use[1], 0, "requeued candidates are no longer parked");
+        work.pending.clear();
+        work.changed_at(15);
+        assert!(work.pending.is_empty());
+    }
+
+    #[test]
+    fn separated_declarations_keep_source_order_inlining() {
+        let mut input = Block::default();
+        let locals: Vec<_> = (0..80).map(|index| local(&format!("v{index}"))).collect();
+        for (index, local) in locals.iter().enumerate() { input.push(declare(local, number(index as f64))); }
+        for local in &locals { input.push(print(local.clone().into())); }
+        let mut actual = input.clone(); let mut expected = input;
+        let usage = super::collect_usage(&actual);
+        let captured = Default::default();
+        let stable_captured = Default::default();
+        let numbers = crate::numeric_facts::collect(&actual, &usage);
+        let facts = super::MotionFacts { captured, stable_captured, numbers, rebuild_call_chains: false };
+        while super::inline_once_full_rescan(&mut expected, &facts) {}
+        super::inline_current_block(&mut actual, &facts);
+        assert_eq!(actual, expected);
+        assert_eq!(actual.len(), locals.len());
+    }
+
+    #[test]
+    fn indexed_inlining_matches_source_order_full_rescans() {
+        // Vary aliases, repeated uses, captures, unsafe motion and conditional
+        // positions. The reference retains the old recount/restart algorithm;
+        // both paths deliberately share the unchanged legality checks.
+        for seed in 0..160u64 {
+            let mut random = seed + 1;
+            let mut next = || {
+                random ^= random << 13;
+                random ^= random >> 7;
+                random ^= random << 17;
+                random as usize
+            };
+            let external = local("source");
+            let mut locals = vec![external.clone()];
+            let mut input = Block::default();
+            for index in 0..24 {
+                let destination = local(&format!("v{index}"));
+                let source = locals[next() % locals.len()].clone();
+                let value = match next() % 8 {
+                    0 => number((next() % 7) as f64),
+                    1 => source.clone().into(),
+                    2 => Index::new(source.clone().into(), string("field")).into(),
+                    3 => crate::Binary::new(source.clone().into(), number(1.0), crate::BinaryOperation::Add).into(),
+                    4 => crate::Select::Call(Call::new(global("read"), vec![source.clone().into()])).into(),
+                    5 => crate::Table(vec![(Some(string("value")), source.clone().into())], Default::default()).into(),
+                    6 => crate::Binary::new(global("flag"), source.clone().into(), crate::BinaryOperation::And).into(),
+                    _ => closure_capturing(&source),
+                };
+                input.push(declare(&destination, value));
+                if next() % 3 == 0 { input.push(print(source.into())); }
+                if next() % 5 == 0 { input.push(crate::Empty {}.into()); }
+                if next() % 7 == 0 {
+                    input.push(assign(external.clone().into(), global("replacement")));
+                }
+                locals.push(destination);
+            }
+            input.push(crate::Return::new(locals.iter().skip(1).enumerate()
+                .filter(|(index, _)| index % 3 == seed as usize % 3)
+                .map(|(_, local)| local.clone().into()).collect()).into());
+            for rebuild in [false, true] {
+                let mut expected = input.clone();
+                let mut actual = input.clone();
+                let mut facts = super::collect_motion_facts(&input);
+                facts.rebuild_call_chains = rebuild;
+                while super::inline_once_full_rescan(&mut expected, &facts) {}
+                super::inline_current_block(&mut actual, &facts);
+                assert_eq!(actual, expected, "seed {seed}, UI mode {rebuild}");
+            }
+        }
+    }
 
     fn local(name: &str) -> RcLocal {
         RcLocal::new(Local::new(Some(name.to_string())))

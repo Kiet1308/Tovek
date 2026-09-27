@@ -402,17 +402,39 @@ impl RcLocal {
 }
 
 impl LocalRw for RcLocal {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        visit(self)
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        vec![self]
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        visit(self)
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        vec![self]
+        crate::local::collect_reads_mut(self)
     }
 }
 
 #[enum_dispatch]
 pub trait LocalRw {
+    /// Visit reads in evaluation order, stopping when `visit` returns false.
+    /// Closure captures are reads; nested block and closure bodies are separate.
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.values_read().into_iter().all(visit)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.values_read_mut().into_iter().all(visit)
+    }
+
+    fn any_local_read(&self, predicate: &mut dyn FnMut(&RcLocal) -> bool) -> bool {
+        !self.visit_local_reads(&mut |local| !predicate(local))
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
         Vec::new()
     }
@@ -437,11 +459,10 @@ pub trait LocalRw {
     }
 
     fn replace_values_read(&mut self, old: &RcLocal, new: &RcLocal) {
-        for value in self.values_read_mut() {
-            if value == old {
-                *value = new.clone();
-            }
-        }
+        self.visit_local_reads_mut(&mut |value| {
+            if value == old { *value = new.clone(); }
+            true
+        });
     }
 
     fn replace_values_written(&mut self, old: &RcLocal, new: &RcLocal) {
@@ -502,4 +523,17 @@ mod source_binding_tests {
             assert!(valid_source_name(valid));
         }
     }
+}
+
+/// Built-in compatibility collectors share a single growing output buffer.
+pub(crate) fn collect_reads(node: &impl LocalRw) -> Vec<&RcLocal> {
+    let mut reads = Vec::new();
+    node.visit_local_reads(&mut |local| { reads.push(local); true });
+    reads
+}
+
+pub(crate) fn collect_reads_mut(node: &mut impl LocalRw) -> Vec<&mut RcLocal> {
+    let mut reads = Vec::new();
+    node.visit_local_reads_mut(&mut |local| { reads.push(local); true });
+    reads
 }

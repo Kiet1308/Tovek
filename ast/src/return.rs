@@ -19,6 +19,14 @@ impl Return {
 }
 
 impl Traverse for Return {
+    fn visit_rvalues<'a>(&'a self, visit: &mut dyn FnMut(&'a crate::RValue) -> bool) -> bool {
+        self.values.iter().all(visit)
+    }
+
+    fn visit_rvalues_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut crate::RValue) -> bool) -> bool {
+        self.values.iter_mut().all(visit)
+    }
+
     fn rvalues_mut(&mut self) -> Vec<&mut RValue> {
         self.values.iter_mut().collect()
     }
@@ -29,15 +37,20 @@ impl Traverse for Return {
 }
 
 impl LocalRw for Return {
+    fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.values.iter().all(|value| value.visit_local_reads(visit))
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
-        self.values.iter().flat_map(|r| r.values_read()).collect()
+        crate::local::collect_reads(self)
+    }
+
+    fn visit_local_reads_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.values.iter_mut().all(|value| value.visit_local_reads_mut(visit))
     }
 
     fn values_read_mut(&mut self) -> Vec<&mut RcLocal> {
-        self.values
-            .iter_mut()
-            .flat_map(|r| r.values_read_mut())
-            .collect()
+        crate::local::collect_reads_mut(self)
     }
 }
 
@@ -47,7 +60,7 @@ impl fmt::Display for Return {
             indentation_level: 0,
             indentation_mode: Default::default(),
             output: f,
-            colon_method_calls: Vec::new(),
+            colon_method_calls: Default::default(),
             position_query: None,
             closure_observer: None,
             emission_map: None,

@@ -8,6 +8,7 @@ default-run = "web-server"
 [dependencies]
 axum = "0.7"
 base64 = "0.22"
+http-body = "1"
 luau-lifter = { path = "../luau-lifter" }
 # The decompiler is allocation-bound (millions of small allocations against a
 # few-MB live heap), and the batch path hammers the allocator from every rayon
@@ -24,5 +25,4 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 [dev-dependencies]
-http-body = "1"
 tower = { version = "0.5", features = ["util"] }

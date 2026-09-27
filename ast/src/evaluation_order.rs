@@ -68,10 +68,11 @@ impl Order {
                 self.value(&branch.else_value, position, true, depth + 1, capture);
             }
             RValue::Closure(closure) => {
-                for local in closure.values_read() {
+                closure.visit_local_reads(&mut |local| {
                     self.event(position, if capture(local) { Effects::CAPTURE_READ } else { Effects::default() }, Some(local.stable_id()), None, conditional);
-                    if self.exhausted { return; }
-                }
+                    !self.exhausted
+                });
+                if self.exhausted { return; }
                 self.event(position, Effects::ALLOCATION, None, None, conditional);
             }
             RValue::Table(table) => {
@@ -88,7 +89,7 @@ impl Order {
                 }
             }
             _ => {
-                for child in value.rvalues() { self.value(child, position, conditional, depth + 1, capture); }
+                value.visit_rvalues(&mut |child| { self.value(child, position, conditional, depth + 1, capture); !self.exhausted });
                 self.event(position, effects::intrinsic(value, capture), None, None, conditional);
             }
         }

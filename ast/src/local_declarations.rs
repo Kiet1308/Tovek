@@ -1,12 +1,10 @@
 use std::collections::BTreeMap;
 
-use array_tool::vec::Intersect;
 use by_address::ByAddress;
 use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
 use parking_lot::Mutex;
 use petgraph::{
-    algo::dominators::simple_fast,
     prelude::{DiGraph, NodeIndex},
     Direction,
 };
@@ -17,10 +15,63 @@ use crate::{Assign, Block, LocalRw, RcLocal, Statement};
 
 #[derive(Default)]
 pub struct LocalDeclarer {
-    block_to_node: FxHashMap<ByAddress<Arc<Mutex<Block>>>, NodeIndex>,
     graph: DiGraph<(Option<Arc<Mutex<Block>>>, usize), ()>,
     local_usages: IndexMap<RcLocal, FxHashMap<NodeIndex, usize>>,
     declarations: FxHashMap<ByAddress<Arc<Mutex<Block>>>, BTreeMap<usize, IndexSet<RcLocal>>>,
+}
+
+/// The declaration graph is a lexical tree, including synthetic if nodes.
+/// Binary lifting gives both common scopes and their first child on a use path
+/// in O(log scopes), without general dominators or ancestor-vector intersections.
+struct ScopeAncestors {
+    depth: Vec<usize>,
+    jumps: Vec<Vec<NodeIndex>>,
+}
+
+impl ScopeAncestors {
+    fn new(graph: &DiGraph<(Option<Arc<Mutex<Block>>>, usize), ()>, root: NodeIndex) -> Self {
+        let len = graph.node_count();
+        let levels = (usize::BITS - len.leading_zeros()) as usize;
+        let mut depth = vec![0; len];
+        let mut jumps = vec![vec![root; len]; levels];
+        // Parents are allocated before children by LocalDeclarer::visit.
+        for node in graph.node_indices() {
+            if node == root { continue; }
+            let parent = graph.neighbors_directed(node, Direction::Incoming).exactly_one().unwrap();
+            depth[node.index()] = depth[parent.index()] + 1;
+            jumps[0][node.index()] = parent;
+            for level in 1..levels {
+                jumps[level][node.index()] = jumps[level - 1][jumps[level - 1][node.index()].index()];
+            }
+        }
+        Self { depth, jumps }
+    }
+
+    fn lift(&self, mut node: NodeIndex, mut distance: usize) -> NodeIndex {
+        while distance != 0 {
+            let level = distance.trailing_zeros() as usize;
+            node = self.jumps[level][node.index()];
+            distance &= distance - 1;
+        }
+        node
+    }
+
+    fn common(&self, mut left: NodeIndex, mut right: NodeIndex) -> NodeIndex {
+        if self.depth[left.index()] > self.depth[right.index()] { std::mem::swap(&mut left, &mut right); }
+        right = self.lift(right, self.depth[right.index()] - self.depth[left.index()]);
+        if left == right { return left; }
+        for level in (0..self.jumps.len()).rev() {
+            if self.jumps[level][left.index()] != self.jumps[level][right.index()] {
+                left = self.jumps[level][left.index()];
+                right = self.jumps[level][right.index()];
+            }
+        }
+        self.jumps[0][left.index()]
+    }
+
+    fn child_of(&self, ancestor: NodeIndex, descendant: NodeIndex) -> NodeIndex {
+        self.lift(descendant, self.depth[descendant.index()] - self.depth[ancestor.index()] - 1)
+    }
 }
 
 impl LocalDeclarer {
@@ -49,7 +100,6 @@ impl LocalDeclarer {
         locals_declared_by_scope: &FxHashSet<RcLocal>,
     ) -> NodeIndex {
         let node = self.graph.add_node((Some(block.clone()), stat_index));
-        self.block_to_node.insert(block.clone().into(), node);
         for (stat_index, stat) in block.lock().iter().enumerate() {
             for local in stat.values_read() {
                 self.record_usage(node, stat_index, local, locals_declared_by_scope);
@@ -107,37 +157,13 @@ impl LocalDeclarer {
         node
     }
 
-    fn insertion_index_for_usage(
-        &self,
-        common_dominator: NodeIndex,
-        usage_node: NodeIndex,
-        usage_stat_index: usize,
-    ) -> usize {
-        if usage_node == common_dominator {
-            return usage_stat_index;
-        }
-
-        let mut child = usage_node;
-        loop {
-            let parent = self
-                .graph
-                .neighbors_directed(child, Direction::Incoming)
-                .exactly_one()
-                .unwrap();
-            if parent == common_dominator {
-                return self.graph.node_weight(child).unwrap().1;
-            }
-            child = parent;
-        }
-    }
-
     pub fn declare_locals(
         mut self,
         root_block: Arc<Mutex<Block>>,
         locals_to_ignore: &FxHashSet<RcLocal>,
     ) {
         let root_node = self.visit(root_block, 0, &FxHashSet::default());
-        let dominators = simple_fast(&self.graph, root_node);
+        let ancestors = ScopeAncestors::new(&self.graph, root_node);
         let local_usages = std::mem::take(&mut self.local_usages);
         for (local, usages) in local_usages {
             if locals_to_ignore.contains(&local) {
@@ -146,24 +172,12 @@ impl LocalDeclarer {
             let (mut node, mut first_stat_index) = if usages.len() == 1 {
                 usages.into_iter().next().unwrap()
             } else {
-                let node_dominators = usages
-                    .keys()
-                    .map(|&n| dominators.dominators(n).unwrap().collect_vec())
-                    .collect_vec();
-                let mut dom_iter = node_dominators.iter().cloned();
-                let mut common_dominators = dom_iter.next().unwrap();
-                for node_dominators in dom_iter {
-                    common_dominators = common_dominators.intersect(node_dominators);
-                }
-                let common_dominator = common_dominators[0];
+                let common_dominator = usages.keys().copied().reduce(|left, right| ancestors.common(left, right)).unwrap();
                 let first_stat_index = usages
                     .iter()
                     .map(|(&usage_node, &usage_stat_index)| {
-                        self.insertion_index_for_usage(
-                            common_dominator,
-                            usage_node,
-                            usage_stat_index,
-                        )
+                        if usage_node == common_dominator { usage_stat_index }
+                        else { self.graph[ancestors.child_of(common_dominator, usage_node)].1 }
                     })
                     .min()
                     .unwrap();
@@ -235,6 +249,34 @@ impl LocalDeclarer {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn lexical_lca_and_insertion_child_match_dominator_paths() {
+        use petgraph::{algo::dominators::simple_fast, graph::DiGraph};
+        for seed in 1..32u64 {
+            let mut random = seed;
+            let mut graph = DiGraph::new();
+            let root = graph.add_node((None, 0));
+            for index in 1..120 {
+                random ^= random << 13; random ^= random >> 7; random ^= random << 17;
+                let node = graph.add_node((None, index));
+                graph.add_edge(petgraph::graph::NodeIndex::new(random as usize % index), node, ());
+            }
+            let index = super::ScopeAncestors::new(&graph, root);
+            let legacy = simple_fast(&graph, root);
+            for left in graph.node_indices() {
+                for right in graph.node_indices() {
+                    let expected = legacy.dominators(left).unwrap().find(|candidate| legacy.dominators(right).unwrap().any(|other| other == *candidate)).unwrap();
+                    assert_eq!(index.common(left, right), expected);
+                    if expected != right {
+                        let path: Vec<_> = legacy.dominators(right).unwrap().collect();
+                        let position = path.iter().position(|&node| node == expected).unwrap();
+                        assert_eq!(index.child_of(expected, right), path[position - 1]);
+                    }
+                }
+            }
+        }
+    }
+
     use super::LocalDeclarer;
     use crate::{
         Assign, Block, Call, Global, LValue, Literal, Local, NumericFor, RValue, RcLocal,
