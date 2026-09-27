@@ -20,9 +20,10 @@ mimalloc = "0.1.52"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2.0"
-tokio = { version = "1.42", features = ["rt-multi-thread", "sync"] }
+tokio = { version = "1.42", features = ["rt-multi-thread", "sync", "time"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
 [dev-dependencies]
+tokio = { version = "1.42", features = ["io-util", "test-util"] }
 tower = { version = "0.5", features = ["util"] }

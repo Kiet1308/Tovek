@@ -16,7 +16,7 @@ use std::time::Duration;
 
 use axum::{
     body::{Body, Bytes},
-    extract::{DefaultBodyLimit, State},
+    extract::{DefaultBodyLimit, FromRequest, State},
     http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -55,6 +55,8 @@ const RAW_BODY_LIMIT: usize = 16 * 1024 * 1024; // 16 MiB: one raw script.
 const BATCH_BODY_LIMIT: usize = 64 * 1024 * 1024; // 64 MiB: one whole batch.
 const LEGACY_BODY_LIMIT: usize = 2 * 1024 * 1024; // Axum's unchanged default.
 const REJECT_BODY_TIMEOUT: Duration = Duration::from_secs(5);
+const DEFAULT_UPLOAD_TIMEOUT: Duration = Duration::from_secs(30);
+const UPLOAD_TIMEOUT_ENV: &str = "TOVEK_UPLOAD_TIMEOUT_SECS";
 
 /// Cap CPU jobs across every route before buffering their bodies. Single
 /// requests share capacity with batches instead of bypassing backpressure.
@@ -107,6 +109,40 @@ impl IntoResponse for Error {
 struct AppState {
     /// Shared by legacy, raw and batch CPU jobs.
     cpu_semaphore: Arc<Semaphore>,
+    /// One deadline for the complete admitted upload, not for CPU execution.
+    upload_timeout: Duration,
+}
+
+fn parse_upload_timeout(value: &str) -> io::Result<Duration> {
+    value.parse::<u32>().ok().filter(|seconds| *seconds > 0)
+        .map(|seconds| Duration::from_secs(u64::from(seconds)))
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput,
+            format!("{UPLOAD_TIMEOUT_ENV} must be a positive 32-bit integer number of seconds")))
+}
+
+/// Use Axum's existing bounded Bytes extraction exactly once. Only body
+/// ingestion is timed: a completed upload may start CPU work that must keep
+/// its permit even after this deadline or cancellation of the HTTP future.
+struct AdmittedBody(Bytes);
+
+#[axum::async_trait]
+impl FromRequest<AppState> for AdmittedBody {
+    type Rejection = Response;
+
+    async fn from_request(
+        request: axum::extract::Request,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        match tokio::time::timeout(state.upload_timeout, Bytes::from_request(request, state)).await {
+            Ok(Ok(bytes)) => Ok(Self(bytes)),
+            Ok(Err(rejection)) => Err(rejection.into_response()),
+            Err(_) => Err((
+                StatusCode::REQUEST_TIMEOUT,
+                [(axum::http::header::CONNECTION, "close")],
+                "request body upload timed out",
+            ).into_response()),
+        }
+    }
 }
 
 #[tokio::main]
@@ -127,8 +163,15 @@ async fn main() -> Result<(), io::Error> {
     tracing::subscriber::set_global_default(subscriber)
         .expect("failed to set global tracing subscriber");
 
+    let upload_timeout = match std::env::var(UPLOAD_TIMEOUT_ENV) {
+        Ok(value) => parse_upload_timeout(&value)?,
+        Err(std::env::VarError::NotPresent) => DEFAULT_UPLOAD_TIMEOUT,
+        Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput,
+            format!("{UPLOAD_TIMEOUT_ENV} must contain a valid integer"))),
+    };
     let state = AppState {
         cpu_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_JOBS)),
+        upload_timeout,
     };
 
     let app = app(state);
@@ -157,7 +200,7 @@ fn app(state: AppState) -> Router {
         .with_state(state)
 }
 
-/// Reserve capacity before Axum's Bytes extractor buffers the body. On HTTP/1,
+/// Reserve capacity before AdmittedBody buffers the body with an upload deadline. On HTTP/1,
 /// dropping an unread upload can reset the socket before the client sees 503.
 /// Discard rejected uploads one frame at a time, within route/time limits.
 async fn admit_work(
@@ -202,7 +245,7 @@ async fn discard_rejected_body(mut body: Body, limit: usize, timeout: Duration) 
 async fn decompile(
     Extension(permit): Extension<Arc<OwnedSemaphorePermit>>,
     headers: HeaderMap,
-    body: Bytes,
+    AdmittedBody(body): AdmittedBody,
 ) -> Result<String, Error> {
     run_admitted_work(permit, move || {
         let bytecode = BASE64_STANDARD.decode(body)?;
@@ -220,7 +263,7 @@ async fn decompile(
 async fn decompile_raw(
     Extension(permit): Extension<Arc<OwnedSemaphorePermit>>,
     headers: HeaderMap,
-    body: Bytes,
+    AdmittedBody(body): AdmittedBody,
 ) -> Result<String, Error> {
     let script_name = header_string(&headers, "x-script-name");
     let key = parse_key_header(&headers)?;
@@ -249,7 +292,7 @@ async fn decompile_raw(
 async fn decompile_batch(
     Extension(permit): Extension<Arc<OwnedSemaphorePermit>>,
     headers: HeaderMap,
-    body: Bytes,
+    AdmittedBody(body): AdmittedBody,
 ) -> Result<Response, Error> {
     run_admitted_work(permit, move || {
         // Parsing/base64 and JSON response encoding can be large CPU jobs too;
@@ -745,7 +788,7 @@ mod tests {
     use tower::ServiceExt;
 
     // v9 compiler layout for `return 7`, with Roblox's opcode decode key.
-    fn bytecode() -> Vec<u8> {
+    pub(super) fn bytecode() -> Vec<u8> {
         let mut bytes = vec![9, 1, 0, 1, 1, 0, 0, 0, 0, 0, 2];
         bytes.extend([4u8.wrapping_mul(227), 0, 7, 0]);
         bytes.extend([22u8.wrapping_mul(227), 0, 2, 0]);
@@ -792,7 +835,10 @@ mod tests {
 
     #[tokio::test]
     async fn transports_preserve_source_status_item_order_and_permit_release() {
-        let state = AppState { cpu_semaphore: Arc::new(Semaphore::new(1)) };
+        let state = AppState {
+            cpu_semaphore: Arc::new(Semaphore::new(1)),
+            upload_timeout: DEFAULT_UPLOAD_TIMEOUT,
+        };
         let good = bytecode();
         let expected = luau_lifter::try_decompile_bytecode_with_options(
             &good, DEFAULT_KEY, Some("Widget"), DecompileOptions::default()).unwrap();
@@ -863,6 +909,211 @@ mod admission_tests {
         polled: Arc<std::sync::atomic::AtomicUsize>,
     }
 
+    const ROUTES: [&str; 3] = ["/decompile", "/decompile/raw", "/decompile/batch"];
+
+    fn valid_body(path: &str) -> Bytes {
+        match path {
+            "/decompile" => BASE64_STANDARD.encode(super::tests::bytecode()).into(),
+            "/decompile/raw" => super::tests::bytecode().into(),
+            "/decompile/batch" => Bytes::from_static(br#"{"scripts":[]}"#),
+            _ => unreachable!(),
+        }
+    }
+
+    struct UploadBody {
+        frames: tokio::sync::mpsc::UnboundedReceiver<Bytes>,
+        polled: Arc<std::sync::atomic::AtomicUsize>,
+        dropped: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl Drop for UploadBody {
+        fn drop(&mut self) {
+            self.dropped.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
+    impl http_body::Body for UploadBody {
+        type Data = Bytes;
+        type Error = Infallible;
+
+        fn poll_frame(mut self: Pin<&mut Self>, cx: &mut Context<'_>)
+            -> Poll<Option<Result<http_body::Frame<Bytes>, Infallible>>> {
+            self.polled.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            self.frames.poll_recv(cx).map(|frame| frame.map(|bytes| Ok(http_body::Frame::data(bytes))))
+        }
+    }
+
+    #[test]
+    fn upload_timeout_configuration_rejects_disabled_or_invalid_deadlines() {
+        assert_eq!(parse_upload_timeout("1").unwrap(), Duration::from_secs(1));
+        assert_eq!(parse_upload_timeout("120").unwrap(), Duration::from_secs(120));
+        for invalid in ["", "0", "-1", "1.5", "never", "4294967296"] {
+            assert_eq!(parse_upload_timeout(invalid).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn stalled_and_trickled_admitted_bodies_have_one_deadline_on_every_route() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        for path in ROUTES {
+            for trickle in [false, true] {
+                let state = AppState {
+                    cpu_semaphore: Arc::new(Semaphore::new(1)),
+                    upload_timeout: Duration::from_secs(10),
+                };
+                let (frames, receiver) = tokio::sync::mpsc::unbounded_channel();
+                let polled = Arc::new(AtomicUsize::new(0));
+                let dropped = Arc::new(AtomicBool::new(false));
+                let body = UploadBody { frames: receiver, polled: polled.clone(), dropped: dropped.clone() };
+                let request = axum::http::Request::post(path)
+                    .header(CONTENT_TYPE, "application/json")
+                    .body(Body::new(body)).unwrap();
+                let response = tokio::spawn(app(state.clone()).oneshot(request));
+                while polled.load(Ordering::SeqCst) == 0 { tokio::task::yield_now().await; }
+                assert_eq!(state.cpu_semaphore.available_permits(), 0);
+
+                for _ in 0..2 {
+                    tokio::time::advance(Duration::from_secs(4)).await;
+                    if trickle {
+                        let previous_polls = polled.load(Ordering::SeqCst);
+                        frames.send(Bytes::from_static(b"x")).unwrap();
+                        while polled.load(Ordering::SeqCst) == previous_polls {
+                            tokio::task::yield_now().await;
+                        }
+                    }
+                    assert!(!response.is_finished());
+                    assert_eq!(state.cpu_semaphore.available_permits(), 0);
+                }
+                tokio::time::advance(Duration::from_secs(2)).await;
+                let response = response.await.unwrap().unwrap();
+                assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
+                assert_eq!(response.headers()[axum::http::header::CONNECTION], "close");
+                assert!(dropped.load(Ordering::SeqCst));
+                assert_eq!(state.cpu_semaphore.available_permits(), 1);
+                drop(frames);
+
+                // A completed upload on the same route is admitted immediately.
+                tokio::time::resume();
+                let request = axum::http::Request::post(path).header(CONTENT_TYPE, "application/json")
+                    .body(Body::from(valid_body(path))).unwrap();
+                assert_eq!(app(state.clone()).oneshot(request).await.unwrap().status(), StatusCode::OK);
+                assert_eq!(state.cpu_semaphore.available_permits(), 1);
+                tokio::time::pause();
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelled_admitted_upload_drops_its_body_and_permit() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        let state = AppState {
+            cpu_semaphore: Arc::new(Semaphore::new(1)),
+            upload_timeout: DEFAULT_UPLOAD_TIMEOUT,
+        };
+        let (_frames, receiver) = tokio::sync::mpsc::unbounded_channel();
+        let polled = Arc::new(AtomicUsize::new(0));
+        let dropped = Arc::new(AtomicBool::new(false));
+        let request = axum::http::Request::post("/decompile/raw").body(Body::new(UploadBody {
+            frames: receiver, polled: polled.clone(), dropped: dropped.clone(),
+        })).unwrap();
+        let response = tokio::spawn(app(state.clone()).oneshot(request));
+        while polled.load(Ordering::SeqCst) == 0 { tokio::task::yield_now().await; }
+        response.abort();
+        assert!(response.await.unwrap_err().is_cancelled());
+        assert!(dropped.load(Ordering::SeqCst));
+        assert_eq!(state.cpu_semaphore.available_permits(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn multi_frame_uploads_completed_before_the_deadline_still_succeed() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        for path in ROUTES {
+            let state = AppState {
+                cpu_semaphore: Arc::new(Semaphore::new(1)),
+                upload_timeout: Duration::from_secs(10),
+            };
+            let (frames, receiver) = tokio::sync::mpsc::unbounded_channel();
+            let polled = Arc::new(AtomicUsize::new(0));
+            let body = valid_body(path);
+            frames.send(body.slice(..body.len() / 2)).unwrap();
+            let request = axum::http::Request::post(path).header(CONTENT_TYPE, "application/json")
+                .body(Body::new(UploadBody {
+                    frames: receiver, polled: polled.clone(), dropped: Arc::new(AtomicBool::new(false)),
+                })).unwrap();
+            let response = tokio::spawn(app(state.clone()).oneshot(request));
+            while polled.load(Ordering::SeqCst) < 2 { tokio::task::yield_now().await; }
+            tokio::time::advance(Duration::from_secs(9)).await;
+            assert!(!response.is_finished());
+            tokio::time::resume();
+            frames.send(body.slice(body.len() / 2..)).unwrap();
+            drop(frames);
+            assert_eq!(response.await.unwrap().unwrap().status(), StatusCode::OK);
+            assert_eq!(state.cpu_semaphore.available_permits(), 1);
+            tokio::time::pause();
+        }
+    }
+
+    #[tokio::test]
+    async fn admitted_body_keeps_route_size_limits_and_body_read_errors() {
+        struct BrokenBody;
+        impl http_body::Body for BrokenBody {
+            type Data = Bytes;
+            type Error = io::Error;
+            fn poll_frame(self: Pin<&mut Self>, _: &mut Context<'_>)
+                -> Poll<Option<Result<http_body::Frame<Bytes>, io::Error>>> {
+                Poll::Ready(Some(Err(io::Error::new(io::ErrorKind::UnexpectedEof, "incomplete upload"))))
+            }
+        }
+        let state = AppState {
+            cpu_semaphore: Arc::new(Semaphore::new(1)),
+            upload_timeout: DEFAULT_UPLOAD_TIMEOUT,
+        };
+        for (path, limit) in ROUTES.into_iter().zip([LEGACY_BODY_LIMIT, RAW_BODY_LIMIT, BATCH_BODY_LIMIT]) {
+            for (body, expected) in [
+                (Body::from(vec![0u8; limit + 1]), StatusCode::PAYLOAD_TOO_LARGE),
+                (Body::new(BrokenBody), StatusCode::BAD_REQUEST),
+            ] {
+                let request = axum::http::Request::post(path).body(body).unwrap();
+                assert_eq!(app(state.clone()).oneshot(request).await.unwrap().status(), expected);
+                assert_eq!(state.cpu_semaphore.available_permits(), 1);
+            }
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn completed_upload_does_not_time_out_running_cpu_work() {
+        let state = AppState {
+            cpu_semaphore: Arc::new(Semaphore::new(1)),
+            upload_timeout: Duration::from_secs(1),
+        };
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let control = Arc::new((std::sync::Mutex::new(Some(started_tx)), std::sync::Mutex::new(release_rx)));
+        let router = Router::new().route("/work", post(move |
+            Extension(permit): Extension<Arc<OwnedSemaphorePermit>>,
+            AdmittedBody(_body): AdmittedBody,
+        | {
+            let control = control.clone();
+            async move {
+                run_admitted_work(permit, move || {
+                    control.0.lock().unwrap().take().unwrap().send(()).unwrap();
+                    control.1.lock().unwrap().recv_timeout(Duration::from_secs(5)).unwrap();
+                }).await.unwrap();
+                StatusCode::OK
+            }
+        })).route_layer(middleware::from_fn_with_state(state.clone(), admit_work)).with_state(state.clone());
+        let request = axum::http::Request::post("/work").body(Body::empty()).unwrap();
+        let response = tokio::spawn(router.oneshot(request));
+        started_rx.await.unwrap();
+        tokio::time::advance(Duration::from_secs(2)).await;
+        assert!(!response.is_finished(), "the upload deadline must not wrap CPU execution");
+        assert_eq!(state.cpu_semaphore.available_permits(), 0);
+        tokio::time::resume();
+        release_tx.send(()).unwrap();
+        assert_eq!(response.await.unwrap().unwrap().status(), StatusCode::OK);
+        assert_eq!(state.cpu_semaphore.available_permits(), 1);
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn admitted_work_leaves_the_async_executor_available() {
         let semaphore = Arc::new(Semaphore::new(1));
@@ -900,6 +1151,7 @@ mod admission_tests {
     async fn excess_capacity_discards_frames_without_parsing_or_decompiling() {
         let state = AppState {
             cpu_semaphore: Arc::new(Semaphore::new(1)),
+            upload_timeout: DEFAULT_UPLOAD_TIMEOUT,
         };
         let held = state.cpu_semaphore.clone().acquire_owned().await.unwrap();
         for path in ["/decompile", "/decompile/raw", "/decompile/batch"] {
@@ -975,7 +1227,10 @@ mod admission_tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn overload_uploads_receive_503_over_real_http_connections() {
-        let state = AppState { cpu_semaphore: Arc::new(Semaphore::new(1)) };
+        let state = AppState {
+            cpu_semaphore: Arc::new(Semaphore::new(1)),
+            upload_timeout: DEFAULT_UPLOAD_TIMEOUT,
+        };
         let held = state.cpu_semaphore.clone().acquire_owned().await.unwrap();
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
@@ -1003,6 +1258,56 @@ mod admission_tests {
             socket_post(address, "/decompile/batch", br#"{"key":1,"scripts":[]}"#)
         }).await.unwrap();
         assert_eq!(status, 200);
+        server.abort();
+        assert!(server.await.unwrap_err().is_cancelled());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn stalled_http_uploads_release_all_shared_capacity_at_the_deadline() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let state = AppState {
+            cpu_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_JOBS)),
+            upload_timeout: Duration::from_secs(2),
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server_state = state.clone();
+        let server = tokio::spawn(async move { axum::serve(listener, app(server_state)).await.unwrap() });
+        let mut uploads = Vec::new();
+        for index in 0..MAX_CONCURRENT_JOBS {
+            let mut socket = tokio::net::TcpStream::connect(address).await.unwrap();
+            let path = ROUTES[index % ROUTES.len()];
+            socket.write_all(format!(
+                "POST {path} HTTP/1.1\r\nHost: {address}\r\nContent-Length: 4\r\n\r\n"
+            ).as_bytes()).await.unwrap();
+            uploads.push(socket);
+        }
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while state.cpu_semaphore.available_permits() != 0 { tokio::task::yield_now().await; }
+        }).await.expect("uploads did not acquire all shared permits");
+
+        for path in ROUTES {
+            let (status, _) = tokio::task::spawn_blocking(move || {
+                socket_post(address, path, &valid_body(path))
+            }).await.unwrap();
+            assert_eq!(status, 503, "stalled uploads should currently occupy every slot");
+        }
+        for mut socket in uploads {
+            let mut response = Vec::new();
+            tokio::time::timeout(Duration::from_secs(5), socket.read_to_end(&mut response))
+                .await.expect("admitted upload was never timed out").unwrap();
+            let response = String::from_utf8(response).unwrap();
+            assert!(response.starts_with("HTTP/1.1 408"), "{response}");
+            assert!(response.to_ascii_lowercase().contains("connection: close\r\n"));
+        }
+        assert_eq!(state.cpu_semaphore.available_permits(), MAX_CONCURRENT_JOBS);
+        for path in ROUTES {
+            let (status, _) = tokio::task::spawn_blocking(move || {
+                socket_post(address, path, &valid_body(path))
+            }).await.unwrap();
+            assert_eq!(status, 200, "expired uploads must not starve {path}");
+        }
+        assert_eq!(state.cpu_semaphore.available_permits(), MAX_CONCURRENT_JOBS);
         server.abort();
         assert!(server.await.unwrap_err().is_cancelled());
     }

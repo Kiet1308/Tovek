@@ -217,6 +217,13 @@ Two extra routes skip per-script overhead — ideal for dumping a whole game in 
 | `POST /decompile/raw` | **raw** bytecode (one script, no base64) | `text/plain` source |
 | `POST /decompile/batch` | **many** scripts in one request | JSON results array |
 
+The local server admits at most four requests across these routes before reading
+their bodies. Admitted uploads have a **30-second total body-read deadline**;
+set `TOVEK_UPLOAD_TIMEOUT_SECS` to a positive integer to change it. An expired
+upload receives HTTP `408` with `Connection: close` and releases its slot.
+Completed uploads are not subject to this deadline while decompilation runs;
+CPU work retains its slot until it finishes, even if the client disconnects.
+
 - **Raw** (`/decompile/raw`): send the bytecode bytes verbatim — no base64 encode/decode.
   Use `Content-Type: application/octet-stream`, the optional `X-Script-Name` header, and an
   optional `X-Encode-Key` header (defaults to `203`).
