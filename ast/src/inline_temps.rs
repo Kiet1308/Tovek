@@ -2,6 +2,12 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::BTreeSet;
 
 mod usage;
+#[cfg(test)]
+mod chain_probe;
+#[cfg(test)]
+mod legacy_clone;
+#[cfg(test)]
+mod owned_tests;
 use usage::SubtreeUsage;
 
 use crate::{
@@ -70,6 +76,8 @@ pub fn rebuild_ui_expression_trees(block: &mut Block) -> bool {
     let facts = collect_motion_facts(block, true);
     let mut any_changed = false;
     loop {
+        #[cfg(test)]
+        chain_probe::record_round();
         let rebuilt = crate::rebuild_table_literals::rebuild_with_captured(block, &facts.captured, &facts.stable_captured);
         let inlined = inline_in_block(block, &facts);
         any_changed |= rebuilt | inlined;
@@ -449,6 +457,8 @@ fn inline_closures_in_statement(statement: &mut Statement, facts: &MotionFacts, 
 
 fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFacts, motion: &mut MotionQueries) -> bool {
     let Some((local, replacement)) = candidate_decl(&block[index]) else { return false; };
+    #[cfg(test)]
+    chain_probe::record_attempt(replacement);
     let local = local.clone();
     let generated = is_generated_temp(&local);
     let named_table = !generated && matches!(&replacement, RValue::Table(_));
@@ -513,7 +523,7 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
     }
     let numeric = facts.total_numeric(replacement);
     let (prefix, suffix) = block.0.split_at_mut(use_index);
-    let replacement = &prefix[index].as_assign().unwrap().right[0];
+    let replacement = &mut prefix[index].as_assign_mut().unwrap().right[0];
     let statement = &mut suffix[0];
     if facts.rebuild_call_chains
         && matches!(&replacement, RValue::Local(_) | RValue::Literal(_))
@@ -521,7 +531,15 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
     {
         return true;
     }
-    if replace_direct_rvalue_use(statement, &local, replacement, facts) {
+    #[cfg(test)]
+    let replaced = if legacy_clone::enabled() {
+        legacy_clone::replace_direct_rvalue_use(statement, &local, replacement, facts)
+    } else {
+        replace_direct_rvalue_use(statement, &local, replacement, facts)
+    };
+    #[cfg(not(test))]
+    let replaced = replace_direct_rvalue_use(statement, &local, replacement, facts);
+    if replaced {
         crate::telemetry::count("inline_accepted", 1);
         if numeric { crate::telemetry::count("inline_accepted_numeric_proof", 1); }
         return true;
@@ -684,6 +702,8 @@ fn replace_single_index_key_use(
     ) {
         return false;
     }
+    #[cfg(test)]
+    chain_probe::record_copy(replacement);
     *index.right = replacement.clone();
     true
 }
@@ -773,7 +793,7 @@ fn collect_closures_in_rvalue(rvalue: &RValue, f: &mut impl FnMut(&crate::Closur
 fn replace_direct_rvalue_use(
     statement: &mut Statement,
     local: &RcLocal,
-    replacement: &RValue,
+    replacement: &mut RValue,
     facts: &MotionFacts,
 ) -> bool {
     let mut before_side_effects = match &*statement {
@@ -807,11 +827,13 @@ fn replace_direct_rvalue_use(
 fn replace_first_rvalue_use(
     rvalue: &mut RValue,
     local: &RcLocal,
-    replacement: &RValue,
+    replacement: &mut RValue,
     facts: &MotionFacts,
     before_side_effects: &mut bool,
     conditionally_evaluated: bool,
 ) -> bool {
+    #[cfg(test)]
+    chain_probe::record_destination_visit();
     if matches!(rvalue, RValue::Local(read) if read == local) {
         // The caller has already proved this exact use with can_sink_with_summary.
         // Closure construction does not execute its body: captures can commute
@@ -824,7 +846,13 @@ fn replace_first_rvalue_use(
         {
             return false;
         }
-        *rvalue = replacement.clone();
+        // All eligibility, motion and exact-use guards have succeeded.
+        // The caller removes this declaration before its next analysis;
+        // rejected searches never detach or mutate the initializer.
+        // Moving retains descendant ancestry; only this root is inlined.
+        #[cfg(test)]
+        chain_probe::record_transfer(replacement);
+        *rvalue = std::mem::replace(replacement, crate::Literal::Nil.into());
         crate::node_origins::inlined(rvalue);
         return true;
     }
