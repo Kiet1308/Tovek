@@ -3,13 +3,13 @@ use nom::{IResult, bytes::complete::take, number::complete::le_u8};
 use super::chunk::Chunk;
 
 #[derive(Debug)]
-pub enum Bytecode {
+pub enum Bytecode<'a> {
     Error(String),
-    Chunk(Chunk),
+    Chunk(Chunk<'a>),
 }
 
-impl Bytecode {
-    pub fn parse(input: &[u8], encode_key: u8) -> IResult<&[u8], Bytecode> {
+impl<'a> Bytecode<'a> {
+    pub fn parse(input: &'a [u8], encode_key: u8) -> IResult<&'a [u8], Self> {
         let (input, status_code) = le_u8(input)?;
         match status_code {
             0 => {

@@ -120,6 +120,18 @@ impl Traverse for NumForInit {
 }
 
 impl LocalRw for NumForInit {
+    fn visit_local_writes<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.counter.0.visit_local_writes(visit)
+            && self.limit.0.visit_local_writes(visit)
+            && self.step.0.visit_local_writes(visit)
+    }
+
+    fn visit_local_writes_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.counter.0.visit_local_writes_mut(visit)
+            && self.limit.0.visit_local_writes_mut(visit)
+            && self.step.0.visit_local_writes_mut(visit)
+    }
+
     fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
         self.counter.1.visit_local_reads(visit)
             && self.limit.1.visit_local_reads(visit)
@@ -229,6 +241,14 @@ impl Traverse for NumForNext {
 }
 
 impl LocalRw for NumForNext {
+    fn visit_local_writes<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.counter.0.visit_local_writes(visit)
+    }
+
+    fn visit_local_writes_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.counter.0.visit_local_writes_mut(visit)
+    }
+
     fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
         self.counter.1.visit_local_reads(visit)
             && self.step.visit_local_reads(visit)
@@ -307,6 +327,14 @@ impl NumericFor {
 }
 
 impl LocalRw for NumericFor {
+    fn visit_local_writes<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        visit(&self.counter)
+    }
+
+    fn visit_local_writes_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        visit(&mut self.counter)
+    }
+
     fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
         self.initial.visit_local_reads(visit)
             && self.limit.visit_local_reads(visit)
@@ -447,6 +475,14 @@ impl Traverse for GenericForInit {
 }
 
 impl LocalRw for GenericForInit {
+    fn visit_local_writes<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.0.visit_local_writes(visit)
+    }
+
+    fn visit_local_writes_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.0.visit_local_writes_mut(visit)
+    }
+
     fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
         self.0.visit_local_reads(visit)
     }
@@ -574,6 +610,16 @@ impl Traverse for GenericForNext {
 }
 
 impl LocalRw for GenericForNext {
+    fn visit_local_writes<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        // The hidden control update belongs only to the non-nil edge. These
+        // visitors, like values_written below, expose definite block writes.
+        self.res_locals.iter().all(|local| local.visit_local_writes(visit))
+    }
+
+    fn visit_local_writes_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.res_locals.iter_mut().all(|local| local.visit_local_writes_mut(visit))
+    }
+
     fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
         self.generator.visit_local_reads(visit)
             && self.state.visit_local_reads(visit)
@@ -672,6 +718,14 @@ impl GenericFor {
 has_side_effects!(GenericFor);
 
 impl LocalRw for GenericFor {
+    fn visit_local_writes<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.res_locals.iter().all(visit)
+    }
+
+    fn visit_local_writes_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.res_locals.iter_mut().all(visit)
+    }
+
     fn visit_local_reads<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
         self.right.iter().all(|value| value.visit_local_reads(visit))
     }

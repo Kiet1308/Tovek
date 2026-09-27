@@ -29,6 +29,30 @@ enum ParamOrStatIndex {
     Stat(usize),
 }
 
+/// A local's final read in each block. `build_def_use` visits blocks once in
+/// increasing dominator preorder, so repeated reads update the final entry
+/// and each new block appends. No per-local block hash table is necessary.
+#[derive(Default, Debug)]
+struct LastUses(Vec<(usize, usize)>);
+
+impl LastUses {
+    fn record(&mut self, block_order: usize, statement: usize) {
+        if let Some((last_block, last_statement)) = self.0.last_mut() {
+            if *last_block == block_order {
+                *last_statement = statement;
+                return;
+            }
+            debug_assert!(*last_block < block_order);
+        }
+        self.0.push((block_order, statement));
+    }
+
+    fn get(&self, block_order: usize) -> Option<usize> {
+        self.0.binary_search_by_key(&block_order, |&(block, _)| block)
+            .ok().map(|index| self.0[index].1)
+    }
+}
+
 #[derive(PartialEq, Eq)]
 enum RedOrBlue {
     Red,
@@ -43,18 +67,70 @@ struct CongruenceClass {
 
 impl CongruenceClass {
     fn insert(&mut self, key: (usize, ParamOrStatIndex), local: RcLocal) {
-        self.bindings.take();
-        self.members.insert(key, local);
+        match self.members.entry(key) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                if let Some(summary) = self.bindings.get_mut() {
+                    summary.add_local(&local);
+                    ast::telemetry::count("destruct_binding_summary_incremental_members", 1);
+                }
+                entry.insert(local);
+            }
+            std::collections::btree_map::Entry::Occupied(mut entry) => {
+                entry.insert(local);
+                // A same-key replacement can remove the only restrictive
+                // member. Aggregate union cannot subtract its old facts.
+                self.bindings.take();
+                ast::telemetry::count("destruct_binding_summary_replacement_invalidations", 1);
+            }
+        }
     }
 
     fn extend(&mut self, other: Self) {
-        self.bindings.take();
-        self.members.extend(other.members);
+        let was_empty = self.members.is_empty();
+        let incoming = other.bindings.into_inner();
+        let mut overlap = false;
+        let mut incremental_members = 0;
+        // Detect replacement during the mandatory inserts, with no extra
+        // disjointness scan of either class. Preserve right-hand replacement
+        // semantics and the existing ordered member keys.
+        for (key, local) in other.members {
+            match self.members.entry(key) {
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    if incoming.is_none() && let Some(summary) = self.bindings.get_mut() {
+                        summary.add_local(&local);
+                        incremental_members += 1;
+                    }
+                    entry.insert(local);
+                }
+                std::collections::btree_map::Entry::Occupied(mut entry) => {
+                    entry.insert(local);
+                    overlap = true;
+                    self.bindings.take();
+                }
+            }
+        }
+        if incremental_members != 0 {
+            ast::telemetry::count("destruct_binding_summary_incremental_members", incremental_members);
+        }
+        if overlap {
+            ast::telemetry::count("destruct_binding_summary_replacement_invalidations", 1);
+        } else if let Some(incoming) = incoming {
+            if let Some(summary) = self.bindings.get_mut() {
+                summary.merge(incoming);
+                ast::telemetry::count("destruct_binding_summary_merges", 1);
+            } else if was_empty {
+                // Transfer a donor's existing cache; never eagerly build an
+                // uncached receiver merely because a donor was queried.
+                self.bindings.set(incoming).ok().unwrap();
+                ast::telemetry::count("destruct_binding_summary_cache_transfers", 1);
+            }
+        }
     }
 
     fn bindings(&self) -> &BindingSummary {
         self.bindings.get_or_init(|| {
             ast::telemetry::count("destruct_binding_summary_builds", 1);
+            ast::telemetry::count("destruct_binding_summary_full_rebuilds", 1);
             ast::telemetry::count("destruct_binding_summary_members", self.members.len() as u64);
             BindingSummary::from_locals(self.members.values())
         })
@@ -98,6 +174,132 @@ mod class_cache_tests {
         class.insert((2, ParamOrStatIndex::Stat(0)), parameter);
         assert!(!class.bindings().compatible(class.bindings()));
     }
+
+    #[test]
+    fn cached_class_unions_reuse_summaries_without_rescanning_members() {
+        for count in [64, 256, 1024] {
+            let locals: Vec<_> = (0..count).map(|_| RcLocal::default()).collect();
+            let mut class = CongruenceClass::default();
+            class.bindings();
+            bindings::SUMMARY_LOCAL_VISITS.with(|visits| visits.set(0));
+            for (index, local) in locals.iter().enumerate() {
+                let mut donor = CongruenceClass::default();
+                donor.insert((index, ParamOrStatIndex::Stat(0)), local.clone());
+                donor.bindings();
+                class.extend(donor);
+                assert!(class.bindings.get().is_some());
+                class.bindings();
+            }
+            assert_eq!(bindings::SUMMARY_LOCAL_VISITS.with(|visits| visits.get()), count);
+            assert_eq!(*class.bindings(), BindingSummary::from_locals(class.values()));
+        }
+    }
+
+    #[test]
+    fn initial_summary_builds_remain_lazy_and_cached_insertions_are_incremental() {
+        let a = RcLocal::default();
+        let b = RcLocal::default();
+        let c = RcLocal::default();
+        a.0.lock().4.parameter = true;
+        c.0.lock().4.separate_from_parameter = true;
+        bindings::SUMMARY_LOCAL_VISITS.with(|visits| visits.set(0));
+        let mut class = CongruenceClass::default();
+        class.insert((0, ParamOrStatIndex::Param(0)), a);
+        class.insert((0, ParamOrStatIndex::Stat(0)), b);
+        let mut donor = CongruenceClass::default();
+        donor.insert((1, ParamOrStatIndex::Stat(0)), c);
+        donor.bindings();
+        class.extend(donor);
+        assert!(class.bindings.get().is_none());
+        assert_eq!(bindings::SUMMARY_LOCAL_VISITS.with(|visits| visits.get()), 1);
+        class.bindings();
+        assert_eq!(bindings::SUMMARY_LOCAL_VISITS.with(|visits| visits.get()), 4);
+        class.insert((2, ParamOrStatIndex::Stat(0)), RcLocal::default());
+        class.bindings();
+        assert_eq!(bindings::SUMMARY_LOCAL_VISITS.with(|visits| visits.get()), 5);
+        let mut uncached = CongruenceClass::default();
+        uncached.insert((3, ParamOrStatIndex::Stat(0)), RcLocal::default());
+        class.extend(uncached);
+        assert_eq!(bindings::SUMMARY_LOCAL_VISITS.with(|visits| visits.get()), 6);
+        assert_eq!(*class.bindings(), BindingSummary::from_locals(class.values()));
+
+        let mut empty = CongruenceClass::default();
+        let before = bindings::SUMMARY_LOCAL_VISITS.with(|visits| visits.get());
+        empty.extend(class);
+        assert!(empty.bindings.get().is_some());
+        empty.bindings();
+        assert_eq!(bindings::SUMMARY_LOCAL_VISITS.with(|visits| visits.get()), before);
+    }
+
+    #[test]
+    fn overlapping_member_keys_replace_and_invalidate_even_with_cached_donors() {
+        let parameter = RcLocal::default();
+        parameter.0.lock().4.parameter = true;
+        let separate = RcLocal::default();
+        separate.0.lock().4.separate_from_parameter = true;
+        let neutral = RcLocal::default();
+        let key = (0, ParamOrStatIndex::Stat(0));
+        for cached_donor in [false, true] {
+            let mut class = CongruenceClass::default();
+            class.insert(key, parameter.clone());
+            class.bindings();
+            let mut donor = CongruenceClass::default();
+            // Include disjoint entries on either side of the overlapping key.
+            donor.insert((0, ParamOrStatIndex::Param(0)), separate.clone());
+            donor.insert(key, neutral.clone());
+            donor.insert((1, ParamOrStatIndex::Stat(0)), neutral.clone());
+            if cached_donor { donor.bindings(); }
+            let expected: BTreeMap<_, _> = donor.members.iter().map(|(key, local)| (*key, local.clone())).collect();
+            class.extend(donor);
+            assert_eq!(class.members, expected);
+            assert!(class.bindings.get().is_none(), "replacement must discard stale role facts");
+            assert_eq!(*class.bindings(), BindingSummary::from_locals(class.values()));
+            assert!(class.bindings().compatible(&BindingSummary::from_locals([&separate].into_iter())));
+            // Replacing with the same identity must still take the invalidation
+            // path; no hidden assumption about metadata changes is introduced.
+            class.insert(key, neutral.clone());
+            assert!(class.bindings.get().is_none());
+        }
+    }
+
+    #[test]
+    fn cached_mutation_sequence_matches_ordered_members_and_pairwise_evidence() {
+        let pool: Vec<_> = (0..12).map(|index| {
+            let local = RcLocal::default();
+            let mut metadata = local.0.lock();
+            metadata.4.parameter = index & 1 != 0;
+            metadata.4.separate_from_parameter = index & 2 != 0;
+            let origin = if index < 4 { ast::BindingOrigin::Function { prototype: index } }
+                else { ast::BindingOrigin::DebugLocal { prototype: 0, register: 0, start_pc: index / 4, end_pc: 3 } };
+            metadata.add_source_binding(ast::SourceBinding { origin, name: "sameSpelling".into() });
+            drop(metadata);
+            local
+        }).collect();
+        let mut class = CongruenceClass::default();
+        let mut expected = BTreeMap::new();
+        let mut state = 1u64;
+        let mut next = || { state = state.wrapping_mul(6364136223846793005).wrapping_add(1); (state >> 32) as usize };
+        for step in 0..256 {
+            let mut donor = CongruenceClass::default();
+            let width = if step < pool.len() { 1 } else { 1 + next() % 4 };
+            for slot in 0..width {
+                let key = if step < pool.len() { (0, ParamOrStatIndex::Stat(0)) }
+                    else { (next() % 3, if slot % 2 == 0 { ParamOrStatIndex::Param(next() % 5) }
+                        else { ParamOrStatIndex::Stat(next() % 5) }) };
+                let local = pool[if step < pool.len() { step } else { next() % pool.len() }].clone();
+                expected.insert(key, local.clone());
+                donor.insert(key, local);
+            }
+            if step % 2 == 0 { donor.bindings(); }
+            class.extend(donor);
+            assert_eq!(class.members, expected, "step {step}");
+            assert_eq!(*class.bindings(), BindingSummary::from_locals(expected.values()), "step {step}");
+            for probe in &pool {
+                let compatible = expected.values().all(|local| local.source_bindings_compatible(probe));
+                assert_eq!(class.bindings().compatible(&BindingSummary::from_locals([probe].into_iter())), compatible);
+            }
+        }
+    }
 }
 
 // Benoit Boissinot, Alain Darte, Fabrice Rastello, Benoît Dupont de Dinechin, Christophe Guillon.
@@ -117,14 +319,43 @@ pub struct Destructor<'a> {
     equal_ancestor_in: FxHashMap<RcLocal, RcLocal>,
     equal_ancestor_out: FxHashMap<RcLocal, RcLocal>,
     local_defs: FxHashMap<RcLocal, (usize, NodeIndex, ParamOrStatIndex)>,
-    local_last_use: FxHashMap<RcLocal, FxHashMap<NodeIndex, (usize, ParamOrStatIndex)>>,
+    local_last_use: FxHashMap<RcLocal, LastUses>,
     dominator_tree: DiGraphMap<NodeIndex, ()>,
     // Half-open DFS intervals provide ancestor queries in O(1), with O(V)
     // storage instead of copying every ancestor on a deep dominator chain.
     dominators: FxHashMap<NodeIndex, (usize, usize)>,
     liveness: FxHashMap<NodeIndex, LiveSets>,
     undesirable_blocks: FxHashSet<NodeIndex>,
+    terminal_block: Option<NodeIndex>,
 }
+
+/// Terminal SSA still needs copy/capture coalescing and sequentialization,
+/// but every definition belongs to this one block and no value is live-out.
+/// Keep malformed or already-structured control on the legacy analysis path.
+fn terminal_destruction_block(function: &Function) -> Option<NodeIndex> {
+    #[cfg(test)]
+    if REFERENCE_TERMINAL_DESTRUCTION.with(std::cell::Cell::get) { return None; }
+    if function.graph().node_count() != 1 || function.graph().edge_count() != 0 { return None; }
+    let entry = function.entry().as_ref().copied()?;
+    let block = function.block(entry)?;
+    ast::telemetry::count("ssa_destruct_terminal_eligible", 1);
+    block.iter().enumerate().all(|(index, statement)| match statement {
+        ast::Statement::Assign(assign) => !assign.parallel || (assign.right.len() >= assign.left.len()
+            && assign.left.iter().all(|left| left.as_local().is_some())),
+        ast::Statement::Call(_) | ast::Statement::MethodCall(_) | ast::Statement::SetList(_)
+            | ast::Statement::Comment(_) | ast::Statement::Empty(_) => true,
+        ast::Statement::Return(_) => index + 1 == block.len(),
+        _ => false,
+    }).then_some(entry)
+}
+
+#[cfg(test)]
+thread_local! {
+    static REFERENCE_TERMINAL_DESTRUCTION: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+mod terminal_tests;
 
 impl<'a> Destructor<'a> {
     pub fn new(
@@ -133,6 +364,7 @@ impl<'a> Destructor<'a> {
         upvalues_in: FxHashSet<RcLocal>,
         local_count: usize,
     ) -> Self {
+        let terminal_block = terminal_destruction_block(function);
         Self {
             function,
             upvalue_to_group,
@@ -150,17 +382,26 @@ impl<'a> Destructor<'a> {
             dominators: FxHashMap::default(),
             liveness: FxHashMap::default(),
             undesirable_blocks: FxHashSet::default(),
+            terminal_block,
         }
     }
 
     pub fn destruct(mut self) {
+        if let Some(node) = self.terminal_block {
+            ast::telemetry::count("ssa_destruct_terminal_admitted", 1);
+            ast::telemetry::count("ssa_destruct_terminal_statements", self.function.block(node).unwrap().len() as u64);
+        }
         let phase = ast::telemetry::Span::new("SSA_LIFT_PARAMS");
-        self.lift_params();
-        self.sort_params();
+        if self.terminal_block.is_none() {
+            self.lift_params();
+            self.sort_params();
+        }
         drop(phase);
 
         let phase = ast::telemetry::Span::new("SSA_LIVENESS");
-        self.liveness = Liveness::calculate(self.function);
+        if self.terminal_block.is_none() {
+            self.liveness = Liveness::calculate(self.function);
+        }
         drop(phase);
         // this is for debugging :)
         //self.add_liveness_comments();
@@ -176,7 +417,7 @@ impl<'a> Destructor<'a> {
 
         let phase = ast::telemetry::Span::new("SSA_COALESCE_MANDATORY");
         self.coalesce_upvalues();
-        self.coalesce_params();
+        if self.terminal_block.is_none() { self.coalesce_params(); }
         drop(phase);
         let phase = ast::telemetry::Span::new("SSA_COALESCE_COPIES");
         self.coalesce_copies();
@@ -380,23 +621,27 @@ impl<'a> Destructor<'a> {
 
     // TODO: combine with compute value interference
     fn build_def_use(&mut self) {
-        let dominators = simple_fast(self.function.graph(), self.function.entry().unwrap());
-        for node in self.function.graph().node_indices() {
-            if let Some(dominator) = dominators.immediate_dominator(node) {
-                self.dominator_tree.add_edge(dominator, node, ());
+        #[cfg(test)]
+        let mut last_use_reference = FxHashMap::<RcLocal, FxHashMap<NodeIndex, (usize, ParamOrStatIndex)>>::default();
+        if self.terminal_block.is_none() {
+            let dominators = simple_fast(self.function.graph(), self.function.entry().unwrap());
+            for node in self.function.graph().node_indices() {
+                if let Some(dominator) = dominators.immediate_dominator(node) {
+                    self.dominator_tree.add_edge(dominator, node, ());
+                }
             }
-        }
-        self.dominators.reserve(self.dominator_tree.node_count());
-        let mut clock = 0;
-        let mut walk = vec![(self.function.entry().unwrap(), false)];
-        while let Some((node, exiting)) = walk.pop() {
-            if exiting {
-                self.dominators.get_mut(&node).unwrap().1 = clock;
-            } else {
-                self.dominators.insert(node, (clock, 0));
-                clock += 1;
-                walk.push((node, true));
-                walk.extend(self.dominator_tree.neighbors(node).map(|child| (child, false)));
+            self.dominators.reserve(self.dominator_tree.node_count());
+            let mut clock = 0;
+            let mut walk = vec![(self.function.entry().unwrap(), false)];
+            while let Some((node, exiting)) = walk.pop() {
+                if exiting {
+                    self.dominators.get_mut(&node).unwrap().1 = clock;
+                } else {
+                    self.dominators.insert(node, (clock, 0));
+                    clock += 1;
+                    walk.push((node, true));
+                    walk.extend(self.dominator_tree.neighbors(node).map(|child| (child, false)));
+                }
             }
         }
 
@@ -428,9 +673,7 @@ impl<'a> Destructor<'a> {
             }
 
             if let Some((_, edge)) = self.function.edges_to_block(node).next() {
-                for (param_index, (param, _)) in
-                    edge.arguments.iter().enumerate().collect::<Vec<_>>()
-                {
+                for (param_index, (param, _)) in edge.arguments.iter().enumerate() {
                     self.local_defs.insert(
                         param.clone(),
                         (dominator_index, node, ParamOrStatIndex::Param(param_index)),
@@ -438,21 +681,48 @@ impl<'a> Destructor<'a> {
                 }
             }
             for (stat_index, stat) in self.function.block(node).unwrap().0.iter().enumerate() {
-                for local in stat.values_written() {
+                stat.visit_local_writes(&mut |local| {
                     self.local_defs.insert(
                         local.clone(),
                         (dominator_index, node, ParamOrStatIndex::Stat(stat_index)),
                     );
-                }
+                    true
+                });
 
-                for local in stat.values_read() {
+                stat.visit_local_reads(&mut |local| {
                     self.local_last_use
                         .entry(local.clone())
                         .or_default()
+                        .record(dominator_index, stat_index);
+                    #[cfg(test)]
+                    last_use_reference.entry(local.clone()).or_default()
                         .insert(node, (dominator_index, ParamOrStatIndex::Stat(stat_index)));
-                }
+                    true
+                });
             }
             dominator_index += 1;
+        }
+        #[cfg(test)]
+        {
+            assert_eq!(self.local_last_use.len(), last_use_reference.len());
+            for (local, expected) in last_use_reference {
+                let actual = &self.local_last_use[&local];
+                assert_eq!(actual.0.len(), expected.len());
+                for (_, (order, position)) in expected {
+                    assert_eq!(actual.get(order).map(ParamOrStatIndex::Stat), Some(position));
+                }
+            }
+        }
+        if ast::telemetry::enabled() {
+            ast::telemetry::count("destruct_last_use_locals", self.local_last_use.len() as u64);
+            let mut entries = 0;
+            let mut single_block = 0;
+            for uses in self.local_last_use.values() {
+                entries += uses.0.len();
+                single_block += usize::from(uses.0.len() == 1);
+            }
+            ast::telemetry::count("destruct_last_use_block_entries", entries as u64);
+            ast::telemetry::count("destruct_last_use_single_block_locals", single_block as u64);
         }
     }
 
@@ -693,19 +963,22 @@ impl<'a> Destructor<'a> {
         assert!(local_a != local_b);
         assert!(!self.dominates(local_a, local_b));
 
-        let (_, block_a, _) = self.local_defs[local_a];
+        let (def_dom_index, block_a, def_stat_index) = self.local_defs[local_a];
         let (_, block_b, _) = self.local_defs[local_b];
-        if self.liveness[&block_a].live_out.contains(local_b) {
+        // An edgeless single-block function has empty live_out, and both
+        // definitions are in that block. The legacy live_in test can never
+        // decide this query; keep the exact last-use/definition comparison.
+        if self.terminal_block.is_none() && self.liveness[&block_a].live_out.contains(local_b) {
             true
-        } else if !self.liveness[&block_a].live_in.contains(local_b) && block_a != block_b {
+        } else if self.terminal_block.is_none()
+            && !self.liveness[&block_a].live_in.contains(local_b) && block_a != block_b {
             false
-        } else if let Some(dom_use_index) = self
+        } else if let Some(last_use) = self
             .local_last_use
             .get(local_b)
-            .and_then(|m| m.get(&block_a))
+            .and_then(|uses| uses.get(def_dom_index))
         {
-            let (def_dom_index, _, def_stat_index) = self.local_defs[local_a];
-            dom_use_index > &(def_dom_index, def_stat_index)
+            ParamOrStatIndex::Stat(last_use) > def_stat_index
         } else {
             false
         }
@@ -868,25 +1141,21 @@ impl<'a> Destructor<'a> {
             };
             ast::telemetry::count(bucket, 1);
         }
+        let mut out_present = 0;
+        let mut updates = 0;
         for local in con_class_a.borrow().values() {
-            let local_in = self.equal_ancestor_in.get(local);
-            let local_out = self.equal_ancestor_out.get(local);
-            let new_local_in = match (local_in, local_out) {
-                (None, Some(local)) | (Some(local), None) => Some(local),
-                (Some(local_in), Some(local_out)) => {
-                    Some(if self.check_pre_dom_order(local_in, local_out) {
-                        local_out
-                    } else {
-                        local_in
-                    })
-                }
-                _ => None,
-            };
-            if let Some(new_local_in) = new_local_in {
-                self.equal_ancestor_in
-                    .insert(local.clone(), new_local_in.clone());
-            }
+            // Keep inspecting the complete class: failed interference attempts
+            // can leave relevant out-state on any member. Only omit writes
+            // that would reinstall the exact ancestor already held in `in`.
+            let Some(local_out) = self.equal_ancestor_out.get(local) else { continue; };
+            out_present += 1;
+            if self.equal_ancestor_in.get(local).is_some_and(|local_in|
+                !self.check_pre_dom_order(local_in, local_out)) { continue; }
+            self.equal_ancestor_in.insert(local.clone(), local_out.clone());
+            updates += 1;
         }
+        ast::telemetry::count("destruct_ancestor_out_present", out_present);
+        ast::telemetry::count("destruct_ancestor_updates", updates);
     }
 
     fn compute_value_interference(&mut self) {
@@ -1206,6 +1475,82 @@ impl<'a> Destructor<'a> {
 #[cfg(test)]
 mod copy_sharing_regressions {
     use super::*;
+
+    #[test]
+    fn compact_last_uses_match_hash_maps_for_sparse_blocks_and_repeated_reads() {
+        for seed in 0..64u64 {
+            let mut state = seed;
+            let mut next = || {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                (state >> 32) as usize
+            };
+            let mut actual: [LastUses; 12] = std::array::from_fn(|_| LastUses::default());
+            let mut expected: [FxHashMap<usize, usize>; 12] = std::array::from_fn(|_| FxHashMap::default());
+            for order in 0..128 {
+                if next() % 3 == 0 { continue; }
+                for statement in 0..1 + next() % 8 {
+                    let local = next() % actual.len();
+                    for _ in 0..1 + next() % 3 {
+                        actual[local].record(order, statement);
+                        expected[local].insert(order, statement);
+                    }
+                }
+            }
+            for (actual, expected) in actual.iter().zip(&expected) {
+                assert_eq!(actual.0.len(), expected.len());
+                for order in 0..=128 {
+                    assert_eq!(actual.get(order), expected.get(&order).copied(), "seed={seed}, block={order}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn ancestor_refresh_matches_reinsertion_with_preexisting_refusal_state() {
+        for seed in 0..64usize {
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            function.set_entry(entry);
+            let members: Vec<_> = (0..6).map(|_| RcLocal::default()).collect();
+            let ancestors: Vec<_> = (0..4).map(|_| RcLocal::default()).collect();
+            let mut destructor = Destructor::new(&mut function, IndexMap::new(), FxHashSet::default(), 10);
+            for (index, local) in ancestors.iter().chain(&members).enumerate() {
+                destructor.local_defs.insert(local.clone(), (0, entry, ParamOrStatIndex::Stat(index)));
+            }
+            // Distinct identities can share a parallel-definition position;
+            // equal positions must retain `in`, not select the new `out`.
+            destructor.local_defs.insert(ancestors[1].clone(), (0, entry, ParamOrStatIndex::Stat(0)));
+            let mut classes = [CongruenceClass::default(), CongruenceClass::default()];
+            for (index, local) in members.iter().enumerate() {
+                classes[index % 2].insert((0, ParamOrStatIndex::Stat(index + 4)), local.clone());
+                let before = (seed + index * 3) % 5;
+                let after = (seed / 5 + index * 2) % 5;
+                if before < ancestors.len() {
+                    destructor.equal_ancestor_in.insert(local.clone(), ancestors[before].clone());
+                }
+                if after < ancestors.len() {
+                    // Include old receiver members as well as donor members,
+                    // as happens after an earlier refused interference query.
+                    destructor.equal_ancestor_out.insert(local.clone(), ancestors[after].clone());
+                }
+            }
+            let mut expected = destructor.equal_ancestor_in.clone();
+            for local in &members {
+                let selected = match (expected.get(local), destructor.equal_ancestor_out.get(local)) {
+                    (None, Some(local)) | (Some(local), None) => Some(local),
+                    (Some(before), Some(after)) => Some(if destructor.check_pre_dom_order(before, after) { after } else { before }),
+                    _ => None,
+                }.cloned();
+                if let Some(selected) = selected { expected.insert(local.clone(), selected); }
+            }
+            let out_before = destructor.equal_ancestor_out.clone();
+            let [left, right] = classes.map(|class| Rc::new(RefCell::new(class)));
+            destructor.merge_congruence_classes(&left, &right);
+            assert_eq!(destructor.equal_ancestor_in, expected, "seed {seed}");
+            assert_eq!(destructor.equal_ancestor_out, out_before);
+            assert_eq!(left.borrow().len(), members.len());
+        }
+    }
 
     #[test]
     fn interference_visit_oracle_covers_early_conflict_and_complete_merge_walk() {

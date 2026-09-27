@@ -234,8 +234,26 @@ fn is_parent_advance(statement: &Statement, cursor: &RcLocal) -> bool {
 /// only the element-local rename; the sole expression hole is therefore the
 /// proven consecutive index literal.
 fn reroll_two_index_blocks(block: &mut Block) {
+    reroll_two_index_blocks_impl::<true>(block);
+}
+
+fn reroll_two_index_blocks_impl<const PREFILTER: bool>(block: &mut Block) {
     if block.0.len() < 4 {
         return;
+    }
+    // Before the first accepted pair this loop cannot mutate the block. The
+    // exact candidate matcher requires declarations at offsets 0/2 indexed by
+    // literal 1/2; if no such window exists, neither the full descendant usage
+    // map nor the reserved-name census can affect any rewrite. This precheck
+    // borrows syntax only and retains no local or shared-block owners.
+    if PREFILTER {
+        let candidate = block.0.windows(4).any(|window| {
+            indexed_local_declaration(&window[0]).is_some_and(|(_, _, index)| index == 1)
+                && indexed_local_declaration(&window[2]).is_some_and(|(_, _, index)| index == 2)
+        });
+        crate::telemetry::count(if candidate { "canonicalize_reroll_census_required" }
+            else { "canonicalize_reroll_census_skipped" }, 1);
+        if !candidate { return; }
     }
     let usage = crate::inline_temps::collect_usage(block);
     let mut reserved = FxHashSet::default();
@@ -780,6 +798,93 @@ mod tests {
         assert!(output.contains("for i = 1, 2 do"), "{output}");
         assert!(output.contains("local player = players[i]"), "{output}");
         assert!(output.ends_with("fallback()"), "{output}");
+    }
+
+    #[test]
+    fn reroll_census_gate_matches_unconditional_legacy_collection() {
+        use crate::Traverse;
+        type OriginView = Option<(Vec<crate::node_origins::Input>, bool, bool, Option<&'static str>, bool)>;
+        fn origins(block: &Block, out: &mut Vec<OriginView>) {
+            let mut record = |origin: Option<&crate::node_origins::Origin>| {
+                out.push(origin.and_then(|origin| origin.0.as_ref()).map(|data| (
+                    data.inputs.iter().map(|input| (**input).clone()).collect(), data.inlined,
+                    data.cloned, data.synthesized, data.incomplete,
+                )));
+            };
+            for statement in &block.0 {
+                record(crate::node_origins::statement(statement));
+                statement.traverse_rvalues_ref(&mut |value| record(crate::node_origins::value(value)));
+            }
+            for statement in &block.0 {
+                match statement {
+                    Statement::If(branch) => {
+                        origins(&branch.then_block.lock(), out);
+                        origins(&branch.else_block.lock(), out);
+                    }
+                    Statement::NumericFor(node) => origins(&node.block.lock(), out),
+                    _ => {}
+                }
+            }
+        }
+        for mode in 0..9 {
+            for offset in [0, 1, 8, 32] {
+                let players = RcLocal::new(Local::new(Some("players".into())));
+                let first = RcLocal::new(Local::new(Some("v5".into())));
+                let second = RcLocal::new(Local::new(Some("v6".into())));
+                let other = RcLocal::new(Local::new(Some("others".into())));
+                let locals = [&players, &first, &second, &other];
+                first.0.lock().add_source_binding(crate::SourceBinding {
+                    origin: crate::BindingOrigin::DebugLocal { prototype: 0, register: 0, start_pc: 0, end_pc: 10 },
+                    name: "element".into(),
+                });
+                let mut source = Block((0..offset).map(|_| call("prefix")).collect());
+                source.0.extend([
+                    indexed_declaration(&first, &players, if mode == 1 { 2.0 } else { 1.0 }),
+                    return_local_if_truthy(&first),
+                    indexed_declaration(&second, if mode == 5 { &other } else { &players },
+                        if mode == 2 { 3.0 } else { 2.0 }),
+                    return_local_if_truthy(&second),
+                ]);
+                if mode == 3 { source[offset].as_assign_mut().unwrap().prefix = false; }
+                if mode == 4 { source[offset + 2].as_assign_mut().unwrap().parallel = true; }
+                if mode == 6 { source.push(Return::new(vec![first.clone().into()]).into()); }
+                if mode == 7 {
+                    source.push(Call::new(global("capture"), vec![Closure {
+                        node_origin: Default::default(), upvalues: vec![Upvalue::Ref(first.clone())],
+                        function: ByAddress(Arc::new(Mutex::new(Function::default()))),
+                    }.into()]).into());
+                }
+                if mode == 8 {
+                    source[offset] = call("no_index");
+                    source[offset + 2] = call("no_index");
+                }
+                for (index, statement) in source.iter_mut().enumerate() {
+                    if let Some(origin) = crate::node_origins::statement_mut(statement) {
+                        *origin = crate::node_origins::Origin::input(crate::node_origins::Input {
+                            function: "reroll-gate-oracle".into(), block: 0, statement: index, value: None,
+                        });
+                    }
+                }
+                let mut expected = crate::simplify_gotos::deep_clone_block(&source);
+                let mut actual = crate::simplify_gotos::deep_clone_block(&source);
+                let metadata: Vec<_> = locals.iter().map(|local| local.0.lock().clone()).collect();
+                let start = crate::current_local_id();
+                super::reroll_two_index_blocks_impl::<false>(&mut expected);
+                let minted = crate::current_local_id() - start;
+                let expected_text = expected.to_string();
+                let expected_metadata: Vec<_> = locals.iter().map(|local| local.0.lock().clone()).collect();
+                for (local, saved) in locals.iter().zip(&metadata) { *local.0.lock() = saved.clone(); }
+                let start = crate::current_local_id();
+                super::reroll_two_index_blocks(&mut actual);
+                assert_eq!(crate::current_local_id() - start, minted);
+                assert_eq!(actual.to_string(), expected_text, "mode={mode}, offset={offset}");
+                assert_eq!(locals.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>(), expected_metadata);
+                let mut actual_origins = Vec::new(); let mut expected_origins = Vec::new();
+                origins(&actual, &mut actual_origins); origins(&expected, &mut expected_origins);
+                assert_eq!(actual_origins, expected_origins);
+                assert_eq!(minted, u64::from(mode == 0), "positive fixture must exercise the unchanged candidate path");
+            }
+        }
     }
 
     #[test]

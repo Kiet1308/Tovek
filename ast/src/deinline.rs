@@ -20,6 +20,9 @@
 //! (upvalues by pointer identity, globals, method/field names, literals,
 //! operators, node kinds) to match exactly.
 
+mod statement_values;
+pub(crate) use statement_values::{visit_stmt_rvalues, visit_stmt_rvalues_mut};
+
 use parking_lot::Mutex;
 use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
@@ -1196,11 +1199,18 @@ fn canon_children_owned(s: Statement, tail: bool) -> Statement {
     }
 }
 
-fn unguard(mut stmts: Vec<Statement>) -> Vec<Statement> {
+/// `canon_top` already cloned these statements, including their expression
+/// origins. Consume that owned copy: cloning it again only repeats payload and
+/// operand allocations (Origin::clone's `cloned` flag is already set). Child
+/// block Arcs remain shared, so their early-return prefix still needs a clone.
+fn unguard(stmts: Vec<Statement>) -> Vec<Statement> {
+    unguard_owned(stmts.into_iter())
+}
+
+fn unguard_owned(mut stmts: std::vec::IntoIter<Statement>) -> Vec<Statement> {
     let mut out: Vec<Statement> = Vec::new();
-    let mut i = 0;
-    while i < stmts.len() {
-        if let Statement::If(f) = &stmts[i] {
+    while let Some(statement) = stmts.next() {
+        if let Statement::If(f) = &statement {
             // A guard may do work before returning:
             // `if cond then PREFIX; return [X] end; REST`.  Re-nest the shared
             // continuation into the exact structured form produced at inlined
@@ -1225,10 +1235,10 @@ fn unguard(mut stmts: Vec<Statement>) -> Vec<Statement> {
                 }
             };
             if let Some((mut early_prefix, ret_val)) = guard {
-                if i + 1 < stmts.len() {
-                    let cond = f.condition.clone();
-                    let suffix: Vec<Statement> = stmts.split_off(i + 1);
-                    let folded = unguard(suffix);
+                if !stmts.as_slice().is_empty() {
+                    let Statement::If(f) = statement else { unreachable!() };
+                    let cond = f.condition;
+                    let folded = unguard_owned(stmts);
                     if let Some(x) = ret_val {
                         early_prefix.push(Statement::Return(Return { node_origin: Default::default(), values: vec![x] }));
                     }
@@ -1241,8 +1251,7 @@ fn unguard(mut stmts: Vec<Statement>) -> Vec<Statement> {
                 }
             }
         }
-        out.push(stmts[i].clone());
-        i += 1;
+        out.push(statement);
     }
     out
 }
@@ -4870,6 +4879,59 @@ mod tests {
     use parking_lot::Mutex;
     use rustc_hash::FxHashSet;
 
+    // Original owned-input implementation, retained as an independent oracle.
+    fn unguard_reference(mut stmts: Vec<Statement>) -> Vec<Statement> {
+        let mut out: Vec<Statement> = Vec::new();
+        let mut i = 0;
+        while i < stmts.len() {
+            if let Statement::If(f) = &stmts[i] {
+                // A guard may do work before returning:
+                // `if cond then PREFIX; return [X] end; REST`.  Re-nest the shared
+                // continuation into the exact structured form produced at inlined
+                // sites: `if not cond then REST else PREFIX; return X end`.  For a
+                // void return the terminal return is omitted; tail fall-through is
+                // equivalent and `PREFIX` remains in the else arm.
+                let guard: Option<(Vec<Statement>, Option<RValue>)> = {
+                    let then = f.then_block.lock();
+                    let els = f.else_block.lock();
+                    if els.0.is_empty() {
+                        match then.0.split_last() {
+                            Some((Statement::Return(r), prefix)) if r.values.is_empty() => {
+                                Some((prefix.to_vec(), None))
+                            }
+                            Some((Statement::Return(r), prefix)) if r.values.len() == 1 => {
+                                Some((prefix.to_vec(), Some(r.values[0].clone())))
+                            }
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                };
+                if let Some((mut early_prefix, ret_val)) = guard {
+                    if i + 1 < stmts.len() {
+                        let cond = f.condition.clone();
+                        let suffix: Vec<Statement> = stmts.split_off(i + 1);
+                        let folded = unguard_reference(suffix);
+                        if let Some(x) = ret_val {
+                            early_prefix.push(Statement::Return(Return { node_origin: Default::default(), values: vec![x] }));
+                        }
+                        out.push(Statement::If(If::new(
+                            negate_canon(cond),
+                            Block(folded),
+                            Block(early_prefix),
+                        )));
+                        return out;
+                    }
+                }
+            }
+            out.push(stmts[i].clone());
+            i += 1;
+        }
+        out
+    }
+
+
     fn local(name: &str) -> RcLocal {
         RcLocal::new(Local::new(Some(name.to_string())))
     }
@@ -6620,6 +6682,162 @@ mod tests {
                 .origin,
             Some(origin)
         );
+    }
+
+    #[test]
+    fn consuming_unguard_matches_reference_shape_origins_and_owners() {
+        use crate::{node_origins, Traverse, Upvalue};
+        type OriginSnapshot = Option<(Vec<std::sync::Arc<node_origins::Input>>, bool, bool, bool, Option<&'static str>)>;
+        fn origin(origin: &node_origins::Origin, out: &mut Vec<OriginSnapshot>) {
+            out.push(origin.0.as_ref().map(|data| (data.inputs.clone(), data.inlined,
+                data.cloned, data.incomplete, data.synthesized)));
+        }
+        fn snapshot_value(value: &RValue, tags: &mut Vec<OriginSnapshot>, numbers: &mut Vec<u64>) {
+            if let Some(value) = node_origins::value(value) { origin(value, tags); }
+            if let RValue::Literal(Literal::Number(value)) = value { numbers.push(value.to_bits()); }
+            if let RValue::Closure(closure) = value {
+                snapshot(&closure.function.0.lock().body.0, tags, numbers);
+            }
+            value.visit_rvalues(&mut |value| { snapshot_value(value, tags, numbers); true });
+        }
+        fn snapshot(statements: &[Statement], tags: &mut Vec<OriginSnapshot>, numbers: &mut Vec<u64>) {
+            for statement in statements {
+                if let Some(value) = node_origins::statement(statement) { origin(value, tags); }
+                for value in stmt_rvalues(statement) { snapshot_value(value, tags, numbers); }
+                match statement {
+                    Statement::If(node) => {
+                        snapshot(&node.then_block.lock().0, tags, numbers);
+                        snapshot(&node.else_block.lock().0, tags, numbers);
+                    }
+                    Statement::While(node) => snapshot(&node.block.lock().0, tags, numbers),
+                    Statement::Repeat(node) => snapshot(&node.block.lock().0, tags, numbers),
+                    Statement::NumericFor(node) => snapshot(&node.block.lock().0, tags, numbers),
+                    Statement::GenericFor(node) => snapshot(&node.block.lock().0, tags, numbers),
+                    _ => {}
+                }
+            }
+        }
+        fn new_origin(index: &mut usize) -> node_origins::Origin {
+            *index += 1;
+            let mut origin = node_origins::Origin::input(node_origins::Input {
+                function: "unguard_differential".into(), block: *index / 4,
+                statement: *index, value: Some(*index % 4),
+            });
+            let data = origin.0.as_mut().unwrap();
+            data.inlined = *index & 1 != 0;
+            data.cloned = *index & 2 != 0;
+            data.incomplete = *index & 4 != 0;
+            if *index & 8 != 0 { data.synthesized = Some("test_origin"); }
+            origin
+        }
+        fn annotate_value(value: &mut RValue, index: &mut usize) {
+            if let Some(origin) = node_origins::value_mut(value) { *origin = new_origin(index); }
+            if let RValue::Closure(closure) = value {
+                annotate(&mut closure.function.0.lock().body.0, index);
+            }
+            value.visit_rvalues_mut(&mut |value| { annotate_value(value, index); true });
+        }
+        fn annotate(statements: &mut [Statement], index: &mut usize) {
+            for statement in statements {
+                if let Some(origin) = node_origins::statement_mut(statement) { *origin = new_origin(index); }
+                for value in stmt_rvalues_mut(statement) { annotate_value(value, index); }
+                match statement {
+                    Statement::If(node) => {
+                        annotate(&mut node.then_block.lock().0, index);
+                        annotate(&mut node.else_block.lock().0, index);
+                    }
+                    Statement::While(node) => annotate(&mut node.block.lock().0, index),
+                    Statement::Repeat(node) => annotate(&mut node.block.lock().0, index),
+                    _ => {}
+                }
+            }
+        }
+        let binding = local("value");
+        for seed in 0..1024usize {
+            let function = Arc::new(Mutex::new(Function {
+                bytecode_proto_id: Some(7),
+                body: Block(vec![return_one(add_one(&binding))]),
+                ..Default::default()
+            }));
+            let closure = || RValue::Closure(Closure {
+                node_origin: Default::default(), function: ByAddress(function.clone()),
+                upvalues: vec![Upvalue::Ref(binding.clone()), Upvalue::Copy(binding.clone())],
+            });
+            let condition = |choice: usize| {
+                let comparison: RValue = Binary::new(local_value(&binding),
+                    number(f64::from_bits(0x7ff8_0000_0000_1234)),
+                    [BinaryOperation::Equal, BinaryOperation::NotEqual,
+                        BinaryOperation::LessThan, BinaryOperation::LessThanOrEqual][choice % 4]).into();
+                if choice & 4 == 0 { comparison }
+                else { Unary::new(comparison, UnaryOperation::Not).into() }
+            };
+            let mut source = Vec::new();
+            let mut choices = seed;
+            for at in 0..7 {
+                let choice = (choices + at) % 10;
+                choices = choices / 7 + 3;
+                source.push(match choice {
+                    0 => print_x(),
+                    1 => Statement::Call(Call::new(global("consume"), vec![closure(), string("a\0\u{ff}7")])),
+                    2 => void_return(),
+                    3 => return_one(number(-0.0)),
+                    4 => if_stmt(condition(seed + at), vec![void_return()], vec![]),
+                    5 => if_stmt(condition(seed + at), vec![print_x(), return_one(add_one(&binding))], vec![]),
+                    6 => if_stmt(condition(seed + at), vec![return_one(closure())], vec![]),
+                    7 => if_stmt(condition(seed + at), vec![void_return()], vec![print_x()]),
+                    8 => if_stmt(condition(seed + at), vec![return_one(number(2.0)), print_x()], vec![]),
+                    _ => Statement::While(While::new(condition(seed + at), Block(vec![
+                        if_stmt(condition(seed), vec![void_return()], vec![]), print_x()]))),
+                });
+            }
+            annotate(&mut source, &mut 0);
+            let (mut source_tags, mut source_numbers) = (Vec::new(), Vec::new());
+            snapshot(&source, &mut source_tags, &mut source_numbers);
+            // This is unguard's exact production precondition: canon_top has
+            // already cloned retained statements, but still shares block/body Arcs.
+            let actual = unguard(source.clone());
+            let shape = format!("{actual:?}");
+            let rendered = Block(actual.clone()).to_string();
+            let (mut tags, mut numbers) = (Vec::new(), Vec::new());
+            snapshot(&actual, &mut tags, &mut numbers);
+            let owners = (Arc::count(&binding.0.0), Arc::strong_count(&function));
+            drop(actual);
+            let expected = unguard_reference(source.clone());
+            assert_eq!(format!("{expected:?}"), shape, "seed {seed}: shape");
+            assert_eq!(Block(expected.clone()).to_string(), rendered, "seed {seed}: source");
+            let (mut expected_tags, mut expected_numbers) = (Vec::new(), Vec::new());
+            snapshot(&expected, &mut expected_tags, &mut expected_numbers);
+            assert_eq!(expected_tags, tags, "seed {seed}: full origins");
+            assert_eq!(expected_numbers, numbers, "seed {seed}: float bits");
+            assert_eq!((Arc::count(&binding.0.0), Arc::strong_count(&function)), owners,
+                "seed {seed}: local and closure ownership");
+            let (mut after_tags, mut after_numbers) = (Vec::new(), Vec::new());
+            snapshot(&source, &mut after_tags, &mut after_numbers);
+            assert_eq!(after_tags, source_tags, "seed {seed}: shared inputs unchanged");
+            assert_eq!(after_numbers, source_numbers);
+        }
+    }
+
+    #[test]
+    fn consuming_unguard_reuses_already_cloned_operand_and_literal_storage() {
+        fn storage(statements: &[Statement]) -> Vec<(usize, usize)> {
+            statements.iter().map(|statement| {
+                let Statement::Call(call) = statement else { unreachable!() };
+                let RValue::Literal(Literal::String(bytes)) = &call.arguments[0] else { unreachable!() };
+                (call.value.as_ref() as *const RValue as usize, bytes.as_ptr() as usize)
+            }).collect()
+        }
+        for count in [64, 256, 1024] {
+            let source: Vec<_> = (0..count).map(|_| Statement::Call(Call::new(
+                global("observe"), vec![Literal::String(vec![0xff; 128]).into()]))).collect();
+            let prepared = source.clone();
+            let before = storage(&prepared);
+            assert_eq!(storage(&unguard(prepared)), before);
+            let reference_input = source.clone();
+            let before = storage(&reference_input);
+            let after = storage(&unguard_reference(reference_input));
+            assert!(before.iter().zip(&after).all(|(a, b)| a.0 != b.0 && a.1 != b.1));
+        }
     }
 
     /// Exhaustive equivalence: `canon_top_len(stmts, tail) == canon_top(stmts, tail).len()`

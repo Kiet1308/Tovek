@@ -4,19 +4,21 @@ use nom::number::complete::le_u8;
 use nom_leb128::leb128_usize;
 
 #[derive(Debug)]
-pub struct Chunk {
+pub struct Chunk<'a> {
     pub version: u8,
-    pub string_table: Vec<Vec<u8>>,
+    // String bytes stay in the caller's bytecode until lifting finishes. AST
+    // literals and public reports still take ownership of the bytes they need.
+    pub string_table: Vec<&'a [u8]>,
     pub functions: Vec<Function>,
     pub main: usize,
     /// Types version 3: names of the host userdata types referenced by tagged
     /// type tags (`LBC_TYPE_TAGGED_USERDATA_BASE + index`), keyed by that
     /// zero-based index.
-    pub userdata_type_names: Vec<(u8, Vec<u8>)>,
+    pub userdata_type_names: Vec<(u8, &'a [u8])>,
 }
 
-impl Chunk {
-    pub(crate) fn parse(input: &[u8], encode_key: u8, version: u8) -> IResult<&[u8], Self> {
+impl<'a> Chunk<'a> {
+    pub(crate) fn parse(input: &'a [u8], encode_key: u8, version: u8) -> IResult<&'a [u8], Self> {
         let (input, types_version) = if version >= 4 {
             le_u8(input)?
         } else {
@@ -44,7 +46,7 @@ impl Chunk {
                     .checked_sub(1)
                     .and_then(|string_index| string_table.get(string_index))
                 {
-                    names.push((index - 1, name.clone()));
+                    names.push((index - 1, *name));
                 }
             }
             (input, names)

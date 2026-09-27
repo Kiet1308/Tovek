@@ -90,7 +90,7 @@ impl OpenLabels {
 }
 
 #[derive(Debug)]
-pub(crate) struct UpvaluesOpen {
+pub(crate) struct UpvaluesOpen<'a> {
     // Each interval carries the stable minimum `(block, statement)` open site.
     // During dataflow, dense union-find handles replace growing sets of sites.
     // `mark_upvalues` uses that representative as the cell-group label; CLOSE is a transfer kill, not a name heuristic.
@@ -98,7 +98,14 @@ pub(crate) struct UpvaluesOpen {
         NodeIndex,
         FxHashMap<ast::RcLocal, RangeInclusiveMap<usize, IndexSet<(NodeIndex, usize)>>>,
     >,
-    old_locals: FxHashMap<ast::RcLocal, ast::RcLocal>,
+    // Construction keeps this immutable until every open-cell query finishes.
+    // Borrow it instead of cloning every SSA identity and register handle.
+    old_locals: &'a FxHashMap<ast::RcLocal, ast::RcLocal>,
+}
+
+#[cfg(test)]
+thread_local! {
+    static CONSUMED_CENSUSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -134,9 +141,10 @@ mod tests {
                 function.block_mut(arm).unwrap().push(ast::Close { locals: vec![register.clone()] }.into());
             }
             function.block_mut(join).unwrap().push(capture(after.clone()));
-            let open = UpvaluesOpen::new(&function, FxHashMap::from_iter([
+            let old_locals = FxHashMap::from_iter([
                 (before, register.clone()), (after, register.clone()),
-            ]));
+            ]);
+            let open = UpvaluesOpen::new(&function, &old_locals);
             let first = open.open[&arm][&register].get(&0).unwrap().first();
             let second = open.open[&join][&register].get(&0).unwrap().first();
             assert_eq!(first == second, !close_before_join);
@@ -163,8 +171,8 @@ mod tests {
             capture(versions[2].clone()),
         ]);
         let old_locals: FxHashMap<_, _> = versions.iter().cloned().map(|version| (version, register.clone())).collect();
-        let reference = UpvaluesOpen::new_reference(&function, old_locals.clone());
-        let result = UpvaluesOpen::new(&function, old_locals);
+        let reference = UpvaluesOpen::new_reference(&function, &old_locals);
+        let result = UpvaluesOpen::new(&function, &old_locals);
         assert_eq!(result.open, reference.open);
         let labels: Vec<_> = [(left, 0), (right, 0), (join, 1)].into_iter().map(|(node, index)| {
             *result.open[&node][&register].get(&index).unwrap().first().unwrap()
@@ -208,8 +216,8 @@ mod tests {
                     function.graph_mut().add_edge(node, target, BlockEdge::default());
                 }
             }
-            let reference = UpvaluesOpen::new_reference(&function, old_locals.clone());
-            let result = UpvaluesOpen::new(&function, old_locals);
+            let reference = UpvaluesOpen::new_reference(&function, &old_locals);
+            let result = UpvaluesOpen::new(&function, &old_locals);
             assert_eq!(result.open, reference.open, "seed={seed}");
         }
     }
@@ -224,16 +232,126 @@ mod tests {
         for _ in 0..10_000 {
             function.block_mut(entry).unwrap().push(capture(version.clone()));
         }
-        let result = UpvaluesOpen::new(&function, FxHashMap::from_iter([(version, register.clone())]));
+        let old_locals = FxHashMap::from_iter([(version, register.clone())]);
+        let result = UpvaluesOpen::new(&function, &old_locals);
         let ranges = &result.open[&entry][&register];
         assert_eq!(ranges.iter().count(), 1);
         assert_eq!(ranges.get(&9_999).unwrap().first(), Some(&(entry, 0)));
     }
 
+    #[test]
+    fn backward_consumed_census_is_lazy_without_changing_ordered_cell_intervals() {
+        fn ordered(open: &UpvaluesOpen<'_>) -> Vec<(usize, u64, usize, usize, Vec<(usize, usize)>)> {
+            let mut rows = Vec::new();
+            for (node, locals) in &open.open {
+                for (local, ranges) in locals {
+                    for (range, sites) in ranges.iter() {
+                        rows.push((node.index(), local.stable_id(), *range.start(), *range.end(),
+                            sites.iter().map(|(node, index)| (node.index(), *index)).collect()));
+                    }
+                }
+            }
+            rows.sort();
+            rows
+        }
+        for mode in 0..8 {
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            function.set_entry(entry);
+            let capture_node = if mode == 0 { entry } else { function.new_block() };
+            let [register, before, phi, captured] = std::array::from_fn(|_| ast::RcLocal::default());
+            let old_locals = FxHashMap::from_iter([
+                (before.clone(), register.clone()), (phi.clone(), register.clone()),
+                (captured.clone(), register.clone()),
+            ]);
+            function.block_mut(entry).unwrap().push(ast::Assign::new(vec![before.clone().into()],
+                vec![if mode == 2 { ast::Literal::Number(1.0).into() } else { ast::Literal::Nil.into() }]).into());
+            if mode == 3 { function.block_mut(entry).unwrap().push(
+                ast::Call::new(ast::Global::from("use").into(), vec![before.clone().into()]).into()); }
+            if mode != 0 {
+                if matches!(mode, 6 | 7) {
+                    let middle = function.new_block();
+                    function.set_edges(entry, vec![(middle, BlockEdge { arguments: vec![(phi.clone(), before.clone().into())], ..Default::default() })]);
+                    function.set_edges(middle, vec![(capture_node, BlockEdge::default())]);
+                    if mode == 7 { function.block_mut(middle).unwrap().push(
+                        ast::Call::new(ast::Global::from("use").into(), vec![phi.clone().into()]).into()); }
+                } else { function.set_edges(entry, vec![(capture_node, BlockEdge::default())]); }
+            }
+            if mode == 4 { function.block_mut(capture_node).unwrap().push(
+                ast::Close { locals: vec![register.clone()] }.into()); }
+            if mode == 5 { function.block_mut(entry).unwrap().push(capture(before.clone())); }
+            function.block_mut(capture_node).unwrap().push(capture(captured));
+            let expected = UpvaluesOpen::new_reference(&function, &old_locals);
+            CONSUMED_CENSUSES.with(|count| count.set(0));
+            let actual = UpvaluesOpen::new(&function, &old_locals);
+            assert_eq!(ordered(&actual), ordered(&expected), "mode {mode}");
+            assert_eq!(CONSUMED_CENSUSES.with(std::cell::Cell::get), usize::from(matches!(mode, 1 | 3 | 6 | 7)),
+                "only a reached cross-block nil definition needs the full census, mode {mode}");
+        }
+    }
+
+    #[test]
+    fn def_kind_visitor_matches_original_write_slot_query() {
+        let [register, first, second, generator, state, control] = std::array::from_fn(|_| ast::RcLocal::default());
+        let old_locals = FxHashMap::from_iter([(first.clone(), register.clone()), (second.clone(), register.clone()),
+            (control.clone(), register.clone())]);
+        let analysis = UpvaluesOpen { open: Default::default(), old_locals: &old_locals };
+        let statements: Vec<ast::Statement> = vec![
+            ast::Assign::new(vec![first.clone().into(), second.clone().into()], vec![ast::Literal::Nil.into(), ast::Literal::Number(1.0).into()]).into(),
+            ast::Assign::new(vec![first.clone().into(), first.clone().into()], vec![ast::Literal::Number(1.0).into(), ast::Literal::Nil.into()]).into(),
+            ast::NumForInit::new(first.clone(), second.clone(), control.clone()).into(),
+            ast::GenericForNext::new(vec![generator.clone()], generator.into(), state, control).into(),
+            ast::Close { locals: vec![register.clone()] }.into(),
+        ];
+        for statement in statements {
+            let expected = if let Some(assign) = statement.as_assign() {
+                assign.left.iter().enumerate().find_map(|(index, left)| left.as_local()
+                    .filter(|local| old_locals.get(*local) == Some(&register))
+                    .map(|local| if matches!(assign.right.get(index), Some(ast::RValue::Literal(ast::Literal::Nil))) {
+                        Some(local.stable_id())
+                    } else { None }))
+            } else { None };
+            let expected = expected.map(|nil| (true, nil)).unwrap_or_else(||
+                (statement.values_written().into_iter().any(|local| old_locals.get(local) == Some(&register)), None));
+            let actual = match analysis.def_kind(&statement, &register) {
+                DefKind::Nil(local) => (true, Some(local.stable_id())),
+                DefKind::Other => (true, None),
+                DefKind::NotDef => (false, None),
+            };
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn consumed_census_ignores_child_body_publication_but_keeps_outer_capture_slots() {
+        let [register, reference, copy, child_only] = std::array::from_fn(|_| ast::RcLocal::default());
+        let closure = ast::Closure { node_origin: Default::default(), function: Default::default(),
+            upvalues: vec![ast::Upvalue::Ref(reference.clone()), ast::Upvalue::Copy(copy.clone())] };
+        let child = closure.function.clone();
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        function.block_mut(entry).unwrap().push(ast::Assign::new(vec![ast::RcLocal::default().into()], vec![closure.into()]).into());
+        let old_locals = FxHashMap::from_iter([(reference.clone(), register)]);
+        let analysis = UpvaluesOpen { open: Default::default(), old_locals: &old_locals };
+        let before = analysis.consumed_versions(&function);
+        assert!(!before.contains(&reference));
+        assert!(before.contains(&copy));
+        child.lock().body = ast::Block(vec![
+            ast::Assign::new(vec![reference.clone().into()], vec![ast::Literal::Nil.into()]).into(),
+            ast::Return::new(vec![child_only.clone().into(), reference.clone().into()]).into(),
+        ]);
+        assert_eq!(analysis.consumed_versions(&function), before);
+        assert!(!before.contains(&child_only));
+        // LocalRw reads captures from the outer Closure value, not its shared
+        // function Arc. The immutable census cannot observe body publication.
+        assert_eq!(function.block(entry).unwrap()[0].values_read(), vec![&reference, &copy]);
+    }
+
 }
 
-impl UpvaluesOpen {
-    pub fn new(function: &Function, old_locals: FxHashMap<ast::RcLocal, ast::RcLocal>) -> Self {
+impl<'a> UpvaluesOpen<'a> {
+    pub fn new(function: &Function, old_locals: &'a FxHashMap<ast::RcLocal, ast::RcLocal>) -> Self {
         let phase = ast::telemetry::Span::new("SSA_UPVALUES_OPEN");
         type Open = FxHashMap<ast::RcLocal, usize>;
         let mut labels = OpenLabels::default();
@@ -335,12 +453,12 @@ impl UpvaluesOpen {
         let mut this = Self { open, old_locals };
         drop(phase);
         let _phase = ast::telemetry::Span::new("SSA_UPVALUES_EXTEND_BACKWARD");
-        this.extend_open_backward(function);
+        this.extend_open_backward::<true>(function);
         this
     }
 
     #[cfg(test)]
-    fn new_reference(function: &Function, old_locals: FxHashMap<ast::RcLocal, ast::RcLocal>) -> Self {
+    fn new_reference(function: &Function, old_locals: &'a FxHashMap<ast::RcLocal, ast::RcLocal>) -> Self {
         type Sites = IndexSet<(NodeIndex, usize)>;
         type Open = FxHashMap<ast::RcLocal, Sites>;
         let mut this = Self { open: Default::default(), old_locals };
@@ -399,7 +517,7 @@ impl UpvaluesOpen {
             }
         }
         this.canonicalize_overlapping_opens();
-        this.extend_open_backward(function);
+        this.extend_open_backward::<false>(function);
         this
     }
 
@@ -486,7 +604,14 @@ impl UpvaluesOpen {
     ///   * It stops at a `Close` of the local (a reused register's previous
     ///     cell boundary) and never marks live-through blocks, so it only ever
     ///     adds coverage at the one declaration site.
-    fn extend_open_backward(&mut self, function: &Function) {
+    fn extend_open_backward<const LAZY_CONSUMED: bool>(&mut self, function: &Function) {
+        // Extension only publishes at a predecessor's reaching declaration.
+        // An edgeless graph cannot enqueue one, regardless of captures/CLOSE
+        // inside its block. Keep the forward intervals and cell labels intact.
+        if LAZY_CONSUMED && function.graph().edge_count() == 0 {
+            ast::telemetry::count("ssa_upvalues_backward_edgeless_skipped", 1);
+            return;
+        }
         // Seed: one entry per (block, captured local) — the lowest open
         // statement index there and its location set. Collected into a Vec and
         // sorted so processing order, and therefore the result, is independent
@@ -523,7 +648,12 @@ impl UpvaluesOpen {
         // keeps an unrelated temp that merely reuses the register — e.g. the
         // `game:GetService(...)` receiver — from being mistaken for a read of
         // the captured cell.
-        let consumed = self.consumed_versions(function);
+        // Most captures never reach a cross-block nil declaration. Build this
+        // whole-function read/phi census only when that decision is needed.
+        // Its inputs (function and old_locals) are immutable here; mark_open
+        // changes only self.open and therefore cannot invalidate the result.
+        let consumed = std::cell::OnceCell::new();
+        if !LAZY_CONSUMED { consumed.set(self.consumed_versions(function)).unwrap(); }
 
         // The set of blocks in which each original local is captured by
         // reference. We only pull a declaration into a cell whose captures are
@@ -591,7 +721,8 @@ impl UpvaluesOpen {
                     statement => match self.def_kind(statement, &local) {
                         // Cross-block `nil` declaration whose value no real code
                         // consumes: the cell's initializer — group it.
-                        DefKind::Nil(ref version) if !consumed.contains(version) => {
+                        DefKind::Nil(ref version) if !consumed
+                            .get_or_init(|| self.consumed_versions(function)).contains(version) => {
                             self.mark_open(node, &local, i, len, &locs);
                             decided = true;
                             break;
@@ -621,6 +752,9 @@ impl UpvaluesOpen {
             }
             // Truly live-through: keep walking back toward the declaration.
             Self::enqueue_predecessors(function, node, &local, &locs, &mut work);
+        }
+        if consumed.get().is_none() {
+            ast::telemetry::count("ssa_upvalues_backward_consumed_skipped", 1);
         }
     }
 
@@ -718,11 +852,7 @@ impl UpvaluesOpen {
             }
         }
         // Non-`Assign` writers (e.g. for-loop counters) still count as a def.
-        if statement
-            .values_written()
-            .into_iter()
-            .any(|w| self.old_locals.get(w) == Some(local))
-        {
+        if statement.any_local_write(&mut |written| self.old_locals.get(written) == Some(local)) {
             return DefKind::Other;
         }
         DefKind::NotDef
@@ -738,6 +868,9 @@ impl UpvaluesOpen {
     /// granularity, so an unrelated temp reusing the same register does not
     /// count.
     fn consumed_versions(&self, function: &Function) -> FxHashSet<ast::RcLocal> {
+        ast::telemetry::count("ssa_upvalues_consumed_censuses", 1);
+        #[cfg(test)]
+        CONSUMED_CENSUSES.with(|count| count.set(count.get() + 1));
         let mut consumed: FxHashSet<ast::RcLocal> = FxHashSet::default();
         for (_, block) in function.blocks() {
             for statement in block.iter() {

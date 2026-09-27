@@ -179,9 +179,10 @@ fn scan_statement(statement: &Statement, scan: &mut ScriptScan) {
 
     // Expression-position calls inside this statement (descends into nested
     // closures too — a call there is still "somewhere in the script").
-    for rvalue in statement.rvalues() {
+    statement.visit_rvalues(&mut |rvalue| {
         scan_rvalue(rvalue, scan);
-    }
+        true
+    });
 
     // Recurse into nested blocks.
     for_each_child_block(statement, |child| scan_block(child, scan));
@@ -203,9 +204,10 @@ fn scan_rvalue(rvalue: &RValue, scan: &mut ScriptScan) {
         scan_block(&closure.function.lock().body, scan);
     }
 
-    for child in rvalue.rvalues() {
+    rvalue.visit_rvalues(&mut |child| {
         scan_rvalue(child, scan);
-    }
+        true
+    });
 }
 
 /// Record a static dot-call `Prefix.method(arg, ..)` — a plain `Call` whose
@@ -358,9 +360,10 @@ fn gather_receiver_signals(
 
         // Expression-position signals (reads of `p0._x`, `p0:X(...)`, nested
         // closures capturing p0, etc.).
-        for rvalue in statement.rvalues() {
+        statement.visit_rvalues(&mut |rvalue| {
             gather_signals_in_rvalue(rvalue, self_prefix, p0_key, scan, out);
-        }
+            true
+        });
 
         for_each_child_block(statement, |child| {
             gather_receiver_signals(child, self_prefix, p0_key, scan, out)
@@ -399,9 +402,10 @@ fn gather_signals_in_rvalue(
         _ => {}
     }
 
-    for child in rvalue.rvalues() {
+    rvalue.visit_rvalues(&mut |child| {
         gather_signals_in_rvalue(child, self_prefix, p0_key, scan, out);
-    }
+        true
+    });
 }
 
 /// signal a: a colon-call whose receiver is p0 AND whose method is defined on the
@@ -448,18 +452,12 @@ fn block_writes_local(block: &Block, key: usize) -> bool {
 }
 
 fn statement_writes_local(statement: &Statement, key: usize) -> bool {
-    if statement
-        .values_written()
-        .into_iter()
-        .any(|w| local_ptr(w) == key)
+    if !statement.visit_local_writes(&mut |w| local_ptr(w) != key)
     {
         return true;
     }
     // Writes nested inside closures captured by this statement.
-    if statement
-        .rvalues()
-        .into_iter()
-        .any(|r| rvalue_writes_local(r, key))
+    if !statement.visit_rvalues(&mut |r| !rvalue_writes_local(r, key))
     {
         return true;
     }
@@ -476,10 +474,7 @@ fn rvalue_writes_local(rvalue: &RValue, key: usize) -> bool {
             return true;
         }
     }
-    rvalue
-        .rvalues()
-        .into_iter()
-        .any(|child| rvalue_writes_local(child, key))
+    !rvalue.visit_rvalues(&mut |child| !rvalue_writes_local(child, key))
 }
 
 /// `true` iff the block mentions any local/global named `"self"` (full traversal
@@ -490,18 +485,12 @@ fn block_mentions_self_name(block: &Block) -> bool {
 }
 
 fn statement_mentions_self_name(statement: &Statement) -> bool {
-    if statement
-        .values_read()
-        .into_iter()
-        .chain(statement.values_written())
-        .any(local_is_named_self)
+    if !statement.visit_local_reads(&mut |local| !local_is_named_self(local))
+        || !statement.visit_local_writes(&mut |local| !local_is_named_self(local))
     {
         return true;
     }
-    if statement
-        .rvalues()
-        .into_iter()
-        .any(rvalue_mentions_self_name)
+    if !statement.visit_rvalues(&mut |value| !rvalue_mentions_self_name(value))
     {
         return true;
     }
@@ -539,7 +528,7 @@ fn rvalue_mentions_self_name(rvalue: &RValue) -> bool {
             !function.parameters.iter().any(local_is_named_self)
                 && block_mentions_self_name(&function.body)
         }
-        _ => rvalue.rvalues().into_iter().any(rvalue_mentions_self_name),
+        _ => !rvalue.visit_rvalues(&mut |value| !rvalue_mentions_self_name(value)),
     }
 }
 

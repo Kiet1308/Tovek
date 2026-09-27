@@ -6,10 +6,10 @@ use std::cell::Cell;
 
 use rustc_hash::FxHashSet;
 
-use crate::deinline::{Bindings, MatchCtx, stmt_rvalues, unify_rvalue};
+use crate::deinline::{Bindings, MatchCtx, unify_rvalue};
 use crate::{
-    BinaryOperation, Block, Function, IfExpression, Literal, RValue, RcLocal, Statement, Traverse,
-    UnaryOperation, Upvalue, LocalRw,
+    BinaryOperation, Function, IfExpression, Literal, RValue, RcLocal, Statement, Traverse,
+    UnaryOperation, LocalRw,
 };
 
 pub(super) const MARKER: &str =
@@ -18,67 +18,22 @@ pub(super) const MAX_TARGETS: usize = 32;
 const MAX_NODES: usize = 64;
 const MAX_ATTEMPTS: usize = 8192;
 
-pub(super) struct Safety {
-    reference_captures: FxHashSet<RcLocal>,
+// CaptureSafety is the shared complete capture proof for both expression
+// families. Arithmetic additionally limits attempted matches, independently
+// of the global search budget and without retaining duplicate local owners.
+pub(super) struct AttemptBudget {
     attempts_left: Cell<usize>,
 }
 
-impl Safety {
-    pub(super) fn new(body: &Block) -> Self {
-        let mut reference_captures = FxHashSet::default();
-        captures(&body.0, &mut reference_captures);
-        Self {
-            reference_captures,
-            attempts_left: Cell::new(MAX_ATTEMPTS),
-        }
-    }
+impl Default for AttemptBudget {
+    fn default() -> Self { Self { attempts_left: Cell::new(MAX_ATTEMPTS) } }
+}
 
+impl AttemptBudget {
     pub(super) fn spend_attempt(&self) -> bool {
         let remaining = self.attempts_left.get();
         self.attempts_left.set(remaining.saturating_sub(1));
         remaining != 0
-    }
-
-    pub(super) fn stable(&self, arg: &RValue) -> bool {
-        match arg {
-            RValue::Local(local) => !self.reference_captures.contains(local),
-            RValue::Literal(_) => true,
-            _ => false,
-        }
-    }
-}
-
-fn captures(stmts: &[Statement], out: &mut FxHashSet<RcLocal>) {
-    for stmt in stmts {
-        match stmt {
-            Statement::If(s) => {
-                captures(&s.then_block.lock().0, out);
-                captures(&s.else_block.lock().0, out);
-            }
-            Statement::While(s) => captures(&s.block.lock().0, out),
-            Statement::Repeat(s) => captures(&s.block.lock().0, out),
-            Statement::NumericFor(s) => captures(&s.block.lock().0, out),
-            Statement::GenericFor(s) => captures(&s.block.lock().0, out),
-            _ => {}
-        }
-        for value in stmt_rvalues(stmt) {
-            captures_in_value(value, out);
-        }
-    }
-}
-
-fn captures_in_value(value: &RValue, out: &mut FxHashSet<RcLocal>) {
-    if let RValue::Closure(closure) = value {
-        for capture in &closure.upvalues {
-            if let Upvalue::Ref(local) = capture {
-                out.insert(local.clone());
-            }
-        }
-        captures(&closure.function.0.lock().body.0, out);
-    } else {
-        for child in value.rvalues() {
-            captures_in_value(child, out);
-        }
     }
 }
 
@@ -127,7 +82,7 @@ fn return_tree(
             if !matches!(&ret.values[0], RValue::Local(l) if l == result)
                 || params.is_some_and(|p| p.contains(result))
                 || !allowed(&branch.condition, params, budget)
-                || branch.condition.values_read().contains(&result) { return None; }
+                || branch.condition.any_local_read(&mut |local| local == result) { return None; }
             let yes = assigned_result(&branch.then_block.lock().0, result, params, budget, depth + 1)?;
             let no = assigned_result(&branch.else_block.lock().0, result, params, budget, depth + 1)?;
             *budget = budget.checked_sub(1)?;
@@ -139,7 +94,7 @@ fn return_tree(
             let crate::LValue::Local(local) = &assign.left[0] else { return None; };
             if params.is_some_and(|p| p.contains(local))
                 || !allowed(&assign.right[0], params, budget)
-                || assign.right[0].values_read().contains(&local) { return None; }
+                || assign.right[0].any_local_read(&mut |read| read == local) { return None; }
             let mut extended = params.cloned();
             if let Some(p) = &mut extended { p.insert(local.clone()); }
             let mut result = return_tree(rest, extended.as_ref(), budget, depth + 1)?;
@@ -151,7 +106,7 @@ fn return_tree(
             }
             fn substitute(value: &mut RValue, local: &RcLocal, replacement: &RValue) {
                 if matches!(value, RValue::Local(l) if l == local) { *value = replacement.clone(); }
-                else { for child in value.rvalues_mut() { substitute(child, local, replacement); } }
+                else { value.visit_rvalues_mut(&mut |child| { substitute(child, local, replacement); true }); }
             }
             substitute(&mut result, local, &assign.right[0]);
             Some(result)
@@ -193,11 +148,11 @@ fn assigned_result(stmts: &[Statement], result: &RcLocal, params: Option<&FxHash
         [Statement::Assign(assign)] if !assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1 => {
             if !matches!(&assign.left[0], crate::LValue::Local(l) if l == result)
                 || !allowed(&assign.right[0], params, budget)
-                || assign.right[0].values_read().contains(&result) { return None; }
+                || assign.right[0].any_local_read(&mut |local| local == result) { return None; }
             Some(assign.right[0].clone())
         }
         [Statement::If(branch)] => {
-            if !allowed(&branch.condition, params, budget) || branch.condition.values_read().contains(&result) { return None; }
+            if !allowed(&branch.condition, params, budget) || branch.condition.any_local_read(&mut |local| local == result) { return None; }
             let yes = assigned_result(&branch.then_block.lock().0, result, params, budget, depth + 1)?;
             let no = assigned_result(&branch.else_block.lock().0, result, params, budget, depth + 1)?;
             *budget = budget.checked_sub(1)?;
@@ -249,14 +204,9 @@ fn allowed(value: &RValue, params: Option<&FxHashSet<RcLocal>>, budget: &mut usi
 }
 
 fn operators(value: &RValue) -> usize {
-    usize::from(matches!(
-        value,
-        RValue::Unary(_) | RValue::Binary(_) | RValue::IfExpression(_)
-    )) + value
-        .rvalues()
-        .iter()
-        .map(|value| operators(value))
-        .sum::<usize>()
+    let mut children = 0;
+    value.visit_rvalues(&mut |child| { children += operators(child); true });
+    usize::from(matches!(value, RValue::Unary(_) | RValue::Binary(_) | RValue::IfExpression(_))) + children
 }
 
 pub(super) fn unify(
@@ -312,6 +262,7 @@ fn unify_tree(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Block;
 
     #[test]
     fn unused_parameters_do_not_create_unmatchable_helper_candidates() {
@@ -334,7 +285,7 @@ mod tests {
 
     #[test]
     fn node_and_attempt_budgets_fail_closed() {
-        let safety = Safety::new(&Block(vec![]));
+        let safety = AttemptBudget::default();
         for _ in 0..MAX_ATTEMPTS {
             assert!(safety.spend_attempt());
         }

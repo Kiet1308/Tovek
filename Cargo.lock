@@ -292,6 +292,7 @@ dependencies = [
  "rangemap",
  "rustc-hash",
  "thiserror 1.0.69",
+ "triomphe",
  "tuple",
 ]
 

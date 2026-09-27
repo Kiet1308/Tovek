@@ -76,7 +76,9 @@ impl Reduce for Unary {
             }
         };
 
-        match (self.value.reduce(), self.operation) {
+        let mut value_box = self.value;
+        let value = std::mem::replace(value_box.as_mut(), Literal::Nil.into()).reduce();
+        match (value, self.operation) {
             (RValue::Literal(Literal::Boolean(value)), UnaryOperation::Not) => {
                 RValue::Literal(Literal::Boolean(!value))
             }
@@ -180,12 +182,10 @@ impl Reduce for Unary {
                     .reduce_condition(),
                 )
             }
-            (value, operation) => Self {
-                node_origin: Default::default(),
-                value: Box::new(value),
-                operation,
+            (value, operation) => {
+                *value_box = value;
+                Self { node_origin: Default::default(), value: value_box, operation }.into()
             }
-            .into(),
         }
     }
 
@@ -203,7 +203,8 @@ impl Reduce for Unary {
         // that applies; otherwise keep `#X` as the condition. A computed nil/NaN
         // table key can raise even though `has_side_effects()` is false.
         if self.operation == UnaryOperation::Length {
-            let value = self.value.reduce();
+            let mut value_box = self.value;
+            let value = std::mem::replace(value_box.as_mut(), Literal::Nil.into()).reduce();
             return if crate::is_total_pure(&value)
                 && matches!(
                     value,
@@ -211,19 +212,21 @@ impl Reduce for Unary {
                 ) {
                 RValue::Literal(Literal::Boolean(true))
             } else {
+                *value_box = value;
                 Unary {
                     node_origin: Default::default(),
-                    value: Box::new(value),
+                    value: value_box,
                     operation: UnaryOperation::Length,
-                }
-                .into()
+                }.into()
             };
         }
 
         // TODO: unnecessary clone
         let does_reduce = |r: &RValue| &r.clone().reduce_condition() != r;
 
-        match (self.value.reduce_condition(), self.operation) {
+        let mut value_box = self.value;
+        let value = std::mem::replace(value_box.as_mut(), Literal::Nil.into()).reduce_condition();
+        match (value, self.operation) {
             (RValue::Literal(Literal::Boolean(value)), UnaryOperation::Not) => {
                 RValue::Literal(Literal::Boolean(!value))
             }
@@ -318,12 +321,10 @@ impl Reduce for Unary {
                 }
                 .reduce_condition()
             }
-            (value, operation) => Self {
-                node_origin: Default::default(),
-                value: Box::new(value),
-                operation,
+            (value, operation) => {
+                *value_box = value;
+                Self { node_origin: Default::default(), value: value_box, operation }.into()
             }
-            .into(),
         }
     }
 }

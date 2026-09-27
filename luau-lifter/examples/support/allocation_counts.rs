@@ -24,8 +24,12 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Counting<A> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let pointer = unsafe { self.0.alloc(layout) };
         if pointer.is_null() {
+            #[cfg(feature = "phase-allocation-trace")]
+            ast::telemetry::allocation::failed();
             FAILED.fetch_add(1, Relaxed);
         } else {
+            #[cfg(feature = "phase-allocation-trace")]
+            ast::telemetry::allocation::allocated(layout.size());
             ALLOCS.fetch_add(1, Relaxed);
             REQUESTED.fetch_add(layout.size() as u64, Relaxed);
             increase(layout.size());
@@ -36,8 +40,12 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Counting<A> {
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         let pointer = unsafe { self.0.alloc_zeroed(layout) };
         if pointer.is_null() {
+            #[cfg(feature = "phase-allocation-trace")]
+            ast::telemetry::allocation::failed();
             FAILED.fetch_add(1, Relaxed);
         } else {
+            #[cfg(feature = "phase-allocation-trace")]
+            ast::telemetry::allocation::allocated(layout.size());
             ALLOCS.fetch_add(1, Relaxed);
             REQUESTED.fetch_add(layout.size() as u64, Relaxed);
             increase(layout.size());
@@ -46,6 +54,8 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Counting<A> {
     }
 
     unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
+        #[cfg(feature = "phase-allocation-trace")]
+        ast::telemetry::allocation::deallocated(layout.size());
         DEALLOCS.fetch_add(1, Relaxed);
         LIVE.fetch_sub(layout.size() as u64, Relaxed);
         unsafe { self.0.dealloc(pointer, layout) };
@@ -54,8 +64,12 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Counting<A> {
     unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         let result = unsafe { self.0.realloc(pointer, layout, new_size) };
         if result.is_null() {
+            #[cfg(feature = "phase-allocation-trace")]
+            ast::telemetry::allocation::failed();
             FAILED.fetch_add(1, Relaxed);
         } else {
+            #[cfg(feature = "phase-allocation-trace")]
+            ast::telemetry::allocation::reallocated(layout.size(), new_size);
             REALLOCS.fetch_add(1, Relaxed);
             // Count the whole new request, not just its growth. In-place
             // reallocations therefore still contribute requested bytes.

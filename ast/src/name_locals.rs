@@ -1,9 +1,11 @@
+#[cfg(test)]
+use crate::inline_temps::collect_usage;
 use itertools::Either;
 use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::{
-    inline_temps::{collect_closures_in_statement, collect_usage, is_movable_single_value, Usage},
+    inline_temps::{collect_closures_in_statement, is_movable_single_value, Usage},
     Binary, BinaryOperation, Block, Call, Index, LValue, Literal, Local, LocalRw, MethodCall,
     RValue, RcLocal, Select, Statement, Table, Traverse, UnaryOperation,
 };
@@ -1567,6 +1569,7 @@ fn uses_create_element(block: &Block, aliases: &FxHashSet<usize>) -> bool {
 /// Each signal alone is too broad (every instance is colon-called), so the
 /// empty-table-decl gate is what makes the pair sound: a bare `{}` that is later
 /// used as a metatable or colon-invoked can only be a class/object table.
+#[cfg(test)]
 fn collect_class_signals(block: &mut Block, out: &mut FxHashSet<usize>) {
     fn note_setmetatable(call: &Call, out: &mut FxHashSet<usize>) {
         if global_name(&call.value) == Some("setmetatable")
@@ -1642,6 +1645,7 @@ fn collect_class_signals(block: &mut Block, out: &mut FxHashSet<usize>) {
 
 /// Locals declared as `local x = <something>.createElement`, so a later `x(...)`
 /// can be recognised as a React element constructor.
+#[cfg(test)]
 fn collect_create_element_aliases(block: &mut Block, aliases: &mut FxHashSet<usize>) {
     for statement in &mut block.0 {
         if let Statement::Assign(assign) = &*statement
@@ -1693,6 +1697,7 @@ fn collect_create_element_aliases(block: &mut Block, aliases: &mut FxHashSet<usi
 /// scoring heuristics (props/children/result/ref/callback/iterator) can consult
 /// complete information regardless of statement order.
 #[derive(Default, Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 struct LocalUsage {
     /// Literal string repetition uses this number as its repeat count.
     repetition_count: bool,
@@ -2522,52 +2527,16 @@ fn is_props_special_key(key: &RValue, aliases: &FxHashMap<usize, String>) -> boo
 
 /// `local x = Y.Key` declarations anywhere in the tree, keyed by the local:
 /// the field key a module-level alias was bound to (`Children`, `OnEvent`).
-fn collect_field_aliases(block: &Block, aliases: &mut FxHashMap<usize, String>) {
-    for statement in &block.0 {
-        if let Statement::Assign(assign) = statement
-            && assign.prefix
-        {
-            for (lvalue, rvalue) in assign.left.iter().zip(&assign.right) {
-                if let LValue::Local(local) = lvalue
-                    && let RValue::Index(index) = rvalue
-                    && let Some(key) = index_key(index)
-                {
-                    aliases.insert(local_ptr(local), key.to_string());
-                }
-            }
-        }
-        let mut functions = Vec::new();
-        collect_closures_in_statement(statement, &mut |closure| {
-            functions.push(closure.function.clone());
-        });
-        for function in functions {
-            collect_field_aliases(&function.lock().body, aliases);
-        }
-        match statement {
-            Statement::If(node) => {
-                collect_field_aliases(&node.then_block.lock(), aliases);
-                collect_field_aliases(&node.else_block.lock(), aliases);
-            }
-            Statement::While(node) => collect_field_aliases(&node.block.lock(), aliases),
-            Statement::Repeat(node) => collect_field_aliases(&node.block.lock(), aliases),
-            Statement::NumericFor(node) => collect_field_aliases(&node.block.lock(), aliases),
-            Statement::GenericFor(node) => collect_field_aliases(&node.block.lock(), aliases),
-            _ => {}
-        }
-    }
-}
-
 fn gather_usage(
     block: &mut Block,
     in_loop: bool,
     aliases: &FxHashSet<usize>,
+    field_aliases: &FxHashMap<usize, String>,
     usage: &mut FxHashMap<usize, LocalUsage>,
 ) {
-    let mut field_aliases = FxHashMap::default();
-    collect_field_aliases(block, &mut field_aliases);
     let mut context = UsageContext {
         aliases,
-        field_aliases: &field_aliases,
+        field_aliases,
         counters: Vec::new(),
     };
     gather_usage_in(block, in_loop, &mut context, usage);
@@ -2590,9 +2559,14 @@ fn gather_usage_in(
 ) {
     let aliases = context.aliases;
     for statement in &mut block.0 {
-        // Expression-local facts: field reads/writes, callees, callback table fields.
+        // Complete this statement's facts before processing the collected child
+        // functions, exactly as before, but discover them in the same traversal.
+        let mut functions = Vec::new();
         statement.post_traverse_values(&mut |value| -> Option<()> {
+            #[cfg(test)]
+            preparation_tests::FUSED_USAGE_VALUES.with(|count| count.set(count.get() + 1));
             match value {
+                Either::Right(RValue::Closure(closure)) => functions.push(closure.function.clone()),
                 Either::Right(RValue::Index(index)) => {
                     if let RValue::Local(local) = &*index.left {
                         let entry = usage.entry(local_ptr(local)).or_default();
@@ -2742,13 +2716,6 @@ fn gather_usage_in(
         }
 
         // Recurse: closures reset the loop context; loops set it.
-        let mut functions = Vec::new();
-        statement.post_traverse_values(&mut |value| -> Option<()> {
-            if let Either::Right(RValue::Closure(closure)) = value {
-                functions.push(closure.function.clone());
-            }
-            None
-        });
         for function in functions {
             gather_usage_in(&mut function.lock().body, false, context, usage);
         }
@@ -2826,6 +2793,7 @@ fn arm_assigns_only(block: &Block, local: &RcLocal) -> bool {
 /// the local keeps its `vN` name even though it survives. That is a pure
 /// readability trade (never a semantic change, never +lines) on the safe side —
 /// suppressing a name can only ever ENABLE a collapse, never break one.
+#[cfg(test)]
 fn collect_collapse_candidates(block: &mut Block, out: &mut FxHashSet<usize>) {
     let len = block.0.len();
     for i in 0..len {
@@ -2864,6 +2832,181 @@ fn collect_collapse_candidates(block: &mut Block, out: &mut FxHashSet<usize>) {
             Statement::NumericFor(nf) => collect_collapse_candidates(&mut nf.block.lock(), out),
             Statement::GenericFor(gf) => collect_collapse_candidates(&mut gf.block.lock(), out),
             _ => {}
+        }
+    }
+}
+
+/// Parameter metadata stays unchanged until naming applies its results. Keep
+/// identities instead of owners, including through call-site consensus.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ParameterIdentity { ptr: usize, stable_id: u64 }
+impl ParameterIdentity {
+    fn of(local: &RcLocal) -> Self { Self { ptr: local_ptr(local), stable_id: local.stable_id() } }
+}
+type FunctionDefinitions = FxHashMap<usize, Vec<ParameterIdentity>>;
+
+// Distinct historical selectors are deliberately kept distinct. The usage and
+// field-alias censuses enter direct RHS/loop-marker closures, while definition
+// discovery enters indexed-LHS closures and excludes internal loop markers.
+#[derive(Clone, Copy)]
+struct PreparationDomains { usage: bool, definitions: bool }
+
+/// One read-only occurrence walk for naming prerequisites. The explicit domains
+/// preserve historical selector differences; no fact survives this naming call.
+/// All retained identities are numeric, so unused-local ownership stays exact.
+#[derive(Default)]
+struct NamingPreparation {
+    create_element_aliases: FxHashSet<usize>,
+    collapse_candidates: FxHashSet<usize>,
+    class_signal_locals: FxHashSet<usize>,
+    field_aliases: FxHashMap<usize, String>,
+    counts: FxHashMap<usize, Usage>,
+    identities: Option<FxHashMap<usize, u64>>,
+    definitions: FunctionDefinitions,
+    invalid_definitions: FxHashSet<usize>,
+}
+
+impl NamingPreparation {
+    #[cfg(test)]
+    fn collect(block: &Block) -> Self { Self::for_naming(block, false) }
+
+    fn for_naming(block: &Block, collect_evidence: bool) -> Self {
+        let mut result = Self { identities: collect_evidence.then(FxHashMap::default), ..Self::default() };
+        result.block(block, PreparationDomains { usage: true, definitions: true });
+        result.definitions.retain(|binder, _| !result.invalid_definitions.contains(binder));
+        result.invalid_definitions = FxHashSet::default();
+        result
+    }
+
+    fn usage(&mut self, local: &RcLocal) -> &mut Usage {
+        let ptr = local_ptr(local);
+        if let Some(identities) = &mut self.identities { identities.entry(ptr).or_insert(local.stable_id()); }
+        self.counts.entry(ptr).or_default()
+    }
+
+    fn call(&mut self, call: &Call) {
+        if global_name(&call.value) == Some("setmetatable")
+            && let Some(RValue::Local(meta)) = call.arguments.get(1) {
+            self.class_signal_locals.insert(local_ptr(meta));
+        }
+    }
+
+    fn method(&mut self, call: &MethodCall) {
+        if let RValue::Local(receiver) = &*call.value { self.class_signal_locals.insert(local_ptr(receiver)); }
+    }
+
+    fn expression(&mut self, value: &RValue, domains: PreparationDomains) {
+        #[cfg(test)]
+        preparation_tests::FUSED_EXPRESSIONS.with(|count| count.set(count.get() + 1));
+        match value {
+            RValue::Closure(closure) => {
+                if domains.usage {
+                    for upvalue in &closure.upvalues {
+                        let (crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local)) = upvalue;
+                        self.usage(local).captured = true;
+                    }
+                }
+                // No deduplication: shared bodies contribute once per occurrence,
+                // and an indexed-LHS occurrence can have different active domains.
+                self.block(&closure.function.lock().body, domains);
+            }
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => self.call(call),
+            RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => self.method(call),
+            _ => {}
+        }
+        value.visit_rvalues(&mut |child| { self.expression(child, domains); true });
+    }
+
+    fn definitions(&mut self, assign: &crate::Assign) {
+        let multi_tail = assign.right.last().is_some_and(|value| matches!(value, RValue::Select(_) | RValue::VarArg(_)));
+        for (index, left) in assign.left.iter().enumerate() {
+            let LValue::Local(binder) = left else { continue; };
+            let ptr = local_ptr(binder);
+            match assign.right.get(index) {
+                Some(RValue::Closure(closure)) => {
+                    let parameters = closure.function.lock().parameters.iter().map(ParameterIdentity::of).collect();
+                    if self.definitions.insert(ptr, parameters).is_some() { self.invalid_definitions.insert(ptr); }
+                }
+                Some(RValue::Literal(Literal::Nil)) if assign.prefix => {}
+                None if assign.prefix && !multi_tail => {}
+                _ => { self.invalid_definitions.insert(ptr); }
+            }
+        }
+    }
+
+    fn block(&mut self, block: &Block, domains: PreparationDomains) {
+        #[cfg(test)]
+        preparation_tests::FUSED_STATEMENTS.with(|count| count.set(count.get() + block.len()));
+        for window in block.windows(3) {
+            if let Some(local) = empty_decl_local(&window[0])
+                && let Statement::If(branch) = &window[1]
+                && arm_assigns_only(&branch.then_block.lock(), &local)
+                && arm_assigns_only(&branch.else_block.lock(), &local)
+                && window[2].any_local_read(&mut |read| read == &local) {
+                self.collapse_candidates.insert(local_ptr(&local));
+            }
+        }
+        for statement in block.iter() {
+            if domains.usage {
+                statement.visit_local_reads(&mut |local| { self.usage(local).reads += 1; true });
+                statement.visit_local_writes(&mut |local| { self.usage(local).writes += 1; true });
+            }
+            if let Statement::Assign(assign) = statement {
+                if domains.definitions { self.definitions(assign); }
+                if assign.prefix {
+                    for (left, right) in assign.left.iter().zip(&assign.right) {
+                        if let LValue::Local(local) = left && let RValue::Index(index) = right {
+                            if domains.usage && let Some(key) = index_key(index) {
+                                self.field_aliases.insert(local_ptr(local), key.to_string());
+                            }
+                            if index_key(index) == Some("createElement") {
+                                self.create_element_aliases.insert(local_ptr(local));
+                            }
+                        }
+                    }
+                }
+                for left in &assign.left {
+                    if let LValue::Index(index) = left && let RValue::Local(base) = &*index.left
+                        && index_key(index) == Some("__index") {
+                        self.class_signal_locals.insert(local_ptr(base));
+                    }
+                }
+            }
+            match statement {
+                Statement::Call(call) => self.call(call),
+                Statement::MethodCall(call) => self.method(call),
+                _ => {}
+            }
+            let marker = matches!(statement, Statement::NumForInit(_) | Statement::NumForNext(_)
+                | Statement::GenericForInit(_) | Statement::GenericForNext(_));
+            let rhs_domains = PreparationDomains { usage: domains.usage, definitions: domains.definitions && !marker };
+            // This one marker's old alias/capture selector intentionally differs
+            // from Traverse. Keep its counter/limit/step order, including aliases
+            // overwritten by closure bodies in either operand.
+            if let Statement::NumForNext(next) = statement {
+                self.expression(&next.counter.1, rhs_domains);
+                self.expression(&next.limit, rhs_domains);
+                self.expression(&next.step, rhs_domains);
+            } else {
+                statement.visit_rvalues(&mut |right| { self.expression(right, rhs_domains); true });
+            }
+            let lhs_domains = PreparationDomains { usage: false,
+                definitions: domains.definitions && matches!(statement, Statement::Assign(_)) };
+            statement.visit_lvalues(&mut |left| {
+                left.visit_rvalues(&mut |value| { self.expression(value, lhs_domains); true });
+                true
+            });
+            match statement {
+                Statement::If(node) => {
+                    self.block(&node.then_block.lock(), domains);
+                    self.block(&node.else_block.lock(), domains);
+                }
+                Statement::While(node) => self.block(&node.block.lock(), domains),
+                Statement::Repeat(node) => self.block(&node.block.lock(), domains),
+                Statement::NumericFor(node) => self.block(&node.block.lock(), domains),
+                Statement::GenericFor(node) => self.block(&node.block.lock(), domains),
+                _ => {}
+            }
         }
     }
 }
@@ -2937,10 +3080,9 @@ struct Namer {
     usage: FxHashMap<usize, LocalUsage>,
     /// Locals aliased to `*.createElement` (see `collect_create_element_aliases`).
     create_element_aliases: FxHashSet<usize>,
-    /// Read/write/capture counts, computed with the EXACT same routine
-    /// (`inline_temps::collect_usage`) that `inline_temps` and
-    /// `conditional_expressions` consume, so `is_collapse_candidate` agrees
-    /// bit-for-bit with the gate those passes apply. Keyed by `local_ptr` (the
+    /// Read/write/capture counts, preserving the exact selectors and occurrence
+    /// semantics of `inline_temps::collect_usage`, so `is_collapse_candidate`
+    /// agrees bit-for-bit with the gate the elimination passes apply. Keyed by `local_ptr` (the
     /// Arc *address*), NOT `RcLocal` — holding an `RcLocal` here would keep a
     /// strong Arc clone alive for every local, inflating `Arc::count` and
     /// breaking `name_one`'s unused-local detection (`Arc::count == 1` -> `_`).
@@ -3672,13 +3814,9 @@ impl Namer {
 
     /// Name local-function parameters from unanimous semantic call-site sources
     /// (`render(petData)` / `render(record.PetData)` -> `petData`). Definitions
-    /// and calls are collected in separate whole-tree walks so declaration order
-    /// is irrelevant. Any unknown or disagreeing site invalidates that slot.
-    fn interprocedural_param_hints(&mut self, block: &Block) {
-        let mut definitions = FxHashMap::<usize, Vec<RcLocal>>::default();
-        let mut invalid = FxHashSet::default();
-        collect_local_function_definitions(block, &mut definitions, &mut invalid);
-        definitions.retain(|binder, _| !invalid.contains(binder));
+    /// come from the immutable preparation; call sites are read after hints are
+    /// complete. Any unknown or disagreeing site invalidates that slot.
+    fn interprocedural_param_hints(&mut self, block: &Block, definitions: FunctionDefinitions) {
         if definitions.is_empty() {
             return;
         }
@@ -3697,19 +3835,23 @@ impl Namer {
                 if state.valid.get(index) == Some(&true)
                     && let Some(name) = state.names.get(index).and_then(Clone::clone)
                 {
-                    hints.push((parameter.clone(), name));
+                    hints.push((*parameter, name));
                 }
             }
         }
-        // Drop all temporary RcLocal clones before `apply` performs Arc-count-
-        // based unused detection; only pointer-keyed hints remain in `self`.
+        // Definitions were collected while syntax was unchanged and contain
+        // only numeric identities. No analysis owner reaches unused detection.
         drop(definitions);
         for (parameter, hint) in hints {
-            if let Some(evidence) = &mut self.evidence {
-                evidence.register(local_ptr(&parameter), parameter.stable_id());
-            }
-            self.set_hint_ptr_with_role(local_ptr(&parameter), hint.name, 49.min(hint.score), hint.role);
+            self.apply_callsite_hint(parameter, hint);
         }
+    }
+
+    fn apply_callsite_hint(&mut self, parameter: ParameterIdentity, hint: Hint) {
+        if let Some(evidence) = &mut self.evidence {
+            evidence.register(parameter.ptr, parameter.stable_id);
+        }
+        self.set_hint_ptr_with_role(parameter.ptr, hint.name, 49.min(hint.score), hint.role);
     }
 
     /// A component parameter read as a record of named fields reads as `props`
@@ -4127,6 +4269,8 @@ impl Namer {
         scope: &mut Vec<String>,
         policy: ReusePolicy,
     ) {
+        #[cfg(test)]
+        preparation_tests::note_name_owner(local);
         let ptr = local_ptr(local);
         let mut lock = local.0 .0.lock();
         if !self.named.insert(ptr) {
@@ -4603,79 +4747,9 @@ impl Namer {
     }
 }
 
-fn collect_local_function_definitions(
-    block: &Block,
-    definitions: &mut FxHashMap<usize, Vec<RcLocal>>,
-    invalid: &mut FxHashSet<usize>,
-) {
-    for statement in &block.0 {
-        if let Statement::Assign(assign) = statement {
-            let multi_tail = assign
-                .right
-                .last()
-                .is_some_and(|value| matches!(value, RValue::Select(_) | RValue::VarArg(_)));
-            for (index, left) in assign.left.iter().enumerate() {
-                let LValue::Local(binder) = left else {
-                    continue;
-                };
-                let ptr = local_ptr(binder);
-                match assign.right.get(index) {
-                    Some(RValue::Closure(closure)) => {
-                        let parameters = closure.function.lock().parameters.clone();
-                        if definitions.insert(ptr, parameters).is_some() {
-                            invalid.insert(ptr);
-                        }
-                    }
-                    Some(RValue::Literal(Literal::Nil)) if assign.prefix => {}
-                    None if assign.prefix && !multi_tail => {}
-                    _ => {
-                        invalid.insert(ptr);
-                    }
-                }
-            }
-        }
-        for value in crate::deinline::stmt_rvalues(statement) {
-            collect_definitions_in_rvalue(value, definitions, invalid);
-        }
-        match statement {
-            Statement::If(node) => {
-                collect_local_function_definitions(&node.then_block.lock(), definitions, invalid);
-                collect_local_function_definitions(&node.else_block.lock(), definitions, invalid);
-            }
-            Statement::While(node) => {
-                collect_local_function_definitions(&node.block.lock(), definitions, invalid)
-            }
-            Statement::Repeat(node) => {
-                collect_local_function_definitions(&node.block.lock(), definitions, invalid)
-            }
-            Statement::NumericFor(node) => {
-                collect_local_function_definitions(&node.block.lock(), definitions, invalid)
-            }
-            Statement::GenericFor(node) => {
-                collect_local_function_definitions(&node.block.lock(), definitions, invalid)
-            }
-            _ => {}
-        }
-    }
-}
-
-fn collect_definitions_in_rvalue(
-    value: &RValue,
-    definitions: &mut FxHashMap<usize, Vec<RcLocal>>,
-    invalid: &mut FxHashSet<usize>,
-) {
-    if let RValue::Closure(closure) = value {
-        collect_local_function_definitions(&closure.function.lock().body, definitions, invalid);
-        return;
-    }
-    for child in value.rvalues() {
-        collect_definitions_in_rvalue(child, definitions, invalid);
-    }
-}
-
-fn record_local_function_call(
+fn record_local_function_call<P>(
     call: &Call,
-    definitions: &FxHashMap<usize, Vec<RcLocal>>,
+    definitions: &FxHashMap<usize, Vec<P>>,
     namer: &Namer,
     consensus: &mut FxHashMap<usize, ParamConsensus>,
 ) {
@@ -4709,9 +4783,9 @@ fn record_local_function_call(
     }
 }
 
-fn collect_local_function_calls(
+fn collect_local_function_calls<P>(
     block: &Block,
-    definitions: &FxHashMap<usize, Vec<RcLocal>>,
+    definitions: &FxHashMap<usize, Vec<P>>,
     namer: &Namer,
     consensus: &mut FxHashMap<usize, ParamConsensus>,
 ) {
@@ -4754,9 +4828,9 @@ fn collect_local_function_calls(
     }
 }
 
-fn collect_calls_in_rvalue(
+fn collect_calls_in_rvalue<P>(
     value: &RValue,
-    definitions: &FxHashMap<usize, Vec<RcLocal>>,
+    definitions: &FxHashMap<usize, Vec<P>>,
     namer: &Namer,
     consensus: &mut FxHashMap<usize, ParamConsensus>,
 ) {
@@ -4961,27 +5035,33 @@ pub fn name_locals_with_evidence(
     options: NameLocalOptions,
     collect_evidence: bool,
 ) -> crate::naming_evidence::Report {
+    name_locals_impl::<false>(block, rename, script_name, options, collect_evidence)
+}
+
+fn name_locals_impl<const REFERENCE: bool>(
+    block: &mut Block, rename: bool, script_name: Option<&str>, options: NameLocalOptions,
+    collect_evidence: bool,
+) -> crate::naming_evidence::Report {
     let mut evidence = collect_evidence.then(crate::naming_evidence::Collector::default);
-    // Gather, before naming, the whole-tree facts the scoring heuristics need:
-    // which locals alias `createElement`, then per-local usage.
-    let mut create_element_aliases = FxHashSet::default();
-    collect_create_element_aliases(block, &mut create_element_aliases);
+    // All these facts describe the same immutable naming input. No fact is
+    // shared across pipeline phases, worker publication, or final local splits.
+    #[cfg(test)]
+    let preparation = if REFERENCE { reference::prepare(block, collect_evidence) }
+        else { NamingPreparation::for_naming(block, collect_evidence) };
+    #[cfg(not(test))]
+    let preparation = NamingPreparation::for_naming(block, collect_evidence);
+    let NamingPreparation { create_element_aliases, collapse_candidates, class_signal_locals,
+        field_aliases, counts, identities, definitions, invalid_definitions: _ } = preparation;
     let mut usage = FxHashMap::default();
-    gather_usage(block, false, &create_element_aliases, &mut usage);
-    // Read/write/capture counts via the same routine the elimination passes use,
-    // so `is_collapse_candidate` matches their gate exactly. Re-key by `local_ptr`
-    // and DROP the `RcLocal` keys (the `into_iter` consumes them) so no strong Arc
-    // clone outlives this line — otherwise every local's `Arc::count` would be
-    // inflated and `name_one`'s unused-local `_` detection would break.
-    let counts: FxHashMap<usize, Usage> = collect_usage(block)
-        .into_iter()
-        .map(|(local, usage)| {
-            if let Some(evidence) = &mut evidence {
-                evidence.register(local_ptr(&local), local.stable_id());
-            }
-            (local_ptr(&local), usage)
-        })
-        .collect();
+    #[cfg(test)]
+    if REFERENCE { reference::gather_usage(block, false, &create_element_aliases, &mut usage); }
+    else { gather_usage(block, false, &create_element_aliases, &field_aliases, &mut usage); }
+    #[cfg(not(test))]
+    gather_usage(block, false, &create_element_aliases, &field_aliases, &mut usage);
+    if let (Some(evidence), Some(identities)) = (&mut evidence, identities) {
+        for (ptr, id) in identities { evidence.register(ptr, id); }
+    }
+    drop(field_aliases);
     // Carry count/size roles back through immutable scalar snapshots.
     // This names parameters only; it cannot pin an otherwise removable temp.
     for _ in 0..8 {
@@ -4998,11 +5078,6 @@ pub fn name_locals_with_evidence(
             if size { fact.buffer_size = true; } else { fact.repetition_count = true; }
         }
     }
-    let mut collapse_candidates = FxHashSet::default();
-    collect_collapse_candidates(block, &mut collapse_candidates);
-    let mut class_signal_locals = FxHashSet::default();
-    collect_class_signals(block, &mut class_signal_locals);
-
     let mut namer = Namer {
         rename,
         dont_reuse_var: options.dont_reuse_var,
@@ -5035,7 +5110,11 @@ pub fn name_locals_with_evidence(
     namer.collect(block, true);
     namer.usage_based_hints();
     namer.evidence_rule = "resolved_call_consensus";
-    namer.interprocedural_param_hints(block);
+    #[cfg(test)]
+    if REFERENCE { reference::interprocedural_param_hints(&mut namer, block); }
+    else { namer.interprocedural_param_hints(block, definitions); }
+    #[cfg(not(test))]
+    namer.interprocedural_param_hints(block, definitions);
     namer.evidence_rule = "declaration_and_type_hint";
     namer.apply(block);
     if rename {
@@ -5045,6 +5124,11 @@ pub fn name_locals_with_evidence(
         namer.hints.get(&ptr).map(|hint| (hint.name.clone(), hint.score))
     })).unwrap_or_default()
 }
+
+#[cfg(test)]
+mod reference;
+#[cfg(test)]
+mod preparation_tests;
 
 #[cfg(test)]
 mod tests {
@@ -5088,6 +5172,63 @@ mod tests {
 
     fn number(value: f64) -> RValue {
         RValue::Literal(Literal::Number(value))
+    }
+
+    #[test]
+    fn fused_preparation_matches_independent_censuses_and_retains_no_owners() {
+        fn tree(seed: usize, depth: usize, class: &RcLocal) -> Block {
+            let alias = RcLocal::default();
+            let selected = RcLocal::default();
+            let mut empty = Assign::new(vec![selected.clone().into()], vec![]);
+            empty.prefix = true;
+            let arm = |n| Block(vec![Assign::new(vec![selected.clone().into()], vec![number(n)]).into()]);
+            let mut block = Block(vec![
+                declare(&alias, Index::new(global("React"), string(if seed % 3 == 0 { "other" } else { "createElement" })).into()),
+                empty.into(), If::new(global("condition"), arm(1.0), arm(2.0)).into(),
+                Call::new(global("consume"), vec![selected.into()]).into(),
+                Assign::new(vec![Index::new(class.clone().into(), string(if seed % 5 == 0 { "__index" } else { "field" })).into()], vec![number(0.0)]).into(),
+                Call::new(global("setmetatable"), vec![number(0.0), class.clone().into()]).into(),
+                MethodCall::new(class.clone().into(), "method".into(), vec![]).into(),
+                Return::new(vec![Select::Call(Call::new(global("setmetatable"), vec![number(0.0), alias.clone().into()])).into(),
+                    Select::MethodCall(MethodCall::new(alias.into(), "method".into(), vec![])).into()]).into(),
+            ]);
+            if depth > 0 {
+                let child = tree(seed * 13 + 1, depth - 1, class);
+                let closure = || RValue::Closure(Closure { node_origin: Default::default(),
+                    function: ByAddress(Arc::new(Mutex::new(Function { body: child.clone(), ..Default::default() }))),
+                    upvalues: vec![] });
+                match seed % 8 {
+                    0 => block.push(If::new(global("condition"), child.clone(), child).into()),
+                    1 => block.push(crate::While::new(global("condition"), child).into()),
+                    2 => block.push(crate::Repeat::new(global("condition"), child).into()),
+                    3 => block.push(NumericFor::new(number(1.0), number(3.0), number(1.0), RcLocal::default(), child).into()),
+                    4 => block.push(GenericFor::new(vec![RcLocal::default()], vec![global("items")], child).into()),
+                    5 => {
+                        let shared = closure();
+                        block.push(Call::new(global("consume"), vec![shared.clone(), shared]).into());
+                    }
+                    6 => block.push(Assign::new(vec![Index::new(closure(), string("key")).into()], vec![number(0.0)]).into()),
+                    _ => block.push(crate::GenericForNext::new(vec![RcLocal::default()], closure(), RcLocal::default(), RcLocal::default()).into()),
+                }
+            }
+            block
+        }
+        for seed in 0..64 {
+            let class = RcLocal::default();
+            let mut block = tree(seed, 3, &class);
+            let owners = Arc::count(&class.0.0);
+            let mut aliases = Default::default();
+            let mut collapses = Default::default();
+            let mut classes = Default::default();
+            super::collect_create_element_aliases(&mut block, &mut aliases);
+            super::collect_collapse_candidates(&mut block, &mut collapses);
+            super::collect_class_signals(&mut block, &mut classes);
+            let actual = super::NamingPreparation::collect(&block);
+            assert_eq!(actual.create_element_aliases, aliases, "aliases, seed {seed}");
+            assert_eq!(actual.collapse_candidates, collapses, "collapses, seed {seed}");
+            assert_eq!(actual.class_signal_locals, classes, "classes, seed {seed}");
+            assert_eq!(Arc::count(&class.0.0), owners, "preparation retained a local owner");
+        }
     }
 
     #[test]

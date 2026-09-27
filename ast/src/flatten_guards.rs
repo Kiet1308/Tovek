@@ -311,9 +311,10 @@ pub fn flatten_terminal_tail_guards(block: &mut Block) {
             Statement::GenericFor(gf) => flatten_terminal_tail_guards(&mut gf.block.lock()),
             _ => {}
         }
-        for value in s.rvalues_mut() {
+        s.visit_rvalues_mut(&mut |value| {
             flatten_terminal_tail_guards_in_rvalue(value);
-        }
+            true
+        });
     }
 
     let mut index = 0;
@@ -365,15 +366,14 @@ fn small_guard_tail(statement: &Statement) -> bool {
         if matches!(value, RValue::Table(_) | RValue::Closure(_)) {
             return 13;
         }
-        1 + value.rvalues().into_iter().map(value_cost).sum::<usize>()
+        let mut children = 0;
+        value.visit_rvalues(&mut |child| { children += value_cost(child); true });
+        1 + children
     }
-    is_guard_terminator(statement)
-        && statement
-            .rvalues()
-            .into_iter()
-            .map(value_cost)
-            .sum::<usize>()
-            <= 12
+    if !is_guard_terminator(statement) { return false; }
+    let mut cost = 0;
+    statement.visit_rvalues(&mut |value| { cost += value_cost(value); true });
+    cost <= 12
 }
 
 fn flatten_terminal_tail_guards_in_rvalue(value: &mut RValue) {
@@ -381,9 +381,10 @@ fn flatten_terminal_tail_guards_in_rvalue(value: &mut RValue) {
         flatten_terminal_tail_guards(&mut closure.function.lock().body);
         return;
     }
-    for nested in value.rvalues_mut() {
+    value.visit_rvalues_mut(&mut |nested| {
         flatten_terminal_tail_guards_in_rvalue(nested);
-    }
+        true
+    });
 }
 
 #[cfg(test)]

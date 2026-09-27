@@ -84,6 +84,14 @@ impl LocalRw for Assign {
         crate::local::collect_reads_mut(self)
     }
 
+    fn visit_local_writes<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.left.iter().all(|value| value.visit_local_writes(visit))
+    }
+
+    fn visit_local_writes_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.left.iter_mut().all(|value| value.visit_local_writes_mut(visit))
+    }
+
     fn values_written(&self) -> Vec<&RcLocal> {
         self.left.iter().flat_map(|l| l.values_written()).collect()
     }

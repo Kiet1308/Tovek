@@ -109,9 +109,10 @@ fn unshare_blocks_impl(body: &mut Block, include_closures: bool) {
             _ => {}
         }
         if include_closures {
-            for value in crate::deinline::stmt_rvalues_mut(statement) {
+            crate::deinline::visit_stmt_rvalues_mut(statement, &mut |value| {
                 unshare_rvalue(value);
-            }
+                true
+            });
         }
     }
 }
@@ -128,9 +129,10 @@ fn unshare_rvalue(value: &mut RValue) {
         unshare_blocks(&mut closure.function.0.lock().body);
         return;
     }
-    for child in value.rvalues_mut() {
+    value.visit_rvalues_mut(&mut |child| {
         unshare_rvalue(child);
-    }
+        true
+    });
 }
 
 // The false specialization is exercised by differential tests as the original
@@ -204,9 +206,10 @@ fn factor_children<const DIRTY_ONLY: bool>(stmt: &mut Statement, tail: Option<Ta
     // table fields and call arguments.  `Traverse` keeps this exhaustive when a
     // new expression form is added.
     if matches!(mode, FactorMode::WholeChunk) {
-        for value in crate::deinline::stmt_rvalues_mut(stmt) {
+        crate::deinline::visit_stmt_rvalues_mut(stmt, &mut |value| {
             changed |= factor_in_rvalue::<DIRTY_ONLY>(value);
-        }
+            true
+        });
     }
     changed
 }
@@ -220,9 +223,10 @@ fn factor_in_rvalue<const DIRTY_ONLY: bool>(value: &mut RValue) -> bool {
         );
     }
     let mut changed = false;
-    for child in value.rvalues_mut() {
+    value.visit_rvalues_mut(&mut |child| {
         changed |= factor_in_rvalue::<DIRTY_ONLY>(child);
-    }
+        true
+    });
     changed
 }
 

@@ -134,7 +134,13 @@ impl<'a: 'b, 'b> Reduce for Binary {
     fn reduce(self) -> RValue {
         // TODO: true == true, true == false, etc.
         // really anything without side effects should be true if l == r
-        match (self.left.reduce(), self.right.reduce(), self.operation) {
+        // Retain storage while reducing the owned children. The unchanged
+        // fallback reinstalls them instead of allocating two replacement boxes.
+        let mut left_box = self.left;
+        let mut right_box = self.right;
+        let left = std::mem::replace(left_box.as_mut(), Literal::Nil.into()).reduce();
+        let right = std::mem::replace(right_box.as_mut(), Literal::Nil.into()).reduce();
+        match (left, right, self.operation) {
             (
                 RValue::Unary(Unary {
                     operation: UnaryOperation::Not,
@@ -218,23 +224,22 @@ impl<'a: 'b, 'b> Reduce for Binary {
             ) => RValue::Literal(Literal::String(
                 left.into_iter().chain(right.into_iter()).collect(),
             )),
-            (left, right, operation) => Self {
-                node_origin: Default::default(),
-                left: Box::new(left),
-                right: Box::new(right),
-                operation,
+            (left, right, operation) => {
+                *left_box = left;
+                *right_box = right;
+                Self { node_origin: Default::default(), left: left_box, right: right_box, operation }.into()
             }
-            .into(),
         }
     }
 
     fn reduce_condition(self) -> RValue {
-        let (left, right) = if matches!(self.operation, BinaryOperation::And | BinaryOperation::Or)
-        {
-            (self.left.reduce_condition(), self.right.reduce_condition())
-        } else {
-            (self.left.reduce(), self.right.reduce())
-        };
+        let mut left_box = self.left;
+        let mut right_box = self.right;
+        let conditions = matches!(self.operation, BinaryOperation::And | BinaryOperation::Or);
+        let left = std::mem::replace(left_box.as_mut(), Literal::Nil.into());
+        let left = if conditions { left.reduce_condition() } else { left.reduce() };
+        let right = std::mem::replace(right_box.as_mut(), Literal::Nil.into());
+        let right = if conditions { right.reduce_condition() } else { right.reduce() };
         match (left, right, self.operation) {
             (
                 RValue::Unary(Unary {
@@ -304,7 +309,9 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 // and dynamic table-key errors.
                 _ if crate::is_total_pure(&left) => RValue::Literal(Literal::Boolean(right)),
                 operation => {
-                    Binary::new(left, RValue::Literal(Literal::Boolean(right)), operation).into()
+                    *left_box = left;
+                    *right_box = RValue::Literal(Literal::Boolean(right));
+                    Self { node_origin: Default::default(), left: left_box, right: right_box, operation }.into()
                 }
             },
             // TODO: concat numbers
@@ -315,13 +322,11 @@ impl<'a: 'b, 'b> Reduce for Binary {
             ) => RValue::Literal(Literal::String(
                 left.into_iter().chain(right.into_iter()).collect(),
             )),
-            (left, right, operation) => Self {
-                node_origin: Default::default(),
-                left: Box::new(left),
-                right: Box::new(right),
-                operation,
+            (left, right, operation) => {
+                *left_box = left;
+                *right_box = right;
+                Self { node_origin: Default::default(), left: left_box, right: right_box, operation }.into()
             }
-            .into(),
         }
     }
 }

@@ -164,26 +164,31 @@ fn conditional_assignment_parts(
 
     let mut terms = Vec::new();
     collect_or_terms(&assign.right[0], &mut terms);
-    let fallback = terms.pop()?.clone();
+    let fallback = terms.pop()?;
     // A single `condition and value or fallback` is still compact and familiar.
     // The readability cliff starts at a chained selection with at least two
     // conditions (the nested-if shape this recovery targets).
     if terms.len() < 2 {
         return None;
     }
-    let mut arms = Vec::with_capacity(terms.len());
-    for term in terms {
+    for &term in &terms {
         let RValue::Binary(binary) = term else {
             return None;
         };
         if binary.operation != BinaryOperation::And || !statically_truthy(&binary.right) {
             return None;
         }
-        arms.push(((*binary.left).clone(), (*binary.right).clone()));
     }
-    if arms.len() < 3 && crate::expression_budget::expression_cost(&fallback) < 10 {
+    if terms.len() < 3 && crate::expression_budget::expression_cost(fallback) < 10 {
         return None;
     }
+    // Clone only after every refusal gate has passed. Keep the original
+    // accepted-path copy order: fallback, then each condition/value pair.
+    let fallback = clone_rebalance_part(fallback);
+    let arms = terms.into_iter().map(|term| {
+        let RValue::Binary(binary) = term else { unreachable!() };
+        (clone_rebalance_part(&binary.left), clone_rebalance_part(&binary.right))
+    }).collect();
     Some((local.clone(), assign.prefix, arms, fallback))
 }
 
@@ -324,9 +329,28 @@ fn return_concat_parts(statement: &Statement) -> Option<Vec<RValue>> {
 }
 
 fn long_concat_parts(value: &RValue) -> Option<Vec<RValue>> {
+    // The collector yields one part plus one per left-spine concat. Most
+    // callers have an unrelated or short RHS: prove eligibility without
+    // cloning any of their subtrees, stopping after four operators.
+    let mut spine = value;
+    for _ in 0..MIN_CONCAT_OPERATORS {
+        let RValue::Binary(binary) = spine else { return None; };
+        if binary.operation != BinaryOperation::Concat { return None; }
+        spine = &binary.left;
+    }
     let mut parts = Vec::new();
     collect_left_concat_parts(value, &mut parts);
     (parts.len() > MIN_CONCAT_OPERATORS).then_some(parts)
+}
+
+#[cfg(test)]
+thread_local! { static PART_CLONES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+
+#[inline]
+fn clone_rebalance_part(value: &RValue) -> RValue {
+    #[cfg(test)]
+    PART_CLONES.with(|count| count.set(count.get() + 1));
+    value.clone()
 }
 
 fn collect_left_concat_parts(value: &RValue, parts: &mut Vec<RValue>) {
@@ -334,9 +358,9 @@ fn collect_left_concat_parts(value: &RValue, parts: &mut Vec<RValue>) {
         && binary.operation == BinaryOperation::Concat
     {
         collect_left_concat_parts(&binary.left, parts);
-        parts.push((*binary.right).clone());
+        parts.push(clone_rebalance_part(&binary.right));
     } else {
-        parts.push(value.clone());
+        parts.push(clone_rebalance_part(value));
     }
 }
 
@@ -360,14 +384,67 @@ fn concat_statements(local: RcLocal, mut parts: Vec<RValue>, prefix: bool) -> Ve
 
 #[cfg(test)]
 mod tests {
-    use super::rebalance_expressions;
+    use super::{rebalance_expressions, ConditionalArms, MIN_CONCAT_OPERATORS,
+        collect_left_concat_parts, collect_or_terms, reads_rendered_name, statically_truthy};
     use crate::{
         Assign, Binary, BinaryOperation, Block, Closure, Function, Global, LValue, Literal, Local,
-        RValue, RcLocal, Return,
+        RValue, RcLocal, Return, Statement,
     };
     use by_address::ByAddress;
     use parking_lot::Mutex;
     use triomphe::Arc;
+
+    // Original eager-copy paths, including every former refusal gate.
+    fn conditional_assignment_parts_reference(
+        statement: &Statement,
+    ) -> Option<(RcLocal, bool, ConditionalArms, RValue)> {
+        let Statement::Assign(assign) = statement else {
+            return None;
+        };
+        if assign.parallel || assign.left.len() != 1 || assign.right.len() != 1 {
+            return None;
+        }
+        let LValue::Local(local) = &assign.left[0] else {
+            return None;
+        };
+        if assign.prefix && reads_rendered_name(&assign.right[0], local) {
+            return None;
+        }
+        if crate::expression_budget::collapse_allowed(&assign.right[0]) {
+            return None;
+        }
+
+        let mut terms = Vec::new();
+        collect_or_terms(&assign.right[0], &mut terms);
+        let fallback = super::clone_rebalance_part(terms.pop()?);
+        // A single `condition and value or fallback` is still compact and familiar.
+        // The readability cliff starts at a chained selection with at least two
+        // conditions (the nested-if shape this recovery targets).
+        if terms.len() < 2 {
+            return None;
+        }
+        let mut arms = Vec::with_capacity(terms.len());
+        for term in terms {
+            let RValue::Binary(binary) = term else {
+                return None;
+            };
+            if binary.operation != BinaryOperation::And || !statically_truthy(&binary.right) {
+                return None;
+            }
+            arms.push((super::clone_rebalance_part(&binary.left), super::clone_rebalance_part(&binary.right)));
+        }
+        if arms.len() < 3 && crate::expression_budget::expression_cost(&fallback) < 10 {
+            return None;
+        }
+        Some((local.clone(), assign.prefix, arms, fallback))
+    }
+
+
+    fn long_concat_parts_reference(value: &RValue) -> Option<Vec<RValue>> {
+        let mut parts = Vec::new();
+        collect_left_concat_parts(value, &mut parts);
+        (parts.len() > MIN_CONCAT_OPERATORS).then_some(parts)
+    }
 
     fn string(value: &str) -> RValue {
         RValue::Literal(Literal::String(value.as_bytes().to_vec()))
@@ -377,6 +454,144 @@ mod tests {
         (1..count).fold(string("a"), |left, index| {
             Binary::new(left, string(&index.to_string()), BinaryOperation::Concat).into()
         })
+    }
+
+    type OriginSnapshot = Option<(Vec<std::sync::Arc<crate::node_origins::Input>>, bool, bool, bool, Option<&'static str>)>;
+
+    fn value_snapshot(value: &RValue, origins: &mut Vec<OriginSnapshot>, numbers: &mut Vec<u64>) {
+        use crate::{node_origins, Traverse};
+        if let Some(origin) = node_origins::value(value) {
+            origins.push(origin.0.as_ref().map(|data| (data.inputs.clone(), data.inlined,
+                data.cloned, data.incomplete, data.synthesized)));
+        }
+        if let RValue::Literal(Literal::Number(number)) = value { numbers.push(number.to_bits()); }
+        value.visit_rvalues(&mut |child| { value_snapshot(child, origins, numbers); true });
+    }
+
+    fn annotate_value(value: &mut RValue, index: &mut usize) {
+        use crate::{node_origins, Traverse};
+        *index += 1;
+        if let Some(origin) = node_origins::value_mut(value) {
+            *origin = node_origins::Origin::input(node_origins::Input {
+                function: "rebalance_differential".into(), block: *index / 4,
+                statement: *index, value: Some(*index % 4),
+            });
+            let data = origin.0.as_mut().unwrap();
+            data.inlined = *index & 1 != 0;
+            data.cloned = *index & 2 != 0;
+            data.incomplete = *index & 4 != 0;
+            if *index & 8 != 0 { data.synthesized = Some("test_origin"); }
+        }
+        value.visit_rvalues_mut(&mut |child| { annotate_value(child, index); true });
+    }
+
+    fn measured<T>(run: impl FnOnce() -> T) -> (T, usize) {
+        super::PART_CLONES.with(|count| count.set(0));
+        let result = run();
+        (result, super::PART_CLONES.with(|count| count.get()))
+    }
+
+    fn compare_parts(actual: &[RValue], expected: &[RValue]) {
+        assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
+        let (mut actual_origins, mut actual_numbers) = (Vec::new(), Vec::new());
+        let (mut expected_origins, mut expected_numbers) = (Vec::new(), Vec::new());
+        for value in actual { value_snapshot(value, &mut actual_origins, &mut actual_numbers); }
+        for value in expected { value_snapshot(value, &mut expected_origins, &mut expected_numbers); }
+        assert_eq!(actual_origins, expected_origins, "complete origin metadata");
+        assert_eq!(actual_numbers, expected_numbers, "signed zero / NaN payload bits");
+    }
+
+    #[test]
+    fn borrowed_concat_gate_matches_eager_reference_shape_origins_and_clone_counts() {
+        for length in 0..=9 {
+            for right_associated in [false, true] {
+                let mut value: RValue = crate::Call::new(Global::from("initial").into(),
+                    vec![Literal::Number(f64::from_bits(0x7ff8_0000_0000_1234)).into()]).into();
+                for index in 0..length {
+                    let part: RValue = crate::Call::new(Global::from("part").into(),
+                        vec![Literal::Number(-0.0).into(), string(&index.to_string())]).into();
+                    value = if right_associated { Binary::new(part, value, BinaryOperation::Concat).into() }
+                        else { Binary::new(value, part, BinaryOperation::Concat).into() };
+                }
+                annotate_value(&mut value, &mut 0);
+                let (actual, actual_copies) = measured(|| super::long_concat_parts(&value));
+                let (expected, expected_copies) = measured(|| long_concat_parts_reference(&value));
+                assert_eq!(actual.is_some(), expected.is_some(), "length {length}, right {right_associated}");
+                if let (Some(actual), Some(expected)) = (actual, expected) {
+                    compare_parts(&actual, &expected);
+                    assert_eq!(actual_copies, expected_copies, "accepted copy sequence is unchanged");
+                } else {
+                    assert_eq!(actual_copies, 0, "refused spines borrow their operands");
+                    assert!(expected_copies > 0);
+                }
+            }
+        }
+        for width in [64, 256, 1024] {
+            // This was formerly cloned in full even though its root is not a concat.
+            let value: RValue = crate::Call::new(Global::from("observe").into(),
+                (0..width).map(|_| Literal::String(vec![0xff; 128]).into()).collect()).into();
+            let (actual, clones) = measured(|| super::long_concat_parts(&value));
+            assert!(actual.is_none());
+            assert_eq!(clones, 0);
+            assert!(measured(|| long_concat_parts_reference(&value)).1 > 0);
+        }
+    }
+
+    #[test]
+    fn borrowed_conditional_gate_matches_eager_reference_and_retains_copy_origins() {
+        let local = RcLocal::new(Local::new(Some("result".into())));
+        let mut accepted = 0;
+        let mut avoided_copies = 0;
+        for seed in 0..512usize {
+            let arm_count = 1 + seed % 4;
+            let arms: Vec<RValue> = (0..arm_count).map(|index| {
+                let condition: RValue = crate::Call::new(Global::from("choose").into(),
+                    (0..8).map(|argument| string(&argument.to_string())).collect()).into();
+                let value = match (seed / 4 + index) % 6 {
+                    0 => Literal::Number(f64::from_bits(0x7ff8_0000_0000_1234)).into(),
+                    1 => crate::Call::new(Global::from("unsupportedTruthiness").into(), vec![]).into(),
+                    2 => Literal::Boolean(false).into(),
+                    3 => crate::Table::new(vec![(None, Literal::Number(-0.0).into())]).into(),
+                    4 => crate::Unary::new(RValue::Local(local.clone()), crate::UnaryOperation::Length).into(),
+                    _ => string("selected"),
+                };
+                if seed % 19 == 0 && index + 1 == arm_count { condition }
+                else { Binary::new(condition, value, BinaryOperation::And).into() }
+            }).collect();
+            let mut terms = arms.into_iter();
+            let mut value = terms.next().unwrap();
+            for term in terms { value = Binary::new(value, term, BinaryOperation::Or).into(); }
+            let fallback = if seed % 3 == 0 { concat_chain(7) } else { string("fallback") };
+            value = Binary::new(value, fallback, BinaryOperation::Or).into();
+            annotate_value(&mut value, &mut 0);
+            let mut assign = Assign::new(vec![local.clone().into()], vec![value]);
+            assign.prefix = seed % 2 == 0;
+            let statement = Statement::Assign(assign);
+            let (actual, actual_copies) = measured(|| super::conditional_assignment_parts(&statement));
+            let (expected, expected_copies) = measured(|| conditional_assignment_parts_reference(&statement));
+            assert_eq!(actual.is_some(), expected.is_some(), "seed {seed}");
+            match (actual, expected) {
+                (Some((actual_local, actual_prefix, actual_arms, actual_fallback)),
+                    Some((expected_local, expected_prefix, expected_arms, expected_fallback))) => {
+                    accepted += 1;
+                    assert_eq!(actual_local, expected_local);
+                    assert_eq!(actual_prefix, expected_prefix);
+                    assert_eq!(actual_copies, expected_copies, "seed {seed}: accepted clones");
+                    let actual: Vec<_> = actual_arms.into_iter().flat_map(|(condition, value)| [condition, value])
+                        .chain(std::iter::once(actual_fallback)).collect();
+                    let expected: Vec<_> = expected_arms.into_iter().flat_map(|(condition, value)| [condition, value])
+                        .chain(std::iter::once(expected_fallback)).collect();
+                    compare_parts(&actual, &expected);
+                }
+                (None, None) => {
+                    assert_eq!(actual_copies, 0, "seed {seed}: no speculative copies");
+                    avoided_copies += expected_copies;
+                }
+                _ => unreachable!(),
+            }
+        }
+        assert!(accepted > 0);
+        assert!(avoided_copies > 0);
     }
 
     #[test]

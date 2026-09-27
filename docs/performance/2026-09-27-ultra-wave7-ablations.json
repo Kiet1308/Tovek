@@ -1,0 +1,3157 @@
+{
+  "schema_version": 1,
+  "target_speedup_achieved": false,
+  "status": "mixed cache-ablation results; no default change based on this cohort",
+  "comparison_direction": "Reference elapsed / W7-default elapsed. Above one favors the default optimization; below one favors disabling it.",
+  "timing": {
+    "binaries": {
+      "wave7": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave7\\benchmark_api.exe",
+        "sha256": "4bd3fc65917ab7fb62cb9bda7e60e56901b382060c93638609b5df2db3465156"
+      },
+      "reference_inline": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-inline\\benchmark_api.exe",
+        "sha256": "1c5d1b5d51486d0ca7d6e38d9a604aaeb38da7e34387ed57c7d1cf482a3be0db"
+      },
+      "reference_temp": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-temp\\benchmark_api.exe",
+        "sha256": "638fbf95483efc9dffc64ac42241b862f781111b8f2899fc522982fec25b92f4"
+      }
+    },
+    "manifest_sha256": "2ba7863b6775ac09b9815f87627a7b59b7208c1d7b018fbd1cb3f785201ad856",
+    "unique_bytecode_count": 3350,
+    "allocation_instrumented": false,
+    "summary": [
+      {
+        "label": "wave7",
+        "group": "unique",
+        "threads": 1,
+        "samples": 6,
+        "mean_seconds": 8.00974755,
+        "median_seconds": 8.0327464,
+        "p95_seconds": 8.1214753,
+        "p99_seconds": 8.1214753,
+        "min_seconds": 7.8291262,
+        "max_seconds": 8.1214753,
+        "median_process_peak_working_set_bytes": 65224704
+      },
+      {
+        "label": "reference_inline",
+        "group": "unique",
+        "threads": 1,
+        "samples": 6,
+        "mean_seconds": 7.893303866666667,
+        "median_seconds": 7.9007932499999995,
+        "p95_seconds": 7.9477022,
+        "p99_seconds": 7.9477022,
+        "min_seconds": 7.8287181,
+        "max_seconds": 7.9477022,
+        "median_process_peak_working_set_bytes": 66891776
+      },
+      {
+        "label": "reference_temp",
+        "group": "unique",
+        "threads": 1,
+        "samples": 6,
+        "mean_seconds": 8.205053383333333,
+        "median_seconds": 8.1942843,
+        "p95_seconds": 8.7019345,
+        "p99_seconds": 8.7019345,
+        "min_seconds": 7.8523633,
+        "max_seconds": 8.7019345,
+        "median_process_peak_working_set_bytes": 65433600
+      },
+      {
+        "label": "wave7",
+        "group": "unique",
+        "threads": 16,
+        "samples": 6,
+        "mean_seconds": 0.7048068000000001,
+        "median_seconds": 0.69021105,
+        "p95_seconds": 0.7575598,
+        "p99_seconds": 0.7575598,
+        "min_seconds": 0.6727594,
+        "max_seconds": 0.7575598,
+        "median_process_peak_working_set_bytes": 157495296
+      },
+      {
+        "label": "reference_inline",
+        "group": "unique",
+        "threads": 16,
+        "samples": 6,
+        "mean_seconds": 0.752717,
+        "median_seconds": 0.7463686,
+        "p95_seconds": 0.8930852,
+        "p99_seconds": 0.8930852,
+        "min_seconds": 0.679428,
+        "max_seconds": 0.8930852,
+        "median_process_peak_working_set_bytes": 159059968
+      },
+      {
+        "label": "reference_temp",
+        "group": "unique",
+        "threads": 16,
+        "samples": 6,
+        "mean_seconds": 0.6941397166666666,
+        "median_seconds": 0.6930212,
+        "p95_seconds": 0.7281036,
+        "p99_seconds": 0.7281036,
+        "min_seconds": 0.6654077,
+        "max_seconds": 0.7281036,
+        "median_process_peak_working_set_bytes": 161828864
+      },
+      {
+        "label": "wave7",
+        "group": "ui",
+        "threads": 1,
+        "samples": 60,
+        "mean_seconds": 0.014754258333333332,
+        "median_seconds": 0.014395149999999999,
+        "p95_seconds": 0.0170221,
+        "p99_seconds": 0.0180922,
+        "min_seconds": 0.0141038,
+        "max_seconds": 0.0180922,
+        "median_process_peak_working_set_bytes": 25591808
+      },
+      {
+        "label": "reference_inline",
+        "group": "ui",
+        "threads": 1,
+        "samples": 60,
+        "mean_seconds": 0.014990238333333333,
+        "median_seconds": 0.01441705,
+        "p95_seconds": 0.0169686,
+        "p99_seconds": 0.0252314,
+        "min_seconds": 0.0140573,
+        "max_seconds": 0.0252314,
+        "median_process_peak_working_set_bytes": 25726976
+      },
+      {
+        "label": "reference_temp",
+        "group": "ui",
+        "threads": 1,
+        "samples": 60,
+        "mean_seconds": 0.015300045,
+        "median_seconds": 0.014872699999999999,
+        "p95_seconds": 0.0181759,
+        "p99_seconds": 0.0216441,
+        "min_seconds": 0.014493,
+        "max_seconds": 0.0216441,
+        "median_process_peak_working_set_bytes": 26341376
+      }
+    ],
+    "cpu_affinity": {
+      "cpu_sets": [
+        {
+          "id": 256,
+          "group": 0,
+          "logical": 0,
+          "core": 0,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 257,
+          "group": 0,
+          "logical": 1,
+          "core": 1,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 258,
+          "group": 0,
+          "logical": 2,
+          "core": 2,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 259,
+          "group": 0,
+          "logical": 3,
+          "core": 3,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 260,
+          "group": 0,
+          "logical": 4,
+          "core": 4,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 261,
+          "group": 0,
+          "logical": 5,
+          "core": 5,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 262,
+          "group": 0,
+          "logical": 6,
+          "core": 6,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 263,
+          "group": 0,
+          "logical": 7,
+          "core": 7,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 264,
+          "group": 0,
+          "logical": 8,
+          "core": 8,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 265,
+          "group": 0,
+          "logical": 9,
+          "core": 9,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 266,
+          "group": 0,
+          "logical": 10,
+          "core": 10,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 267,
+          "group": 0,
+          "logical": 11,
+          "core": 11,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 268,
+          "group": 0,
+          "logical": 12,
+          "core": 12,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 269,
+          "group": 0,
+          "logical": 13,
+          "core": 13,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 270,
+          "group": 0,
+          "logical": 14,
+          "core": 14,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 271,
+          "group": 0,
+          "logical": 15,
+          "core": 15,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 272,
+          "group": 0,
+          "logical": 16,
+          "core": 16,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 273,
+          "group": 0,
+          "logical": 17,
+          "core": 17,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 274,
+          "group": 0,
+          "logical": 18,
+          "core": 18,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 275,
+          "group": 0,
+          "logical": 19,
+          "core": 19,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 276,
+          "group": 0,
+          "logical": 20,
+          "core": 20,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 277,
+          "group": 0,
+          "logical": 21,
+          "core": 21,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 278,
+          "group": 0,
+          "logical": 22,
+          "core": 22,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 279,
+          "group": 0,
+          "logical": 23,
+          "core": 23,
+          "efficiency_class": 1,
+          "flags": 0
+        }
+      ],
+      "single_thread_logical_processor": 23,
+      "one_thread_mask": 8388608,
+      "many_thread_mask": 16777215,
+      "reason": "Hybrid CPU and observed unrelated background load. Pin single-thread API samples to the same performance core; retain normal priority. Multi-thread samples use all logical processors. User processes are not modified.",
+      "documentation": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-system_cpu_set_information"
+    },
+    "runner_sha256": "bb49c0acb233e2cef9a2d5bd78046b7d7838d56987982b843e1abde636290f4c",
+    "contract": "Rotated independent-process variant order; workload order reverses on alternate process rounds. First calls excluded from mean/median summaries, retained in raw rows. All accepted baseline output hashes enforced on every result. Unique removes byte-identical payload duplicates before API, so its speedup cannot be due to batch duplicate sharing. No input/filesystem cold-cache claim. Process peak working set includes loading, verification and retained results; not heap payload. Optional prewarm runs are archived separately and were declared before the cohort. Instrumented timing is diagnostic only and must not be used as performance evidence."
+  },
+  "timing_samples": [
+    {
+      "label": "wave7",
+      "group": "unique",
+      "threads": 1,
+      "process_round": 0,
+      "process_peak_working_set_bytes": 65769472,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 7.8241879
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 7.8291262
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 7.9376636000000005
+        }
+      ]
+    },
+    {
+      "label": "reference_inline",
+      "group": "unique",
+      "threads": 1,
+      "process_round": 0,
+      "process_peak_working_set_bytes": 66891776,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 7.8912609
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 7.8287181
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 7.8745087
+        }
+      ]
+    },
+    {
+      "label": "reference_temp",
+      "group": "unique",
+      "threads": 1,
+      "process_round": 0,
+      "process_peak_working_set_bytes": 65433600,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 7.8542218
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 7.8523633
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 7.9266977
+        }
+      ]
+    },
+    {
+      "label": "wave7",
+      "group": "unique",
+      "threads": 16,
+      "process_round": 0,
+      "process_peak_working_set_bytes": 157495296,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 0.7008871
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 0.6776573
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 0.6804424
+        }
+      ]
+    },
+    {
+      "label": "reference_inline",
+      "group": "unique",
+      "threads": 16,
+      "process_round": 0,
+      "process_peak_working_set_bytes": 159059968,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 0.6838788
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 0.7341422
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 0.6870349
+        }
+      ]
+    },
+    {
+      "label": "reference_temp",
+      "group": "unique",
+      "threads": 16,
+      "process_round": 0,
+      "process_peak_working_set_bytes": 167874560,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 0.6809413
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 0.6812003
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 0.6723372
+        }
+      ]
+    },
+    {
+      "label": "wave7",
+      "group": "ui",
+      "threads": 1,
+      "process_round": 0,
+      "process_peak_working_set_bytes": 25591808,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 0,
+          "seconds": 0.0170092
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 1,
+          "seconds": 0.014872
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 2,
+          "seconds": 0.0141038
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 3,
+          "seconds": 0.0142784
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 4,
+          "seconds": 0.0142664
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 5,
+          "seconds": 0.0141571
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 6,
+          "seconds": 0.0142217
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 7,
+          "seconds": 0.0143983
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 8,
+          "seconds": 0.0142019
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 9,
+          "seconds": 0.0142455
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 10,
+          "seconds": 0.0141427
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 11,
+          "seconds": 0.0170221
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 12,
+          "seconds": 0.0153788
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 13,
+          "seconds": 0.014439
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 14,
+          "seconds": 0.014404
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 15,
+          "seconds": 0.0143886
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 16,
+          "seconds": 0.0142358
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 17,
+          "seconds": 0.014392
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 18,
+          "seconds": 0.0141534
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 19,
+          "seconds": 0.0145395
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 20,
+          "seconds": 0.0143047
+        }
+      ]
+    },
+    {
+      "label": "reference_inline",
+      "group": "ui",
+      "threads": 1,
+      "process_round": 0,
+      "process_peak_working_set_bytes": 25726976,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 0,
+          "seconds": 0.0168829
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 1,
+          "seconds": 0.0146715
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 2,
+          "seconds": 0.014103
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 3,
+          "seconds": 0.0142172
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 4,
+          "seconds": 0.0145283
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 5,
+          "seconds": 0.0149078
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 6,
+          "seconds": 0.0142084
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 7,
+          "seconds": 0.0140839
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 8,
+          "seconds": 0.0140573
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 9,
+          "seconds": 0.014286
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 10,
+          "seconds": 0.0142443
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 11,
+          "seconds": 0.0142169
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 12,
+          "seconds": 0.0142624
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 13,
+          "seconds": 0.0149646
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 14,
+          "seconds": 0.0148327
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 15,
+          "seconds": 0.0142736
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 16,
+          "seconds": 0.0141171
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 17,
+          "seconds": 0.0142162
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 18,
+          "seconds": 0.0147663
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 19,
+          "seconds": 0.0148235
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 20,
+          "seconds": 0.0147398
+        }
+      ]
+    },
+    {
+      "label": "reference_temp",
+      "group": "ui",
+      "threads": 1,
+      "process_round": 0,
+      "process_peak_working_set_bytes": 26341376,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 0,
+          "seconds": 0.02294
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 1,
+          "seconds": 0.0154555
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 2,
+          "seconds": 0.015012
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 3,
+          "seconds": 0.0146041
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 4,
+          "seconds": 0.0150174
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 5,
+          "seconds": 0.0151656
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 6,
+          "seconds": 0.0154745
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 7,
+          "seconds": 0.0147952
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 8,
+          "seconds": 0.0148374
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 9,
+          "seconds": 0.0146775
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 10,
+          "seconds": 0.0156505
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 11,
+          "seconds": 0.0147001
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 12,
+          "seconds": 0.0145714
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 13,
+          "seconds": 0.0151942
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 14,
+          "seconds": 0.0146517
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 15,
+          "seconds": 0.0158724
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 16,
+          "seconds": 0.0152002
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 17,
+          "seconds": 0.0176451
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 18,
+          "seconds": 0.0149977
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 19,
+          "seconds": 0.0148508
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 20,
+          "seconds": 0.0148578
+        }
+      ]
+    },
+    {
+      "label": "reference_inline",
+      "group": "ui",
+      "threads": 1,
+      "process_round": 1,
+      "process_peak_working_set_bytes": 25726976,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 0,
+          "seconds": 0.0168587
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 1,
+          "seconds": 0.0151821
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 2,
+          "seconds": 0.0144549
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 3,
+          "seconds": 0.0142648
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 4,
+          "seconds": 0.0142783
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 5,
+          "seconds": 0.0142798
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 6,
+          "seconds": 0.0143942
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 7,
+          "seconds": 0.014351
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 8,
+          "seconds": 0.0142248
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 9,
+          "seconds": 0.0142183
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 10,
+          "seconds": 0.0148529
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 11,
+          "seconds": 0.014912
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 12,
+          "seconds": 0.0142246
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 13,
+          "seconds": 0.0149307
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 14,
+          "seconds": 0.014403
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 15,
+          "seconds": 0.0157691
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 16,
+          "seconds": 0.0167382
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 17,
+          "seconds": 0.0186211
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 18,
+          "seconds": 0.0146588
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 19,
+          "seconds": 0.0141802
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 20,
+          "seconds": 0.0145
+        }
+      ]
+    },
+    {
+      "label": "reference_temp",
+      "group": "ui",
+      "threads": 1,
+      "process_round": 1,
+      "process_peak_working_set_bytes": 26341376,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 0,
+          "seconds": 0.0173309
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 1,
+          "seconds": 0.0154221
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 2,
+          "seconds": 0.0148547
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 3,
+          "seconds": 0.0145703
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 4,
+          "seconds": 0.0164456
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 5,
+          "seconds": 0.0149286
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 6,
+          "seconds": 0.0149573
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 7,
+          "seconds": 0.0150688
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 8,
+          "seconds": 0.0148554
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 9,
+          "seconds": 0.0145881
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 10,
+          "seconds": 0.014493
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 11,
+          "seconds": 0.0146241
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 12,
+          "seconds": 0.0147568
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 13,
+          "seconds": 0.0148465
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 14,
+          "seconds": 0.014812
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 15,
+          "seconds": 0.0148846
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 16,
+          "seconds": 0.0147991
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 17,
+          "seconds": 0.0146302
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 18,
+          "seconds": 0.0150441
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 19,
+          "seconds": 0.0148082
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 20,
+          "seconds": 0.0149832
+        }
+      ]
+    },
+    {
+      "label": "wave7",
+      "group": "ui",
+      "threads": 1,
+      "process_round": 1,
+      "process_peak_working_set_bytes": 25591808,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 0,
+          "seconds": 0.016843
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 1,
+          "seconds": 0.015076
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 2,
+          "seconds": 0.0150245
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 3,
+          "seconds": 0.014856
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 4,
+          "seconds": 0.0142736
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 5,
+          "seconds": 0.015038
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 6,
+          "seconds": 0.0144898
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 7,
+          "seconds": 0.0144071
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 8,
+          "seconds": 0.0148585
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 9,
+          "seconds": 0.0142523
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 10,
+          "seconds": 0.014215
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 11,
+          "seconds": 0.014236
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 12,
+          "seconds": 0.0144694
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 13,
+          "seconds": 0.014323
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 14,
+          "seconds": 0.0147726
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 15,
+          "seconds": 0.0146451
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 16,
+          "seconds": 0.0141934
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 17,
+          "seconds": 0.0143482
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 18,
+          "seconds": 0.0142729
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 19,
+          "seconds": 0.0150225
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 20,
+          "seconds": 0.0174207
+        }
+      ]
+    },
+    {
+      "label": "reference_inline",
+      "group": "unique",
+      "threads": 16,
+      "process_round": 1,
+      "process_peak_working_set_bytes": 156971008,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 0.6964451
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 0.758595
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 0.679428
+        }
+      ]
+    },
+    {
+      "label": "reference_temp",
+      "group": "unique",
+      "threads": 16,
+      "process_round": 1,
+      "process_peak_working_set_bytes": 161828864,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 0.7121092
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 0.6654077
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 0.7048421
+        }
+      ]
+    },
+    {
+      "label": "wave7",
+      "group": "unique",
+      "threads": 16,
+      "process_round": 1,
+      "process_peak_working_set_bytes": 154271744,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 0.7090927
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 0.6999797
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 0.6727594
+        }
+      ]
+    },
+    {
+      "label": "reference_inline",
+      "group": "unique",
+      "threads": 1,
+      "process_round": 1,
+      "process_peak_working_set_bytes": 66875392,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 7.8376955
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 7.8452122
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 7.9270778
+        }
+      ]
+    },
+    {
+      "label": "reference_temp",
+      "group": "unique",
+      "threads": 1,
+      "process_round": 1,
+      "process_peak_working_set_bytes": 65687552,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 7.7896769
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 8.3607562
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 8.7019345
+        }
+      ]
+    },
+    {
+      "label": "wave7",
+      "group": "unique",
+      "threads": 1,
+      "process_round": 1,
+      "process_peak_working_set_bytes": 62083072,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 9.1290451
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 8.0751587
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 8.1047274
+        }
+      ]
+    },
+    {
+      "label": "reference_temp",
+      "group": "unique",
+      "threads": 1,
+      "process_round": 2,
+      "process_peak_working_set_bytes": 64716800,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 7.9775173
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 8.3259855
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 8.0625831
+        }
+      ]
+    },
+    {
+      "label": "wave7",
+      "group": "unique",
+      "threads": 1,
+      "process_round": 2,
+      "process_peak_working_set_bytes": 65224704,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 7.8318606
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 7.9903341
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 8.1214753
+        }
+      ]
+    },
+    {
+      "label": "reference_inline",
+      "group": "unique",
+      "threads": 1,
+      "process_round": 2,
+      "process_peak_working_set_bytes": 66977792,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 8.1199366
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 7.9477022
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 7.9366042
+        }
+      ]
+    },
+    {
+      "label": "reference_temp",
+      "group": "unique",
+      "threads": 16,
+      "process_round": 2,
+      "process_peak_working_set_bytes": 159477760,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 0.7086709
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 0.7129474
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 0.7281036
+        }
+      ]
+    },
+    {
+      "label": "wave7",
+      "group": "unique",
+      "threads": 16,
+      "process_round": 2,
+      "process_peak_working_set_bytes": 159797248,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 0.7413322
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 0.7404422
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 0.7575598
+        }
+      ]
+    },
+    {
+      "label": "reference_inline",
+      "group": "unique",
+      "threads": 16,
+      "process_round": 2,
+      "process_peak_working_set_bytes": 159408128,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 0,
+          "seconds": 0.7606049
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 1,
+          "seconds": 0.7640167
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 12487050,
+          "output_tree_hash": "954c2f0ebcad0f26e896e7010020ffdb28db3f2d77daba92c2b7582809c5c0eb",
+          "round": 2,
+          "seconds": 0.8930852
+        }
+      ]
+    },
+    {
+      "label": "reference_temp",
+      "group": "ui",
+      "threads": 1,
+      "process_round": 2,
+      "process_peak_working_set_bytes": 26333184,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 0,
+          "seconds": 0.0174768
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 1,
+          "seconds": 0.0216441
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 2,
+          "seconds": 0.0181759
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 3,
+          "seconds": 0.0196401
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 4,
+          "seconds": 0.0151468
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 5,
+          "seconds": 0.0149181
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 6,
+          "seconds": 0.0149525
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 7,
+          "seconds": 0.0147977
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 8,
+          "seconds": 0.0146094
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 9,
+          "seconds": 0.0148967
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 10,
+          "seconds": 0.0147583
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 11,
+          "seconds": 0.0147629
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 12,
+          "seconds": 0.0153336
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 13,
+          "seconds": 0.0150525
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 14,
+          "seconds": 0.01878
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 15,
+          "seconds": 0.0151041
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 16,
+          "seconds": 0.0148051
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 17,
+          "seconds": 0.0147669
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 18,
+          "seconds": 0.0146789
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 19,
+          "seconds": 0.0148608
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 20,
+          "seconds": 0.0147145
+        }
+      ]
+    },
+    {
+      "label": "wave7",
+      "group": "ui",
+      "threads": 1,
+      "process_round": 2,
+      "process_peak_working_set_bytes": 25591808,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 0,
+          "seconds": 0.0181665
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 1,
+          "seconds": 0.0148135
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 2,
+          "seconds": 0.0143136
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 3,
+          "seconds": 0.0141471
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 4,
+          "seconds": 0.0143053
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 5,
+          "seconds": 0.0152482
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 6,
+          "seconds": 0.0180556
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 7,
+          "seconds": 0.0180922
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 8,
+          "seconds": 0.0163752
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 9,
+          "seconds": 0.0144393
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 10,
+          "seconds": 0.0159647
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 11,
+          "seconds": 0.0144964
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 12,
+          "seconds": 0.0157084
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 13,
+          "seconds": 0.0144034
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 14,
+          "seconds": 0.0141885
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 15,
+          "seconds": 0.0142321
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 16,
+          "seconds": 0.0143372
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 17,
+          "seconds": 0.0142551
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 18,
+          "seconds": 0.014973
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 19,
+          "seconds": 0.0143058
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 20,
+          "seconds": 0.0142606
+        }
+      ]
+    },
+    {
+      "label": "reference_inline",
+      "group": "ui",
+      "threads": 1,
+      "process_round": 2,
+      "process_peak_working_set_bytes": 25726976,
+      "samples": [
+        {
+          "allocations": null,
+          "first_call": true,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 0,
+          "seconds": 0.0170182
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 1,
+          "seconds": 0.014869
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 2,
+          "seconds": 0.014536
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 3,
+          "seconds": 0.0141891
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 4,
+          "seconds": 0.0156563
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 5,
+          "seconds": 0.0142536
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 6,
+          "seconds": 0.0143912
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 7,
+          "seconds": 0.0252314
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 8,
+          "seconds": 0.0155628
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 9,
+          "seconds": 0.0169686
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 10,
+          "seconds": 0.0186517
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 11,
+          "seconds": 0.0155465
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 12,
+          "seconds": 0.0143964
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 13,
+          "seconds": 0.0158887
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 14,
+          "seconds": 0.0159851
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 15,
+          "seconds": 0.0161273
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 16,
+          "seconds": 0.0143288
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 17,
+          "seconds": 0.0141139
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 18,
+          "seconds": 0.0141343
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 19,
+          "seconds": 0.0141929
+        },
+        {
+          "allocations": null,
+          "first_call": false,
+          "output_bytes": 28279,
+          "output_tree_hash": "bd886b5c8b6615c906e64642976ff69671fd98e74f2210df4bba430824560c9f",
+          "round": 20,
+          "seconds": 0.0144311
+        }
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "group": "unique",
+      "threads": 1,
+      "reference": "reference_inline",
+      "default_speedup_mean": 0.985462253010292,
+      "default_speedup_median": 0.9835730964941205,
+      "paired_process_mean_ratios": [
+        0.9959685515690707,
+        0.9748084691399652,
+        0.9858797361393812
+      ],
+      "first_call_ratios": [
+        1.0085725190725545,
+        0.8585449424496763,
+        1.0367825750116135
+      ],
+      "process_means": [
+        {
+          "wave7": 7.883394900000001,
+          "reference_inline": 7.8516134
+        },
+        {
+          "wave7": 8.089943049999999,
+          "reference_inline": 7.886145
+        },
+        {
+          "wave7": 8.0559047,
+          "reference_inline": 7.9421532
+        }
+      ]
+    },
+    {
+      "group": "unique",
+      "threads": 1,
+      "reference": "reference_temp",
+      "default_speedup_mean": 1.0243835192200699,
+      "default_speedup_median": 1.0201099215580862,
+      "paired_process_mean_ratios": [
+        1.0007782941331531,
+        1.0545618550429723,
+        1.0171774127367719
+      ],
+      "first_call_ratios": [
+        1.003838596463155,
+        0.8532849618630978,
+        1.0185979689168625
+      ],
+      "process_means": [
+        {
+          "wave7": 7.883394900000001,
+          "reference_temp": 7.8895305
+        },
+        {
+          "wave7": 8.089943049999999,
+          "reference_temp": 8.53134535
+        },
+        {
+          "wave7": 8.0559047,
+          "reference_temp": 8.1942843
+        }
+      ]
+    },
+    {
+      "group": "unique",
+      "threads": 16,
+      "reference": "reference_inline",
+      "default_speedup_mean": 1.0679763589114064,
+      "default_speedup_median": 1.0813628671983735,
+      "paired_process_mean_ratios": [
+        1.0464453382914376,
+        1.0475573981975161,
+        1.1062080691481053
+      ],
+      "first_call_ratios": [
+        0.975733181563764,
+        0.9821636860737673,
+        1.0259973868665087
+      ],
+      "process_means": [
+        {
+          "wave7": 0.67904985,
+          "reference_inline": 0.71058855
+        },
+        {
+          "wave7": 0.68636955,
+          "reference_inline": 0.7190115
+        },
+        {
+          "wave7": 0.749001,
+          "reference_inline": 0.82855095
+        }
+      ]
+    },
+    {
+      "group": "unique",
+      "threads": 16,
+      "reference": "reference_temp",
+      "default_speedup_mean": 0.9848652377739071,
+      "default_speedup_median": 1.0040714358311127,
+      "paired_process_mean_ratios": [
+        0.9966407473619204,
+        0.9981866182729116,
+        0.9619820267262659
+      ],
+      "first_call_ratios": [
+        0.9715420643353259,
+        1.0042540277173915,
+        0.9559424236529858
+      ],
+      "process_means": [
+        {
+          "wave7": 0.67904985,
+          "reference_temp": 0.6767687499999999
+        },
+        {
+          "wave7": 0.68636955,
+          "reference_temp": 0.6851249
+        },
+        {
+          "wave7": 0.749001,
+          "reference_temp": 0.7205254999999999
+        }
+      ]
+    },
+    {
+      "group": "ui",
+      "threads": 1,
+      "reference": "reference_inline",
+      "default_speedup_mean": 1.0159940265832859,
+      "default_speedup_median": 1.0015213457310277,
+      "paired_process_mean_ratios": [
+        0.9943997102145576,
+        1.0110273947924264,
+        1.0416712083670083
+      ],
+      "first_call_ratios": [
+        0.992574606683442,
+        1.00093213798017,
+        0.9367902457820715
+      ],
+      "process_means": [
+        {
+          "wave7": 0.014507285,
+          "reference_inline": 0.01442604
+        },
+        {
+          "wave7": 0.01470973,
+          "reference_inline": 0.01487194
+        },
+        {
+          "wave7": 0.01504576,
+          "reference_inline": 0.015672735
+        }
+      ]
+    },
+    {
+      "group": "ui",
+      "threads": 1,
+      "reference": "reference_temp",
+      "default_speedup_mean": 1.0369918063203223,
+      "default_speedup_median": 1.0331743677558067,
+      "paired_process_mean_ratios": [
+        1.0450994103996716,
+        1.014201824234707,
+        1.051455360181207
+      ],
+      "first_call_ratios": [
+        1.3486818898008137,
+        1.0289675236003086,
+        0.9620345140781109
+      ],
+      "process_means": [
+        {
+          "wave7": 0.014507285,
+          "reference_temp": 0.015161555
+        },
+        {
+          "wave7": 0.01470973,
+          "reference_temp": 0.014918635
+        },
+        {
+          "wave7": 0.01504576,
+          "reference_temp": 0.015819945
+        }
+      ]
+    }
+  ],
+  "quality": {
+    "started_utc": "2026-09-27T17:16:17.725780+00:00",
+    "quality_only": true,
+    "timings_excluded": true,
+    "reason": "Concurrent unrelated builds; this run verifies pinned source output hashes only.",
+    "manifest": "D:\\Medal\\ultra-optimize-20260927\\wave7-allocations\\manifest.json",
+    "manifest_sha256": "2ba7863b6775ac09b9815f87627a7b59b7208c1d7b018fbd1cb3f785201ad856",
+    "rounds": 1,
+    "rounds_reason": "Driver requires 1..=50, so rounds=0 is rejected.",
+    "builds": [
+      {
+        "label": "wave7-reference-inline",
+        "feature": "cfg/reference-inline-sweeps",
+        "manifest": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-inline-build.json",
+        "matches_default_source_toolchain_environment_packages": true,
+        "binaries": {
+          "lua51-lifter": {
+            "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-inline\\lua51-lifter.exe",
+            "sha256": "dcf47ca47aeb1c9f99129a3be9c5b48857f6ff29ed1cabffa6cd7ccea0413f28"
+          },
+          "luau-lifter": {
+            "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-inline\\luau-lifter.exe",
+            "sha256": "7f55f9fbfd85416dd9c049b3419537fa067e28f714424792932427d91fa4e06e"
+          },
+          "benchmark_api": {
+            "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-inline\\benchmark_api.exe",
+            "sha256": "1c5d1b5d51486d0ca7d6e38d9a604aaeb38da7e34387ed57c7d1cf482a3be0db"
+          }
+        }
+      },
+      {
+        "label": "wave7-reference-temp",
+        "feature": "ast/reference-temp-census",
+        "manifest": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-temp-build.json",
+        "matches_default_source_toolchain_environment_packages": true,
+        "binaries": {
+          "lua51-lifter": {
+            "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-temp\\lua51-lifter.exe",
+            "sha256": "bdaa768ac499d00ed344a0cbed29cdecaf8f5068bfdc99c73d0ddd62066287f0"
+          },
+          "benchmark_api": {
+            "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-temp\\benchmark_api.exe",
+            "sha256": "638fbf95483efc9dffc64ac42241b862f781111b8f2899fc522982fec25b92f4"
+          },
+          "luau-lifter": {
+            "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-temp\\luau-lifter.exe",
+            "sha256": "b84e227ac10336c2f06cae212df35c560948a3ad8c98d6340974d20d490403fb"
+          }
+        }
+      }
+    ],
+    "runs": [
+      {
+        "label": "wave7-reference-inline",
+        "threads": 1,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-inline\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-allocations\\manifest.json",
+          "--input-root",
+          "D:/Medal/examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-inline-all-t1.json",
+          "--group",
+          "all",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "exit_code": 0,
+        "report": "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-inline-all-t1.json",
+        "log": "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-inline-all-t1.log",
+        "timings_excluded": true,
+        "scripts": 3978,
+        "nonempty_scripts": 3936,
+        "output_tree_hash": "e167fc4638c87bbf1d9721fca735fb1b591f867ce565401b6028324ddb38c881",
+        "all_locked_hashes_match": true
+      },
+      {
+        "label": "wave7-reference-inline",
+        "threads": 16,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-inline\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-allocations\\manifest.json",
+          "--input-root",
+          "D:/Medal/examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-inline-all-t16.json",
+          "--group",
+          "all",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "exit_code": 0,
+        "report": "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-inline-all-t16.json",
+        "log": "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-inline-all-t16.log",
+        "timings_excluded": true,
+        "scripts": 3978,
+        "nonempty_scripts": 3936,
+        "output_tree_hash": "e167fc4638c87bbf1d9721fca735fb1b591f867ce565401b6028324ddb38c881",
+        "all_locked_hashes_match": true
+      },
+      {
+        "label": "wave7-reference-temp",
+        "threads": 1,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-temp\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-allocations\\manifest.json",
+          "--input-root",
+          "D:/Medal/examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-temp-all-t1.json",
+          "--group",
+          "all",
+          "--threads",
+          "1",
+          "--rounds",
+          "1"
+        ],
+        "exit_code": 0,
+        "report": "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-temp-all-t1.json",
+        "log": "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-temp-all-t1.log",
+        "timings_excluded": true,
+        "scripts": 3978,
+        "nonempty_scripts": 3936,
+        "output_tree_hash": "e167fc4638c87bbf1d9721fca735fb1b591f867ce565401b6028324ddb38c881",
+        "all_locked_hashes_match": true
+      },
+      {
+        "label": "wave7-reference-temp",
+        "threads": 16,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-temp\\benchmark_api.exe",
+          "--manifest",
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-allocations\\manifest.json",
+          "--input-root",
+          "D:/Medal/examplebytecode",
+          "--report",
+          "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-temp-all-t16.json",
+          "--group",
+          "all",
+          "--threads",
+          "16",
+          "--rounds",
+          "1"
+        ],
+        "exit_code": 0,
+        "report": "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-temp-all-t16.json",
+        "log": "D:\\Medal\\ultra-optimize-20260927\\wave7-ablation-quality\\wave7-reference-temp-all-t16.log",
+        "timings_excluded": true,
+        "scripts": 3978,
+        "nonempty_scripts": 3936,
+        "output_tree_hash": "e167fc4638c87bbf1d9721fca735fb1b591f867ce565401b6028324ddb38c881",
+        "all_locked_hashes_match": true
+      }
+    ],
+    "cleared_diagnostic_environment_keys": [],
+    "passed": true,
+    "finished_utc": "2026-09-27T17:16:57.582838+00:00"
+  },
+  "plan": {
+    "status": "declared before quiet timing",
+    "ordinary": {
+      "variants": [
+        "original",
+        "wave7"
+      ],
+      "process_rounds": 4,
+      "prewarm": true,
+      "workloads": "all1/all16/unique1/unique16/small1/large1/write1/lightning1/promise1/ui1",
+      "out": "wave7-timing",
+      "summary": "Arithmetic means primary for requested average; medians and nearest-rank p95 retained; first calls archived separately, no discarded measured samples."
+    },
+    "ablations": {
+      "variants": [
+        "wave7",
+        "reference_inline",
+        "reference_temp"
+      ],
+      "process_rounds": 3,
+      "prewarm": true,
+      "workloads": "unique:1,unique:16,ui:1",
+      "out": "wave7-ablation-timing",
+      "summary": "Each of three rotated variants appears once in each position per workload; workload order reverses on odd rounds without reversing variants."
+    },
+    "binaries": {
+      "original": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\baseline\\benchmark_api.exe",
+        "sha256": "b0b9e8ed3659fe14745ae9dd1ce9e1d746db264ba7b4939ec14ab8b2ea1663fa"
+      },
+      "wave7": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave7\\benchmark_api.exe",
+        "sha256": "4bd3fc65917ab7fb62cb9bda7e60e56901b382060c93638609b5df2db3465156"
+      },
+      "reference_inline": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-inline\\benchmark_api.exe",
+        "sha256": "1c5d1b5d51486d0ca7d6e38d9a604aaeb38da7e34387ed57c7d1cf482a3be0db"
+      },
+      "reference_temp": {
+        "path": "D:\\Medal\\ultra-optimize-20260927\\wave7-reference-temp\\benchmark_api.exe",
+        "sha256": "638fbf95483efc9dffc64ac42241b862f781111b8f2899fc522982fec25b92f4"
+      }
+    },
+    "runner_sha256": "bb49c0acb233e2cef9a2d5bd78046b7d7838d56987982b843e1abde636290f4c",
+    "cpu_affinity": {
+      "cpu_sets": [
+        {
+          "id": 256,
+          "group": 0,
+          "logical": 0,
+          "core": 0,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 257,
+          "group": 0,
+          "logical": 1,
+          "core": 1,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 258,
+          "group": 0,
+          "logical": 2,
+          "core": 2,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 259,
+          "group": 0,
+          "logical": 3,
+          "core": 3,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 260,
+          "group": 0,
+          "logical": 4,
+          "core": 4,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 261,
+          "group": 0,
+          "logical": 5,
+          "core": 5,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 262,
+          "group": 0,
+          "logical": 6,
+          "core": 6,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 263,
+          "group": 0,
+          "logical": 7,
+          "core": 7,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 264,
+          "group": 0,
+          "logical": 8,
+          "core": 8,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 265,
+          "group": 0,
+          "logical": 9,
+          "core": 9,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 266,
+          "group": 0,
+          "logical": 10,
+          "core": 10,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 267,
+          "group": 0,
+          "logical": 11,
+          "core": 11,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 268,
+          "group": 0,
+          "logical": 12,
+          "core": 12,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 269,
+          "group": 0,
+          "logical": 13,
+          "core": 13,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 270,
+          "group": 0,
+          "logical": 14,
+          "core": 14,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 271,
+          "group": 0,
+          "logical": 15,
+          "core": 15,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 272,
+          "group": 0,
+          "logical": 16,
+          "core": 16,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 273,
+          "group": 0,
+          "logical": 17,
+          "core": 17,
+          "efficiency_class": 0,
+          "flags": 1
+        },
+        {
+          "id": 274,
+          "group": 0,
+          "logical": 18,
+          "core": 18,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 275,
+          "group": 0,
+          "logical": 19,
+          "core": 19,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 276,
+          "group": 0,
+          "logical": 20,
+          "core": 20,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 277,
+          "group": 0,
+          "logical": 21,
+          "core": 21,
+          "efficiency_class": 0,
+          "flags": 0
+        },
+        {
+          "id": 278,
+          "group": 0,
+          "logical": 22,
+          "core": 22,
+          "efficiency_class": 1,
+          "flags": 0
+        },
+        {
+          "id": 279,
+          "group": 0,
+          "logical": 23,
+          "core": 23,
+          "efficiency_class": 1,
+          "flags": 0
+        }
+      ],
+      "single_thread_logical_processor": 23,
+      "one_thread_mask": 8388608,
+      "many_thread_mask": 16777215,
+      "reason": "Hybrid CPU and observed unrelated background load. Pin single-thread API samples to the same performance core; retain normal priority. Multi-thread samples use all logical processors. User processes are not modified.",
+      "documentation": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-system_cpu_set_information"
+    },
+    "constraints": [
+      "No owned builds, tests, scans or source edits during a complete timing cohort.",
+      "No source/quality/diagnostic duration is a performance sample.",
+      "PGO and Worker timings have separate matched-control protocols.",
+      "Do not multiply speed ratios from separate cohorts."
+    ]
+  },
+  "limitations": [
+    "All owned builds, tests, scans and source edits were idle during the full timing window.",
+    "Three rotated process rounds balance all three variant positions; six repeated corpus samples and 60 UI samples are retained. First calls are separate, prewarm excluded.",
+    "The inline ablation disables only the exact-order dirty-block scheduler; it does not disable the complete SSA fact cache.",
+    "The temp ablation returns to the legacy temporary usage census. Each flag is measured separately; no combined-disabled variant is measured.",
+    "Mixed one/16-thread and mean/median results do not justify a universal cache benefit or a thread-dependent runtime policy.",
+    "Small sample count, whole-process RSS and nearest-rank p95 limitations remain. No samples were discarded."
+  ],
+  "artifact_hashes": {
+    "wave7-ablation-timing\\report.json": "d02692ff2feac38617553d43b95bed99af33287329be733dae37a8f5856b31fc",
+    "wave7-ablation-timing\\prewarm.json": "ff751577e27f4cb48c5de6ae3db7f4ce3a51f9762ce34dcad0a6a9ca0f847a50",
+    "wave7-ablation-quality\\summary.json": "704c39c0ac5389365b44bb1987d72e32acf8a4b632caaefd60deb51d95cfe96d",
+    "wave7-reference-inline-build.json": "5e22d83720bf6bb2d0fb4c76ba7ad3492e23de966256d14281ce3ef98c81314a",
+    "wave7-reference-temp-build.json": "a5583e741ef37e698a134ce918960c6071c99d68476c8ab930b9916a0d42b39e",
+    "wave7-native-timing-plan.json": "be82b466813c6c6bea8cab4c13d74f94c2445c0dacfdf6a857ad70edb028c837"
+  }
+}

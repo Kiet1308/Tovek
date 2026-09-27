@@ -74,24 +74,20 @@ impl SideEffects for IfExpression {
 }
 
 impl Reduce for IfExpression {
-    fn reduce(self) -> RValue {
-        Self {
-            node_origin: Default::default(),
-            condition: Box::new(self.condition.reduce_condition()),
-            then_value: Box::new(self.then_value.reduce()),
-            else_value: Box::new(self.else_value.reduce()),
-        }
-        .into()
+    fn reduce(mut self) -> RValue {
+        *self.condition = std::mem::replace(self.condition.as_mut(), crate::Literal::Nil.into()).reduce_condition();
+        *self.then_value = std::mem::replace(self.then_value.as_mut(), crate::Literal::Nil.into()).reduce();
+        *self.else_value = std::mem::replace(self.else_value.as_mut(), crate::Literal::Nil.into()).reduce();
+        self.node_origin = Default::default();
+        self.into()
     }
 
-    fn reduce_condition(self) -> RValue {
-        Self {
-            node_origin: Default::default(),
-            condition: Box::new(self.condition.reduce_condition()),
-            then_value: Box::new(self.then_value.reduce_condition()),
-            else_value: Box::new(self.else_value.reduce_condition()),
-        }
-        .into()
+    fn reduce_condition(mut self) -> RValue {
+        *self.condition = std::mem::replace(self.condition.as_mut(), crate::Literal::Nil.into()).reduce_condition();
+        *self.then_value = std::mem::replace(self.then_value.as_mut(), crate::Literal::Nil.into()).reduce_condition();
+        *self.else_value = std::mem::replace(self.else_value.as_mut(), crate::Literal::Nil.into()).reduce_condition();
+        self.node_origin = Default::default();
+        self.into()
     }
 }
 

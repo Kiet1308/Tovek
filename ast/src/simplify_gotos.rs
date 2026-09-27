@@ -2110,18 +2110,13 @@ pub fn function_tree_has_goto_or_label(block: &Block) -> bool {
             return visited.insert(address)
                 && tree_block_has_goto(&closure.function.lock().body, visited);
         }
-        value
-            .rvalues()
-            .into_iter()
-            .any(|child| value_has_goto(child, visited))
+        !value.visit_rvalues(&mut |child| !value_has_goto(child, visited))
     }
 
     fn tree_block_has_goto(block: &Block, visited: &mut FxHashSet<usize>) -> bool {
         for statement in &block.0 {
             if matches!(statement, Statement::Goto(_) | Statement::Label(_))
-                || crate::deinline::stmt_rvalues(statement)
-                    .into_iter()
-                    .any(|value| value_has_goto(value, visited))
+                || !crate::deinline::visit_stmt_rvalues(statement, &mut |value| !value_has_goto(value, visited))
             {
                 return true;
             }
@@ -2156,10 +2151,7 @@ pub fn function_tree_has_unlowered_control(block: &Block) -> bool {
             return visited.insert(address)
                 && tree_block_has_unlowered(&closure.function.lock().body, visited);
         }
-        value
-            .rvalues()
-            .into_iter()
-            .any(|child| value_has_unlowered(child, visited))
+        !value.visit_rvalues(&mut |child| !value_has_unlowered(child, visited))
     }
 
     fn tree_block_has_unlowered(block: &Block, visited: &mut FxHashSet<usize>) -> bool {
@@ -2178,13 +2170,8 @@ pub fn function_tree_has_unlowered_control(block: &Block) -> bool {
             // index l-values, which `Traverse::rvalues` intentionally exposes
             // only as direct expression roots.  Inspect both sets so a marker
             // hidden in a closure cannot evade the final invariant.
-            if crate::deinline::stmt_rvalues(statement)
-                .into_iter()
-                .any(|value| value_has_unlowered(value, visited))
-                || statement
-                    .rvalues()
-                    .into_iter()
-                    .any(|value| value_has_unlowered(value, visited))
+            if !crate::deinline::visit_stmt_rvalues(statement, &mut |value| !value_has_unlowered(value, visited))
+                || !statement.visit_rvalues(&mut |value| !value_has_unlowered(value, visited))
             {
                 return true;
             }
@@ -2975,5 +2962,166 @@ mod tests {
             loop_node.block.lock().0.first(),
             Some(Statement::Label(label)) if label.0 == "a"
         ));
+    }
+}
+
+#[cfg(test)]
+mod invariant_query_reference {
+    use super::*;
+pub fn function_tree_has_goto_or_label(block: &Block) -> bool {
+    fn value_has_goto(value: &RValue, visited: &mut FxHashSet<usize>) -> bool {
+        if let RValue::Closure(closure) = value {
+            let address = Arc::as_ptr(&closure.function.0) as usize;
+            return visited.insert(address)
+                && tree_block_has_goto(&closure.function.lock().body, visited);
+        }
+        value
+            .rvalues()
+            .into_iter()
+            .any(|child| value_has_goto(child, visited))
+    }
+
+    fn tree_block_has_goto(block: &Block, visited: &mut FxHashSet<usize>) -> bool {
+        for statement in &block.0 {
+            if matches!(statement, Statement::Goto(_) | Statement::Label(_))
+                || crate::deinline::stmt_rvalues(statement)
+                    .into_iter()
+                    .any(|value| value_has_goto(value, visited))
+            {
+                return true;
+            }
+            let nested = match statement {
+                Statement::If(node) => {
+                    tree_block_has_goto(&node.then_block.lock(), visited)
+                        || tree_block_has_goto(&node.else_block.lock(), visited)
+                }
+                Statement::While(node) => tree_block_has_goto(&node.block.lock(), visited),
+                Statement::Repeat(node) => tree_block_has_goto(&node.block.lock(), visited),
+                Statement::NumericFor(node) => tree_block_has_goto(&node.block.lock(), visited),
+                Statement::GenericFor(node) => tree_block_has_goto(&node.block.lock(), visited),
+                _ => false,
+            };
+            if nested {
+                return true;
+            }
+        }
+        false
+    }
+
+    tree_block_has_goto(block, &mut FxHashSet::default())
+}
+
+/// Complete-function-tree variant of [`block_has_unlowered_control`].
+/// Closure bodies are visited and de-duplicated because a closure can be
+/// referenced from several places in the surrounding AST.
+pub fn function_tree_has_unlowered_control(block: &Block) -> bool {
+    fn value_has_unlowered(value: &RValue, visited: &mut FxHashSet<usize>) -> bool {
+        if let RValue::Closure(closure) = value {
+            let address = Arc::as_ptr(&closure.function.0) as usize;
+            return visited.insert(address)
+                && tree_block_has_unlowered(&closure.function.lock().body, visited);
+        }
+        value
+            .rvalues()
+            .into_iter()
+            .any(|child| value_has_unlowered(child, visited))
+    }
+
+    fn tree_block_has_unlowered(block: &Block, visited: &mut FxHashSet<usize>) -> bool {
+        for statement in &block.0 {
+            if matches!(
+                statement,
+                Statement::NumForInit(_)
+                    | Statement::NumForNext(_)
+                    | Statement::GenericForInit(_)
+                    | Statement::GenericForNext(_)
+            ) {
+                return true;
+            }
+
+            // `deinline::stmt_rvalues` also includes expressions embedded in
+            // index l-values, which `Traverse::rvalues` intentionally exposes
+            // only as direct expression roots.  Inspect both sets so a marker
+            // hidden in a closure cannot evade the final invariant.
+            if crate::deinline::stmt_rvalues(statement)
+                .into_iter()
+                .any(|value| value_has_unlowered(value, visited))
+                || statement
+                    .rvalues()
+                    .into_iter()
+                    .any(|value| value_has_unlowered(value, visited))
+            {
+                return true;
+            }
+
+            let nested = match statement {
+                Statement::If(node) => {
+                    tree_block_has_unlowered(&node.then_block.lock(), visited)
+                        || tree_block_has_unlowered(&node.else_block.lock(), visited)
+                }
+                Statement::While(node) => tree_block_has_unlowered(&node.block.lock(), visited),
+                Statement::Repeat(node) => tree_block_has_unlowered(&node.block.lock(), visited),
+                Statement::NumericFor(node) => {
+                    tree_block_has_unlowered(&node.block.lock(), visited)
+                }
+                Statement::GenericFor(node) => {
+                    tree_block_has_unlowered(&node.block.lock(), visited)
+                }
+                _ => false,
+            };
+            if nested {
+                return true;
+            }
+        }
+        false
+    }
+
+    tree_block_has_unlowered(block, &mut FxHashSet::default())
+}
+
+
+    #[test]
+    fn allocation_free_invariants_match_legacy_selector_domains_and_aliases() {
+        let local = RcLocal::new(crate::Local::new(Some("local".into())));
+        for terminal in 0..4 {
+            for location in 0..12 {
+                let body = match terminal {
+                    0 => Block::default(),
+                    1 => Block(vec![crate::Label::from("target").into()]),
+                    2 => Block(vec![crate::Goto(crate::Label::from("target")).into()]),
+                    _ => Block(vec![crate::NumForInit::new(local.clone(), local.clone(), local.clone()).into()]),
+                };
+                let function = Arc::new(Mutex::new(crate::Function { body, ..Default::default() }));
+                let closure = || -> RValue { crate::Closure { node_origin: Default::default(),
+                    function: by_address::ByAddress(function.clone()), upvalues: vec![] }.into() };
+                let statement: Statement = match location {
+                    0 => Return::new(vec![closure()]).into(),
+                    1 => Assign::new(vec![Index::new(closure(), Literal::Nil.into()).into()], vec![]).into(),
+                    2 => Assign::new(vec![Index::new(Literal::Nil.into(), closure()).into()], vec![]).into(),
+                    3 => Call::new(closure(), vec![closure()]).into(),
+                    4 => Return::new(vec![Table::new(vec![(Some(closure()), closure())]).into()]).into(),
+                    5 => Return::new(vec![crate::IfExpression::new(closure(), closure(), closure()).into()]).into(),
+                    6 => SetList::new(local.clone(), 1, vec![closure()], Some(closure())).into(),
+                    7 => NumericFor::new(closure(), Literal::Nil.into(), Literal::Nil.into(), local.clone(), Block::default()).into(),
+                    8 => GenericFor::new(vec![local.clone()], vec![closure()], Block::default()).into(),
+                    9 => If::new(Literal::Boolean(true).into(), Block(vec![Return::new(vec![closure()]).into()]), Block::default()).into(),
+                    10 => crate::NumForInit { counter: (local.clone().into(), closure()),
+                        limit: (local.clone().into(), Literal::Nil.into()), step: (local.clone().into(), Literal::Nil.into()) }.into(),
+                    _ => Return::new(vec![Select::Call(Call::new(closure(), vec![closure()])).into()]).into(),
+                };
+                let block = Block(vec![statement]);
+                let owners = Arc::strong_count(&function);
+                assert_eq!(super::function_tree_has_goto_or_label(&block), function_tree_has_goto_or_label(&block),
+                    "goto terminal {terminal}, location {location}");
+                assert_eq!(super::function_tree_has_unlowered_control(&block), function_tree_has_unlowered_control(&block),
+                    "marker terminal {terminal}, location {location}");
+                assert_eq!(Arc::strong_count(&function), owners);
+                // Re-query after publication must observe the new child state;
+                // neither implementation may retain a cross-query cache.
+                function.lock().body = Block(vec![crate::Label::from("published").into()]);
+                assert_eq!(super::function_tree_has_goto_or_label(&block), function_tree_has_goto_or_label(&block));
+                assert_eq!(super::function_tree_has_unlowered_control(&block), function_tree_has_unlowered_control(&block));
+            }
+        }
     }
 }

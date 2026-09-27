@@ -740,28 +740,16 @@ fn collect_statement_captures_with_seen(
 }
 
 fn block_has_rewritten_closure(block: &Block, rewrite: &FxHashMap<RcLocal, RcLocal>) -> bool {
-    !rewrite.is_empty()
-        && block.iter().any(|statement| {
-            let mut captures = FxHashSet::default();
-            collect_statement_captures(statement, &mut captures);
-            captures.iter().any(|local| rewrite.contains_key(local))
-        })
+    !rewrite.is_empty() && block.iter().any(|statement|
+        CaptureQuery::new(false, &|local| rewrite.contains_key(local)).statement(statement))
 }
 
 fn statement_captures_any(statement: &Statement, locals: &[RcLocal]) -> bool {
-    let mut captures = FxHashSet::default();
-    collect_statement_captures(statement, &mut captures);
-    captures
-        .iter()
-        .any(|captured| locals.iter().any(|local| local == captured))
+    !locals.is_empty() && CaptureQuery::new(false, &|local| locals.contains(local)).statement(statement)
 }
 
 fn rvalue_captures_any(value: &RValue, locals: &[RcLocal]) -> bool {
-    let mut captures = FxHashSet::default();
-    collect_rvalue_captures(value, &mut captures);
-    captures
-        .iter()
-        .any(|captured| locals.iter().any(|local| local == captured))
+    !locals.is_empty() && CaptureQuery::new(false, &|local| locals.contains(local)).expression(value)
 }
 
 fn collect_closure_ref_captures(
@@ -836,19 +824,125 @@ fn collect_rvalue_ref_captures(value: &RValue, captured: &mut FxHashSet<RcLocal>
 }
 
 fn statement_has_ref_capture_of(statement: &Statement, locals: &[RcLocal]) -> bool {
-    let mut captured = FxHashSet::default();
-    collect_statement_ref_captures_with_seen(statement, &mut captured, &mut FxHashSet::default());
-    captured
-        .iter()
-        .any(|captured| locals.iter().any(|local| local == captured))
+    !locals.is_empty() && CaptureQuery::new(true, &|local| locals.contains(local)).statement(statement)
 }
 
 fn rvalue_has_ref_capture_of(value: &RValue, locals: &[RcLocal]) -> bool {
-    let mut captured = FxHashSet::default();
-    collect_rvalue_ref_captures(value, &mut captured);
-    captured
-        .iter()
-        .any(|captured| locals.iter().any(|local| local == captured))
+    !locals.is_empty() && CaptureQuery::new(true, &|local| locals.contains(local)).expression(value)
+}
+
+/// Boolean queries do not need an owning set of every captured local. Keep body
+/// observations scoped to this call: another worker may publish a descendant
+/// between calls. In particular, check every site's upvalues before deduplicating
+/// its shared body, exactly like the collectors above.
+struct CaptureQuery<'a> {
+    ref_only: bool,
+    matches: &'a dyn Fn(&RcLocal) -> bool,
+    seen_closures: FxHashSet<usize>,
+}
+
+impl<'a> CaptureQuery<'a> {
+    fn new(ref_only: bool, matches: &'a dyn Fn(&RcLocal) -> bool) -> Self {
+        Self { ref_only, matches, seen_closures: FxHashSet::default() }
+    }
+
+    fn closure(&mut self, closure: &ast::Closure) -> bool {
+        if closure.upvalues.iter().any(|upvalue| match upvalue {
+            ast::Upvalue::Ref(local) => (self.matches)(local),
+            ast::Upvalue::Copy(local) => !self.ref_only && (self.matches)(local),
+        }) { return true; }
+        if !self.seen_closures.insert(closure.function.0.as_ptr() as usize) { return false; }
+        self.block(&closure.function.lock().body)
+    }
+
+    fn nested(&mut self, owner: &impl Traverse) -> bool {
+        !owner.visit_lvalues(&mut |value| !self.nested(value))
+            || !owner.visit_rvalues(&mut |value| !self.expression(value))
+    }
+
+    fn expression(&mut self, value: &RValue) -> bool {
+        if let RValue::Closure(closure) = value && self.closure(closure) { return true; }
+        self.nested(value)
+    }
+
+    fn block(&mut self, block: &Block) -> bool {
+        block.iter().any(|statement| self.statement(statement))
+    }
+
+    fn statement(&mut self, statement: &Statement) -> bool {
+        if self.nested(statement) { return true; }
+        match statement {
+            Statement::If(node) => self.block(&node.then_block.lock()) || self.block(&node.else_block.lock()),
+            Statement::While(node) => self.block(&node.block.lock()),
+            Statement::Repeat(node) => self.block(&node.block.lock()),
+            Statement::NumericFor(node) => self.block(&node.block.lock()),
+            Statement::GenericFor(node) => self.block(&node.block.lock()),
+            _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod capture_query_tests {
+    use super::*;
+
+    #[test]
+    fn boolean_capture_queries_match_collectors_and_observe_published_bodies() {
+        let locals: Vec<_> = (0..6).map(|_| RcLocal::default()).collect();
+        let shared = ast::Closure { node_origin: Default::default(), function: Default::default(),
+            upvalues: vec![ast::Upvalue::Copy(locals[0].clone())] };
+        let mut second = shared.clone();
+        second.upvalues = vec![ast::Upvalue::Ref(locals[1].clone())];
+        let nested = ast::Closure { node_origin: Default::default(), function: Default::default(),
+            upvalues: vec![ast::Upvalue::Ref(locals[2].clone()), ast::Upvalue::Copy(locals[3].clone())] };
+        let branch = If::new(Literal::Boolean(true).into(), Block(vec![
+            ast::Return::new(vec![second.clone().into()]).into(),
+        ]), Block::default());
+        let expression: RValue = ast::Table(vec![(None, shared.clone().into()), (None, second.into())], Default::default()).into();
+        let indexed: Statement = Assign::new(vec![ast::Index::new(ast::Global::from("items").into(), expression.clone()).into()],
+            vec![Literal::Nil.into()]).into();
+        for publish in [false, true] {
+            if publish {
+                shared.function.lock().body.push(ast::Return::new(vec![nested.clone().into()]).into());
+            }
+            for statement in [ast::Return::new(vec![expression.clone()]).into(), branch.clone().into(), indexed.clone()] {
+                let mut all = FxHashSet::default();
+                let mut refs = FxHashSet::default();
+                collect_statement_captures(&statement, &mut all);
+                collect_statement_ref_captures_with_seen(&statement, &mut refs, &mut FxHashSet::default());
+                for mask in 0..(1 << locals.len()) {
+                    let query: Vec<_> = locals.iter().enumerate().filter(|(i, _)| mask & (1 << i) != 0).map(|(_, l)| l.clone()).collect();
+                    assert_eq!(statement_captures_any(&statement, &query), query.iter().any(|l| all.contains(l)));
+                    assert_eq!(statement_has_ref_capture_of(&statement, &query), query.iter().any(|l| refs.contains(l)));
+                }
+            }
+            for value in [expression.clone(), shared.clone().into()] {
+                let mut all = FxHashSet::default();
+                let mut refs = FxHashSet::default();
+                collect_rvalue_captures(&value, &mut all);
+                collect_rvalue_ref_captures(&value, &mut refs);
+                for local in &locals {
+                    assert_eq!(rvalue_captures_any(&value, std::slice::from_ref(local)), all.contains(local));
+                    assert_eq!(rvalue_has_ref_capture_of(&value, std::slice::from_ref(local)), refs.contains(local));
+                }
+            }
+        }
+        assert!(rvalue_has_ref_capture_of(&shared.into(), std::slice::from_ref(&locals[2])));
+    }
+
+    #[test]
+    fn direct_capture_match_does_not_scan_or_lock_the_remaining_body() {
+        let local = RcLocal::default();
+        let closure = ast::Closure { node_origin: Default::default(), function: Default::default(),
+            upvalues: vec![ast::Upvalue::Ref(local.clone())] };
+        // The old eager collector would lock this body despite already finding
+        // the answer. A borrowed, nonblocking predicate needs no such lock.
+        let function = closure.function.clone();
+        let _held = function.lock();
+        let value: RValue = closure.into();
+        assert!(rvalue_captures_any(&value, std::slice::from_ref(&local)));
+        assert!(rvalue_has_ref_capture_of(&value, std::slice::from_ref(&local)));
+    }
 }
 
 fn closure_contains_close(closure: &ast::Closure, seen_closures: &mut FxHashSet<usize>) -> bool {
@@ -2564,6 +2658,106 @@ mod visited_regressions {
     }
 
     #[test]
+    fn single_terminator_copy_preserves_output_origin_flags_and_closure_identity() {
+        type OriginView = Option<(Vec<ast::node_origins::Input>, bool, bool, Option<&'static str>, bool)>;
+        fn origin(value: Option<&ast::node_origins::Origin>) -> OriginView {
+            value.and_then(|origin| origin.0.as_ref()).map(|data| (
+                data.inputs.iter().map(|input| (**input).clone()).collect(),
+                data.inlined, data.cloned, data.synthesized, data.incomplete,
+            ))
+        }
+        fn inventory(block: &Block) -> (Vec<OriginView>, Vec<usize>) {
+            fn value(value: &RValue, origins: &mut Vec<OriginView>, closures: &mut Vec<usize>) {
+                origins.push(origin(ast::node_origins::value(value)));
+                if let RValue::Closure(closure) = value {
+                    closures.push(closure.function.0.as_ptr() as usize);
+                }
+                value.visit_rvalues(&mut |child| { value_visit(child, origins, closures); true });
+            }
+            fn value_visit(item: &RValue, origins: &mut Vec<OriginView>, closures: &mut Vec<usize>) {
+                value(item, origins, closures);
+            }
+            fn walk(block: &Block, origins: &mut Vec<OriginView>, closures: &mut Vec<usize>) {
+                for statement in block.iter() {
+                    origins.push(origin(ast::node_origins::statement(statement)));
+                    statement.visit_rvalues(&mut |item| { value(item, origins, closures); true });
+                    match statement {
+                        Statement::If(branch) => {
+                            walk(&branch.then_block.lock(), origins, closures);
+                            walk(&branch.else_block.lock(), origins, closures);
+                        }
+                        Statement::While(node) => walk(&node.block.lock(), origins, closures),
+                        Statement::Repeat(node) => walk(&node.block.lock(), origins, closures),
+                        Statement::GenericFor(node) => walk(&node.block.lock(), origins, closures),
+                        Statement::NumericFor(node) => walk(&node.block.lock(), origins, closures),
+                        _ => {}
+                    }
+                }
+            }
+            let mut origins = Vec::new();
+            let mut closures = Vec::new();
+            walk(block, &mut origins, &mut closures);
+            (origins, closures)
+        }
+        fn tag(serial: usize) -> ast::node_origins::Origin {
+            let mut origin = ast::node_origins::Origin::input(ast::node_origins::Input {
+                function: "clone-oracle".into(), block: serial / 8,
+                statement: serial % 8, value: Some(serial),
+            });
+            let data = origin.0.as_mut().unwrap();
+            data.inlined = serial % 2 == 0;
+            data.cloned = serial % 3 == 0;
+            data.incomplete = serial % 5 == 0;
+            data.synthesized = (serial % 7 == 0).then_some("test-origin");
+            origin
+        }
+        struct Restore(bool);
+        impl Drop for Restore {
+            fn drop(&mut self) { REFERENCE_TERMINATOR_COPY.with(|flag| flag.set(self.0)); }
+        }
+        for count in [1, 8, 32] {
+            for nested in [false, true] {
+                let mut function = diamonds(count, nested);
+                let mut serial = 0;
+                for block in function.blocks_mut() {
+                    for statement in block.iter_mut() {
+                        if let Some(branch) = statement.as_if_mut() {
+                            branch.condition = ast::Call::new(ast::Global::from("guard").into(), vec![
+                                ast::Binary::new(ast::Global::from("current").into(),
+                                    Literal::String(b"expected".to_vec()).into(), ast::BinaryOperation::Equal).into(),
+                                ast::Closure { node_origin: Default::default(), function: Default::default(), upvalues: Vec::new() }.into(),
+                            ]).into();
+                        }
+                        if let Some(origin) = ast::node_origins::statement_mut(statement) {
+                            *origin = tag(serial); serial += 1;
+                        }
+                        statement.traverse_rvalues(&mut |value| {
+                            if let Some(origin) = ast::node_origins::value_mut(value) {
+                                *origin = tag(serial); serial += 1;
+                            }
+                        });
+                    }
+                }
+                let source = function.blocks().map(|(_, block)| inventory(block)).collect::<Vec<_>>();
+                let base = ast::current_local_id();
+                let expected = {
+                    let _restore = Restore(REFERENCE_TERMINATOR_COPY.with(|flag| flag.replace(true)));
+                    lift_attempt_borrowed_with_ignored_locals(&function, &FxHashSet::default())
+                };
+                let expected_end = ast::current_local_id();
+                ast::set_local_id_base(base);
+                let actual = lift_attempt_borrowed_with_ignored_locals(&function, &FxHashSet::default());
+                let (StructureAttempt::Structured(expected), StructureAttempt::Structured(actual)) = (expected, actual)
+                    else { panic!("condition-copy fixture must structure") };
+                assert_eq!(ast::current_local_id(), expected_end);
+                assert_eq!(actual.to_string(), expected.to_string());
+                assert_eq!(inventory(&actual), inventory(&expected));
+                assert_eq!(function.blocks().map(|(_, block)| inventory(block)).collect::<Vec<_>>(), source);
+            }
+        }
+    }
+
+    #[test]
     fn sequential_diamonds_match_full_snapshots_with_linear_arm_work() {
         for count in [128, 512, 2048] {
             let function = diamonds(count, false);
@@ -2673,6 +2867,23 @@ mod visited_regressions {
             walk(&mut actual, &mut reference, &mut seed, 5);
         }
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    static REFERENCE_TERMINATOR_COPY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Copy the condition once while keeping nested block/closure identities
+/// shallow, as required by the normal AST Clone contract. Copying a whole
+/// Statement first and then its If payload only duplicated the same tree.
+fn copy_if_terminator(statement: &Statement) -> Option<If> {
+    #[cfg(test)]
+    if REFERENCE_TERMINATOR_COPY.with(std::cell::Cell::get) {
+        let statement = statement.clone();
+        return statement.as_if().cloned();
+    }
+    statement.as_if().cloned()
 }
 
 struct Builder<'a> {
@@ -5704,8 +5915,7 @@ impl<'a> Builder<'a> {
                     current = *target;
                 }
                 [_, _] => {
-                    let statement = block.last()?.clone();
-                    let if_statement = statement.as_if()?.clone();
+                    let if_statement = copy_if_terminator(block.last()?)?;
                     // The CFG owns the branch bodies.  A pre-populated AST
                     // body here would be discarded when we rebuild the If,
                     // so let the existing structurer handle that shape.
@@ -6541,7 +6751,7 @@ impl<'a> Builder<'a> {
             return None;
         }
         let block = self.function.block(inner_target)?;
-        let statement = block.last()?.clone();
+        let statement = block.last()?;
         if block
             .iter()
             .take(block.len().saturating_sub(1))
@@ -6549,7 +6759,7 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
-        let inner = statement.as_if()?.clone();
+        let inner = copy_if_terminator(statement)?;
         if !inner.then_block.lock().is_empty() || !inner.else_block.lock().is_empty() {
             return None;
         }
@@ -7192,6 +7402,58 @@ pub fn lift_attempt_with_ignored_locals(
     lift_attempt_borrowed_with_ignored_locals(&function, protected_locals)
 }
 
+/// A terminal, linear CFG needs no region discovery. Only accept complete
+/// proofs here: every refusal returns to the unchanged typed validation path,
+/// retaining its Unsafe/Unsupported precedence and retry behavior.
+fn clone_terminal_single_block(function: &Function) -> Option<Block> {
+    #[cfg(test)]
+    if REFERENCE_TERMINAL_BLOCK.with(std::cell::Cell::get)
+        || REFERENCE_VISITED.with(std::cell::Cell::get)
+    {
+        return None;
+    }
+    if function.graph().node_count() != 1 || function.graph().edge_count() != 0 {
+        return None;
+    }
+    let entry = function.entry().as_ref().copied()?;
+    let block = function.block(entry)?;
+    ast::telemetry::count("restructure_terminal_single_block_eligible", 1);
+    if block.iter().enumerate().any(|(index, statement)| {
+        matches!(statement, Statement::Close(_))
+            || (!is_linear_statement(statement)
+                && !(index + 1 == block.len() && matches!(statement, Statement::Return(_))))
+    }) {
+        return None;
+    }
+    // This shape has no reachable generic-for marker, so validate_for_origins
+    // can only return Ok. Capture obligations are independent of marker
+    // presence and must still be satisfied before bypassing region discovery.
+    if function.iteration_capture_obligations.iter().any(|(local, required)| {
+        required.iter().any(|id| !function.iteration_capture_proofs.get(local)
+            .is_some_and(|proven| proven.contains(id)))
+    }) || block_contains_hidden_unlowered_control(block) || block_contains_close(block) {
+        return None;
+    }
+    // The legacy zero-successor path clones these statements once, then runs
+    // rewrite_statement with an empty map. It neither normalizes expressions
+    // nor enters closure bodies. Keep that ordinary clone policy (including
+    // origin.cloned), source owners and closure-function identities intact.
+    ast::telemetry::count("restructure_terminal_single_block_admitted", 1);
+    ast::telemetry::count("restructure_terminal_single_block_statements", block.len() as u64);
+    #[cfg(test)]
+    TERMINAL_BLOCK_ADMISSIONS.with(|count| count.set(count.get() + 1));
+    Some(block.clone())
+}
+
+#[cfg(test)]
+thread_local! {
+    static REFERENCE_TERMINAL_BLOCK: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static TERMINAL_BLOCK_ADMISSIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+mod terminal_block_regressions;
+
 /// Read-only proof and emission. The caller retains the original CFG for a
 /// possible certified fallback without cloning it for the speculative pass.
 pub fn lift_attempt_borrowed_with_ignored_locals(
@@ -7219,6 +7481,13 @@ pub fn lift_attempt_borrowed_with_ignored_locals(
         base: ast::current_local_id(),
         committed: false,
     };
+    if let Some(block) = clone_terminal_single_block(function) {
+        if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+            eprintln!("source-like first attempt id={} -> Structured({} stmts)", function.id, block.len());
+        }
+        local_ids.committed = true;
+        return StructureAttempt::Structured(block);
+    }
     if let Err(reason) = validate_for_origins(function, protected_locals) {
         return StructureAttempt::Unsafe(reason);
     }

@@ -132,9 +132,7 @@ fn for_each_closure(rvalue: &RValue, callback: &mut impl FnMut(&crate::Closure))
     if let RValue::Closure(closure) = rvalue {
         callback(closure);
     }
-    for child in rvalue.rvalues() {
-        for_each_closure(child, callback);
-    }
+    rvalue.visit_rvalues(&mut |child| { for_each_closure(child, callback); true });
 }
 
 /// True if `block` (a closure body) calls `cell:Disconnect()` / `cell:disconnect()`.
@@ -149,17 +147,9 @@ fn closure_disconnects(block: &Block, cell: &RcLocal) -> bool {
                 return true;
             }
         }
-        for rvalue in statement_rvalues_deep(statement) {
-            if let RValue::MethodCall(method_call) = rvalue {
-                if is_disconnect(method_call) {
-                    return true;
-                }
-            }
-        }
-        if statement_block_children(statement)
-            .iter()
-            .any(|b| closure_disconnects(b, cell))
-        {
+        if !visit_statement_rhs(statement, &mut |value| {
+            !matches!(value, RValue::MethodCall(call) if is_disconnect(call))
+        }) || !visit_statement_blocks(statement, &mut |body| !closure_disconnects(body, cell)) {
             return true;
         }
     }
@@ -183,21 +173,48 @@ fn collect_non_nil_assigned(block: &Block, set: &mut FxHashSet<RcLocal>) {
                 }
             }
         }
-        let mut functions = Vec::new();
-        for rvalue in statement_rvalues_deep(statement) {
+        visit_statement_rhs(statement, &mut |rvalue| {
             if let RValue::Closure(closure) = rvalue {
-                functions.push(closure.function.clone());
+                collect_non_nil_assigned(&closure.function.lock().body, set);
             }
-        }
-        for function in functions {
-            collect_non_nil_assigned(&function.lock().body, set);
-        }
-        for child in statement_block_children(statement) {
+            true
+        });
+        visit_statement_blocks(statement, &mut |child| {
             collect_non_nil_assigned(&child, set);
-        }
+            true
+        });
     }
 }
 
+// This analysis deliberately inspects assignment RHS values only, in preorder.
+// Other statement operands and indexed LHS expressions have different scopes in
+// the original proof. Do not broaden them when replacing its temporary vectors.
+fn visit_statement_rhs(statement: &Statement, visit: &mut impl FnMut(&RValue) -> bool) -> bool {
+    fn walk(value: &RValue, visit: &mut impl FnMut(&RValue) -> bool) -> bool {
+        visit(value) && value.visit_rvalues(&mut |child| walk(child, visit))
+    }
+    if let Statement::Assign(assign) = statement {
+        return assign.right.iter().all(|value| walk(value, visit));
+    }
+    true
+}
+
+fn visit_statement_blocks(statement: &Statement, visit: &mut impl FnMut(&Block) -> bool) -> bool {
+    match statement {
+        Statement::If(value) => {
+            // Drop each lock before the next branch: the two bodies may alias.
+            let then = visit(&value.then_block.lock());
+            then && visit(&value.else_block.lock())
+        }
+        Statement::While(value) => visit(&value.block.lock()),
+        Statement::Repeat(value) => visit(&value.block.lock()),
+        Statement::NumericFor(value) => visit(&value.block.lock()),
+        Statement::GenericFor(value) => visit(&value.block.lock()),
+        _ => true,
+    }
+}
+
+#[cfg(test)]
 fn statement_rvalues_deep(statement: &Statement) -> Vec<&RValue> {
     let mut out = Vec::new();
     fn walk<'a>(rvalue: &'a RValue, out: &mut Vec<&'a RValue>) {
@@ -214,6 +231,7 @@ fn statement_rvalues_deep(statement: &Statement) -> Vec<&RValue> {
     out
 }
 
+#[cfg(test)]
 fn statement_block_children(statement: &Statement) -> Vec<Block> {
     match statement {
         Statement::If(r#if) => {
@@ -227,5 +245,114 @@ fn statement_block_children(statement: &Statement) -> Vec<Block> {
         Statement::NumericFor(numeric_for) => vec![numeric_for.block.lock().clone()],
         Statement::GenericFor(generic_for) => vec![generic_for.block.lock().clone()],
         _ => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Assign, Call, Closure, Function, GenericFor, Global, If, Index, Local,
+        MethodCall, NumericFor, Repeat, Return, While};
+    use parking_lot::Mutex;
+    use triomphe::Arc;
+
+    fn legacy_assigned(block: &Block, set: &mut FxHashSet<RcLocal>) {
+        for statement in &block.0 {
+            if let Statement::Assign(assign) = statement {
+                for (index, destination) in assign.left.iter().enumerate() {
+                    if let LValue::Local(local) = destination {
+                        if !matches!(assign.right.get(index), Some(RValue::Literal(Literal::Nil)) | None) {
+                            set.insert(local.clone());
+                        }
+                    }
+                }
+            }
+            let mut functions = Vec::new();
+            for value in statement_rvalues_deep(statement) {
+                if let RValue::Closure(closure) = value { functions.push(closure.function.clone()); }
+            }
+            for function in functions { legacy_assigned(&function.lock().body, set); }
+            for child in statement_block_children(statement) { legacy_assigned(&child, set); }
+        }
+    }
+
+    fn legacy_disconnects(block: &Block, cell: &RcLocal) -> bool {
+        let matches = |call: &MethodCall| matches!(call.method.as_str(), "Disconnect" | "disconnect")
+            && matches!(call.value.as_ref(), RValue::Local(local) if local == cell);
+        for statement in &block.0 {
+            if matches!(statement, Statement::MethodCall(call) if matches(call)) { return true; }
+            for value in statement_rvalues_deep(statement) {
+                if matches!(value, RValue::MethodCall(call) if matches(call)) { return true; }
+            }
+            if statement_block_children(statement).iter().any(|b| legacy_disconnects(b, cell)) { return true; }
+        }
+        false
+    }
+
+    fn closure(body: Block) -> RValue {
+        Closure { node_origin: Default::default(), upvalues: vec![],
+            function: Arc::new(Mutex::new(Function { body, ..Default::default() })).into() }.into()
+    }
+
+    #[test]
+    fn borrowed_connection_censuses_match_original_scope_and_order() {
+        for seed in 0..128 {
+            let locals: Vec<_> = (0..8).map(|i| RcLocal::new(Local::new(Some(format!("v{i}"))))).collect();
+            let mut block = Block::default();
+            for index in 0..20 {
+                let local = &locals[(index + seed) % locals.len()];
+                let method = match (index + seed) % 3 { 0 => "Disconnect", 1 => "disconnect", _ => "Other" };
+                let call = MethodCall::new(local.clone().into(), method.into(), vec![]);
+                let statement = match (index + seed) % 7 {
+                    0 => call.into(),
+                    1 => Assign::new(vec![locals[0].clone().into()], vec![call.into()]).into(),
+                    2 => Return::new(vec![call.into()]).into(), // intentionally outside RHS census
+                    3 => Assign::new(vec![Index::new(closure(Block(vec![call.into()])), Literal::Number(1.0).into()).into()], vec![]).into(),
+                    4 => Assign::new(vec![local.clone().into()], vec![closure(Block(vec![Assign::new(
+                        vec![locals[7].clone().into()], vec![Literal::Boolean(true).into()]).into()]))]).into(),
+                    5 => Assign::new(vec![local.clone().into(), locals[6].clone().into()], vec![Literal::Nil.into()]).into(),
+                    _ => Call::new(Global::from("f").into(), vec![closure(Block(vec![call.into()]))]).into(),
+                };
+                block.0.push(statement);
+            }
+            for depth in 0..8 {
+                let condition = Literal::Boolean(true).into();
+                block = Block(vec![match (depth + seed) % 5 {
+                    0 => If::new(condition, block, Block::default()).into(),
+                    1 => While::new(condition, block).into(),
+                    2 => Repeat::new(condition, block).into(),
+                    3 => NumericFor::new(Literal::Number(1.0).into(), Literal::Number(3.0).into(),
+                        Literal::Number(1.0).into(), locals[0].clone(), block).into(),
+                    _ => GenericFor::new(vec![locals[1].clone()], vec![], block).into(),
+                }]);
+            }
+            let mut expected = FxHashSet::default();
+            let mut actual = FxHashSet::default();
+            legacy_assigned(&block, &mut expected);
+            collect_non_nil_assigned(&block, &mut actual);
+            assert_eq!(actual, expected, "assigned seed {seed}");
+            for local in &locals {
+                assert_eq!(closure_disconnects(&block, local), legacy_disconnects(&block, local), "disconnect seed {seed}");
+            }
+        }
+    }
+
+    #[test]
+    fn child_visits_borrow_and_release_each_aliased_branch() {
+        let shared = Arc::new(Mutex::new(Block(vec![Statement::Empty(crate::Empty {})])));
+        let statement = Statement::If(If { then_block: shared.clone(), else_block: shared.clone(),
+            ..If::new(Literal::Boolean(true).into(), Block::default(), Block::default()) });
+        let address = { let guard = shared.lock(); (&*guard) as *const Block };
+        let mut visits = 0;
+        assert!(visit_statement_blocks(&statement, &mut |body| {
+            assert_eq!(body as *const Block, address);
+            visits += 1;
+            true
+        }));
+        assert_eq!(visits, 2);
+        visits = 0;
+        assert!(!visit_statement_blocks(&statement, &mut |_| { visits += 1; false }));
+        assert_eq!(visits, 1);
+        assert!(shared.try_lock().is_some());
     }
 }

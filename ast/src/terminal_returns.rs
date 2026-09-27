@@ -40,16 +40,16 @@ fn inspect_block(block: &Block, facts: &mut Facts, depth: usize) -> bool {
         if facts.nodes > MAX_NODES || matches!(statement, Statement::Goto(_) | Statement::Label(_)) {
             return false;
         }
-        for value in statement.rvalues() {
-            if !inspect_value(value, facts, depth + 1) { return false; }
+        if !statement.visit_rvalues(&mut |value| inspect_value(value, facts, depth + 1)) {
+            return false;
         }
         if let Statement::Assign(assign) = statement {
             if assign.prefix {
                 facts.declared.extend(assign.left.iter().filter_map(|left| left.as_local().cloned()));
             }
             for left in &assign.left {
-                for value in left.rvalues() {
-                    if !inspect_value(value, facts, depth + 1) { return false; }
+                if !left.visit_rvalues(&mut |value| inspect_value(value, facts, depth + 1)) {
+                    return false;
                 }
             }
         }
@@ -72,7 +72,7 @@ fn inspect_value(value: &RValue, facts: &mut Facts, depth: usize) -> bool {
         facts.parameters.extend(function.parameters.iter().cloned());
         if !inspect_block(&function.body, facts, depth + 1) { return false; }
     }
-    value.rvalues().into_iter().all(|child| inspect_value(child, facts, depth + 1))
+    value.visit_rvalues(&mut |child| inspect_value(child, facts, depth + 1))
 }
 
 fn visit_blocks(statement: &Statement, f: &mut impl FnMut(&mut Block)) {
@@ -343,6 +343,66 @@ mod tests {
             }))),
             upvalues: vec![if by_ref { Upvalue::Ref(local.clone()) } else { Upvalue::Copy(local.clone()) }],
         }.into()
+    }
+
+    #[test]
+    fn direct_inspection_matches_reference_at_budget_and_scope_boundaries() {
+        fn old_block(block: &Block, facts: &mut Facts, depth: usize) -> bool {
+            if depth > MAX_DEPTH { return false; }
+            for statement in &block.0 {
+                facts.nodes += 1;
+                if facts.nodes > MAX_NODES || matches!(statement, Statement::Goto(_) | Statement::Label(_)) {
+                    return false;
+                }
+                for value in statement.rvalues() {
+                    if !old_value(value, facts, depth + 1) { return false; }
+                }
+                if let Statement::Assign(assign) = statement {
+                    if assign.prefix {
+                        facts.declared.extend(assign.left.iter().filter_map(|left| left.as_local().cloned()));
+                    }
+                    for left in &assign.left {
+                        for value in left.rvalues() {
+                            if !old_value(value, facts, depth + 1) { return false; }
+                        }
+                    }
+                }
+                let mut valid = true;
+                visit_blocks(statement, &mut |block| valid &= old_block(block, facts, depth + 1));
+                if !valid { return false; }
+            }
+            true
+        }
+        fn old_value(value: &RValue, facts: &mut Facts, depth: usize) -> bool {
+            facts.nodes += 1;
+            if depth > MAX_DEPTH || facts.nodes > MAX_NODES { return false; }
+            if let RValue::Closure(closure) = value {
+                for upvalue in &closure.upvalues {
+                    let (crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local)) = upvalue;
+                    facts.captured.insert(local.clone());
+                }
+                let function = closure.function.lock();
+                facts.parameters.extend(function.parameters.iter().cloned());
+                if !old_block(&function.body, facts, depth + 1) { return false; }
+            }
+            value.rvalues().into_iter().all(|child| old_value(child, facts, depth + 1))
+        }
+        let local = local("v");
+        for depth in [0, MAX_DEPTH - 3, MAX_DEPTH - 1, MAX_DEPTH, MAX_DEPTH + 1] {
+            for consumed in [0, MAX_NODES - 12, MAX_NODES - 2, MAX_NODES] {
+                let indexed = Assign::new(vec![Index::new(closure(&local, true),
+                    closure(&local, false)).into()], vec![call(), value(&local)]);
+                let block = Block(vec![assign(&local, Literal::Nil.into(), true), indexed.into(),
+                    branch(value(&local), vec![ret(closure(&local, true))], vec![ret(call())])]);
+                let mut expected = Facts { nodes: consumed, ..Facts::default() };
+                let mut actual = Facts { nodes: consumed, ..Facts::default() };
+                assert_eq!(inspect_block(&block, &mut actual, depth), old_block(&block, &mut expected, depth));
+                assert_eq!(actual.nodes, expected.nodes);
+                assert_eq!(actual.captured, expected.captured);
+                assert_eq!(actual.parameters, expected.parameters);
+                assert_eq!(actual.declared, expected.declared);
+            }
+        }
     }
 
     #[test]

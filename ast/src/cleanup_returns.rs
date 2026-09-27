@@ -71,7 +71,7 @@ fn clean_nested_in_statement(statement: &mut Statement) {
     //    closure boundary, so nested-in-nested closures are handled by the
     //    recursive `cleanup_redundant_returns` call inside `clean_function_body`.
     let mut functions = Vec::new();
-    for rvalue in crate::deinline::stmt_rvalues_mut(statement) {
+    crate::deinline::visit_stmt_rvalues_mut(statement, &mut |rvalue| {
         rvalue.post_traverse_rvalues(&mut |nested| -> Option<()> {
             if let RValue::Closure(closure) = nested {
                 functions.push(closure.function.clone());
@@ -81,7 +81,8 @@ fn clean_nested_in_statement(statement: &mut Statement) {
         if let RValue::Closure(closure) = rvalue {
             functions.push(closure.function.clone());
         }
-    }
+        true
+    });
     for function in functions {
         clean_function_body(&mut function.lock().body);
     }

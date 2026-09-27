@@ -109,27 +109,40 @@ fn local_name(local: &RcLocal) -> Option<String> {
     local.0 .0.lock().0.clone()
 }
 
-fn global_name(global: &Global) -> Option<String> {
-    std::str::from_utf8(&global.0).ok().map(str::to_string)
+fn reserve_local_name(local: &RcLocal, reserved: &mut FxHashSet<String>) {
+    let name = {
+        let local = local.0 .0.lock();
+        local.0.as_ref().filter(|name| !reserved.contains(name.as_str())).cloned()
+    };
+    // Release the local guard before inserting, as in the original collector.
+    if let Some(name) = name {
+        reserved.insert(name);
+    }
+}
+
+fn reserve_global_name(global: &Global, reserved: &mut FxHashSet<String>) {
+    if let Ok(name) = std::str::from_utf8(&global.0)
+        && !reserved.contains(name)
+    {
+        reserved.insert(name.to_owned());
+    }
 }
 
 /// Reserve every identifier whose textual binding could change when a new local
 /// is emitted at this scope's head. Descendant closures are included because an
 /// outer declaration also shadows their global lookups after recompilation.
+/// Consumers use this set only for membership and fresh-name insertion, never
+/// iteration or capacity. Repeated references need not copy an existing name.
 pub(crate) fn collect_reserved_identifiers(body: &mut Block, reserved: &mut FxHashSet<String>) {
     for statement in &mut body.0 {
         let mut functions = Vec::new();
         statement.post_traverse_values(&mut |value| -> Option<()> {
             match value {
                 Either::Right(RValue::Local(local)) | Either::Left(LValue::Local(local)) => {
-                    if let Some(name) = local_name(&local) {
-                        reserved.insert(name);
-                    }
+                    reserve_local_name(local, reserved);
                 }
                 Either::Right(RValue::Global(global)) | Either::Left(LValue::Global(global)) => {
-                    if let Some(name) = global_name(&global) {
-                        reserved.insert(name);
-                    }
+                    reserve_global_name(global, reserved);
                 }
                 Either::Right(RValue::Closure(closure)) => {
                     functions.push(closure.function.clone());
@@ -140,7 +153,9 @@ pub(crate) fn collect_reserved_identifiers(body: &mut Block, reserved: &mut FxHa
         });
         for function in functions {
             let mut function = function.lock();
-            reserved.extend(function.parameters.iter().filter_map(local_name));
+            for parameter in &function.parameters {
+                reserve_local_name(parameter, reserved);
+            }
             collect_reserved_identifiers(&mut function.body, reserved);
         }
         match statement {
@@ -155,13 +170,13 @@ pub(crate) fn collect_reserved_identifiers(body: &mut Block, reserved: &mut FxHa
                 collect_reserved_identifiers(&mut node.block.lock(), reserved)
             }
             Statement::NumericFor(node) => {
-                if let Some(name) = local_name(&node.counter) {
-                    reserved.insert(name);
-                }
+                reserve_local_name(&node.counter, reserved);
                 collect_reserved_identifiers(&mut node.block.lock(), reserved);
             }
             Statement::GenericFor(node) => {
-                reserved.extend(node.res_locals.iter().filter_map(local_name));
+                for local in &node.res_locals {
+                    reserve_local_name(local, reserved);
+                }
                 collect_reserved_identifiers(&mut node.block.lock(), reserved);
             }
             _ => {}
@@ -174,9 +189,10 @@ fn collect_nested_functions(
     functions: &mut Vec<by_address::ByAddress<triomphe::Arc<parking_lot::Mutex<crate::Function>>>>,
 ) {
     for statement in stmts {
-        for value in crate::deinline::stmt_rvalues_mut(statement) {
+        crate::deinline::visit_stmt_rvalues_mut(statement, &mut |value| {
             collect_functions_in_rvalue(value, functions);
-        }
+            true
+        });
         match statement {
             Statement::If(node) => {
                 collect_nested_functions(&mut node.then_block.lock().0, functions);
@@ -205,9 +221,10 @@ fn collect_functions_in_rvalue(
         functions.push(closure.function.clone());
         return;
     }
-    for child in value.rvalues_mut() {
+    value.visit_rvalues_mut(&mut |child| {
         collect_functions_in_rvalue(child, functions);
-    }
+        true
+    });
 }
 
 fn rehoist_one_scope(
@@ -289,9 +306,10 @@ fn count_block(stmts: &[Statement], counts: &mut FxHashMap<CandidateKey, usize>)
         if let Statement::Call(call) = statement {
             count_call(call, counts);
         }
-        for value in crate::deinline::stmt_rvalues(statement) {
+        crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
             count_rvalue(value, counts);
-        }
+            true
+        });
         match statement {
             Statement::If(node) => {
                 count_block(&node.then_block.lock().0, counts);
@@ -320,9 +338,10 @@ fn count_rvalue(value: &RValue, counts: &mut FxHashMap<CandidateKey, usize>) {
         }
         _ => {}
     }
-    for child in value.rvalues() {
+    value.visit_rvalues(&mut |child| {
         count_rvalue(child, counts);
-    }
+        true
+    });
 }
 
 fn count_call(call: &Call, counts: &mut FxHashMap<CandidateKey, usize>) {
@@ -350,9 +369,10 @@ fn replace_block(stmts: &mut [Statement], replacements: &FxHashMap<CandidateKey,
         if let Statement::Call(call) = statement {
             replace_call(call, replacements);
         }
-        for value in crate::deinline::stmt_rvalues_mut(statement) {
+        crate::deinline::visit_stmt_rvalues_mut(statement, &mut |value| {
             replace_rvalue(value, replacements);
-        }
+            true
+        });
         match statement {
             Statement::If(node) => {
                 replace_block(&mut node.then_block.lock().0, replacements);
@@ -381,9 +401,10 @@ fn replace_rvalue(value: &mut RValue, replacements: &FxHashMap<CandidateKey, RcL
         }
         _ => {}
     }
-    for child in value.rvalues_mut() {
+    value.visit_rvalues_mut(&mut |child| {
         replace_rvalue(child, replacements);
-    }
+        true
+    });
 }
 
 fn replace_call(call: &mut Call, replacements: &FxHashMap<CandidateKey, RcLocal>) {
@@ -737,3 +758,7 @@ mod tests {
         assert_eq!(rehoist_constants(&mut body), 0);
     }
 }
+
+#[cfg(test)]
+#[path = "rehoist_constants/visitor_tests.rs"]
+mod visitor_tests;

@@ -76,12 +76,14 @@ impl<'a> Liveness<'a> {
         for (node, block) in function.blocks() {
             let block_liveness = liveness.block_liveness.entry(node).or_default();
             for instruction in block.iter() {
-                block_liveness
-                    .uses
-                    .extend(instruction.values_read().into_iter());
-                block_liveness
-                    .defs
-                    .extend(instruction.values_written().into_iter());
+                instruction.visit_local_reads(&mut |local| {
+                    block_liveness.uses.insert(local);
+                    true
+                });
+                instruction.visit_local_writes(&mut |local| {
+                    block_liveness.defs.insert(local);
+                    true
+                });
             }
             for (pred, edge) in function.edges_to_block(node) {
                 liveness
@@ -91,9 +93,12 @@ impl<'a> Liveness<'a> {
                     .params
                     .extend(edge.arguments.iter().map(|(k, _)| k));
                 let block_liveness = liveness.block_liveness.entry(pred).or_default();
-                block_liveness
-                    .arg_out_uses
-                    .extend(edge.arguments.iter().flat_map(|(_, v)| v.values_read()));
+                for (_, argument) in &edge.arguments {
+                    argument.visit_local_reads(&mut |local| {
+                        block_liveness.arg_out_uses.insert(local);
+                        true
+                    });
+                }
             }
         }
         let mut stack = Vec::new();
@@ -126,5 +131,54 @@ impl<'a> Liveness<'a> {
             .into_iter()
             .map(|(n, l)| (n, l.live_sets))
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::block::BlockEdge;
+
+    #[test]
+    fn visitor_liveness_keeps_phi_transport_and_generic_control_live() {
+        for backedge in [false, true] {
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            let step = function.new_block();
+            let exhausted = function.new_block();
+            let body = function.new_block();
+            function.set_entry(entry);
+            let [generator, state, control, result, phi] = std::array::from_fn(|_| RcLocal::default());
+            function.parameters = vec![generator.clone(), state.clone(), control.clone()];
+            function.graph_mut().add_edge(entry, step, BlockEdge::default());
+            function.graph_mut().add_edge(step, exhausted, BlockEdge::default());
+            let argument = ast::Binary::new(result.clone().into(), result.clone().into(),
+                ast::BinaryOperation::Add).into();
+            let edge = BlockEdge { arguments: vec![(phi.clone(), argument)], ..Default::default() };
+            // Parallel edges and duplicate reads in an argument must not lose
+            // the transport's use at its source or its definition at its target.
+            function.graph_mut().add_edge(step, body, edge.clone());
+            function.graph_mut().add_edge(step, body, edge);
+            if backedge { function.graph_mut().add_edge(step, step, BlockEdge::default()); }
+            function.block_mut(step).unwrap().push(ast::GenericForNext::new(
+                vec![result.clone(), result.clone()], generator.clone().into(),
+                state.clone(), control.clone(),
+            ).into());
+            function.block_mut(exhausted).unwrap().push(ast::Return::new(vec![control.clone().into()]).into());
+            function.block_mut(body).unwrap().push(ast::Return::new(vec![phi.clone().into(), control.clone().into()]).into());
+
+            let live = Liveness::calculate(&function);
+            let inputs: FxHashSet<_> = [generator, state, control.clone()].into_iter().collect();
+            assert_eq!(live[&entry].live_in, inputs);
+            assert_eq!(live[&entry].live_out, inputs);
+            assert_eq!(live[&step].live_in, inputs);
+            let mut outputs: FxHashSet<_> = [result, control.clone()].into_iter().collect();
+            if backedge { outputs.extend(inputs); }
+            assert_eq!(live[&step].live_out, outputs);
+            assert_eq!(live[&exhausted].live_in, [control.clone()].into_iter().collect());
+            assert_eq!(live[&body].live_in, [phi, control].into_iter().collect());
+            assert!(live[&exhausted].live_out.is_empty());
+            assert!(live[&body].live_out.is_empty());
+        }
     }
 }

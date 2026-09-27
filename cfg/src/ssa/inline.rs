@@ -6,6 +6,7 @@ use petgraph::visit::EdgeRef;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 mod facts;
+mod schedule;
 
 /// Candidate definitions cannot move during one block visit: successful
 /// substitution only empties a producer or rewrites a consumer's expressions.
@@ -106,17 +107,13 @@ fn late_global_callees(statement: &ast::Statement) -> Vec<*const ast::RValue> {
         if let ast::RValue::Call(call) | ast::RValue::Select(ast::Select::Call(call)) = rvalue {
             mark(call, out);
         }
-        for child in rvalue.rvalues() {
-            visit(child, out);
-        }
+        rvalue.visit_rvalues(&mut |child| { visit(child, out); true });
     }
     let mut out = Vec::new();
     if let ast::Statement::Call(call) = statement {
         mark(call, &mut out);
     }
-    for rvalue in statement.rvalues() {
-        visit(rvalue, &mut out);
-    }
+    statement.visit_rvalues(&mut |rvalue| { visit(rvalue, &mut out); true });
     out
 }
 
@@ -142,10 +139,9 @@ fn local_is_conditionally_evaluated(
                 || local_is_conditionally_evaluated(&if_expression.then_value, read, true)
                 || local_is_conditionally_evaluated(&if_expression.else_value, read, true)
         }
-        _ => rvalue
-            .rvalues()
-            .into_iter()
-            .any(|child| local_is_conditionally_evaluated(child, read, conditional)),
+        _ => !rvalue.visit_rvalues(&mut |child| {
+            !local_is_conditionally_evaluated(child, read, conditional)
+        }),
     }
 }
 
@@ -182,6 +178,14 @@ fn is_service_or_require_handle(rvalue: &ast::RValue) -> bool {
 struct TraverseSelf<'a, T: Traverse>(&'a mut T);
 
 impl<'a> Traverse for TraverseSelf<'a, ast::RValue> {
+    fn visit_rvalues<'b>(&'b self, visit: &mut dyn FnMut(&'b ast::RValue) -> bool) -> bool {
+        visit(self.0)
+    }
+
+    fn visit_rvalues_mut<'b>(&'b mut self, visit: &mut dyn FnMut(&'b mut ast::RValue) -> bool) -> bool {
+        visit(self.0)
+    }
+
     fn rvalues_mut(&mut self) -> Vec<&mut ast::RValue> {
         vec![self.0]
     }
@@ -228,10 +232,9 @@ impl<'a> Inliner<'a> {
         let candidate_may_write_capture = new_rvalue_has_side_effects
             && ast::effects::may_write_capture(new_rvalue.as_ref().unwrap());
         if new_rvalue_has_side_effects
-            && traversible
-                .rvalues()
-                .into_iter()
-                .any(|rvalue| local_is_conditionally_evaluated(rvalue, read, false))
+            && !traversible.visit_rvalues(&mut |rvalue| {
+                !local_is_conditionally_evaluated(rvalue, read, false)
+            })
         {
             return false;
         }
@@ -317,13 +320,14 @@ impl<'a> Inliner<'a> {
     // TODO: dont clone rvalues
     // TODO: REFACTOR: move to ssa module?
     // TODO: inline into block arguments
-    fn inline_rvalues(self) {
+    fn inline_rvalues(self, schedule: &mut schedule::Schedule) {
         let mut origin_events = Vec::new();
         let mut omitted_inline_events = 0;
         let trace_origins = self.function.provenance.is_some();
         let mut fact_statistics = facts::Statistics::default();
-        let node_indices = self.function.graph().node_indices().collect::<Vec<_>>();
-        for node in node_indices {
+        for node_index in 0..schedule.nodes.len() {
+            let node = schedule.nodes[node_index];
+            if !schedule.visit(node, self.function.block(node).unwrap().len()) { continue; }
             let block = self.function.block_mut(node).unwrap();
             let mut facts = facts::Cache::new(block.len(), self.local_to_group, self.upvalue_to_group);
             let producers = ProducerIndex::new(block);
@@ -331,17 +335,10 @@ impl<'a> Inliner<'a> {
             // TODO: rename values_read to locals_read
             let mut stat_to_values_read = Vec::with_capacity(block.len());
             for stat in &block.0 {
-                stat_to_values_read.push(
-                    stat.values_read()
-                        .into_iter()
-                        .filter(|&l| {
-                            self.local_usages[l] == 1 && !self.upvalue_to_group.contains_key(l)
-                                && (!l.preserve_binding() || ast::assignment_preserves_function_name(stat, l))
-                        })
-                        .cloned()
-                        .map(Some)
-                        .collect_vec(),
-                );
+                stat_to_values_read.push(eligible_reads(stat, |local| {
+                    self.local_usages[local] == 1 && !self.upvalue_to_group.contains_key(local)
+                        && (!local.preserve_binding() || ast::assignment_preserves_function_name(stat, local))
+                }));
             }
 
             // visit all statements that read at least one local with only one usage,
@@ -435,21 +432,21 @@ impl<'a> Inliner<'a> {
                                     &late_callees,
                                 ) {
                                     assert!(new_rvalue.is_none());
+                                    schedule.changed(node);
 
                                     // TODO: PERF: this is probably inefficient
-                                    for rvalue in block[index].rvalues_mut() {
-                                        *rvalue =
-                                            std::mem::replace(rvalue, ast::Literal::Nil.into())
-                                                .reduce();
-                                    }
+                                    reduce_statement_roots(&mut block[index]);
 
                                     // TODO: PERF: remove `local_usages[l] == 1` filter in stat_to_values_read
                                     // and use stat_to_values_read here
-                                    for local in block[stat_index].values_read() {
+                                    block[stat_index].visit_local_reads(&mut |local| {
                                         let local_usage_count =
                                             self.local_usages.get_mut(local).unwrap();
-                                        *local_usage_count = local_usage_count.saturating_sub(1);
-                                    }
+                                        let previous = *local_usage_count;
+                                        *local_usage_count = previous.saturating_sub(1);
+                                        if *local_usage_count != previous { schedule.usage_changed(local); }
+                                        true
+                                    });
                                     // we dont need to update local usages because tracking usages for a local
                                     // with no declarations serves no purpose
                                     block[stat_index] = ast::Empty {}.into();
@@ -503,6 +500,7 @@ impl<'a> Inliner<'a> {
                                 };
 
                                 if !new_rvalue_has_side_effects || !has_leading_side_effects() {
+                                    schedule.changed(node);
                                     let new_rvalue = block[stat_index]
                                         .as_assign_mut()
                                         .unwrap()
@@ -522,11 +520,14 @@ impl<'a> Inliner<'a> {
 
                                     // TODO: PERF: remove `local_usages[l] == 1` filter in stat_to_values_read
                                     // and use stat_to_values_read here
-                                    for local in block[stat_index].values_read() {
+                                    block[stat_index].visit_local_reads(&mut |local| {
                                         let local_usage_count =
                                             self.local_usages.get_mut(local).unwrap();
-                                        *local_usage_count = local_usage_count.saturating_sub(1);
-                                    }
+                                        let previous = *local_usage_count;
+                                        *local_usage_count = previous.saturating_sub(1);
+                                        if *local_usage_count != previous { schedule.usage_changed(local); }
+                                        true
+                                    });
                                     // we dont need to update local usages because tracking usages for a local
                                     // with no declarations serves no purpose
                                     block[stat_index] = ast::Empty {}.into();
@@ -565,16 +566,9 @@ impl<'a> Inliner<'a> {
                     .unwrap()
                     .arguments
                     .iter()
-                    .map(|(_, a)| {
-                        a.values_read()
-                            .into_iter()
-                            .filter(|&l| {
-                                self.local_usages[l] == 1 && !self.upvalue_to_group.contains_key(l)
-                            })
-                            .cloned()
-                            .map(Some)
-                            .collect_vec()
-                    })
+                    .map(|(_, argument)| eligible_reads(argument, |local| {
+                        self.local_usages[local] == 1 && !self.upvalue_to_group.contains_key(local)
+                    }))
                     .collect_vec();
 
                 let mut index = 0;
@@ -657,15 +651,19 @@ impl<'a> Inliner<'a> {
                                     &[],
                                 ) {
                                     assert!(new_rvalue.is_none());
+                                    schedule.changed(node);
                                     let block = self.function.block_mut(node).unwrap();
 
                                     // TODO: PERF: remove `local_usages[l] == 1` filter in stat_to_values_read
                                     // and use stat_to_values_read here
-                                    for local in block[stat_index].values_read() {
+                                    block[stat_index].visit_local_reads(&mut |local| {
                                         let local_usage_count =
                                             self.local_usages.get_mut(local).unwrap();
-                                        *local_usage_count = local_usage_count.saturating_sub(1);
-                                    }
+                                        let previous = *local_usage_count;
+                                        *local_usage_count = previous.saturating_sub(1);
+                                        if *local_usage_count != previous { schedule.usage_changed(local); }
+                                        true
+                                    });
                                     // we dont need to update local usages because tracking usages for a local
                                     // with no declarations serves no purpose
 
@@ -706,23 +704,63 @@ impl<'a> Inliner<'a> {
     }
 }
 
-fn rvalue_reads_local(rvalue: &ast::RValue, local: &ast::RcLocal) -> bool {
-    rvalue.values_read().into_iter().any(|read| read == local)
+/// Reduce exactly the same direct expression roots after each substitution.
+/// Replacing one root cannot change the surrounding statement's root slots;
+/// neither sibling reductions nor successive reductions may be skipped.
+fn reduce_statement_roots(statement: &mut ast::Statement) {
+    #[cfg(test)]
+    if tests::REFERENCE_SCHEDULE.with(std::cell::Cell::get) {
+        for value in statement.rvalues_mut() {
+            *value = std::mem::replace(value, ast::Literal::Nil.into()).reduce();
+        }
+        return;
+    }
+    statement.visit_rvalues_mut(&mut |value| {
+        *value = std::mem::replace(value, ast::Literal::Nil.into()).reduce();
+        true
+    });
 }
 
-fn decrement_local_usage(local_usages: &mut FxHashMap<ast::RcLocal, usize>, local: &ast::RcLocal) {
+/// Keep the old per-statement/edge eligibility snapshot and duplicate operand
+/// order, while collecting only the retained handles. The mutable inliner
+/// later marks consumed slots with None without admitting newly exposed reads.
+fn eligible_reads(value: &impl LocalRw, mut eligible: impl FnMut(&ast::RcLocal) -> bool) -> Vec<Option<ast::RcLocal>> {
+    let mut reads = Vec::new();
+    value.visit_local_reads(&mut |local| {
+        if eligible(local) { reads.push(Some(local.clone())); }
+        true
+    });
+    #[cfg(test)]
+    assert_eq!(reads, value.values_read().into_iter().filter(|local| eligible(local))
+        .cloned().map(Some).collect::<Vec<_>>());
+    reads
+}
+
+fn rvalue_reads_local(rvalue: &ast::RValue, local: &ast::RcLocal) -> bool {
+    rvalue.any_local_read(&mut |read| read == local)
+}
+
+fn decrement_local_usage(
+    local_usages: &mut FxHashMap<ast::RcLocal, usize>,
+    local: &ast::RcLocal,
+    usage_changed: &mut impl FnMut(&ast::RcLocal),
+) {
     if let Some(usage) = local_usages.get_mut(local) {
-        *usage = usage.saturating_sub(1);
+        let previous = *usage;
+        *usage = previous.saturating_sub(1);
+        if *usage != previous { usage_changed(local); }
     }
 }
 
 fn decrement_rvalue_usages(
     local_usages: &mut FxHashMap<ast::RcLocal, usize>,
     rvalue: &ast::RValue,
+    usage_changed: &mut impl FnMut(&ast::RcLocal),
 ) {
-    for local in rvalue.values_read() {
-        decrement_local_usage(local_usages, local);
-    }
+    rvalue.visit_local_reads(&mut |local| {
+        decrement_local_usage(local_usages, local, usage_changed);
+        true
+    });
 }
 
 /// Index of the `local t = {...}` declaration that a SETLIST at `set_list_index`
@@ -747,20 +785,17 @@ fn movable_table_declaration(
             let entries_movable = table.0.iter().all(|(key, value)| {
                 key.iter().chain(std::iter::once(value)).all(|rvalue| {
                     ast::is_total_pure(rvalue)
-                        && rvalue
-                            .values_read()
-                            .iter()
-                            .all(|local| !written_between.contains(*local))
+                        && !rvalue.any_local_read(&mut |local| written_between.contains(local))
                 })
             });
             return entries_movable.then_some(j);
         }
-        if statement.values_read().contains(&object_local)
-            || statement.values_written().contains(&object_local)
+        if statement.any_local_read(&mut |local| local == object_local)
+            || statement.any_local_write(&mut |local| local == object_local)
         {
             return None;
         }
-        written_between.extend(statement.values_written().into_iter().cloned());
+        statement.visit_local_writes(&mut |local| { written_between.push(local.clone()); true });
     }
     None
 }
@@ -810,6 +845,7 @@ fn fold_table_constructor_field_assignments(
     block: &mut ast::Block,
     local_usages: &mut FxHashMap<ast::RcLocal, usize>,
     upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
+    usage_changed: &mut impl FnMut(&ast::RcLocal),
 ) -> bool {
     let mut changed = false;
     let mut i = 0;
@@ -854,7 +890,7 @@ fn fold_table_constructor_field_assignments(
                 break;
             }
 
-            decrement_local_usage(local_usages, &object_local);
+            decrement_local_usage(local_usages, &object_local, usage_changed);
             let field_assign = std::mem::replace(&mut block[i], ast::Empty {}.into())
                 .into_assign()
                 .unwrap();
@@ -886,13 +922,10 @@ fn fold_table_constructor_field_assignments(
                         && table.0[p..].iter().all(|(key, value)| {
                             key.as_ref().is_some_and(ast::is_total_table_key)
                                 && ast::is_total_pure(value)
-                                && !value
-                                    .values_read()
-                                    .iter()
-                                    .any(|read| upvalue_to_group.contains_key(*read))
+                                && !value.any_local_read(&mut |read| upvalue_to_group.contains_key(read))
                         }) =>
                 {
-                    decrement_rvalue_usages(local_usages, &table.0[p].1);
+                    decrement_rvalue_usages(local_usages, &table.0[p].1, usage_changed);
                     table.0[p].1 = new_value;
                 }
                 Some(p)
@@ -933,14 +966,29 @@ pub fn inline_with_readonly_captures(
 ) {
     let mut local_usages = FxHashMap::default();
     for node in function.graph().node_indices() {
-        for read in function.values_read(node) {
+        let mut record = |read: &ast::RcLocal| {
             *local_usages.entry(read.clone()).or_insert(0usize) += 1;
+            true
+        };
+        for statement in function.block(node).unwrap().iter() {
+            statement.visit_local_reads(&mut record);
+        }
+        for edge in function.edges(node) {
+            for (_, argument) in &edge.weight().arguments {
+                argument.visit_local_reads(&mut record);
+            }
         }
     }
 
+    #[cfg(not(test))]
+    let dirty_scheduling = !cfg!(feature = "reference-inline-sweeps");
+    #[cfg(test)]
+    let dirty_scheduling = !tests::REFERENCE_SCHEDULE.with(std::cell::Cell::get);
+    let mut schedule = schedule::Schedule::new(function, dirty_scheduling);
     let mut changed = true;
     while changed {
         changed = false;
+        schedule.begin_sweep();
         Inliner::new(
             function,
             local_to_group,
@@ -948,10 +996,12 @@ pub fn inline_with_readonly_captures(
             &mut local_usages,
             readonly_capture_ids,
         )
-        .inline_rvalues();
+        .inline_rvalues(&mut schedule);
 
         // remove unused locals
-        for block in function.blocks_mut() {
+        for node_index in 0..schedule.nodes.len() {
+            let node = schedule.nodes[node_index];
+            let block = function.block_mut(node).unwrap();
             for stat_index in 0..block.len() {
                 if let ast::Statement::Assign(assign) = &block[stat_index]
                     && assign.left.len() == 1
@@ -980,6 +1030,7 @@ pub fn inline_with_readonly_captures(
                             if let Some(new_stat) = new_stat {
                                 block[stat_index] = new_stat;
                                 changed = true;
+                                schedule.changed(node);
                             }
                         } else {
                             // Preserve a closure bound to a *named* local function even
@@ -1014,6 +1065,7 @@ pub fn inline_with_readonly_captures(
                             if !keep_named_closure && !keep_can_raise && !keep_const_table {
                                 block[stat_index] = ast::Empty {}.into();
                                 changed = true;
+                                schedule.changed(node);
                             }
                         }
                     }
@@ -1021,17 +1073,26 @@ pub fn inline_with_readonly_captures(
             }
         }
 
-        for block in function.blocks_mut() {
+        for node_index in 0..schedule.nodes.len() {
+            let node = schedule.nodes[node_index];
+            let block = function.block_mut(node).unwrap();
             // we check block.ast.len() elsewhere and do `i - ` here and elsewhere so we need to get rid of empty statements
             // TODO: fix ^
+            let old_len = block.len();
             block.retain(|s| s.as_empty().is_none());
+            if block.len() != old_len { schedule.changed(node); }
 
             // `t = {} t.a = 1` -> `t = { a = 1 }`
-            changed |= fold_table_constructor_field_assignments(
+            let folded = fold_table_constructor_field_assignments(
                 block,
                 &mut local_usages,
                 upvalue_to_group,
+                &mut |local| schedule.usage_changed(local),
             );
+            if folded {
+                changed = true;
+                schedule.changed(node);
+            }
 
             // if the first statement is a set_list, we cant inline it anyway
             for i in 1..block.len() {
@@ -1057,6 +1118,7 @@ pub fn inline_with_readonly_captures(
                         let decl = block.remove(decl_index);
                         block.insert(i - 1, decl);
                         changed = true;
+                        schedule.changed(node);
                     }
                     if let Some(assign) = block[i - 1].as_assign()
                         && assign.left == [object_local.into()]
@@ -1073,6 +1135,7 @@ pub fn inline_with_readonly_captures(
                             .into_set_list()
                             .unwrap();
                         *local_usages.get_mut(&set_list.object_local).unwrap() -= 1;
+                        schedule.usage_changed(&set_list.object_local);
                         let assign = block.get_mut(i - 1).unwrap().as_assign_mut().unwrap();
                         let table = assign.right[0].as_table_mut().unwrap();
                         for value in set_list.values {
@@ -1082,6 +1145,7 @@ pub fn inline_with_readonly_captures(
                             table.0.push((None, tail));
                         }
                         changed = true;
+                        schedule.changed(node);
                     }
                     // todo: only inline in changed blocks
                     //cfg::dot::render_to(function, &mut std::io::stdout());
@@ -1089,7 +1153,12 @@ pub fn inline_with_readonly_captures(
                 }
             }
         }
+        #[cfg(test)]
+        tests::record_sweep(function, &local_usages);
     }
+    schedule.record();
+    #[cfg(test)]
+    tests::SCHEDULE_STATISTICS.with(|statistics| statistics.set(schedule.statistics));
     // we check block.ast.len() elsewhere and do `i - ` here and elsewhere so we need to get rid of empty statements
     // TODO: fix ^
     for block in function.blocks_mut() {
@@ -1103,6 +1172,77 @@ mod tests {
         // Run the unchanged full-prefix search as a differential oracle. The
         // flag is thread-local so other unit tests cannot see the override.
         pub(super) static REFERENCE_SCAN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        pub(super) static REFERENCE_SCHEDULE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        pub(super) static SCHEDULE_STATISTICS: std::cell::Cell<super::schedule::Statistics> = Default::default();
+        static SWEEPS: std::cell::RefCell<Option<Vec<Sweep>>> = const { std::cell::RefCell::new(None) };
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct Sweep {
+        blocks: Vec<(usize, Block)>,
+        edges: Vec<(usize, usize, crate::block::BranchType, Vec<(RcLocal, RValue)>)>,
+        usages: FxHashMap<u64, usize>,
+        origins: Vec<Option<(Vec<ast::node_origins::Input>, bool, bool, Option<&'static str>, bool)>>,
+        inline_events: Vec<(u64, Vec<u64>, &'static str)>,
+    }
+
+    pub(super) fn record_sweep(function: &Function, usages: &FxHashMap<RcLocal, usize>) {
+        use ast::Traverse;
+        SWEEPS.with(|sweeps| {
+            let mut sweeps = sweeps.borrow_mut();
+            let Some(sweeps) = sweeps.as_mut() else { return; };
+            let mut origins = Vec::new();
+            let mut origin = |value: Option<&ast::node_origins::Origin>| {
+                origins.push(value.and_then(|origin| origin.0.as_ref()).map(|data| (
+                    data.inputs.iter().map(|input| (**input).clone()).collect(),
+                    data.inlined, data.cloned, data.synthesized, data.incomplete,
+                )));
+            };
+            let mut edges = Vec::new();
+            for (node, block) in function.blocks() {
+                for statement in block.iter() {
+                    origin(ast::node_origins::statement(statement));
+                    statement.traverse_rvalues_ref(&mut |value| origin(ast::node_origins::value(value)));
+                }
+                for edge in function.edges(node) {
+                    for (_, value) in &edge.weight().arguments {
+                        origin(ast::node_origins::value(value));
+                        value.traverse_rvalues_ref(&mut |value| origin(ast::node_origins::value(value)));
+                    }
+                    edges.push((node.index(), edge.target().index(), edge.weight().branch_type.clone(), edge.weight().arguments.clone()));
+                }
+            }
+            sweeps.push(Sweep {
+                blocks: function.blocks().map(|(node, block)| (node.index(), block.clone())).collect(),
+                edges,
+                usages: usages.iter().map(|(local, &uses)| (local.stable_id(), uses)).collect(),
+                origins,
+                inline_events: function.provenance.as_ref().map(|trace| trace.inlines.iter()
+                    .map(|event| (event.producer, event.consumer_bindings.clone(), event.site_kind)).collect()).unwrap_or_default(),
+            });
+        });
+    }
+
+    fn run_scheduled(
+        function: &mut Function,
+        groups: &FxHashMap<RcLocal, usize>,
+        captures: &IndexMap<RcLocal, RcLocal>,
+        reference: bool,
+    ) -> (Vec<Sweep>, super::schedule::Statistics) {
+        struct Reset;
+        impl Drop for Reset {
+            fn drop(&mut self) {
+                REFERENCE_SCHEDULE.with(|flag| flag.set(false));
+                SWEEPS.with(|sweeps| { sweeps.borrow_mut().take(); });
+            }
+        }
+        let _reset = Reset;
+        REFERENCE_SCHEDULE.with(|flag| flag.set(reference));
+        SWEEPS.with(|sweeps| *sweeps.borrow_mut() = Some(Vec::new()));
+        let ids = ast::current_local_id();
+        inline(function, groups, captures);
+        assert_eq!(ast::current_local_id(), ids, "inlining must not mint identities");
+        (SWEEPS.with(|sweeps| sweeps.borrow_mut().take().unwrap()), SCHEDULE_STATISTICS.with(std::cell::Cell::get))
     }
 
     struct ReferenceScan;
@@ -1125,6 +1265,7 @@ mod tests {
         Statement, Table, LocalRw,
     };
     use indexmap::IndexMap;
+    use petgraph::visit::EdgeRef;
     use rustc_hash::FxHashMap;
 
     fn local(name: &str) -> RcLocal {
@@ -1181,7 +1322,7 @@ mod tests {
     }
 
     fn fold_fields(block: &mut Block) -> bool {
-        fold_table_constructor_field_assignments(block, &mut FxHashMap::default(), &IndexMap::new())
+        fold_table_constructor_field_assignments(block, &mut FxHashMap::default(), &IndexMap::new(), &mut |_| {})
     }
 
     fn inline_block(block: Block) -> Block {
@@ -1193,6 +1334,171 @@ mod tests {
         inline(&mut function, &FxHashMap::default(), &IndexMap::new());
 
         function.block(entry).unwrap().clone()
+    }
+
+    #[test]
+    fn dirty_schedule_skips_stable_blocks_without_extending_the_fixed_point() {
+        let mut function = Function::new(0);
+        let nodes: Vec<_> = (0..129).map(|_| function.new_block()).collect();
+        function.set_entry(nodes[0]);
+        for &node in &nodes[..128] {
+            for _ in 0..16 {
+                function.block_mut(node).unwrap().push(ast::Call::new(global("effect"), Vec::new()).into());
+            }
+        }
+        function.block_mut(nodes[128]).unwrap().push(Assign::new(
+            vec![RcLocal::default().into()], vec![number(1.0)],
+        ).into());
+        let mut reference = function.clone();
+        let (actual, statistics) = run_scheduled(&mut function, &FxHashMap::default(), &IndexMap::new(), false);
+        let (expected, legacy) = run_scheduled(&mut reference, &FxHashMap::default(), &IndexMap::new(), true);
+        assert_eq!(actual, expected);
+        assert_eq!(statistics.sweeps, 2, "only the dead assignment requests another sweep");
+        assert_eq!(statistics.sweeps, legacy.sweeps);
+        assert_eq!(statistics.blocks_skipped, 128);
+        assert_eq!(statistics.usage_invalidations, 0);
+        assert_eq!(legacy.statement_visits - statistics.statement_visits, 128 * 16);
+    }
+
+    #[test]
+    fn global_usage_revision_keeps_table_changes_in_the_legacy_phase_order() {
+        let mut function = Function::new(0);
+        let first = function.new_block();
+        let last = function.new_block();
+        function.set_entry(first);
+        function.block_mut(first).unwrap().push(ast::Call::new(global("effect"), Vec::new()).into());
+        let table = RcLocal::default();
+        function.block_mut(last).unwrap().extend([
+            table_decl(&table), field_assign(&table, string("value"), number(1.0)), return_local(&table),
+        ]);
+        let mut reference = function.clone();
+        let (actual, statistics) = run_scheduled(&mut function, &FxHashMap::default(), &IndexMap::new(), false);
+        let (expected, legacy) = run_scheduled(&mut reference, &FxHashMap::default(), &IndexMap::new(), true);
+        assert_eq!(actual, expected);
+        assert_eq!(statistics.sweeps, 2, "the last inline move must not start a third sweep");
+        assert_eq!(statistics.sweeps, legacy.sweeps);
+        assert!(statistics.usage_invalidations > 0);
+        assert_eq!(statistics.blocks_skipped, 0, "a global usage change conservatively revisits all blocks");
+    }
+
+    #[test]
+    fn usage_changes_reactivate_other_blocks_and_outgoing_argument_candidates() {
+        for edge_use in [false, true] {
+            for changed_first in [false, true] {
+                let mut function = Function::new(0);
+                let nodes: Vec<_> = (0..4).map(|_| function.new_block()).collect();
+                function.set_entry(nodes[0]);
+                let (candidate, changing) = if changed_first { (nodes[2], nodes[0]) } else { (nodes[0], nodes[2]) };
+                let table = RcLocal::default();
+                function.block_mut(candidate).unwrap().push(table_decl(&table));
+                if edge_use {
+                    function.set_edges(candidate, vec![(nodes[3], crate::block::BlockEdge {
+                        arguments: vec![(RcLocal::default(), table.clone().into())], ..Default::default()
+                    })]);
+                } else {
+                    function.block_mut(candidate).unwrap().push(return_local(&table));
+                }
+                // Public hand-built CFGs can redefine the same identity. The
+                // second declaration's field fold changes the first block's
+                // global eligibility from two reads to exactly one.
+                function.block_mut(changing).unwrap().extend([
+                    table_decl(&table), field_assign(&table, string("field"), number(1.0)),
+                ]);
+                function.block_mut(nodes[1]).unwrap().push(ast::Call::new(global("untouched"), Vec::new()).into());
+                let mut reference = function.clone();
+                let (actual, _) = run_scheduled(&mut function, &FxHashMap::default(), &IndexMap::new(), false);
+                let (expected, _) = run_scheduled(&mut reference, &FxHashMap::default(), &IndexMap::new(), true);
+                assert_eq!(actual, expected, "edge_use={edge_use}, changed_first={changed_first}");
+                assert!(function.block(candidate).unwrap().iter().all(|statement| statement.as_assign().is_none()));
+            }
+        }
+    }
+
+    #[test]
+    fn scheduled_sweeps_match_reference_with_captures_origins_tables_and_parallel_edges() {
+        use ast::Traverse;
+        for seed in 0..192usize {
+            let mut random = seed + 1;
+            let mut next = || {
+                random = random.wrapping_mul(1664525).wrapping_add(1013904223);
+                random >> 8
+            };
+            let mut function = Function::new(0);
+            let nodes: Vec<_> = (0..8).map(|_| function.new_block()).collect();
+            function.set_entry(nodes[0]);
+            function.remove_block(nodes[5]); // StableGraph holes must not become scheduled blocks.
+            let mut locals: Vec<_> = (0..5).map(|_| RcLocal::default()).collect();
+            function.parameters = locals.clone();
+            for &node in &nodes {
+                if node == nodes[5] { continue; }
+                for _ in 0..(2 + next() % 14) {
+                    let source = locals[next() % locals.len()].clone();
+                    let target = if next() % 7 == 0 { source.clone() } else { RcLocal::default() };
+                    let value = match next() % 7 {
+                        0 => number((next() % 8) as f64),
+                        1 => source.clone().into(),
+                        2 => ast::Call::new(global("effect"), vec![source.clone().into()]).into(),
+                        3 => Index::new(source.clone().into(), string("field")).into(),
+                        4 => Binary::new(source.clone().into(), number(1.0), ast::BinaryOperation::Add).into(),
+                        5 => RValue::Table(Table::default()),
+                        _ => ast::Closure {
+                            node_origin: Default::default(), function: Default::default(),
+                            upvalues: vec![ast::Upvalue::Copy(source.clone()), ast::Upvalue::Ref(source.clone())],
+                        }.into(),
+                    };
+                    function.block_mut(node).unwrap().push(Assign::new(vec![target.clone().into()], vec![value]).into());
+                    locals.push(target);
+                    if next() % 4 == 0 {
+                        let table = RcLocal::default();
+                        function.block_mut(node).unwrap().extend([
+                            table_decl(&table), field_assign(&table, string("item"), source.clone().into()),
+                            return_local(&table),
+                        ]);
+                        locals.push(table);
+                    }
+                    if next() % 5 == 0 {
+                        let table = RcLocal::default();
+                        function.block_mut(node).unwrap().extend([
+                            table_decl(&table), ast::SetList::new(table.clone(), 1, vec![source.into()], None).into(),
+                            return_local(&table),
+                        ]);
+                        locals.push(table);
+                    }
+                }
+                let argument = locals[next() % locals.len()].clone();
+                for _ in 0..next() % 3 {
+                    function.graph_mut().add_edge(node, nodes[7], crate::block::BlockEdge {
+                        arguments: vec![(RcLocal::default(), argument.clone().into())], ..Default::default()
+                    });
+                }
+            }
+            for (node, block) in function.blocks().map(|(node, block)| (node, block.len())).collect::<Vec<_>>() {
+                for index in 0..block {
+                    let statement = &mut function.block_mut(node).unwrap()[index];
+                    let input = ast::node_origins::Input {
+                        function: "schedule-test".into(), block: node.index(), statement: index, value: None,
+                    };
+                    if let Some(origin) = ast::node_origins::statement_mut(statement) {
+                        *origin = ast::node_origins::Origin::input(input.clone());
+                    }
+                    statement.traverse_rvalues(&mut |value| {
+                        if let Some(origin) = ast::node_origins::value_mut(value) {
+                            *origin = ast::node_origins::Origin::input(input.clone());
+                        }
+                    });
+                }
+            }
+            function.provenance = Some(Box::new(crate::provenance::FunctionTrace::new(0, "schedule-test".into())));
+            let groups = locals.iter().enumerate().map(|(index, local)| (local.clone(), index % 5)).collect();
+            let captures = locals.iter().enumerate().filter(|(index, _)| index % 13 == seed % 13)
+                .map(|(_, local)| (local.clone(), local.clone())).collect();
+            let mut actual = function.clone();
+            let mut reference = function.clone(); // Both variants receive equal clone-origin flags.
+            let (actual_sweeps, statistics) = run_scheduled(&mut actual, &groups, &captures, false);
+            let (reference_sweeps, legacy) = run_scheduled(&mut reference, &groups, &captures, true);
+            assert_eq!(actual_sweeps, reference_sweeps, "seed={seed}");
+            assert_eq!(statistics.sweeps, legacy.sweeps, "seed={seed}");
+        }
     }
 
     #[test]
@@ -1393,7 +1699,8 @@ mod tests {
         assert!(!fold_table_constructor_field_assignments(
             &mut captured,
             &mut FxHashMap::default(),
-            &protected
+            &protected,
+            &mut |_| {},
         ));
         assert_eq!(captured.to_string(), before);
     }

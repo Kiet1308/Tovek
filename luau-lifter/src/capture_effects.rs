@@ -245,7 +245,7 @@ mod tests {
             type_info: None,
         }
     }
-    fn chunk(functions: Vec<Function>) -> Chunk {
+    fn chunk(functions: Vec<Function>) -> Chunk<'static> {
         Chunk {
             version: 9,
             main: 0,
@@ -254,7 +254,7 @@ mod tests {
             userdata_type_names: Vec::new(),
         }
     }
-    fn chain(mode: u8, writes_leaf: bool) -> Chunk {
+    fn chain(mode: u8, writes_leaf: bool) -> Chunk<'static> {
         chunk(vec![
             function(
                 0,

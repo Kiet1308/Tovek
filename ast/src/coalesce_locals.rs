@@ -86,6 +86,83 @@ pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLoca
     coalesce_generated_locals_in_function(block, protected, &[], &[]);
 }
 
+/// The full occurrence collector is needed only above the source binding
+/// limit. Count exactly its local identities first, without retaining local
+/// owners, path vectors, capture sets or per-statement read/write sets.
+struct PressureCensus {
+    seen: FxHashSet<u64>,
+    owned: usize,
+    available: usize,
+    statements: u64,
+    operands: u64,
+}
+
+impl PressureCensus {
+    fn local(&mut self, local: &RcLocal) -> bool {
+        self.operands += 1;
+        self.owned += usize::from(self.seen.insert(local.stable_id()));
+        self.owned <= self.available
+    }
+
+    fn block(&mut self, block: &Block) -> bool {
+        for statement in block.iter() {
+            self.statements += 1;
+            if !statement.visit_local_reads(&mut |local| self.local(local))
+                || !statement.visit_local_writes(&mut |local| self.local(local))
+            {
+                return false;
+            }
+            // Match collect_block's frame boundary exactly: structured
+            // blocks belong to this frame, closure bodies do not. Closure
+            // capture operands (including indexed LHSs) were read above.
+            let complete = match statement {
+                Statement::If(branch) => {
+                    // The two arms may deliberately share one Arc. Release
+                    // its guard before acquiring the next arm's lock.
+                    let then_complete = {
+                        let block = branch.then_block.lock();
+                        self.block(&block)
+                    };
+                    then_complete && {
+                        let block = branch.else_block.lock();
+                        self.block(&block)
+                    }
+                }
+                Statement::While(node) => self.block(&node.block.lock()),
+                Statement::Repeat(node) => self.block(&node.block.lock()),
+                Statement::NumericFor(node) => self.block(&node.block.lock()),
+                Statement::GenericFor(node) => self.block(&node.block.lock()),
+                _ => true,
+            };
+            if !complete { return false; }
+        }
+        true
+    }
+}
+
+fn pressure_within_limit(block: &Block, parameters: &[RcLocal], upvalues: &[RcLocal], limit: usize) -> bool {
+    let Some(available) = limit.checked_sub(parameters.len()) else { return false; };
+    let mut census = PressureCensus {
+        // Preseeding excludes both incoming upvalues and parameter identities
+        // from owned bindings; parameters.len still counts unused/duplicate
+        // parameter slots exactly as the established pressure rule does.
+        seen: parameters.iter().chain(upvalues).map(RcLocal::stable_id).collect(),
+        owned: 0,
+        available,
+        statements: 0,
+        operands: 0,
+    };
+    let within_limit = census.block(block);
+    crate::telemetry::count("coalesce_pressure_census_statements", census.statements);
+    crate::telemetry::count("coalesce_pressure_census_operands", census.operands);
+    within_limit
+}
+
+#[cfg(test)]
+thread_local! {
+    static REFERENCE_PRESSURE_COLLECTOR: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 /// Explicit frame ownership keeps unused parameters in the root pressure count
 /// and excludes incoming upvalues, which do not consume local binding slots.
 pub fn coalesce_generated_locals_in_function(
@@ -94,7 +171,19 @@ pub fn coalesce_generated_locals_in_function(
     parameters: &[RcLocal],
     upvalues: &[RcLocal],
 ) {
+    let _phase = crate::telemetry::Span::new("GENERATED_LOCAL_COALESCE");
     const LOCAL_LIMIT: usize = 200;
+    #[cfg(not(test))]
+    let precheck = true;
+    #[cfg(test)]
+    let precheck = !REFERENCE_PRESSURE_COLLECTOR.with(std::cell::Cell::get);
+    if precheck {
+        if pressure_within_limit(block, parameters, upvalues, LOCAL_LIMIT) {
+            crate::telemetry::count("coalesce_pressure_census_accepted", 1);
+            return;
+        }
+        crate::telemetry::count("coalesce_pressure_census_refused", 1);
+    }
     let parameter_set: FxHashSet<_> = parameters.iter().cloned().collect();
     let external_set: FxHashSet<_> = upvalues.iter().cloned().collect();
     let mut position = 0;
@@ -503,6 +592,149 @@ mod tests {
     use by_address::ByAddress;
     use parking_lot::Mutex;
     use triomphe::Arc;
+
+    fn legacy_pressure(block: &mut Block, parameters: &[RcLocal], upvalues: &[RcLocal]) -> usize {
+        let mut infos = FxHashMap::default();
+        collect_block(block, &mut 0, &mut 0, &mut 0, &mut Vec::new(), &mut Vec::new(),
+            &mut FxHashSet::default(), &mut infos, &FxHashSet::default());
+        let parameters_set: FxHashSet<_> = parameters.iter().cloned().collect();
+        let external_set: FxHashSet<_> = upvalues.iter().cloned().collect();
+        infos.keys().filter(|local| !parameters_set.contains(*local) && !external_set.contains(*local))
+            .count().saturating_add(parameters.len())
+    }
+
+    #[test]
+    fn pressure_census_matches_collector_without_owners_or_nested_function_reads() {
+        for parameter_count in [0, 1, 180, 200, 201] {
+            for local_count in [0, 1, 19, 20, 21, 199, 200, 201, 205] {
+                let mut parameters: Vec<_> = (0..parameter_count).map(|_| RcLocal::default()).collect();
+                // Retain the old count of declared slots even if a hand-built
+                // parameter vector contains repeated identities.
+                if parameters.len() > 1 { parameters[1] = parameters[0].clone(); }
+                let upvalues: Vec<_> = (0..3).map(|_| RcLocal::default()).collect();
+                let locals: Vec<_> = (0..local_count).map(|_| RcLocal::default()).collect();
+                let mut body = Block(locals.iter().map(|local| Assign::new(
+                    vec![local.clone().into(), local.clone().into()],
+                    vec![upvalues[0].clone().into(), upvalues[0].clone().into()],
+                ).into()).collect());
+                let child = ByAddress(Arc::new(Mutex::new(Function {
+                    body: Block((0..250).map(|_| Assign::new(vec![RcLocal::default().into()],
+                        vec![Literal::Nil.into()]).into()).collect()), ..Function::default()
+                })));
+                body.push(Assign::new(vec![Index::new(Global::from("targets").into(), Closure {
+                    node_origin: Default::default(), function: child.clone(),
+                    upvalues: vec![Upvalue::Copy(upvalues[1].clone()), Upvalue::Ref(upvalues[2].clone())],
+                }.into()).into()], vec![Literal::Nil.into()]).into());
+                let shared = Arc::new(Mutex::new(body));
+                let mut block = Block(vec![If {
+                    node_origin: Default::default(), condition: Literal::Boolean(true).into(),
+                    then_block: shared.clone(), else_block: shared.clone(),
+                }.into()]);
+                let snapshot = || parameters.iter().chain(&upvalues).chain(&locals)
+                    .map(|local| (local.stable_id(), local.0.lock().clone(), Arc::count(&local.0.0)))
+                    .collect::<Vec<_>>();
+                let before = snapshot();
+                let body_owners = Arc::strong_count(&shared);
+                let closure_owners = Arc::strong_count(&child.0);
+                let ids = crate::current_local_id();
+                let actual = pressure_within_limit(&block, &parameters, &upvalues, 200);
+                assert_eq!(snapshot(), before);
+                assert_eq!(Arc::strong_count(&shared), body_owners);
+                assert_eq!(Arc::strong_count(&child.0), closure_owners);
+                assert_eq!(crate::current_local_id(), ids);
+                assert_eq!(actual, legacy_pressure(&mut block, &parameters, &upvalues) <= 200,
+                    "parameters={parameter_count}, locals={local_count}");
+                assert_eq!(snapshot(), before);
+            }
+        }
+    }
+
+    #[test]
+    fn pressure_gate_preserves_full_coalescing_metadata_captures_and_loop_binders() {
+        struct Restore(bool);
+        impl Drop for Restore {
+            fn drop(&mut self) { REFERENCE_PRESSURE_COLLECTOR.with(|flag| flag.set(self.0)); }
+        }
+        type OriginView = Option<(Vec<crate::node_origins::Input>, bool, bool, Option<&'static str>, bool)>;
+        fn origins(block: &Block, out: &mut Vec<OriginView>) {
+            let mut record = |origin: Option<&crate::node_origins::Origin>| {
+                out.push(origin.and_then(|origin| origin.0.as_ref()).map(|data| (
+                    data.inputs.iter().map(|input| (**input).clone()).collect(), data.inlined,
+                    data.cloned, data.synthesized, data.incomplete,
+                )));
+            };
+            for statement in block.iter() {
+                record(crate::node_origins::statement(statement));
+                statement.traverse_rvalues_ref(&mut |value| record(crate::node_origins::value(value)));
+            }
+            for statement in block.iter() {
+                match statement {
+                    Statement::If(branch) => {
+                        origins(&branch.then_block.lock(), out);
+                        origins(&branch.else_block.lock(), out);
+                    }
+                    Statement::While(node) => origins(&node.block.lock(), out),
+                    Statement::Repeat(node) => origins(&node.block.lock(), out),
+                    Statement::NumericFor(node) => origins(&node.block.lock(), out),
+                    Statement::GenericFor(node) => origins(&node.block.lock(), out),
+                    _ => {}
+                }
+            }
+        }
+        for count in [0, 3, 195, 196, 197, 198, 199, 200, 201, 240] {
+            let locals: Vec<_> = (0..count).map(|_| RcLocal::default()).collect();
+            let [parameter, upvalue, counter, result, captured] = std::array::from_fn(|_| RcLocal::default());
+            captured.0.lock().add_source_binding(crate::SourceBinding {
+                origin: crate::BindingOrigin::DebugLocal { prototype: 1, register: 0, start_pc: 0, end_pc: 1 },
+                name: "captured".into(),
+            });
+            let child = ByAddress(Arc::new(Mutex::new(Function::default())));
+            let mut statements = Vec::new();
+            for (index, local) in locals.iter().enumerate() {
+                let mut assign = Assign::new(vec![local.clone().into()], vec![Literal::Number(index as f64).into()]);
+                assign.node_origin = crate::node_origins::Origin::input(crate::node_origins::Input {
+                    function: "pressure-oracle".into(), block: 0, statement: index, value: None,
+                });
+                statements.push(assign.into());
+            }
+            statements.extend([
+                Assign::new(vec![captured.clone().into()], vec![parameter.clone().into()]).into(),
+                Call::new(Global::from("save").into(), vec![Closure {
+                    node_origin: Default::default(), function: child.clone(),
+                    upvalues: vec![Upvalue::Ref(captured.clone()), Upvalue::Copy(upvalue.clone())],
+                }.into()]).into(),
+                NumericFor::new(Literal::Number(1.0).into(), Literal::Number(2.0).into(),
+                    Literal::Number(1.0).into(), counter.clone(), Block::default()).into(),
+                GenericFor::new(vec![result.clone()], vec![upvalue.clone().into()], Block::default()).into(),
+            ]);
+            let block = Block(statements);
+            let protected = FxHashSet::from_iter([captured.clone()]);
+            let parameters = vec![parameter.clone()];
+            let upvalues = vec![upvalue.clone()];
+            let all = locals.iter().chain([&parameter, &upvalue, &counter, &result, &captured]).collect::<Vec<_>>();
+            let metadata = all.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>();
+            let ids = crate::current_local_id();
+            let mut expected = crate::simplify_gotos::deep_clone_block(&block);
+            {
+                let _restore = Restore(REFERENCE_PRESSURE_COLLECTOR.with(|flag| flag.replace(true)));
+                coalesce_generated_locals_in_function(&mut expected, &protected, &parameters, &upvalues);
+            }
+            let expected_metadata = all.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>();
+            for (local, saved) in all.iter().zip(&metadata) { *local.0.lock() = saved.clone(); }
+            let mut actual = crate::simplify_gotos::deep_clone_block(&block);
+            coalesce_generated_locals_in_function(&mut actual, &protected, &parameters, &upvalues);
+            assert_eq!(actual.to_string(), expected.to_string(), "count={count}");
+            let mut actual_origins = Vec::new(); let mut expected_origins = Vec::new();
+            origins(&actual, &mut actual_origins); origins(&expected, &mut expected_origins);
+            assert_eq!(actual_origins, expected_origins);
+            assert_eq!(all.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>(), expected_metadata);
+            assert_eq!(crate::current_local_id(), ids);
+            assert!(child.lock().body.is_empty(), "a capture census must not enter child functions");
+            let mut source = block.clone();
+            assert_eq!(pressure_within_limit(&source, &parameters, &upvalues, 200),
+                legacy_pressure(&mut source, &parameters, &upvalues) <= 200);
+        }
+    }
 
     #[test]
     fn indexed_groups_match_all_members_first_fit() {

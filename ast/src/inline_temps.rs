@@ -1,6 +1,9 @@
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::BTreeSet;
 
+mod usage;
+use usage::SubtreeUsage;
+
 use crate::{
     Block, Call, LValue, LocalRw, MethodCall, RValue, RcLocal, Select, SideEffects, Statement,
     Traverse,
@@ -55,7 +58,7 @@ pub fn inline_single_use_temps(block: &mut Block) -> bool {
     // closure in a sibling/enclosing scope, so the whole-program set is threaded
     // down (mirrors `eliminate_nil`). The existing `does_not_move_captured_*`
     // tests pin this captured-dependency protection.
-    let facts = collect_motion_facts(block);
+    let facts = collect_motion_facts(block, false);
     inline_in_block(block, &facts)
 }
 
@@ -64,8 +67,7 @@ pub fn inline_single_use_temps(block: &mut Block) -> bool {
 /// compute them once instead of rescanning the whole function between every
 /// table-rebuild layer.
 pub fn rebuild_ui_expression_trees(block: &mut Block) -> bool {
-    let mut facts = collect_motion_facts(block);
-    facts.rebuild_call_chains = true;
+    let facts = collect_motion_facts(block, true);
     let mut any_changed = false;
     loop {
         let rebuilt = crate::rebuild_table_literals::rebuild_with_captured(block, &facts.captured, &facts.stable_captured);
@@ -77,7 +79,7 @@ pub fn rebuild_ui_expression_trees(block: &mut Block) -> bool {
     }
 }
 
-fn collect_motion_facts(block: &Block) -> MotionFacts {
+fn collect_motion_facts(block: &Block, rebuild_call_chains: bool) -> MotionFacts {
     let usage = collect_usage(block);
     let captured = usage
         .iter()
@@ -85,16 +87,102 @@ fn collect_motion_facts(block: &Block) -> MotionFacts {
         .map(|(local, _)| local.clone())
         .collect();
     let mut stable_captured = FxHashSet::default();
-    collect_stable_declared_locals(block, &usage, &mut stable_captured);
+    collect_stable_declared_locals(block, &usage, &mut stable_captured, false);
     MotionFacts {
         captured,
         stable_captured,
-        numbers: crate::numeric_facts::collect(block, &usage),
-        rebuild_call_chains: false,
+        numbers: if rebuild_call_chains { crate::numeric_facts::collect(block, &usage) }
+            else { FxHashSet::default() },
+        rebuild_call_chains,
     }
 }
 
 fn collect_stable_declared_locals(
+    block: &Block,
+    usage: &FxHashMap<RcLocal, Usage>,
+    stable: &mut FxHashSet<RcLocal>,
+    known_goto_free: bool,
+) {
+    // A recursive function has a nil predeclaration followed immediately by
+    // closure installation. There is no executed expression between the two
+    // writes, and constructing the closure does not run its body. With no
+    // further writes, every later read sees that installed function. Keep
+    // non-adjacent, conditional, loop-carried and reassigned cells unknown.
+    // A negative tree query proves the same fact for every descendant reached
+    // by that query. Propagate it instead of rescanning each ancestor subtree.
+    // Positive queries keep the original per-scope check and refusal behavior.
+    let goto_free = known_goto_free || {
+        #[cfg(test)]
+        STABLE_GOTO_QUERIES.with(|queries| queries.set(queries.get() + 1));
+        !crate::simplify_gotos::function_tree_has_goto_or_label(block)
+    };
+    if goto_free {
+        for pair in block.0.windows(2) {
+            let (Statement::Assign(decl), Statement::Assign(init)) = (&pair[0], &pair[1]) else { continue; };
+            if !decl.prefix || decl.parallel || decl.left.len() != 1
+                || !(decl.right.is_empty() || matches!(decl.right.as_slice(), [RValue::Literal(crate::Literal::Nil)]))
+                || init.prefix || init.parallel || init.left.len() != 1
+                || !matches!(init.right.as_slice(), [RValue::Closure(_)]) { continue; }
+            let LValue::Local(local) = &decl.left[0] else { continue; };
+            if init.left[0].as_local() == Some(local) && usage.get(local).is_some_and(|u| u.writes == 2) {
+                stable.insert(local.clone());
+            }
+        }
+    }
+    for statement in &block.0 {
+        if let Statement::Assign(assign) = statement
+            && assign.prefix
+        {
+            stable.extend(assign.left.iter().filter_map(|left| {
+                let LValue::Local(local) = left else {
+                    return None;
+                };
+                usage
+                    .get(local)
+                    .is_some_and(|usage| usage.writes == 1)
+                    .then(|| local.clone())
+            }));
+        }
+
+        let mut functions = Vec::new();
+        collect_closures_in_statement(statement, &mut |closure| {
+            functions.push(closure.function.clone())
+        });
+        for function in functions {
+            // The final-tree goto scanner intentionally ignores transient loop
+            // protocol expressions. Their closures need an independent query.
+            let inherited = goto_free && !matches!(statement, Statement::NumForInit(_)
+                | Statement::NumForNext(_) | Statement::GenericForInit(_) | Statement::GenericForNext(_));
+            collect_stable_declared_locals(&function.lock().body, usage, stable, inherited);
+        }
+
+        match statement {
+            Statement::If(node) => {
+                collect_stable_declared_locals(&node.then_block.lock(), usage, stable, goto_free);
+                collect_stable_declared_locals(&node.else_block.lock(), usage, stable, goto_free);
+            }
+            Statement::While(node) => {
+                collect_stable_declared_locals(&node.block.lock(), usage, stable, goto_free)
+            }
+            Statement::Repeat(node) => {
+                collect_stable_declared_locals(&node.block.lock(), usage, stable, goto_free)
+            }
+            Statement::NumericFor(node) => {
+                collect_stable_declared_locals(&node.block.lock(), usage, stable, goto_free)
+            }
+            Statement::GenericFor(node) => {
+                collect_stable_declared_locals(&node.block.lock(), usage, stable, goto_free)
+            }
+            _ => {}
+        }
+    }
+}
+
+#[cfg(test)]
+thread_local! { static STABLE_GOTO_QUERIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+
+#[cfg(test)]
+fn collect_stable_declared_locals_reference(
     block: &Block,
     usage: &FxHashMap<RcLocal, Usage>,
     stable: &mut FxHashSet<RcLocal>,
@@ -137,34 +225,40 @@ fn collect_stable_declared_locals(
             functions.push(closure.function.clone())
         });
         for function in functions {
-            collect_stable_declared_locals(&function.lock().body, usage, stable);
+            collect_stable_declared_locals_reference(&function.lock().body, usage, stable);
         }
 
         match statement {
             Statement::If(node) => {
-                collect_stable_declared_locals(&node.then_block.lock(), usage, stable);
-                collect_stable_declared_locals(&node.else_block.lock(), usage, stable);
+                collect_stable_declared_locals_reference(&node.then_block.lock(), usage, stable);
+                collect_stable_declared_locals_reference(&node.else_block.lock(), usage, stable);
             }
             Statement::While(node) => {
-                collect_stable_declared_locals(&node.block.lock(), usage, stable)
+                collect_stable_declared_locals_reference(&node.block.lock(), usage, stable)
             }
             Statement::Repeat(node) => {
-                collect_stable_declared_locals(&node.block.lock(), usage, stable)
+                collect_stable_declared_locals_reference(&node.block.lock(), usage, stable)
             }
             Statement::NumericFor(node) => {
-                collect_stable_declared_locals(&node.block.lock(), usage, stable)
+                collect_stable_declared_locals_reference(&node.block.lock(), usage, stable)
             }
             Statement::GenericFor(node) => {
-                collect_stable_declared_locals(&node.block.lock(), usage, stable)
+                collect_stable_declared_locals_reference(&node.block.lock(), usage, stable)
             }
             _ => {}
         }
     }
 }
 
+
 fn inline_in_block(block: &mut Block, facts: &MotionFacts) -> bool {
-    let mut changed = inline_nested_blocks(block, facts);
-    changed |= inline_current_block(block, facts);
+    let mut usage = if cfg!(feature = "reference-temp-census") { None } else { SubtreeUsage::new(block) };
+    inline_in_block_with_usage(block, facts, &mut usage)
+}
+
+fn inline_in_block_with_usage(block: &mut Block, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>) -> bool {
+    let mut changed = inline_nested_blocks(block, facts, usage);
+    changed |= inline_current_block_with_usage(block, facts, usage.as_mut());
     changed
 }
 
@@ -172,13 +266,25 @@ fn inline_in_block(block: &mut Block, facts: &MotionFacts) -> bool {
 /// every later statement. A successful substitution moves its initializer
 /// exactly once: all *other* locals retain their read/write counts, including
 /// reads/captures inside a moved closure. Only the removed binder disappears.
+#[cfg(test)]
 fn inline_current_block(block: &mut Block, facts: &MotionFacts) -> bool {
-    let usage = collect_usage(block);
+    inline_current_block_with_usage(block, facts, None)
+}
+
+fn inline_current_block_with_usage(block: &mut Block, facts: &MotionFacts, mut usage: Option<&mut SubtreeUsage>) -> bool {
+    // Descendant usage is irrelevant when this block cannot remove a binder.
+    if !block.iter().any(|statement| candidate_decl(statement)
+        .is_some_and(|(local, _)| !facts.captured.contains(local))) { return false; }
+    let scope = usage.as_ref().map(|usage| usage.scope(block));
+    let fallback = usage.is_none().then(|| collect_usage(block));
     let mut declarations = FxHashMap::default();
     for (index, statement) in block.iter().enumerate() {
         if let Some((local, _)) = candidate_decl(statement)
-            && usage.get(local).is_some_and(|u| u.reads == 1 && u.writes == 1)
             && !facts.captured.contains(local)
+            && match usage.as_deref_mut() {
+                Some(usage) => usage.single_use(scope.unwrap(), local),
+                None => fallback.as_ref().unwrap().get(local).is_some_and(|u| u.reads == 1 && u.writes == 1),
+            }
         {
             declarations.insert(local.clone(), index);
         }
@@ -218,6 +324,7 @@ fn inline_current_block(block: &mut Block, facts: &MotionFacts) -> bool {
             continue;
         }
         changed = true;
+        if let Some(usage) = usage.as_deref_mut() { usage.remove(scope.unwrap(), &local); }
         removed[index] = true;
         block[index] = crate::Empty {}.into();
         motion.after_inline(block, index, use_index, &local, facts);
@@ -300,31 +407,34 @@ impl InlineWorklist {
     }
 }
 
-fn inline_nested_blocks(block: &mut Block, facts: &MotionFacts) -> bool {
+fn inline_nested_blocks(block: &mut Block, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>) -> bool {
     let mut changed = false;
     for statement in &mut block.0 {
-        changed |= inline_nested_in_statement(statement, facts);
+        changed |= inline_nested_in_statement(statement, facts, usage);
     }
     changed
 }
 
-fn inline_nested_in_statement(statement: &mut Statement, facts: &MotionFacts) -> bool {
-    let closures_changed = inline_closures_in_statement(statement, facts);
+fn inline_nested_in_statement(statement: &mut Statement, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>) -> bool {
+    let closures_changed = inline_closures_in_statement(statement, facts, usage);
     let blocks_changed = match statement {
         Statement::If(r#if) => {
-            inline_in_block(&mut r#if.then_block.lock(), facts)
-                | inline_in_block(&mut r#if.else_block.lock(), facts)
+            // A shallow-cloned branch can share its body with the other arm.
+            // End each lock's temporary lifetime before entering the next arm.
+            let then_changed = inline_in_block_with_usage(&mut r#if.then_block.lock(), facts, usage);
+            let else_changed = inline_in_block_with_usage(&mut r#if.else_block.lock(), facts, usage);
+            then_changed | else_changed
         }
-        Statement::While(r#while) => inline_in_block(&mut r#while.block.lock(), facts),
-        Statement::Repeat(repeat) => inline_in_block(&mut repeat.block.lock(), facts),
-        Statement::NumericFor(numeric_for) => inline_in_block(&mut numeric_for.block.lock(), facts),
-        Statement::GenericFor(generic_for) => inline_in_block(&mut generic_for.block.lock(), facts),
+        Statement::While(r#while) => inline_in_block_with_usage(&mut r#while.block.lock(), facts, usage),
+        Statement::Repeat(repeat) => inline_in_block_with_usage(&mut repeat.block.lock(), facts, usage),
+        Statement::NumericFor(numeric_for) => inline_in_block_with_usage(&mut numeric_for.block.lock(), facts, usage),
+        Statement::GenericFor(generic_for) => inline_in_block_with_usage(&mut generic_for.block.lock(), facts, usage),
         _ => false,
     };
     closures_changed | blocks_changed
 }
 
-fn inline_closures_in_statement(statement: &mut Statement, facts: &MotionFacts) -> bool {
+fn inline_closures_in_statement(statement: &mut Statement, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>) -> bool {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
@@ -333,7 +443,7 @@ fn inline_closures_in_statement(statement: &mut Statement, facts: &MotionFacts) 
         None
     });
     functions.into_iter().fold(false, |changed, function| {
-        inline_in_block(&mut function.lock().body, facts) | changed
+        inline_in_block_with_usage(&mut function.lock().body, facts, usage) | changed
     })
 }
 
@@ -595,9 +705,10 @@ pub(crate) fn collect_usage_in_statement(statement: &Statement, usage: &mut FxHa
         usage.entry(local.clone()).or_default().reads += 1;
         true
     });
-    for local in statement.values_written() {
+    statement.visit_local_writes(&mut |local| {
         usage.entry(local.clone()).or_default().writes += 1;
-    }
+        true
+    });
 
     let mut functions = Vec::new();
     collect_closures_in_statement(statement, &mut |closure| {
@@ -1340,6 +1451,111 @@ mod tests {
     use triomphe::Arc;
 
     #[test]
+    fn subtree_usage_matches_recursive_rescans_after_nested_removals() {
+        fn tree(seed: &mut u64, depth: usize, shared: &RcLocal) -> Block {
+            *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let choice = *seed;
+            let own = local(&format!("v{}", choice >> 32));
+            let mut block = Block(vec![declare(shared, number((choice % 9) as f64)),
+                declare(&own, number((choice % 7) as f64))]);
+            if depth != 0 {
+                let first = tree(seed, depth - 1, shared);
+                let second = tree(seed, depth - 1, shared);
+                match choice % 4 {
+                    0 => block.push(If::new(global("flag"), first, second).into()),
+                    1 => {
+                        block.push(While::new(global("flag"), first).into());
+                        block.push(Repeat::new(global("done"), second).into());
+                    }
+                    2 => {
+                        block.push(print(RValue::Closure(Closure { node_origin: Default::default(),
+                            function: ByAddress(Arc::new(Mutex::new(Function { body: first, ..Default::default() }))),
+                            upvalues: vec![] })));
+                        block.push(If::new(global("flag"), second, Block::default()).into());
+                    }
+                    _ => {
+                        block.push(crate::NumericFor::new(number(1.0), number(3.0), number(1.0), local("i"), first).into());
+                        block.push(print(RValue::Closure(Closure { node_origin: Default::default(),
+                            function: ByAddress(Arc::new(Mutex::new(Function { body: second, ..Default::default() }))),
+                            upvalues: vec![Upvalue::Copy(own.clone())] })));
+                    }
+                }
+            }
+            if choice % 5 == 0 { block.push(assign(shared.clone().into(), global("replacement"))); }
+            block.push(print(local_value(&own)));
+            block.push(print(local_value(shared)));
+            block
+        }
+        for seed in 0..64 {
+            let shared = local("v0");
+            for rebuild in [false, true] {
+                // Build independent function bodies: even dc_block deliberately
+                // preserves Function Arcs, which would let the reference run
+                // pre-mutate closures belonging to the indexed test case.
+                let mut expected = tree(&mut (seed + 1), 4, &shared);
+                let mut actual = tree(&mut (seed + 1), 4, &shared);
+                let expected_facts = super::collect_motion_facts(&expected, rebuild);
+                let actual_facts = super::collect_motion_facts(&actual, rebuild);
+                assert!(super::SubtreeUsage::new(&actual).is_some());
+                let changed = super::inline_in_block_with_usage(&mut expected, &expected_facts, &mut None);
+                assert_eq!(super::inline_in_block(&mut actual, &actual_facts), changed);
+                assert_eq!(actual.to_string(), expected.to_string(), "seed {seed}, UI {rebuild}");
+            }
+        }
+    }
+
+    #[test]
+    fn shared_bodies_and_indexed_lhs_closures_use_the_reference_census() {
+        let temporary = local("v0");
+        let function = Arc::new(Mutex::new(Function {
+            body: Block(vec![declare(&temporary, number(1.0)), print(local_value(&temporary))]),
+            ..Default::default()
+        }));
+        let closure = RValue::Closure(Closure { node_origin: Default::default(),
+            function: ByAddress(function.clone()), upvalues: vec![] });
+        let shared_function = Block(vec![print(closure.clone()), print(closure.clone())]);
+        let mut shared_block = Block(vec![If::new(global("flag"), Block(vec![print(number(1.0))]), Block::default()).into()]);
+        let crate::Statement::If(branch) = &mut shared_block[0] else { unreachable!() };
+        branch.else_block = branch.then_block.clone();
+        let indexed = Block(vec![Assign::new(vec![Index::new(closure, string("key")).into()], vec![number(1.0)]).into()]);
+        for mut block in [shared_function, shared_block, indexed] {
+            assert!(super::SubtreeUsage::new(&block).is_none());
+            let facts = super::collect_motion_facts(&block, false);
+            // The public traversal must still process these bodies; fallback
+            // is a counting strategy, never permission to skip a subtree.
+            super::inline_in_block(&mut block, &facts);
+        }
+        assert_eq!(function.lock().body.to_string(), "print(1)");
+    }
+
+    #[test]
+    fn inherited_goto_absence_matches_scope_queries_and_visits_once() {
+        std::thread::Builder::new().stack_size(16 * 1024 * 1024).spawn(|| {
+            for has_goto in [false, true] {
+                let mut block = Block::default();
+                if has_goto { block.push(crate::Goto::new("target".into()).into()); }
+                for depth in 0..96 {
+                    let helper = local(&format!("helper{depth}"));
+                    let mut declaration = Assign::new(vec![helper.clone().into()], vec![]);
+                    declaration.prefix = true;
+                    let closure = RValue::Closure(Closure { node_origin: Default::default(),
+                        function: ByAddress(Arc::new(Mutex::new(Function::default()))), upvalues: vec![] });
+                    block = Block(vec![declaration.into(), assign(helper.clone().into(), closure),
+                        If::new(global("flag"), block, Block::default()).into()]);
+                }
+                let usage = super::collect_usage(&block);
+                let mut expected = Default::default();
+                super::collect_stable_declared_locals_reference(&block, &usage, &mut expected);
+                super::STABLE_GOTO_QUERIES.with(|queries| queries.set(0));
+                let mut actual = Default::default();
+                super::collect_stable_declared_locals(&block, &usage, &mut actual, false);
+                assert_eq!(actual, expected);
+                if !has_goto { assert_eq!(super::STABLE_GOTO_QUERIES.with(|queries| queries.get()), 1); }
+            }
+        }).unwrap().join().unwrap();
+    }
+
+    #[test]
     fn indexed_motion_matches_each_legacy_guard_and_runtime_scope() {
         let source = local("source"); let captured = local("captured");
         let mut statements = vec![
@@ -1351,7 +1567,7 @@ mod tests {
             crate::Empty {}.into(),
         ];
         let mut block = Block(statements.clone());
-        let facts = super::collect_motion_facts(&block);
+        let facts = super::collect_motion_facts(&block, false);
         let replacements = vec![number(1.0), source.into(), captured.into(), global("global"),
             crate::Index::new(global("table"), string("key")).into(),
             crate::Table::new(vec![(Some(crate::Literal::Nil.into()), number(1.0))]).into()];
@@ -1381,7 +1597,7 @@ mod tests {
             let mut input = Block::default();
             for local in &locals { input.push(declare(local, source.clone().into())); }
             for local in &locals { input.push(print(local.clone().into())); }
-            let facts = super::collect_motion_facts(&input);
+            let facts = super::collect_motion_facts(&input, false);
             let mut expected = input.clone();
             super::MOTION_STATEMENTS_SCANNED.with(|scanned| scanned.set(0));
             while super::inline_once_full_rescan(&mut expected, &facts) {}
@@ -1476,8 +1692,7 @@ mod tests {
             for rebuild in [false, true] {
                 let mut expected = input.clone();
                 let mut actual = input.clone();
-                let mut facts = super::collect_motion_facts(&input);
-                facts.rebuild_call_chains = rebuild;
+                let facts = super::collect_motion_facts(&input, rebuild);
                 while super::inline_once_full_rescan(&mut expected, &facts) {}
                 super::inline_current_block(&mut actual, &facts);
                 assert_eq!(actual, expected, "seed {seed}, UI mode {rebuild}");
@@ -1567,7 +1782,7 @@ mod tests {
             } else { block.0.push(tail); }
             let before = block.to_string();
             if barrier == 0 {
-                let facts = super::collect_motion_facts(&block);
+                let facts = super::collect_motion_facts(&block, false);
                 let candidate = &block.0[1].as_assign().unwrap().right[0];
                 assert!(!super::can_replace_after_prior_effects(candidate, true, &facts));
                 assert!(crate::evaluation_order::can_sink_with_summary(&block.0[2], &helper,
@@ -1796,7 +2011,8 @@ mod tests {
                 if overwritten { block.0.push(assign(count.clone().into(), global("replacement"))); }
                 block.0.push(declare(&temp, Binary::new(local_value(&count), number(2.0), operation).into()));
                 block.0.push(Call::new(global("consume"), vec![local_value(&temp)]).into());
-                let facts = super::collect_motion_facts(&block);
+                let facts = super::collect_motion_facts(&block, true);
+                assert!(super::collect_motion_facts(&block, false).numbers.is_empty());
                 assert!(!crate::numeric_facts::total(&length, &facts.numbers));
                 assert_eq!(facts.numbers.contains(&count), !overwritten);
                 let before = block.to_string();
@@ -1836,7 +2052,7 @@ mod tests {
                 })));
             }
             block.0.push(Return::new(vec![local_value(&helper)]).into());
-            let facts = super::collect_motion_facts(&block);
+            let facts = super::collect_motion_facts(&block, false);
             assert_eq!(facts.stable_captured.contains(&helper), barrier == 0);
             super::rebuild_ui_expression_trees(&mut block);
             assert_eq!(function.lock().body.to_string().contains("local v9"), barrier != 0);

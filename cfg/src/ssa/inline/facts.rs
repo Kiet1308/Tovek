@@ -24,6 +24,47 @@ impl StatementFacts {
         statement: &Statement,
         local_to_group: &FxHashMap<RcLocal, usize>,
         upvalue_to_group: &IndexMap<RcLocal, RcLocal>,
+        observability_reuses: &mut u64,
+    ) -> Self {
+        let single_rhs = statement.as_assign().filter(|assign| assign.right.len() == 1);
+        let single_rhs_effect = single_rhs.map(|assign| ast::is_observable(&assign.right[0]));
+        // Local destinations have no effects. For this common SSA assignment
+        // shape, the statement and its one RHS have identical observability.
+        // Keep captured reads as a separate, stricter movement constraint.
+        let observable = if single_rhs.is_some_and(|assign| assign.left.iter().all(|left| left.as_local().is_some())) {
+            *observability_reuses += 1;
+            single_rhs_effect.unwrap()
+        } else {
+            ast::statement_is_observable(statement)
+        };
+        let mut facts = Self {
+            read_groups: Vec::new(),
+            write_groups: Vec::new(),
+            writes_upvalue: false,
+            observable,
+            single_rhs_observable: single_rhs
+                .map(|assign| single_rhs_effect.unwrap()
+                    || assign.right[0].any_local_read(&mut |local| upvalue_to_group.contains_key(local))),
+        };
+        statement.visit_local_reads(&mut |local| {
+            if let Some(&group) = local_to_group.get(local) { facts.read_groups.push(group); }
+            true
+        });
+        statement.visit_local_writes(&mut |local| {
+            if let Some(&group) = local_to_group.get(local) { facts.write_groups.push(group); }
+            facts.writes_upvalue |= upvalue_to_group.contains_key(local);
+            true
+        });
+        #[cfg(test)]
+        assert_eq!(facts, Self::new_reference(statement, local_to_group, upvalue_to_group));
+        facts
+    }
+
+    #[cfg(test)]
+    fn new_reference(
+        statement: &Statement,
+        local_to_group: &FxHashMap<RcLocal, usize>,
+        upvalue_to_group: &IndexMap<RcLocal, RcLocal>,
     ) -> Self {
         let reads = statement.values_read();
         let writes = statement.values_written();
@@ -63,6 +104,7 @@ pub(super) struct Statistics {
     pub invalidations: u64,
     pub evictions: u64,
     pub slots: u64,
+    pub observability_reuses: u64,
 }
 
 impl Statistics {
@@ -73,6 +115,7 @@ impl Statistics {
         self.invalidations += other.invalidations;
         self.evictions += other.evictions;
         self.slots += other.slots;
+        self.observability_reuses += other.observability_reuses;
     }
 
     pub fn record(self) {
@@ -83,6 +126,7 @@ impl Statistics {
             ast::telemetry::count("ssa_fact_cache_invalidations", self.invalidations);
             ast::telemetry::count("ssa_fact_cache_evictions", self.evictions);
             ast::telemetry::count("ssa_fact_cache_slots", self.slots);
+            ast::telemetry::count("ssa_fact_observability_reuses", self.observability_reuses);
         }
     }
 }
@@ -151,7 +195,7 @@ impl<'a> Cache<'a> {
                 // in debug/CI runs. Release builds do not recompute the facts.
                 debug_assert_eq!(
                     &slot.as_ref().unwrap().1,
-                    &StatementFacts::new(statement, self.local_to_group, self.upvalue_to_group),
+                    &StatementFacts::new(statement, self.local_to_group, self.upvalue_to_group, &mut 0),
                     "SSA inline statement facts were not invalidated",
                 );
             } else {
@@ -161,6 +205,7 @@ impl<'a> Cache<'a> {
                     statement,
                     self.local_to_group,
                     self.upvalue_to_group,
+                    &mut self.statistics.observability_reuses,
                 )));
             }
             &slot.as_ref().unwrap().1
@@ -170,6 +215,7 @@ impl<'a> Cache<'a> {
                 statement,
                 self.local_to_group,
                 self.upvalue_to_group,
+                &mut self.statistics.observability_reuses,
             ));
             self.scratch.as_ref().unwrap()
         }
@@ -197,6 +243,39 @@ mod tests {
 
     fn local(name: &str) -> RcLocal {
         RcLocal::new(Local::new(Some(name.to_owned())))
+    }
+
+    #[test]
+    fn shared_rhs_observability_matches_full_statement_checks() {
+        let [output, captured] = std::array::from_fn(|_| RcLocal::default());
+        let groups = FxHashMap::default();
+        let captures = IndexMap::from_iter([(captured.clone(), captured.clone())]);
+        let values: Vec<RValue> = vec![
+            Literal::Boolean(false).into(), captured.clone().into(),
+            Global::from("read_environment").into(),
+            Call::new(Global::from("effect").into(), Vec::new()).into(),
+            ast::Unary::new(captured.clone().into(), ast::UnaryOperation::Not).into(),
+            ast::Binary::new(captured.clone().into(), Literal::Boolean(false).into(), ast::BinaryOperation::And).into(),
+            ast::Index::new(Literal::Nil.into(), Literal::String(b"key".to_vec()).into()).into(),
+            ast::Table::new(vec![(Some(Literal::Nil.into()), Literal::Number(1.0).into())]).into(),
+        ];
+        for value in values {
+            for left in [
+                Vec::new(), vec![output.clone().into()],
+                vec![output.clone().into(), output.clone().into()],
+                vec![Global::from("write_environment").into()],
+                vec![ast::Index::new(captured.clone().into(), Literal::Nil.into()).into()],
+            ] {
+                for right in [vec![value.clone()], vec![value.clone(), value.clone()]] {
+                    let statement = Assign::new(left.clone(), right).into();
+                    let mut reuses = 0;
+                    let actual = StatementFacts::new(&statement, &groups, &captures, &mut reuses);
+                    assert_eq!(actual, StatementFacts::new_reference(&statement, &groups, &captures));
+                    let assign = statement.as_assign().unwrap();
+                    assert_eq!(reuses, u64::from(assign.right.len() == 1 && assign.left.iter().all(|left| left.as_local().is_some())));
+                }
+            }
+        }
     }
 
     #[test]

@@ -435,6 +435,22 @@ pub trait LocalRw {
         !self.visit_local_reads(&mut |local| !predicate(local))
     }
 
+    /// Visit definite local-write slots in the same order as `values_written`,
+    /// including duplicate destinations. Nested bodies are separate. Returning
+    /// false stops the traversal immediately; the default preserves compatibility
+    /// with implementations that only override the original vector API.
+    fn visit_local_writes<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        self.values_written().into_iter().all(visit)
+    }
+
+    fn visit_local_writes_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        self.values_written_mut().into_iter().all(visit)
+    }
+
+    fn any_local_write(&self, predicate: &mut dyn FnMut(&RcLocal) -> bool) -> bool {
+        !self.visit_local_writes(&mut |local| !predicate(local))
+    }
+
     fn values_read(&self) -> Vec<&RcLocal> {
         Vec::new()
     }
@@ -452,10 +468,10 @@ pub trait LocalRw {
     }
 
     fn values(&self) -> Vec<&RcLocal> {
-        self.values_read()
-            .into_iter()
-            .chain(self.values_written())
-            .collect()
+        let mut values = Vec::new();
+        self.visit_local_reads(&mut |local| { values.push(local); true });
+        self.visit_local_writes(&mut |local| { values.push(local); true });
+        values
     }
 
     fn replace_values_read(&mut self, old: &RcLocal, new: &RcLocal) {
@@ -466,11 +482,12 @@ pub trait LocalRw {
     }
 
     fn replace_values_written(&mut self, old: &RcLocal, new: &RcLocal) {
-        for value in self.values_written_mut() {
+        self.visit_local_writes_mut(&mut |value| {
             if value == old {
                 *value = new.clone();
             }
-        }
+            true
+        });
     }
 
     fn replace_values(&mut self, old: &RcLocal, new: &RcLocal) {
@@ -536,4 +553,137 @@ pub(crate) fn collect_reads_mut(node: &mut impl LocalRw) -> Vec<&mut RcLocal> {
     let mut reads = Vec::new();
     node.visit_local_reads_mut(&mut |local| { reads.push(local); true });
     reads
+}
+
+#[cfg(test)]
+mod write_visitor_tests {
+    use super::{LocalRw, RcLocal};
+    use crate::{Assign, Block, LValue, RValue, Statement};
+
+    // The original vector implementations remain independent of the new write
+    // visitors, so they serve as an ordering and mutation oracle here.
+    fn assert_conformance<T: LocalRw + Clone + std::fmt::Debug>(node: T) {
+        let expected: Vec<_> = node.values_written().into_iter().map(RcLocal::stable_id).collect();
+        let expected_values: Vec<_> = node.values_read().into_iter()
+            .chain(node.values_written()).map(RcLocal::stable_id).collect();
+        assert_eq!(node.values().into_iter().map(RcLocal::stable_id).collect::<Vec<_>>(), expected_values);
+        let replacements: Vec<_> = (0..expected.len()).map(|_| RcLocal::default()).collect();
+        for limit in 1..=expected.len() + 1 {
+            let mut actual = Vec::new();
+            let completed = node.visit_local_writes(&mut |local| {
+                actual.push(local.stable_id());
+                actual.len() < limit
+            });
+            assert_eq!(actual, expected[..expected.len().min(limit)]);
+            assert_eq!(completed, expected.len() < limit);
+
+            let mut reference = node.clone();
+            for (slot, replacement) in reference.values_written_mut().into_iter()
+                .zip(&replacements).take(limit)
+            {
+                *slot = replacement.clone();
+            }
+            let mut actual = node.clone();
+            let mut count = 0;
+            let completed = actual.visit_local_writes_mut(&mut |slot| {
+                assert_eq!(slot.stable_id(), expected[count]);
+                *slot = replacements[count].clone();
+                count += 1;
+                count < limit
+            });
+            assert_eq!(count, expected.len().min(limit));
+            assert_eq!(completed, expected.len() < limit);
+            // Some structured nodes intentionally have non-reflexive PartialEq.
+            // Semantic Debug also checks the unchanged read slots/nested bodies.
+            assert_eq!(format!("{actual:?}"), format!("{reference:?}"));
+        }
+        let absent = RcLocal::default();
+        for id in expected.iter().copied().chain(std::iter::once(absent.stable_id())) {
+            let mut visited = 0;
+            let found = node.any_local_write(&mut |local| {
+                visited += 1;
+                local.stable_id() == id
+            });
+            let first = expected.iter().position(|&candidate| candidate == id);
+            assert_eq!(found, first.is_some());
+            assert_eq!(visited, first.map_or(expected.len(), |index| index + 1));
+        }
+    }
+
+    #[test]
+    fn write_visitors_match_legacy_slots_stopping_and_mutation() {
+        let locals: Vec<_> = (0..7).map(|_| RcLocal::default()).collect();
+        let left = vec![
+            locals[0].clone().into(),
+            crate::Index::new(locals[1].clone().into(), locals[2].clone().into()).into(),
+            crate::Global::from("global").into(),
+            locals[0].clone().into(), // repeated identity, separate write slot
+            locals[3].clone().into(),
+        ];
+        let assign = Assign::new(left, vec![locals[0].clone().into(), locals[4].clone().into()]);
+        for value in &assign.left { assert_conformance(value.clone()); }
+        assert_conformance(locals[0].clone()); // An RValue local is a read, not a write.
+        let nested: Block = vec![assign.clone().into()].into();
+        let mut next = crate::GenericForNext::new(
+            vec![locals[0].clone(), locals[0].clone(), locals[3].clone()],
+            locals[4].clone().into(), locals[5].clone(), locals[6].clone(),
+        );
+        next.res_locals.insert(1, crate::Index::new(locals[1].clone().into(), locals[2].clone().into()).into());
+        let mut writes = Vec::new();
+        next.visit_local_writes(&mut |local| { writes.push(local.stable_id()); true });
+        assert_eq!(writes, vec![locals[0].stable_id(), locals[0].stable_id(), locals[3].stable_id()]);
+        assert!(!writes.contains(&next.control.stable_id()));
+        let statements: Vec<Statement> = vec![
+            assign.clone().into(),
+            Assign::new(Vec::new(), vec![locals[0].clone().into()]).into(),
+            crate::NumForInit::new(locals[0].clone(), locals[0].clone(), locals[3].clone()).into(),
+            crate::NumForNext::new(locals[0].clone(), locals[1].clone().into(), locals[2].clone().into()).into(),
+            crate::NumericFor::new(locals[1].clone().into(), locals[2].clone().into(),
+                locals[3].clone().into(), locals[0].clone(), nested.clone()).into(),
+            crate::GenericForInit(assign, None).into(),
+            next.into(),
+            crate::GenericFor::new(vec![locals[0].clone(), locals[0].clone(), locals[3].clone()],
+                vec![locals[4].clone().into()], nested.clone()).into(),
+            crate::If::new(locals[0].clone().into(), nested.clone(), nested.clone()).into(),
+            crate::While::new(locals[0].clone().into(), nested.clone()).into(),
+            crate::Repeat::new(locals[0].clone().into(), nested.clone()).into(),
+            crate::Call::new(locals[0].clone().into(), vec![locals[1].clone().into()]).into(),
+            crate::MethodCall::new(locals[0].clone().into(), "method".into(), vec![locals[1].clone().into()]).into(),
+            crate::Return::new(vec![locals[0].clone().into()]).into(),
+            crate::SetList::new(locals[0].clone(), 1, vec![locals[1].clone().into()], Some(locals[2].clone().into())).into(),
+            crate::Close { locals: locals.clone() }.into(),
+            crate::Empty {}.into(), crate::Break {}.into(), crate::Continue {}.into(),
+            crate::Comment::new("comment".into()).into(),
+            crate::Label::from("label").into(), crate::Goto::new(crate::Label::from("label")).into(),
+        ];
+        for statement in statements { assert_conformance(statement); }
+        let closure = crate::Closure {
+            node_origin: Default::default(),
+            function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(
+                crate::Function { body: nested, ..Default::default() }))),
+            upvalues: vec![crate::Upvalue::Copy(locals[0].clone()), crate::Upvalue::Ref(locals[1].clone())],
+        };
+        assert_conformance(RValue::from(closure));
+        assert_conformance(LValue::from(locals[0].clone()));
+    }
+
+    #[test]
+    fn write_visitor_defaults_support_existing_vector_only_implementations() {
+        #[derive(Clone, Debug)]
+        struct VectorOnly(Vec<RcLocal>, Vec<RcLocal>);
+        impl LocalRw for VectorOnly {
+            fn values_read(&self) -> Vec<&RcLocal> { self.0.iter().collect() }
+            fn values_read_mut(&mut self) -> Vec<&mut RcLocal> { self.0.iter_mut().collect() }
+            fn values_written(&self) -> Vec<&RcLocal> { self.1.iter().collect() }
+            fn values_written_mut(&mut self) -> Vec<&mut RcLocal> { self.1.iter_mut().collect() }
+        }
+        let original = RcLocal::default();
+        let other = RcLocal::default();
+        let mut value = VectorOnly(vec![original.clone()], vec![original.clone(), other.clone(), original.clone()]);
+        assert_conformance(value.clone());
+        let replacement = RcLocal::default();
+        value.replace_values_written(&original, &replacement);
+        assert_eq!(value.0, vec![original]);
+        assert_eq!(value.1, vec![replacement.clone(), other, replacement]);
+    }
 }

@@ -18,7 +18,7 @@ pub struct ParamDependencyGraph {
 }
 
 impl ParamDependencyGraph {
-    pub fn new(function: &mut Function, node: NodeIndex) -> Self {
+    pub fn new(function: &Function, node: NodeIndex) -> Self {
         let mut this = Self {
             graph: DiGraph::new(),
             local_to_node: FxHashMap::default(),

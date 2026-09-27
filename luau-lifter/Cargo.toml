@@ -45,3 +45,10 @@ dhat-heap = []
 panic-handled = []
 # Optional counters in the benchmark_api example; ordinary binaries are unchanged.
 allocation-counts = []
+# Attribute initial string copies and subsequent AST clones by pipeline phase.
+byte-storage-trace = ["ast/byte-storage-trace"]
+phase-allocation-trace = ["ast/phase-allocation-trace"]
+
+[[example]]
+name = "profile_allocations"
+required-features = ["phase-allocation-trace"]

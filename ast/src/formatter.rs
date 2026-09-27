@@ -1,4 +1,3 @@
-use std::iter;
 use std::{
     borrow::Cow,
     fmt::{self},
@@ -109,6 +108,25 @@ mod tests {
 
     fn boolean(value: bool) -> RValue {
         RValue::Literal(Literal::Boolean(value))
+    }
+
+    #[test]
+    fn shared_if_arms_and_nested_elseif_release_previous_block_guard() {
+        let shared = Arc::new(Mutex::new(Block(vec![
+            crate::Return::new(vec![Literal::Number(1.0).into()]).into(),
+        ])));
+        let direct = If { node_origin: Default::default(), condition: global("ready"),
+            then_block: shared.clone(), else_block: shared.clone() };
+        assert_eq!(Block(vec![direct.into()]).to_string(),
+            "if ready then\n\treturn 1\nelse\n\treturn 1\nend");
+        let inner = If { node_origin: Default::default(), condition: global("other"),
+            then_block: shared.clone(), else_block: Arc::new(Mutex::new(Block::default())) };
+        let outer = If { node_origin: Default::default(), condition: global("ready"),
+            then_block: shared.clone(), else_block: Arc::new(Mutex::new(Block(vec![inner.into()]))) };
+        assert_eq!(Block(vec![outer.into()]).to_string(),
+            "if ready then\n\treturn 1\nelseif other then\n\treturn 1\nend");
+        assert_eq!(shared.lock().len(), 1);
+        assert_eq!(Arc::strong_count(&shared), 1);
     }
 
     fn method_assignment(
@@ -2621,24 +2639,28 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         !c.is_control() && c != '\\' && c != '"'
     }
 
-    fn push_escaped_byte(output: &mut String, byte: u8, next: Option<u8>) {
+    fn write_escaped_byte<Output: fmt::Write>(output: &mut Output, byte: u8, next: Option<u8>) -> fmt::Result {
         match byte {
-            b'\n' => output.push_str(r"\n"),
-            b'\r' => output.push_str(r"\r"),
-            b'\t' => output.push_str(r"\t"),
-            b'\"' => output.push_str(r#"\""#),
-            b'\\' => output.push_str(r"\\"),
-            12 => output.push_str(r"\f"),
+            b'\n' => output.write_str(r"\n"),
+            b'\r' => output.write_str(r"\r"),
+            b'\t' => output.write_str(r"\t"),
+            b'"' => output.write_str(r#"\""#),
+            b'\\' => output.write_str(r"\\"),
+            12 => output.write_str(r"\f"),
             _ => {
                 let mut buffer = itoa::Buffer::new();
                 let printed = buffer.format(byte);
-                output.push('\\');
+                output.write_str("\\")?;
                 if printed.len() != 3 && next.is_some_and(|next| next.is_ascii_digit()) {
-                    output.extend(iter::repeat('0').take(3 - printed.len()));
+                    output.write_str(&"00"[..3 - printed.len()])?;
                 }
-                output.push_str(printed);
+                output.write_str(printed)
             }
-        };
+        }
+    }
+
+    fn push_escaped_byte(output: &mut String, byte: u8, next: Option<u8>) {
+        Self::write_escaped_byte(output, byte, next).expect("String writes cannot fail");
     }
 
     fn escape_utf8_string<'s>(string: &'s [u8], text: &'s str) -> Cow<'s, str> {
@@ -2709,6 +2731,34 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         owned
             .map(Cow::Owned)
             .unwrap_or_else(|| std::str::from_utf8(string).unwrap().into())
+    }
+
+    /// Emit escaped runs directly, so bounded layout writers can refuse before
+    /// an escaped copy of the whole literal is allocated. The Cow-producing API
+    /// below remains available for callers that need a retained string.
+    pub(crate) fn write_escaped_string<Output: fmt::Write>(string: &[u8], output: &mut Output) -> fmt::Result {
+        let mut start = 0;
+        if let Ok(text) = std::str::from_utf8(string) {
+            for (index, character) in text.char_indices() {
+                if Self::is_printable_string_char(character) { continue; }
+                output.write_str(&text[start..index])?;
+                let end = index + character.len_utf8();
+                for byte_index in index..end {
+                    Self::write_escaped_byte(output, string[byte_index], string.get(byte_index + 1).copied())?;
+                }
+                start = end;
+            }
+            output.write_str(&text[start..])
+        } else {
+            for (index, &byte) in string.iter().enumerate() {
+                if byte == b' ' || (byte.is_ascii_graphic() && byte != b'\\' && byte != b'"') { continue; }
+                // Every byte in this unescaped run is printable ASCII.
+                output.write_str(std::str::from_utf8(&string[start..index]).unwrap())?;
+                Self::write_escaped_byte(output, byte, string.get(index + 1).copied())?;
+                start = index + 1;
+            }
+            output.write_str(std::str::from_utf8(&string[start..]).unwrap())
+        }
     }
 
     pub(crate) fn escape_string<'s>(string: &'s [u8]) -> Cow<'s, str> {
@@ -2912,6 +2962,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             self.format_block(&then_block)?;
             writeln!(self.output)?;
         }
+        // Arms (including a nested elseif arm) may share a structured block.
+        // No later formatting uses this guard; release it before the next arm.
+        drop(then_block);
 
         let else_block = r#if.else_block.lock();
         if !else_block.is_empty() {

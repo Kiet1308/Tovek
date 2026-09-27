@@ -1574,7 +1574,7 @@ fn resolve_child_proto(
     }
 }
 
-fn resolve_string(string_table: &[Vec<u8>], index: usize) -> Option<String> {
+fn resolve_string(string_table: &[&[u8]], index: usize) -> Option<String> {
     let bytes = string_table.get(index.checked_sub(1)?)?;
     Some(String::from_utf8_lossy(bytes).into_owned())
 }
@@ -1590,26 +1590,28 @@ pub(crate) fn decode_source_lines(function: &Function) -> Vec<Option<u32>> {
         return Vec::new();
     };
 
-    let mut offsets = Vec::with_capacity(line_deltas.len());
+    // PCs and their absolute-line intervals are both visited in order. Keep
+    // their wrapping prefix sums directly instead of allocating two temporary
+    // arrays before producing the same optional line for each instruction.
     let mut last_offset = 0u8;
-    for &delta in line_deltas {
-        last_offset = last_offset.wrapping_add(delta);
-        offsets.push(last_offset);
-    }
-
-    let mut absolute_lines = Vec::with_capacity(abs_deltas.len());
     let mut last_line = 0i32;
-    for &delta in abs_deltas {
-        last_line = last_line.wrapping_add(delta as i32);
-        absolute_lines.push(last_line);
-    }
+    let mut last_interval = usize::MAX;
+    let mut absolute_line = None;
 
     (0..function.instructions.len())
         .map(|pc| {
             let interval = pc >> gap_log2;
-            let line = absolute_lines
-                .get(interval)?
-                .checked_add(i32::from(*offsets.get(pc)?))?;
+            if interval != last_interval {
+                // Consecutive PCs can advance by at most one interval, even
+                // when gap_log2 is zero. Missing metadata stays unknown.
+                last_interval = interval;
+                absolute_line = abs_deltas.get(interval).map(|&delta| {
+                    last_line = last_line.wrapping_add(delta as i32);
+                    last_line
+                });
+            }
+            last_offset = last_offset.wrapping_add(*line_deltas.get(pc)?);
+            let line = absolute_line?.checked_add(i32::from(last_offset))?;
             u32::try_from(line).ok()
         })
         .collect()
@@ -1619,6 +1621,55 @@ pub(crate) fn decode_source_lines(function: &Function) -> Vec<Option<u32>> {
 mod tests {
     use super::*;
     use crate::deserializer::function::DebugLocal;
+
+    #[test]
+    fn streaming_source_lines_match_prefix_arrays_with_wrapping_and_missing_metadata() {
+        fn reference(function: &Function) -> Vec<Option<u32>> {
+            let Some(gap) = function.line_gap_log2 else { return Vec::new(); };
+            let (Some(deltas), Some(absolute)) = (&function.line_info_delta, &function.abs_line_info_delta)
+                else { return Vec::new(); };
+            let mut last = 0u8;
+            let offsets: Vec<_> = deltas.iter().map(|&delta| {
+                last = last.wrapping_add(delta);
+                last
+            }).collect();
+            let mut last = 0i32;
+            let absolute: Vec<_> = absolute.iter().map(|&delta| {
+                last = last.wrapping_add(delta as i32);
+                last
+            }).collect();
+            (0..function.instructions.len()).map(|pc| {
+                let line = absolute.get(pc >> gap)?.checked_add(i32::from(*offsets.get(pc)?))?;
+                u32::try_from(line).ok()
+            }).collect()
+        }
+        for seed in 0..64usize {
+            for gap in [0, 1, 2, 3, 6, (usize::BITS - 1) as u8] {
+                let count = seed;
+                let instructions = vec![Instruction::BC { op_code: OpCode::LOP_NOP,
+                    a: 0, b: 0, c: 0, aux: 0 }; count];
+                let mut proto = function(0, 1, instructions);
+                proto.line_gap_log2 = Some(gap);
+                proto.line_info_delta = Some((0..(seed * 17) % 71)
+                    .map(|index| (index * 113 + seed * 97) as u8).collect());
+                proto.abs_line_info_delta = Some((0..seed % 13).map(|index|
+                    [0, 1, i32::MAX as u32, 1, u32::MAX, 0x8000_0000, 100][(index + seed) % 7]
+                ).collect());
+                for missing in 0..4 {
+                    let gap = proto.line_gap_log2;
+                    let deltas = proto.line_info_delta.take();
+                    let absolute = proto.abs_line_info_delta.take();
+                    if missing != 1 { proto.line_info_delta = deltas.clone(); }
+                    if missing != 2 { proto.abs_line_info_delta = absolute.clone(); }
+                    if missing == 3 { proto.line_gap_log2 = None; }
+                    assert_eq!(decode_source_lines(&proto), reference(&proto), "seed={seed}, gap={gap:?}, missing={missing}");
+                    proto.line_gap_log2 = gap;
+                    proto.line_info_delta = deltas;
+                    proto.abs_line_info_delta = absolute;
+                }
+            }
+        }
+    }
 
     fn function(num_upvalues: u8, max_stack_size: u8, instructions: Vec<Instruction>) -> Function {
         Function {
@@ -2001,7 +2052,7 @@ mod tests {
         });
         let chunk = Chunk {
             version: 9,
-            string_table: vec![b"only_name".to_vec()],
+            string_table: vec![b"only_name"],
             functions: vec![proto],
             main: 0,
             userdata_type_names: Vec::new(),
@@ -2042,7 +2093,7 @@ mod tests {
         });
         let chunk = Chunk {
             version: 9,
-            string_table: vec![b"temporary".to_vec()],
+            string_table: vec![b"temporary"],
             functions: vec![proto],
             main: 0,
             userdata_type_names: Vec::new(),

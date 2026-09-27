@@ -80,6 +80,7 @@ struct Node {
     candidates: Vec<Candidate>,
     type_evidence: Vec<TypeEvidence>,
     overflow: bool,
+    changed_round: u8,
 }
 
 enum ReturnRole {
@@ -115,6 +116,12 @@ struct Graph {
     joins: Vec<(u64, u64, u64)>,
     calls: Vec<(Option<u64>, Vec<Option<u64>>)>,
     report: Report,
+}
+
+// Explanations never participate in candidate ranking, deduplication or budgets.
+// Source-only callers still collect all naming evidence, but need no report text.
+fn report_witness(emit: bool, build: impl FnOnce() -> String) -> String {
+    if emit { build() } else { String::new() }
 }
 
 fn generated(name: &str) -> bool {
@@ -271,6 +278,15 @@ fn guard_local(value: &RValue, depth: usize) -> Option<u64> {
 }
 
 impl Graph {
+    fn new(options: Options) -> Self {
+        Self {
+            options, nodes: BTreeMap::new(), order: Vec::new(), scopes: vec![None],
+            globals: BTreeSet::new(), copies: Vec::new(), functions: BTreeMap::new(),
+            results: Vec::new(), reads: Vec::new(), joins: Vec::new(), calls: Vec::new(),
+            report: Report::default(),
+        }
+    }
+
     fn visit(&mut self, depth: usize) -> bool {
         if self.report.budget_exhausted {
             return false;
@@ -299,7 +315,7 @@ impl Graph {
                 name: before.clone(),
                 priority: 20,
                 reason: "prior_deterministic_namer",
-                witness: "selected legacy name; legacy alternatives are not collected here".into(),
+                witness: report_witness(self.options.emit_report, || "selected legacy name; legacy alternatives are not collected here".into()),
                 from_binding: None,
             }];
             for source in &data.2 {
@@ -307,7 +323,7 @@ impl Graph {
                     name: source.name.clone(),
                     priority: 255,
                     reason: "recorded_source_binding",
-                    witness: format!("{:?}", source.origin),
+                    witness: report_witness(self.options.emit_report, || format!("{:?}", source.origin)),
                     from_binding: None,
                 });
             }
@@ -315,11 +331,11 @@ impl Graph {
                 candidates.push(Candidate {
                     name: "selected".into(), priority: 40,
                     reason: "preserved_conditional_result",
-                    witness: "private two-arm SSA join; returned and observed separately; no source spelling claim".into(),
+                    witness: report_witness(self.options.emit_report, || "private two-arm SSA join; returned and observed separately; no source spelling claim".into()),
                     from_binding: None,
                 });
             }
-            let type_evidence = data.1.as_ref().map(|hint| TypeEvidence {
+            let type_evidence = data.1.as_ref().filter(|_| self.options.emit_report).map(|hint| TypeEvidence {
                 representation: hint.clone(), origin: "recorded_bytecode_local_type_naming_hint",
             }).into_iter().collect();
             drop(data);
@@ -339,6 +355,7 @@ impl Graph {
                     candidates,
                     type_evidence,
                     overflow: false,
+                    changed_round: 0,
                 },
             );
             self.order.push(id);
@@ -356,12 +373,12 @@ impl Graph {
         }
     }
 
-    fn candidate(&mut self, id: u64, candidate: Candidate) {
+    fn candidate(&mut self, id: u64, candidate: Candidate) -> bool {
         if !useful(&candidate.name) {
-            return;
+            return false;
         }
         let Some(node) = self.nodes.get_mut(&id) else {
-            return;
+            return false;
         };
         if let Some(existing) = node.candidates.iter_mut().find(|c| {
             c.name == candidate.name
@@ -370,12 +387,15 @@ impl Graph {
         }) {
             if candidate.priority > existing.priority {
                 *existing = candidate;
+                return true;
             }
         } else if node.candidates.len() < 24 {
             node.candidates.push(candidate);
+            return true;
         } else {
             node.overflow = true;
         }
+        false
     }
 
     fn role(&mut self, key: &RValue, value: &RValue) {
@@ -392,7 +412,7 @@ impl Graph {
                 name,
                 priority: 85,
                 reason: "record_field_value",
-                witness: key.into(),
+                witness: report_witness(self.options.emit_report, || key.into()),
                 from_binding: None,
             },
         );
@@ -427,7 +447,7 @@ impl Graph {
                     name: name.into(),
                     priority: 95,
                     reason: "assertion_parameter",
-                    witness: format!("assert guard with one binding; message identifier `{name}`"),
+                    witness: report_witness(self.options.emit_report, || format!("assert guard with one binding; message identifier `{name}`")),
                     from_binding: None,
                 },
             );
@@ -457,7 +477,7 @@ impl Graph {
                 let function = closure.function.lock();
                 for (index, parameter) in function.parameters.iter().enumerate() {
                     self.declare(parameter, child, "parameter");
-                    if let Some(node) = self.nodes.get_mut(&parameter.stable_id()) {
+                    if self.options.emit_report && let Some(node) = self.nodes.get_mut(&parameter.stable_id()) {
                         if let Some(annotation) = function.parameter_annotations.get(index).and_then(Option::as_ref) {
                             node.type_evidence.push(TypeEvidence { representation: annotation.clone(),
                                 origin: "recorded_bytecode_parameter_annotation" });
@@ -572,7 +592,7 @@ impl Graph {
                                 {
                                     self.candidate(local.stable_id(), Candidate {
                                         name, priority: 40, reason: "retained_arithmetic_snapshot",
-                                        witness: "final expression shape; naming context only, not a numeric or motion proof".into(),
+                                        witness: report_witness(self.options.emit_report, || "final expression shape; naming context only, not a numeric or motion proof".into()),
                                         from_binding: None,
                                     });
                                 }
@@ -679,7 +699,7 @@ impl Graph {
             node.kind == "local" && node.writes == 1 && node.scope.is_some() && !node.ambiguous_owner)
     }
 
-    fn propagate(&mut self) {
+    fn propagate<const INCREMENTAL: bool>(&mut self) {
         let mut edges = Vec::new();
         for &(left, right) in &self.copies {
             if self.immutable(left) && self.immutable(right) {
@@ -742,13 +762,13 @@ impl Graph {
         }
         for (id, name, callee) in result_fields {
             self.candidate(id, Candidate { name, priority: 65, reason: "resolved_local_call_field_result",
-                witness: format!("fixed return field slot in helper b{callee}; role only, field evaluation is unchanged"),
+                witness: report_witness(self.options.emit_report, || format!("fixed return field slot in helper b{callee}; role only, field evaluation is unchanged")),
                 from_binding: Some(callee) });
         }
         for (id, name) in std::mem::take(&mut self.reads) {
             if self.immutable(id) {
                 self.candidate(id, Candidate { name, priority: 80, reason: "record_field_read",
-                    witness: "literal field read assigned to an immutable local; role only".into(), from_binding: None });
+                    witness: report_witness(self.options.emit_report, || "literal field read assigned to an immutable local; role only".into()), from_binding: None });
             } else { self.report.refused_edges += 1; }
         }
         let joins: Vec<_> = std::mem::take(&mut self.joins).into_iter().filter(|&(dest, a, b)| {
@@ -757,9 +777,15 @@ impl Graph {
             if !valid { self.report.refused_edges += 1; }
             valid
         }).collect();
-        for _ in 0..4 {
+        // Keep exactly four synchronous rounds and the original join/edge order.
+        // Candidates are only appended or replaced by a strictly higher priority.
+        // Re-emitting an unchanged source cannot change a target, even at its cap:
+        // an earlier refusal already set overflow, and candidates are never removed.
+        for round in 0..4 {
             let mut pending = Vec::new();
             for &(dest, a, b) in &joins {
+                if INCREMENTAL && self.nodes[&a].changed_round < round
+                    && self.nodes[&b].changed_round < round { continue; }
                 let best = |id| {
                     let candidates = &self.nodes[&id].candidates;
                     let priority = candidates.iter().filter(|c| useful(&c.name)).map(|c| c.priority).max()?;
@@ -770,12 +796,13 @@ impl Graph {
                     if name == other {
                         pending.push((dest, Candidate { name, priority: x.min(y).min(66) - 1,
                             reason: "private_diamond_role_consensus",
-                            witness: format!("immutable inputs b{a} and b{b}; complete adjacent assignment diamond; role only"),
+                            witness: report_witness(self.options.emit_report, || format!("immutable inputs b{a} and b{b}; complete adjacent assignment diamond; role only")),
                             from_binding: None }));
                     }
                 }
             }
             for &(source, target, reason) in &edges {
+                if INCREMENTAL && self.nodes[&source].changed_round < round { continue; }
                 for candidate in &self.nodes[&source].candidates {
                     if candidate.priority < 40 || !useful(&candidate.name) {
                         continue;
@@ -786,14 +813,16 @@ impl Graph {
                             name: candidate.name.clone(),
                             priority: candidate.priority.min(66) - 1,
                             reason,
-                            witness: "role only; binding identities remain distinct".into(),
+                            witness: report_witness(self.options.emit_report, || "role only; binding identities remain distinct".into()),
                             from_binding: Some(source),
                         },
                     ));
                 }
             }
             for (id, candidate) in pending {
-                self.candidate(id, candidate);
+                if self.candidate(id, candidate) {
+                    self.nodes.get_mut(&id).unwrap().changed_round = round + 1;
+                }
             }
         }
     }
@@ -814,13 +843,13 @@ impl Graph {
                             name: name.clone(),
                             priority: 90,
                             reason: "static_module_key",
-                            witness: "static script path leaf used as a table key".into(),
+                            witness: report_witness(self.options.emit_report, || "static script path leaf used as a table key".into()),
                             from_binding: None,
                         },
                     );
                 }
             }
-            self.propagate();
+            self.propagate::<true>();
         }
         let mut statuses = BTreeMap::new();
         let mut proposals = BTreeMap::new();
@@ -885,7 +914,7 @@ impl Graph {
                     }
                 }
             };
-            statuses.insert(id, status);
+            if self.options.emit_report { statuses.insert(id, status); }
         }
         if !proposals.is_empty() {
         // Reserve unchanged names first, including descendants and external
@@ -901,7 +930,7 @@ impl Graph {
                 let node = &self.nodes[id];
                 let name = reserved.allocate(base, node.scope);
                 node.local.0.lock().0 = Some(name);
-                statuses.insert(*id, "renamed");
+                if self.options.emit_report { statuses.insert(*id, "renamed"); }
                 self.report.renamed += 1;
             }
         }
@@ -1020,20 +1049,7 @@ impl<'a> NameReservations<'a> {
 }
 
 pub fn refine_final_names(block: &Block, options: Options) -> Report {
-    let mut graph = Graph {
-        options,
-        nodes: BTreeMap::new(),
-        order: Vec::new(),
-        scopes: vec![None],
-        globals: BTreeSet::new(),
-        copies: Vec::new(),
-        functions: BTreeMap::new(),
-        results: Vec::new(),
-        reads: Vec::new(),
-        joins: Vec::new(),
-        calls: Vec::new(),
-        report: Report::default(),
-    };
+    let mut graph = Graph::new(options);
     graph.block(block, 0, 0);
     graph.solve()
 }
@@ -1048,6 +1064,87 @@ mod tests {
     use by_address::ByAddress;
     use parking_lot::Mutex;
     use triomphe::Arc;
+
+    #[test]
+    fn dirty_role_rounds_match_full_sweeps_including_caps_and_witnesses() {
+        for seed in 1..100u64 {
+            let locals: Vec<_> = (0..32).map(|i| local(&format!("v{i}"))).collect();
+            let build = || {
+                let mut graph = Graph::new(Options { emit_report: true, ..Default::default() });
+                let mut random = seed;
+                let mut next = || { random ^= random << 13; random ^= random >> 7; random ^= random << 17; random as usize };
+                for (index, local) in locals.iter().enumerate() {
+                    let node = graph.node(local).unwrap();
+                    node.kind = "local";
+                    node.scope = Some(0);
+                    node.writes = if index < 24 { 1 } else { 3 };
+                    for _ in 0..(next() % 30) {
+                        let role = next() % 12;
+                        graph.candidate(local.stable_id(), Candidate {
+                            name: format!("role{role}"), priority: (next() % 100) as u8,
+                            reason: if next() % 2 == 0 { "record_field_value" } else { "assertion_parameter" },
+                            witness: format!("seed {seed}, local {index}, role {role}"),
+                            from_binding: None,
+                        });
+                    }
+                }
+                for _ in 0..96 {
+                    graph.copies.push((locals[next() % 24].stable_id(), locals[next() % 24].stable_id()));
+                }
+                for index in 24..32 {
+                    graph.joins.push((locals[index].stable_id(), locals[next() % 24].stable_id(), locals[next() % 24].stable_id()));
+                }
+                for index in 0..8 {
+                    let callee = locals[index].stable_id();
+                    graph.functions.insert(callee, FunctionRoles {
+                        parameters: vec![locals[next() % 24].stable_id()],
+                        returns: Some(vec![ReturnRole::Binding(locals[next() % 24].stable_id()), ReturnRole::Field("payload".into())]),
+                        variadic: index == 7,
+                    });
+                    graph.calls.push((Some(callee), vec![Some(locals[next() % 32].stable_id())]));
+                    graph.results.push(ResultUse { callee: Some(callee), arguments: Some(1),
+                        destinations: vec![Some(locals[next() % 24].stable_id()), Some(locals[next() % 24].stable_id())] });
+                }
+                graph
+            };
+            let mut indexed = build();
+            let mut reference = build();
+            indexed.propagate::<true>();
+            reference.propagate::<false>();
+            for (id, expected) in &reference.nodes {
+                let actual = &indexed.nodes[id];
+                assert_eq!(format!("{:?}", actual.candidates), format!("{:?}", expected.candidates), "seed {seed}, local {id}");
+                assert_eq!(actual.overflow, expected.overflow, "seed {seed}, local {id}");
+            }
+            assert_eq!(format!("{:?}", indexed.report), format!("{:?}", reference.report));
+        }
+    }
+
+    #[test]
+    fn source_only_naming_omits_explanations_without_changing_decisions() {
+        let input = local("v0");
+        input.0.lock().1 = Some("number".into());
+        let output = local("v1");
+        let block = Block(vec![declare(&input, Literal::Number(4.0).into()),
+            declare(&output, input.clone().into()),
+            Assign::new(vec![Index::new(global("record"), Literal::String(b"width".to_vec()).into()).into()], vec![output.clone().into()]).into()]);
+        let mut source = Graph::new(Options::default());
+        let mut detailed = Graph::new(Options { emit_report: true, ..Default::default() });
+        source.block(&block, 0, 0);
+        detailed.block(&block, 0, 0);
+        assert!(source.nodes.values().all(|node| node.type_evidence.is_empty() && node.candidates.iter().all(|c| c.witness.is_empty())));
+        assert!(!detailed.nodes[&input.stable_id()].type_evidence.is_empty());
+        let report = source.solve();
+        let names = (input.to_string(), output.to_string());
+        input.0.lock().0 = Some("v0".into()); output.0.lock().0 = Some("v1".into());
+        let detailed_report = detailed.solve();
+        assert_eq!(names, (input.to_string(), output.to_string()));
+        assert_eq!(report.renamed, detailed_report.renamed);
+        assert_eq!(report.conflicts, detailed_report.conflicts);
+        assert_eq!(report.refused_edges, detailed_report.refused_edges);
+        assert!(report.bindings.is_empty());
+        assert!(detailed_report.bindings.iter().flat_map(|b| &b.candidates).all(|c| !c.witness.is_empty()));
+    }
 
     #[test]
     fn indexed_scope_reservations_match_ancestor_scan_and_suffix_restart() {

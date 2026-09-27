@@ -7,6 +7,8 @@ pub(crate) fn context(
     script_name: Option<&str>,
     bytecode: &[u8],
 ) -> Option<ast::telemetry::Context> {
+    #[cfg(feature = "phase-allocation-trace")]
+    let _allocations = ast::telemetry::allocation::Suppress::new();
     ast::telemetry::enabled().then(|| ast::telemetry::Context {
         script: script_name
             .map(String::from)
@@ -30,6 +32,8 @@ impl Serialize for Rows<'_> {
 /// Explicitly call after joins and before process::exit; dropping a guard at
 /// main scope is insufficient for folder mode, which exits without unwinding.
 pub fn write_json() -> io::Result<()> {
+    #[cfg(feature = "phase-allocation-trace")]
+    let _allocations = ast::telemetry::allocation::Suppress::new();
     if !ast::telemetry::enabled() {
         return Ok(());
     }
@@ -49,6 +53,8 @@ pub fn write_json() -> io::Result<()> {
         "timing_contract": "Nanosecond wall intervals; exclusive subtracts nested spans on the same thread only. Rayon workers overlap, and waiting is included. Sums are not process wall or CPU time. Profiling/aggregation overhead remains outside child intervals and can be charged to ancestors.",
         "node_contract": "Bounded statement/rvalue census at explicitly measured AST phases. Includes indexed assignment operands, excludes binder/type syntax and implicit storage. Closure bodies counted once only when owned. node_samples=0 means unmeasured, not empty. Before/after census is outside the measured phase interval.",
         "counter_contract": "Counts belong to the innermost measured phase. Missing counters are unmeasured or inapplicable, not zero. No cache hit is claimed unless a specifically identified cache is used.",
+        "phase_allocation_trace": cfg!(feature = "phase-allocation-trace"),
+        "allocation_contract": "Optional fixed allocation_inclusive/allocation_exclusive fields count successful Rust global allocator events on this same thread. Requested bytes include full new realloc sizes; deallocated_bytes counts explicit deallocation layouts and reallocated_old_bytes records old successful-realloc layouts. Child-inclusive deltas are subtracted once for same-thread exclusive attribution; other workers are reported in their own contexts, never inferred from a waiting parent. Profiler context/census/counter/aggregation/export allocations are suppressed. Deallocation belongs to the executing phase, not the allocation's origin. These fields are not CPU time, retained heap, peak memory, allocator arenas or OS allocations. incomplete=true marks saturated or misnested accounting. The executable must install an instrumented allocator; the feature alone does not replace a downstream allocator.",
     });
     #[derive(Serialize)]
     struct Export<'a> {

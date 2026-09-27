@@ -79,7 +79,7 @@ use triomphe::Arc;
 
 use crate::deinline::{
     Bindings, MatchCtx, anchors_in_rvalue, body_unsafe, canon, each_closure_decl,
-    insert_def_markers, is_scalar_return_value, stmt_rvalues, stmt_rvalues_mut, unify_rvalue,
+    insert_def_markers, is_scalar_return_value, visit_stmt_rvalues, visit_stmt_rvalues_mut, unify_rvalue,
 };
 use crate::{Block, Call, Function, LValue, LocalRw, RValue, RcLocal, Statement, Traverse};
 
@@ -116,7 +116,7 @@ struct ExprTarget {
     /// Parameters in declaration order, to reconstruct the argument list.
     param_order: Vec<RcLocal>,
     /// Additional, bounded proof path for named bytecode arithmetic helpers.
-    arithmetic: Option<std::rc::Rc<arithmetic::Safety>>,
+    arithmetic: Option<std::rc::Rc<arithmetic::AttemptBudget>>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
     protect_definition: bool,
@@ -214,7 +214,7 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
     let mut write_counts: FxHashMap<RcLocal, usize> = FxHashMap::default();
     collect_write_counts(&body.0, &mut write_counts);
     let search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
-    let arithmetic_safety = std::rc::Rc::new(arithmetic::Safety::new(body));
+    let arithmetic_budget = std::rc::Rc::new(arithmetic::AttemptBudget::default());
     let mut arithmetic_targets = 0usize;
     let mut targets = Vec::new();
     each_closure_decl(&body.0, &mut |l, fa| {
@@ -246,7 +246,7 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
                 params: g.parameters.iter().cloned().collect(),
                 locals: FxHashSet::default(),
                 param_order: g.parameters.clone(),
-                arithmetic: Some(arithmetic_safety.clone()),
+                arithmetic: Some(arithmetic_budget.clone()),
                 captures: captures.clone(),
                 search: search.clone(),
                 // Keep competing helper definitions intact in every phase.
@@ -278,7 +278,7 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
         }
         // Recursion guard: a body that reads its own binder would emit a call to
         // itself for one unrolled level. Refuse (sound; rare).
-        if expr.values_read().iter().any(|&rl| rl == l) {
+        if expr.any_local_read(&mut |rl| rl == l) {
             return;
         }
         // Cost gate (specificity + size). Both reject trivial helpers.
@@ -323,7 +323,7 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
 ///
 /// `pub(crate)` so the statement de-inliner (`crate::deinline::collect_targets`,
 /// proposal P4) shares this single source of truth instead of copying it — the
-/// `stmt_rvalues` note below is load-bearing and two copies would drift.
+/// statement-root selector note below is load-bearing and two copies would drift.
 pub(crate) fn collect_write_counts(stmts: &[Statement], out: &mut FxHashMap<RcLocal, usize>) {
     for s in stmts {
         match s {
@@ -355,15 +355,16 @@ pub(crate) fn collect_write_counts(stmts: &[Statement], out: &mut FxHashMap<RcLo
             Statement::Repeat(r) => collect_write_counts(&r.block.lock().0, out),
             _ => {}
         }
-        // Use `stmt_rvalues` (not the `Traverse::rvalues` accessor): for an
+        // Use the de-inliner's statement selector (not `Traverse::rvalues`): for an
         // `Assign` the latter exposes only `right`, omitting LHS `Index` operands,
         // whereas `collect_written` — which this mirrors — also visits them. A
         // closure rebinding the helper hidden in an LHS index operand
         // (`t[(function() f = g end)()] = x`) must still be counted, so the
         // reassignment-refusal gate cannot be silently bypassed.
-        for rv in stmt_rvalues(s) {
+        visit_stmt_rvalues(s, &mut |rv| {
             write_counts_in_closures(rv, out);
-        }
+            true
+        });
     }
 }
 
@@ -372,9 +373,10 @@ pub(crate) fn write_counts_in_closures(rv: &RValue, out: &mut FxHashMap<RcLocal,
         collect_write_counts(&c.function.0.lock().body.0, out);
         return;
     }
-    for child in rv.rvalues() {
+    rv.visit_rvalues(&mut |child| {
         write_counts_in_closures(child, out);
-    }
+        true
+    });
 }
 
 // ===================================================================
@@ -455,9 +457,10 @@ fn walk_block(
                 ),
                 _ => {}
             }
-            for rv in stmt_rvalues_mut(s) {
+            visit_stmt_rvalues_mut(s, &mut |rv| {
                 recurse_into_closures(rv, targets, by_root, decl_map, &active, converted);
-            }
+                true
+            });
             if let Some(idx) = target_decl_index(s, decl_map, targets) {
                 active.push(idx);
             }
@@ -481,9 +484,10 @@ fn walk_block(
         // Skip the per-statement rvalue scan (and its allocation) entirely until a
         // helper is in scope.
         if !active.is_empty() {
-            for rv in stmt_rvalues_mut(s) {
+            visit_stmt_rvalues_mut(s, &mut |rv| {
                 try_rewrite(rv, targets, by_root, &active, current_func, converted);
-            }
+                true
+            });
         }
         if let Some(idx) = target_decl_index(s, decl_map, targets) {
             active.push(idx);
@@ -516,9 +520,10 @@ fn recurse_into_closures(
         );
         return;
     }
-    for child in rv.rvalues_mut() {
+    rv.visit_rvalues_mut(&mut |child| {
         recurse_into_closures(child, targets, by_root, decl_map, active, converted);
-    }
+        true
+    });
 }
 
 /// If `s` is the declaration `local f = function ... end` of one of our targets,
@@ -675,9 +680,10 @@ fn try_rewrite(
     // No unambiguous match here — descend into children (a smaller subtree, or a
     // sibling, may still match). Closures yield no children here (handled in the
     // phase-1 closure recursion), so we never re-enter a closure body.
-    for child in rv.rvalues_mut() {
+    rv.visit_rvalues_mut(&mut |child| {
         try_rewrite(child, targets, by_root, active, current_func, converted);
-    }
+        true
+    });
 }
 
 /// Attempt to unify target `t`'s body `E` against the candidate subtree `rv` and,
@@ -723,11 +729,12 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
     {
         return None;
     }
-    if let Some(safety) = &t.arithmetic {
-        if args.iter().any(|arg| !safety.stable(arg)) {
-            return None;
-        }
-    }
+    // The complete CaptureSafety census already excludes every reference-
+    // captured local. The arithmetic family's former second census visited
+    // the same statement roots (including indexed LHS) and closure bodies;
+    // revisiting shared bodies only repeated set insertions. Its other allowed
+    // arguments were all literals, a superset of stable() above. Therefore that
+    // additional gate and full-module census cannot reject an argument here.
     // Cost: the replacement must be a net node saving against the specialised
     // subtree `S` (rejects `f(bigExpr)` non-shrinks). Computed only on a real match.
     let s_nodes = node_count(rv);
@@ -743,8 +750,15 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
 /// child accessor (each node visited once → O(n)); a `Closure` exposes no child
 /// rvalues, so its body is not counted.
 fn node_count(rv: &RValue) -> usize {
-    1 + rv.rvalues().iter().map(|c| node_count(c)).sum::<usize>()
+    let mut children = 0;
+    rv.visit_rvalues(&mut |child| { children += node_count(child); true });
+    1 + children
 }
+
+#[cfg(test)]
+mod reference;
+#[cfg(test)]
+mod differential;
 
 #[cfg(test)]
 mod tests {

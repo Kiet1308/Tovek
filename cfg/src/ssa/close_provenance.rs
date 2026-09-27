@@ -130,7 +130,11 @@ fn prove_result(
     Some(captures)
 }
 
-pub(super) fn record(function: &mut Function, old_locals: &FxHashMap<RcLocal, RcLocal>) {
+/// Return whether any outgoing Ref capture exists in the input dialect used by
+/// UpvaluesOpen. Incoming upvalues are grouped by SSA definition creation and
+/// are deliberately not inferred from this outgoing-site fact.
+pub(super) fn record(function: &mut Function, old_locals: &FxHashMap<RcLocal, RcLocal>) -> bool {
+    let _phase = ast::telemetry::Span::new("SSA_CLOSE_PROVENANCE");
     function.iteration_capture_proofs.clear();
     function.iteration_capture_obligations.clear();
     let mut sites: FxHashMap<CaptureSite, FxHashSet<ForId>> = function
@@ -146,7 +150,7 @@ pub(super) fn record(function: &mut Function, old_locals: &FxHashMap<RcLocal, Rc
         })
         .collect();
     if sites.is_empty() {
-        return;
+        return false;
     }
     let mut obligations: FxHashMap<RcLocal, FxHashSet<ForId>> = FxHashMap::default();
     for (header, block) in function.blocks() {
@@ -189,6 +193,7 @@ pub(super) fn record(function: &mut Function, old_locals: &FxHashMap<RcLocal, Rc
     for ((_, _, local), proofs) in sites {
         merge(&mut function.iteration_capture_proofs, local, proofs);
     }
+    true
 }
 
 fn merge(map: &mut FxHashMap<RcLocal, FxHashSet<ForId>>, local: RcLocal, proofs: FxHashSet<ForId>) {

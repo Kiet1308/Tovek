@@ -114,6 +114,13 @@ fn single_assign(block: &ast::Block) -> Option<&ast::Assign> {
     }
 }
 
+/// Match edge transports without cloning their expression trees. Collecting
+/// into a map preserves the original distinct-key count and last-value-wins
+/// behavior even for hand-built edges with repeated destinations.
+fn argument_refs(arguments: &[(ast::RcLocal, ast::RValue)]) -> FxHashMap<&ast::RcLocal, &ast::RValue> {
+    arguments.iter().map(|(local, value)| (local, value)).collect()
+}
+
 fn match_conditional_sequence(
     function: &Function,
     node: NodeIndex,
@@ -122,8 +129,8 @@ fn match_conditional_sequence(
     // TODO: check if len() == 1?
     let block = function.block(node).unwrap();
     if let Some(r#if) = block.last().and_then(|s| s.as_if()) {
-        let first_condition = r#if.condition.clone();
-        let test_pattern = |second_conditional, other, other_args: FxHashMap<_, _>| {
+        let first_condition = &r#if.condition;
+        let test_pattern = |second_conditional, other, other_args: FxHashMap<&ast::RcLocal, &ast::RValue>| {
             let second_conditional_successors = function.edges(second_conditional).collect_vec();
             let second_block = function.block(second_conditional).unwrap();
             if let Some(second_conditional_if) = second_block.last().and_then(|s| s.as_if()) {
@@ -172,7 +179,7 @@ fn match_conditional_sequence(
                             .weight()
                             .arguments
                             .iter()
-                            .all(|(k, v)| other_args.get(k).is_some_and(|rv| rv == v))
+                            .all(|(k, v)| other_args.get(k).is_some_and(|rv| *rv == v))
                     {
                         return Some((second_conditional_if.condition.clone(), false));
                     }
@@ -184,12 +191,7 @@ fn match_conditional_sequence(
         let (then_edge, else_edge) = first_terminator;
         if function.predecessor_blocks(then_edge.target()).count() == 1
             && then_edge.weight().arguments.is_empty()
-            && let else_args = else_edge
-                .weight()
-                .arguments
-                .iter()
-                .cloned()
-                .collect::<FxHashMap<_, _>>()
+            && let else_args = argument_refs(&else_edge.weight().arguments)
             && let Some((second_condition, assign)) =
                 test_pattern(then_edge.target(), else_edge.target(), else_args)
         {
@@ -202,7 +204,7 @@ fn match_conditional_sequence(
                     assign,
                     inverted: true,
                     final_condition: ast::Binary::new(
-                        ast::Unary::new(first_condition, ast::UnaryOperation::Not).into(),
+                        ast::Unary::new(first_condition.clone(), ast::UnaryOperation::Not).into(),
                         second_condition,
                         ast::BinaryOperation::Or,
                     )
@@ -216,7 +218,7 @@ fn match_conditional_sequence(
                     assign,
                     inverted: false,
                     final_condition: ast::Binary::new(
-                        first_condition,
+                        first_condition.clone(),
                         second_condition,
                         ast::BinaryOperation::And,
                     )
@@ -225,12 +227,7 @@ fn match_conditional_sequence(
             }
         } else if function.predecessor_blocks(else_edge.target()).count() == 1
             && else_edge.weight().arguments.is_empty()
-            && let then_args = then_edge
-                .weight()
-                .arguments
-                .iter()
-                .cloned()
-                .collect::<FxHashMap<_, _>>()
+            && let then_args = argument_refs(&then_edge.weight().arguments)
             && let Some((second_condition, assign)) =
                 test_pattern(else_edge.target(), then_edge.target(), then_args)
         {
@@ -243,7 +240,7 @@ fn match_conditional_sequence(
                     assign,
                     inverted: false,
                     final_condition: ast::Binary::new(
-                        first_condition,
+                        first_condition.clone(),
                         second_condition,
                         ast::BinaryOperation::Or,
                     )
@@ -257,7 +254,7 @@ fn match_conditional_sequence(
                     assign,
                     inverted: true,
                     final_condition: ast::Binary::new(
-                        ast::Unary::new(first_condition, ast::UnaryOperation::Not).into(),
+                        ast::Unary::new(first_condition.clone(), ast::UnaryOperation::Not).into(),
                         second_condition,
                         ast::BinaryOperation::And,
                     )
@@ -273,7 +270,20 @@ fn match_conditional_sequence(
 }
 
 pub fn structure_conditionals(function: &mut Function, captured: &impl Fn(&ast::RcLocal) -> bool) -> bool {
+    structure_conditionals_with_changes(function, captured).changed
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ConditionalChanges {
+    /// Any rewrite: preserves the existing outer fixed-point termination rule.
+    pub changed: bool,
+    /// A rewrite may have changed graph adjacency, invalidating dominators.
+    pub topology_changed: bool,
+}
+
+pub fn structure_conditionals_with_changes(function: &mut Function, captured: &impl Fn(&ast::RcLocal) -> bool) -> ConditionalChanges {
     let mut did_structure = false;
+    let mut topology_changed = false;
     // TODO: does this need to be in dfs post order?
     let mut dfs = DfsPostOrder::new(function.graph(), function.entry().unwrap());
     while let Some(node) = dfs.next(function.graph()) {
@@ -282,6 +292,7 @@ pub fn structure_conditionals(function: &mut Function, captured: &impl Fn(&ast::
         }
         if structure_bool_conditional(function, node) {
             did_structure = true;
+            topology_changed = true;
         }
 
         if let Some(pattern) = match_conditional_sequence(function, node, captured)
@@ -375,13 +386,17 @@ pub fn structure_conditionals(function: &mut Function, captured: &impl Fn(&ast::
                 first_block.pop();
                 first_block.extend(removed_block.0);
                 did_structure = true;
+                topology_changed = true;
             }
         }
 
-        did_structure |= try_remove_unnecessary_condition(function, node);
+        if try_remove_unnecessary_condition(function, node) {
+            did_structure = true;
+            topology_changed = true;
+        }
     }
 
-    did_structure
+    ConditionalChanges { changed: did_structure, topology_changed }
 }
 
 // TODO: REFACTOR: move to ast
@@ -547,7 +562,7 @@ fn is_multret_tail(rv: &ast::RValue) -> bool {
 }
 
 fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool {
-    let match_triangle = |assigner, next, next_args: FxHashMap<ast::RcLocal, ast::RValue>| {
+    let match_triangle = |assigner, next, next_args: FxHashMap<&ast::RcLocal, &ast::RValue>| {
         if let Some(edge_to_next) = function.unconditional_edge(assigner)
             && edge_to_next.target() == next
             && edge_to_next.weight().arguments.iter().all(|(p, _)| next_args.contains_key(p))
@@ -560,7 +575,7 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
         {
             // TODO: make sure assigned_local is only used in the assigner and it's params to next
             // TODO: unnecessary clone
-            Some((param, assign.right[0].clone(), next_args[param].clone()))
+            Some((param, assign.right[0].clone(), (*next_args[param]).clone()))
         } else {
             None
         }
@@ -622,12 +637,7 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
                 .predecessor_blocks(then_edge.target())
                 .exactly_one()
                 .is_ok()
-            && let else_args = else_edge
-                .weight()
-                .arguments
-                .iter()
-                .cloned()
-                .collect::<FxHashMap<_, _>>()
+            && let else_args = argument_refs(&else_edge.weight().arguments)
             && let Some((res_local, then_value, else_value)) =
                 match_triangle(then_edge.target(), else_edge.target(), else_args)
         {
@@ -671,12 +681,7 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
                 .predecessor_blocks(else_edge.target())
                 .exactly_one()
                 .is_ok()
-            && let then_args = then_edge
-                .weight()
-                .arguments
-                .iter()
-                .cloned()
-                .collect::<FxHashMap<_, _>>()
+            && let then_args = argument_refs(&then_edge.weight().arguments)
             && let Some((res_local, else_value, then_value)) =
                 match_triangle(else_edge.target(), then_edge.target(), then_args)
         {
@@ -1270,6 +1275,83 @@ mod tests {
 #[cfg(test)]
 mod edge_argument_regressions {
     use super::*;
+
+    #[test]
+    fn borrowed_argument_maps_preserve_duplicate_destinations_and_match_choice() {
+        let [parameter, other] = std::array::from_fn(|_| ast::RcLocal::default());
+        for count in [0, 1, 3, 64] {
+            let arguments: Vec<_> = (0..count).map(|index| (
+                if index % 3 == 0 { other.clone() } else { parameter.clone() },
+                ast::Literal::Number(index as f64).into(),
+            )).collect();
+            let expected: FxHashMap<_, _> = arguments.iter().cloned().collect();
+            let actual = argument_refs(&arguments);
+            assert_eq!(actual.len(), expected.len());
+            for (local, value) in expected { assert_eq!(actual[&local], &value); }
+        }
+
+        // A repeated destination must use the final value when checking the
+        // second conditional's transport, exactly as the old owned map did.
+        for matching_last in [false, true] {
+            let mut function = Function::new(0);
+            let [first, second, short, other] = std::array::from_fn(|_| function.new_block());
+            function.set_entry(first);
+            for node in [first, second] {
+                function.block_mut(node).unwrap().push(ast::If::new(
+                    ast::RcLocal::default().into(), Default::default(), Default::default(),
+                ).into());
+            }
+            let last = if matching_last { 2.0 } else { 3.0 };
+            function.set_edges(first, vec![
+                (second, BlockEdge::new(BranchType::Then)),
+                (short, BlockEdge { branch_type: BranchType::Else, arguments: vec![
+                    (parameter.clone(), ast::Literal::Number(1.0).into()),
+                    (parameter.clone(), ast::Literal::Number(last).into()),
+                ] }),
+            ]);
+            function.set_edges(second, vec![
+                (short, BlockEdge { branch_type: BranchType::Then, arguments: vec![
+                    (parameter.clone(), ast::Literal::Number(2.0).into()),
+                ] }),
+                (other, BlockEdge::new(BranchType::Else)),
+            ]);
+            assert_eq!(match_conditional_sequence(&function, first, &|_| false).is_some(), matching_last);
+        }
+    }
+
+    #[test]
+    fn conditional_expression_changes_preserve_dominance_until_an_edge_changes() {
+        let local = ast::RcLocal::default();
+        for condition in [
+            ast::Unary::new(local.clone().into(), UnaryOperation::Not).into(),
+            ast::Binary::new(ast::Literal::Number(1.0).into(), local.clone().into(), ast::BinaryOperation::LessThan).into(),
+            ast::Literal::Boolean(true).into(),
+        ] {
+            let literal = matches!(condition, ast::RValue::Literal(_));
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            let then_node = function.new_block();
+            let else_node = function.new_block();
+            function.set_entry(entry);
+            function.block_mut(entry).unwrap().push(ast::If::new(condition, Default::default(), Default::default()).into());
+            function.block_mut(then_node).unwrap().push(ast::Return::new(vec![ast::Literal::Number(1.0).into(), local.clone().into()]).into());
+            function.block_mut(else_node).unwrap().push(ast::Return::new(vec![ast::Literal::Number(2.0).into(), local.clone().into()]).into());
+            function.set_edges(entry, vec![(then_node, BlockEdge::new(BranchType::Then)),
+                (if literal { then_node } else { else_node }, BlockEdge::new(BranchType::Else))]);
+            let before = petgraph::algo::dominators::simple_fast(function.graph(), entry);
+            let changes = structure_conditionals_with_changes(&mut function, &|_| false);
+            assert!(changes.changed);
+            assert_eq!(changes.topology_changed, literal);
+            if !changes.topology_changed {
+                let after = petgraph::algo::dominators::simple_fast(function.graph(), entry);
+                for node in [entry, then_node, else_node] {
+                    assert_eq!(before.immediate_dominator(node), after.immediate_dominator(node));
+                }
+                assert!(!structure_conditionals_with_changes(&mut function, &|_| false).changed);
+            }
+        }
+    }
+
     #[test]
     fn review_nonliteral_edge_argument() {
         // Valid SSA: if a then t=b; if t then return 99 else return t

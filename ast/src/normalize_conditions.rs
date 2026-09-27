@@ -38,8 +38,8 @@
 //!
 //! Luau parses `a or b or c` left-associatively, but the decompiler builds the
 //! spine right-leaning, so the formatter's right-group rule emits redundant
-//! parens (`a or (b or c)`). Flattening the maximal same-operator spine and
-//! rebuilding it left-leaning drops those parens. `and`/`or` are fully
+//! parens (`a or (b or c)`). Rotating the maximal same-operator spine leftward
+//! drops those parens while reusing its storage. `and`/`or` are fully
 //! associative in Lua including short-circuit and side-effect order, so this is
 //! value-exact; operators are never mixed (those parens are required).
 //!
@@ -75,10 +75,13 @@
 //! boolean-operator level per recursion — so a single post-order pass converges
 //! with no fixpoint loop.
 
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashSet;
+
+mod writes;
+use writes::{FunctionWrites, WriteIndex};
 
 use crate::{
-    binary::is_boolean, inline_temps::collect_usage, Binary, BinaryOperation, Block, IfExpression,
+    binary::is_boolean, Binary, BinaryOperation, Block, IfExpression,
     LValue, Literal, RValue, RcLocal, Statement, Traverse, Unary, UnaryOperation,
 };
 
@@ -97,7 +100,7 @@ impl NonNanFacts {
 fn record_non_nan_assignments(
     statement: &Statement,
     facts: &mut NonNanFacts,
-    usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>,
+    usage: &FunctionWrites<'_>,
 ) {
     let Statement::Assign(assign) = statement else {
         return;
@@ -113,7 +116,7 @@ fn record_non_nan_assignments(
             let LValue::Local(local) = left else {
                 return None;
             };
-            (usage.get(local).is_some_and(|usage| usage.writes == 1) && facts.proves(right))
+            (usage.single(local) && facts.proves(right))
                 .then(|| local.clone())
         })
         .collect();
@@ -154,7 +157,8 @@ pub fn normalize_for_statement_output(block: &mut Block, assume_no_nan: bool) {
 }
 
 fn normalize_with_style(block: &mut Block, assume_no_nan: bool, allow_if_expressions: bool) {
-    let usage = collect_usage(block);
+    let index = WriteIndex::new(block);
+    let usage = FunctionWrites::new(block, index.as_ref());
     normalize_block(block, assume_no_nan, &NonNanFacts { allow_if_expressions, ..Default::default() }, &usage);
 }
 
@@ -162,7 +166,7 @@ fn normalize_block(
     block: &mut Block,
     assume_no_nan: bool,
     incoming_facts: &NonNanFacts,
-    usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>,
+    usage: &FunctionWrites<'_>,
 ) {
     let mut facts = incoming_facts.clone();
     for statement in &mut block.0 {
@@ -175,12 +179,12 @@ fn normalize_in_statement(
     statement: &mut Statement,
     assume_no_nan: bool,
     facts: &NonNanFacts,
-    usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>,
+    usage: &FunctionWrites<'_>,
 ) {
     // Closures embedded in this statement's expressions are independent scopes;
     // `post_traverse_rvalues` stops at the `Closure` node (empty `Traverse`
     // impl), so descend into their bodies explicitly.
-    normalize_closures_in_statement(statement, assume_no_nan, facts.allow_if_expressions);
+    normalize_closures_in_statement(statement, assume_no_nan, facts.allow_if_expressions, usage);
 
     // Nested statement blocks are not reached by `post_traverse_rvalues` either.
     match statement {
@@ -196,10 +200,7 @@ fn normalize_in_statement(
         }
         Statement::NumericFor(numeric_for) => {
             let mut body_facts = facts.clone();
-            if usage
-                .get(&numeric_for.counter)
-                .is_some_and(|usage| usage.writes == 1)
-            {
+            if usage.single(&numeric_for.counter) {
                 body_facts.locals.insert(numeric_for.counter.clone());
             }
             normalize_block(
@@ -269,13 +270,15 @@ fn normalize_expression_roots(
     assume_no_nan: bool,
     facts: &NonNanFacts,
 ) {
-    for lvalue in owner.lvalues_mut() {
+    owner.visit_lvalues_mut(&mut |lvalue| {
         normalize_expression_roots(lvalue, assume_no_nan, facts);
-    }
-    for value in owner.rvalues_mut() {
+        true
+    });
+    owner.visit_rvalues_mut(&mut |value| {
         let pending = normalize_expression(value, assume_no_nan, facts);
         finish_spine(value, pending);
-    }
+        true
+    });
 }
 
 fn finish_spine(value: &mut RValue, operation: Option<BinaryOperation>) {
@@ -286,7 +289,12 @@ fn finish_spine(value: &mut RValue, operation: Option<BinaryOperation>) {
     *value = reassociate_left(binary, operation);
 }
 
-fn normalize_closures_in_statement(statement: &mut Statement, assume_no_nan: bool, allow_if_expressions: bool) {
+fn normalize_closures_in_statement(
+    statement: &mut Statement,
+    assume_no_nan: bool,
+    allow_if_expressions: bool,
+    usage: &FunctionWrites<'_>,
+) {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
@@ -295,7 +303,10 @@ fn normalize_closures_in_statement(statement: &mut Statement, assume_no_nan: boo
         None
     });
     for function in functions {
-        normalize_with_style(&mut function.lock().body, assume_no_nan, allow_if_expressions);
+        let mut function = function.lock();
+        let nested_usage = usage.for_function(&function.body);
+        normalize_block(&mut function.body, assume_no_nan,
+            &NonNanFacts { allow_if_expressions, ..Default::default() }, &nested_usage);
     }
 }
 
@@ -420,10 +431,46 @@ fn inverted_ternary(binary: Binary) -> RValue {
 /// truthy operand for `or` / first falsy for `and`, else the last). This is a
 /// pure structural move: it never crosses an `and`/`or` boundary (those parens
 /// are semantically required), never compares (no NaN concern), and does not
-/// call `reduce`/`reduce_condition`. A single rotation is deliberately NOT used
-/// — it leaves a residual nested pair for spines of depth >= 3; flatten-then-
-/// fold-left handles arbitrary depth.
+/// call `reduce`/`reduce_condition`. A tree-to-vine walk rotates every same-op
+/// right child, then advances left once the current right child is an operand.
+/// Each advance completes one binary and each rotation adds one binary to the
+/// left spine: O(nodes) work, with no auxiliary allocations or recursive stack.
+/// Existing operand boxes are reused, including for already normalized spines.
 fn reassociate_left(binary: Binary, operation: BinaryOperation) -> RValue {
+    let mut result = RValue::Binary(binary);
+    let mut cursor = &mut result;
+    loop {
+        let rotate = match cursor {
+            RValue::Binary(node) if node.operation == operation => {
+                matches!(&*node.right, RValue::Binary(right) if right.operation == operation)
+            }
+            _ => break,
+        };
+        if rotate {
+            let RValue::Binary(mut parent) = std::mem::replace(cursor, Literal::Nil.into()) else {
+                unreachable!()
+            };
+            let RValue::Binary(mut child) = std::mem::replace(&mut *parent.right, Literal::Nil.into()) else {
+                unreachable!()
+            };
+            // (left OP (middle OP right)) -> ((left OP middle) OP right).
+            // The emptied right box becomes the child's new left box.
+            std::mem::swap(&mut parent.right, &mut child.left);
+            *child.left = RValue::Binary(parent);
+            *cursor = RValue::Binary(child);
+        } else {
+            let RValue::Binary(node) = cursor else { unreachable!() };
+            // The former flatten/fold rebuilt every logical operator. Preserve
+            // that diagnostic policy without discarding its operand storage.
+            node.node_origin = Default::default();
+            cursor = &mut node.left;
+        }
+    }
+    result
+}
+
+#[cfg(test)]
+fn reassociate_left_reference(binary: Binary, operation: BinaryOperation) -> RValue {
     let mut operands = Vec::new();
     collect_spine(RValue::Binary(binary), operation, &mut operands);
 
@@ -439,6 +486,7 @@ fn reassociate_left(binary: Binary, operation: BinaryOperation) -> RValue {
 /// including an `and`/`or` of the *other* operator — is pushed as a single leaf.
 /// Children were already normalized by the post-order walk, so this neither
 /// re-normalizes them nor needs a fixpoint.
+#[cfg(test)]
 fn collect_spine(rvalue: RValue, operation: BinaryOperation, operands: &mut Vec<RValue>) {
     let mut pending = vec![rvalue];
     while let Some(value) = pending.pop() {
@@ -532,9 +580,101 @@ fn normalize_not(inner: RValue, assume_no_nan: bool, facts: &NonNanFacts) -> RVa
         {
             *unary.value
         }
+        // Decide each logical subtree's readability gate in one bottom-up
+        // traversal. Rechecking a leading comparator at every ancestor would
+        // make a long left-associated logical spine quadratic.
+        RValue::Binary(binary)
+            if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) =>
+        {
+            let mut value = RValue::Binary(binary);
+            if !negate_if_simplifying(&mut value, assume_no_nan, facts) {
+                negate_without_simplification(&mut value);
+            }
+            value
+        }
+        // Relational comparators, plain locals/fields/calls, non-boolean `not`,
+        // literals: keep an explicit `not (...)`. Relational is deliberately
+        // never flipped (NaN-unsafe).
+        other => Unary::new(other, UnaryOperation::Not).into(),
+    }
+}
+
+/// Leave refused subtrees completely intact. An accepted child proves its
+/// logical parent eligible too, so it can be rewritten immediately without a
+/// separate summary map or rollback. Boolean literals fold when negated but do
+/// not independently trigger De Morgan: the legacy readability gate excludes
+/// them, unlike equality and boolean double-negation.
+fn negate_if_simplifying(value: &mut RValue, assume_no_nan: bool, facts: &NonNanFacts) -> bool {
+    #[cfg(test)]
+    NEGATION_GATE_VISITS.with(|visits| visits.set(visits.get() + 1));
+    if let RValue::Binary(binary) = value
+        && matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or)
+    {
+        let left = negate_if_simplifying(&mut binary.left, assume_no_nan, facts);
+        let right = negate_if_simplifying(&mut binary.right, assume_no_nan, facts);
+        if !left && !right { return false; }
+        if !left { negate_without_simplification(&mut binary.left); }
+        if !right { negate_without_simplification(&mut binary.right); }
+        binary.operation = if binary.operation == BinaryOperation::And { BinaryOperation::Or }
+            else { BinaryOperation::And };
+        // The former Binary::new had no operator-root ancestry. Keep that
+        // policy while reusing both operand boxes and untouched child origins.
+        binary.node_origin = Default::default();
+        return true;
+    }
+    if !negation_simplifies(value, assume_no_nan, facts) { return false; }
+    *value = normalize_not(std::mem::replace(value, Literal::Nil.into()), assume_no_nan, facts);
+    true
+}
+
+/// Only the Boolean literal fold is possible after a negative readability
+/// proof. In particular, keep an entire refused logical subtree under one not.
+fn negate_without_simplification(value: &mut RValue) {
+    *value = match std::mem::replace(value, Literal::Nil.into()) {
+        RValue::Literal(Literal::Boolean(value)) => Literal::Boolean(!value).into(),
+        other => Unary::new(other, UnaryOperation::Not).into(),
+    };
+}
+
+#[cfg(test)]
+thread_local! { static NEGATION_GATE_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+
+#[cfg(test)]
+fn normalize_not_reference(inner: RValue, assume_no_nan: bool, facts: &NonNanFacts) -> RValue {
+    match inner {
+        // not (a == b) -> a ~= b ; not (a ~= b) -> a == b. Always exact:
+        // `==`/`~=` are total booleans and exact complements (even for NaN).
+        RValue::Binary(binary) if binary.operation == BinaryOperation::Equal => {
+            Binary::new(*binary.left, *binary.right, BinaryOperation::NotEqual).into()
+        }
+        RValue::Binary(binary) if binary.operation == BinaryOperation::NotEqual => {
+            Binary::new(*binary.left, *binary.right, BinaryOperation::Equal).into()
+        }
+        RValue::Binary(binary)
+            if is_relational(binary.operation)
+                && (assume_no_nan
+                    || (facts.proves(&binary.left) && facts.proves(&binary.right))) =>
+        {
+            Binary::new(
+                *binary.left,
+                *binary.right,
+                relational_complement(binary.operation),
+            )
+            .into()
+        }
+        // not true -> false, not false -> true. Exact, and avoids leaving a
+        // `not true` behind when De Morgan negates a boolean-literal operand.
+        RValue::Literal(Literal::Boolean(b)) => RValue::Literal(Literal::Boolean(!b)),
+        // not (not X) -> X, only when X is provably boolean (else `X` would drop
+        // the booleanization the double `not` performs).
+        RValue::Unary(unary)
+            if unary.operation == UnaryOperation::Not && is_boolean(&unary.value) =>
+        {
+            *unary.value
+        }
         // De Morgan, gated on net simplification (readability only — the identity
         // is exact regardless): `not (a and b)` -> `not a or not b`, etc. The
-        // operand negations recurse through `normalize_not`, so a `not X` operand
+        // operand negations recurse through `normalize_not_reference`, so a `not X` operand
         // is kept value-safe (NOT stripped via `negate`).
         RValue::Binary(binary)
             if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or)
@@ -546,8 +686,8 @@ fn normalize_not(inner: RValue, assume_no_nan: bool, facts: &NonNanFacts) -> RVa
             } else {
                 BinaryOperation::And
             };
-            let left = normalize_not(*binary.left, assume_no_nan, facts);
-            let right = normalize_not(*binary.right, assume_no_nan, facts);
+            let left = normalize_not_reference(*binary.left, assume_no_nan, facts);
+            let right = normalize_not_reference(*binary.right, assume_no_nan, facts);
             Binary::new(left, right, flipped).into()
         }
         // Relational comparators, plain locals/fields/calls, non-boolean `not`,
@@ -557,11 +697,14 @@ fn normalize_not(inner: RValue, assume_no_nan: bool, facts: &NonNanFacts) -> RVa
     }
 }
 
+
 /// Readability gate for De Morgan: would negating `x` collapse it (flip a `==`,
 /// strip a boolean double-`not`) rather than just wrap it in a fresh `not`? This
 /// keeps `not (p and p.Parent)` (plain guard) untouched while expanding
 /// `not (a == 1 and b == 2)`.
 fn negation_simplifies(x: &RValue, assume_no_nan: bool, facts: &NonNanFacts) -> bool {
+    #[cfg(test)]
+    NEGATION_GATE_VISITS.with(|visits| visits.set(visits.get() + 1));
     match x {
         RValue::Unary(unary) if unary.operation == UnaryOperation::Not => is_boolean(&unary.value),
         RValue::Binary(binary)
@@ -1621,6 +1764,107 @@ mod tests {
     }
 
     #[test]
+    fn bottom_up_demorgan_matches_legacy_shape_and_full_origins() {
+        use crate::{node_origins, Traverse};
+        fn expression(seed: &mut u64, depth: usize, locals: &[RcLocal]) -> RValue {
+            *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let choice = *seed;
+            if depth == 0 {
+                return match choice % 7 {
+                    0 => boolean(false), 1 => boolean(true), 2 => nil(),
+                    3 => number(f64::NAN), 4 => number(2.0),
+                    _ => lv(&locals[(choice >> 32) as usize % locals.len()]),
+                };
+            }
+            let left = expression(seed, depth - 1, locals);
+            let right = expression(seed, depth - 1, locals);
+            let mut value = match choice % 12 {
+                0..=2 => and(left, right), 3..=5 => or(left, right),
+                6 => eq(left, right), 7 => ne(left, right), 8 => lt(left, right),
+                9 => not(left), 10 => if_expr(left, boolean(true), right),
+                _ => Call::new(global("observe"), vec![left, right]).into(),
+            };
+            if let Some(origin) = node_origins::value_mut(&mut value) {
+                *origin = node_origins::Origin::input(node_origins::Input {
+                    function: "demorgan_differential".into(), block: (choice >> 32) as usize,
+                    statement: choice as usize, value: Some(depth),
+                });
+                let data = origin.0.as_mut().unwrap();
+                data.inlined = choice & 1 != 0;
+                data.cloned = choice & 2 != 0;
+                data.incomplete = choice & 4 != 0;
+                if choice & 8 != 0 { data.synthesized = Some("test_origin"); }
+            }
+            value
+        }
+        type Snapshot = Option<(Vec<std::sync::Arc<node_origins::Input>>, bool, bool, bool, Option<&'static str>)>;
+        fn origins(value: &RValue, out: &mut Vec<Snapshot>) {
+            if let Some(origin) = node_origins::value(value) {
+                out.push(origin.0.as_ref().map(|data| (data.inputs.clone(), data.inlined,
+                    data.cloned, data.incomplete, data.synthesized)));
+            }
+            value.visit_rvalues(&mut |child| { origins(child, out); true });
+        }
+        let locals = [local("a"), local("b")];
+        for seed in 1..=512u64 {
+            for assume_no_nan in [false, true] {
+                let facts = super::NonNanFacts {
+                    locals: [locals[1].clone()].into_iter().collect(), ..Default::default()
+                };
+                // Independent construction preserves mixed cloned/uncloned
+                // tags instead of flattening them all through RValue::clone.
+                let expected = super::normalize_not_reference(expression(&mut seed.clone(), 5, &locals), assume_no_nan, &facts);
+                let actual = super::normalize_not(expression(&mut seed.clone(), 5, &locals), assume_no_nan, &facts);
+                // NaN intentionally occurs; semantic PartialEq cannot compare
+                // it to itself, so compare the complete structural debug form.
+                assert_eq!(format!("{actual:?}"), format!("{expected:?}"), "seed {seed}, nan {assume_no_nan}");
+                let (mut expected_origins, mut actual_origins) = (Vec::new(), Vec::new());
+                origins(&expected, &mut expected_origins);
+                origins(&actual, &mut actual_origins);
+                assert_eq!(actual_origins, expected_origins, "seed {seed}, origins");
+            }
+        }
+    }
+
+    #[test]
+    fn refused_demorgan_keeps_every_existing_operand_box() {
+        use crate::Traverse;
+        fn boxes(value: &RValue, out: &mut std::collections::BTreeSet<usize>) {
+            value.visit_rvalues(&mut |child| {
+                out.insert(child as *const RValue as usize); boxes(child, out); true
+            });
+        }
+        let input = and(or(boolean(false), global("a")), and(global("b"), boolean(true)));
+        let mut before = Default::default();
+        boxes(&input, &mut before);
+        let actual = super::normalize_not(input, false, &Default::default());
+        let mut after = Default::default();
+        boxes(&actual, &mut after);
+        assert!(before.is_subset(&after));
+        assert_eq!(after.len(), before.len() + 1, "only the outer not wrapper is new");
+        assert_eq!(actual.to_string(), "not ((false or a) and (b and true))");
+    }
+
+    #[test]
+    fn demorgan_gate_visits_grow_linearly_with_a_leading_comparator() {
+        std::thread::Builder::new().stack_size(16 * 1024 * 1024).spawn(|| {
+            for count in [64, 256, 1024] {
+                let mut input = eq(global("subject"), number(1.0));
+                for _ in 0..count { input = and(input, global("condition")); }
+                super::NEGATION_GATE_VISITS.with(|visits| visits.set(0));
+                let expected = super::normalize_not_reference(input.clone(), false, &Default::default());
+                let legacy_visits = super::NEGATION_GATE_VISITS.with(|visits| visits.get());
+                super::NEGATION_GATE_VISITS.with(|visits| visits.set(0));
+                let actual = super::normalize_not(input, false, &Default::default());
+                let visits = super::NEGATION_GATE_VISITS.with(|visits| visits.get());
+                assert_eq!(actual, expected);
+                assert!(legacy_visits >= count * count / 2);
+                assert!(visits <= count * 4 + 4, "{count} operands visited {visits} nodes");
+            }
+        }).unwrap().join().unwrap();
+    }
+
+    #[test]
     fn deferred_spines_match_original_postorder_rewrites() {
         use crate::Traverse;
         fn expression(seed: &mut u64, depth: usize, locals: &[RcLocal]) -> RValue {
@@ -1662,6 +1906,68 @@ mod tests {
                     super::normalize_expression_roots(&mut actual, assume_no_nan, &facts);
                     assert_eq!(actual, expected, "seed {initial_seed}, if={allow_if_expressions}, nan={assume_no_nan}");
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn reused_spines_match_flatten_fold_shape_origins_and_operand_storage() {
+        use std::collections::BTreeSet;
+        use crate::{node_origins, Traverse};
+
+        fn expression(seed: &mut u64, nodes: usize, operation: BinaryOperation) -> RValue {
+            *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            if nodes == 0 { return number((*seed >> 32) as f64); }
+            let left_nodes = (*seed >> 32) as usize % nodes;
+            let choice = (*seed >> 16) % 5;
+            let left = expression(seed, left_nodes, operation);
+            let right = expression(seed, nodes - left_nodes - 1, operation);
+            let mut binary = Binary::new(left, right, if choice == 0 { BinaryOperation::Equal } else { operation });
+            binary.node_origin = node_origins::Origin::synthesized("spine_test");
+            let origin = binary.node_origin.0.as_mut().unwrap();
+            origin.inlined = choice % 2 == 0;
+            origin.cloned = choice % 3 == 0;
+            origin.incomplete = choice == 4;
+            binary.into()
+        }
+        fn boxes(value: &RValue, addresses: &mut BTreeSet<usize>) {
+            value.visit_rvalues(&mut |child| {
+                assert!(addresses.insert(child as *const RValue as usize));
+                boxes(child, addresses);
+                true
+            });
+        }
+        fn origins(value: &RValue, records: &mut Vec<Option<(bool, bool, bool, Option<&'static str>)>>) {
+            if let Some(origin) = node_origins::value(value) {
+                records.push(origin.0.as_ref().map(|data| (data.inlined, data.cloned, data.incomplete, data.synthesized)));
+            }
+            value.visit_rvalues(&mut |child| { origins(child, records); true });
+        }
+        for operation in [BinaryOperation::And, BinaryOperation::Or] {
+            for seed in 0..512 {
+                let mut binary = Binary::new(
+                    expression(&mut (seed + 1), 31, operation),
+                    expression(&mut (seed + 513), 31, operation), operation);
+                binary.node_origin = node_origins::Origin::synthesized("spine_root_test");
+                let mut reference = binary.clone();
+                // Clone marks diagnostic origins. Clone both inputs identically
+                // so only the reassociation policy is under comparison.
+                binary = reference.clone();
+                reference = reference.clone();
+                let input = RValue::Binary(binary);
+                let mut before = BTreeSet::new();
+                boxes(&input, &mut before);
+                let actual = super::reassociate_left(input.into_binary().unwrap(), operation);
+                let expected = super::reassociate_left_reference(reference, operation);
+                assert_eq!(actual, expected, "seed {seed}, operation {operation:?}");
+                let mut after = BTreeSet::new();
+                boxes(&actual, &mut after);
+                assert_eq!(before, after, "every operand box must be reused");
+                let mut actual_origins = Vec::new();
+                let mut expected_origins = Vec::new();
+                origins(&actual, &mut actual_origins);
+                origins(&expected, &mut expected_origins);
+                assert_eq!(actual_origins, expected_origins, "seed {seed}, origin policy");
             }
         }
     }

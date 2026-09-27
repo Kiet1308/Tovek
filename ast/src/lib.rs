@@ -280,6 +280,20 @@ impl LocalRw for LValue {
         crate::local::collect_reads_mut(self)
     }
 
+    fn visit_local_writes<'a>(&'a self, visit: &mut dyn FnMut(&'a RcLocal) -> bool) -> bool {
+        match self {
+            LValue::Local(local) => visit(local),
+            LValue::Global(_) | LValue::Index(_) => true,
+        }
+    }
+
+    fn visit_local_writes_mut<'a>(&'a mut self, visit: &mut dyn FnMut(&'a mut RcLocal) -> bool) -> bool {
+        match self {
+            LValue::Local(local) => visit(local),
+            LValue::Global(_) | LValue::Index(_) => true,
+        }
+    }
+
     fn values_written(&self) -> Vec<&RcLocal> {
         match self {
             LValue::Local(local) => vec![local],

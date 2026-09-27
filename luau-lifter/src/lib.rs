@@ -25,7 +25,7 @@ use cfg::{
     function::Function,
     ssa::{
         self,
-        structuring::{structure_conditionals, structure_jumps},
+        structuring::{structure_conditionals_with_changes, structure_jumps},
     },
 };
 use indexmap::IndexMap;
@@ -448,7 +448,11 @@ fn decompile_bytecode_internal(
                 emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
             let _reconstruction_search = if chunk.functions.len() <= 4096
                 && chunk.functions.iter().map(|p| p.instructions.len()).sum::<usize>() <= ast::reconstruction_search::PC_LIMIT {
-                ast::reconstruction_search::enter(chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect())
+                if chunk.functions.len() == 1 {
+                    ast::reconstruction_search::enter_single_prototype(chunk.functions[0].instructions.len())
+                } else {
+                    ast::reconstruction_search::enter(chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect())
+                }
             } else { ast::reconstruction_search::enter_truncated() };
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
             ast::telemetry::count("capture_readonly_slots", capture_effects.readonly.iter()
@@ -1068,11 +1072,15 @@ fn validate_prototype_graph(
             })?;
             let child = match op_code {
                 crate::op_code::OpCode::LOP_NEWCLOSURE => {
-                    *function.functions.get(index).ok_or_else(|| {
+                    function.functions.get(index).ok_or_else(|| {
                         format!(
                             "malformed prototype graph: prototype {parent} NEWCLOSURE references out-of-range child-table index {index}"
                         )
-                    })?
+                    })?;
+                    // Every serialized child was already range-checked and
+                    // added above. NEWCLOSURE validates the table slot but
+                    // cannot add another graph edge; DUPCLOSURE still can.
+                    continue;
                 }
                 crate::op_code::OpCode::LOP_DUPCLOSURE => {
                     match function.constants.get(index) {
@@ -1216,11 +1224,18 @@ pub fn decompile_batch_with_options(
 /// the folder cache, whose artifact key already includes the semantic switch.
 #[doc(hidden)]
 pub fn requires_fresh_decompilation() -> bool {
-    std::env::vars_os().any(|(name, _)| {
-        let name = name.to_string_lossy().to_ascii_uppercase();
-        (name.starts_with("MEDAL_") && name != "MEDAL_NO_SHARED_TAIL")
-            || name == "DEINLINE_ANCHOR_TRACE"
-    })
+    // Bare Wasm has no process environment; enumerating it panics. Worker Env
+    // bindings are separate and are not mapped into std::env diagnostics.
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+    { false }
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+    {
+        std::env::vars_os().any(|(name, _)| {
+            let name = name.to_string_lossy().to_ascii_uppercase();
+            (name.starts_with("MEDAL_") && name != "MEDAL_NO_SHARED_TAIL")
+                || name == "DEINLINE_ANCHOR_TRACE"
+        })
+    }
 }
 
 fn batch_layout(items: &[BatchInput<'_>]) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
@@ -1359,7 +1374,7 @@ fn debug_dump_cfg(function: &Function, stage: &str) {
 /// and the tagged types still contribute a naming hint.
 fn parameter_type_from_bytecode(
     tag: u8,
-    userdata_type_names: &[(u8, Vec<u8>)],
+    userdata_type_names: &[(u8, &[u8])],
 ) -> (Option<String>, Option<String>) {
     use deserializer::function::*;
     let optional = tag & LBC_TYPE_OPTIONAL_BIT != 0;
@@ -1387,31 +1402,52 @@ fn parameter_type_from_bytecode(
             let Some(name) = userdata_type_names
                 .iter()
                 .find(|(candidate, _)| *candidate == index)
-                .map(|(_, name)| String::from_utf8_lossy(name).into_owned())
+                .map(|(_, name)| String::from_utf8_lossy(name))
             else {
                 return (None, None);
             };
-            // Hints never end in a digit: the namer disambiguates a second
-            // parameter of the same type with a numeric suffix (`cframe2`),
-            // which would otherwise read as `vector22` / `uDim22`.
-            let hint = match name.as_str() {
-                "CFrame" => "cframe".to_string(),
-                "Color3" => "color".to_string(),
-                "Vector2" => "point".to_string(),
-                "UDim2" | "UDim" => "udim".to_string(),
-                "RaycastResult" => "raycastResult".to_string(),
-                "NumberRange" => "range".to_string(),
-                other => {
-                    let mut chars = other.chars();
-                    match chars.next() {
-                        Some(first) => first.to_lowercase().collect::<String>() + chars.as_str(),
-                        None => return (None, None),
-                    }
-                }
+            let Some(hint) = userdata_type_hint(&name) else {
+                return (None, None);
             };
             (Some(with_optional(&name)), Some(hint))
         }
         _ => (None, None),
+    }
+}
+
+fn userdata_type_hint(name: &str) -> Option<String> {
+    // These built-in hints avoid a trailing digit before the namer's numeric
+    // disambiguation suffix (`point2`, rather than `vector22`).
+    Some(match name {
+        "CFrame" => "cframe".to_string(),
+        "Color3" => "color".to_string(),
+        "Vector2" => "point".to_string(),
+        "UDim2" | "UDim" => "udim".to_string(),
+        "RaycastResult" => "raycastResult".to_string(),
+        "NumberRange" => "range".to_string(),
+        other => {
+            let mut chars = other.chars();
+            chars.next()?.to_lowercase().collect::<String>() + chars.as_str()
+        }
+    })
+}
+
+/// Typed locals need only a role hint. In particular, primitive annotations
+/// such as `number?` and `string` must not be allocated just to discard them.
+fn type_hint_from_bytecode(tag: u8, userdata_type_names: &[(u8, &[u8])]) -> Option<String> {
+    use deserializer::function::*;
+    match tag & !LBC_TYPE_OPTIONAL_BIT {
+        LBC_TYPE_BOOLEAN => Some("flag".to_string()),
+        LBC_TYPE_VECTOR => Some("vector".to_string()),
+        LBC_TYPE_BUFFER => Some("buf".to_string()),
+        LBC_TYPE_THREAD => Some("thread".to_string()),
+        LBC_TYPE_FUNCTION => Some("callback".to_string()),
+        base @ LBC_TYPE_TAGGED_USERDATA_BASE..LBC_TYPE_TAGGED_USERDATA_END => {
+            let index = base - LBC_TYPE_TAGGED_USERDATA_BASE;
+            let (_, name) = userdata_type_names.iter().find(|(candidate, _)| *candidate == index)?;
+            userdata_type_hint(&String::from_utf8_lossy(name))
+        }
+        _ => None,
     }
 }
 
@@ -1422,7 +1458,7 @@ fn parameter_type_from_bytecode(
 pub(crate) fn parameter_types_from_bytecode(
     type_info: Option<&deserializer::function::FunctionTypeInfo>,
     parameter_count: usize,
-    userdata_type_names: &[(u8, Vec<u8>)],
+    userdata_type_names: &[(u8, &[u8])],
 ) -> (Vec<Option<String>>, Vec<Option<String>>) {
     let Some(info) = type_info else {
         return (Vec::new(), Vec::new());
@@ -1444,7 +1480,7 @@ pub(crate) fn parameter_types_from_bytecode(
 /// hint to the exact definitions of that source local.
 pub(crate) fn typed_local_hints_from_bytecode(
     type_info: Option<&deserializer::function::FunctionTypeInfo>,
-    userdata_type_names: &[(u8, Vec<u8>)],
+    userdata_type_names: &[(u8, &[u8])],
 ) -> Vec<lifter::TypedLocalHint> {
     let Some(info) = type_info else {
         return Vec::new();
@@ -1453,8 +1489,7 @@ pub(crate) fn typed_local_hints_from_bytecode(
         .iter()
         .filter(|local| local.end_pc > local.start_pc)
         .filter_map(|local| {
-            let (_, hint) = parameter_type_from_bytecode(local.type_tag, userdata_type_names);
-            hint.map(|name| lifter::TypedLocalHint {
+            type_hint_from_bytecode(local.type_tag, userdata_type_names).map(|name| lifter::TypedLocalHint {
                 register: local.register,
                 start_pc: local.start_pc,
                 end_pc: local.end_pc,
@@ -1503,6 +1538,113 @@ fn debug_dump_types(chunk: &deserializer::chunk::Chunk) {
     ));
     eprint!("{out}");
 }
+
+/// A valid terminal block cannot gain CFG edges during SSA expression inlining.
+/// Keep malformed/prestructured control on the ordinary cleanup path: a
+/// trailing If can mutate its condition before legacy edge validation fails.
+fn terminal_cleanup_block(function: &Function) -> Option<petgraph::stable_graph::NodeIndex> {
+    if function.graph().node_count() != 1 || function.graph().edge_count() != 0 { return None; }
+    let node = function.entry().as_ref().copied()?;
+    let block = function.block(node)?;
+    ast::telemetry::count("ssa_cleanup_terminal_eligible", 1);
+    block.iter().enumerate().all(|(index, statement)| matches!(statement,
+        ast::Statement::Assign(_) | ast::Statement::Call(_) | ast::Statement::MethodCall(_)
+        | ast::Statement::SetList(_) | ast::Statement::Comment(_) | ast::Statement::Empty(_))
+        || (index + 1 == block.len() && matches!(statement, ast::Statement::Return(_))))
+        .then_some(node)
+}
+
+/// False is the original round/budget schedule, retained as an independent
+/// test oracle. Specialization skips only topology/phi passes proved inert;
+/// the SSA inliner still executes at its original point exactly once.
+fn cleanup_ssa<const SPECIALIZE: bool>(
+    function: &mut Function,
+    local_to_group: &FxHashMap<ast::RcLocal, usize>,
+    upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
+    readonly_capture_ids: &FxHashSet<u64>,
+    protected_upvalue_locals: &FxHashSet<ast::RcLocal>,
+    mut rounds_left: usize,
+) -> bool {
+    let mut changed = true;
+    let mut dominator_cache = None;
+    while changed {
+        if rounds_left == 0 {
+            return false;
+        }
+        rounds_left -= 1;
+        changed = false;
+        if SPECIALIZE && terminal_cleanup_block(function).is_some() {
+            ast::telemetry::count("ssa_cleanup_terminal_admitted", 1);
+            #[cfg(test)]
+            SSA_CLEANUP_TERMINAL_ADMISSIONS.with(|count| count.set(count.get() + 1));
+            ast::telemetry::count("ssa_cleanup_terminal_statements",
+                function.blocks().next().unwrap().1.len() as u64);
+            ptime!(F_SSA_INLINE);
+            ssa::inline::inline_with_readonly_captures(function, local_to_group,
+                upvalue_to_group, readonly_capture_ids);
+            return true;
+        }
+
+        let dominators = dominator_cache.get_or_insert_with(|| {
+            ptime!(F_SIMPLE_FAST);
+            simple_fast(function.graph(), function.entry().unwrap())
+        });
+        let topology_changed = {
+            ptime!(F_STRUCTURE_JUMPS);
+            structure_jumps(function, dominators)
+        };
+        changed |= topology_changed;
+
+        {
+            ptime!(F_SSA_INLINE);
+            ssa::inline::inline_with_readonly_captures(function, local_to_group,
+                upvalue_to_group, readonly_capture_ids);
+        }
+
+        let sc = {
+            ptime!(F_STRUCTURE_CONDS);
+            structure_conditionals_with_changes(function, &|local| protected_upvalue_locals.contains(local))
+        };
+        if topology_changed || sc.topology_changed { dominator_cache = None; }
+        if sc.changed
+        // || {
+        //     let post_dominators = post_dominators(function.graph_mut());
+        //     structure_for_loops(&mut function, &dominators, &post_dominators)
+        // }
+        // we can't structure method calls like this because of __namecall
+        // || structure_method_calls(&mut function)
+        {
+            changed = true;
+        }
+        let mut local_map = FxHashMap::default();
+        // TODO: loop until returns false?
+        let rp = {
+            ptime!(F_REMOVE_PARAMS);
+            ssa::construct::remove_unnecessary_params(
+                function,
+                &mut local_map,
+                Some(upvalue_to_group),
+            )
+        };
+        if rp {
+            changed = true;
+        }
+        {
+            ptime!(F_APPLY_MAP);
+            ssa::construct::apply_local_map(function, local_map);
+        }
+    }
+    true
+}
+
+#[cfg(test)]
+mod ssa_cleanup_tests;
+
+#[cfg(test)]
+thread_local! {
+    static SSA_CLEANUP_TERMINAL_ADMISSIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 
 fn decompile_function(
     ast_function: Arc<Mutex<ast::Function>>,
@@ -1585,73 +1727,20 @@ fn decompile_function(
             upvalue_to_group.iter().map(|(local, group)| (local.stable_id(), group.stable_id())).collect::<Vec<_>>());
         debug_dump_cfg(&function, "pre-inline");
     }
-    let mut changed = true;
-    let mut dominator_cache = None;
     // Each normal round consumes CFG nodes or phi transports. A size-derived
     // budget also bounds an accidental rewrite cycle without imposing a small
     // fixed limit on legitimate large functions.
-    let mut rounds_left = (function.graph().node_count()
+    let rounds_left = (function.graph().node_count()
         + function.graph().edge_weights().map(|edge| edge.arguments.len()).sum::<usize>()
         + 1).saturating_mul(4).max(64);
-    while changed {
-        if rounds_left == 0 {
-            ast_function.lock().body = unsupported_structuring_sentinel();
-            return (ByAddress(ast_function), upvalues_in, Some(DecompileDiagnostic {
-                stage: "ssa_cleanup".into(), code: "rewrite_budget_exhausted".into(),
-                function: function_identity, message: "CFG simplification exceeded its size-derived iteration budget".into(),
-            }), function.provenance.take());
-        }
-        rounds_left -= 1;
-        changed = false;
-
-        let dominators = dominator_cache.get_or_insert_with(|| {
-            ptime!(F_SIMPLE_FAST);
-            simple_fast(function.graph(), function.entry().unwrap())
-        });
-        let topology_changed = {
-            ptime!(F_STRUCTURE_JUMPS);
-            structure_jumps(&mut function, dominators)
-        };
-        changed |= topology_changed;
-
-        {
-            ptime!(F_SSA_INLINE);
-            ssa::inline::inline_with_readonly_captures(&mut function, &local_to_group,
-                &upvalue_to_group, &readonly_capture_ids);
-        }
-
-        let sc = {
-            ptime!(F_STRUCTURE_CONDS);
-            structure_conditionals(&mut function, &|local| protected_upvalue_locals.contains(local))
-        };
-        if topology_changed || sc { dominator_cache = None; }
-        if sc
-        // || {
-        //     let post_dominators = post_dominators(function.graph_mut());
-        //     structure_for_loops(&mut function, &dominators, &post_dominators)
-        // }
-        // we can't structure method calls like this because of __namecall
-        // || structure_method_calls(&mut function)
-        {
-            changed = true;
-        }
-        let mut local_map = FxHashMap::default();
-        // TODO: loop until returns false?
-        let rp = {
-            ptime!(F_REMOVE_PARAMS);
-            ssa::construct::remove_unnecessary_params(
-                &mut function,
-                &mut local_map,
-                Some(&upvalue_to_group),
-            )
-        };
-        if rp {
-            changed = true;
-        }
-        {
-            ptime!(F_APPLY_MAP);
-            ssa::construct::apply_local_map(&mut function, local_map);
-        }
+    if !cleanup_ssa::<true>(&mut function, &local_to_group, &upvalue_to_group,
+        &readonly_capture_ids, &protected_upvalue_locals, rounds_left)
+    {
+        ast_function.lock().body = unsupported_structuring_sentinel();
+        return (ByAddress(ast_function), upvalues_in, Some(DecompileDiagnostic {
+            stage: "ssa_cleanup".into(), code: "rewrite_budget_exhausted".into(),
+            function: function_identity, message: "CFG simplification exceeded its size-derived iteration budget".into(),
+        }), function.provenance.take());
     }
     // cfg::dot::render_to(&function, &mut std::io::stdout()).unwrap();
     if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
@@ -1992,7 +2081,7 @@ mod v11_fixtures {
     #[test]
     fn renders_parameter_types_from_bytecode() {
         use crate::deserializer::function::*;
-        let names = vec![(0u8, b"CFrame".to_vec()), (1u8, b"Color3".to_vec())];
+        let names: Vec<(u8, &[u8])> = vec![(0u8, b"CFrame"), (1u8, b"Color3")];
         let info = FunctionTypeInfo {
             parameter_types: vec![
                 LBC_TYPE_TABLE,
@@ -2046,6 +2135,75 @@ mod v11_fixtures {
             super::parameter_types_from_bytecode(None, 3, &names),
             (Vec::new(), Vec::new())
         );
+    }
+
+    #[test]
+    fn hint_only_type_decoder_matches_annotations_for_every_tag_and_byte_name() {
+        use crate::deserializer::function::*;
+        // The old combined decoder is an independent oracle, including lossy
+        // byte-name decoding, Unicode lowercasing and first-duplicate wins.
+        fn old(tag: u8, names: &[(u8, &[u8])]) -> (Option<String>, Option<String>) {
+            let optional = tag & LBC_TYPE_OPTIONAL_BIT != 0;
+            let annotation = |name: &str| if optional { format!("{name}?") } else { name.to_string() };
+            match tag & !LBC_TYPE_OPTIONAL_BIT {
+                LBC_TYPE_NIL => (Some("nil".into()), None),
+                LBC_TYPE_BOOLEAN => (Some(annotation("boolean")), Some("flag".into())),
+                LBC_TYPE_NUMBER => (Some(annotation("number")), None),
+                LBC_TYPE_STRING => (Some(annotation("string")), None),
+                LBC_TYPE_VECTOR => (Some(annotation("Vector3")), Some("vector".into())),
+                LBC_TYPE_BUFFER => (Some(annotation("buffer")), Some("buf".into())),
+                LBC_TYPE_THREAD => (Some(annotation("thread")), Some("thread".into())),
+                LBC_TYPE_FUNCTION => (None, Some("callback".into())),
+                base @ LBC_TYPE_TAGGED_USERDATA_BASE..LBC_TYPE_TAGGED_USERDATA_END => {
+                    let Some(name) = names.iter().find(|(index, _)| *index == base - LBC_TYPE_TAGGED_USERDATA_BASE)
+                        .map(|(_, name)| String::from_utf8_lossy(name).into_owned()) else { return (None, None); };
+                    let hint = match name.as_str() {
+                        "CFrame" => "cframe".into(),
+                        "Color3" => "color".into(),
+                        "Vector2" => "point".into(),
+                        "UDim2" | "UDim" => "udim".into(),
+                        "RaycastResult" => "raycastResult".into(),
+                        "NumberRange" => "range".into(),
+                        other => {
+                            let mut chars = other.chars();
+                            let Some(first) = chars.next() else { return (None, None); };
+                            first.to_lowercase().collect::<String>() + chars.as_str()
+                        }
+                    };
+                    (Some(annotation(&name)), Some(hint))
+                }
+                _ => (None, None),
+            }
+        }
+        let spellings: &[&[u8]] = &[
+            b"CFrame", b"Color3", b"Vector2", b"UDim2", b"UDim", b"RaycastResult",
+            b"NumberRange", b"Widget42", b"", b"\xff\x80Name", b"\0Name",
+            "\u{130}tem".as_bytes(), "\u{c9}lan".as_bytes(),
+        ];
+        let all_names = (0..32).map(|index| (index, spellings[index as usize % spellings.len()]))
+            .collect::<Vec<_>>();
+        for names in [Vec::new(), all_names, vec![(0, b"".as_slice()), (0, b"CFrame".as_slice())],
+            vec![(0, b"CFrame".as_slice()), (0, b"".as_slice())]] {
+            for tag in 0..=u8::MAX {
+                let expected = old(tag, &names);
+                assert_eq!(super::parameter_type_from_bytecode(tag, &names), expected, "parameter tag {tag}");
+                assert_eq!(super::type_hint_from_bytecode(tag, &names), expected.1, "local tag {tag}");
+            }
+            let mut info = FunctionTypeInfo::default();
+            info.local_types = (0..=u8::MAX).map(|tag| TypedLocal {
+                type_tag: tag, register: tag, start_pc: usize::from(tag), end_pc: usize::from(tag) + 1,
+            }).collect();
+            info.local_types.extend([
+                TypedLocal { type_tag: LBC_TYPE_VECTOR, register: 1, start_pc: 8, end_pc: 8 },
+                TypedLocal { type_tag: LBC_TYPE_BOOLEAN, register: 2, start_pc: 9, end_pc: 3 },
+            ]);
+            let expected = info.local_types.iter().filter(|local| local.end_pc > local.start_pc)
+                .filter_map(|local| old(local.type_tag, &names).1.map(|name| crate::lifter::TypedLocalHint {
+                    register: local.register, start_pc: local.start_pc, end_pc: local.end_pc, name,
+                })).collect::<Vec<_>>();
+            assert_eq!(super::typed_local_hints_from_bytecode(Some(&info), &names), expected);
+        }
+        assert!(super::typed_local_hints_from_bytecode(None, &[]).is_empty());
     }
 
     // --- opcode ordinals used below ---
@@ -2314,6 +2472,217 @@ mod v11_fixtures {
         let blob = build_chunk(15, 3, &[], &[simple_return_proto(vec![])], 0);
         let result = std::panic::catch_unwind(|| decompile(&blob, 1, None));
         assert!(result.map_or(true, |out| out.is_err()));
+    }
+
+    // Frozen pre-U16 validator: retain duplicate adjacency construction,
+    // sorting and error order as an independent differential oracle.
+    fn validate_prototype_graph_reference(
+        functions: &[crate::deserializer::function::Function],
+        main: usize,
+    ) -> Result<(), String> {
+        if main >= functions.len() {
+            return Err(format!(
+                "malformed prototype graph: main prototype {main} is outside {} prototypes",
+                functions.len()
+            ));
+        }
+
+        // Build the graph from both the serialized child table and the closure
+        // constructors that actually instantiate prototypes. DUPCLOSURE edges live
+        // in Constant::Closure and are not represented by Function::functions.
+        let mut adjacency = vec![Vec::new(); functions.len()];
+        for (parent, function) in functions.iter().enumerate() {
+            for &child in &function.functions {
+                if child >= functions.len() {
+                    return Err(format!(
+                        "malformed prototype graph: prototype {parent} references out-of-range child {child}"
+                    ));
+                }
+                adjacency[parent].push(child);
+            }
+            for instruction in &function.instructions {
+                let crate::instruction::Instruction::AD { op_code, d, .. } = instruction else {
+                    continue;
+                };
+                if !matches!(
+                    op_code,
+                    crate::op_code::OpCode::LOP_NEWCLOSURE | crate::op_code::OpCode::LOP_DUPCLOSURE
+                ) {
+                    continue;
+                }
+                let index = usize::try_from(*d).map_err(|_| {
+                    format!(
+                        "malformed prototype graph: prototype {parent} has negative {op_code:?} index {d}"
+                    )
+                })?;
+                let child = match op_code {
+                    crate::op_code::OpCode::LOP_NEWCLOSURE => {
+                        *function.functions.get(index).ok_or_else(|| {
+                            format!(
+                                "malformed prototype graph: prototype {parent} NEWCLOSURE references out-of-range child-table index {index}"
+                            )
+                        })?
+                    }
+                    crate::op_code::OpCode::LOP_DUPCLOSURE => {
+                        match function.constants.get(index) {
+                            Some(crate::deserializer::constant::Constant::Closure(child)) => *child,
+                            Some(_) => {
+                                return Err(format!(
+                                    "malformed prototype graph: prototype {parent} DUPCLOSURE constant {index} is not a closure"
+                                ));
+                            }
+                            None => {
+                                return Err(format!(
+                                    "malformed prototype graph: prototype {parent} DUPCLOSURE references out-of-range constant {index}"
+                                ));
+                            }
+                        }
+                    }
+                    _ => continue,
+                };
+                if child >= functions.len() {
+                    return Err(format!(
+                        "malformed prototype graph: prototype {parent} closure constructor references out-of-range child {child}"
+                    ));
+                }
+                adjacency[parent].push(child);
+            }
+            adjacency[parent].sort_unstable();
+            adjacency[parent].dedup();
+        }
+
+        // Validate every prototype, including unreachable ones, so malformed chunks
+        // cannot become dangerous if a later pass changes traversal roots.
+        let mut state = vec![0u8; functions.len()];
+        for start in 0..functions.len() {
+            if state[start] != 0 {
+                continue;
+            }
+            state[start] = 1;
+            let mut stack = vec![(start, 0usize)];
+            while let Some((proto, next_child)) = stack.last_mut() {
+                let children = &adjacency[*proto];
+                if *next_child == children.len() {
+                    state[*proto] = 2;
+                    stack.pop();
+                    continue;
+                }
+                let parent = *proto;
+                let child = children[*next_child];
+                *next_child += 1;
+                match state[child] {
+                    0 => {
+                        state[child] = 1;
+                        stack.push((child, 0));
+                    }
+                    1 => {
+                        return Err(format!(
+                            "malformed prototype graph: cycle from prototype {parent} to ancestor {child}"
+                        ));
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn prototype_graph_functions(prototypes: &[Proto]) -> Vec<crate::deserializer::function::Function> {
+        let encoded = build_chunk(11, 1, &[], prototypes, 0);
+        let crate::deserializer::bytecode::Bytecode::Chunk(chunk) =
+            crate::deserializer::deserialize(&encoded, 1).unwrap() else { panic!() };
+        chunk.functions
+    }
+
+    #[test]
+    fn prototype_graph_duplicate_edges_preserve_exact_boundary_errors() {
+        let new = |index| ad(crate::op_code::OpCode::LOP_NEWCLOSURE as u8, 0, index);
+        let check = |prototypes: Vec<Proto>, main, expected: Option<&str>| {
+            let functions = prototype_graph_functions(&prototypes);
+            let actual = super::validate_prototype_graph(&functions, main);
+            assert_eq!(actual, validate_prototype_graph_reference(&functions, main));
+            match expected {
+                Some(message) => assert_eq!(actual.unwrap_err(), message),
+                None => assert_eq!(actual, Ok(())),
+            }
+        };
+        check(vec![], 0, Some("malformed prototype graph: main prototype 0 is outside 0 prototypes"));
+        check(vec![simple_return_proto(vec![])], 1,
+            Some("malformed prototype graph: main prototype 1 is outside 1 prototypes"));
+        check(vec![Proto { child_protos: vec![99], words: vec![new(-1)], ..Default::default() }], 0,
+            Some("malformed prototype graph: prototype 0 references out-of-range child 99"));
+        check(vec![Proto { child_protos: vec![1], words: vec![new(i16::MIN)], ..Default::default() }, simple_return_proto(vec![])], 0,
+            Some("malformed prototype graph: prototype 0 has negative LOP_NEWCLOSURE index -32768"));
+        check(vec![Proto { child_protos: vec![1], words: vec![new(1)], ..Default::default() }, simple_return_proto(vec![])], 0,
+            Some("malformed prototype graph: prototype 0 NEWCLOSURE references out-of-range child-table index 1"));
+        check(vec![Proto { words: vec![ad(DUPCLOSURE, 0, -1)], ..Default::default() }], 0,
+            Some("malformed prototype graph: prototype 0 has negative LOP_DUPCLOSURE index -1"));
+        check(vec![Proto { words: vec![ad(DUPCLOSURE, 0, i16::MAX)], ..Default::default() }], 0,
+            Some("malformed prototype graph: prototype 0 DUPCLOSURE references out-of-range constant 32767"));
+        check(vec![Proto { words: vec![ad(DUPCLOSURE, 0, 0)], constants: vec![vec![0]], ..Default::default() }], 0,
+            Some("malformed prototype graph: prototype 0 DUPCLOSURE constant 0 is not a closure"));
+        check(vec![Proto { words: vec![ad(DUPCLOSURE, 0, 0)], constants: vec![const_closure(7)], ..Default::default() }], 0,
+            Some("malformed prototype graph: prototype 0 closure constructor references out-of-range child 7"));
+        // Invalid instructions in later prototypes still precede cycle checking.
+        check(vec![Proto { child_protos: vec![0], ..simple_return_proto(vec![]) },
+            Proto { words: vec![new(-1)], ..Default::default() }], 0,
+            Some("malformed prototype graph: prototype 1 has negative LOP_NEWCLOSURE index -1"));
+        // Unreachable cycles remain invalid; child sorting determines which
+        // backedge is reported when several cycles are present.
+        check(vec![simple_return_proto(vec![]), Proto { child_protos: vec![1], ..simple_return_proto(vec![]) }], 0,
+            Some("malformed prototype graph: cycle from prototype 1 to ancestor 1"));
+        check(vec![Proto { child_protos: vec![2, 1, 2], words: vec![new(0), new(1), new(2)], ..Default::default() },
+            Proto { child_protos: vec![0], ..simple_return_proto(vec![]) },
+            Proto { child_protos: vec![0], ..simple_return_proto(vec![]) }], 0,
+            Some("malformed prototype graph: cycle from prototype 1 to ancestor 0"));
+        check(vec![Proto { words: vec![ad(DUPCLOSURE, 0, 0)], constants: vec![const_closure(1)], ..Default::default() },
+            Proto { words: vec![ad(DUPCLOSURE, 0, 0)], constants: vec![const_closure(0)], ..Default::default() }], 0,
+            Some("malformed prototype graph: cycle from prototype 1 to ancestor 0"));
+        // Maximum positive AD index, repeated instantiations, duplicate child
+        // table entries, and an unused closure constant preserve acceptance.
+        check(vec![Proto { child_protos: vec![1; i16::MAX as usize + 1],
+            words: vec![new(i16::MAX); 2048], constants: vec![const_closure(7)], ..Default::default() },
+            simple_return_proto(vec![])], 0, None);
+    }
+
+    #[test]
+    fn prototype_graph_duplicate_edges_match_reference_for_dags_and_cycles() {
+        for seed in 1..=256u64 {
+            let mut state = seed;
+            let mut random = |limit: usize| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                ((state >> 32) as usize) % limit
+            };
+            let count = 1 + random(24);
+            let acyclic = seed % 2 == 1;
+            let mut prototypes = Vec::new();
+            for parent in 0..count {
+                let first = if acyclic { parent + 1 } else { 0 };
+                let targets = count - first;
+                let child_protos = if targets == 0 { Vec::new() } else {
+                    (0..random(8)).map(|_| first + random(targets)).collect::<Vec<_>>()
+                };
+                let constants = if targets == 0 { Vec::new() } else {
+                    (0..random(4)).map(|_| const_closure((first + random(targets)) as u64)).collect::<Vec<_>>()
+                };
+                let mut words = Vec::new();
+                for _ in 0..random(20) {
+                    if !child_protos.is_empty() && random(2) == 0 {
+                        words.push(ad(crate::op_code::OpCode::LOP_NEWCLOSURE as u8, 0, random(child_protos.len()) as i16));
+                    } else if !constants.is_empty() {
+                        words.push(ad(DUPCLOSURE, 0, random(constants.len()) as i16));
+                    }
+                }
+                words.push(abc(RETURN, 0, 1, 0));
+                prototypes.push(Proto { words, constants, child_protos, ..Default::default() });
+            }
+            let functions = prototype_graph_functions(&prototypes);
+            for main in [0, count - 1, count, usize::MAX] {
+                let actual = super::validate_prototype_graph(&functions, main);
+                assert_eq!(actual, validate_prototype_graph_reference(&functions, main), "seed={seed}, main={main}");
+                if acyclic && main < count { assert_eq!(actual, Ok(()), "seed={seed}"); }
+            }
+        }
     }
 
     #[test]

@@ -575,6 +575,10 @@ fn replace_direct_rvalue_use(
     replacement: RValue,
     usage: &FxHashMap<RcLocal, Usage>,
 ) -> bool {
+    // Keep one owned replacement while searching. A failed position only
+    // borrows it; the accepted position either moves it or makes the single
+    // real copy required by the legacy path's diagnostic origin policy.
+    let mut replacement = Some(replacement);
     match statement {
         Statement::Assign(assign) => {
             let mut before_unsafe = assign
@@ -584,7 +588,7 @@ fn replace_direct_rvalue_use(
             replace_in_rvalue_list(
                 &mut assign.right,
                 local,
-                replacement,
+                &mut replacement,
                 usage,
                 &mut before_unsafe,
             )
@@ -594,7 +598,7 @@ fn replace_direct_rvalue_use(
             replace_in_rvalue_list(
                 &mut return_.values,
                 local,
-                replacement,
+                &mut replacement,
                 usage,
                 &mut before_unsafe,
             )
@@ -604,7 +608,7 @@ fn replace_direct_rvalue_use(
             replace_in_rvalue_list(
                 &mut call.arguments,
                 local,
-                replacement,
+                &mut replacement,
                 usage,
                 &mut before_unsafe,
             )
@@ -614,7 +618,7 @@ fn replace_direct_rvalue_use(
             replace_in_rvalue_list(
                 &mut method_call.arguments,
                 local,
-                replacement,
+                &mut replacement,
                 usage,
                 &mut before_unsafe,
             )
@@ -624,7 +628,7 @@ fn replace_direct_rvalue_use(
             if replace_in_rvalue_list(
                 &mut set_list.values,
                 local,
-                replacement.clone(),
+                &mut replacement,
                 usage,
                 &mut before_unsafe,
             ) {
@@ -634,9 +638,10 @@ fn replace_direct_rvalue_use(
                 return replace_first_rvalue_use(
                     tail,
                     local,
-                    replacement,
+                    &mut replacement,
                     usage,
                     &mut before_unsafe,
+                    false,
                 );
             }
             false
@@ -648,12 +653,12 @@ fn replace_direct_rvalue_use(
 fn replace_in_rvalue_list(
     values: &mut [RValue],
     local: &RcLocal,
-    replacement: RValue,
+    replacement: &mut Option<RValue>,
     usage: &FxHashMap<RcLocal, Usage>,
     before_unsafe: &mut bool,
 ) -> bool {
     for value in values {
-        if replace_first_rvalue_use(value, local, replacement.clone(), usage, before_unsafe) {
+        if replace_first_rvalue_use(value, local, replacement, usage, before_unsafe, true) {
             return true;
         }
         if rvalue_prior_unsafe(value, usage) {
@@ -666,15 +671,17 @@ fn replace_in_rvalue_list(
 fn replace_first_rvalue_use(
     value: &mut RValue,
     local: &RcLocal,
-    replacement: RValue,
+    replacement: &mut Option<RValue>,
     usage: &FxHashMap<RcLocal, Usage>,
     before_unsafe: &mut bool,
+    copied: bool,
 ) -> bool {
     if matches!(value, RValue::Local(read) if read == local) {
-        if !can_replace_after_prior_eval(&replacement, *before_unsafe, usage) {
+        if !can_replace_after_prior_eval(replacement.as_ref().unwrap(), *before_unsafe, usage) {
             return false;
         }
-        *value = replacement;
+        let replacement = replacement.take().unwrap();
+        *value = if copied { clone_replacement(&replacement) } else { replacement };
         return true;
     }
 
@@ -683,34 +690,36 @@ fn replace_first_rvalue_use(
             if replace_first_rvalue_use(
                 &mut binary.left,
                 local,
-                replacement.clone(),
+                replacement,
                 usage,
                 before_unsafe,
+                true,
             ) {
                 return true;
             }
             if rvalue_prior_unsafe(&binary.left, usage) {
                 *before_unsafe = true;
             }
-            replace_first_rvalue_use(&mut binary.right, local, replacement, usage, before_unsafe)
+            replace_first_rvalue_use(&mut binary.right, local, replacement, usage, before_unsafe, copied)
         }
         RValue::Unary(unary) => {
-            replace_first_rvalue_use(&mut unary.value, local, replacement, usage, before_unsafe)
+            replace_first_rvalue_use(&mut unary.value, local, replacement, usage, before_unsafe, copied)
         }
         RValue::Index(index) => {
             if replace_first_rvalue_use(
                 &mut index.left,
                 local,
-                replacement.clone(),
+                replacement,
                 usage,
                 before_unsafe,
+                true,
             ) {
                 return true;
             }
             if rvalue_prior_unsafe(&index.left, usage) {
                 *before_unsafe = true;
             }
-            replace_first_rvalue_use(&mut index.right, local, replacement, usage, before_unsafe)
+            replace_first_rvalue_use(&mut index.right, local, replacement, usage, before_unsafe, copied)
         }
         RValue::Call(call) => {
             if rvalue_prior_unsafe(&call.value, usage) {
@@ -747,7 +756,214 @@ fn replace_first_rvalue_use(
                 if replace_first_rvalue_use(
                     table_value,
                     local,
-                    replacement.clone(),
+                    replacement,
+                    usage,
+                    before_unsafe,
+                    true,
+                ) {
+                    return true;
+                }
+                if rvalue_prior_unsafe(table_value, usage) {
+                    *before_unsafe = true;
+                }
+            }
+            false
+        }
+        _ => false,
+    }
+}
+
+fn clone_replacement(value: &RValue) -> RValue {
+    #[cfg(test)]
+    REPLACEMENT_CLONES.with(|clones| clones.set(clones.get() + 1));
+    value.clone()
+}
+
+#[cfg(test)]
+thread_local! { static REPLACEMENT_CLONES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+
+#[cfg(test)]
+fn replace_direct_rvalue_use_reference(
+    statement: &mut Statement,
+    local: &RcLocal,
+    replacement: RValue,
+    usage: &FxHashMap<RcLocal, Usage>,
+) -> bool {
+    match statement {
+        Statement::Assign(assign) => {
+            let mut before_unsafe = assign
+                .left
+                .iter()
+                .any(|left| lvalue_prior_unsafe(left, usage));
+            replace_in_rvalue_list_reference(
+                &mut assign.right,
+                local,
+                replacement,
+                usage,
+                &mut before_unsafe,
+            )
+        }
+        Statement::Return(return_) => {
+            let mut before_unsafe = false;
+            replace_in_rvalue_list_reference(
+                &mut return_.values,
+                local,
+                replacement,
+                usage,
+                &mut before_unsafe,
+            )
+        }
+        Statement::Call(call) => {
+            let mut before_unsafe = rvalue_prior_unsafe(&call.value, usage);
+            replace_in_rvalue_list_reference(
+                &mut call.arguments,
+                local,
+                replacement,
+                usage,
+                &mut before_unsafe,
+            )
+        }
+        Statement::MethodCall(method_call) => {
+            let mut before_unsafe = rvalue_prior_unsafe(&method_call.value, usage);
+            replace_in_rvalue_list_reference(
+                &mut method_call.arguments,
+                local,
+                replacement,
+                usage,
+                &mut before_unsafe,
+            )
+        }
+        Statement::SetList(set_list) => {
+            let mut before_unsafe = false;
+            if replace_in_rvalue_list_reference(
+                &mut set_list.values,
+                local,
+                clone_replacement(&replacement),
+                usage,
+                &mut before_unsafe,
+            ) {
+                return true;
+            }
+            if let Some(tail) = &mut set_list.tail {
+                return replace_first_rvalue_use_reference(
+                    tail,
+                    local,
+                    replacement,
+                    usage,
+                    &mut before_unsafe,
+                );
+            }
+            false
+        }
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+fn replace_in_rvalue_list_reference(
+    values: &mut [RValue],
+    local: &RcLocal,
+    replacement: RValue,
+    usage: &FxHashMap<RcLocal, Usage>,
+    before_unsafe: &mut bool,
+) -> bool {
+    for value in values {
+        if replace_first_rvalue_use_reference(value, local, clone_replacement(&replacement), usage, before_unsafe) {
+            return true;
+        }
+        if rvalue_prior_unsafe(value, usage) {
+            *before_unsafe = true;
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+fn replace_first_rvalue_use_reference(
+    value: &mut RValue,
+    local: &RcLocal,
+    replacement: RValue,
+    usage: &FxHashMap<RcLocal, Usage>,
+    before_unsafe: &mut bool,
+) -> bool {
+    if matches!(value, RValue::Local(read) if read == local) {
+        if !can_replace_after_prior_eval(&replacement, *before_unsafe, usage) {
+            return false;
+        }
+        *value = replacement;
+        return true;
+    }
+
+    match value {
+        RValue::Binary(binary) => {
+            if replace_first_rvalue_use_reference(
+                &mut binary.left,
+                local,
+                clone_replacement(&replacement),
+                usage,
+                before_unsafe,
+            ) {
+                return true;
+            }
+            if rvalue_prior_unsafe(&binary.left, usage) {
+                *before_unsafe = true;
+            }
+            replace_first_rvalue_use_reference(&mut binary.right, local, replacement, usage, before_unsafe)
+        }
+        RValue::Unary(unary) => {
+            replace_first_rvalue_use_reference(&mut unary.value, local, replacement, usage, before_unsafe)
+        }
+        RValue::Index(index) => {
+            if replace_first_rvalue_use_reference(
+                &mut index.left,
+                local,
+                clone_replacement(&replacement),
+                usage,
+                before_unsafe,
+            ) {
+                return true;
+            }
+            if rvalue_prior_unsafe(&index.left, usage) {
+                *before_unsafe = true;
+            }
+            replace_first_rvalue_use_reference(&mut index.right, local, replacement, usage, before_unsafe)
+        }
+        RValue::Call(call) => {
+            if rvalue_prior_unsafe(&call.value, usage) {
+                *before_unsafe = true;
+            }
+            replace_in_rvalue_list_reference(
+                &mut call.arguments,
+                local,
+                replacement,
+                usage,
+                before_unsafe,
+            )
+        }
+        RValue::MethodCall(method_call) => {
+            if rvalue_prior_unsafe(&method_call.value, usage) {
+                *before_unsafe = true;
+            }
+            replace_in_rvalue_list_reference(
+                &mut method_call.arguments,
+                local,
+                replacement,
+                usage,
+                before_unsafe,
+            )
+        }
+        RValue::Table(table) => {
+            for (key, table_value) in &mut table.0 {
+                if key
+                    .as_ref()
+                    .is_some_and(|key| rvalue_prior_unsafe(key, usage))
+                {
+                    *before_unsafe = true;
+                }
+                if replace_first_rvalue_use_reference(
+                    table_value,
+                    local,
+                    clone_replacement(&replacement),
                     usage,
                     before_unsafe,
                 ) {
@@ -762,6 +978,7 @@ fn replace_first_rvalue_use(
         _ => false,
     }
 }
+
 
 fn can_replace_after_prior_eval(
     replacement: &RValue,
@@ -827,6 +1044,133 @@ mod tests {
         Assign, Binary, BinaryOperation, Block, Call, Global, If, Index, LValue, Literal, Local,
         RValue, RcLocal, Return, Select,
     };
+
+    fn tagged_replacement(mode: usize, captured: &RcLocal) -> RValue {
+        use crate::{node_origins, Traverse};
+        let value = match mode {
+            0 => Literal::Number(7.0).into(),
+            1 => Call::new(global("evaluate"), vec![]).into(),
+            _ => local_value(captured),
+        };
+        let mut value = crate::IfExpression::new(Literal::Boolean(true).into(), value,
+            Binary::new(Literal::Number(1.0).into(), Literal::Number(2.0).into(), BinaryOperation::Equal).into()).into();
+        fn stamp(value: &mut RValue, ordinal: &mut usize) {
+            *ordinal += 1;
+            if let Some(origin) = node_origins::value_mut(value) {
+                *origin = node_origins::Origin::input(node_origins::Input {
+                    function: "conditional_replacement".into(), block: 1, statement: *ordinal, value: None,
+                });
+                let data = origin.0.as_mut().unwrap();
+                data.inlined = *ordinal % 2 == 0;
+                data.incomplete = *ordinal % 3 == 0;
+                data.synthesized = Some("conditional_test");
+                // Keep some origins uncloned to detect accidental cloning of
+                // the moved SetList-tail path as well as missed copy markers.
+                data.cloned = *ordinal % 5 == 0;
+            }
+            value.visit_rvalues_mut(&mut |child| { stamp(child, ordinal); true });
+        }
+        stamp(&mut value, &mut 0);
+        value
+    }
+
+    #[test]
+    fn borrowed_replacement_search_matches_legacy_barriers_and_origins() {
+        use crate::{node_origins, Statement, Traverse};
+        type Snapshot = Option<(Vec<std::sync::Arc<node_origins::Input>>, bool, bool, bool, Option<&'static str>)>;
+        fn origins(statement: &Statement) -> Vec<Snapshot> {
+            let mut out = Vec::new();
+            statement.traverse_rvalues_ref(&mut |value| {
+                if let Some(origin) = node_origins::value(value) {
+                    out.push(origin.0.as_ref().map(|data| (data.inputs.clone(), data.inlined,
+                        data.cloned, data.incomplete, data.synthesized)));
+                }
+            });
+            out
+        }
+        let target = local("v0");
+        let captured = local("captured");
+        let object = local("object");
+        let callable = local("callable");
+        for shape in 0..12 {
+            let target_value = local_value(&target);
+            let expression: RValue = match shape {
+                0 => target_value,
+                1 => Binary::new(target_value, nil(), BinaryOperation::Equal).into(),
+                2 => Binary::new(nil(), target_value, BinaryOperation::Equal).into(),
+                3 => crate::Unary::new(target_value, crate::UnaryOperation::Not).into(),
+                4 => Index::new(target_value, string("key")).into(),
+                5 => Index::new(local_value(&object), target_value).into(),
+                6 => Call::new(local_value(&callable), vec![nil(), target_value]).into(),
+                7 => crate::MethodCall::new(local_value(&object), "method".into(), vec![nil(), target_value]).into(),
+                8 => crate::Table::new(vec![(Some(string("first")), nil()), (None, target_value)]).into(),
+                9 => crate::Table::new(vec![(Some(Call::new(global("key"), vec![]).into()), target_value)]).into(),
+                10 => Binary::new(global("condition"), target_value, BinaryOperation::And).into(),
+                _ => global("no_target"),
+            };
+            for statement_kind in 0..7 {
+                for prior_effect in [false, true] {
+                    for mode in 0..3 {
+                        let prior = if prior_effect { Call::new(global("before"), vec![]).into() } else { nil() };
+                        let statement: Statement = match statement_kind {
+                            0 => Return::new(vec![prior, expression.clone()]).into(),
+                            1 => Assign::new(vec![object.clone().into()], vec![prior, expression.clone()]).into(),
+                            2 => Assign::new(vec![Index::new(local_value(&object), string("key")).into()], vec![prior, expression.clone()]).into(),
+                            3 => Call::new(local_value(&callable), vec![prior, expression.clone()]).into(),
+                            4 => crate::MethodCall::new(local_value(&object), "method".into(), vec![prior, expression.clone()]).into(),
+                            5 => crate::SetList::new(object.clone(), 1, vec![prior, expression.clone()], None).into(),
+                            _ => crate::SetList::new(object.clone(), 1, vec![prior], Some(expression.clone())).into(),
+                        };
+                        let mut usage = super::FxHashMap::default();
+                        usage.insert(captured.clone(), super::Usage { reads: 1, writes: 1, captured: true });
+                        let mut expected = statement.clone();
+                        let mut actual = statement;
+                        let changed = super::replace_direct_rvalue_use_reference(&mut expected, &target,
+                            tagged_replacement(mode, &captured), &usage);
+                        assert_eq!(super::replace_direct_rvalue_use(&mut actual, &target,
+                            tagged_replacement(mode, &captured), &usage), changed);
+                        assert_eq!(actual, expected, "shape {shape}, statement {statement_kind}, mode {mode}, effect {prior_effect}");
+                        assert_eq!(origins(&actual), origins(&expected), "shape {shape}, statement {statement_kind}, origins");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn failed_replacement_positions_never_clone_the_candidate_tree() {
+        let target = local("v0");
+        let object = local("object");
+        for width in [64, 256, 1024] {
+            for use_site in 0..3 {
+                let values = vec![nil(); width];
+                let statement: crate::Statement = if use_site == 2 {
+                    crate::SetList::new(object.clone(), 1, values, Some(local_value(&target))).into()
+                } else {
+                    let mut values = values;
+                    if use_site == 1 { values.push(local_value(&target)); }
+                    Return::new(values).into()
+                };
+                let mut expected = statement.clone();
+                let mut actual = statement;
+                let usage = Default::default();
+                super::REPLACEMENT_CLONES.with(|clones| clones.set(0));
+                let changed = super::replace_direct_rvalue_use_reference(&mut expected, &target,
+                    tagged_replacement(0, &object), &usage);
+                let legacy_clones = super::REPLACEMENT_CLONES.with(|clones| clones.get());
+                super::REPLACEMENT_CLONES.with(|clones| clones.set(0));
+                assert_eq!(super::replace_direct_rvalue_use(&mut actual, &target,
+                    tagged_replacement(0, &object), &usage), changed);
+                let clones = super::REPLACEMENT_CLONES.with(|clones| clones.get());
+                assert_eq!(actual, expected);
+                assert_eq!(changed, use_site != 0);
+                assert_eq!(clones, usize::from(use_site == 1));
+                // SetList's original fixed-values trial also cloned the root
+                // before trying each list element; its tail then moved it.
+                assert_eq!(legacy_clones, width + usize::from(use_site != 0));
+            }
+        }
+    }
 
     #[test]
     fn adjacency_worklist_matches_legacy_restarts() {

@@ -198,7 +198,8 @@ fn observed_before(statements: &[Statement], local: &RcLocal, remaining: &mut us
     for statement in statements {
         if *remaining == 0 { return true; }
         *remaining -= 1;
-        if statement.values_read().into_iter().chain(statement.values_written()).any(|read| read == local) {
+        if statement.any_local_read(&mut |read| read == local)
+            || statement.values_written().into_iter().any(|written| written == local) {
             return true;
         }
         let nested = match statement {
@@ -243,7 +244,7 @@ fn can_append_set_list_at(table: &Table, array_len: usize, list: &crate::SetList
         // the exact next list index therefore retains numeric-key overwrites,
         // nil stores and dynamic-key errors in their original order.
         && !list.values.iter().chain(list.tail.iter())
-            .any(|value| value.values_read().iter().any(|read| *read == object))
+            .any(|value| value.any_local_read(&mut |read| read == object))
 }
 
 /// Sink an unobservable, total table allocation across intervening local
@@ -251,6 +252,88 @@ fn can_append_set_list_at(table: &Table, array_len: usize, list: &crate::SetList
 /// shapes such as PortalAnimator's `Model/Center/Parts` return without moving
 /// the intervening call into the constructor.
 fn sink_total_table_declarations(
+    block: &mut Block,
+    captured: &rustc_hash::FxHashSet<RcLocal>,
+) -> bool {
+    let mut changed = false;
+    let mut index = 0;
+    // A successful move only permutes local declarations within their run, so
+    // its terminating non-declaration stays at the same index. Find each run's
+    // endpoint once before examining expensive dependency/read predicates.
+    let mut declarations_end = 0;
+    while index + 2 < block.0.len() {
+        let Some(object) = table_constructor_local(&block.0[index]) else {
+            index += 1;
+            continue;
+        };
+        if captured.contains(&object) {
+            index += 1;
+            continue;
+        }
+        if declarations_end <= index {
+            declarations_end = index + 1;
+            while declarations_end < block.0.len()
+                && is_intervening_local_declaration(&block.0[declarations_end])
+            {
+                declarations_end += 1;
+            }
+        }
+        if declarations_end == index + 1
+            || declarations_end >= block.0.len()
+            || block.0[declarations_end].as_assign()
+                .and_then(|assign| field_assignment_parts(assign, &object)).is_none()
+        {
+            index += 1;
+            continue;
+        }
+        let table = block.0[index].as_assign().unwrap().right[0]
+            .as_table()
+            .unwrap();
+        if !crate::side_effects::is_total_table(table) {
+            index += 1;
+            continue;
+        }
+        let dependencies = table
+            .values_read()
+            .into_iter()
+            .cloned()
+            .collect::<rustc_hash::FxHashSet<_>>();
+        if dependencies.iter().any(|local| captured.contains(local)) {
+            index += 1;
+            continue;
+        }
+
+        let mut field_index = index + 1;
+        while field_index < block.0.len()
+            && is_intervening_local_declaration(&block.0[field_index])
+            && !block.0[field_index].any_local_read(&mut |read| read == &object)
+            && !crate::inline_temps::statement_writes_any_local(
+                &block.0[field_index],
+                &dependencies,
+            )
+        {
+            field_index += 1;
+        }
+        if field_index == index + 1
+            || field_index >= block.0.len()
+            || block.0[field_index]
+                .as_assign()
+                .and_then(|assign| field_assignment_parts(assign, &object))
+                .is_none()
+        {
+            index += 1;
+            continue;
+        }
+
+        block.0[index..field_index].rotate_left(1);
+        changed = true;
+        index = field_index;
+    }
+    changed
+}
+
+#[cfg(test)]
+fn sink_total_table_declarations_reference(
     block: &mut Block,
     captured: &rustc_hash::FxHashSet<RcLocal>,
 ) -> bool {
@@ -315,6 +398,7 @@ fn sink_total_table_declarations(
     changed
 }
 
+
 fn is_intervening_local_declaration(statement: &Statement) -> bool {
     matches!(
         statement,
@@ -367,8 +451,7 @@ fn sink_private_constructor_regions(
             if !proof.statement(statement, 0) { break; }
         }
         if let Some(next) = destination {
-            let declaration = block.0.remove(index);
-            block.0.insert(next - 1, declaration);
+            block.0[index..next].rotate_left(1);
             crate::telemetry::count("constructor_regions_sunk", 1);
             changed = true;
             index = next;
@@ -431,7 +514,7 @@ impl ConstructorMotion {
             }
             _ => {}
         }
-        value.rvalues().into_iter().all(|child| self.value(child, depth + 1))
+        value.visit_rvalues(&mut |child| self.value(child, depth + 1))
     }
 
     fn statement(&mut self, statement: &Statement, depth: usize) -> bool {
@@ -511,7 +594,7 @@ fn extract_drained_constructor_fields(block: &mut Block) -> bool {
             continue;
         }
         let (_, value) = table.0.pop().unwrap();
-        if value.values_read().iter().any(|read| *read == &object) {
+        if value.any_local_read(&mut |read| read == &object) {
             table.0.push((Some(key), value));
             index += 1;
             continue;
@@ -595,7 +678,7 @@ fn table_constructor_local(statement: &Statement) -> Option<RcLocal> {
     let RValue::Table(table) = &assign.right[0] else {
         return None;
     };
-    if table.values_read().iter().any(|read| *read == local) {
+    if table.any_local_read(&mut |read| read == local) {
         return None;
     }
     Some(local.clone())
@@ -621,8 +704,8 @@ fn field_assignment_parts<'a>(
 }
 
 fn can_fold_table_field_assignment(key: &RValue, value: &RValue, object_local: &RcLocal) -> bool {
-    !key.values_read().iter().any(|read| *read == object_local)
-        && !value.values_read().iter().any(|read| *read == object_local)
+    !key.any_local_read(&mut |read| read == object_local)
+        && !value.any_local_read(&mut |read| read == object_local)
 }
 
 // A contiguous field keeps key evaluation, then value evaluation, then the
@@ -793,6 +876,58 @@ mod tests {
 
     fn print(value: RValue) -> crate::Statement {
         Call::new(global("print"), vec![value]).into()
+    }
+
+    #[test]
+    fn indexed_constructor_runs_match_original_motion_and_barriers() {
+        for seed in 0..512u64 {
+            let locals: Vec<_> = (0..12).map(|i| local(&format!("local{i}"))).collect();
+            let mut random = seed + 1;
+            let mut statements = Vec::new();
+            for index in 0..160 {
+                random = random.wrapping_mul(6364136223846793005).wrapping_add(1);
+                let target = &locals[(random >> 32) as usize % locals.len()];
+                let source = &locals[(random >> 16) as usize % locals.len()];
+                let value = if random & 1 == 0 { number(index as f64) } else { local_value(source) };
+                statements.push(match random % 12 {
+                    0..=3 => declare(target, Table::new(vec![(Some(string("initial")), value)]).into()),
+                    4..=6 => declare(target, value),
+                    7 => declare(target, Call::new(global("effect"), vec![value]).into()),
+                    8 => assign_field(target, string("field"), value),
+                    9 => print(value),
+                    10 => crate::Empty {}.into(),
+                    _ => Assign::new(vec![target.clone().into()], vec![value]).into(),
+                });
+            }
+            let captured = locals.iter().enumerate().filter(|(index, _)| (*index + seed as usize) % 7 == 0)
+                .map(|(_, local)| local.clone()).collect();
+            let mut expected = Block(statements.clone());
+            let mut actual = Block(statements);
+            assert_eq!(super::sink_total_table_declarations(&mut actual, &captured),
+                super::sink_total_table_declarations_reference(&mut expected, &captured));
+            assert_eq!(actual, expected, "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn constructor_run_index_survives_successful_moves_and_long_irrelevant_runs() {
+        let mut statements = Vec::new();
+        for group in 0..4 {
+            let object = local(&format!("object{group}"));
+            statements.push(declare(&object, Table::default().into()));
+            for index in 0..256 {
+                statements.push(declare(&local(&format!("other{group}_{index}")), Table::default().into()));
+            }
+            statements.push(assign_field(&object, string("field"), number(group as f64)));
+        }
+        for index in 0..256 {
+            statements.push(declare(&local(&format!("unused{index}")), Table::default().into()));
+        }
+        let mut expected = Block(statements.clone());
+        let mut actual = Block(statements);
+        assert!(super::sink_total_table_declarations(&mut actual, &Default::default()));
+        assert!(super::sink_total_table_declarations_reference(&mut expected, &Default::default()));
+        assert_eq!(actual, expected);
     }
 
     #[test]

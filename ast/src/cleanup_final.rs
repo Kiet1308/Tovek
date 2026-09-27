@@ -33,9 +33,13 @@ fn simplify_constants_in_tree(block: &mut Block, function_upvalues: &FxHashSet<R
     for (function, upvalues) in closure_functions(block) {
         simplify_constants_in_tree(&mut function.lock().body, &upvalues);
     }
-    if function_has_goto(block) {
+    // Children must run first: a shared structured block can gain a boolean
+    // assignment while a child function is simplified.
+    if constant_opportunities(block) != Some(true) {
+        crate::telemetry::count("cleanup_constant_functions_skipped", 1);
         return;
     }
+    crate::telemetry::count("cleanup_constant_functions_processed", 1);
     let mut captured = crate::inline_temps::collect_usage(block)
         .into_iter()
         .filter(|(_, usage)| usage.captured)
@@ -173,6 +177,11 @@ fn simplify_constant_block(
 }
 
 fn replace_constants(value: &mut RValue, state: &ConstantState) -> bool {
+    if state.is_empty() {
+        return false;
+    }
+    #[cfg(test)]
+    CONSTANT_VALUE_VISITS.with(|visits| visits.set(visits.get() + 1));
     if let RValue::Local(local) = value
         && let Some(constant) = state.get(local)
     {
@@ -182,20 +191,24 @@ fn replace_constants(value: &mut RValue, state: &ConstantState) -> bool {
     if matches!(value, RValue::Closure(_)) {
         return false;
     }
-    value
-        .rvalues_mut()
-        .into_iter()
-        .fold(false, |changed, child| {
-            replace_constants(child, state) | changed
-        })
+    let mut changed = false;
+    value.visit_rvalues_mut(&mut |child| {
+        changed |= replace_constants(child, state);
+        true
+    });
+    changed
 }
 
 fn rewrite_direct_statement_values(statement: &mut Statement, state: &ConstantState) -> bool {
-    crate::deinline::stmt_rvalues_mut(statement)
-        .into_iter()
-        .fold(false, |changed, value| {
-            replace_constants(value, state) | changed
-        })
+    if state.is_empty() {
+        return false;
+    }
+    let mut changed = false;
+    crate::deinline::visit_stmt_rvalues_mut(statement, &mut |value| {
+        changed |= replace_constants(value, state);
+        true
+    });
+    changed
 }
 
 fn update_state_after_statement(
@@ -203,9 +216,10 @@ fn update_state_after_statement(
     captured: &FxHashSet<RcLocal>,
     state: &mut ConstantState,
 ) {
-    for local in statement.values_written() {
+    statement.visit_local_writes(&mut |local| {
         state.remove(local);
-    }
+        true
+    });
     let Statement::Assign(assign) = statement else {
         return;
     };
@@ -282,11 +296,11 @@ fn is_loop_statement(statement: &Statement) -> bool {
 }
 
 fn statement_written_locals_deep(statement: &Statement) -> FxHashSet<RcLocal> {
-    let mut written = statement
-        .values_written()
-        .into_iter()
-        .cloned()
-        .collect::<FxHashSet<_>>();
+    let mut written = FxHashSet::default();
+    statement.visit_local_writes(&mut |local| {
+        written.insert(local.clone());
+        true
+    });
     match statement {
         Statement::While(node) => collect_block_writes(&node.block.lock(), &mut written),
         Statement::Repeat(node) => collect_block_writes(&node.block.lock(), &mut written),
@@ -305,7 +319,10 @@ fn statement_written_locals_deep(statement: &Statement) -> FxHashSet<RcLocal> {
 
 fn collect_block_writes(block: &Block, written: &mut FxHashSet<RcLocal>) {
     for statement in &block.0 {
-        written.extend(statement.values_written().into_iter().cloned());
+        statement.visit_local_writes(&mut |local| {
+            written.insert(local.clone());
+            true
+        });
         match statement {
             Statement::If(node) => {
                 collect_block_writes(&node.then_block.lock(), written);
@@ -326,21 +343,35 @@ fn collect_block_writes(block: &Block, written: &mut FxHashSet<RcLocal>) {
     }
 }
 
-fn function_has_goto(block: &Block) -> bool {
-    block.0.iter().any(|statement| {
-        matches!(statement, Statement::Goto(_) | Statement::Label(_))
-            || match statement {
-                Statement::If(node) => {
-                    function_has_goto(&node.then_block.lock())
-                        || function_has_goto(&node.else_block.lock())
-                }
-                Statement::While(node) => function_has_goto(&node.block.lock()),
-                Statement::Repeat(node) => function_has_goto(&node.block.lock()),
-                Statement::NumericFor(node) => function_has_goto(&node.block.lock()),
-                Statement::GenericFor(node) => function_has_goto(&node.block.lock()),
-                _ => false,
+// None preserves the old goto/label bailout. Some(false) proves that an
+// initially empty state stays empty and no If condition is independently
+// reduced. This adds flags to the existing structured-block scan, without
+// walking expressions or entering closure bodies.
+fn constant_opportunities(block: &Block) -> Option<bool> {
+    let mut opportunity = false;
+    for statement in &block.0 {
+        match statement {
+            Statement::Goto(_) | Statement::Label(_) => return None,
+            Statement::Assign(assign) => {
+                opportunity |= !assign.parallel
+                    && matches!(assign.left.as_slice(), [LValue::Local(_)])
+                    && matches!(assign.right.as_slice(), [RValue::Literal(Literal::Boolean(_))]);
             }
-    })
+            Statement::If(node) => {
+                // Keep scanning both arms even when an opportunity is known:
+                // a goto anywhere disables propagation for this function.
+                constant_opportunities(&node.then_block.lock())?;
+                constant_opportunities(&node.else_block.lock())?;
+                opportunity = true;
+            }
+            Statement::While(node) => opportunity |= constant_opportunities(&node.block.lock())?,
+            Statement::Repeat(node) => opportunity |= constant_opportunities(&node.block.lock())?,
+            Statement::NumericFor(node) => opportunity |= constant_opportunities(&node.block.lock())?,
+            Statement::GenericFor(node) => opportunity |= constant_opportunities(&node.block.lock())?,
+            _ => {}
+        }
+    }
+    Some(opportunity)
 }
 
 // ---------------------------------------------------------------------------
@@ -364,15 +395,18 @@ fn collect_current_function_usage_in_block(
     usage: &mut FxHashMap<RcLocal, crate::inline_temps::Usage>,
 ) {
     for statement in &block.0 {
-        for local in statement.values_read() {
+        statement.visit_local_reads(&mut |local| {
             usage.entry(local.clone()).or_default().reads += 1;
-        }
-        for local in statement.values_written() {
+            true
+        });
+        statement.visit_local_writes(&mut |local| {
             usage.entry(local.clone()).or_default().writes += 1;
-        }
-        for value in crate::deinline::stmt_rvalues(statement) {
+            true
+        });
+        crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
             record_direct_closure_captures(value, usage);
-        }
+            true
+        });
         match statement {
             Statement::If(node) => {
                 collect_current_function_usage_in_block(&node.then_block.lock(), usage);
@@ -411,9 +445,10 @@ fn record_direct_closure_captures(
         // the closure's explicit upvalue list above.
         return;
     }
-    for child in value.rvalues() {
+    value.visit_rvalues(&mut |child| {
         record_direct_closure_captures(child, usage);
-    }
+        true
+    });
 }
 
 #[derive(Debug)]
@@ -566,11 +601,16 @@ fn dead_store_candidate(
     if !assign.right.is_empty() && !assign.right.first().is_some_and(disposable_unused_value) {
         return None;
     }
+    let mut reads = Vec::new();
+    statement.visit_local_reads(&mut |local| {
+        reads.push(local.clone());
+        true
+    });
     Some(DeadStoreCandidate {
         statement_id,
         destination: local.clone(),
         prefix: assign.prefix,
-        reads: statement.values_read().into_iter().cloned().collect(),
+        reads,
     })
 }
 
@@ -649,10 +689,7 @@ fn disposable_unused_value(value: &RValue) -> bool {
 
 fn contains_structural_definition(value: &RValue) -> bool {
     matches!(value, RValue::Closure(_) | RValue::Table(_))
-        || value
-            .rvalues()
-            .into_iter()
-            .any(contains_structural_definition)
+        || !value.visit_rvalues(&mut |child| !contains_structural_definition(child))
 }
 
 // ---------------------------------------------------------------------------
@@ -800,8 +837,11 @@ fn count_declared_locals(block: &Block) -> usize {
             direct
                 + match statement {
                     Statement::If(node) => {
-                        count_declared_locals(&node.then_block.lock())
-                            + count_declared_locals(&node.else_block.lock())
+                        // Both arms can share a Block after an AST clone.
+                        // Release the first lock before acquiring the second.
+                        let then_count = count_declared_locals(&node.then_block.lock());
+                        let else_count = count_declared_locals(&node.else_block.lock());
+                        then_count + else_count
                     }
                     Statement::While(node) => count_declared_locals(&node.block.lock()),
                     Statement::Repeat(node) => count_declared_locals(&node.block.lock()),
@@ -824,9 +864,10 @@ fn closure_functions(block: &Block) -> Vec<ClosureFunction> {
 
 fn collect_closure_functions(block: &Block, functions: &mut Vec<ClosureFunction>) {
     for statement in &block.0 {
-        for value in crate::deinline::stmt_rvalues(statement) {
+        crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
             collect_closures_in_value(value, functions);
-        }
+            true
+        });
         match statement {
             Statement::If(node) => {
                 collect_closure_functions(&node.then_block.lock(), functions);
@@ -853,9 +894,20 @@ fn collect_closures_in_value(value: &RValue, functions: &mut Vec<ClosureFunction
         functions.push((closure.function.clone(), upvalues));
         return;
     }
-    for child in value.rvalues() {
+    value.visit_rvalues(&mut |child| {
         collect_closures_in_value(child, functions);
-    }
+        true
+    });
+}
+
+#[cfg(test)]
+mod reference;
+#[cfg(test)]
+mod differential;
+#[cfg(test)]
+thread_local! {
+    static CONSTANT_VALUE_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static REFERENCE_VALUE_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(test)]

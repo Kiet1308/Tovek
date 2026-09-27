@@ -36,7 +36,7 @@ pub struct TypedLocalHint {
 
 pub struct Lifter<'a> {
     function_list: &'a Vec<BytecodeFunction>,
-    string_table: &'a Vec<Vec<u8>>,
+    string_table: &'a [&'a [u8]],
     typed_locals: &'a [TypedLocalHint],
     debug_ranges: crate::metadata_index::RegisterRanges,
     typed_ranges: crate::metadata_index::RegisterRanges,
@@ -51,9 +51,10 @@ pub struct Lifter<'a> {
     // ASLR-randomized `ByAddress` would leave tied entries in a run-dependent order.
     child_functions: Vec<(ByAddress<Arc<Mutex<ast::Function>>>, usize, Option<String>)>,
     static_function_id: Option<String>,
-    register_map: FxHashMap<usize, ast::RcLocal>,
+    // Bytecode registers form a small dense range. Keep unmaterialized slots
+    // empty so local IDs still follow first use, including reverse block order.
+    register_map: Vec<Option<ast::RcLocal>>,
     register_of: FxHashMap<u64, u8>,
-    constant_map: FxHashMap<usize, ast::Literal>,
     // Provenance indexed by FORGLOOP PC.  Prep discovery already resolves the
     // target step PC, so keeping the pair here avoids rescanning the complete
     // instruction vector for every FORGLOOP marker.
@@ -75,7 +76,7 @@ fn take_top(
 impl<'a> Lifter<'a> {
     pub fn lift(
         f_list: &'a Vec<BytecodeFunction>,
-        str_list: &'a Vec<Vec<u8>>,
+        str_list: &'a [&'a [u8]],
         bytecode_version: u8,
         function_id: usize,
         static_function_id: Option<String>,
@@ -100,9 +101,9 @@ impl<'a> Lifter<'a> {
             function: Function::new(function_id),
             child_functions: Vec::new(),
             static_function_id,
-            register_map: FxHashMap::default(),
+            register_map: vec![None; usize::from(f_list[function_id].max_stack_size
+                .max(f_list[function_id].num_parameters))],
             register_of: FxHashMap::default(),
-            constant_map: FxHashMap::default(),
             for_origins_by_step: FxHashMap::default(),
             current_node: None,
             upvalues: Vec::new(),
@@ -128,30 +129,6 @@ impl<'a> Lifter<'a> {
         let mut blocks = self.blocks.keys().cloned().collect::<Vec<_>>();
 
         blocks.sort_unstable();
-
-        // TODO: code_ranges in lua51-lifter
-        let block_ranges = blocks
-            .iter()
-            .rev()
-            .fold(
-                (
-                    self.function_list[self.function.id].instructions.len(),
-                    Vec::new(),
-                ),
-                |(block_end, mut accumulator), &block_start| {
-                    accumulator.push((block_start, block_end - 1));
-
-                    (
-                        if block_start != 0 {
-                            block_start
-                        } else {
-                            block_end
-                        },
-                        accumulator,
-                    )
-                },
-            )
-            .1;
 
         for slot in 0..self.function_list[self.function.id].num_upvalues {
             let local = ast::RcLocal::default();
@@ -180,12 +157,14 @@ impl<'a> Lifter<'a> {
             if !self.debug_bindings.is_empty() || !self.typed_locals.is_empty() {
                 self.register_of.insert(parameter.stable_id(), i);
             }
-            self.register_map.insert(i as usize, parameter);
+            self.register_map[i as usize] = Some(parameter);
         }
 
         self.function.is_variadic = self.function_list[self.function.id].is_vararg;
 
-        for (start_pc, end_pc) in block_ranges {
+        for (index, &start_pc) in blocks.iter().enumerate().rev() {
+            let end_pc = blocks.get(index + 1).copied()
+                .unwrap_or(self.function_list[self.function.id].instructions.len()) - 1;
             self.current_node = Some(self.block_to_node(start_pc));
             self.function
                 .set_block_pc_range(self.current_node.unwrap(), start_pc, end_pc);
@@ -275,7 +254,7 @@ impl<'a> Lifter<'a> {
             self.debug_ranges.covering(register as u8, block_start, &mut ranges);
             if let [index] = ranges.as_slice() {
                 let debug = &debug_locals[*index];
-                if let (Some(local), Some(binding)) = (self.register_map.get(&(debug.register as usize)), self.debug_bindings[*index].as_ref()) {
+                if let (Some(local), Some(binding)) = (self.register_map.get(debug.register as usize).and_then(Option::as_ref), self.debug_bindings[*index].as_ref()) {
                     self.function.entry_source_bindings.insert((node, local.clone()), binding.clone());
                 }
             }
@@ -606,7 +585,13 @@ impl<'a> Lifter<'a> {
         // Bytecode PC of the instruction each statement was lifted from
         // (parallel to `statements`; a multi-instruction lift is attributed to
         // its first instruction).
-        let mut statement_pcs: Vec<usize> = Vec::with_capacity(statements.capacity());
+        let track_statement_pcs = !self.typed_locals.is_empty()
+            || !self.function_list[self.function.id].debug_locals.is_empty();
+        let mut statement_pcs = if track_statement_pcs {
+            Vec::with_capacity(statements.capacity())
+        } else {
+            Vec::new()
+        };
 
         let mut top: Option<(ast::RValue, u8)> = None;
         // PC of the CALL described by the most recent FASTPCALL in this block.
@@ -1773,9 +1758,8 @@ impl<'a> Lifter<'a> {
                         }
 
                         let function = Arc::<Mutex<ast::Function>>::default();
-                        let closure_site_id = format!("p{}@pc{constructor_pc}", self.function.id);
                         let child_function_id = self.static_function_id.as_ref().map(|parent_id| {
-                            format!("{parent_id}/{closure_site_id}:p{func_index}")
+                            format!("{parent_id}/p{}@pc{constructor_pc}:p{func_index}", self.function.id)
                         });
                         self.child_functions.push((
                             ByAddress(function.clone()),
@@ -1828,8 +1812,10 @@ impl<'a> Lifter<'a> {
                 },
                 _ => unimplemented!("{:?}", instruction),
             }
-            statement_pcs.resize(statements.len(), pc);
-            debug_assert!(statement_pcs.len() >= lifted_before);
+            if track_statement_pcs {
+                statement_pcs.resize(statements.len(), pc);
+                debug_assert!(statement_pcs.len() >= lifted_before);
+            }
             if trace_origins && (statements.len() != lifted_before || set_pending) {
                 let next_pc = iter.clone().next().map_or(block_end + 1, |(index, _)| block_start + index);
                 consumed_pcs.extend((pc..next_pc).filter(|&at| at == pc || !matches!(
@@ -1861,23 +1847,28 @@ impl<'a> Lifter<'a> {
         }
 
         // The trailing "block does not return" marker writes no local.
-        statement_pcs.resize(statements.len(), block_end);
+        if track_statement_pcs { statement_pcs.resize(statements.len(), block_end); }
         // A generated warning has no source instruction; preserve that unknown.
         if trace_origins { statement_origins.resize(statements.len(), Vec::new()); }
         (statements, edges, statement_pcs, statement_origins)
     }
 
     fn register(&mut self, index: usize) -> ast::RcLocal {
-        let local = match self.register_map.entry(index) {
-            std::collections::hash_map::Entry::Occupied(entry) => entry.get().clone(),
-            std::collections::hash_map::Entry::Vacant(entry) => {
+        if index >= self.register_map.len() {
+            // Keep direct Lifter callers compatible with the old sparse map;
+            // validated bytecode already fits its declared register stack.
+            self.register_map.resize_with(index + 1, || None);
+        }
+        let local = match &mut self.register_map[index] {
+            Some(local) => local.clone(),
+            slot @ None => {
                 let local = ast::RcLocal::default();
                 if !self.debug_bindings.is_empty() || !self.typed_locals.is_empty() {
                     if let Ok(register) = u8::try_from(index) {
                         self.register_of.insert(local.stable_id(), register);
                     }
                 }
-                entry.insert(local.clone());
+                *slot = Some(local.clone());
                 local
             }
         };
@@ -1885,8 +1876,11 @@ impl<'a> Lifter<'a> {
         local
     }
 
-    fn constant(&mut self, index: usize) -> ast::Literal {
-        self.constant_map.entry(index).or_insert_with(|| match self.function_list[self.function.id]
+    fn constant(&self, index: usize) -> ast::Literal {
+        // Numeric conversions are copies, and each string use must own its
+        // bytes anyway. Caching a Literal adds a hash lookup and duplicates the
+        // first string allocation without sharing any subsequent AST storage.
+        match self.function_list[self.function.id]
             .constants
             .get(index)
             .unwrap()
@@ -1899,55 +1893,38 @@ impl<'a> Lifter<'a> {
                 // same `== 0` convention the function-name path uses). `v - 1` would
                 // underflow and `string_table[usize::MAX]` panic the whole proto
                 // (L6); decode it as the empty string instead.
+                #[cfg(feature = "byte-storage-trace")]
+                {
+                    // GETGLOBAL/SETGLOBAL/GETIMPORT and NAMECALL move this
+                    // buffer into their final name type without another copy.
+                    // Count their initial materialization here exactly once.
+                    let length = if *v == 0 { 0 } else { self.string_table[*v - 1].len() };
+                    ast::telemetry::count("byte_lift_string_copy_calls", 1);
+                    ast::telemetry::count("byte_lift_string_copy_bytes", length as u64);
+                    ast::telemetry::count("byte_lift_string_copy_nonempty", u64::from(length != 0));
+                }
                 if *v == 0 {
                     ast::Literal::String(Vec::new())
                 } else {
-                    ast::Literal::String(self.string_table[*v - 1].clone())
+                    ast::Literal::String(self.string_table[*v - 1].to_vec())
                 }
             }
             BytecodeConstant::Vector(x, y, z, _) => ast::Literal::Vector(*x, *y, *z),
             BytecodeConstant::VectorD(x, y, z, _) => ast::Literal::VectorD(*x, *y, *z),
             BytecodeConstant::Integer(v) => ast::Literal::Integer(*v),
             _ => unimplemented!(),
-        }).clone()
+        }
     }
 
     // Reconstructs an arbitrary constant (including nested constant tables) as an
     // rvalue. Used to materialize DUPTABLE templates whose field values are baked
     // into the bytecode constant pool.
-    fn constant_to_rvalue(&mut self, index: usize) -> ast::RValue {
-        enum Shape {
-            Literal(ast::Literal),
-            Table(Vec<(usize, i32)>),
-        }
-        let shape = match self.function_list[self.function.id].constants.get(index) {
-            Some(BytecodeConstant::Boolean(v)) => Shape::Literal(ast::Literal::Boolean(*v)),
-            Some(BytecodeConstant::Number(v)) => Shape::Literal(ast::Literal::Number(*v)),
-            Some(BytecodeConstant::Integer(v)) => Shape::Literal(ast::Literal::Integer(*v)),
-            Some(BytecodeConstant::String(v)) => Shape::Literal(if *v == 0 {
-                ast::Literal::String(Vec::new())
-            } else {
-                ast::Literal::String(self.string_table[*v - 1].clone())
-            }),
-            Some(BytecodeConstant::Vector(x, y, z, _)) => {
-                Shape::Literal(ast::Literal::Vector(*x, *y, *z))
-            }
-            Some(BytecodeConstant::VectorD(x, y, z, _)) => {
-                Shape::Literal(ast::Literal::VectorD(*x, *y, *z))
-            }
-            Some(BytecodeConstant::TableWithConstants(pairs)) => Shape::Table(pairs.clone()),
-            Some(BytecodeConstant::Table(keys)) => {
-                Shape::Table(keys.iter().map(|&key| (key, -1)).collect())
-            }
-            // Nil, Import, Closure
-            _ => Shape::Literal(ast::Literal::Nil),
-        };
-        match shape {
-            Shape::Literal(literal) => literal.into(),
-            Shape::Table(pairs) => {
+    fn constant_to_rvalue(&self, index: usize) -> ast::RValue {
+        match self.function_list[self.function.id].constants.get(index) {
+            Some(BytecodeConstant::TableWithConstants(pairs)) => {
                 let entries = pairs
-                    .into_iter()
-                    .map(|(key, value)| {
+                    .iter()
+                    .map(|&(key, value)| {
                         let key = self.constant_to_rvalue(key);
                         let value = if value < 0 {
                             ast::Literal::Number(0.0).into()
@@ -1959,6 +1936,14 @@ impl<'a> Lifter<'a> {
                     .collect();
                 ast::Table::new(entries).into()
             }
+            Some(BytecodeConstant::Table(keys)) => ast::Table::new(keys.iter().map(|&key| {
+                (Some(self.constant_to_rvalue(key)), ast::Literal::Number(0.0).into())
+            }).collect()).into(),
+            Some(BytecodeConstant::Nil | BytecodeConstant::Boolean(_) | BytecodeConstant::Number(_)
+                | BytecodeConstant::Integer(_) | BytecodeConstant::String(_) | BytecodeConstant::Vector(..)
+                | BytecodeConstant::VectorD(..)) => self.constant(index).into(),
+            // Import, Closure and unknown template values retain the nil fallback.
+            _ => ast::Literal::Nil.into(),
         }
     }
 
@@ -2017,6 +2002,107 @@ mod tests {
     }
 
     #[test]
+    fn register_ids_follow_first_use_in_reverse_block_order() {
+        let ad = |op_code, a, d| Instruction::AD { op_code, a, d, aux: 0 };
+        let mut proto = prototype(1, vec![
+            ad(OpCode::LOP_JUMPIF, 0, 2),
+            ad(OpCode::LOP_LOADN, 254, 1),
+            ad(OpCode::LOP_JUMP, 0, 2),
+            ad(OpCode::LOP_LOADN, 4, 2),
+            ad(OpCode::LOP_LOADN, 4, 3),
+            instruction(OpCode::LOP_RETURN, 0, 2, 0),
+        ]);
+        // Cover both the full declared range and direct callers with an
+        // undersized stack. Neither may eagerly mint IDs for unused slots.
+        for stack_size in [255, 1, 0] {
+            proto.max_stack_size = stack_size;
+            let base = ast::current_local_id();
+            let protos = vec![proto];
+            let (function, _, _) = Lifter::lift(&protos, &vec![], 9, 0,
+                Some("root:p0".into()), &[], true);
+            let trace = function.provenance.as_ref().unwrap();
+            let registers = trace.registers.values()
+                .map(|register| (register.slot, register.id - base)).collect::<Vec<_>>();
+            assert_eq!(registers, vec![(0, 0), (4, 1), (254, 2)]);
+            assert_eq!(ast::current_local_id() - base, 3);
+            let mut protos = protos;
+            proto = protos.pop().unwrap();
+        }
+    }
+
+    #[test]
+    fn lifted_string_literals_own_arbitrary_bytes_after_input_is_dropped() {
+        let function = {
+            let input = vec![0, 0xff, 0x80, b'a', b'\n'];
+            let mut proto = prototype(0, vec![
+                Instruction::AD { op_code: OpCode::LOP_LOADK, a: 0, d: 0, aux: 0 },
+                instruction(OpCode::LOP_RETURN, 0, 2, 0),
+            ]);
+            proto.constants = vec![super::BytecodeConstant::String(1)];
+            Lifter::lift(&vec![proto], &[input.as_slice()], 9, 0, None, &[], false).0
+        };
+        let literals = function.graph().node_weights().flat_map(|block| block.iter())
+            .filter_map(|statement| statement.as_assign())
+            .flat_map(|assign| assign.right.iter())
+            .filter_map(|value| value.as_literal().and_then(ast::Literal::as_string))
+            .collect::<Vec<_>>();
+        assert_eq!(literals, vec![&vec![0, 0xff, 0x80, b'a', b'\n']]);
+    }
+
+    #[test]
+    fn repeated_constants_preserve_bits_and_nested_table_defaults() {
+        use super::BytecodeConstant as C;
+        use ast::Literal as L;
+        let nan = f64::from_bits(0x7ff8_0000_0000_1234);
+        let mut proto = prototype(0, vec![]);
+        proto.constants = vec![
+            C::Nil, C::Boolean(true), C::Number(nan), C::Number(f64::INFINITY),
+            C::Number(f64::NEG_INFINITY), C::Number(-0.0), C::String(0), C::String(1),
+            C::Vector(1.0, 2.0, 3.0, 99.0), C::VectorD(1.0000000000001, 2.0, 3.0, 99.0),
+            C::Integer(i64::MIN), C::Table(vec![7]),
+            C::TableWithConstants(vec![(7, 11), (6, -1), (1, 99)]),
+        ];
+        // Repeated loads exercise both the former cold-cache and warm-cache
+        // behavior, with every non-table literal and both table encodings.
+        for _ in 0..2 {
+            for index in 0..proto.constants.len() {
+                proto.instructions.push(Instruction::AD {
+                    op_code: if index < 11 { OpCode::LOP_LOADK } else { OpCode::LOP_DUPTABLE },
+                    a: 0, d: index as i16, aux: 0,
+                });
+            }
+        }
+        proto.instructions.push(instruction(OpCode::LOP_RETURN, 0, 2, 0));
+        let (function, _, _) = Lifter::lift(&vec![proto], &[b"value"],
+            13, 0, None, &[], false);
+        let values = function.graph().node_weights().flat_map(|block| block.iter())
+            .filter_map(|statement| statement.as_assign().map(|assign| &assign.right[0]))
+            .collect::<Vec<_>>();
+        assert_eq!(values.len(), 26);
+        let expected = [L::Nil, L::Boolean(true), L::Number(nan), L::Number(f64::INFINITY),
+            L::Number(f64::NEG_INFINITY), L::Number(-0.0), L::String(vec![]),
+            L::String(b"value".to_vec()), L::Vector(1.0, 2.0, 3.0),
+            L::VectorD(1.0000000000001, 2.0, 3.0), L::Integer(i64::MIN)];
+        for loaded in values.chunks_exact(13) {
+            for (value, expected) in loaded.iter().zip(&expected) {
+                match (value.as_literal().unwrap(), expected) {
+                    (L::Number(actual), L::Number(expected)) => assert_eq!(actual.to_bits(), expected.to_bits()),
+                    (actual, expected) => assert_eq!(actual, expected),
+                }
+            }
+            let plain = ast::Table::new(vec![
+                (Some(L::String(b"value".to_vec()).into()), L::Number(0.0).into()),
+            ]);
+            assert_eq!(loaded[11], &ast::RValue::from(plain.clone()));
+            assert_eq!(loaded[12], &ast::RValue::from(ast::Table::new(vec![
+                (Some(L::String(b"value".to_vec()).into()), plain.into()),
+                (Some(L::String(vec![]).into()), L::Number(0.0).into()),
+                (Some(L::Boolean(true).into()), L::Nil.into()),
+            ])));
+        }
+    }
+
+    #[test]
     fn indexed_metadata_matches_linear_initializers_and_first_typed_hint() {
         use crate::deserializer::function::DebugLocal;
         for seed in 0..12 {
@@ -2036,7 +2122,7 @@ mod tests {
                 end_pc: i + 4, name: format!("type{i}"),
             }).collect::<Vec<_>>();
             let protos = vec![proto];
-            let strings = vec![b"first".to_vec(), b"second".to_vec(), b"for".to_vec()];
+            let strings: Vec<&[u8]> = vec![b"first", b"second", b"for"];
             let (function, _, _) = Lifter::lift(&protos, &strings, 9, 0, Some("root:p0".into()), &typed, true);
             let trace = function.provenance.as_ref().unwrap();
             let valid = |debug: &&DebugLocal| debug.start_pc < debug.end_pc
@@ -2057,7 +2143,7 @@ mod tests {
                     }).filter(valid).map(|debug| ast::SourceBinding {
                         origin: ast::BindingOrigin::DebugLocal { prototype: 0, register,
                             start_pc: debug.start_pc, end_pc: debug.end_pc },
-                        name: String::from_utf8(strings[debug.name_index - 1].clone()).unwrap(),
+                        name: String::from_utf8(strings[debug.name_index - 1].to_vec()).unwrap(),
                     }).collect::<Vec<_>>();
                     let actual = function.local_source_bindings.get(&(node, site.index, write));
                     if expected.len() == 1 { assert_eq!(actual, Some(&expected)); }
@@ -2103,7 +2189,7 @@ mod tests {
             instruction(OpCode::LOP_NOP, 0, 0, 0), instruction(OpCode::LOP_CALL, 1, 2, 0),
             instruction(OpCode::LOP_RETURN, 1, 0, 0)]);
         proto.constants.push(super::BytecodeConstant::String(1));
-        let (function, _, _) = Lifter::lift(&vec![proto], &vec![b"method".to_vec()], 9, 0, Some("root:p0".into()), &[], true);
+        let (function, _, _) = Lifter::lift(&vec![proto], &[b"method"], 9, 0, Some("root:p0".into()), &[], true);
         let trace = function.provenance.unwrap();
         assert_eq!(trace.lifted.values().next().unwrap().pcs, vec![0, 2, 3]);
     }

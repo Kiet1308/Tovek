@@ -1,0 +1,1100 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "3cafb65a696ae001c19e208be37f00b5bf13c3d7",
+  "cpu": "Intel Core Ultra 9 275HX, 24 logical processors",
+  "rustc": "rustc 1.98.0-nightly (3daae5e42 2026-06-14)\nbinary: rustc\ncommit-hash: 3daae5e42ec9ba435212987331af1b7b8634fa90\ncommit-date: 2026-06-14\nhost: x86_64-pc-windows-msvc\nrelease: 1.98.0-nightly\nLLVM version: 22.1.6\n",
+  "binaries": {
+    "before": {
+      "path": "D:\\Medal\\performance-next-20260927\\baseline\\benchmark_api.exe",
+      "sha256": "b249791aafba8e697a691e28268c12e08b1c1b900646d44016adc9d508bdd758"
+    },
+    "after": {
+      "path": "D:\\Medal\\performance-next-20260927\\final\\benchmark_api.exe",
+      "sha256": "b0b9e8ed3659fe14745ae9dd1ce9e1d746db264ba7b4939ec14ab8b2ea1663fa"
+    }
+  },
+  "allocation_binaries": {
+    "before": {
+      "path": "D:\\Medal\\performance-next-20260927\\baseline-counts\\benchmark_api.exe",
+      "sha256": "e7f04a659d3b326ba3c1011290a20ee557db43ba772c5bd82ffedf8dd9d314e8"
+    },
+    "after": {
+      "path": "D:\\Medal\\performance-next-20260927\\final-counts\\benchmark_api.exe",
+      "sha256": "3ab4efee96f907abf7b79c06d8ffb6ef76d637b1cfa7ac8b54c293d0602ea4d7"
+    }
+  },
+  "cpu_affinity": {
+    "cpu_sets": [
+      {
+        "id": 256,
+        "group": 0,
+        "logical": 0,
+        "core": 0,
+        "efficiency_class": 1,
+        "flags": 0
+      },
+      {
+        "id": 257,
+        "group": 0,
+        "logical": 1,
+        "core": 1,
+        "efficiency_class": 1,
+        "flags": 0
+      },
+      {
+        "id": 258,
+        "group": 0,
+        "logical": 2,
+        "core": 2,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 259,
+        "group": 0,
+        "logical": 3,
+        "core": 3,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 260,
+        "group": 0,
+        "logical": 4,
+        "core": 4,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 261,
+        "group": 0,
+        "logical": 5,
+        "core": 5,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 262,
+        "group": 0,
+        "logical": 6,
+        "core": 6,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 263,
+        "group": 0,
+        "logical": 7,
+        "core": 7,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 264,
+        "group": 0,
+        "logical": 8,
+        "core": 8,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 265,
+        "group": 0,
+        "logical": 9,
+        "core": 9,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 266,
+        "group": 0,
+        "logical": 10,
+        "core": 10,
+        "efficiency_class": 1,
+        "flags": 0
+      },
+      {
+        "id": 267,
+        "group": 0,
+        "logical": 11,
+        "core": 11,
+        "efficiency_class": 1,
+        "flags": 0
+      },
+      {
+        "id": 268,
+        "group": 0,
+        "logical": 12,
+        "core": 12,
+        "efficiency_class": 1,
+        "flags": 0
+      },
+      {
+        "id": 269,
+        "group": 0,
+        "logical": 13,
+        "core": 13,
+        "efficiency_class": 1,
+        "flags": 0
+      },
+      {
+        "id": 270,
+        "group": 0,
+        "logical": 14,
+        "core": 14,
+        "efficiency_class": 0,
+        "flags": 1
+      },
+      {
+        "id": 271,
+        "group": 0,
+        "logical": 15,
+        "core": 15,
+        "efficiency_class": 0,
+        "flags": 1
+      },
+      {
+        "id": 272,
+        "group": 0,
+        "logical": 16,
+        "core": 16,
+        "efficiency_class": 0,
+        "flags": 1
+      },
+      {
+        "id": 273,
+        "group": 0,
+        "logical": 17,
+        "core": 17,
+        "efficiency_class": 0,
+        "flags": 1
+      },
+      {
+        "id": 274,
+        "group": 0,
+        "logical": 18,
+        "core": 18,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 275,
+        "group": 0,
+        "logical": 19,
+        "core": 19,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 276,
+        "group": 0,
+        "logical": 20,
+        "core": 20,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 277,
+        "group": 0,
+        "logical": 21,
+        "core": 21,
+        "efficiency_class": 0,
+        "flags": 0
+      },
+      {
+        "id": 278,
+        "group": 0,
+        "logical": 22,
+        "core": 22,
+        "efficiency_class": 1,
+        "flags": 0
+      },
+      {
+        "id": 279,
+        "group": 0,
+        "logical": 23,
+        "core": 23,
+        "efficiency_class": 1,
+        "flags": 0
+      }
+    ],
+    "single_thread_logical_processor": 23,
+    "one_thread_mask": 8388608,
+    "many_thread_mask": 16777215,
+    "reason": "Hybrid CPU and observed unrelated background load. Pin single-thread API samples to the same performance core; retain normal priority. Multi-thread samples use all logical processors. User processes are not modified.",
+    "documentation": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-system_cpu_set_information"
+  },
+  "manifest_sha256": "2ba7863b6775ac09b9815f87627a7b59b7208c1d7b018fbd1cb3f785201ad856",
+  "unique_bytecode_count": 3350,
+  "timing_contract": "Alternating independent processes; round0 first-call excluded from medians, retained in raw rows. All accepted baseline output hashes enforced on every result. Unique removes byte-identical payload duplicates before API, so its speedup cannot be due to batch duplicate sharing. No input/filesystem cold-cache claim. Process peak working set includes loading, verification and retained results; not heap payload. Instrumented timing is diagnostic only and must not be used as performance evidence.",
+  "timing_comparisons": [
+    {
+      "group": "all",
+      "threads": 1,
+      "before": {
+        "label": "before",
+        "group": "all",
+        "threads": 1,
+        "samples": 6,
+        "median_seconds": 12.104932550000001,
+        "p95_seconds": 12.2168403,
+        "p99_seconds": 12.2168403,
+        "min_seconds": 11.3998524,
+        "max_seconds": 12.2168403,
+        "median_process_peak_working_set_bytes": 66060288
+      },
+      "after": {
+        "label": "after",
+        "group": "all",
+        "threads": 1,
+        "samples": 6,
+        "median_seconds": 11.70355735,
+        "p95_seconds": 12.0722786,
+        "p99_seconds": 12.0722786,
+        "min_seconds": 11.075212,
+        "max_seconds": 12.0722786,
+        "median_process_peak_working_set_bytes": 66064384
+      },
+      "speedup": 1.0342951453132325,
+      "latency_reduction_percent": 3.315798731980546
+    },
+    {
+      "group": "all",
+      "threads": 16,
+      "before": {
+        "label": "before",
+        "group": "all",
+        "threads": 16,
+        "samples": 6,
+        "median_seconds": 1.0398472,
+        "p95_seconds": 1.2902955,
+        "p99_seconds": 1.2902955,
+        "min_seconds": 1.0073806,
+        "max_seconds": 1.2902955,
+        "median_process_peak_working_set_bytes": 160968704
+      },
+      "after": {
+        "label": "after",
+        "group": "all",
+        "threads": 16,
+        "samples": 6,
+        "median_seconds": 0.9900803,
+        "p95_seconds": 1.2696319,
+        "p99_seconds": 1.2696319,
+        "min_seconds": 0.9566157,
+        "max_seconds": 1.2696319,
+        "median_process_peak_working_set_bytes": 160452608
+      },
+      "speedup": 1.05026551886751,
+      "latency_reduction_percent": 4.785982017357937
+    },
+    {
+      "group": "unique",
+      "threads": 1,
+      "before": {
+        "label": "before",
+        "group": "unique",
+        "threads": 1,
+        "samples": 6,
+        "median_seconds": 11.66811915,
+        "p95_seconds": 13.7460449,
+        "p99_seconds": 13.7460449,
+        "min_seconds": 11.2720203,
+        "max_seconds": 13.7460449,
+        "median_process_peak_working_set_bytes": 63655936
+      },
+      "after": {
+        "label": "after",
+        "group": "unique",
+        "threads": 1,
+        "samples": 6,
+        "median_seconds": 11.0044375,
+        "p95_seconds": 12.216987,
+        "p99_seconds": 12.216987,
+        "min_seconds": 10.9883341,
+        "max_seconds": 12.216987,
+        "median_process_peak_working_set_bytes": 63475712
+      },
+      "speedup": 1.0603103657047441,
+      "latency_reduction_percent": 5.687991710300633
+    },
+    {
+      "group": "unique",
+      "threads": 16,
+      "before": {
+        "label": "before",
+        "group": "unique",
+        "threads": 16,
+        "samples": 6,
+        "median_seconds": 1.0069985,
+        "p95_seconds": 1.0855518,
+        "p99_seconds": 1.0855518,
+        "min_seconds": 0.9668802,
+        "max_seconds": 1.0855518,
+        "median_process_peak_working_set_bytes": 154128384
+      },
+      "after": {
+        "label": "after",
+        "group": "unique",
+        "threads": 16,
+        "samples": 6,
+        "median_seconds": 0.95549665,
+        "p95_seconds": 1.060863,
+        "p99_seconds": 1.060863,
+        "min_seconds": 0.9404215,
+        "max_seconds": 1.060863,
+        "median_process_peak_working_set_bytes": 154939392
+      },
+      "speedup": 1.0539006076054793,
+      "latency_reduction_percent": 5.114391928091255
+    },
+    {
+      "group": "small",
+      "threads": 1,
+      "before": {
+        "label": "before",
+        "group": "small",
+        "threads": 1,
+        "samples": 6,
+        "median_seconds": 1.1101988,
+        "p95_seconds": 1.170506,
+        "p99_seconds": 1.170506,
+        "min_seconds": 1.0874491,
+        "max_seconds": 1.170506,
+        "median_process_peak_working_set_bytes": 25698304
+      },
+      "after": {
+        "label": "after",
+        "group": "small",
+        "threads": 1,
+        "samples": 6,
+        "median_seconds": 1.07622345,
+        "p95_seconds": 1.1717828,
+        "p99_seconds": 1.1717828,
+        "min_seconds": 1.0537921,
+        "max_seconds": 1.1717828,
+        "median_process_peak_working_set_bytes": 25653248
+      },
+      "speedup": 1.0315690482306439,
+      "latency_reduction_percent": 3.0602942463998306
+    },
+    {
+      "group": "large",
+      "threads": 1,
+      "before": {
+        "label": "before",
+        "group": "large",
+        "threads": 1,
+        "samples": 6,
+        "median_seconds": 5.3583998,
+        "p95_seconds": 5.6114558,
+        "p99_seconds": 5.6114558,
+        "min_seconds": 5.1292547,
+        "max_seconds": 5.6114558,
+        "median_process_peak_working_set_bytes": 48926720
+      },
+      "after": {
+        "label": "after",
+        "group": "large",
+        "threads": 1,
+        "samples": 6,
+        "median_seconds": 5.02830415,
+        "p95_seconds": 5.437974,
+        "p99_seconds": 5.437974,
+        "min_seconds": 4.9345873000000005,
+        "max_seconds": 5.437974,
+        "median_process_peak_working_set_bytes": 50561024
+      },
+      "speedup": 1.0656475106025556,
+      "latency_reduction_percent": 6.16034007018289
+    },
+    {
+      "group": "write",
+      "threads": 1,
+      "before": {
+        "label": "before",
+        "group": "write",
+        "threads": 1,
+        "samples": 60,
+        "median_seconds": 0.07932685,
+        "p95_seconds": 0.0847304,
+        "p99_seconds": 0.0871521,
+        "min_seconds": 0.0765936,
+        "max_seconds": 0.0871521,
+        "median_process_peak_working_set_bytes": 35385344
+      },
+      "after": {
+        "label": "after",
+        "group": "write",
+        "threads": 1,
+        "samples": 60,
+        "median_seconds": 0.07659925000000001,
+        "p95_seconds": 0.083917,
+        "p99_seconds": 0.0998265,
+        "min_seconds": 0.074356,
+        "max_seconds": 0.0998265,
+        "median_process_peak_working_set_bytes": 33820672
+      },
+      "speedup": 1.035608703740572,
+      "latency_reduction_percent": 3.438432258434565
+    },
+    {
+      "group": "lightning",
+      "threads": 1,
+      "before": {
+        "label": "before",
+        "group": "lightning",
+        "threads": 1,
+        "samples": 60,
+        "median_seconds": 0.13119655,
+        "p95_seconds": 0.140074,
+        "p99_seconds": 0.1416221,
+        "min_seconds": 0.1250501,
+        "max_seconds": 0.1416221,
+        "median_process_peak_working_set_bytes": 36143104
+      },
+      "after": {
+        "label": "after",
+        "group": "lightning",
+        "threads": 1,
+        "samples": 60,
+        "median_seconds": 0.126151,
+        "p95_seconds": 0.1351752,
+        "p99_seconds": 0.1558968,
+        "min_seconds": 0.1207519,
+        "max_seconds": 0.1558968,
+        "median_process_peak_working_set_bytes": 32141312
+      },
+      "speedup": 1.0399961157660262,
+      "latency_reduction_percent": 3.845794725547269
+    },
+    {
+      "group": "promise",
+      "threads": 1,
+      "before": {
+        "label": "before",
+        "group": "promise",
+        "threads": 1,
+        "samples": 60,
+        "median_seconds": 0.0400594,
+        "p95_seconds": 0.0434781,
+        "p99_seconds": 0.0507825,
+        "min_seconds": 0.0384956,
+        "max_seconds": 0.0507825,
+        "median_process_peak_working_set_bytes": 24727552
+      },
+      "after": {
+        "label": "after",
+        "group": "promise",
+        "threads": 1,
+        "samples": 60,
+        "median_seconds": 0.0387754,
+        "p95_seconds": 0.0438595,
+        "p99_seconds": 0.052594,
+        "min_seconds": 0.0370771,
+        "max_seconds": 0.052594,
+        "median_process_peak_working_set_bytes": 25055232
+      },
+      "speedup": 1.03311377832337,
+      "latency_reduction_percent": 3.205240218275862
+    },
+    {
+      "group": "ui",
+      "threads": 1,
+      "before": {
+        "label": "before",
+        "group": "ui",
+        "threads": 1,
+        "samples": 60,
+        "median_seconds": 0.020778699999999997,
+        "p95_seconds": 0.0230903,
+        "p99_seconds": 0.0283755,
+        "min_seconds": 0.0201016,
+        "max_seconds": 0.0283755,
+        "median_process_peak_working_set_bytes": 27590656
+      },
+      "after": {
+        "label": "after",
+        "group": "ui",
+        "threads": 1,
+        "samples": 60,
+        "median_seconds": 0.01985705,
+        "p95_seconds": 0.0215195,
+        "p99_seconds": 0.0352139,
+        "min_seconds": 0.019404,
+        "max_seconds": 0.0352139,
+        "median_process_peak_working_set_bytes": 26988544
+      },
+      "speedup": 1.0464142458220127,
+      "latency_reduction_percent": 4.435551791016746
+    }
+  ],
+  "allocation_comparisons": [
+    {
+      "group": "all",
+      "before": {
+        "allocation_calls": 114265889,
+        "deallocation_calls": 114261953,
+        "failed_allocations": 0,
+        "live_requested_bytes_after": 37283159,
+        "live_requested_bytes_before": 17742847,
+        "peak_growth_requested_bytes": 23651396,
+        "peak_live_requested_bytes": 41394243,
+        "reallocation_calls": 6755522,
+        "requested_bytes": 8748384484
+      },
+      "after": {
+        "allocation_calls": 106626989,
+        "deallocation_calls": 106623053,
+        "failed_allocations": 0,
+        "live_requested_bytes_after": 37283158,
+        "live_requested_bytes_before": 17742846,
+        "peak_growth_requested_bytes": 23651396,
+        "peak_live_requested_bytes": 41394242,
+        "reallocation_calls": 6530962,
+        "requested_bytes": 8344164143
+      },
+      "request_reduction_percent": 6.497577523699505,
+      "requested_bytes_reduction_percent": 4.620514127371544
+    },
+    {
+      "group": "unique",
+      "before": {
+        "allocation_calls": 113293207,
+        "deallocation_calls": 113289857,
+        "failed_allocations": 0,
+        "live_requested_bytes_after": 34302940,
+        "live_requested_bytes_before": 16171100,
+        "peak_growth_requested_bytes": 23559052,
+        "peak_live_requested_bytes": 39730152,
+        "reallocation_calls": 6704154,
+        "requested_bytes": 8675823099
+      },
+      "after": {
+        "allocation_calls": 105727525,
+        "deallocation_calls": 105724175,
+        "failed_allocations": 0,
+        "live_requested_bytes_after": 34302939,
+        "live_requested_bytes_before": 16171099,
+        "peak_growth_requested_bytes": 23559052,
+        "peak_live_requested_bytes": 39730151,
+        "reallocation_calls": 6480946,
+        "requested_bytes": 8274927747
+      },
+      "request_reduction_percent": 6.490884412033027,
+      "requested_bytes_reduction_percent": 4.6208336364789275
+    },
+    {
+      "group": "ui",
+      "before": {
+        "allocation_calls": 232433,
+        "deallocation_calls": 232431,
+        "failed_allocations": 0,
+        "live_requested_bytes_after": 2183494,
+        "live_requested_bytes_before": 2146502,
+        "peak_growth_requested_bytes": 1766040,
+        "peak_live_requested_bytes": 3912542,
+        "reallocation_calls": 16110,
+        "requested_bytes": 16142867
+      },
+      "after": {
+        "allocation_calls": 215922,
+        "deallocation_calls": 215920,
+        "failed_allocations": 0,
+        "live_requested_bytes_after": 2183493,
+        "live_requested_bytes_before": 2146501,
+        "peak_growth_requested_bytes": 1734298,
+        "peak_live_requested_bytes": 3880799,
+        "reallocation_calls": 14797,
+        "requested_bytes": 15290639
+      },
+      "request_reduction_percent": 7.171394889415517,
+      "requested_bytes_reduction_percent": 5.279285271940848
+    }
+  ],
+  "validation": {
+    "rust": {
+      "suites": [
+        {
+          "passed": 800,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 82,
+          "failed": 0,
+          "ignored": 1
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 65,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 59,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 119,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "passed": 1158,
+      "failed": 0,
+      "ignored": 1
+    },
+    "python_passed": 157,
+    "corpus": [
+      {
+        "threads": 1,
+        "files": 3978,
+        "source_tree_hash": "e167fc4638c87bbf1d9721fca735fb1b591f867ce565401b6028324ddb38c881"
+      },
+      {
+        "threads": 16,
+        "files": 3978,
+        "source_tree_hash": "e167fc4638c87bbf1d9721fca735fb1b591f867ce565401b6028324ddb38c881"
+      }
+    ],
+    "deep_review_passed": 199,
+    "lua51_passed": 28,
+    "semantic_roundtrip_passed": 45,
+    "runtime": {
+      "9": {
+        "total": 252,
+        "status": {
+          "passed": 252
+        },
+        "dataflow": {
+          "unknown": 98,
+          "different": 35,
+          "proved": 119
+        },
+        "controls": {
+          "passed": 9
+        },
+        "groups": {
+          "UI": {
+            "passed": 24
+          },
+          "binding-preservation": {
+            "passed": 6
+          },
+          "buffer/math": {
+            "passed": 24
+          },
+          "completed-snapshots": {
+            "passed": 6
+          },
+          "conditional": {
+            "passed": 12
+          },
+          "constructor-capture": {
+            "passed": 6
+          },
+          "discard-effects": {
+            "passed": 6
+          },
+          "effect/capture": {
+            "passed": 18
+          },
+          "effect/order": {
+            "passed": 36
+          },
+          "formatter": {
+            "passed": 12
+          },
+          "helper-placement": {
+            "passed": 6
+          },
+          "import-field-store": {
+            "passed": 6
+          },
+          "loop/capture": {
+            "passed": 24
+          },
+          "naming-roles": {
+            "passed": 6
+          },
+          "naming/capture": {
+            "passed": 36
+          },
+          "numeric-motion": {
+            "passed": 6
+          },
+          "ordered-reconstruction": {
+            "passed": 6
+          },
+          "protected-calls": {
+            "passed": 6
+          },
+          "terminal-returns": {
+            "passed": 6
+          }
+        }
+      },
+      "12": {
+        "total": 252,
+        "status": {
+          "passed": 252
+        },
+        "dataflow": {
+          "unknown": 206,
+          "proved": 34,
+          "different": 12
+        },
+        "controls": {
+          "passed": 9
+        },
+        "groups": {
+          "UI": {
+            "passed": 24
+          },
+          "binding-preservation": {
+            "passed": 6
+          },
+          "buffer/math": {
+            "passed": 24
+          },
+          "completed-snapshots": {
+            "passed": 6
+          },
+          "conditional": {
+            "passed": 12
+          },
+          "constructor-capture": {
+            "passed": 6
+          },
+          "discard-effects": {
+            "passed": 6
+          },
+          "effect/capture": {
+            "passed": 18
+          },
+          "effect/order": {
+            "passed": 36
+          },
+          "formatter": {
+            "passed": 12
+          },
+          "helper-placement": {
+            "passed": 6
+          },
+          "import-field-store": {
+            "passed": 6
+          },
+          "loop/capture": {
+            "passed": 24
+          },
+          "naming-roles": {
+            "passed": 6
+          },
+          "naming/capture": {
+            "passed": 36
+          },
+          "numeric-motion": {
+            "passed": 6
+          },
+          "ordered-reconstruction": {
+            "passed": 6
+          },
+          "protected-calls": {
+            "passed": 6
+          },
+          "terminal-returns": {
+            "passed": 6
+          }
+        }
+      },
+      "14": {
+        "total": 252,
+        "status": {
+          "passed": 252
+        },
+        "dataflow": {
+          "unknown": 206,
+          "proved": 34,
+          "different": 12
+        },
+        "controls": {
+          "passed": 9
+        },
+        "groups": {
+          "UI": {
+            "passed": 24
+          },
+          "binding-preservation": {
+            "passed": 6
+          },
+          "buffer/math": {
+            "passed": 24
+          },
+          "completed-snapshots": {
+            "passed": 6
+          },
+          "conditional": {
+            "passed": 12
+          },
+          "constructor-capture": {
+            "passed": 6
+          },
+          "discard-effects": {
+            "passed": 6
+          },
+          "effect/capture": {
+            "passed": 18
+          },
+          "effect/order": {
+            "passed": 36
+          },
+          "formatter": {
+            "passed": 12
+          },
+          "helper-placement": {
+            "passed": 6
+          },
+          "import-field-store": {
+            "passed": 6
+          },
+          "loop/capture": {
+            "passed": 24
+          },
+          "naming-roles": {
+            "passed": 6
+          },
+          "naming/capture": {
+            "passed": 36
+          },
+          "numeric-motion": {
+            "passed": 6
+          },
+          "ordered-reconstruction": {
+            "passed": 6
+          },
+          "protected-calls": {
+            "passed": 6
+          },
+          "terminal-returns": {
+            "passed": 6
+          }
+        }
+      }
+    },
+    "public": {
+      "9": {
+        "development": {
+          "total": 468,
+          "status": {
+            "passed": 468
+          },
+          "dataflow": {
+            "unknown": 280,
+            "different": 70,
+            "proved": 118
+          },
+          "ast": {
+            "measured": 363,
+            "unknown": 105
+          }
+        },
+        "holdout": {
+          "total": 45,
+          "status": {
+            "passed": 45
+          },
+          "dataflow": {
+            "unknown": 17,
+            "different": 16,
+            "proved": 12
+          },
+          "ast": {
+            "measured": 42,
+            "unknown": 3
+          }
+        }
+      },
+      "12": {
+        "development": {
+          "total": 468,
+          "status": {
+            "passed": 468
+          },
+          "dataflow": {
+            "unknown": 394,
+            "different": 29,
+            "proved": 45
+          },
+          "ast": {
+            "measured": 363,
+            "unknown": 105
+          }
+        },
+        "holdout": {
+          "total": 45,
+          "status": {
+            "passed": 45
+          },
+          "dataflow": {
+            "unknown": 24,
+            "different": 15,
+            "proved": 6
+          },
+          "ast": {
+            "measured": 42,
+            "unknown": 3
+          }
+        }
+      },
+      "14": {
+        "development": {
+          "total": 468,
+          "status": {
+            "passed": 468
+          },
+          "dataflow": {
+            "unknown": 394,
+            "different": 29,
+            "proved": 45
+          },
+          "ast": {
+            "measured": 363,
+            "unknown": 105
+          }
+        },
+        "holdout": {
+          "total": 45,
+          "status": {
+            "passed": 45
+          },
+          "dataflow": {
+            "unknown": 24,
+            "different": 15,
+            "proved": 6
+          },
+          "ast": {
+            "measured": 42,
+            "unknown": 3
+          }
+        }
+      }
+    },
+    "witness": {
+      "profiles": 42,
+      "status": {
+        "passed": 42
+      },
+      "dataflow": {
+        "proved": 29,
+        "different": 12,
+        "unknown": 1
+      },
+      "compiled_mutants_detected": 42
+    },
+    "reconstruction-default": {
+      "profiles": 84,
+      "status": {
+        "passed": 84
+      },
+      "dataflow": {
+        "proved": 50,
+        "different": 18,
+        "unknown": 16
+      },
+      "compiled_mutants_detected": 84
+    },
+    "reconstruction-synthesis": {
+      "profiles": 84,
+      "status": {
+        "passed": 84
+      },
+      "dataflow": {
+        "proved": 50,
+        "different": 18,
+        "unknown": 16
+      },
+      "compiled_mutants_detected": 84
+    },
+    "metadata_deterministic_threads_1_4": true,
+    "cache_source_and_metadata_identical": true
+  },
+  "raw_artifacts": "D:\\Medal\\performance-next-20260927",
+  "source_patch_sha256": "57699086fe9b3b1b50fc024069bc101218371932f4af713d0173a572d07692c6",
+  "limitations": [
+    "Native Windows measurements on one host and bytecode-v9 corpus.",
+    "No overlapping task builds, tests or benchmarks during timing. Unrelated user workloads are not controlled.",
+    "Finite samples: corpus p95/p99 are maxima, not service-tail estimates.",
+    "Allocation counts describe successful global allocator requests, not OS memory or speed.",
+    "Synthetic SSA scaling probe is separate from corpus speed and retains reference-first order."
+  ],
+  "raw_report_hashes": {
+    "api-final/report.json": "b8cad81a366c85a65af1c333bb3ff2a77ecec02046cc487508269530ed5d537c",
+    "api-counts-final/report.json": "3e07e96261c182571d9777e30a945a6e34ec63a7c05387d3994080cc04b288c1"
+  }
+}
