@@ -1,0 +1,1295 @@
+{
+  "schema_version": 1,
+  "status": "Diagnostic census completed; production remains W7. No new speedup established.",
+  "source_commit": "c0ca44b9c257b1e1cce0e4485a13e12154c2a38d",
+  "quality_floor": "No degradation of semantics, readability, reconstruction, proof budgets or requested metadata. Algorithm experiments remain isolated until validated.",
+  "census": {
+    "binary_sha256": "b7f921cfb5d91c019ec959ae2c176a65842d1a3572af79c74b0766a248b28c47",
+    "manifest_sha256": "723593ace1d09debe8a9e91e28610d169bd1b70f43ff5d82761285355e05eec0",
+    "rows": 1106751,
+    "source_hash": "e167fc4638c87bbf1d9721fca735fb1b591f867ce565401b6028324ddb38c881",
+    "dropped_records": 0,
+    "misnested_spans": 0,
+    "partitions": [
+      {
+        "part": 0,
+        "inputs": 984,
+        "nonempty": 984,
+        "rows": 269116,
+        "dropped_records": 0,
+        "misnested_spans": 0,
+        "source_hash": "7ecd452815f03f84308cd38b815a3b21c471790e63f44e1cbadf07b94eb87865",
+        "process_wall_seconds": 4.056597300019348,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-r1\\luau-lifter.exe",
+          "decompile-folder",
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-profile\\part0-input",
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-profile\\part0-output",
+          "--key",
+          "203",
+          "--threads",
+          "1",
+          "--strict-no-synthetic-control"
+        ],
+        "profile_sha256": "ecc7c0ba4cb051de374371be48c9f04a07fa2c1bc290e994922bed06be5002f7"
+      },
+      {
+        "part": 1,
+        "inputs": 984,
+        "nonempty": 984,
+        "rows": 281812,
+        "dropped_records": 0,
+        "misnested_spans": 0,
+        "source_hash": "3456aaa4b4eef76a7b98a50cd9f62336fb9549369f3b4410e02c2d1b19226afe",
+        "process_wall_seconds": 4.011520900006872,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-r1\\luau-lifter.exe",
+          "decompile-folder",
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-profile\\part1-input",
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-profile\\part1-output",
+          "--key",
+          "203",
+          "--threads",
+          "1",
+          "--strict-no-synthetic-control"
+        ],
+        "profile_sha256": "f334ee223cfbc8bfd7525b57f3b2d74ea570e91e5e4802d3e978a689a9ae7611"
+      },
+      {
+        "part": 2,
+        "inputs": 984,
+        "nonempty": 984,
+        "rows": 283883,
+        "dropped_records": 0,
+        "misnested_spans": 0,
+        "source_hash": "1ca03e66df14d88be2b95fafae06dc86babc33544c9ebad4272cb4489b660a21",
+        "process_wall_seconds": 4.011981699994067,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-r1\\luau-lifter.exe",
+          "decompile-folder",
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-profile\\part2-input",
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-profile\\part2-output",
+          "--key",
+          "203",
+          "--threads",
+          "1",
+          "--strict-no-synthetic-control"
+        ],
+        "profile_sha256": "86f1a886fd42cf809c6e0e3016b9c863e43c516b45e67655c70a51786bf3c298"
+      },
+      {
+        "part": 3,
+        "inputs": 1026,
+        "nonempty": 984,
+        "rows": 271940,
+        "dropped_records": 0,
+        "misnested_spans": 0,
+        "source_hash": "d1e484b6b2771c9852e8b2f1c4cef288bc576dec0d77686fd9415968d150c1fd",
+        "process_wall_seconds": 4.177495600015391,
+        "command": [
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-r1\\luau-lifter.exe",
+          "decompile-folder",
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-profile\\part3-input",
+          "D:\\Medal\\ultra-optimize-20260927\\wave8-census-profile\\part3-output",
+          "--key",
+          "203",
+          "--threads",
+          "1",
+          "--strict-no-synthetic-control"
+        ],
+        "profile_sha256": "ad0c421ffc13da3ecc9ebb0eacf42d6b9ad9e3c1f4777307fe1ccab0a119455c"
+      }
+    ]
+  },
+  "tests": {
+    "source": "D:\\Medal\\ultra-optimize-20260927\\wave8-census-tests-r2-source",
+    "started_utc": "2026-09-27T19:21:17.194293+00:00",
+    "environment": {
+      "CARGO_TARGET_DIR": "D:\\Medal\\ultra-optimize-20260927\\wave3-work\\target",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "RUSTFLAGS": null,
+      "CARGO_ENCODED_RUSTFLAGS": null,
+      "CARGO_BUILD_TARGET": null,
+      "RUSTUP_TOOLCHAIN": null
+    },
+    "rustc": "rustc 1.98.0-nightly (3daae5e42 2026-06-14)\nbinary: rustc\ncommit-hash: 3daae5e42ec9ba435212987331af1b7b8634fa90\ncommit-date: 2026-06-14\nhost: x86_64-pc-windows-msvc\nrelease: 1.98.0-nightly\nLLVM version: 22.1.6\n",
+    "commands": [
+      {
+        "argv": [
+          "cargo",
+          "test",
+          "-p",
+          "ast",
+          "-p",
+          "cfg",
+          "--lib",
+          "--locked",
+          "--features",
+          "ast/pipeline-census,ast/phase-allocation-trace,cfg/pipeline-census",
+          "-j2",
+          "function_shape"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 7.922,
+        "disk_free_after": 1803288576
+      },
+      {
+        "argv": [
+          "cargo",
+          "test",
+          "-p",
+          "ast",
+          "-p",
+          "cfg",
+          "--lib",
+          "--locked",
+          "--features",
+          "ast/pipeline-census,ast/phase-allocation-trace,cfg/pipeline-census",
+          "-j2",
+          "telemetry::tests::diagnostic_"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 0.305,
+        "disk_free_after": 1803272192
+      },
+      {
+        "argv": [
+          "cargo",
+          "test",
+          "-p",
+          "ast",
+          "-p",
+          "cfg",
+          "--lib",
+          "--locked",
+          "--features",
+          "ast/pipeline-census,ast/phase-allocation-trace,cfg/pipeline-census",
+          "-j2",
+          "ssa::census::tests"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 0.291,
+        "disk_free_after": 1803239424
+      },
+      {
+        "argv": [
+          "cargo",
+          "test",
+          "-p",
+          "ast",
+          "-p",
+          "cfg",
+          "--lib",
+          "--locked",
+          "--features",
+          "ast/pipeline-census,ast/phase-allocation-trace,cfg/pipeline-census",
+          "-j2",
+          "census_counts_parallel_predecessors_without_deduplicating_insert_attempts"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 0.296,
+        "disk_free_after": 1803239424
+      }
+    ],
+    "disk_free_before": 1874800640,
+    "scope": "Only new diagnostic tests; local dev artifacts were explicitly cleaned by root before invocation. Combined features share one build. No full workspace run.",
+    "source_sha256_before": "1360663ca9f65f273d9d773b112083ca48b609e5ab32c8aeab17bc6dad2478d7",
+    "source_sha256_after": "1360663ca9f65f273d9d773b112083ca48b609e5ab32c8aeab17bc6dad2478d7",
+    "source_unchanged": true,
+    "file_count": 518,
+    "finished_utc": "2026-09-27T19:21:26.195774+00:00",
+    "log": "D:\\Medal\\ultra-optimize-20260927\\wave8-focused-r2-diagnostics.log",
+    "disk_free_after": 1803161600,
+    "test_results": [
+      {
+        "result": "ok",
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 882
+      },
+      {
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 117
+      },
+      {
+        "result": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 890
+      },
+      {
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 117
+      },
+      {
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 892
+      },
+      {
+        "result": "ok",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 113
+      },
+      {
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 892
+      },
+      {
+        "result": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 116
+      }
+    ],
+    "total_passed": 17,
+    "total_failed": 0,
+    "total_ignored": 0,
+    "passed": true
+  },
+  "attribution": {
+    "source_report": "D:\\Medal\\ultra-optimize-20260927\\wave8-census-profile\\report.json",
+    "binary_sha256": "b7f921cfb5d91c019ec959ae2c176a65842d1a3572af79c74b0766a248b28c47",
+    "contract": "Light diagnostic thread-wall only, not CPU or ordinary timing. Calls with mixed initial/after prototype shape keys are excluded from classified groups. Captures and source-binding eligibility are unknown. Explicit census duration can be subtracted, but inline counter overhead cannot; corrected shares are descriptive, not an ordinary speed prediction.",
+    "logical_single_body_definition": "Initial blocks == 2*calls and edges == calls, using lifter universal minimum of one synthetic empty entry plus one bytecode-body node and their edge (lifter.rs179-184). This permits shared-prototype aggregation only at the proven minima; it is a topology scope ceiling, not a safety certificate.",
+    "parts": [
+      {
+        "part": 0,
+        "rows": 269116,
+        "sha256": "ecc7c0ba4cb051de374371be48c9f04a07fa2c1bc290e994922bed06be5002f7"
+      },
+      {
+        "part": 1,
+        "rows": 281812,
+        "sha256": "f334ee223cfbc8bfd7525b57f3b2d74ea570e91e5e4802d3e978a689a9ae7611"
+      },
+      {
+        "part": 2,
+        "rows": 283883,
+        "sha256": "86f1a886fd42cf809c6e0e3016b9c863e43c516b45e67655c70a51786bf3c298"
+      },
+      {
+        "part": 3,
+        "rows": 271940,
+        "sha256": "ad0c421ffc13da3ecc9ebb0eacf42d6b9ad9e3c1f4777307fe1ccab0a119455c"
+      }
+    ],
+    "rows": 1106751,
+    "prototype_keys": 26037,
+    "decompile_inclusive_ns": 11821938900,
+    "explicit_census_exclusive_ns": 173272900,
+    "ssa_family_inclusive_ns": 3680936300,
+    "phase_totals": {
+      "F_SSA_CONSTRUCT": {
+        "calls": 26391,
+        "inclusive_ns": 1284269700,
+        "exclusive_ns": 234711200
+      },
+      "F_SSA_INLINE": {
+        "calls": 62303,
+        "inclusive_ns": 1185624400,
+        "exclusive_ns": 1185624400
+      },
+      "F_DESTRUCT": {
+        "calls": 26391,
+        "inclusive_ns": 1211042200,
+        "exclusive_ns": 350689800
+      },
+      "FUNCTION": {
+        "calls": 26391,
+        "inclusive_ns": 6380231200,
+        "exclusive_ns": 878086600
+      },
+      "F_RESTRUCTURE": {
+        "calls": 26391,
+        "inclusive_ns": 838703900,
+        "exclusive_ns": 838703900
+      }
+    },
+    "groups": {
+      "all_functions": {
+        "keys": 26037,
+        "function_calls": 26391,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 26391,
+            "inclusive_ns": 1284269700,
+            "exclusive_ns": 234711200
+          },
+          "F_SSA_INLINE": {
+            "calls": 62303,
+            "inclusive_ns": 1185624400,
+            "exclusive_ns": 1185624400
+          },
+          "F_DESTRUCT": {
+            "calls": 26391,
+            "inclusive_ns": 1211042200,
+            "exclusive_ns": 350689800
+          },
+          "FUNCTION": {
+            "calls": 26391,
+            "inclusive_ns": 6380231200,
+            "exclusive_ns": 878086600
+          },
+          "F_RESTRUCTURE": {
+            "calls": 26391,
+            "inclusive_ns": 838703900,
+            "exclusive_ns": 838703900
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 142577,
+          "census_close_statements": 1171,
+          "census_edges": 153068,
+          "census_functions": 26391,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 26391,
+          "census_statements_scanned": 1021632
+        },
+        "after_counters": {
+          "census_blocks": 86601,
+          "census_close_statements": 0,
+          "census_edges": 80636,
+          "census_functions": 26391,
+          "census_parallel_assignments": 0,
+          "census_shape_single_terminal": 15586,
+          "census_statements_scanned": 244625,
+          "census_terminal_after_only": 15586,
+          "census_nonterminal_before_and_after": 10805,
+          "census_shape_multiblock": 10805
+        },
+        "explicit_nested_census_ns": 62626300,
+        "ssa_family_inclusive_ns": 3680936300,
+        "ssa_family_exclusive_ns": 1771025400,
+        "share_of_ssa_family_inclusive": 1.0,
+        "share_of_decompile_inclusive": 0.31136485572599265,
+        "ssa_family_less_explicit_census_ns": 3618310000,
+        "share_less_explicit_census": 0.3106201173593611,
+        "function_call_coverage": 1.0
+      },
+      "unambiguous": {
+        "keys": 26037,
+        "function_calls": 26391,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 26391,
+            "inclusive_ns": 1284269700,
+            "exclusive_ns": 234711200
+          },
+          "F_SSA_INLINE": {
+            "calls": 62303,
+            "inclusive_ns": 1185624400,
+            "exclusive_ns": 1185624400
+          },
+          "F_DESTRUCT": {
+            "calls": 26391,
+            "inclusive_ns": 1211042200,
+            "exclusive_ns": 350689800
+          },
+          "FUNCTION": {
+            "calls": 26391,
+            "inclusive_ns": 6380231200,
+            "exclusive_ns": 878086600
+          },
+          "F_RESTRUCTURE": {
+            "calls": 26391,
+            "inclusive_ns": 838703900,
+            "exclusive_ns": 838703900
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 142577,
+          "census_close_statements": 1171,
+          "census_edges": 153068,
+          "census_functions": 26391,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 26391,
+          "census_statements_scanned": 1021632
+        },
+        "after_counters": {
+          "census_blocks": 86601,
+          "census_close_statements": 0,
+          "census_edges": 80636,
+          "census_functions": 26391,
+          "census_parallel_assignments": 0,
+          "census_shape_single_terminal": 15586,
+          "census_statements_scanned": 244625,
+          "census_terminal_after_only": 15586,
+          "census_nonterminal_before_and_after": 10805,
+          "census_shape_multiblock": 10805
+        },
+        "explicit_nested_census_ns": 62626300,
+        "ssa_family_inclusive_ns": 3680936300,
+        "ssa_family_exclusive_ns": 1771025400,
+        "share_of_ssa_family_inclusive": 1.0,
+        "share_of_decompile_inclusive": 0.31136485572599265,
+        "ssa_family_less_explicit_census_ns": 3618310000,
+        "share_less_explicit_census": 0.3106201173593611,
+        "function_call_coverage": 1.0
+      },
+      "initial_rest": {
+        "keys": 26037,
+        "function_calls": 26391,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 26391,
+            "inclusive_ns": 1284269700,
+            "exclusive_ns": 234711200
+          },
+          "F_SSA_INLINE": {
+            "calls": 62303,
+            "inclusive_ns": 1185624400,
+            "exclusive_ns": 1185624400
+          },
+          "F_DESTRUCT": {
+            "calls": 26391,
+            "inclusive_ns": 1211042200,
+            "exclusive_ns": 350689800
+          },
+          "FUNCTION": {
+            "calls": 26391,
+            "inclusive_ns": 6380231200,
+            "exclusive_ns": 878086600
+          },
+          "F_RESTRUCTURE": {
+            "calls": 26391,
+            "inclusive_ns": 838703900,
+            "exclusive_ns": 838703900
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 142577,
+          "census_close_statements": 1171,
+          "census_edges": 153068,
+          "census_functions": 26391,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 26391,
+          "census_statements_scanned": 1021632
+        },
+        "after_counters": {
+          "census_blocks": 86601,
+          "census_close_statements": 0,
+          "census_edges": 80636,
+          "census_functions": 26391,
+          "census_parallel_assignments": 0,
+          "census_shape_single_terminal": 15586,
+          "census_statements_scanned": 244625,
+          "census_terminal_after_only": 15586,
+          "census_nonterminal_before_and_after": 10805,
+          "census_shape_multiblock": 10805
+        },
+        "explicit_nested_census_ns": 62626300,
+        "ssa_family_inclusive_ns": 3680936300,
+        "ssa_family_exclusive_ns": 1771025400,
+        "share_of_ssa_family_inclusive": 1.0,
+        "share_of_decompile_inclusive": 0.31136485572599265,
+        "ssa_family_less_explicit_census_ns": 3618310000,
+        "share_less_explicit_census": 0.3106201173593611,
+        "function_call_coverage": 1.0
+      },
+      "after_terminal": {
+        "keys": 15443,
+        "function_calls": 15586,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 15586,
+            "inclusive_ns": 507969700,
+            "exclusive_ns": 124308900
+          },
+          "F_SSA_INLINE": {
+            "calls": 34390,
+            "inclusive_ns": 625218200,
+            "exclusive_ns": 625218200
+          },
+          "F_DESTRUCT": {
+            "calls": 15586,
+            "inclusive_ns": 286574900,
+            "exclusive_ns": 160702300
+          },
+          "FUNCTION": {
+            "calls": 15586,
+            "inclusive_ns": 2279279600,
+            "exclusive_ns": 470033700
+          },
+          "F_RESTRUCTURE": {
+            "calls": 15586,
+            "inclusive_ns": 90053800,
+            "exclusive_ns": 90053800
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 36808,
+          "census_close_statements": 534,
+          "census_edges": 23646,
+          "census_functions": 15586,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 15586,
+          "census_statements_scanned": 544599
+        },
+        "after_counters": {
+          "census_blocks": 15586,
+          "census_close_statements": 0,
+          "census_edges": 0,
+          "census_functions": 15586,
+          "census_parallel_assignments": 0,
+          "census_shape_single_terminal": 15586,
+          "census_statements_scanned": 109695,
+          "census_terminal_after_only": 15586
+        },
+        "explicit_nested_census_ns": 36778000,
+        "ssa_family_inclusive_ns": 1419762800,
+        "ssa_family_exclusive_ns": 910229400,
+        "share_of_ssa_family_inclusive": 0.385706973521927,
+        "share_of_decompile_inclusive": 0.12009559616316406,
+        "ssa_family_less_explicit_census_ns": 1382984800,
+        "share_less_explicit_census": 0.11872473637753886,
+        "function_call_coverage": 0.5905801220112917
+      },
+      "initial_single_bytecode_body": {
+        "keys": 13710,
+        "function_calls": 13835,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 13835,
+            "inclusive_ns": 412265700,
+            "exclusive_ns": 103326500
+          },
+          "F_SSA_INLINE": {
+            "calls": 27670,
+            "inclusive_ns": 484624000,
+            "exclusive_ns": 484624000
+          },
+          "F_DESTRUCT": {
+            "calls": 13835,
+            "inclusive_ns": 251845200,
+            "exclusive_ns": 141582000
+          },
+          "FUNCTION": {
+            "calls": 13835,
+            "inclusive_ns": 1860996700,
+            "exclusive_ns": 406067700
+          },
+          "F_RESTRUCTURE": {
+            "calls": 13835,
+            "inclusive_ns": 79271700,
+            "exclusive_ns": 79271700
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 27670,
+          "census_close_statements": 486,
+          "census_edges": 13835,
+          "census_functions": 13835,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 13835,
+          "census_statements_scanned": 470384
+        },
+        "after_counters": {
+          "census_blocks": 13835,
+          "census_close_statements": 0,
+          "census_edges": 0,
+          "census_functions": 13835,
+          "census_parallel_assignments": 0,
+          "census_shape_single_terminal": 13835,
+          "census_statements_scanned": 101211,
+          "census_terminal_after_only": 13835
+        },
+        "explicit_nested_census_ns": 32580000,
+        "ssa_family_inclusive_ns": 1148734900,
+        "ssa_family_exclusive_ns": 729532500,
+        "share_of_ssa_family_inclusive": 0.31207682132396586,
+        "share_of_decompile_inclusive": 0.097169754446963,
+        "ssa_family_less_explicit_census_ns": 1116154900,
+        "share_less_explicit_census": 0.09581825936120067,
+        "function_call_coverage": 0.5242317456708726
+      },
+      "initial_single_bytecode_body_after_terminal": {
+        "keys": 13710,
+        "function_calls": 13835,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 13835,
+            "inclusive_ns": 412265700,
+            "exclusive_ns": 103326500
+          },
+          "F_SSA_INLINE": {
+            "calls": 27670,
+            "inclusive_ns": 484624000,
+            "exclusive_ns": 484624000
+          },
+          "F_DESTRUCT": {
+            "calls": 13835,
+            "inclusive_ns": 251845200,
+            "exclusive_ns": 141582000
+          },
+          "FUNCTION": {
+            "calls": 13835,
+            "inclusive_ns": 1860996700,
+            "exclusive_ns": 406067700
+          },
+          "F_RESTRUCTURE": {
+            "calls": 13835,
+            "inclusive_ns": 79271700,
+            "exclusive_ns": 79271700
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 27670,
+          "census_close_statements": 486,
+          "census_edges": 13835,
+          "census_functions": 13835,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 13835,
+          "census_statements_scanned": 470384
+        },
+        "after_counters": {
+          "census_blocks": 13835,
+          "census_close_statements": 0,
+          "census_edges": 0,
+          "census_functions": 13835,
+          "census_parallel_assignments": 0,
+          "census_shape_single_terminal": 13835,
+          "census_statements_scanned": 101211,
+          "census_terminal_after_only": 13835
+        },
+        "explicit_nested_census_ns": 32580000,
+        "ssa_family_inclusive_ns": 1148734900,
+        "ssa_family_exclusive_ns": 729532500,
+        "share_of_ssa_family_inclusive": 0.31207682132396586,
+        "share_of_decompile_inclusive": 0.097169754446963,
+        "ssa_family_less_explicit_census_ns": 1116154900,
+        "share_less_explicit_census": 0.09581825936120067,
+        "function_call_coverage": 0.5242317456708726
+      },
+      "initial_single_bytecode_body_no_close": {
+        "keys": 13232,
+        "function_calls": 13357,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 13357,
+            "inclusive_ns": 382960300,
+            "exclusive_ns": 99119000
+          },
+          "F_SSA_INLINE": {
+            "calls": 26714,
+            "inclusive_ns": 454372100,
+            "exclusive_ns": 454372100
+          },
+          "F_DESTRUCT": {
+            "calls": 13357,
+            "inclusive_ns": 239469300,
+            "exclusive_ns": 135857400
+          },
+          "FUNCTION": {
+            "calls": 13357,
+            "inclusive_ns": 1755112800,
+            "exclusive_ns": 389349700
+          },
+          "F_RESTRUCTURE": {
+            "calls": 13357,
+            "inclusive_ns": 74260400,
+            "exclusive_ns": 74260400
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 26714,
+          "census_close_statements": 0,
+          "census_edges": 13357,
+          "census_functions": 13357,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 13357,
+          "census_statements_scanned": 440859
+        },
+        "after_counters": {
+          "census_blocks": 13357,
+          "census_close_statements": 0,
+          "census_edges": 0,
+          "census_functions": 13357,
+          "census_parallel_assignments": 0,
+          "census_shape_single_terminal": 13357,
+          "census_statements_scanned": 92950,
+          "census_terminal_after_only": 13357
+        },
+        "explicit_nested_census_ns": 31394600,
+        "ssa_family_inclusive_ns": 1076801700,
+        "ssa_family_exclusive_ns": 689348500,
+        "share_of_ssa_family_inclusive": 0.29253472818858617,
+        "share_of_decompile_inclusive": 0.0910850334372816,
+        "ssa_family_less_explicit_census_ns": 1045407100,
+        "share_less_explicit_census": 0.08974479137782816,
+        "function_call_coverage": 0.5061195104391649
+      },
+      "initial_single_bytecode_body_no_close_after_terminal": {
+        "keys": 13232,
+        "function_calls": 13357,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 13357,
+            "inclusive_ns": 382960300,
+            "exclusive_ns": 99119000
+          },
+          "F_SSA_INLINE": {
+            "calls": 26714,
+            "inclusive_ns": 454372100,
+            "exclusive_ns": 454372100
+          },
+          "F_DESTRUCT": {
+            "calls": 13357,
+            "inclusive_ns": 239469300,
+            "exclusive_ns": 135857400
+          },
+          "FUNCTION": {
+            "calls": 13357,
+            "inclusive_ns": 1755112800,
+            "exclusive_ns": 389349700
+          },
+          "F_RESTRUCTURE": {
+            "calls": 13357,
+            "inclusive_ns": 74260400,
+            "exclusive_ns": 74260400
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 26714,
+          "census_close_statements": 0,
+          "census_edges": 13357,
+          "census_functions": 13357,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 13357,
+          "census_statements_scanned": 440859
+        },
+        "after_counters": {
+          "census_blocks": 13357,
+          "census_close_statements": 0,
+          "census_edges": 0,
+          "census_functions": 13357,
+          "census_parallel_assignments": 0,
+          "census_shape_single_terminal": 13357,
+          "census_statements_scanned": 92950,
+          "census_terminal_after_only": 13357
+        },
+        "explicit_nested_census_ns": 31394600,
+        "ssa_family_inclusive_ns": 1076801700,
+        "ssa_family_exclusive_ns": 689348500,
+        "share_of_ssa_family_inclusive": 0.29253472818858617,
+        "share_of_decompile_inclusive": 0.0910850334372816,
+        "ssa_family_less_explicit_census_ns": 1045407100,
+        "share_less_explicit_census": 0.08974479137782816,
+        "function_call_coverage": 0.5061195104391649
+      },
+      "after_rest": {
+        "keys": 10594,
+        "function_calls": 10805,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 10805,
+            "inclusive_ns": 776300000,
+            "exclusive_ns": 110402300
+          },
+          "F_SSA_INLINE": {
+            "calls": 27913,
+            "inclusive_ns": 560406200,
+            "exclusive_ns": 560406200
+          },
+          "F_DESTRUCT": {
+            "calls": 10805,
+            "inclusive_ns": 924467300,
+            "exclusive_ns": 189987500
+          },
+          "FUNCTION": {
+            "calls": 10805,
+            "inclusive_ns": 4100951600,
+            "exclusive_ns": 408052900
+          },
+          "F_RESTRUCTURE": {
+            "calls": 10805,
+            "inclusive_ns": 748650100,
+            "exclusive_ns": 748650100
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 105769,
+          "census_close_statements": 637,
+          "census_edges": 129422,
+          "census_functions": 10805,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 10805,
+          "census_statements_scanned": 477033
+        },
+        "after_counters": {
+          "census_blocks": 71015,
+          "census_close_statements": 0,
+          "census_edges": 80636,
+          "census_functions": 10805,
+          "census_nonterminal_before_and_after": 10805,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 10805,
+          "census_statements_scanned": 134930
+        },
+        "explicit_nested_census_ns": 25848300,
+        "ssa_family_inclusive_ns": 2261173500,
+        "ssa_family_exclusive_ns": 860796000,
+        "share_of_ssa_family_inclusive": 0.6142930264780729,
+        "share_of_decompile_inclusive": 0.19126925956282856,
+        "ssa_family_less_explicit_census_ns": 2235325200,
+        "share_less_explicit_census": 0.1918953809818223,
+        "function_call_coverage": 0.40941987798870827
+      },
+      "initial_larger_graph": {
+        "keys": 12327,
+        "function_calls": 12556,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 12556,
+            "inclusive_ns": 872004000,
+            "exclusive_ns": 131384700
+          },
+          "F_SSA_INLINE": {
+            "calls": 34633,
+            "inclusive_ns": 701000400,
+            "exclusive_ns": 701000400
+          },
+          "F_DESTRUCT": {
+            "calls": 12556,
+            "inclusive_ns": 959197000,
+            "exclusive_ns": 209107800
+          },
+          "FUNCTION": {
+            "calls": 12556,
+            "inclusive_ns": 4519234500,
+            "exclusive_ns": 472018900
+          },
+          "F_RESTRUCTURE": {
+            "calls": 12556,
+            "inclusive_ns": 759432200,
+            "exclusive_ns": 759432200
+          }
+        },
+        "initial_counters": {
+          "census_blocks": 114907,
+          "census_close_statements": 685,
+          "census_edges": 139233,
+          "census_functions": 12556,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 12556,
+          "census_statements_scanned": 551248
+        },
+        "after_counters": {
+          "census_blocks": 72766,
+          "census_close_statements": 0,
+          "census_edges": 80636,
+          "census_functions": 12556,
+          "census_nonterminal_before_and_after": 10805,
+          "census_parallel_assignments": 0,
+          "census_shape_multiblock": 10805,
+          "census_statements_scanned": 143414,
+          "census_shape_single_terminal": 1751,
+          "census_terminal_after_only": 1751
+        },
+        "explicit_nested_census_ns": 30046300,
+        "ssa_family_inclusive_ns": 2532201400,
+        "ssa_family_exclusive_ns": 1041492900,
+        "share_of_ssa_family_inclusive": 0.6879231786760341,
+        "share_of_decompile_inclusive": 0.21419510127902963,
+        "ssa_family_less_explicit_census_ns": 2502155100,
+        "share_less_explicit_census": 0.21480185799816048,
+        "function_call_coverage": 0.47576825432912734
+      },
+      "initial_terminal": {
+        "keys": 0,
+        "function_calls": 0,
+        "phases": {
+          "F_SSA_CONSTRUCT": {
+            "calls": 0,
+            "inclusive_ns": 0,
+            "exclusive_ns": 0
+          },
+          "F_SSA_INLINE": {
+            "calls": 0,
+            "inclusive_ns": 0,
+            "exclusive_ns": 0
+          },
+          "F_DESTRUCT": {
+            "calls": 0,
+            "inclusive_ns": 0,
+            "exclusive_ns": 0
+          },
+          "FUNCTION": {
+            "calls": 0,
+            "inclusive_ns": 0,
+            "exclusive_ns": 0
+          },
+          "F_RESTRUCTURE": {
+            "calls": 0,
+            "inclusive_ns": 0,
+            "exclusive_ns": 0
+          }
+        },
+        "initial_counters": {},
+        "after_counters": {},
+        "explicit_nested_census_ns": 0,
+        "ssa_family_inclusive_ns": 0,
+        "ssa_family_exclusive_ns": 0,
+        "share_of_ssa_family_inclusive": 0.0,
+        "share_of_decompile_inclusive": 0.0,
+        "ssa_family_less_explicit_census_ns": 0,
+        "share_less_explicit_census": 0.0,
+        "function_call_coverage": 0.0
+      }
+    },
+    "exclusion_counts": {},
+    "excluded_examples": [],
+    "liveness": {
+      "counters": {
+        "census_liveness_blocks": 78685,
+        "census_liveness_blocks_le_4": 5523,
+        "census_liveness_complete_functions": 10805,
+        "census_liveness_dense_u64_words": 367630,
+        "census_liveness_density_10_49pct": 8891,
+        "census_liveness_distinct_locals": 302656,
+        "census_liveness_explore_steps": 965272,
+        "census_liveness_functions": 10805,
+        "census_liveness_live_in_attempts": 559430,
+        "census_liveness_live_in_entries": 559430,
+        "census_liveness_live_in_successes": 559430,
+        "census_liveness_live_out_attempts": 672624,
+        "census_liveness_live_out_entries": 521177,
+        "census_liveness_live_out_successes": 521177,
+        "census_liveness_locals_le_64": 9894,
+        "census_liveness_operand_occurrences_scanned": 784504,
+        "census_liveness_possible_live_cells": 17289050,
+        "census_liveness_predecessor_visits": 575627,
+        "census_liveness_blocks_5_16": 4492,
+        "census_liveness_locals_65_256": 802,
+        "census_liveness_density_under_10pct": 1310,
+        "census_liveness_density_ge_50pct": 604,
+        "census_liveness_blocks_17_64": 745,
+        "census_liveness_locals_gt_256": 109,
+        "census_liveness_blocks_gt_64": 45
+      },
+      "weighted_density_if_complete": 0.06250239313322595,
+      "phase": {
+        "calls": 26391,
+        "inclusive_ns": 198633400,
+        "exclusive_ns": 198633400
+      }
+    },
+    "reserves": {
+      "SSA_RESERVE_FINAL_TERMINAL": {
+        "timing": {
+          "calls": 15586,
+          "inclusive_ns": 22328400,
+          "exclusive_ns": 22328400
+        },
+        "counters": {
+          "census_reserve_classes_capacity": 696049,
+          "census_reserve_classes_capacity_payload_bytes": 16705176,
+          "census_reserve_classes_entries": 60373,
+          "census_reserve_classes_under_25pct": 9504,
+          "census_reserve_defs_25_49pct": 5710,
+          "census_reserve_defs_capacity": 697389,
+          "census_reserve_defs_capacity_payload_bytes": 33474672,
+          "census_reserve_defs_entries": 127846,
+          "census_reserve_functions": 15586,
+          "census_reserve_requested_locals": 487608,
+          "census_reserve_values_capacity": 695750,
+          "census_reserve_values_capacity_payload_bytes": 16698000,
+          "census_reserve_values_entries": 2001,
+          "census_reserve_values_under_25pct": 14987,
+          "census_reserve_classes_ge_50pct": 3179,
+          "census_reserve_defs_ge_50pct": 3855,
+          "census_reserve_classes_25_49pct": 2903,
+          "census_reserve_defs_under_25pct": 6021,
+          "census_reserve_values_ge_50pct": 497,
+          "census_reserve_values_25_49pct": 102
+        },
+        "weighted_occupancy": {
+          "values": 0.0028760330578512395,
+          "classes": 0.08673670962820146,
+          "defs": 0.18332092992576596
+        }
+      },
+      "SSA_RESERVE_INITIAL_TERMINAL": {
+        "timing": {
+          "calls": 15586,
+          "inclusive_ns": 14449600,
+          "exclusive_ns": 14449600
+        },
+        "counters": {
+          "census_reserve_classes_capacity": 695750,
+          "census_reserve_classes_capacity_payload_bytes": 16698000,
+          "census_reserve_classes_entries": 0,
+          "census_reserve_defs_capacity": 695750,
+          "census_reserve_defs_capacity_payload_bytes": 33396000,
+          "census_reserve_defs_entries": 0,
+          "census_reserve_functions": 15586,
+          "census_reserve_requested_locals": 487608,
+          "census_reserve_values_capacity": 695750,
+          "census_reserve_values_capacity_payload_bytes": 16698000,
+          "census_reserve_values_entries": 0
+        },
+        "weighted_occupancy": {
+          "values": 0.0,
+          "classes": 0.0,
+          "defs": 0.0
+        }
+      },
+      "SSA_RESERVE_FINAL_OTHER": {
+        "timing": {
+          "calls": 10805,
+          "inclusive_ns": 16585700,
+          "exclusive_ns": 16585700
+        },
+        "counters": {
+          "census_reserve_classes_capacity": 972997,
+          "census_reserve_classes_capacity_payload_bytes": 23351928,
+          "census_reserve_classes_entries": 284489,
+          "census_reserve_classes_under_25pct": 4600,
+          "census_reserve_defs_25_49pct": 4815,
+          "census_reserve_defs_capacity": 975384,
+          "census_reserve_defs_capacity_payload_bytes": 46818432,
+          "census_reserve_defs_entries": 335591,
+          "census_reserve_functions": 10805,
+          "census_reserve_requested_locals": 675756,
+          "census_reserve_values_capacity": 968083,
+          "census_reserve_values_capacity_payload_bytes": 23233992,
+          "census_reserve_values_entries": 204476,
+          "census_reserve_values_under_25pct": 7663,
+          "census_reserve_classes_ge_50pct": 2253,
+          "census_reserve_defs_ge_50pct": 3060,
+          "census_reserve_values_ge_50pct": 1355,
+          "census_reserve_classes_25_49pct": 3952,
+          "census_reserve_values_25_49pct": 1787,
+          "census_reserve_defs_under_25pct": 2930
+        },
+        "weighted_occupancy": {
+          "values": 0.2112174266049502,
+          "classes": 0.2923842519555559,
+          "defs": 0.3440603905743789
+        }
+      },
+      "SSA_RESERVE_INITIAL_OTHER": {
+        "timing": {
+          "calls": 10805,
+          "inclusive_ns": 9262600,
+          "exclusive_ns": 9262600
+        },
+        "counters": {
+          "census_reserve_classes_capacity": 961391,
+          "census_reserve_classes_capacity_payload_bytes": 23073384,
+          "census_reserve_classes_entries": 0,
+          "census_reserve_defs_capacity": 961391,
+          "census_reserve_defs_capacity_payload_bytes": 46146768,
+          "census_reserve_defs_entries": 0,
+          "census_reserve_functions": 10805,
+          "census_reserve_requested_locals": 675756,
+          "census_reserve_values_capacity": 961391,
+          "census_reserve_values_capacity_payload_bytes": 23073384,
+          "census_reserve_values_entries": 0
+        },
+        "weighted_occupancy": {
+          "values": 0.0,
+          "classes": 0.0,
+          "defs": 0.0
+        }
+      }
+    },
+    "initial_shapes": {
+      "census_blocks": 142577,
+      "census_close_statements": 1171,
+      "census_edges": 153068,
+      "census_functions": 26391,
+      "census_parallel_assignments": 0,
+      "census_shape_multiblock": 26391,
+      "census_statements_scanned": 1021632
+    },
+    "after_shapes": {
+      "census_blocks": 86601,
+      "census_close_statements": 0,
+      "census_edges": 80636,
+      "census_functions": 26391,
+      "census_parallel_assignments": 0,
+      "census_shape_single_terminal": 15586,
+      "census_statements_scanned": 244625,
+      "census_terminal_after_only": 15586,
+      "census_nonterminal_before_and_after": 10805,
+      "census_shape_multiblock": 10805
+    }
+  },
+  "coarse_profile": {
+    "schema_version": 1,
+    "status": "recovered_existing_complete_logs; hashes passed; not valid whole-engine attribution",
+    "recovery": "Original driver completed decompilation and source checks, then asserted40 counters although38 exist. No decompilation or timing was repeated.",
+    "binary": "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\luau-lifter.exe",
+    "binary_sha256": "d4a8a8123e414b63e8fa7d86879fd9de15afb71cb3f204fec0acf7c5657cf19b",
+    "build_record_sha256": "b448bd3225ef6da6a1e6d5db2d8b33b9d26314a15c3aa3148932db58d86cb0af",
+    "manifest": "D:\\Medal\\performance-improvement-20260926\\api-manifest.json",
+    "manifest_sha256": "723593ace1d09debe8a9e91e28610d169bd1b70f43ff5d82761285355e05eec0",
+    "input_count": 3978,
+    "source_hash_checks": 3978,
+    "saved_input_hash_checks": 3978,
+    "decompiled": 3936,
+    "empty_skipped": 42,
+    "failed": 0,
+    "successful_counter_dumps": 3936,
+    "source_hash": "e167fc4638c87bbf1d9721fca735fb1b591f867ce565401b6028324ddb38c881",
+    "command": [
+      "D:\\Medal\\ultra-optimize-20260927\\wave7-main-release\\luau-lifter.exe",
+      "decompile-folder",
+      "D:\\Medal\\ultra-optimize-20260927\\wave8-coarse-w7\\input",
+      "D:\\Medal\\ultra-optimize-20260927\\wave8-coarse-w7\\output",
+      "--key",
+      "203",
+      "--threads",
+      "1",
+      "--strict-no-synthetic-control"
+    ],
+    "affinity_mask": 8388608,
+    "environment": {
+      "MEDAL_PROF": "1",
+      "MEDAL_PROFILE_JSON": null,
+      "other_MEDAL_variables": "removed by original driver"
+    },
+    "cli_reported_elapsed_seconds": 35.29,
+    "process_wall_seconds": null,
+    "elapsed_contract": "35.29s is the rounded CLI-reported elapsed value preserved in stderr, not the lost Python subprocess duration and not a speed sample.",
+    "coarse_microseconds": {
+      "DESER_LIFT": 697106,
+      "PAR_LOOP_WALL": 6943103,
+      "F_SSA_CONSTRUCT": 1580330,
+      "F_SIMPLE_FAST": 187369,
+      "F_STRUCTURE_JUMPS": 51613,
+      "F_SSA_INLINE": 1458071,
+      "F_STRUCTURE_CONDS": 128478,
+      "F_REMOVE_PARAMS": 159438,
+      "F_APPLY_MAP": 30887,
+      "F_DESTRUCT": 1009265,
+      "F_RESTRUCTURE": 1201452,
+      "F_SIMPLIFY_GOTOS": 40084,
+      "F_FLATTEN_GUARDS": 41259,
+      "F_DECLARE_LOCALS": 171479,
+      "F_HOIST": 1422,
+      "S_LINK_UPVALUES": 89174,
+      "S_DEINLINE": 5189717,
+      "S_FACTOR_INITIAL": 93590,
+      "S_FACTOR_FIXEDPOINT": 72025,
+      "S_CLEANUP_RETURNS": 112353,
+      "S_MATERIALIZE": 60778,
+      "S_REROLL_ARITHMETIC": 0,
+      "S_REHOIST_CONSTANTS": 144102,
+      "S_NAME_LOCALS": 774361,
+      "S_RECOVER_METHODS": 133583,
+      "S_INLINE_TEMPS_1": 350187,
+      "S_COND_EXPRS": 74585,
+      "S_REBUILD_TABLES": 750718,
+      "S_MATERIALIZE_CALL_RECEIVERS": 207432,
+      "S_COPY_CLEANUP": 133417,
+      "S_REBALANCE_EXPRS": 248203,
+      "S_CLEANUP_FINAL": 182728,
+      "S_ELIMINATE_NIL": 102369,
+      "S_RECOVER_CONN": 91619,
+      "S_EXPR_DEINLINE": 152582,
+      "S_NORMALIZE_CONDS": 405937,
+      "S_GUARD_CONTINUE": 60931,
+      "S_FORMAT": 350037
+    },
+    "deinline_dump_count": 3936,
+    "deinline_final_counters": {
+      "iterations": 4107,
+      "collect_targets_us": 153391600,
+      "match_calls": 102400,
+      "match_us": 149017500,
+      "width_iters": 60352,
+      "canon_top_len_calls": 62083,
+      "canon_top_len_us": 7688000,
+      "canon_recurse_calls": 15109,
+      "canon_recurse_us": 38095200,
+      "unify_calls": 17298,
+      "unify_us": 6351700,
+      "block_has_return_calls": 22534,
+      "block_has_return_us": 2165400,
+      "collapse_us": 71800300
+    },
+    "deinline_counter_units": "The *_us field names are legacy names: dprof::T actually accumulates nanoseconds. Non-time fields are integer calls/iterations. Timers overlap.",
+    "known_contamination": {
+      "phase": "S_DEINLINE",
+      "recorded_microseconds": 5189717,
+      "cause": "MEDAL_PROF enables dprof::dump at ast/src/deinline.rs:411 before deinline returns; lifter S_DEINLINE timer includes this per-script stderr output.",
+      "source_sites": [
+        "ast/src/deinline.rs:45",
+        "ast/src/deinline.rs:72",
+        "ast/src/deinline.rs:411",
+        "luau-lifter/src/lib.rs:701"
+      ],
+      "separate_census_inclusive_ns": 411340700,
+      "separate_census_calls": 3936,
+      "separate_census_report_sha256": "07335be867cf3c5e798ef5466c6f3677a52ce70343b7bf89ad601da33f8f6853",
+      "comparison_contract": "Separate diagnostic modes cannot be subtracted to estimate logging cost; neither value is production CPU time."
+    },
+    "caveats": [
+      "Never use S_DEINLINE5.189717s as an algorithmic bottleneck or divide these timers by35.29s to assign engine shares.",
+      "MEDAL_PROF adds frequent atomic counters/timers in deinline and repeated synchronous stderr writes; the top-level dumps also increase CLI wall time.",
+      "Only the final cumulative block is used. Dumps are not additive; per-region elapsed truncates to integer microseconds.",
+      "PAR_LOOP_WALL overlaps F stages. Some newer stages, including final name refinement, have no coarse timer.",
+      "One thread prevents interleaved counter dumps but does not remove timer/logging distortion.",
+      "This run used all3978 rows, not the3350 distinct workload. It is not an ordinary-speed, CPU, allocator, or competitor measurement.",
+      "The no-quality-regression evidence here is byte-identical outputs against the locked native corpus; it does not establish external competitor quality."
+    ],
+    "artifacts": {
+      "stderr.log": {
+        "sha256": "489d14401f103cf7398b48539c3d0000319f55b12e8d1a078019467cec00e067",
+        "bytes": 8328804
+      },
+      "stdout.log": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "profile_coarse_w7.py": {
+        "sha256": "577395d54a41a8856d55fef2524a05c3530c00366cea3e4664a034c62495475a",
+        "bytes": 3006
+      },
+      "recover_coarse_w7.py": {
+        "sha256": "37655fdd3f4ec27a3b0c2b1708ee8f7893dd13e800152d87b26f2b598d99f883",
+        "bytes": 6841
+      }
+    }
+  },
+  "decisions": {
+    "single_body_ssa_rewrite": "Not prioritized: minimum entry+body SSA exposure is below 10% even before capture/binding restrictions. Lifter always creates a synthetic entry; literal one-node classification is inapplicable before cleanup.",
+    "generic_liveness_bitsets": "Not prioritized for multiplier target: about 1.7% light-instrumented phase exposure, with additional census overhead.",
+    "broad_ast_pass_fusion": "No substantiated >10% total benefit; cross-function naming/capture/reconstruction dependencies prevent naive function-first scheduling.",
+    "next_experiment": "Default-off early sealing of eligible one-predecessor blocks to avoid temporary SSA phis, plus a count-only growing-expression probe. No performance or quality outcome yet."
+  },
+  "raw_sha256": {
+    "wave8-census-profile/report.json": "07335be867cf3c5e798ef5466c6f3677a52ce70343b7bf89ad601da33f8f6853",
+    "wave8-ssa-linear-attribution.json": "ac95a621882f47a12fc3979f0e9683b687e0103e09d585d3d678f1dd0e6467ca",
+    "wave8-focused-r2-diagnostics-summary.json": "19536bf6fad92cdb3f8cf8bb8a564a4f38525d0b736849c67a522b487cf94fae",
+    "wave8-census-tests-r2-source-diff.json": "62d6f1ed146b69c8b1075bd436b9df8b71f601a9269255e88ff8c6e918482001",
+    "wave8-coarse-w7/report.json": "b859ed2bf5af87f284a92a94d5f90dff8d1f30a262157add46be0025c63e2375"
+  }
+}
