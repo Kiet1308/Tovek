@@ -968,8 +968,12 @@ mod admission_tests {
                 let request = axum::http::Request::post(path)
                     .header(CONTENT_TYPE, "application/json")
                     .body(Body::new(body)).unwrap();
+                let deadline = tokio::time::Instant::now() + state.upload_timeout;
                 let response = tokio::spawn(app(state.clone()).oneshot(request));
-                while polled.load(Ordering::SeqCst) == 0 { tokio::task::yield_now().await; }
+                while polled.load(Ordering::SeqCst) == 0 {
+                    assert!(!response.is_finished(), "admitted body was never polled");
+                    tokio::task::yield_now().await;
+                }
                 assert_eq!(state.cpu_semaphore.available_permits(), 0);
 
                 for _ in 0..2 {
@@ -978,6 +982,7 @@ mod admission_tests {
                         let previous_polls = polled.load(Ordering::SeqCst);
                         frames.send(Bytes::from_static(b"x")).unwrap();
                         while polled.load(Ordering::SeqCst) == previous_polls {
+                            assert!(!response.is_finished(), "upload expired before its deadline");
                             tokio::task::yield_now().await;
                         }
                     }
@@ -985,7 +990,14 @@ mod admission_tests {
                     assert_eq!(state.cpu_semaphore.available_permits(), 0);
                 }
                 tokio::time::advance(Duration::from_secs(2)).await;
-                let response = response.await.unwrap().unwrap();
+                // Tokio's timer rounds to milliseconds. Bound the join so a
+                // missing/reset deadline cannot pass by auto-advancing virtual time.
+                let timer_slack = Duration::from_millis(2);
+                let response = tokio::time::timeout(timer_slack, response).await
+                    .expect("upload deadline was missing or extended by incoming frames")
+                    .unwrap().unwrap();
+                assert!(tokio::time::Instant::now() <= deadline + timer_slack,
+                    "incoming frames must not extend the original upload deadline");
                 assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
                 assert_eq!(response.headers()[axum::http::header::CONNECTION], "close");
                 assert!(dropped.load(Ordering::SeqCst));
@@ -1017,7 +1029,10 @@ mod admission_tests {
             frames: receiver, polled: polled.clone(), dropped: dropped.clone(),
         })).unwrap();
         let response = tokio::spawn(app(state.clone()).oneshot(request));
-        while polled.load(Ordering::SeqCst) == 0 { tokio::task::yield_now().await; }
+        while polled.load(Ordering::SeqCst) == 0 {
+            assert!(!response.is_finished(), "admitted body was never polled");
+            tokio::task::yield_now().await;
+        }
         response.abort();
         assert!(response.await.unwrap_err().is_cancelled());
         assert!(dropped.load(Ordering::SeqCst));
@@ -1041,7 +1056,10 @@ mod admission_tests {
                     frames: receiver, polled: polled.clone(), dropped: Arc::new(AtomicBool::new(false)),
                 })).unwrap();
             let response = tokio::spawn(app(state.clone()).oneshot(request));
-            while polled.load(Ordering::SeqCst) < 2 { tokio::task::yield_now().await; }
+            while polled.load(Ordering::SeqCst) < 2 {
+                assert!(!response.is_finished(), "upload ended before the remaining body arrived");
+                tokio::task::yield_now().await;
+            }
             tokio::time::advance(Duration::from_secs(9)).await;
             assert!(!response.is_finished());
             tokio::time::resume();
