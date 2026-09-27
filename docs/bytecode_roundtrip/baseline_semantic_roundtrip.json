@@ -1,19 +1,28 @@
 {
+ "provenance": {
+  "lifter_commit": "d31366187777b49430fd1164e00e7aece3df6beb",
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "normalization": "VM table-template defaults are numeric zero; explicit nil is applied after all template entries.",
+  "migration": "Replayed the original baseline lifter with corrected normalization; thresholds are not regenerated from current decompiler output.",
+  "reviewed_count_changes": {
+   "alias_iterators": "Historical output adds an implicit zero for the private sum field before its closure store. The same difference is present in current output; the fixture passes runtime round-trips at O0/O1/O2."
+  }
+ },
  "summary": {
   "inputs": 15,
   "protos": 74,
   "exact": 36,
-  "equiv": 23,
-  "differ": 12,
+  "equiv": 22,
+  "differ": 13,
   "missing": 2,
   "extra": 1,
-  "equiv_ratio": 0.7973
+  "equiv_ratio": 0.78378
  },
  "files": [
   {
    "file": "alias_iterators",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 2
   },
   {

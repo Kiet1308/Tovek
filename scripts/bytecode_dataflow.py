@@ -17,7 +17,7 @@ import hashlib
 import struct
 
 
-MODEL = "luau-acyclic-use-def-v1"
+MODEL = "luau-acyclic-use-def-v2"
 
 
 class Unknown(Exception):
@@ -57,10 +57,12 @@ def symbolic_tree(chunk, proto, *, budget=20000, depth=0, _remaining=None, _temp
             return (tag, tuple(constant((word >> (20 - 10 * i)) & 1023,
                                         (*seen, index)) for i in range(count)))
         if tag == "table":
-            return (tag, tuple(constant(i, (*seen, index)) for i in k[1]))
+            return (tag, tuple((constant(i, (*seen, index)), number(0)) for i in k[1]))
         if tag == "tablek":
+            # Keep serialized entries/order (including explicit nil), but the
+            # VM initializes every negative value index to +0, never nil.
             return (tag, tuple((constant(i, (*seen, index)),
-                                constant(v, (*seen, index)) if v >= 0 else ("nil",))
+                                constant(v, (*seen, index)) if v >= 0 else number(0))
                                for i, v in k[1]))
         raise Unknown(f"unsupported constant {tag}")
 

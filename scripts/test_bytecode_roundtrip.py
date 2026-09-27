@@ -2,7 +2,8 @@ import collections
 import struct
 import unittest
 
-from bytecode_roundtrip import BytecodeError, Reader, _cancel_counted_setlists, parse_chunk, OP_INDEX
+from bytecode_roundtrip import BytecodeError, Reader, _cancel_counted_setlists, compare_chunks, parse_chunk, OP_INDEX
+from test_bytecode_dataflow import chunk, instruction as ins
 
 
 def varint(n):
@@ -120,6 +121,75 @@ class V12ReaderTests(unittest.TestCase):
                 Reader(data).varint()
         with self.assertRaises(BytecodeError):
             Reader(b"abc").bytes(-1)
+
+
+class TableTemplateTests(unittest.TestCase):
+    def template(self, template, constants=(), strings=(b"field",)):
+        pool = [("str", 1), *constants, template]
+        return chunk([ins("DUPTABLE", 0, d=len(pool) - 1), ins("RETURN", 0, 2)],
+                     params=0, constants=pool, strings=strings)
+
+    def tier(self, a, b):
+        rows, missing, extra = compare_chunks(a, b)
+        self.assertEqual((missing, extra), ([], []))
+        return rows[0]["tier"]
+
+    def empty(self):
+        return chunk([ins("NEWTABLE", 0), ins("RETURN", 0, 2)], params=0)
+
+    def test_both_template_tags_store_zero_not_nil(self):
+        zero = self.template(("tablek", ((0, 1),)), [("num", 0.0)])
+        nil = self.template(("tablek", ((0, 1),)), [("nil",)])
+        for template in (("table", (0,)), ("tablek", ((0, -1),)), ("tablek", ((0, -2),))):
+            with self.subTest(template=template):
+                source = self.template(template)
+                self.assertIn(self.tier(source, zero), ("exact", "equiv"))
+                self.assertEqual(self.tier(source, nil), "differ")
+                self.assertEqual(self.tier(source, self.empty()), "differ")
+
+    def test_unfolded_template_matches_explicit_zero_store(self):
+        # NEWTABLE + LOADN + SETTABLEKS must include the same default value.
+        explicit = chunk([ins("NEWTABLE", 0), ins("LOADN", 1, d=0),
+                          ins("SETTABLEKS", 1, 0, aux=0), ins("RETURN", 0, 2)],
+                         params=0, constants=[("str", 1)], strings=[b"field"])
+        source = self.template(("table", (0,)))
+        self.assertEqual(self.tier(source, explicit), "equiv")
+        explicit.protos[0].insns[1] = (2, *ins("LOADN", 1, d=1))
+        self.assertEqual(self.tier(source, explicit), "differ")
+
+    def test_duplicate_keys_use_final_value_and_nil_second_pass(self):
+        # Two pool indices (and two string IDs) can identify the same key.
+        pool = [("str", 2), ("num", 7.0), ("nil",)]
+        expected = self.template(("tablek", ((0, 1),)), [("num", 7.0)])
+        duplicate = self.template(("tablek", ((0, -1), (1, 2))), pool, (b"field", b"field"))
+        self.assertEqual(self.tier(duplicate, expected), "equiv")
+        for pairs in (((0, 3), (1, 2)), ((0, 2), (1, 3))):
+            with self.subTest(pairs=pairs):
+                source = self.template(("tablek", pairs), pool, (b"field", b"field"))
+                self.assertEqual(self.tier(source, self.empty()), "equiv")
+                self.assertEqual(self.tier(source, expected), "differ")
+        repeated = self.template(("table", (0, 1)), [("str", 2)], (b"field", b"field"))
+        self.assertEqual(self.tier(repeated, self.template(("table", (0,)))), "equiv")
+
+    def test_false_and_unsupported_keys_are_not_dropped(self):
+        false = self.template(("tablek", ((0, 1),)), [("bool", False)])
+        self.assertEqual(self.tier(false, self.empty()), "differ")
+        numeric_key = self.template(("table", (1,)), [("num", 1.0)])
+        self.assertEqual(self.tier(numeric_key, self.empty()), "differ")
+        self.assertIn('DUPTABLE({1=0})', numeric_key.protos[0].sig)
+
+    def test_vector_constructor_reads_remain_visible(self):
+        # A constructor snapshot is a real environment read. Never cancel it
+        # merely to make a legacy baseline pass.
+        source = chunk([ins("RETURN", 0, 1)], params=0)
+        rebuilt = chunk([ins("GETIMPORT", 0, d=2, aux=(2 << 30) | (1 << 10)),
+                         ins("RETURN", 0, 1)], params=0,
+                        constants=[("str", 1), ("str", 2), ("import", (2 << 30) | (1 << 10))],
+                        strings=[b"vector", b"create"])
+        rows, _, _ = compare_chunks(source, rebuilt)
+        self.assertEqual(rows[0]["tier"], "differ")
+        self.assertEqual(rows[0]["delta"]["added"],
+                         {'GETIMPORT(@vector)': 1, 'GETTABLEKS("create")': 1})
 
 
 class CountedSetListTriageTests(unittest.TestCase):

@@ -351,15 +351,43 @@ def const_repr(ch: Chunk, p: Proto, idx: int, proto_map=None) -> str:
             ci = (idv >> (20 - 10 * i)) & 1023
             parts.append(const_repr(ch, p, ci).strip('"'))
         return "@" + ".".join(parts)
-    if tag == "table":
-        return "{" + ",".join(const_repr(ch, p, i) for i in k[1]) + "}"
-    if tag == "tablek":
-        return "{" + ",".join(f"{const_repr(ch, p, i)}={const_repr(ch, p, v) if v >= 0 else '_'}" for i, v in k[1]) + "}"
+    if tag in ("table", "tablek"):
+        pairs = ((i, -1) for i in k[1]) if tag == "table" else k[1]
+        return "{" + ",".join(f"{const_repr(ch, p, i)}={const_repr(ch, p, v) if v >= 0 else '0'}"
+                              for i, v in pairs) + "}"
     if tag == "closure":
         return "fn"
     if tag == "vec":
         return "vec(" + ",".join(_fmt_num(v) for v in k[1]) + ")"
     return tag
+
+
+def _template_stores(ch: Chunk, p: Proto, idx: int):
+    """Expand string-key templates for the legacy multiset, not a proof.
+
+    The VM loader initializes entries without constant values to numeric zero
+    for both table tags, then applies explicit nil in a second pass. Duplicate keys
+    must resolve before counting stores; constant-pool indices aren't key
+    identities. Leave unsupported keys opaque instead of inventing SETTABLEKS.
+    """
+    if not 0 <= idx < len(p.constants):
+        return None
+    template = p.constants[idx]
+    if template[0] not in ("table", "tablek"):
+        return None
+    pairs = ((i, -1) for i in template[1]) if template[0] == "table" else template[1]
+    fields, nil_keys = {}, set()
+    for key, value in pairs:
+        if not 0 <= key < len(p.constants) or p.constants[key][0] != "str":
+            return None
+        string = p.constants[key][1]
+        if not 0 < string <= len(ch.strings) or value >= len(p.constants):
+            return None
+        identity = ch.strings[string - 1]
+        fields[identity] = (key, value)
+        if value >= 0 and p.constants[value][0] == "nil":
+            nil_keys.add(identity)
+    return [pair for key, pair in fields.items() if key not in nil_keys]
 
 
 # instruction families used for the ``equiv`` multiset.  Everything that only
@@ -517,19 +545,17 @@ def normalise(ch: Chunk, p: Proto, child_pos):
                 sig_tokens.append(f"LOADK({ops[0]})")
                 ops = ()
             if cname == "DUPTABLE":
-                # `{k = v}` (DUPTABLE template, with or without constant values -
-                # the upstream compiler folds constants into the template, the
-                # Roblox one does not) == `{}` + field stores.
-                # Keys without a folded constant are still stored by explicit
-                # SETTABLEKS instructions, so only constant entries are expanded.
+                # The template itself stores zeros even if subsequent bytecode
+                # overwrites those fields. Count them on BOTH sides of the
+                # comparison; an untouched default is observable at runtime.
+                stores = _template_stores(ch, p, d)
+                if stores is None:
+                    sig_tokens.append(f"DUPTABLE({K(d)})")
+                    continue
                 sig_tokens.append("NEWTABLE(0)")
-                k = p.constants[d] if d < len(p.constants) else None
-                if k and k[0] == "tablek":
-                    for i, v in k[1]:
-                        # a `nil` template value is still stored explicitly
-                        if v >= 0 and K(v) != "nil":
-                            sig_tokens.append(f"SETTABLEKS({K(i)})")
-                            sig_tokens.append(f"LOADK({K(v)})")
+                for i, v in stores:
+                    sig_tokens.append(f"SETTABLEKS({K(i)})")
+                    sig_tokens.append(f"LOADK({K(v) if v >= 0 else '0'})")
                 continue
             sig_tokens.append(cname + ("(" + ",".join(ops) + ")" if ops else ""))
     p.stream = stream

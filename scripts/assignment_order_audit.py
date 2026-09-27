@@ -7,7 +7,7 @@ import json
 import pathlib
 import subprocess
 
-from bytecode_dataflow import symbolic_tree
+from bytecode_dataflow import MODEL, symbolic_tree
 from bytecode_roundtrip import parse_chunk
 from roadmap_v2 import sha256
 
@@ -55,7 +55,7 @@ def main():
             rows.append(dict(opt=case["opt"], debug=case["debug"], function=name,
                              status="proved" if values[0] == values[1] else "different",
                              fingerprints=[hashlib.sha256(repr(v).encode()).hexdigest() for v in values]))
-    report = dict(model="luau-acyclic-use-def-v1", compiler_sha256=sha256(args.compiler),
+    report = dict(model=MODEL, compiler_sha256=sha256(args.compiler),
                   fixture_report_sha256=sha256(args.fixtures_report), rows=rows,
                   summary=dict(collections.Counter(r["status"] for r in rows)),
                   scope="Four uniquely named fixture prototypes per profile. Module allocation/closure/store "

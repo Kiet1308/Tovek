@@ -11,7 +11,7 @@ import collections
 import hashlib
 import struct
 
-MODEL = 'luau-register-cfg-bisimulation-v1'
+MODEL = 'luau-register-cfg-bisimulation-v2'
 
 
 class Unknown(Exception):
@@ -75,10 +75,13 @@ class Graph:
             return kind, tuple(self.constant(proto, (word >> (20 - 10 * i)) & 1023,
                                              (*seen, index)) for i in range(size))
         if kind == 'table':
-            return kind, tuple(self.constant(proto, k, (*seen, index)) for k in value[1])
-        if kind == 'tablek':
             return kind, tuple((self.constant(proto, k, (*seen, index)),
-                                ('nil',) if v == -1 else self.constant(proto, v, (*seen, index)))
+                                ('num', struct.pack('<d', 0.0).hex())) for k in value[1])
+        if kind == 'tablek':
+            # Retain template layout; only resolve the VM's implicit +0 values.
+            return kind, tuple((self.constant(proto, k, (*seen, index)),
+                                ('num', struct.pack('<d', 0.0).hex()) if v < 0
+                                else self.constant(proto, v, (*seen, index)))
                                for k, v in value[1])
         raise Unknown('unsupported constant ' + kind)
 

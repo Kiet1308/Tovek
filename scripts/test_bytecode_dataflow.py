@@ -32,6 +32,37 @@ class DataflowTests(unittest.TestCase):
     def status(self, a, b, expected):
         self.assertEqual(compare_dataflow(a, b)["status"], expected)
 
+    def test_template_default_is_positive_zero_not_explicit_nil(self):
+        from bytecode_graph import compare_graph
+        code = [instruction("DUPTABLE", 0, d=2), instruction("RETURN", 0, 2)]
+        for default in (-1, -2):
+            original = chunk(code, params=0, strings=[b"field"],
+                             constants=[("str", 1), ("num", 0.0), ("tablek", ((0, default),))])
+            for value, equal in ((("num", 0.0), True), (("num", -0.0), False),
+                                 (("nil",), False), (("bool", False), False)):
+                with self.subTest(default=default, value=value):
+                    rebuilt = copy.deepcopy(original)
+                    rebuilt.protos[0].constants[1] = value
+                    rebuilt.protos[0].constants[2] = ("tablek", ((0, 1),))
+                    self.status(original, rebuilt, "proved" if equal else "different")
+                    self.assertEqual(compare_graph(original, rebuilt)["status"],
+                                     "proved" if equal else "unknown")
+
+    def test_plain_template_keys_and_explicit_nil_order_are_preserved(self):
+        from bytecode_graph import compare_graph
+        for template, mutated in [
+            (("table", (0,)), ("table", ())),
+            (("tablek", ((0, 1), (0, 2))), ("tablek", ((0, 2),))),
+        ]:
+            original = chunk([instruction("DUPTABLE", 0, d=3), instruction("RETURN", 0, 2)],
+                             params=0, strings=[b"field"],
+                             constants=[("str", 1), ("nil",), ("num", 7.0), template])
+            rebuilt = copy.deepcopy(original)
+            rebuilt.protos[0].constants[3] = mutated
+            self.status(original, original, "proved")
+            self.status(original, rebuilt, "different")
+            self.assertNotEqual(compare_graph(original, rebuilt)["status"], "proved")
+
     def test_three_legacy_false_positives(self):
         pairs = [
             ([instruction("SUB", 2, 0, 1), instruction("RETURN", 2, 2)],
