@@ -16,6 +16,7 @@ measured, and what was refused.
 | Inline effects past Luau's late register reads | temporaries | `local v4 = fn(...); v2 += v4` becomes `v2 += fn(...)` |
 | Bare forward declarations | declarations | `local f = nil` becomes `local f` when `f` only ever receives closures |
 | Compound assignment for globals | compound | `counter += 1` on a global, like locals and pure-keyed fields |
+| Compound assignment through a once-evaluated base | compound | `local v2 = textures[i]; v2.X += e` becomes `textures[i].X += e` |
 | Register-aware out-of-SSA coalescing | temporaries | a register's phi web is merged before copies between registers |
 | Empty then-arm inversion | control flow | `if c then else B end` becomes `if not c then B end` |
 | `--style compact` | opt-in style | scalar selects as if-expressions; value-exact boolean idioms |
@@ -67,6 +68,18 @@ register. Every merge is still interference-checked; only the choice of
 surviving copies changes. Reassigned parameters also keep their identity
 (`x = minValue ... x = maxValue` instead of assigning the clamp bound to the
 other parameter). Fixture: `luau-lifter/tests/register_phi_webs.rs`.
+
+### Compound targets
+
+`t[i].k += e` compiles to one evaluation of `t[i]`; the lifter sees that
+register as a temporary (`local v2 = textures[i]; v2.k += e`). When a generated
+temporary is read only by that statement, it folds into the target, and the
+assignment carries `Assign::compound`, so the formatter never expands it into a
+second evaluation. Globals compound like locals (`GETGLOBAL`, op, `SETGLOBAL`
+either way). Index targets whose base is evaluated twice in the bytecode, such
+as `v7[name].count = v7[name].count + 1`, keep the expanded form: `+=` would
+change how often `__index` runs. Fixture `roadmap_v2/compound_bases` counts
+those reads.
 
 ### Compact style
 
@@ -135,10 +148,10 @@ Default style against V2.1: generated +0.039 raw, public +0.005 raw, regression
 round-trip (45/45), deep review (199/199), v9/v12/v14 suites with determinism,
 compiler witnesses (42/42) and both bytecode oracles pass; the oracles improve
 from 29 to 27 (residual) and 16 to 13 (semantic) non-equivalent prototypes.
-`--style compact` passes the v9 and v12 suites with determinism (258/258 each).
+`--style compact` passes the v9 and v12 suites with determinism (264/264 each).
 
-Private corpus (3,978 files, default style): 1,428 files change,
-519,818 -> 509,162 lines. Compact style: 504,844 lines. Every output compiles
+Private corpus (3,978 files, default style): 1,438 files change,
+519,818 -> 509,144 lines. Compact style: 504,826 lines. Every output compiles
 with the pinned compiler (six files with non-ASCII paths cannot be opened by the
 CLI itself).
 
@@ -151,10 +164,14 @@ reported for that case.
 
 | Workload | V2.1.1 | v2.2 |
 |---|---:|---:|
-| Corpus, 16 threads, median of 9 | 1.439 s | 1.362 s |
+| Corpus, 16 threads, median of 9 | 1.157 s | 1.155 s |
 | Corpus, 1 thread, CPU median of 5 | 14.91 s | 14.77 s |
-| Largest 12 scripts, best of 5 each | 873 ms | 845 ms |
-| Peak working set, 16 threads | 97 MB | 98 MB |
+| Largest 12 scripts, best of 5 each | 725 ms | 729 ms |
+| Peak working set, 16 threads | 102 MB | 109 MB |
+
+Earlier runs on the same builds measured 1.439 s vs 1.362 s (16 threads) and
+873 ms vs 845 ms (largest twelve); differences of this size are within the
+machine's run-to-run spread, so v2.2 is performance-neutral.
 
 New passes are single traversals, or fold into existing ones: the empty-then
 inversion runs inside guard flattening, the duplicate-key check is a lazily
@@ -173,9 +190,6 @@ local copy before allocating.
   table into its call): regression suite −0.0045 raw for +0.0004 on generated.
 - **A three-sweep coalescing order** (program copies before cross-register phi
   transports): no output change on 3,978 files.
-- **Compound assignment through an impure base** (`local v = t[i]; v.X += e` ->
-  `t[i].X += e`, 24 corpus sites): exact, but the AST has no compound node; the
-  formatter would print a double evaluation. Deferred.
 
 ## Remaining
 
