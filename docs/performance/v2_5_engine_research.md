@@ -153,3 +153,39 @@ Rủi ro chính: khối lượng rất lớn; ngữ nghĩa ownership (`Arc::coun
 closure song song phải được mô hình hoá tường minh trước; các ngân sách tìm kiếm có
 thứ tự (deinline, reconstruction) phải giữ đúng thứ tự quyết định. Cầu nối tạm thời
 làm các giai đoạn giữa chậm hơn; lợi ích chỉ thấy rõ ở giai đoạn 5.
+
+## 7. Cập nhật 2026-09-29: kết quả thực nghiệm
+
+Đo trên nhân P cố định (máy 8 nhân P + 16 nhân E; một luồng không ghim dao động
+tới ±50% tùy nhân được xếp lịch).
+
+**Giả thuyết biểu diễn bị bác bỏ.** Hai thí nghiệm trực tiếp trên code thật:
+
+| Thí nghiệm | Thay đổi |
+|---|---:|
+| Sao chép lại toàn bộ AST cho liền mạch bộ nhớ trước các pass cấp chunk | 0% |
+| Bỏ khóa của `RcLocal` (ô không đồng bộ, chỉ để đo) | ~1% |
+| mimalloc v2 / v3 / direct TLS | ±0% |
+
+Hệ số 9–23x của PoC ở §3 đến từ việc so một census trên mảng sự kiện đã trích sẵn;
+nó không đại diện cho pass thật. IR arena vì thế **không** cho 2,3–3,4x như ước
+lượng ở §5 và kế hoạch §6 dừng ở mốc go/no-go. Chi phí nằm ở thuật toán: khoảng 40
+pass cấp chunk (59% thời gian của chúng là lượt chạy không thay đổi gì) và pha SSA
+theo hàm (inliner 12%, dựng SSA 11%, destruct 8%, structuring 9% phần tính toán).
+
+**Đã làm, output giống hệt từng byte trên 3.978 file, 1.285 test Rust xanh:**
+kiểm tra ứng viên trước khi tính census cho các pass hiếm khi thay đổi; folder mode
+decompile một lần cho các file trùng; FxHash thay SipHash cho các map/set theo thứ
+tự chèn; post-dominator và liveness (restructure, out-of-SSA) trên bit set dày;
+bảng tra cứu SSA được định cỡ trước; khối lệnh thẳng được chuyển thay vì clone.
+
+| Corpus, fat LTO | v2.2 | Hiện tại | |
+|---|---:|---:|---:|
+| 1 luồng | 11,50 s (CPU 9,16 s) | 9,14 s (CPU 7,34 s) | 1,26x |
+| 24 luồng | 1,08 s | 0,94 s | 1,15x |
+
+**Còn lại:** chế độ `--emit-upvalue-analysis` (Volt `decompile_all`) chậm hơn chế độ
+thường 3–5 lần; riêng `FlushFileBuffers` từng file chiếm 5,5–8,9 s so với 3,2 s khi
+bỏ ở 24 luồng. Bỏ fsync hoặc giữ handle thư mục là thay đổi ngữ nghĩa bền vững/bảo
+mật, cần quyết định riêng. PGO cho thêm khoảng 5% (§W7) nếu có dữ liệu huấn luyện
+trong CI. Các ý tưởng engine còn lại đều dưới 1–2% mỗi cái.
