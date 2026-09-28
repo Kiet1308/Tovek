@@ -123,7 +123,9 @@ def check_case(args, case, root, work, opt, debug):
             row["source_fidelity"] = compare_ast(source_ast, output_ast)
             row["output_quality"] = analyze_tree(output_ast, output.decode('utf-8'))
             row["output_conditional_expressions"] = conditional_count(output_ast)
-            if row["output_conditional_expressions"]:
+            # `--style compact` writes scalar selects as if-expressions by design.
+            compact = any(arg in ("compact", "--style=compact") for arg in args.lifter_arg)
+            if row["output_conditional_expressions"] and not compact:
                 raise RuntimeError("statement output style gate failed")
             if debug == 2 and "minimum_exact_names_g2" in case:
                 if row["source_fidelity"].get("exact_names", -1) < case["minimum_exact_names_g2"]:
