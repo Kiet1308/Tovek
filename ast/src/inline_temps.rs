@@ -661,11 +661,7 @@ fn is_call_callee_use(statement: &Statement, local: &RcLocal) -> bool {
             }
             _ => false,
         };
-        is_callee
-            || value
-                .rvalues()
-                .into_iter()
-                .any(|child| in_value(child, local))
+        is_callee || !value.visit_rvalues(&mut |child| !in_value(child, local))
     }
     let mut found = matches!(statement, Statement::Call(call)
         if matches!(call.value.as_ref(), RValue::Local(read) if read == local));

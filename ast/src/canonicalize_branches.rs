@@ -77,9 +77,10 @@ fn collect_declared_locals(block: &Block, declared: &mut FxHashSet<RcLocal>) {
 fn canonicalize_block(block: &mut Block, facts: &FunctionFacts) {
     for statement in &mut block.0 {
         let mut functions = Vec::new();
-        for value in crate::deinline::stmt_rvalues_mut(statement) {
+        crate::deinline::visit_stmt_rvalues_mut(statement, &mut |value| {
             collect_functions(value, &mut functions);
-        }
+            true
+        });
         for function in functions {
             let mut function = function.lock();
             let nested_facts = FunctionFacts::collect(&function.body, &function.parameters);
@@ -400,9 +401,10 @@ fn collect_functions(
         functions.push(closure.function.clone());
         return;
     }
-    for child in value.rvalues_mut() {
+    value.visit_rvalues_mut(&mut |child| {
         collect_functions(child, functions);
-    }
+        true
+    });
 }
 
 fn ends_in_return(block: &Block) -> bool {

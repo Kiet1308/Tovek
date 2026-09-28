@@ -4790,9 +4790,10 @@ fn collect_local_function_calls<P>(
         if let Statement::Call(call) = statement {
             record_local_function_call(call, definitions, namer, consensus);
         }
-        for value in crate::deinline::stmt_rvalues(statement) {
+        crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
             collect_calls_in_rvalue(value, definitions, namer, consensus);
-        }
+            true
+        });
         match statement {
             Statement::If(node) => {
                 collect_local_function_calls(
@@ -4846,9 +4847,10 @@ fn collect_calls_in_rvalue<P>(
         }
         _ => {}
     }
-    for child in value.rvalues() {
+    value.visit_rvalues(&mut |child| {
         collect_calls_in_rvalue(child, definitions, namer, consensus);
-    }
+        true
+    });
 }
 
 fn current_name(local: &RcLocal) -> Option<String> {

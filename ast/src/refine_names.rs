@@ -506,9 +506,10 @@ impl Graph {
             }
             _ => {}
         }
-        for child in value.rvalues() {
+        value.visit_rvalues(&mut |child| {
             self.expression(child, scope, depth + 1);
-        }
+            true
+        });
     }
 
     fn child_scope(&mut self, parent: usize) -> usize {
@@ -651,9 +652,10 @@ impl Graph {
                 }
                 _ => {}
             }
-            for value in statement.rvalues() {
+            statement.visit_rvalues(&mut |value| {
                 self.expression(value, scope, depth + 1);
-            }
+                true
+            });
             match statement {
                 Statement::If(branch) => {
                     self.child_block(&branch.then_block.lock(), scope, depth);

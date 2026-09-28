@@ -1694,9 +1694,10 @@ fn collect_colon_method_calls_in_statement(
     if let Statement::MethodCall(method_call) = statement {
         collect_colon_method_call(method_call, calls);
     }
-    for rvalue in statement.rvalues() {
+    statement.visit_rvalues(&mut |rvalue| {
         collect_colon_method_calls_in_rvalue(rvalue, calls);
-    }
+        true
+    });
 
     match statement {
         Statement::If(r#if) => {
@@ -1728,9 +1729,10 @@ fn collect_colon_method_calls_in_rvalue(rvalue: &RValue, calls: &mut MethodRecei
         _ => {}
     }
 
-    for child in rvalue.rvalues() {
+    rvalue.visit_rvalues(&mut |child| {
         collect_colon_method_calls_in_rvalue(child, calls);
-    }
+        true
+    });
 }
 
 fn collect_colon_method_call(method_call: &MethodCall, calls: &mut MethodReceiverIndex) {

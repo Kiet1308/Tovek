@@ -179,18 +179,20 @@ impl Context {
             return used;
         }
         let mut used = false;
-        for child in value.rvalues_mut() {
+        value.visit_rvalues_mut(&mut |child| {
             used |= self.value(child);
-        }
+            true
+        });
         used
     }
 
     fn block(&mut self, body: &mut Block) -> bool {
         let mut used = false;
         for statement in &mut body.0 {
-            for value in crate::deinline::stmt_rvalues_mut(statement) {
+            crate::deinline::visit_stmt_rvalues_mut(statement, &mut |value| {
                 used |= self.value(value);
-            }
+                true
+            });
             used |= match statement {
                 Statement::If(node) => {
                     self.block(&mut node.then_block.lock())

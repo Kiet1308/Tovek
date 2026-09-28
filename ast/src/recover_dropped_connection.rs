@@ -242,9 +242,10 @@ fn statement_rvalues_deep(statement: &Statement) -> Vec<&RValue> {
     let mut out = Vec::new();
     fn walk<'a>(rvalue: &'a RValue, out: &mut Vec<&'a RValue>) {
         out.push(rvalue);
-        for child in rvalue.rvalues() {
+        rvalue.visit_rvalues(&mut |child| {
             walk(child, out);
-        }
+            true
+        });
     }
     if let Statement::Assign(assign) = statement {
         for rvalue in &assign.right {

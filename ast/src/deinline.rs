@@ -565,9 +565,10 @@ fn collapse_value_results(stmts: &mut Vec<Statement>, multivalue: &FxHashSet<RcL
             Statement::GenericFor(gf) => collapse_value_results(&mut gf.block.lock().0, multivalue),
             _ => {}
         }
-        for rv in stmt_rvalues_mut(s) {
+        visit_stmt_rvalues_mut(s, &mut |rv| {
             collapse_in_closures(rv, multivalue);
-        }
+            true
+        });
     }
 
     let taken = std::mem::take(stmts);
@@ -802,9 +803,10 @@ fn count_local_reads(stmts: &[Statement], v: &RcLocal) -> usize {
                 Statement::GenericFor(gf) => n += count_local_reads(&gf.block.lock().0, v),
                 _ => {}
             }
-            for rv in stmt_rvalues(s) {
+            visit_stmt_rvalues(s, &mut |rv| {
                 n += rvalue_closure_reads(rv, v);
-            }
+                true
+            });
             n
         })
         .sum()
@@ -898,9 +900,10 @@ pub(crate) fn collect_reads(stmts: &[Statement], out: &mut FxHashSet<RcLocal>) {
             Statement::GenericFor(gf) => collect_reads(&gf.block.lock().0, out),
             _ => {}
         }
-        for rv in stmt_rvalues(s) {
+        visit_stmt_rvalues(s, &mut |rv| {
             collect_reads_in_closures(rv, out);
-        }
+            true
+        });
     }
 }
 
@@ -1014,9 +1017,10 @@ fn collapse_in_closures(rv: &mut RValue, multivalue: &FxHashSet<RcLocal>) {
         collapse_value_results(&mut c.function.0.lock().body.0, multivalue);
         return;
     }
-    for child in rv.rvalues_mut() {
+    rv.visit_rvalues_mut(&mut |child| {
         collapse_in_closures(child, multivalue);
-    }
+        true
+    });
 }
 
 // ===================================================================
@@ -2009,9 +2013,10 @@ fn deinline_block(
             // `task.delay(8, function() ... end)` or `x:Connect(function() ... end)`.
             // A target in scope at the closure's definition is visible inside it
             // (as an upvalue), so we pass the current `active` set down.
-            for rv in stmt_rvalues_mut(s) {
+            visit_stmt_rvalues_mut(s, &mut |rv| {
                 recurse_into_closures(rv, targets, decl_map, &active, newly);
-            }
+                true
+            });
             if let Some(idx) = target_decl_index(s, decl_map, targets) {
                 active.push(idx);
             }
@@ -3614,9 +3619,10 @@ fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) 
         *value = replacement.clone();
         return;
     }
-    for child in value.rvalues_mut() {
+    value.visit_rvalues_mut(&mut |child| {
         specialize_rvalue(child, bindings);
-    }
+        true
+    });
     let owned = std::mem::replace(value, RValue::Literal(Literal::Nil));
     *value = match owned {
         RValue::Binary(binary)
@@ -3689,9 +3695,10 @@ fn specialized_truth(value: &RValue) -> Option<bool> {
 fn specialize_block(stmts: &mut Vec<Statement>, bindings: &FxHashMap<RcLocal, RValue>) {
     let mut output = Vec::with_capacity(stmts.len());
     for mut statement in std::mem::take(stmts) {
-        for value in statement.rvalues_mut() {
+        statement.visit_rvalues_mut(&mut |value| {
             specialize_rvalue(value, bindings);
-        }
+            true
+        });
 
         match &mut statement {
             Statement::If(node) => {
@@ -4289,9 +4296,10 @@ pub(crate) fn each_closure_decl(
         // ... and descend into EVERY closure body, wherever it appears (call
         // arguments, table values, ...), to find local closure declarations
         // nested inside — `deinline_block` likewise recurses into those bodies.
-        for rv in stmt_rvalues(s) {
+        visit_stmt_rvalues(s, &mut |rv| {
             each_closure_in_rvalue(rv, f);
-        }
+            true
+        });
     }
 }
 
@@ -4507,9 +4515,10 @@ pub(crate) fn collect_written(stmts: &[Statement], out: &mut FxHashSet<RcLocal>)
         // also any writes performed inside closures in this statement's rvalues
         // (a closure that captures and writes an upvalue) — by `RcLocal` identity
         // these are the same locals after `link_upvalues`.
-        for rv in stmt_rvalues(s) {
+        visit_stmt_rvalues(s, &mut |rv| {
             collect_written_in_closures(rv, out);
-        }
+            true
+        });
     }
 }
 
@@ -4577,9 +4586,10 @@ fn anchors_in_block(stmts: &[Statement]) -> usize {
 // Instrumentation only: count rvalue nodes + nested statements in a pattern stmt.
 pub(crate) fn dbg_stmt_node_count(s: &Statement) -> usize {
     let mut n = 1usize;
-    for rv in crate::deinline::stmt_rvalues(s) {
+    crate::deinline::visit_stmt_rvalues(s, &mut |rv| {
         n += dbg_rvalue_node_count(rv);
-    }
+        true
+    });
     match s {
         Statement::If(f) => {
             n += f
@@ -4823,9 +4833,10 @@ pub(crate) fn insert_def_markers_with_text(
         }
         // recover definitions inside ANY closure body (call arguments, table
         // values, ...), matching where `deinline_block` recovers the calls.
-        for rv in stmt_rvalues_mut(s) {
+        visit_stmt_rvalues_mut(s, &mut |rv| {
             markers_in_closures(rv, converted, marker);
-        }
+            true
+        });
     }
 
     let mut out: Vec<Statement> = Vec::with_capacity(stmts.len());

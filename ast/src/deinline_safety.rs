@@ -70,10 +70,11 @@ impl CaptureSafety {
                 _ => {}
             }
             if self.exhausted { return; }
-            for value in crate::deinline::stmt_rvalues(statement) {
+            crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
                 self.value(value, depth + 1);
-                if self.exhausted { return; }
-            }
+                !self.exhausted
+            });
+            if self.exhausted { return; }
         }
     }
 
@@ -103,10 +104,10 @@ impl CaptureSafety {
                 self.block(&closure.function.0.lock().body.0, depth + 1);
             }
         } else {
-            for child in value.rvalues() {
+            value.visit_rvalues(&mut |child| {
                 self.value(child, depth + 1);
-                if self.exhausted { break; }
-            }
+                !self.exhausted
+            });
         }
     }
 }

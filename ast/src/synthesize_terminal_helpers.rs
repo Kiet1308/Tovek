@@ -52,9 +52,10 @@ fn synthesize_in_existing_closures(stmts: &mut [Statement]) -> usize {
     let mut count = 0;
     for statement in stmts {
         count += synthesize_in_statement_children(statement);
-        for value in crate::deinline::stmt_rvalues_mut(statement) {
+        crate::deinline::visit_stmt_rvalues_mut(statement, &mut |value| {
             count += synthesize_in_rvalue(value);
-        }
+            true
+        });
     }
     count
 }
@@ -79,11 +80,12 @@ fn synthesize_in_rvalue(value: &mut RValue) -> usize {
         let nested = synthesize_in_existing_closures(&mut function.body.0);
         return nested + synthesize_scope(&mut function.body.0);
     }
-    value
-        .rvalues_mut()
-        .into_iter()
-        .map(synthesize_in_rvalue)
-        .sum()
+    let mut synthesized = 0;
+    value.visit_rvalues_mut(&mut |child| {
+        synthesized += synthesize_in_rvalue(child);
+        true
+    });
+    synthesized
 }
 
 fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
@@ -655,9 +657,10 @@ fn region_movable(stmts: &[Statement]) -> bool {
 
 fn collect_captured_locals(stmts: &[Statement], captured: &mut FxHashSet<RcLocal>) {
     for statement in stmts {
-        for value in crate::deinline::stmt_rvalues(statement) {
+        crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
             collect_captured_rvalue(value, captured);
-        }
+            true
+        });
         match statement {
             Statement::If(node) => {
                 collect_captured_locals(&node.then_block.lock().0, captured);
@@ -679,9 +682,10 @@ fn collect_captured_rvalue(value: &RValue, captured: &mut FxHashSet<RcLocal>) {
         }));
         return;
     }
-    for child in value.rvalues() {
+    value.visit_rvalues(&mut |child| {
         collect_captured_rvalue(child, captured);
-    }
+        true
+    });
 }
 
 /// External locals whose incoming value is never observed before the region

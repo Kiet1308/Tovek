@@ -47,9 +47,10 @@ fn protect_expressions(value: &RValue, protected: &mut [bool; MAX_ITERATIONS + 1
     if let Some((_, count)) = expression(value) {
         protected[count] = true;
     }
-    for child in value.rvalues() {
+    value.visit_rvalues(&mut |child| {
         protect_expressions(child, protected);
-    }
+        true
+    });
 }
 
 fn walk(

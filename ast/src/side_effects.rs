@@ -129,7 +129,7 @@ pub fn is_observable(value: &crate::RValue) -> bool {
 /// statement's direct expression roots; `is_total_pure` recursively inspects
 /// each root, so nested calls/keys are covered without a second traversal.
 pub fn statement_is_observable(statement: &crate::Statement) -> bool {
-    statement.has_side_effects() || statement.rvalues().into_iter().any(is_observable)
+    statement.has_side_effects() || !statement.visit_rvalues(&mut |value| !is_observable(value))
 }
 
 #[cfg(test)]

@@ -116,10 +116,12 @@ impl Inventory {
         if width > NODE_LIMIT.saturating_sub(self.nodes) {
             return Err("tree_budget");
         }
-        for child in value.rvalues() {
-            self.value(child, depth + 1)?;
-        }
-        Ok(())
+        let mut result = Ok(());
+        value.visit_rvalues(&mut |child| {
+            result = self.value(child, depth + 1);
+            result.is_ok()
+        });
+        result
     }
 
     fn block(&mut self, block: &Block, depth: usize) -> Result<(), &'static str> {
@@ -169,9 +171,12 @@ impl Inventory {
                 }
                 _ => {}
             }
-            for value in statement.rvalues() {
-                self.value(value, depth + 1)?;
-            }
+            let mut result = Ok(());
+            statement.visit_rvalues(&mut |value| {
+                result = self.value(value, depth + 1);
+                result.is_ok()
+            });
+            result?;
             match statement {
                 Statement::If(node) => {
                     self.block(&node.then_block.lock(), depth + 1)?;
