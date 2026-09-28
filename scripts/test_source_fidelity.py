@@ -88,6 +88,31 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertEqual(metric["statement_initializer_normalized_ratio"], 1)
         self.assertEqual(metric["output_conditional_expressions"], 0)
 
+    def test_style_normalization_covers_compound_and_if_expression_assignments(self):
+        local = binding("total", "0")
+        use = lambda: {"type": "AstExprLocal", "local": local}
+        one = {"type": "AstExprConstantNumber", "value": 1}
+        flag = {"type": "AstExprGlobal", "global": "flag"}
+        other = {"type": "AstExprGlobal", "global": "other"}
+        block = lambda *body: {"type": "AstStatBlock", "body": list(body)}
+        assign = lambda value: {"type": "AstStatAssign", "vars": [use()], "values": [value]}
+        compound = {"type": "AstStatCompoundAssign", "op": "Add", "var": use(), "value": one}
+        plain = assign({"type": "AstExprBinary", "op": "Add", "left": use(),
+                        "right": {"type": "AstExprGroup", "expr": one}})
+        chain = assign({"type": "AstExprIfElse", "condition": flag, "trueExpr": one,
+                        "falseExpr": {"type": "AstExprIfElse", "condition": other, "trueExpr": use(),
+                                      "falseExpr": one}})
+        statements = {"type": "AstStatIf", "condition": flag, "thenbody": block(assign(one)),
+                      "elsebody": {"type": "AstStatIf", "condition": other, "thenbody": block(assign(use())),
+                                   "elsebody": block(assign(one))}}
+        metric = compare_ast(block(compound, chain), block(plain, statements))
+        self.assertLess(metric["raw_structural_ratio"], 1)
+        self.assertEqual(metric["style_normalized_ratio"], 1)
+        # A group around a call truncates results and stays significant.
+        call = {"type": "AstExprCall", "func": flag, "args": []}
+        grouped = {"type": "AstExprGroup", "expr": call}
+        self.assertLess(compare_ast(block(assign(call)), block(assign(grouped)))["style_normalized_ratio"], 1)
+
     def test_budget_refuses_instead_of_scoring_unknown_as_equal(self):
         self.assertEqual(compare_ast(program(), program(), token_pair_budget=1)["status"], "unknown")
 

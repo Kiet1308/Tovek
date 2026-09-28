@@ -30,7 +30,11 @@ def summarize(rows):
             runtime_mismatch=sum(r.get('status')=='runtime_mismatch' for r in subset),
             empty_programs=sum(bool(r.get('empty_program')) for r in subset),
             fidelity_measured=len(measured),fidelity_unknown=len(subset)-len(measured),
-            mean_structure=statistics.mean(m['raw_structural_ratio'] for m in measured) if measured else None))
+            mean_structure=statistics.mean(m['raw_structural_ratio'] for m in measured) if measured else None,
+            # Same measured subset with style-only choices (compound assignment,
+            # if-expression vs branch statements, atom parentheses) normalized.
+            mean_style_structure=statistics.mean(m['style_normalized_ratio'] for m in measured)
+                if measured and all('style_normalized_ratio' in m for m in measured) else None))
     return result
 
 
@@ -46,6 +50,9 @@ def paired(rows, left='tovek-v2', right='lua-expert'):
         af,bf = a.get('fidelity',{}),b.get('fidelity',{})
         if af.get('status')==bf.get('status')=='measured':
             groups[group]['structure'][a['cluster']].append(af['raw_structural_ratio']-bf['raw_structural_ratio'])
+            if 'style_normalized_ratio' in af and 'style_normalized_ratio' in bf:
+                groups[group]['style_structure'][a['cluster']].append(
+                    af['style_normalized_ratio']-bf['style_normalized_ratio'])
     return [dict(suite=suite,version=version,metric=metric,left=left,right=right,
                  paired_profiles=sum(map(len, clusters.values())),
                  **interval([statistics.mean(v) for v in clusters.values()]))
@@ -107,7 +114,8 @@ def report(root):
     table=''.join('<tr>'+''.join(f'<td>{html.escape(str(v))}</td>' for v in (
         g['suite'],f"v{g['version']}",g['provider'],g['profiles'],rate(g['compiled'],g['profiles']),
         rate(g['runtime_pass'],g['runtime_eligible']),g['runtime_mismatch'],rate(g['fidelity_measured'],g['profiles']),
-        f"{g['mean_structure']:.4f}" if g['mean_structure'] is not None else '—'))+'</tr>' for g in groups)
+        f"{g['mean_structure']:.4f}" if g['mean_structure'] is not None else '—',
+        f"{g['mean_style_structure']:.4f}" if g.get('mean_style_structure') is not None else '—'))+'</tr>' for g in groups)
     pair_table=''.join(f'<tr><td>{x["suite"]}</td><td>v{x["version"]}</td><td>{x["metric"]}</td>'
                       f'<td>{x["mean"]:+.4f}</td><td>[{x["low"]:+.4f}, {x["high"]:+.4f}]</td>'
                       f'<td>{x["clusters"]}</td><td>{x["paired_profiles"]}</td></tr>' for x in comparisons)
@@ -128,7 +136,7 @@ def report(root):
 <h2>Capability probes</h2><p>Three simple programs per bytecode version. Supported responses also undergo runtime verification. These probes are excluded from quality totals.</p>
 <section><table><thead><tr><th>Provider</th><th>Probe</th><th>Observed outcome</th></tr></thead><tbody>__CANARIES__</tbody></table></section>
 <h2>Coverage and outcomes</h2><p>Every planned profile remains in its denominator. <b>not_run_unsupported_version</b> means three separate canaries explicitly rejected the version; those profiles were not individually requested. Compile success is not a semantic proof. Structural means are conditional on measurable output; consult the paired comparison before ranking.</p>
-<section><table><thead><tr><th>Suite</th><th>Bytecode</th><th>Provider</th><th>Profiles</th><th>Recompiled</th><th>Runtime passed / eligible</th><th>Observed mismatches</th><th>Structure measured</th><th>Mean structure</th></tr></thead><tbody>__GROUPS__</tbody></table></section>
+<section><table><thead><tr><th>Suite</th><th>Bytecode</th><th>Provider</th><th>Profiles</th><th>Recompiled</th><th>Runtime passed / eligible</th><th>Observed mismatches</th><th>Structure measured</th><th>Mean structure</th><th>Style-normalized structure</th></tr></thead><tbody>__GROUPS__</tbody></table></section>
 <ul><li><b>Regression:</b> Tovek development fixtures; intentionally exposed during implementation.</li><li><b>Public:</b> all 171 selected files from five pinned, licensed repositories. No complete Roblox environment is executed.</li><li><b>Generated:</b> __SEEDS__ fresh seeds plus alpha-renamed variants from an existing grammar. Seeds are frozen before scored requests; variants share a statistical cluster. This is not an independent language-family holdout.</li><li>O0/O1/O2, stripped/debug metadata and v9/v12 are distinct profiles, not independent programs. Alignment-budget unknowns remain visible.</li></ul>
 <h2>Paired differences, with uncertainty</h2><p>V2 minus lua.expert. Runtime is end-to-end tested success; structure uses only their common measured subset. Each program/seed is averaged before a 2,000-resample cluster bootstrap. Intervals describe this corpus, not a representative sample of all Roblox code.</p>
 <section><table><thead><tr><th>Suite</th><th>Bytecode</th><th>Metric</th><th>Mean delta</th><th>95% interval</th><th>Clusters</th><th>Paired profiles</th></tr></thead><tbody>__PAIRS__</tbody></table></section>

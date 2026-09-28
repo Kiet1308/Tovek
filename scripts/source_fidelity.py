@@ -23,6 +23,11 @@ TYPE_FIELDS = {"luauType", "annotation", "returnAnnotation", "varargAnnotation",
                "generics", "genericPacks"}
 TYPE_STATEMENTS = {"AstStatTypeAlias", "AstStatTypeFunction", "AstStatDeclareFunction",
                    "AstStatDeclareGlobal", "AstStatDeclareExternType"}
+# Parentheses around these only group; they never truncate results or change
+# evaluation, so the style-normalized model ignores them.
+ATOMS = {"AstExprConstantNil", "AstExprConstantBool", "AstExprConstantNumber",
+         "AstExprConstantString", "AstExprLocal", "AstExprGlobal"}
+STYLE_MODEL = "if-expression+compound-assignment+atom-group-v1"
 
 
 def parse_ast(executable, source, timeout=30):
@@ -52,8 +57,26 @@ def conditional_count(value):
     return 0
 
 
-def canonicalize(root, *, statement_style=False):
+def canonicalize(root, *, statement_style=False, compound_style=False):
+    """`statement_style` writes a single-target if-expression initializer as
+    branch statements; `compound_style` additionally writes `x op= e` as
+    `x = x op e`, any single-target if-expression assignment (with `elseif`
+    arms) as statements, and drops parentheses around atoms. Both spellings of
+    each pair compile to the same bytecode for the targets a decompiler emits."""
     bindings, names, types = {}, {}, []
+
+    def if_statement(target, expr):
+        # `target = if c then a elseif d then b else e` as branch statements.
+        def arm(value):
+            return {"type": "AstStatBlock", "body": [{"type": "AstStatAssign",
+                    "vars": [target()], "values": [normalize(value)]}]}
+        false_expr = expr["falseExpr"]
+        if false_expr.get("type") == "AstExprIfElse":
+            else_body = if_statement(target, false_expr)
+        else:
+            else_body = arm(false_expr)
+        return {"type": "AstStatIf", "condition": normalize(expr["condition"]),
+                "thenbody": arm(expr["trueExpr"]), "elsebody": else_body}
 
     def normalize(value):
         if isinstance(value, list):
@@ -83,6 +106,15 @@ def canonicalize(root, *, statement_style=False):
             if value.get("luauType") is not None:
                 types.append(strip_locations(value["luauType"]))
             return {"type": "Binding", "id": index}
+        if compound_style and kind == "AstStatCompoundAssign":
+            return {"type": "AstStatAssign", "vars": [normalize(value["var"])],
+                    "values": [{"type": "AstExprBinary", "op": value["op"],
+                                "left": normalize(value["var"]), "right": normalize(value["value"])}]}
+        if compound_style and kind == "AstExprGroup" and value["expr"].get("type") in ATOMS:
+            return normalize(value["expr"])
+        if (compound_style and kind == "AstStatAssign" and len(value["vars"]) == len(value["values"]) == 1
+                and value["values"][0].get("type") == "AstExprIfElse"):
+            return if_statement(lambda: normalize(value["vars"][0]), value["values"][0])
         if kind == "AstStatBlock":
             body = []
             for statement in value["body"]:
@@ -95,6 +127,9 @@ def canonicalize(root, *, statement_style=False):
                     expr = statement["values"][0]
                     binding = normalize(statement["vars"][0])
                     body.append({"type": "AstStatLocal", "vars": [binding], "values": []})
+                    if compound_style:
+                        body.append(if_statement(lambda: {"type": "AstExprLocal", "local": binding}, expr))
+                        continue
                     branches = {}
                     for arm, key in (("thenbody", "trueExpr"), ("elsebody", "falseExpr")):
                         branches[arm] = {"type": "AstStatBlock", "body": [{"type": "AstStatAssign",
@@ -179,10 +214,14 @@ def compare_ast(source, output, *, token_pair_budget=4_000_000):
     exact = sum(row["exact_name"] for row in aligned)
     style_a = tokens(canonicalize(source, statement_style=True)[0])
     style_b = tokens(canonicalize(output, statement_style=True)[0])
+    normalized_a = tokens(canonicalize(source, statement_style=True, compound_style=True)[0])
+    normalized_b = tokens(canonicalize(output, statement_style=True, compound_style=True)[0])
 
     return {"model": "luau-ast-binding-v2", "status": "measured", "raw_structural_ratio": raw,
             "statement_initializer_normalized_ratio": difflib.SequenceMatcher(None, style_a, style_b, autojunk=False).ratio(),
             "style_normalization": "single-local-if-initializer-v1",
+            "style_normalized_ratio": difflib.SequenceMatcher(None, normalized_a, normalized_b, autojunk=False).ratio(),
+            "style_normalized_model": STYLE_MODEL,
             "source_conditional_expressions": conditional_count(source),
             "output_conditional_expressions": conditional_count(output),
             "source_bindings": len(left_names), "output_bindings": len(right_names),
