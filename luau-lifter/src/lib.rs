@@ -56,6 +56,8 @@ pub const SYNTHESIZE_ARITHMETIC_LOOPS: u32 = 1 << 5;
 pub const COMPACT_ANNOTATIONS: u32 = 1 << 6;
 /// `--style compact`: scalar selects as if-expressions instead of statements.
 pub const COMPACT_STYLE: u32 = 1 << 7;
+/// Write folded library constants through Roblox's standard libraries.
+pub const ASSUME_STANDARD_LIBRARIES: u32 = 1 << 8;
 
 // ---- TEMPORARY PROFILING (env-gated, remove before ship) ----
 #[doc(hidden)]
@@ -155,6 +157,10 @@ pub struct DecompileOptions {
     /// Opt-in presentation: write a scalar select as `if c then a else b`
     /// instead of the default branch statements (ROADMAP V2 §1).
     pub compact_style: bool,
+    /// Opt-in: write folded constants as `math.pi`, `math.huge` and
+    /// `Vector3.new(...)`. The exact default does not look anything up in the
+    /// environment, which another script may replace at run time.
+    pub assume_standard_libraries: bool,
 }
 
 /// Controls whether the certified CFG dispatcher is an acceptable output
@@ -170,7 +176,7 @@ pub enum ControlFlowOutputPolicy {
 
 impl DecompileOptions {
     pub fn from_flag_bits(bits: u32) -> Option<Self> {
-        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL | EMIT_BINDING_PROVENANCE | SYNTHESIZE_ARITHMETIC_LOOPS | COMPACT_ANNOTATIONS | COMPACT_STYLE)
+        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL | EMIT_BINDING_PROVENANCE | SYNTHESIZE_ARITHMETIC_LOOPS | COMPACT_ANNOTATIONS | COMPACT_STYLE | ASSUME_STANDARD_LIBRARIES)
             != 0
         {
             return None;
@@ -183,6 +189,7 @@ impl DecompileOptions {
             synthesize_arithmetic_loops: bits & SYNTHESIZE_ARITHMETIC_LOOPS != 0,
             compact_annotations: bits & COMPACT_ANNOTATIONS != 0,
             compact_style: bits & COMPACT_STYLE != 0,
+            assume_standard_libraries: bits & ASSUME_STANDARD_LIBRARIES != 0,
             control_flow_policy: if bits & STRICT_NO_SYNTHETIC_CONTROL != 0 {
                 ControlFlowOutputPolicy::StrictNoSyntheticControl
             } else {
@@ -199,6 +206,7 @@ impl DecompileOptions {
             | u32::from(self.synthesize_arithmetic_loops) * SYNTHESIZE_ARITHMETIC_LOOPS
             | u32::from(self.compact_annotations) * COMPACT_ANNOTATIONS
             | u32::from(self.compact_style) * COMPACT_STYLE
+            | u32::from(self.assume_standard_libraries) * ASSUME_STANDARD_LIBRARIES
             | u32::from(
                 self.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl,
             ) * STRICT_NO_SYNTHETIC_CONTROL
@@ -213,6 +221,7 @@ impl DecompileOptions {
             synthesize_arithmetic_loops: self.synthesize_arithmetic_loops || other.synthesize_arithmetic_loops,
             compact_annotations: self.compact_annotations || other.compact_annotations,
             compact_style: self.compact_style || other.compact_style,
+            assume_standard_libraries: self.assume_standard_libraries || other.assume_standard_libraries,
             control_flow_policy: if self.control_flow_policy
                 == ControlFlowOutputPolicy::StrictNoSyntheticControl
                 || other.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
@@ -223,6 +232,23 @@ impl DecompileOptions {
             },
         }
     }
+}
+
+/// Libraries whose folded constants compile back unchanged from their library
+/// spelling: the chunk never writes the global and never names getfenv or
+/// setfenv, exactly the conditions under which the compiler folds them.
+fn pristine_libraries(chunk: &deserializer::chunk::Chunk) -> ast::library_constants::Libraries {
+    if chunk.string_table.iter().any(|string| *string == b"getfenv" || *string == b"setfenv") {
+        return Default::default();
+    }
+    let written = |name: &[u8]| chunk.functions.iter().any(|function| {
+        function.instructions.iter().any(|instruction| matches!(instruction,
+            instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETGLOBAL, aux, .. }
+                if matches!(function.constants.get(*aux as usize),
+                    Some(deserializer::constant::Constant::String(index))
+                        if index.checked_sub(1).and_then(|index| chunk.string_table.get(index)) == Some(&name))))
+    });
+    ast::library_constants::Libraries { math: !written(b"math"), vector3: !written(b"Vector3") }
 }
 
 // NOTE: the `#[global_allocator]` (mimalloc by default, dhat under the
@@ -971,6 +997,9 @@ fn decompile_bytecode_internal(
                 ast::telemetry::count("select_budget_exhausted", u64::from(report.budget_exhausted));
                 emit_upvalue_analysis.then(|| serde_json::to_value(report).expect("finite select report"))
             } else { None };
+            if options.assume_standard_libraries {
+                ast::library_constants::spell_library_constants(&mut body, pristine_libraries(&chunk));
+            }
             if chunk.functions.iter().any(|function| function.constants.iter().any(|constant| {
                 matches!(constant, deserializer::constant::Constant::Vector(..)
                     | deserializer::constant::Constant::VectorD(..))
@@ -2037,6 +2066,20 @@ mod option_tests {
         assert_eq!(DecompileOptions::from_flag_bits(enabled.bits()), Some(enabled));
         assert_eq!(DecompileOptions::default().union(enabled), enabled);
         assert_eq!(enabled.union(DecompileOptions::default()), enabled);
+    }
+
+    #[test]
+    fn presentation_opt_ins_round_trip_and_union() {
+        let defaults = DecompileOptions::default();
+        assert!(!defaults.compact_style && !defaults.assume_standard_libraries);
+        for (enabled, bit) in [
+            (DecompileOptions { compact_style: true, ..defaults }, super::COMPACT_STYLE),
+            (DecompileOptions { assume_standard_libraries: true, ..defaults }, super::ASSUME_STANDARD_LIBRARIES),
+        ] {
+            assert_eq!(enabled.bits(), bit);
+            assert_eq!(DecompileOptions::from_flag_bits(bit), Some(enabled));
+            assert_eq!(defaults.union(enabled), enabled);
+        }
     }
 
     #[test]

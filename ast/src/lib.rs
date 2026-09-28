@@ -78,6 +78,7 @@ pub mod rehoist_constants;
 pub mod reroll_arithmetic;
 mod repeat;
 pub mod replace_locals;
+pub mod library_constants;
 pub mod link_upvalues;
 mod r#return;
 mod set_list;

@@ -104,6 +104,11 @@ struct FolderArgs {
     /// scalar select as `if c then a else b`.
     #[arg(long, default_value = "default", value_parser = ["default", "compact"])]
     style: String,
+    /// Write folded constants as `math.pi`, `math.huge` and `Vector3.new(...)`
+    /// when the script never writes those globals or uses getfenv/setfenv.
+    /// Assumes no other script replaces the libraries in its environment.
+    #[arg(long)]
+    assume_standard_libraries: bool,
     /// Source extension written by the folder decompiler.
     #[arg(long, default_value = "luau", value_parser = ["lua", "luau"])]
     output_extension: String,
@@ -193,6 +198,7 @@ fn main() {
                     emit_binding_provenance: a.emit_binding_provenance,
                     compact_annotations: a.compact_annotations,
                     compact_style: a.style == "compact",
+                    assume_standard_libraries: a.assume_standard_libraries,
                     control_flow_policy: folder_control_flow_policy(
                         a.strict_no_synthetic_control,
                         a.allow_certified_dispatcher,
@@ -365,6 +371,7 @@ fn run_single_file() {
             "--dont-reuse-var" => options.dont_reuse_var = true,
             "--no-synth-helpers" => options.no_synth_helpers = true,
             "--assume-no-nan" => options.assume_no_nan = true,
+            "--assume-standard-libraries" => options.assume_standard_libraries = true,
             "--synthesize-arithmetic-loops" => options.synthesize_arithmetic_loops = true,
             "--allow-certified-dispatcher" => {
                 options.control_flow_policy =

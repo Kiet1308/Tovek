@@ -807,6 +807,8 @@ fn parse_flags_text(raw: &str) -> Result<DecompileOptions, Error> {
         match normalized.as_str() {
             "NONE" => {}
             "DONT_REUSE_VAR" => options.dont_reuse_var = true,
+            "COMPACT_STYLE" => options.compact_style = true,
+            "ASSUME_STANDARD_LIBRARIES" => options.assume_standard_libraries = true,
             "STRICT_NO_SYNTHETIC_CONTROL" => {
                 options.control_flow_policy =
                     luau_lifter::ControlFlowOutputPolicy::StrictNoSyntheticControl;
