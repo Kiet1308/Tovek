@@ -28,8 +28,18 @@ struct Writes {
 
 /// Rewrite `local f = nil` to `local f` for every forward-declared function.
 pub fn bare_forward_declarations(block: &mut Block) {
+    // Candidates are the `local f = nil` declarations, usually few; only their
+    // writes are counted.
     let mut writes = FxHashMap::default();
-    census_block(block, &mut writes);
+    visit_statements(block, &mut |statement| {
+        if let Some(local) = nil_declaration(statement) {
+            writes.insert(local.clone(), Writes::default());
+        }
+    });
+    if writes.is_empty() {
+        return;
+    }
+    visit_statements(block, &mut |statement| census_statement(statement, &mut writes));
     if writes.values().any(is_forward_function) {
         rewrite_block(block, &writes);
     }
@@ -39,9 +49,26 @@ fn is_forward_function(writes: &Writes) -> bool {
     writes.nil_declarations == 1 && writes.closures != 0 && writes.other == 0
 }
 
-fn census_block(block: &Block, writes: &mut FxHashMap<RcLocal, Writes>) {
+fn nil_declaration(statement: &Statement) -> Option<&RcLocal> {
+    let Statement::Assign(assign) = statement else { return None };
+    match (assign.left.as_slice(), assign.right.as_slice()) {
+        ([LValue::Local(local)], [RValue::Literal(Literal::Nil)]) if assign.prefix => Some(local),
+        _ => None,
+    }
+}
+
+/// Every statement of the function tree, including nested closures.
+fn visit_statements(block: &Block, visit: &mut impl FnMut(&Statement)) {
     for statement in &block.0 {
-        census_statement(statement, writes);
+        visit(statement);
+        let mut functions = Vec::new();
+        crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
+            functions.push(closure.function.clone());
+        });
+        for function in functions {
+            visit_statements(&function.lock().body, visit);
+        }
+        for_each_child_block(statement, &mut |block| visit_statements(block, visit));
     }
 }
 
@@ -50,7 +77,7 @@ fn census_statement(statement: &Statement, writes: &mut FxHashMap<RcLocal, Write
         let aligned = assign.left.len() == assign.right.len();
         for (index, left) in assign.left.iter().enumerate() {
             let LValue::Local(local) = left else { continue };
-            let entry = writes.entry(local.clone()).or_default();
+            let Some(entry) = writes.get_mut(local) else { continue };
             match aligned.then(|| &assign.right[index]) {
                 Some(RValue::Closure(_)) => entry.closures += 1,
                 Some(RValue::Literal(Literal::Nil)) if assign.prefix && assign.left.len() == 1 => {
@@ -61,19 +88,12 @@ fn census_statement(statement: &Statement, writes: &mut FxHashMap<RcLocal, Write
         }
     } else {
         statement.visit_local_writes(&mut |local| {
-            writes.entry(local.clone()).or_default().other += 1;
+            if let Some(entry) = writes.get_mut(local) {
+                entry.other += 1;
+            }
             true
         });
     }
-
-    let mut functions = Vec::new();
-    crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
-        functions.push(closure.function.clone());
-    });
-    for function in functions {
-        census_block(&function.lock().body, writes);
-    }
-    for_each_child_block(statement, &mut |block| census_block(block, writes));
 }
 
 fn rewrite_block(block: &mut Block, writes: &FxHashMap<RcLocal, Writes>) {
