@@ -738,6 +738,7 @@ fn decompile_bytecode_internal(
                 ptime!(S_CLEANUP_RETURNS);
                 ast::cleanup_returns::cleanup_redundant_returns(&mut body);
                 ast::flatten_guards::flatten_terminal_tail_guards(&mut body);
+                ast::flatten_guards::invert_empty_then_branches(&mut body);
             }
             // Restore the per-iteration snapshot of a by-value (`Upvalue::Copy`)
             // capture that out-of-SSA coalescing merged onto a mutated (loop)
@@ -904,6 +905,7 @@ fn decompile_bytecode_internal(
                 ptime!(S_CLEANUP_RETURNS);
                 ast::cleanup_returns::cleanup_redundant_returns(&mut body);
                 ast::flatten_guards::flatten_terminal_tail_guards(&mut body);
+                ast::flatten_guards::invert_empty_then_branches(&mut body);
             }
             dump_stage("final_guards", &body);
             // Luau has no `goto` or labels.  The structurer uses them only as an
