@@ -73,9 +73,12 @@ pub mod prof {
     macro_rules! counters {
         ($($name:ident),* $(,)?) => {
             $(pub static $name: AtomicU64 = AtomicU64::new(0);)*
-            pub fn dump() {
-                eprintln!("---- MEDAL_PROF (us) ----");
-                $(eprintln!("{:<28} {:>10}", stringify!($name), $name.load(Ordering::Relaxed));)*
+            /// Accumulated nanoseconds per phase since the last reset.
+            pub fn snapshot() -> Vec<(&'static str, u64)> {
+                vec![$((stringify!($name), $name.load(Ordering::Relaxed)),)*]
+            }
+            pub fn reset() {
+                $($name.store(0, Ordering::Relaxed);)*
             }
         };
     }
@@ -118,6 +121,18 @@ pub mod prof {
         S_NORMALIZE_CONDS,
         S_GUARD_CONTINUE,
         S_FORMAT,
+        TOTAL,
+        SETUP,
+        F_PRESERVE,
+        F_FACTOR_TAILS,
+        F_COALESCE,
+        F_CHECKS,
+        S_ARITH_DEINLINE,
+        S_SYNTH_HELPERS,
+        S_BRANCH_CONSTRUCTORS,
+        S_LOWER_SELECTS,
+        S_LATE,
+        S_REFINE_NAMES,
     );
 
     pub struct Timer(Option<(Instant, &'static AtomicU64)>);
@@ -129,7 +144,7 @@ pub mod prof {
     impl Drop for Timer {
         fn drop(&mut self) {
             if let Some((s, c)) = self.0.take() {
-                c.fetch_add(s.elapsed().as_micros() as u64, Ordering::Relaxed);
+                c.fetch_add(s.elapsed().as_nanos() as u64, Ordering::Relaxed);
             }
         }
     }
@@ -456,6 +471,7 @@ fn decompile_bytecode_internal(
         return Err(DecompileFailure::message("compact annotations require an artifact API with binding provenance"));
     }
     ast::reset_local_ids();
+    let _total_timer = prof::Timer::new(&prof::TOTAL);
     let call_origins = ast::call_origins::enter(emit_upvalue_analysis && options.emit_binding_provenance);
     let profile_context = profile::context(script_name, bytecode);
     let _profile_context = ast::telemetry::enter(profile_context.clone());
@@ -480,6 +496,7 @@ fn decompile_bytecode_internal(
             }
             let raw_upvalue_analysis =
                 emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
+            let setup_timer = prof::Timer::new(&prof::SETUP);
             let _reconstruction_search = if chunk.functions.len() <= 4096
                 && chunk.functions.iter().map(|p| p.instructions.len()).sum::<usize>() <= ast::reconstruction_search::PC_LIMIT {
                 if chunk.functions.len() == 1 {
@@ -489,6 +506,7 @@ fn decompile_bytecode_internal(
                 }
             } else { ast::reconstruction_search::enter_truncated() };
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
+            drop(setup_timer);
             ast::telemetry::count("capture_readonly_slots", capture_effects.readonly.iter()
                 .flatten().filter(|&&readonly| readonly).count() as u64);
             ast::telemetry::count("capture_readonly_refused", u64::from(capture_effects.refusal.is_some()));
@@ -758,6 +776,7 @@ fn decompile_bytecode_internal(
             // through every structured branch. It has its own bounded fixed point;
             // running de-inline again was measured byte-identical on the corpus.
             if !options.no_synth_helpers {
+                ptime!(S_SYNTH_HELPERS);
                 ast::synthesize_terminal_helpers::synthesize_terminal_helpers(&mut body);
             }
             {
@@ -775,6 +794,7 @@ fn decompile_bytecode_internal(
                 ast::materialize_value_captures::materialize_value_captures(&mut body);
             }
             {
+                ptime!(S_ARITH_DEINLINE);
                 let span = ast::telemetry::Span::ast("S_ARITHMETIC_DEINLINE_EARLY", &body, true);
                 ast::expr_deinline::arithmetic_deinline_early(&mut body);
                 span.finish_ast(&body, true);
@@ -963,7 +983,7 @@ fn decompile_bytecode_internal(
             // later inlining cannot erase their ordered initializer snapshots.
             let mut local_producers = Vec::new();
             let branch_constructors = if chunk.version == 9 {
-                let _span = ast::telemetry::Span::new("S_BRANCH_CONSTRUCTORS");
+                ptime!(S_BRANCH_CONSTRUCTORS);
                 let report = ast::branch_constructors::rebuild_branch_constructors(&mut body);
                 if options.emit_binding_provenance {
                     local_producers.push(ast::local_producers::Pass {
@@ -980,7 +1000,7 @@ fn decompile_bytecode_internal(
             // literal `not` break guards are introduced; comparisons are never
             // complemented. No expression cleanup may erase these snapshots.
             let conditional_lowering = if chunk.version == 9 && !options.compact_style {
-                let _span = ast::telemetry::Span::new("S_LOWER_SELECTS");
+                ptime!(S_LOWER_SELECTS);
                 let report = ast::lower_conditionals::lower_existing_conditionals(&mut body);
                 if options.emit_binding_provenance {
                     local_producers.push(ast::local_producers::Pass {
@@ -995,6 +1015,7 @@ fn decompile_bytecode_internal(
                 ast::telemetry::count("select_budget_exhausted", u64::from(report.budget_exhausted));
                 emit_upvalue_analysis.then(|| serde_json::to_value(report).expect("finite select report"))
             } else { None };
+            let late_timer = prof::Timer::new(&prof::S_LATE);
             if options.assume_standard_libraries {
                 ast::library_constants::spell_library_constants(&mut body, pristine_libraries(&chunk));
             }
@@ -1014,9 +1035,10 @@ fn decompile_bytecode_internal(
             }
             ast::forward_declarations::bare_forward_declarations(&mut body);
             ast::compound_bases::fold_compound_bases(&mut body);
+            drop(late_timer);
             // No expression/condition mutation is permitted after this point.
             let name_inference = {
-                let _span = ast::telemetry::Span::new("S_REFINE_NAMES");
+                ptime!(S_REFINE_NAMES);
                 ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
                     dont_reuse_var: options.dont_reuse_var,
                     emit_report: emit_upvalue_analysis,
@@ -1032,9 +1054,6 @@ fn decompile_bytecode_internal(
                     (body.to_string(), Vec::new(), Default::default())
                 }
             };
-            if prof::on() {
-                prof::dump();
-            }
             let upvalue_analysis = raw_upvalue_analysis.map(|raw| {
                 let mut analysis = upvalue_analysis::reconcile_bindings(
                     raw,
@@ -1766,7 +1785,10 @@ fn decompile_function(
         .enumerate()
         .flat_map(|(i, g)| g.into_iter().map(move |l| (l, i)))
         .collect::<FxHashMap<_, _>>();
-    cfg::source_bindings::preserve_conditional_results(&function, &protected_upvalue_locals);
+    {
+        ptime!(F_PRESERVE);
+        cfg::source_bindings::preserve_conditional_results(&function, &protected_upvalue_locals);
+    }
     // TODO: REFACTOR: some way to write a macro that states
     // if cfg::ssa::inline results in change then structure_jumps, structure_compound_conditionals,
     // structure_for_loops and remove_unnecessary_params must run again.
@@ -1912,7 +1934,11 @@ fn decompile_function(
     // Otherwise their shared SSA identities force branch-private temporaries
     // into a common ancestor, and late factoring leaves those declarations
     // stranded outside the helper bodies the de-inliner should recognize.
-    ast::factor_common_tails::factor_function_tails(&mut lifted, &source_like_protected_locals);
+    {
+        ptime!(F_FACTOR_TAILS);
+        ast::factor_common_tails::factor_function_tails(&mut lifted, &source_like_protected_locals);
+    }
+    let coalesce_timer = prof::Timer::new(&prof::F_COALESCE);
     // Keep large source-like functions below Luau's 200-local source limit by
     // coalescing only proven-disjoint generated temporaries.  This pass is
     // deliberately after structuring/fallback selection and before
@@ -1923,9 +1949,12 @@ fn decompile_function(
     ast::coalesce_locals::coalesce_generated_locals_in_function(
         &mut lifted, &source_like_protected_locals, &params, &upvalues_in,
     );
-    if ast::simplify_gotos::block_has_goto_or_label(&lifted)
-        || ast::simplify_gotos::block_has_unlowered_control(&lifted)
-    {
+    drop(coalesce_timer);
+    let checks_timer = prof::Timer::new(&prof::F_CHECKS);
+    let residual = ast::simplify_gotos::block_has_goto_or_label(&lifted)
+        || ast::simplify_gotos::block_has_unlowered_control(&lifted);
+    drop(checks_timer);
+    if residual {
         let locals_to_ignore = upvalues_in.iter().chain(params.iter()).cloned().collect();
         let source_like_end_id = ast::current_local_id();
         if used_source_like {
