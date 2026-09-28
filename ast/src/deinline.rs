@@ -886,9 +886,10 @@ fn rvalue_closure_reads(rv: &RValue, v: &RcLocal) -> usize {
 /// counting one.
 pub(crate) fn collect_reads(stmts: &[Statement], out: &mut FxHashSet<RcLocal>) {
     for s in stmts {
-        for r in s.values_read() {
+        s.visit_local_reads(&mut |r| {
             out.insert(r.clone());
-        }
+            true
+        });
         match s {
             Statement::If(f) => {
                 collect_reads(&f.then_block.lock().0, out);

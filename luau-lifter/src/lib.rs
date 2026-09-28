@@ -872,9 +872,7 @@ fn decompile_bytecode_internal(
             // as a hard chunk-level invariant (including every nested closure): a
             // future unsupported CFG shape must be reported as a decompile error,
             // never silently returned as invalid Luau.
-            if ast::simplify_gotos::function_tree_has_goto_or_label(&body)
-                || ast::simplify_gotos::function_tree_has_unlowered_control(&body)
-            {
+            if ast::simplify_gotos::function_tree_has_residual_control(&body) {
                 if function_diagnostics.is_empty() {
                     function_diagnostics.push(DecompileDiagnostic {
                         stage: "final_invariant".to_string(),
@@ -1935,8 +1933,7 @@ fn decompile_function(
     // function and which proof stage produced the residual control flow.
     let diagnostic = {
         let body = block.lock();
-        (ast::simplify_gotos::function_tree_has_goto_or_label(&body)
-            || ast::simplify_gotos::function_tree_has_unlowered_control(&body))
+        ast::simplify_gotos::function_tree_has_residual_control(&body)
         .then(|| DecompileDiagnostic {
             stage: "final_invariant".to_string(),
             code: source_like_rejection

@@ -2202,6 +2202,47 @@ pub fn function_tree_has_unlowered_control(block: &Block) -> bool {
     tree_block_has_unlowered(block, &mut FxHashSet::default())
 }
 
+/// `function_tree_has_goto_or_label(block) || function_tree_has_unlowered_control(block)`
+/// in one traversal. A loop marker is itself residual, so the expressions only
+/// the unlowered-control walk looks into (those of loop markers) need no visit.
+pub fn function_tree_has_residual_control(block: &Block) -> bool {
+    fn value_has_residual(value: &RValue, visited: &mut FxHashSet<usize>) -> bool {
+        if let RValue::Closure(closure) = value {
+            let address = Arc::as_ptr(&closure.function.0) as usize;
+            return visited.insert(address)
+                && tree_block_has_residual(&closure.function.lock().body, visited);
+        }
+        !value.visit_rvalues(&mut |child| !value_has_residual(child, visited))
+    }
+
+    fn tree_block_has_residual(block: &Block, visited: &mut FxHashSet<usize>) -> bool {
+        block.0.iter().any(|statement| {
+            matches!(
+                statement,
+                Statement::Goto(_)
+                    | Statement::Label(_)
+                    | Statement::NumForInit(_)
+                    | Statement::NumForNext(_)
+                    | Statement::GenericForInit(_)
+                    | Statement::GenericForNext(_)
+            ) || !crate::deinline::visit_stmt_rvalues(statement, &mut |value| !value_has_residual(value, visited))
+                || match statement {
+                    Statement::If(node) => {
+                        tree_block_has_residual(&node.then_block.lock(), visited)
+                            || tree_block_has_residual(&node.else_block.lock(), visited)
+                    }
+                    Statement::While(node) => tree_block_has_residual(&node.block.lock(), visited),
+                    Statement::Repeat(node) => tree_block_has_residual(&node.block.lock(), visited),
+                    Statement::NumericFor(node) => tree_block_has_residual(&node.block.lock(), visited),
+                    Statement::GenericFor(node) => tree_block_has_residual(&node.block.lock(), visited),
+                    _ => false,
+                }
+        })
+    }
+
+    tree_block_has_residual(block, &mut FxHashSet::default())
+}
+
 /// Post-`LocalDeclarer` fixup: in any block that still contains a `goto`, move
 /// the block's `local` declarations to the top. This prevents the remaining
 /// (valid) gotos from jumping *into* the scope of a local declared between the
@@ -3116,6 +3157,9 @@ pub fn function_tree_has_unlowered_control(block: &Block) -> bool {
                     "goto terminal {terminal}, location {location}");
                 assert_eq!(super::function_tree_has_unlowered_control(&block), function_tree_has_unlowered_control(&block),
                     "marker terminal {terminal}, location {location}");
+                assert_eq!(super::function_tree_has_residual_control(&block),
+                    function_tree_has_goto_or_label(&block) || function_tree_has_unlowered_control(&block),
+                    "residual terminal {terminal}, location {location}");
                 assert_eq!(Arc::strong_count(&function), owners);
                 // Re-query after publication must observe the new child state;
                 // neither implementation may retain a cross-query cache.

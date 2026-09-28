@@ -33,14 +33,15 @@ impl ParamDependencyGraph {
             }
             // TODO: support non-local block arguments
             for (param, arg) in &edge.1.arguments {
-                for read in arg.values_read() {
+                arg.visit_local_reads(&mut |read| {
                     if let Some(&defining_param_node) = this.local_to_node.get(read) {
                         let param_node = this.local_to_node[param];
                         if param_node != defining_param_node {
                             this.graph.add_edge(param_node, defining_param_node, ());
                         }
                     }
-                }
+                    true
+                });
             }
         }
 

@@ -324,9 +324,11 @@ fn inline_current_block_with_usage(block: &mut Block, facts: &MotionFacts, mut u
         let Some(&use_index) = uses.get(&local).filter(|&&at| at > index) else { continue; };
         // Only sole-use candidate dependencies need a position update. Gather
         // before mutating the destination; other reads retain their indices.
-        let moved: Vec<_> = replacement.values_read().into_iter()
-            .filter(|read| declarations.contains_key(*read) && uses.get(*read) == Some(&index))
-            .cloned().collect();
+        let mut moved = Vec::new();
+        replacement.visit_local_reads(&mut |read| {
+            if declarations.contains_key(read) && uses.get(read) == Some(&index) { moved.push(read.clone()); }
+            true
+        });
         if !inline_at(block, index, use_index, facts, &mut motion) {
             work.set_use(index, Some(use_index));
             continue;

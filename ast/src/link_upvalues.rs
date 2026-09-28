@@ -18,12 +18,14 @@ pub fn link_upvalues(body: &mut Block, upvalues: &Inputs) {
 fn link_block(body: &mut Block, upvalues: &Inputs, locals: &FxHashMap<RcLocal, RcLocal>) {
     for statement in &mut body.0 {
         if !locals.is_empty() {
-            for local in statement.values_read_mut() {
+            statement.visit_local_reads_mut(&mut |local| {
                 replace(local, locals);
-            }
-            for local in statement.values_written_mut() {
+                true
+            });
+            statement.visit_local_writes_mut(&mut |local| {
                 replace(local, locals);
-            }
+                true
+            });
         }
         statement.traverse_rvalues(&mut |value| {
             if let RValue::Closure(closure) = value {
