@@ -327,6 +327,10 @@ pub struct Destructor<'a> {
     liveness: FxHashMap<NodeIndex, LiveSets>,
     undesirable_blocks: FxHashSet<NodeIndex>,
     terminal_block: Option<NodeIndex>,
+    /// Bytecode register (lifter local) of each SSA version, when known.
+    register_groups: Option<&'a FxHashMap<RcLocal, usize>>,
+    /// Registers of the phi transports this destructor creates.
+    transport_groups: FxHashMap<RcLocal, usize>,
 }
 
 /// Terminal SSA still needs copy/capture coalescing and sequentialization,
@@ -383,7 +387,22 @@ impl<'a> Destructor<'a> {
             liveness: FxHashMap::default(),
             undesirable_blocks: FxHashSet::default(),
             terminal_block,
+            register_groups: None,
+            transport_groups: FxHashMap::default(),
         }
+    }
+
+    /// Coalesce each bytecode register's own phi web before any copy between
+    /// registers. `register_groups` maps SSA versions to the lifter local
+    /// (register) they came from; versions it does not know keep the legacy
+    /// order. See [`Self::coalesce_copies`].
+    pub fn with_register_groups(mut self, register_groups: &'a FxHashMap<RcLocal, usize>) -> Self {
+        self.register_groups = Some(register_groups);
+        self
+    }
+
+    fn register_group(&self, local: &RcLocal) -> Option<usize> {
+        self.register_groups?.get(local).or_else(|| self.transport_groups.get(local)).copied()
     }
 
     pub fn destruct(mut self) {
@@ -792,7 +811,7 @@ impl<'a> Destructor<'a> {
             .unwrap_or(false)
     }
 
-    fn coalesce_copies_for_block(&mut self, node: NodeIndex) {
+    fn coalesce_copies_for_block(&mut self, node: NodeIndex, same_register_only: bool) {
         for stat_index in 0..self.function.block_mut(node).unwrap().0.len() {
             let should_remove = if let ast::Statement::Assign(assign) =
                 &self.function.block(node).unwrap()[stat_index]
@@ -819,6 +838,12 @@ impl<'a> Destructor<'a> {
 
                     if self.upvalue_to_group.contains_key(&left)
                         || self.upvalue_to_group.contains_key(&right)
+                    {
+                        continue;
+                    }
+                    if same_register_only
+                        && !self.register_group(&left)
+                            .is_some_and(|group| self.register_group(&right) == Some(group))
                     {
                         continue;
                     }
@@ -853,17 +878,29 @@ impl<'a> Destructor<'a> {
         block.retain(|s| s.as_empty().is_none());
     }
 
+    /// Greedy copy coalescing; every merge is still checked for interference,
+    /// so the order changes only which copies survive, never correctness.
+    ///
+    /// With register groups, the first sweep merges only copies between
+    /// versions of one bytecode register: the transports of that register's
+    /// phi web. A copy between two registers (`last = now`) then stays an
+    /// assignment instead of pulling the whole web into `now`, which would
+    /// leave compensating copies on every other path and loop edge, and a
+    /// reassigned source variable keeps one name (`x = min ... x = max`).
     fn coalesce_copies(&mut self) {
-        let mut dominator_dfs = Dfs::new(&self.dominator_tree, self.function.entry().unwrap());
-        while let Some(node) = dominator_dfs.next(self.function.graph()) {
-            if self.undesirable_blocks.contains(&node) {
-                self.coalesce_copies_for_block(node);
+        let sweeps: &[bool] = if self.register_groups.is_some() { &[true, false] } else { &[false] };
+        for &same_register_only in sweeps {
+            let mut dominator_dfs = Dfs::new(&self.dominator_tree, self.function.entry().unwrap());
+            while let Some(node) = dominator_dfs.next(self.function.graph()) {
+                if self.undesirable_blocks.contains(&node) {
+                    self.coalesce_copies_for_block(node, same_register_only);
+                }
             }
-        }
 
-        let mut dominator_dfs = Dfs::new(&self.dominator_tree, self.function.entry().unwrap());
-        while let Some(node) = dominator_dfs.next(self.function.graph()) {
-            self.coalesce_copies_for_block(node);
+            let mut dominator_dfs = Dfs::new(&self.dominator_tree, self.function.entry().unwrap());
+            while let Some(node) = dominator_dfs.next(self.function.graph()) {
+                self.coalesce_copies_for_block(node, same_register_only);
+            }
         }
     }
 
@@ -1238,6 +1275,9 @@ impl<'a> Destructor<'a> {
             for param in arguments.iter().map(|(p, _)| p) {
                 let temp_param = RcLocal::default();
                 temp_param.inherit_source_bindings(param);
+                if let Some(group) = self.register_group(param) {
+                    self.transport_groups.insert(temp_param.clone(), group);
+                }
                 if let Some(group) = self.upvalue_to_group.get(param) {
                     self.upvalue_to_group
                         .insert(temp_param.clone(), group.clone());
@@ -1310,6 +1350,9 @@ impl<'a> Destructor<'a> {
                 for (param, arg) in args {
                     let temp_local = RcLocal::default();
                     temp_local.inherit_source_bindings(param);
+                    if let Some(group) = self.register_groups.and_then(|groups| groups.get(param)) {
+                        self.transport_groups.insert(temp_local.clone(), *group);
+                    }
                     if trace_enabled {
                         if transport_origins.len() < crate::provenance::RECORD_LIMIT {
                             transport_origins.push((param.stable_id(), temp_local.stable_id()));

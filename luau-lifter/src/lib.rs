@@ -1784,6 +1784,7 @@ fn decompile_function(
             upvalues_in.iter().cloned().collect(),
             local_count,
         )
+        .with_register_groups(&local_to_group)
         .destruct();
     }
     // Freeze the trace before speculative structuring clones the CFG. This
