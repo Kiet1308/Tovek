@@ -747,6 +747,7 @@ pub fn apply_local_map(function: &mut Function, local_map: FxHashMap<RcLocal, Rc
 // based on "Simple and Efficient Construction of Static Single Assignment Form" (https://pp.info.uni-karlsruhe.de/uploads/publikationen/braun13cc.pdf)
 impl<'a> SsaConstructor<'a> {
     fn apply_pending_local_map(&mut self) {
+        let _timer = ast::prof::Timer::new(&ast::prof::C_APPLY_MAP);
         let _phase = ast::telemetry::Span::new("SSA_CONSTRUCT_APPLY_MAP");
         let map = std::mem::take(&mut self.local_map);
         // Phi elimination can replace the version originally captured by a
@@ -965,6 +966,7 @@ impl<'a> SsaConstructor<'a> {
     }
 
     fn propagate_copies(&mut self) {
+        let _timer = ast::prof::Timer::new(&ast::prof::C_PROPAGATE);
         let _phase = ast::telemetry::Span::new("SSA_PROPAGATE_COPIES");
         // TODO: blocks_mut
         for node in self.function.graph().node_indices().collect::<Vec<_>>() {
@@ -1007,6 +1009,7 @@ impl<'a> SsaConstructor<'a> {
     }
 
     fn mark_upvalues(&mut self) {
+        let _timer = ast::prof::Timer::new(&ast::prof::C_MARK_UPVALUES);
         let _phase = ast::telemetry::Span::new("SSA_MARK_UPVALUES");
         #[cfg(test)]
         if tests::REFERENCE_RENAMING.with(std::cell::Cell::get) {
@@ -1213,6 +1216,7 @@ impl<'a> SsaConstructor<'a> {
         Vec<FxHashSet<RcLocal>>,
     ) {
         let entry = self.function.entry().unwrap();
+        let rename_timer = ast::prof::Timer::new(&ast::prof::C_RENAME);
         let phase = ast::telemetry::Span::new("SSA_RENAME");
         let seals = SealSchedule::new(self.function, &self.dfs);
         let mut read = Vec::new();
@@ -1372,6 +1376,7 @@ impl<'a> SsaConstructor<'a> {
         drop(read);
         drop(written);
         drop(phase);
+        drop(rename_timer);
 
         // Record original SSA dependencies while lifted statement positions
         // are still valid, before copy propagation removes statements.
@@ -1400,6 +1405,7 @@ impl<'a> SsaConstructor<'a> {
         // During construction the upvalue cell groups are not built yet, so the
         // C4 self-exclusion is disabled here (None) — verbatim original behavior.
         {
+            let _timer = ast::prof::Timer::new(&ast::prof::C_REMOVE_PARAMS);
             let _phase = ast::telemetry::Span::new("SSA_CONSTRUCT_REMOVE_PARAMS");
             remove_unnecessary_params(self.function, &mut self.local_map, None);
         }
@@ -1426,6 +1432,7 @@ pub fn construct(
     Vec<(RcLocal, FxHashSet<RcLocal>)>,
     Vec<FxHashSet<RcLocal>>,
 ) {
+    let setup_timer = ast::prof::Timer::new(&ast::prof::C_SETUP);
     if let Some(trace) = &mut function.provenance { trace.phase = "ssa_construction"; }
     for parameter in &function.parameters { parameter.0.lock().4.parameter = true; }
     // if entry has predecessors, this might risk it never being incomplete
@@ -1451,6 +1458,7 @@ pub fn construct(
         }
     }
     let node_count = function.graph().node_count();
+    drop(setup_timer);
     // Lookup-only tables (never iterated for output): size them for about
     // one definition per statement instead of growing through rehashes.
     let statements = function.blocks().map(|(_, block)| block.len()).sum::<usize>();

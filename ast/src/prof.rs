@@ -76,6 +76,12 @@ counters!(
     I_INLINE,
     I_DEAD,
     I_TABLES,
+    C_RENAME,
+    C_APPLY_MAP,
+    C_MARK_UPVALUES,
+    C_PROPAGATE,
+    C_REMOVE_PARAMS,
+    C_SETUP,
 );
 
 pub struct Timer(Option<(Instant, &'static AtomicU64)>);
