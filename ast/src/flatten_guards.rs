@@ -298,45 +298,6 @@ pub fn flatten_guards(block: &mut Block) {
 /// (the trailing terminator is kept only when `<body>` can fall through).
 /// Runs after the whole-chunk tail factoring and de-inlining passes so the
 /// duplicated one-line terminator can no longer disturb their matching.
-/// `if c then else B end` becomes `if not c then B end`. Coalescing a common
-/// tail out of both arms can leave the then arm empty; the negation is the
-/// NaN-safe [`negate`] (only `not` and `==`/`~=` are folded).
-pub fn invert_empty_then_branches(block: &mut Block) {
-    for statement in block.0.iter_mut() {
-        match statement {
-            Statement::If(r#if) => {
-                invert_empty_then_branches(&mut r#if.then_block.lock());
-                invert_empty_then_branches(&mut r#if.else_block.lock());
-                let invert = r#if.then_block.lock().0.is_empty() && !r#if.else_block.lock().0.is_empty();
-                if invert {
-                    let condition = std::mem::replace(&mut r#if.condition, crate::Literal::Nil.into());
-                    r#if.condition = negate(condition);
-                    std::mem::swap(&mut *r#if.then_block.lock(), &mut *r#if.else_block.lock());
-                }
-            }
-            Statement::While(w) => invert_empty_then_branches(&mut w.block.lock()),
-            Statement::Repeat(r) => invert_empty_then_branches(&mut r.block.lock()),
-            Statement::NumericFor(nf) => invert_empty_then_branches(&mut nf.block.lock()),
-            Statement::GenericFor(gf) => invert_empty_then_branches(&mut gf.block.lock()),
-            _ => {}
-        }
-        statement.visit_rvalues_mut(&mut |value| {
-            invert_in_closures(value);
-            true
-        });
-    }
-}
-
-fn invert_in_closures(value: &mut RValue) {
-    if let RValue::Closure(closure) = value {
-        invert_empty_then_branches(&mut closure.function.lock().body);
-    }
-    value.visit_rvalues_mut(&mut |child| {
-        invert_in_closures(child);
-        true
-    });
-}
-
 pub fn flatten_terminal_tail_guards(block: &mut Block) {
     for s in block.0.iter_mut() {
         match s {
@@ -396,6 +357,22 @@ pub fn flatten_terminal_tail_guards(block: &mut Block) {
         block.0.splice(index..index, replacement);
         index += count;
     }
+    invert_empty_then_arms(block);
+}
+
+/// `if c then else B end` becomes `if not c then B end`. Coalescing a common
+/// tail out of both arms can leave the then arm empty; the negation is the
+/// NaN-safe [`negate`] (only `not` and `==`/`~=` are folded). Nested blocks
+/// were already visited by [`flatten_terminal_tail_guards`].
+fn invert_empty_then_arms(block: &mut Block) {
+    for statement in &mut block.0 {
+        let Statement::If(r#if) = statement else { continue };
+        if r#if.then_block.lock().0.is_empty() && !r#if.else_block.lock().0.is_empty() {
+            let condition = std::mem::replace(&mut r#if.condition, crate::Literal::Nil.into());
+            r#if.condition = negate(condition);
+            std::mem::swap(&mut *r#if.then_block.lock(), &mut *r#if.else_block.lock());
+        }
+    }
 }
 
 fn small_guard_tail(statement: &Statement) -> bool {
@@ -428,7 +405,7 @@ fn flatten_terminal_tail_guards_in_rvalue(value: &mut RValue) {
 
 #[cfg(test)]
 mod tests {
-    use super::{flatten_guards, invert_empty_then_branches};
+    use super::{flatten_guards, flatten_terminal_tail_guards};
     use crate::{
         Binary, BinaryOperation, Block, Call, Global, If, Literal, Local, RValue, RcLocal, Return,
         Statement, UnaryOperation,
@@ -588,7 +565,7 @@ mod tests {
             If::new(lv(&flag), Block::default(), Block(vec![call("a")])).into(),
             If::new(relational.into(), Block::default(), Block(vec![call("b")])).into(),
         ]);
-        invert_empty_then_branches(&mut block);
+        flatten_terminal_tail_guards(&mut block);
         // A relational comparison keeps its explicit `not` (NaN-safe).
         assert_eq!(block.to_string(), "if not flag then\n\ta()\nend\n\nif not (flag < 1) then\n\tb()\nend");
     }

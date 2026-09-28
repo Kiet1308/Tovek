@@ -815,6 +815,9 @@ impl<'a> Destructor<'a> {
         for stat_index in 0..self.function.block_mut(node).unwrap().0.len() {
             let should_remove = if let ast::Statement::Assign(assign) =
                 &self.function.block(node).unwrap()[stat_index]
+                // Most assignments copy no local; skip them without allocating.
+                && assign.left.iter().zip(&assign.right)
+                    .any(|(left, right)| left.as_local().is_some() && right.as_local().is_some())
             {
                 let mut to_remove = Vec::new();
                 let left = assign
