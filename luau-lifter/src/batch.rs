@@ -364,9 +364,9 @@ fn duplicate_groups(
         let mut hasher = rustc_hash::FxHasher::default();
         let mut length = 0usize;
         for line in text.split(|&byte| byte == b'\n').filter(|line| !line.starts_with(b"--")) {
-            for &byte in line.iter().filter(|&&byte| byte != b' ' && byte != b'\t' && byte != b'\r') {
-                hasher.write_u8(byte);
-                length += 1;
+            for run in line.split(|&byte| byte == b' ' || byte == b'\t' || byte == b'\r') {
+                hasher.write(run);
+                length += run.len();
             }
         }
         let payload = (hasher.finish(), length);

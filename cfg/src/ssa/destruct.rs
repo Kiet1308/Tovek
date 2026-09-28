@@ -21,7 +21,7 @@ mod liveness;
 mod bindings;
 
 use bindings::BindingSummary;
-use self::liveness::{LiveSets, Liveness};
+use self::liveness::Liveness;
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
 enum ParamOrStatIndex {
@@ -324,7 +324,7 @@ pub struct Destructor<'a> {
     // Half-open DFS intervals provide ancestor queries in O(1), with O(V)
     // storage instead of copying every ancestor on a deep dominator chain.
     dominators: FxHashMap<NodeIndex, (usize, usize)>,
-    liveness: FxHashMap<NodeIndex, LiveSets>,
+    liveness: Liveness,
     undesirable_blocks: FxHashSet<NodeIndex>,
     terminal_block: Option<NodeIndex>,
     /// Bytecode register (lifter local) of each SSA version, when known.
@@ -384,7 +384,7 @@ impl<'a> Destructor<'a> {
             local_last_use: FxHashMap::default(),
             dominator_tree: DiGraphMap::new(),
             dominators: FxHashMap::default(),
-            liveness: FxHashMap::default(),
+            liveness: Liveness::default(),
             undesirable_blocks: FxHashSet::default(),
             terminal_block,
             register_groups: None,
@@ -423,7 +423,6 @@ impl<'a> Destructor<'a> {
         }
         drop(phase);
         // this is for debugging :)
-        //self.add_liveness_comments();
         //crate::dot::render_to(self.function, &mut std::io::stdout()).unwrap();
 
         let phase = ast::telemetry::Span::new("SSA_DEF_USE");
@@ -450,18 +449,6 @@ impl<'a> Destructor<'a> {
 
         let _phase = ast::telemetry::Span::new("SSA_SEQUENTIALIZE");
         self.sequentialize();
-    }
-
-    fn add_liveness_comments(&mut self) {
-        for node in self.function.graph().node_indices().collect::<Vec<_>>() {
-            let liveness = &self.liveness[&node];
-            let block = self.function.block_mut(node).unwrap();
-            block.insert(
-                0,
-                ast::Comment::new(liveness.live_in.iter().join(", ")).into(),
-            );
-            block.push(ast::Comment::new(liveness.live_out.iter().join(", ")).into());
-        }
     }
 
     fn coalesce_upvalues(&mut self) {
@@ -1008,10 +995,10 @@ impl<'a> Destructor<'a> {
         // An edgeless single-block function has empty live_out, and both
         // definitions are in that block. The legacy live_in test can never
         // decide this query; keep the exact last-use/definition comparison.
-        if self.terminal_block.is_none() && self.liveness[&block_a].live_out.contains(local_b) {
+        if self.terminal_block.is_none() && self.liveness.live_out(block_a, local_b) {
             true
         } else if self.terminal_block.is_none()
-            && !self.liveness[&block_a].live_in.contains(local_b) && block_a != block_b {
+            && !self.liveness.live_in(block_a, local_b) && block_a != block_b {
             false
         } else if let Some(last_use) = self
             .local_last_use

@@ -1038,7 +1038,9 @@ pub fn inline_with_readonly_captures(
     readonly_capture_ids: &FxHashSet<u64>,
     incoming_upvalue_ids: Option<&FxHashSet<u64>>,
 ) {
-    let mut local_usages = FxHashMap::default();
+    // Lookup-only census: size it for about one read per statement up front.
+    let statements = function.blocks().map(|(_, block)| block.len()).sum::<usize>();
+    let mut local_usages = FxHashMap::with_capacity_and_hasher(statements, Default::default());
     for node in function.graph().node_indices() {
         let mut record = |read: &ast::RcLocal| {
             *local_usages.entry(read.clone()).or_insert(0usize) += 1;

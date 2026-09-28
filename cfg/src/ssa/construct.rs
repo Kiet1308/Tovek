@@ -1,4 +1,4 @@
-use std::{hash::BuildHasherDefault, iter};
+use std::iter;
 
 use ast::{LocalRw, RcLocal, Traverse};
 use ast::{FxIndexMap as IndexMap, FxIndexSet as IndexSet};
@@ -10,7 +10,7 @@ use petgraph::{
     visit::{Dfs, EdgeRef, Walker},
     Direction,
 };
-use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{function::Function, ssa::param_dependency_graph::ParamDependencyGraph};
 
@@ -1447,14 +1447,17 @@ pub fn construct(
         }
     }
     let node_count = function.graph().node_count();
+    // Lookup-only tables (never iterated for output): size them for about
+    // one definition per statement instead of growing through rehashes.
+    let statements = function.blocks().map(|(_, block)| block.len()).sum::<usize>();
     SsaConstructor {
         function,
         dfs,
         incomplete_params: FxHashMap::with_capacity_and_hasher(node_count, Default::default()),
         sealed_blocks: FxHashSet::with_capacity_and_hasher(node_count, Default::default()),
-        current_definition: FxHashMap::default(),
+        current_definition: FxHashMap::with_capacity_and_hasher(statements, Default::default()),
         all_definitions: FxHashMap::default(),
-        old_locals: FxHashMap::default(),
+        old_locals: FxHashMap::with_capacity_and_hasher(statements, Default::default()),
         local_count: 0,
         local_map: FxHashMap::default(),
         new_upvalues_in,

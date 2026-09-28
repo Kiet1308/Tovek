@@ -108,12 +108,39 @@ struct NumericLoopInfo {
     step: RValue,
 }
 
+/// Live-in/live-out sets of the reachable blocks, as dense bit rows.
+struct Liveness {
+    ids: FxHashMap<u64, u32>,
+    slot: FxHashMap<NodeIndex, usize>,
+    words: usize,
+    live_in: Vec<u64>,
+    #[cfg_attr(not(test), allow(dead_code))]
+    live_out: Vec<u64>,
+}
+
+impl Liveness {
+    fn contains(&self, rows: &[u64], node: NodeIndex, local: &RcLocal) -> bool {
+        let (Some(&slot), Some(&id)) = (self.slot.get(&node), self.ids.get(&local.stable_id())) else {
+            return false;
+        };
+        rows[slot * self.words + id as usize / 64] & (1 << (id % 64)) != 0
+    }
+
+    fn live_in(&self, node: NodeIndex, local: &RcLocal) -> bool {
+        self.contains(&self.live_in, node, local)
+    }
+
+    #[cfg(test)]
+    fn live_out(&self, node: NodeIndex, local: &RcLocal) -> bool {
+        self.contains(&self.live_out, node, local)
+    }
+}
+
 struct Analysis {
     reachable: FxHashSet<NodeIndex>,
     nodes: Vec<NodeIndex>,
     post_dominators: PostDominators,
-    live_in: FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
-    live_out: FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
+    liveness: Liveness,
     loops_by_init: FxHashMap<NodeIndex, LoopInfo>,
     loops_by_header: FxHashMap<NodeIndex, LoopInfo>,
     numeric_loops_by_init: FxHashMap<NodeIndex, LoopInfo>,
@@ -460,8 +487,14 @@ mod dominance_regressions {
                 }
             }
             let reachable = nodes.iter().copied().collect();
-            assert_eq!(Analysis::liveness(&function, &nodes, &reachable),
-                Analysis::liveness_reference(&function, &nodes, &reachable), "seed={seed}");
+            let liveness = Analysis::liveness(&function, &nodes, &reachable);
+            let (live_in, live_out) = Analysis::liveness_reference(&function, &nodes, &reachable);
+            for &node in &nodes {
+                for local in &locals {
+                    assert_eq!(liveness.live_in(node, local), live_in[&node].contains(local), "seed={seed}");
+                    assert_eq!(liveness.live_out(node, local), live_out[&node].contains(local), "seed={seed}");
+                }
+            }
             let index = Analysis::nil_definition_index(&function, &nodes);
             for local in &locals {
                 for &init in &nodes {
@@ -1224,7 +1257,7 @@ impl Analysis {
 
         let dominators = DominanceIndex::new(function, entry);
         let post_dominators = Self::post_dominators(function, &nodes, &reachable);
-        let (live_in, live_out) = Self::liveness(function, &nodes, &reachable);
+        let liveness = Self::liveness(function, &nodes, &reachable);
         let (loops_by_init, loops_by_header) =
             Self::find_generic_loops(function, &nodes, &reachable, &dominators, &post_dominators)?;
         let (numeric_loops_by_init, numeric_loops_by_header) =
@@ -1235,8 +1268,7 @@ impl Analysis {
             reachable,
             nodes,
             post_dominators,
-            live_in,
-            live_out,
+            liveness,
             loops_by_init,
             loops_by_header,
             numeric_loops_by_init,
@@ -1328,84 +1360,111 @@ impl Analysis {
     /// the old `visited` heuristic, this fixed point follows loop backedges.
     /// Edge arguments are parallel transfers: their destinations are defined
     /// on the edge and their right-hand sides are read after branch selection.
-    fn liveness(
-        function: &Function,
-        nodes: &[NodeIndex],
-        reachable: &FxHashSet<NodeIndex>,
-    ) -> (
-        FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
-        FxHashMap<NodeIndex, FxHashSet<RcLocal>>,
-    ) {
-        let mut uses = FxHashMap::default();
-        let mut defs = FxHashMap::default();
-        for node in nodes {
-            let mut node_uses = FxHashSet::default();
+    /// The least fixed point is unique, so dense bit rows give exactly the
+    /// sets of the former hashed worklist.
+    fn liveness(function: &Function, nodes: &[NodeIndex], reachable: &FxHashSet<NodeIndex>) -> Liveness {
+        let mut ids = FxHashMap::<u64, u32>::default();
+        let mut id = |local: &RcLocal| {
+            let next = ids.len() as u32;
+            *ids.entry(local.stable_id()).or_insert(next)
+        };
+        let slot = nodes.iter().enumerate().map(|(index, &node)| (node, index)).collect::<FxHashMap<_, _>>();
+        // Upward-exposed reads and definitions per block, and per reachable
+        // edge its target slot, parallel-copy destinations and sources.
+        let mut uses = Vec::with_capacity(nodes.len());
+        let mut defs = Vec::with_capacity(nodes.len());
+        let mut edges = Vec::with_capacity(nodes.len());
+        for &node in nodes {
+            let mut node_uses = Vec::new();
             let mut node_defs = FxHashSet::default();
-            if let Some(block) = function.block(*node) {
+            if let Some(block) = function.block(node) {
                 for statement in block.iter() {
-                    for read in statement.values_read() {
-                        if !node_defs.contains(read) {
-                            node_uses.insert(read.clone());
+                    statement.visit_local_reads(&mut |read| {
+                        let read = id(read);
+                        if !node_defs.contains(&read) {
+                            node_uses.push(read);
                         }
-                    }
-                    node_defs.extend(statement.values_written().into_iter().cloned());
+                        true
+                    });
+                    statement.visit_local_writes(&mut |written| {
+                        node_defs.insert(id(written));
+                        true
+                    });
                 }
             }
-            uses.insert(*node, node_uses);
-            defs.insert(*node, node_defs);
-        }
-
-        let mut live_in = nodes
-            .iter()
-            .copied()
-            .map(|node| (node, FxHashSet::default()))
-            .collect::<FxHashMap<_, _>>();
-        let mut live_out = live_in.clone();
-        let mut work = VecDeque::from(nodes.iter().rev().copied().collect_vec());
-        let mut queued = nodes.iter().copied().collect::<FxHashSet<_>>();
-        let mut next_out = FxHashSet::default();
-        let mut next_in = FxHashSet::default();
-        let mut edge_defs = FxHashSet::default();
-        while let Some(node) = work.pop_front() {
-            queued.remove(&node);
-            next_out.clear();
-            for edge in function
-                .edges(node)
-                .filter(|edge| reachable.contains(&edge.target()))
-            {
-                // Filter all parallel-copy destinations before adding any
-                // sources. This preserves swaps without cloning a complete
-                // successor live set for each edge on every worklist visit.
-                edge_defs.clear();
-                edge_defs.extend(edge.weight().arguments.iter().map(|(destination, _)| destination));
-                next_out.extend(live_in[&edge.target()].iter()
-                    .filter(|local| !edge_defs.contains(*local)).cloned());
+            let mut node_edges = Vec::new();
+            for edge in function.edges(node).filter(|edge| reachable.contains(&edge.target())) {
+                let destinations = edge.weight().arguments.iter()
+                    .map(|(destination, _)| id(destination)).collect::<Vec<_>>();
+                let mut sources = Vec::new();
                 for (_, value) in &edge.weight().arguments {
-                    next_out.extend(value.values_read().into_iter().cloned());
+                    value.visit_local_reads(&mut |read| {
+                        sources.push(id(read));
+                        true
+                    });
+                }
+                node_edges.push((slot[&edge.target()], destinations, sources));
+            }
+            uses.push(node_uses);
+            defs.push(node_defs.into_iter().collect::<Vec<_>>());
+            edges.push(node_edges);
+        }
+        let words = ids.len().div_ceil(64).max(1);
+        fn set(bits: &mut [u64], id: u32) { bits[id as usize / 64] |= 1 << (id % 64); }
+        fn clear(bits: &mut [u64], id: u32) { bits[id as usize / 64] &= !(1 << (id % 64)); }
+        let mut use_bits = vec![0u64; nodes.len() * words];
+        let mut keep_bits = vec![!0u64; nodes.len() * words];
+        for index in 0..nodes.len() {
+            for &read in &uses[index] {
+                set(&mut use_bits[index * words..(index + 1) * words], read);
+            }
+            for &written in &defs[index] {
+                clear(&mut keep_bits[index * words..(index + 1) * words], written);
+            }
+        }
+        let mut live_in = vec![0u64; nodes.len() * words];
+        let mut live_out = vec![0u64; nodes.len() * words];
+        let mut work = nodes.iter().rev().map(|node| slot[node]).collect::<VecDeque<_>>();
+        let mut queued = vec![true; nodes.len()];
+        let mut next_out = vec![0u64; words];
+        let mut transfer = vec![0u64; words];
+        while let Some(index) = work.pop_front() {
+            queued[index] = false;
+            next_out.fill(0);
+            for (target, destinations, sources) in &edges[index] {
+                transfer.copy_from_slice(&live_in[target * words..(target + 1) * words]);
+                for &destination in destinations {
+                    clear(&mut transfer, destination);
+                }
+                for (out, bits) in next_out.iter_mut().zip(&transfer) {
+                    *out |= bits;
+                }
+                for &source in sources {
+                    set(&mut next_out, source);
                 }
             }
-            next_in.clear();
-            next_in.extend(uses[&node].iter().cloned());
-            next_in.extend(
-                next_out
-                    .iter()
-                    .filter(|local| !defs[&node].contains(*local))
-                    .cloned(),
-            );
-            if next_out != live_out[&node] || next_in != live_in[&node] {
-                std::mem::swap(live_out.get_mut(&node).unwrap(), &mut next_out);
-                std::mem::swap(live_in.get_mut(&node).unwrap(), &mut next_in);
-                for predecessor in function
-                    .predecessor_blocks(node)
+            let row = index * words..(index + 1) * words;
+            let mut changed = live_out[row.clone()] != next_out[..];
+            for word in 0..words {
+                let at = row.start + word;
+                let value = use_bits[at] | (next_out[word] & keep_bits[at]);
+                changed |= live_in[at] != value;
+                live_in[at] = value;
+            }
+            if changed {
+                live_out[row].copy_from_slice(&next_out);
+                for predecessor in function.predecessor_blocks(nodes[index])
                     .filter(|predecessor| reachable.contains(predecessor))
                 {
-                    if queued.insert(predecessor) {
+                    let predecessor = slot[&predecessor];
+                    if !queued[predecessor] {
+                        queued[predecessor] = true;
                         work.push_back(predecessor);
                     }
                 }
             }
         }
-        (live_in, live_out)
+        Liveness { ids, slot, words, live_in, live_out }
     }
 
     #[cfg(test)]
@@ -3077,10 +3136,7 @@ impl<'a> Builder<'a> {
                 continue;
             }
             let used_after = continuation.is_some_and(|node| {
-                self.analysis
-                    .live_in
-                    .get(&node)
-                    .is_some_and(|live| live.contains(&key))
+                self.analysis.liveness.live_in(node, &key)
             });
             if used_after {
                 return self.reject_unsafe(UnsafeStructureReason::LiveBranchRewrite);
@@ -3139,11 +3195,7 @@ impl<'a> Builder<'a> {
             if !both_arms_reach_continuation {
                 return None;
             }
-            let used_after = self
-                .analysis
-                .live_in
-                .get(&join)
-                .is_some_and(|live| live.contains(&key));
+            let used_after = self.analysis.liveness.live_in(join, &key);
             if !used_after {
                 continue;
             }
@@ -10589,8 +10641,8 @@ mod tests {
         );
 
         let analysis = Analysis::new(&function).expect("cyclic CFG is analyzable");
-        assert!(analysis.live_in[&join].contains(&last));
-        assert!(analysis.live_out[&read].contains(&last));
+        assert!(analysis.liveness.live_in(join, &last));
+        assert!(analysis.liveness.live_out(read, &last));
         let mut builder = Builder::new(&function, &analysis, FxHashSet::default());
         builder.visited.insert(read);
         let exported = RcLocal::new(Local::new(Some("exported".into())));
@@ -10627,7 +10679,7 @@ mod tests {
         );
 
         let analysis = Analysis::new(&function).expect("linear CFG is analyzable");
-        assert!(analysis.live_in[&join].contains(&raw));
+        assert!(analysis.liveness.live_in(join, &raw));
         let builder = Builder::new(&function, &analysis, FxHashSet::default());
         let base = FxHashMap::default();
         let mut then_map = [(raw.clone(), export.clone())].into_iter().collect();
@@ -10743,9 +10795,9 @@ mod tests {
         );
         let nodes = vec![entry, exit];
         let reachable = nodes.iter().copied().collect::<FxHashSet<_>>();
-        let (live_in, live_out) = Analysis::liveness(&function, &nodes, &reachable);
-        assert!(live_in[&entry].contains(&source));
-        assert!(live_out[&entry].contains(&source));
+        let liveness = Analysis::liveness(&function, &nodes, &reachable);
+        assert!(liveness.live_in(entry, &source));
+        assert!(liveness.live_out(entry, &source));
     }
 
     #[test]
@@ -10777,13 +10829,9 @@ mod tests {
         );
         let nodes = vec![entry, exit];
         let reachable = nodes.iter().copied().collect::<FxHashSet<_>>();
-        let (_, live_out) = Analysis::liveness(&function, &nodes, &reachable);
-        assert!(live_out[&entry].contains(&a));
-        assert!(
-            live_out[&entry].contains(&b),
-            "parallel swap loses b: {:?}",
-            live_out[&entry]
-        );
+        let liveness = Analysis::liveness(&function, &nodes, &reachable);
+        assert!(liveness.live_out(entry, &a));
+        assert!(liveness.live_out(entry, &b), "parallel swap loses b");
     }
 
     #[test]
