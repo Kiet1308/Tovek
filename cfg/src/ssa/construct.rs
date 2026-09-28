@@ -1316,6 +1316,10 @@ impl<'a> SsaConstructor<'a> {
             while seal != usize::MAX {
                 let node = self.dfs[seal];
                 if let Some(incomplete_params) = self.incomplete_params.remove(&node) {
+                    // Seal in phi creation order: argument order must not depend
+                    // on how the locals hash.
+                    let mut incomplete_params = incomplete_params.into_iter().collect::<Vec<_>>();
+                    incomplete_params.sort_unstable_by_key(|(_, param_local)| param_local.stable_id());
                     for (local, param_local) in incomplete_params {
                         // TODO: this is a bit weird, maybe we should have a upvalue rvalue
                         if !self.new_upvalues_in.contains_key(&local) {
