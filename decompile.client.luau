@@ -16,11 +16,28 @@ local SERVER_URL = "http://localhost:3000/decompile"
 local httpRequest = request or http_request or (syn and syn.request) or (http and http.request)
 assert(httpRequest, "no executor `request` function found")
 
+-- The server queues requests while every decompile slot is busy and answers
+-- 503 only when that queue is full; wait as long as it asks, then try again.
+local MAX_ATTEMPTS = 5
+
+local function post(options)
+    local response
+    for attempt = 1, MAX_ATTEMPTS do
+        response = httpRequest(options)
+        if response.StatusCode ~= 503 then
+            break
+        end
+        local headers = response.Headers or {}
+        task.wait(tonumber(headers["Retry-After"] or headers["retry-after"]) or attempt)
+    end
+    return response
+end
+
 getgenv().decompile = function(script_instance)
     local bytecode = getscriptbytecode(script_instance)
     local encoded = crypt.base64.encode(bytecode)
 
-    local response = httpRequest({
+    local response = post({
         Url = SERVER_URL,
         Method = "POST",
         Headers = {

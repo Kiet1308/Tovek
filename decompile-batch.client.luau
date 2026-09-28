@@ -41,6 +41,23 @@ end
 
 local HttpService = game:GetService("HttpService")
 
+-- The server queues requests while every decompile slot is busy and answers
+-- 503 only when that queue is full; wait as long as it asks, then try again.
+local MAX_ATTEMPTS = 5
+
+local function post(options)
+    local response
+    for attempt = 1, MAX_ATTEMPTS do
+        response = httpRequest(options)
+        if response.StatusCode ~= 503 then
+            break
+        end
+        local headers = response.Headers or {}
+        task.wait(tonumber(headers["Retry-After"] or headers["retry-after"]) or attempt)
+    end
+    return response
+end
+
 -- 1) Enumerate every script up front (mirrors SynSaveInstance's NilInstances=true).
 local function collectScripts()
     local seen, list = {}, {}
@@ -108,7 +125,7 @@ local function sendChunk(chunk, cache)
         body, contentType = packJson(chunk), "application/json"
     end
 
-    local response = httpRequest({
+    local response = post({
         Url = BATCH_URL,
         Method = "POST",
         Headers = { ["Content-Type"] = contentType },
@@ -154,7 +171,7 @@ local function singleDecompile(inst)
 
     local response
     if USE_RAW then
-        response = httpRequest({
+        response = post({
             Url = RAW_URL,
             Method = "POST",
             Headers = {
@@ -164,7 +181,7 @@ local function singleDecompile(inst)
             Body = bc,
         })
     else
-        response = httpRequest({
+        response = post({
             Url = SINGLE_URL,
             Method = "POST",
             Headers = { ["X-Script-Name"] = inst:GetFullName() },
