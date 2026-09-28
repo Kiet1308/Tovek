@@ -4,9 +4,8 @@ use ast::{LocalRw, RcLocal};
 use ast::FxIndexMap as IndexMap;
 use itertools::Itertools;
 use petgraph::{
-    prelude::DiGraphMap,
     stable_graph::NodeIndex,
-    visit::{Dfs, DfsPostOrder, EdgeRef},
+    visit::{Dfs, DfsPostOrder, EdgeRef, NodeIndexable},
     Direction,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -319,10 +318,12 @@ pub struct Destructor<'a> {
     equal_ancestor_out: FxHashMap<RcLocal, RcLocal>,
     local_defs: FxHashMap<RcLocal, (usize, NodeIndex, ParamOrStatIndex)>,
     local_last_use: FxHashMap<RcLocal, LastUses>,
-    dominator_tree: DiGraphMap<NodeIndex, ()>,
+    /// Dominator-tree children per node index, in CFG node order.
+    dominator_children: Vec<Vec<NodeIndex>>,
     // Half-open DFS intervals provide ancestor queries in O(1), with O(V)
     // storage instead of copying every ancestor on a deep dominator chain.
-    dominators: FxHashMap<NodeIndex, (usize, usize)>,
+    /// Dominator-tree preorder interval per node index.
+    dominators: Vec<(usize, usize)>,
     liveness: Liveness,
     undesirable_blocks: FxHashSet<NodeIndex>,
     terminal_block: Option<NodeIndex>,
@@ -381,8 +382,8 @@ impl<'a> Destructor<'a> {
             equal_ancestor_out: FxHashMap::default(),
             local_defs: FxHashMap::with_capacity_and_hasher(local_count, Default::default()),
             local_last_use: FxHashMap::default(),
-            dominator_tree: DiGraphMap::new(),
-            dominators: FxHashMap::default(),
+            dominator_children: Vec::new(),
+            dominators: Vec::new(),
             liveness: Liveness::default(),
             undesirable_blocks: FxHashSet::default(),
             terminal_block,
@@ -630,31 +631,37 @@ impl<'a> Destructor<'a> {
         let mut last_use_reference = FxHashMap::<RcLocal, FxHashMap<NodeIndex, (usize, ParamOrStatIndex)>>::default();
         if self.terminal_block.is_none() {
             let dominators = crate::dominators::Dominators::new(self.function.graph(), self.function.entry().unwrap());
+            let bound = self.function.graph().node_bound();
+            self.dominator_children = vec![Vec::new(); bound];
             for node in self.function.graph().node_indices() {
                 if let Some(dominator) = dominators.immediate_dominator(node) {
-                    self.dominator_tree.add_edge(dominator, node, ());
+                    self.dominator_children[dominator.index()].push(node);
                 }
             }
-            self.dominators.reserve(self.dominator_tree.node_count());
+            self.dominators = vec![(0, 0); bound];
             let mut clock = 0;
             let mut walk = vec![(self.function.entry().unwrap(), false)];
             while let Some((node, exiting)) = walk.pop() {
                 if exiting {
-                    self.dominators.get_mut(&node).unwrap().1 = clock;
+                    self.dominators[node.index()].1 = clock;
                 } else {
-                    self.dominators.insert(node, (clock, 0));
+                    self.dominators[node.index()] = (clock, 0);
                     clock += 1;
                     walk.push((node, true));
-                    walk.extend(self.dominator_tree.neighbors(node).map(|child| (child, false)));
+                    walk.extend(self.dominator_children[node.index()].iter().map(|&child| (child, false)));
                 }
             }
         }
 
         let mut dominator_index = 0;
-        let mut dominator_dfs = Dfs::new(&self.dominator_tree, self.function.entry().unwrap());
-        // Interference's ancestor stack requires dominator-tree preorder.
+        // Interference's ancestor stack requires dominator-tree preorder
+        // (children pushed in order, visited last-first).
         // CFG DFS can visit an exit sibling before a dominated loop branch.
-        while let Some(node) = dominator_dfs.next(&self.dominator_tree) {
+        let mut preorder = vec![self.function.entry().unwrap()];
+        while let Some(node) = preorder.pop() {
+            if let Some(children) = self.dominator_children.get(node.index()) {
+                preorder.extend(children.iter().copied());
+            }
             if node == self.function.entry().unwrap() {
                 assert!(dominator_index == 0);
                 assert!(!self
@@ -879,14 +886,14 @@ impl<'a> Destructor<'a> {
     fn coalesce_copies(&mut self) {
         let sweeps: &[bool] = if self.register_groups.is_some() { &[true, false] } else { &[false] };
         for &same_register_only in sweeps {
-            let mut dominator_dfs = Dfs::new(&self.dominator_tree, self.function.entry().unwrap());
+            let mut dominator_dfs = Dfs::new(self.function.graph(), self.function.entry().unwrap());
             while let Some(node) = dominator_dfs.next(self.function.graph()) {
                 if self.undesirable_blocks.contains(&node) {
                     self.coalesce_copies_for_block(node, same_register_only);
                 }
             }
 
-            let mut dominator_dfs = Dfs::new(&self.dominator_tree, self.function.entry().unwrap());
+            let mut dominator_dfs = Dfs::new(self.function.graph(), self.function.entry().unwrap());
             while let Some(node) = dominator_dfs.next(self.function.graph()) {
                 self.coalesce_copies_for_block(node, same_register_only);
             }
@@ -1017,8 +1024,8 @@ impl<'a> Destructor<'a> {
             // same as check_pre_dom_order
             (a_dom_index, a_stat_index) < (b_dom_index, b_stat_index)
         } else {
-            let (start, end) = self.dominators[&block_a];
-            let (point, _) = self.dominators[&block_b];
+            let (start, end) = self.dominators[block_a.index()];
+            let (point, _) = self.dominators[block_b.index()];
             start <= point && point < end
         }
     }
@@ -1187,7 +1194,7 @@ impl<'a> Destructor<'a> {
     fn compute_value_interference(&mut self) {
         // TODO: STYLE: rename to dom_dfs_post_order, along with other dominator_dfs
         let mut dominator_dfs_post_order =
-            DfsPostOrder::new(&self.dominator_tree, self.function.entry().unwrap());
+            DfsPostOrder::new(self.function.graph(), self.function.entry().unwrap());
 
         while let Some(node) = dominator_dfs_post_order.next(self.function.graph()) {
             let params = if let Some((_, edge)) = self.function.edges_to_block(node).next() {
@@ -1662,8 +1669,8 @@ mod copy_sharing_regressions {
         destructor.build_def_use();
         assert_eq!(destructor.dominators.len(), nodes.len());
         for pair in nodes.windows(2) {
-            let (start, end) = destructor.dominators[&pair[0]];
-            let (child, _) = destructor.dominators[&pair[1]];
+            let (start, end) = destructor.dominators[pair[0].index()];
+            let (child, _) = destructor.dominators[pair[1].index()];
             assert!(start < child && child < end);
         }
     }
