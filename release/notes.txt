@@ -1,45 +1,42 @@
-Tovek V2.1 is the first update to the V2 generation: up to twice as fast as V2,
-ready for Luau bytecode v14, and exact wherever V2 could behave differently from
-the original script.
+Tovek V2.1.1 is the latest build of Tovek V2.1: up to twice as fast as V2, ready
+for Luau bytecode v14, and exact wherever V2 could behave differently from the
+original script. It produces byte-identical output to V2.1 on our 3,978-script
+test game.
 
 Download the Windows ZIP or Linux tar.gz below. Each package contains
 luau-lifter, web-server, executor client scripts, README and quick-start instructions.
 SHA256SUMS.txt provides checksums for both downloads.
 
-What's new
-- Faster everywhere: a 3,978-script Roblox game decompiles in 11.5 s on one
-  thread (V2: 20.1 s) and 0.94 s on 24 threads (V2: 1.59 s). V2.1 is 1.7x-2.1x
-  faster than V2 at every thread count and uses less memory (103 MB vs 122 MB
-  peak at 16 threads). Through the local server, scripts return about 1.5x
-  faster overall and up to 2.5x faster for large scripts.
-- Correctness: fixes every case found by three code reviews where decompiled code
-  could behave differently from the original (saved copies read after a call,
-  writes inside `if` applied unconditionally, unary minus in conditions, replaced
-  Vector3/CFrame globals, string formatting that did not compile, integer
-  constants, table-template defaults, Lua 5.1 varargs). Deep-review suite:
-  V2 80/199, V2.1 199/199.
-- Luau bytecode v14: reads v4-v14 and lifts the FASTPCALL fast path back to the
-  plain pcall/xpcall call. 252/252 runtime profiles and 513/513 public source
-  profiles at v14.
-- Reliability: bytecode is validated before analysis and malformed input gets a
-  precise error ("prototype 0, pc 0: invalid jump target"). On 1,500 damaged
-  copies of real scripts, V2 aborted 104 times; V2.1 never aborted.
-- Local HTTP server: four shared decompile slots reserved before an upload is
-  read, an immediate 503 "decompile capacity exhausted" when all are busy, a 30 s
-  upload deadline (408; configurable with TOVEK_UPLOAD_TIMEOUT_SECS), and
-  duplicate scripts in one batch decompiled once.
+New in V2.1.1
+- Malformed bytecode that aborted V2 is now rejected with the exact prototype and
+  instruction: closures whose CAPTURE list does not match their prototype, stray
+  CAPTURE instructions, and NAMECALL instructions separated from their CALL
+  (e.g. "prototype 2, pc 18: invalid method call").
+- A method call whose name is not a valid identifier, which only hand-built
+  bytecode can contain, decompiles to an equivalent index call such as
+  v["foo bar"](v). V2 printed invalid syntax (`({}):foo bar()`) or aborted on
+  non-UTF-8 names.
+- On 1,500 damaged copies of real scripts, V2 aborted 104 times; V2.1.1 never
+  aborts and reports no internal errors.
 
-Output changes
-Where a friendlier spelling could change behaviour, V2.1 writes what the bytecode
-does: vector constants use vector.create instead of Vector3.new, and math.pi /
-math.huge become numeric literals. 1,741 of 3,978 test-game files change and total
-output grows 2.2%. The bundled executor scripts treat 503 as a failed decompile;
-retry busy requests if you send more than four at once.
+Tovek V2.1 highlights
+- A 3,978-script Roblox game decompiles in 11.5 s on one thread (V2: 20.1 s)
+  and 0.94 s on 24 threads (V2: 1.59 s), with less memory (103 MB vs 122 MB peak
+  at 16 threads).
+- Fixes every case found by three code reviews where decompiled code could
+  behave differently from the original. Deep-review suite: V2 80/199, V2.1 199/199.
+- Reads Luau bytecode v4-v14, including the v14 FASTPCALL fast path for
+  pcall/xpcall (252/252 runtime profiles at v9, v12 and v14).
+- Bytecode is validated before analysis; the local HTTP server shares four job
+  slots across its routes with a deadline on slow uploads.
+- Output changes: where a friendlier spelling could change behaviour, V2.1
+  writes what the bytecode does (vector.create instead of Vector3.new; math.pi
+  as a numeric literal).
 
 Validation and limits
-V2.1 passes 252/252 runtime profiles at v9, v12 and v14, 513/513 public source
+V2.1.1 passes 252/252 runtime profiles at v9, v12 and v14, 513/513 public source
 profiles at v12 and v14, 384/384 generated-program profiles, 45/45 semantic
-round-trips and all 199 deep-review cases. Output is byte-identical at 1 and 24
+round-trips and all 199 deep-review cases. Output is byte-identical at 1 and 16
 threads. A complete game was not run inside Roblox. v15 and runtime-mutated
 CMPPROTO guards are rejected; decompilation cannot recover comments or stripped
 names. Building from source requires nightly-2026-06-15 (selected automatically
@@ -47,4 +44,4 @@ by rust-toolchain.toml).
 
 Release notes: https://kiet1308.github.io/Tovek/changelog/v2.1/
 Usage: https://github.com/Kiet1308/Tovek/blob/main/README.md
-Source: https://github.com/Kiet1308/Tovek/tree/v2.1
+Source: https://github.com/Kiet1308/Tovek/tree/v2.1.1

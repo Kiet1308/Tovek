@@ -1,4 +1,4 @@
-Tovek V2.1
+Tovek V2.1.1
 https://github.com/Kiet1308/Tovek
 
 This package contains the local Luau decompiler CLI and HTTP server.
@@ -19,9 +19,11 @@ The server listens locally at http://127.0.0.1:3000.
 POST /decompile accepts base64 bytecode; /decompile/raw accepts raw bytes.
 The included decompile.client.luau and decompile-batch.client.luau connect an
 executor to the local server. See README.md for usage and endpoint formats.
-Up to four decompile requests run at once; further requests get an immediate
-503 "decompile capacity exhausted" and should be retried. An upload must finish
-within 30 seconds (408 otherwise); set TOVEK_UPLOAD_TIMEOUT_SECS to change it.
+Up to four decompile requests run at once; later requests wait in a queue
+(TOVEK_QUEUE_LIMIT, default 1024 waiting; TOVEK_QUEUE_TIMEOUT_SECS, default 120).
+A full queue or an expired wait answers 503 with Retry-After, which the included
+client scripts retry. An upload must finish within 30 seconds once it is
+admitted (408 otherwise); set TOVEK_UPLOAD_TIMEOUT_SECS to change it.
 
 COMPATIBILITY
 Windows x86_64, or Linux x86_64 with glibc 2.35 or newer (Ubuntu 22.04+).
@@ -33,7 +35,7 @@ Decompilation cannot recover stripped comments or guarantee original names.
 
 VERIFY THE DOWNLOAD
 SHA256SUMS.txt is attached to the GitHub release.
-Windows PowerShell: Get-FileHash .\Tovek-V2.1-windows-x86_64.zip -Algorithm SHA256
+Windows PowerShell: Get-FileHash .\Tovek-V2.1.1-windows-x86_64.zip -Algorithm SHA256
 Linux: sha256sum --check --ignore-missing SHA256SUMS.txt
 
 The source code is MIT licensed; see LICENSE.txt. Builds use the pinned

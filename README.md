@@ -1,10 +1,10 @@
 # Tovek
 
-**A high-readability, high-performance Luau decompiler.** **Tovek V2.1**
+**A high-readability, high-performance Luau decompiler.** **Tovek V2.1.1**
 
-[**Download V2.1 for Windows or Linux**](https://github.com/Kiet1308/Tovek/releases/tag/v2.1) · [What’s new in V2.1](https://kiet1308.github.io/Tovek/changelog/v2.1/) · [All release notes](https://kiet1308.github.io/Tovek/changelog.html)
+[**Download V2.1.1 for Windows or Linux**](https://github.com/Kiet1308/Tovek/releases/tag/v2.1.1) · [What’s new in V2.1](https://kiet1308.github.io/Tovek/changelog/v2.1/) · [All release notes](https://kiet1308.github.io/Tovek/changelog.html)
 
-Each package includes the CLI, the local HTTP server, client scripts and quick-start instructions. The release tag is `v2.1`; Rust package versions are `2.1.0`.
+Each package includes the CLI, the local HTTP server, client scripts and quick-start instructions. The release tag is `v2.1.1`; Rust package versions are `2.1.1`.
 
 [**💬 Join the Tovek Discord →**](https://discord.gg/phY6VUDSF7)
 
@@ -34,7 +34,7 @@ assets, workflow artifacts or Git LFS.
 
 V2.1 fixes every case found by three code reviews since V2 where decompiled code
 could behave differently from the original, validates bytecode before analysis,
-and hardens the local HTTP server (shared admission, clear `503`/`408` answers,
+and hardens the local HTTP server (shared job slots with a FIFO queue in front,
 upload deadline via `TOVEK_UPLOAD_TIMEOUT_SECS`). See the
 [V2.1 release notes](https://kiet1308.github.io/Tovek/changelog/v2.1/) for
 methodology, examples and output changes.
@@ -235,8 +235,12 @@ Two extra routes skip per-script overhead — ideal for dumping a whole game in 
 | `POST /decompile/raw` | **raw** bytecode (one script, no base64) | `text/plain` source |
 | `POST /decompile/batch` | **many** scripts in one request | JSON results array |
 
-The local server admits at most four requests across these routes before reading
-their bodies. Admitted uploads have a **30-second total body-read deadline**;
+The local server runs at most four requests at once across these routes. Later
+requests wait in a first-come, first-served queue without their bodies being read,
+up to `TOVEK_QUEUE_LIMIT` waiting requests (default 1024) for at most
+`TOVEK_QUEUE_TIMEOUT_SECS` (default 120). Only a full queue or an expired wait is
+answered with HTTP `503` and `Retry-After: 1`; the bundled client scripts retry it.
+Admitted uploads have a **30-second total body-read deadline**;
 set `TOVEK_UPLOAD_TIMEOUT_SECS` to a positive integer to change it. An expired
 upload receives HTTP `408` with `Connection: close` and releases its slot.
 Completed uploads are not subject to this deadline while decompilation runs;

@@ -58,7 +58,7 @@
       <p><b>Correctness.</b> V2 could occasionally write code that looked right but didn’t act right: a saved copy of a variable read after a call had already changed it, a write inside an <code>if</code> applied unconditionally, a replaced <code>Vector3</code> global quietly bypassed. V2.1 fixes all of them. On our deep-review suite of 199 behaviour checks, V2 passes 80; V2.1 passes all 199.</p>
       <p><b>Newest bytecode.</b> Luau bytecode v14 now decompiles directly, and its new fast path for <code>pcall</code> and <code>xpcall</code> comes back as the plain call you wrote. V2 couldn’t read these files at all.</p>
       <p><b>Reliability.</b> Damaged, truncated or deliberately malformed bytecode is now checked before any analysis starts. In our tests V2 aborted on 6.9% of damaged files, often without a word; V2.1 never did. It tells you what is wrong and where, like <code>prototype 0, pc 0: invalid jump target</code>, and one bad script no longer takes a whole batch down with it.</p>
-      <p><b>A steadier local server.</b> The HTTP server now decides whether it has room for a job before it reads the upload, answers overload with a clear message, and puts a firm deadline on slow uploads.</p>
+      <p><b>A steadier local server.</b> The HTTP server now lines requests up in a fair queue instead of reading every upload at once, starts each job as soon as a slot is free, and puts a firm deadline on slow uploads.</p>
       <p>The next major updates to Tovek will follow in the coming weeks, with much larger improvements to readability, naming and speed.</p>
     </div>
 
@@ -224,17 +224,17 @@
         <div class="chart-head"><h3 class="chart-title">Damaged bytecode</h3><span class="chart-kind">Outcome by damage type</span></div>
         <div class="bars">
           <div class="bar-group"><h4>All damage types</h4>
-            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 232 decompiled, 1264 rejected, 4 internal errors, 0 aborted"><span style="width:15.47%;background:var(--c-v2)" title="decompiled: 232"></span><span style="width:84.27%;background:#e9e6dc" title="rejected: 1264"></span><span style="width:0.27%;background:var(--clay)" title="internal: 4"></span></span><span class="val">0 aborted</span></div>
+            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 233 decompiled, 1267 rejected, 0 internal errors, 0 aborted"><span style="width:15.53%;background:var(--c-v2)" title="decompiled: 233"></span><span style="width:84.47%;background:#e9e6dc" title="rejected: 1267"></span></span><span class="val">0 aborted</span></div>
             <div class="bar-row"><span class="who">Tovek V2</span><span class="bar-track" role="img" aria-label="Tovek V2: 269 decompiled, 1127 rejected, 0 internal errors, 104 aborted"><span style="width:17.93%;background:var(--c-v2)" title="decompiled: 269"></span><span style="width:75.13%;background:#e9e6dc" title="rejected: 1127"></span><span style="width:6.93%;background:var(--slate)" title="crash: 104"></span></span><span class="val">104 aborted</span></div>
             <div class="bar-row"><span class="who">v0.9 beta</span><span class="bar-track" role="img" aria-label="v0.9 beta: 279 decompiled, 1116 rejected, 0 internal errors, 105 aborted"><span style="width:18.60%;background:var(--c-v2)" title="decompiled: 279"></span><span style="width:74.40%;background:#e9e6dc" title="rejected: 1116"></span><span style="width:7.00%;background:var(--slate)" title="crash: 105"></span></span><span class="val">105 aborted</span></div>
           </div>
           <div class="bar-group"><h4>One flipped bit</h4>
-            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 176 decompiled, 121 rejected, 3 internal errors, 0 aborted"><span style="width:58.67%;background:var(--c-v2)" title="decompiled: 176"></span><span style="width:40.33%;background:#e9e6dc" title="rejected: 121"></span><span style="width:1.00%;background:var(--clay)" title="internal: 3"></span></span><span class="val">0 aborted</span></div>
+            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 177 decompiled, 123 rejected, 0 internal errors, 0 aborted"><span style="width:59.00%;background:var(--c-v2)" title="decompiled: 177"></span><span style="width:41.00%;background:#e9e6dc" title="rejected: 123"></span></span><span class="val">0 aborted</span></div>
             <div class="bar-row"><span class="who">Tovek V2</span><span class="bar-track" role="img" aria-label="Tovek V2: 202 decompiled, 56 rejected, 0 internal errors, 42 aborted"><span style="width:67.33%;background:var(--c-v2)" title="decompiled: 202"></span><span style="width:18.67%;background:#e9e6dc" title="rejected: 56"></span><span style="width:14.00%;background:var(--slate)" title="crash: 42"></span></span><span class="val">42 aborted</span></div>
             <div class="bar-row"><span class="who">v0.9 beta</span><span class="bar-track" role="img" aria-label="v0.9 beta: 208 decompiled, 50 rejected, 0 internal errors, 42 aborted"><span style="width:69.33%;background:var(--c-v2)" title="decompiled: 208"></span><span style="width:16.67%;background:#e9e6dc" title="rejected: 50"></span><span style="width:14.00%;background:var(--slate)" title="crash: 42"></span></span><span class="val">42 aborted</span></div>
           </div>
           <div class="bar-group"><h4>Eight flipped bits</h4>
-            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 9 decompiled, 290 rejected, 1 internal errors, 0 aborted"><span style="width:3.00%;background:var(--c-v2)" title="decompiled: 9"></span><span style="width:96.67%;background:#e9e6dc" title="rejected: 290"></span><span style="width:0.33%;background:var(--clay)" title="internal: 1"></span></span><span class="val">0 aborted</span></div>
+            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 9 decompiled, 291 rejected, 0 internal errors, 0 aborted"><span style="width:3.00%;background:var(--c-v2)" title="decompiled: 9"></span><span style="width:97.00%;background:#e9e6dc" title="rejected: 291"></span></span><span class="val">0 aborted</span></div>
             <div class="bar-row"><span class="who">Tovek V2</span><span class="bar-track" role="img" aria-label="Tovek V2: 19 decompiled, 226 rejected, 0 internal errors, 55 aborted"><span style="width:6.33%;background:var(--c-v2)" title="decompiled: 19"></span><span style="width:75.33%;background:#e9e6dc" title="rejected: 226"></span><span style="width:18.33%;background:var(--slate)" title="crash: 55"></span></span><span class="val">55 aborted</span></div>
             <div class="bar-row"><span class="who">v0.9 beta</span><span class="bar-track" role="img" aria-label="v0.9 beta: 23 decompiled, 222 rejected, 0 internal errors, 55 aborted"><span style="width:7.67%;background:var(--c-v2)" title="decompiled: 23"></span><span style="width:74.00%;background:#e9e6dc" title="rejected: 222"></span><span style="width:18.33%;background:var(--slate)" title="crash: 55"></span></span><span class="val">55 aborted</span></div>
           </div>
@@ -247,7 +247,6 @@
         <div class="bar-key">
           <span><i style="background:var(--c-v2)"></i>Decompiled</span>
           <span><i style="background:#e9e6dc"></i>Rejected with a message</span>
-          <span><i style="background:var(--clay)"></i>Internal error, reported</span>
           <span><i style="background:var(--slate)"></i>Aborted</span>
         </div>
       </div>
@@ -265,6 +264,7 @@
             <tr><th scope="row">A list write at index 0<span>SETLIST starting below 1</span></th><td class="hl"><b>invalid SETLIST index</b><small>prototype 0, pc 3 (must be positive)</small></td><td>“control-flow structuring failed”<small>misleading error</small></td></tr>
             <tr><th scope="row">An orphaned loop jump<span>FORNPREP without its loop</span></th><td class="hl"><b>Internal error, reported</b><small>no matching FORNLOOP block</small></td><td>Aborts<small>exit code 101, no message</small></td></tr>
             <tr><th scope="row">A skipped instruction<span>LOADB that jumps over a LOADN</span></th><td class="hl"><b><code>return true</code></b><small>what the VM returns</small></td><td><code>return 5</code><small>executes the skipped instruction</small></td></tr>
+            <tr><th scope="row">A method name with a space<span>NAMECALL key that isn’t an identifier</span></th><td class="hl"><b><code>v["foo bar"](v)</code></b><small>same call, valid Luau</small></td><td><code>({}):foo bar()</code><small>doesn’t compile</small></td></tr>
           </tbody>
         </table>
       </div>
@@ -516,8 +516,8 @@ print((&quot;x%*y&quot;):format(n):sub(1, 1))</div>
     </div>
     <h3 class="post-section">The local server</h3>
     <div class="read">
-      <p>The HTTP server shares four decompilation slots across all of its routes and reserves one before reading an upload. When all four are busy, it answers straight away with <code>503 decompile capacity exhausted</code> instead of buffering a large upload it can’t process yet. An admitted upload has 30 seconds to arrive in full; a client that trickles bytes gets <code>408</code>. You can change the limit with <code>TOVEK_UPLOAD_TIMEOUT_SECS</code>. Identical scripts inside one batch are decompiled once.</p>
-      <p>One thing to know if you script against the server: the bundled executor scripts treat a <code>503</code> as a failed decompile. If you send more than four requests at once, retry the ones that come back busy.</p>
+      <p>The HTTP server runs up to four decompilations at a time across all of its routes. Everything else waits its turn in a first-come, first-served queue, and a waiting request costs almost nothing: its upload stays unread until a slot frees, so a burst of thousands of scripts from a SaveInstance dump is simply worked through in order.</p>
+      <p>Only a queue that is already full (1,024 waiting requests by default) or a wait longer than two minutes is turned away, with <code>503</code> and a <code>Retry-After</code> hint that the bundled executor scripts follow automatically. Both limits can be changed with <code>TOVEK_QUEUE_LIMIT</code> and <code>TOVEK_QUEUE_TIMEOUT_SECS</code>. Once a request is admitted, its upload has 30 seconds to arrive in full; a client that trickles bytes gets <code>408</code> (<code>TOVEK_UPLOAD_TIMEOUT_SECS</code>). Identical scripts inside one batch are decompiled once.</p>
     </div>
     <h3 class="post-section">Same output, every time</h3>
     <div class="read">
@@ -543,15 +543,15 @@ print((&quot;x%*y&quot;):format(n):sub(1, 1))</div>
 
     <h2 class="post-heading" id="availability">Availability</h2>
     <div class="read">
-      <p>Tovek V2.1 is available now for Windows and Linux from <a href="https://github.com/Kiet1308/Tovek/releases/tag/v2.1">GitHub Releases</a>. Each download includes the command-line decompiler, the local HTTP server and the executor client scripts. To check your copy, run <span class="chip">luau-lifter --version</span>, which prints <span class="chip">luau-lifter V2.1</span>.</p>
+      <p>Tovek V2.1 is available now for Windows and Linux from <a href="https://github.com/Kiet1308/Tovek/releases/latest">GitHub Releases</a>. Each download includes the command-line decompiler, the local HTTP server and the executor client scripts. To check your copy, run <span class="chip">luau-lifter --version</span>, which prints <span class="chip">luau-lifter V2.1.1</span>.</p>
     </div>
     <div class="downloads" data-in>
-      <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.1/Tovek-V2.1-windows-x86_64.zip"><span><strong>Windows</strong><span>x86_64 · ZIP</span></span><span class="arrow" aria-hidden="true">↓</span></a>
-      <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.1/Tovek-V2.1-linux-x86_64.tar.gz"><span><strong>Linux</strong><span>x86_64 · glibc 2.35+ · tar.gz</span></span><span class="arrow" aria-hidden="true">↓</span></a>
+      <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.1.1/Tovek-V2.1.1-windows-x86_64.zip"><span><strong>Windows</strong><span>x86_64 · ZIP</span></span><span class="arrow" aria-hidden="true">↓</span></a>
+      <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.1.1/Tovek-V2.1.1-linux-x86_64.tar.gz"><span><strong>Linux</strong><span>x86_64 · glibc 2.35+ · tar.gz</span></span><span class="arrow" aria-hidden="true">↓</span></a>
     </div>
     <div class="shell" data-in>
       <div class="shell-bar"><span>Build from source</span><button type="button" data-copy="build-cmd">Copy</button></div>
-<pre id="build-cmd">git clone --branch v2.1 https://github.com/Kiet1308/Tovek.git
+<pre id="build-cmd">git clone --branch v2.1.1 https://github.com/Kiet1308/Tovek.git
 cd Tovek
 <span class="cm"># rust-toolchain.toml selects nightly-2026-06-15</span>
 cargo build --release --locked -p luau-lifter -p web-server</pre>
