@@ -60,6 +60,13 @@
       "expected_stdout": "23\tlt:1,mul:10\n"
     },
     {
+      "name": "late_register_reads",
+      "group": "effect/order",
+      "source": "late_register_reads.luau",
+      "driver": "late_register_reads.driver.luau",
+      "expected_stdout": "11000\tfalse\tc\t11004\t11005\t5\n"
+    },
+    {
       "name": "global_evaluation_order",
       "group": "effect/order",
       "source": "global_evaluation_order.luau",

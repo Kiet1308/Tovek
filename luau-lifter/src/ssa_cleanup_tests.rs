@@ -69,7 +69,7 @@ fn compare(function: &Function, locals: &[RcLocal], groups: &IndexMap<RcLocal, R
     let before = locals.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>();
     let base = ast::current_local_id();
     let reference = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
-        cleanup_ssa::<false>(&mut expected, &local_groups, groups, &readonly, &protected, budget)));
+        cleanup_ssa::<false>(&mut expected, &local_groups, groups, &readonly, &Default::default(), &protected, budget)));
     let end = ast::current_local_id();
     let expected_snapshot = snapshot(&expected, base..end);
     let metadata = locals.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>();
@@ -79,7 +79,7 @@ fn compare(function: &Function, locals: &[RcLocal], groups: &IndexMap<RcLocal, R
     ast::set_local_id_base(base);
     SSA_CLEANUP_TERMINAL_ADMISSIONS.with(|count| count.set(0));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
-        cleanup_ssa::<true>(&mut actual, &local_groups, groups, &readonly, &protected, budget)));
+        cleanup_ssa::<true>(&mut actual, &local_groups, groups, &readonly, &Default::default(), &protected, budget)));
     fn status(result: &Result<bool, Box<dyn std::any::Any + Send>>) -> Result<bool, String> {
         result.as_ref().map(|value| *value).map_err(|error| error.downcast_ref::<String>().cloned()
             .or_else(|| error.downcast_ref::<&str>().map(|value| (*value).into())).unwrap_or_default())

@@ -171,6 +171,39 @@ fn forwards_table_into_index_write(
         })
 }
 
+/// The operand of `rvalue` that Luau reads from its register only when the
+/// operation itself runs. The compiler hands a register local straight to an
+/// arithmetic or comparison instruction and to GETTABLE, so in `v + f()`,
+/// `v < f()` and `v[f()]` the call runs first and `v` is read afterwards
+/// (`CALL`, then `ADD Rv Rv Rcall`). An effect moved into the other operand
+/// therefore still precedes the read, exactly as in the bytecode. Incoming
+/// upvalues are fetched eagerly (GETUPVAL), and `..` copies its operands into
+/// consecutive registers first, so neither qualifies.
+fn late_register_read<'r>(rvalue: &'r ast::RValue, incoming_upvalue_ids: &FxHashSet<u64>) -> Option<&'r ast::RValue> {
+    let operand = match rvalue {
+        ast::RValue::Binary(binary) if matches!(
+            binary.operation,
+            ast::BinaryOperation::Add
+                | ast::BinaryOperation::Sub
+                | ast::BinaryOperation::Mul
+                | ast::BinaryOperation::Div
+                | ast::BinaryOperation::IDiv
+                | ast::BinaryOperation::Mod
+                | ast::BinaryOperation::Pow
+                | ast::BinaryOperation::Equal
+                | ast::BinaryOperation::NotEqual
+                | ast::BinaryOperation::LessThan
+                | ast::BinaryOperation::LessThanOrEqual
+                | ast::BinaryOperation::GreaterThan
+                | ast::BinaryOperation::GreaterThanOrEqual
+        ) => binary.left.as_ref(),
+        ast::RValue::Index(index) => index.left.as_ref(),
+        _ => return None,
+    };
+    matches!(operand, ast::RValue::Local(local) if !incoming_upvalue_ids.contains(&local.stable_id()))
+        .then_some(operand)
+}
+
 fn is_service_or_require_handle(rvalue: &ast::RValue) -> bool {
     ast::inline_temps::is_service_or_require_handle(rvalue)
 }
@@ -201,6 +234,7 @@ struct Inliner<'a> {
     upvalue_to_group: &'a IndexMap<ast::RcLocal, ast::RcLocal>,
     local_usages: &'a mut FxHashMap<ast::RcLocal, usize>,
     readonly_capture_ids: &'a FxHashSet<u64>,
+    incoming_upvalue_ids: Option<&'a FxHashSet<u64>>,
 }
 
 impl<'a> Inliner<'a> {
@@ -210,6 +244,7 @@ impl<'a> Inliner<'a> {
         upvalue_to_group: &'a IndexMap<ast::RcLocal, ast::RcLocal>,
         local_usages: &'a mut FxHashMap<ast::RcLocal, usize>,
         readonly_capture_ids: &'a FxHashSet<u64>,
+        incoming_upvalue_ids: Option<&'a FxHashSet<u64>>,
     ) -> Self {
         Self {
             function,
@@ -217,9 +252,11 @@ impl<'a> Inliner<'a> {
             upvalue_to_group,
             local_usages,
             readonly_capture_ids,
+            incoming_upvalue_ids,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn try_inline(
         traversible: &mut impl Traverse,
         read: &ast::RcLocal,
@@ -227,10 +264,14 @@ impl<'a> Inliner<'a> {
         new_rvalue_has_side_effects: bool,
         upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
         readonly_capture_ids: &FxHashSet<u64>,
+        incoming_upvalue_ids: Option<&FxHashSet<u64>>,
         late_callees: &[*const ast::RValue],
     ) -> bool {
         let candidate_may_write_capture = new_rvalue_has_side_effects
             && ast::effects::may_write_capture(new_rvalue.as_ref().unwrap());
+        // Register reads the VM performs only when their operation runs, after
+        // the candidate's position has been evaluated (see `late_register_read`).
+        let mut late_reads: Vec<*const ast::RValue> = Vec::new();
         if new_rvalue_has_side_effects
             && !traversible.visit_rvalues(&mut |rvalue| {
                 !local_is_conditionally_evaluated(rvalue, read, false)
@@ -284,6 +325,12 @@ impl<'a> Inliner<'a> {
                                 }
                                 _ => {}
                             }
+                            if candidate_may_write_capture
+                                && let Some(incoming) = incoming_upvalue_ids
+                                && let Some(operand) = late_register_read(rvalue, incoming)
+                            {
+                                late_reads.push(operand as *const ast::RValue);
+                            }
                         }
                     }
                     ast::PreOrPost::Post => {
@@ -299,6 +346,7 @@ impl<'a> Inliner<'a> {
                             }
                             if new_rvalue_has_side_effects
                                 && !late_callees.contains(&(rvalue as *const ast::RValue))
+                                && !late_reads.contains(&(rvalue as *const ast::RValue))
                                 && (rvalue_blocks_reorder(rvalue)
                                     || (candidate_may_write_capture
                                         && ast::effects::intrinsic(rvalue, &|local| upvalue_to_group.contains_key(local)
@@ -429,6 +477,7 @@ impl<'a> Inliner<'a> {
                                     new_rvalue_has_side_effects,
                                     self.upvalue_to_group,
                                     self.readonly_capture_ids,
+                                    self.incoming_upvalue_ids,
                                     &late_callees,
                                 ) {
                                     assert!(new_rvalue.is_none());
@@ -648,6 +697,7 @@ impl<'a> Inliner<'a> {
                                     new_rvalue_has_side_effects,
                                     self.upvalue_to_group,
                                     self.readonly_capture_ids,
+                                    None,
                                     &[],
                                 ) {
                                     assert!(new_rvalue.is_none());
@@ -970,17 +1020,23 @@ pub fn inline(
     local_to_group: &FxHashMap<ast::RcLocal, usize>,
     upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
 ) {
-    inline_with_readonly_captures(function, local_to_group, upvalue_to_group, &FxHashSet::default());
+    inline_with_readonly_captures(function, local_to_group, upvalue_to_group, &FxHashSet::default(), None);
 }
 
 /// `readonly_capture_ids` must come from immutable input-cell evidence mapped
 /// through this SSA construction's incoming groups. Names/types are not proof;
 /// absent evidence uses `inline` and protects every captured destination read.
+///
+/// `incoming_upvalue_ids` lists every SSA version of this function's incoming
+/// upvalues; every other local lives in a register. With it, the inliner uses
+/// Luau's late register reads (see `late_register_read`); `None` keeps every
+/// captured read an ordering barrier.
 pub fn inline_with_readonly_captures(
     function: &mut Function,
     local_to_group: &FxHashMap<ast::RcLocal, usize>,
     upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
     readonly_capture_ids: &FxHashSet<u64>,
+    incoming_upvalue_ids: Option<&FxHashSet<u64>>,
 ) {
     let mut local_usages = FxHashMap::default();
     for node in function.graph().node_indices() {
@@ -1013,6 +1069,7 @@ pub fn inline_with_readonly_captures(
             upvalue_to_group,
             &mut local_usages,
             readonly_capture_ids,
+            incoming_upvalue_ids,
         )
         .inline_rvalues(&mut schedule);
 
@@ -1656,6 +1713,50 @@ mod tests {
             let result = function.block_mut(entry).unwrap();
             remove_empty(result);
             assert_eq!(result.len(), if captured { 2 } else { 1 });
+        }
+    }
+
+    #[test]
+    fn register_operand_is_read_after_the_call_in_its_other_operand() {
+        // `local t = fetch(); return value + t` becomes `return value + fetch()`:
+        // Luau reads the register `value` when ADD runs, after the call, so a
+        // captured `value` is no barrier. An incoming upvalue is fetched before
+        // the call (GETUPVAL) and `..` copies its operands first, so those stay.
+        for (shape, incoming, inlined) in [
+            ("add", false, true),
+            ("less_than", false, true),
+            ("index", false, true),
+            ("add", true, false),
+            ("concat", false, false),
+        ] {
+            let value = local("value");
+            let result = local("result");
+            let operand = |operation| Binary::new(local_value(&value), local_value(&result), operation).into();
+            let returned: RValue = match shape {
+                "add" => operand(ast::BinaryOperation::Add),
+                "less_than" => operand(ast::BinaryOperation::LessThan),
+                "concat" => operand(ast::BinaryOperation::Concat),
+                _ => Index::new(local_value(&value), local_value(&result)).into(),
+            };
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            *function.block_mut(entry).unwrap() = Block(vec![
+                Assign::new(vec![LValue::Local(result.clone())],
+                    vec![ast::Call::new(global("fetch"), vec![]).into()]).into(),
+                Return::new(vec![returned]).into(),
+            ]);
+            function.set_entry(entry);
+            let captures = IndexMap::from([(value.clone(), value.clone())]);
+            let incoming_ids = if incoming {
+                rustc_hash::FxHashSet::from_iter([value.stable_id()])
+            } else {
+                rustc_hash::FxHashSet::default()
+            };
+            super::inline_with_readonly_captures(&mut function, &FxHashMap::default(), &captures,
+                &Default::default(), Some(&incoming_ids));
+            let block = function.block_mut(entry).unwrap();
+            remove_empty(block);
+            assert_eq!(block.len(), if inlined { 1 } else { 2 }, "{shape} incoming={incoming}");
         }
     }
 

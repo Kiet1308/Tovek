@@ -1562,6 +1562,7 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
     local_to_group: &FxHashMap<ast::RcLocal, usize>,
     upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
     readonly_capture_ids: &FxHashSet<u64>,
+    incoming_upvalue_ids: &FxHashSet<u64>,
     protected_upvalue_locals: &FxHashSet<ast::RcLocal>,
     mut rounds_left: usize,
 ) -> bool {
@@ -1581,7 +1582,7 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
                 function.blocks().next().unwrap().1.len() as u64);
             ptime!(F_SSA_INLINE);
             ssa::inline::inline_with_readonly_captures(function, local_to_group,
-                upvalue_to_group, readonly_capture_ids);
+                upvalue_to_group, readonly_capture_ids, Some(incoming_upvalue_ids));
             return true;
         }
 
@@ -1598,7 +1599,7 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
         {
             ptime!(F_SSA_INLINE);
             ssa::inline::inline_with_readonly_captures(function, local_to_group,
-                upvalue_to_group, readonly_capture_ids);
+                upvalue_to_group, readonly_capture_ids, Some(incoming_upvalue_ids));
         }
 
         let sc = {
@@ -1684,6 +1685,11 @@ fn decompile_function(
         .filter(|(root, _)| readonly_roots.contains(&root.stable_id()))
         .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
         .map(ast::RcLocal::stable_id).collect::<FxHashSet<_>>();
+    // Every other local, including a cell passed to a child closure, is a
+    // register of this function.
+    let incoming_upvalue_ids = upvalue_in_groups.iter()
+        .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
+        .map(ast::RcLocal::stable_id).collect::<FxHashSet<_>>();
     let protected_upvalue_locals = upvalue_in_groups
         .iter()
         .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
@@ -1734,7 +1740,7 @@ fn decompile_function(
         + function.graph().edge_weights().map(|edge| edge.arguments.len()).sum::<usize>()
         + 1).saturating_mul(4).max(64);
     if !cleanup_ssa::<true>(&mut function, &local_to_group, &upvalue_to_group,
-        &readonly_capture_ids, &protected_upvalue_locals, rounds_left)
+        &readonly_capture_ids, &incoming_upvalue_ids, &protected_upvalue_locals, rounds_left)
     {
         ast_function.lock().body = unsupported_structuring_sentinel();
         return (ByAddress(ast_function), upvalues_in, Some(DecompileDiagnostic {
