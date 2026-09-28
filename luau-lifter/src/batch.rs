@@ -160,10 +160,12 @@ pub fn run_with_cache(
         // Game dumps repeat modules verbatim. Group identical payloads that
         // share a module hint and decompile each group once on one worker; the
         // memo still verifies exact bytecode before reusing an artifact.
-        let texts = work.par_iter()
-            .map(|item| std::sync::Mutex::new(Some(std::fs::read(&item.input))))
-            .collect::<Vec<_>>();
-        let groups = duplicate_groups(&work, &texts);
+        let (texts, payloads): (Vec<_>, Vec<_>) = work.par_iter().map(|item| {
+            let text = std::fs::read(&item.input);
+            let payload = text.as_ref().ok().map(|text| payload_key(text));
+            (std::sync::Mutex::new(Some(text)), payload)
+        }).unzip();
+        let groups = duplicate_groups(&work, &payloads);
         let grouped = groups.par_iter().map_init(Vec::<u8>::new, |b64, group| {
             let memo = crate::decompile_core::DuplicateMemo::default();
             let memo = (group.len() > 1).then_some(&memo);
@@ -340,37 +342,32 @@ struct FolderDiagnostic {
     evidence: Option<Vec<DecompileDiagnostic>>,
 }
 
-/// Convert the legacy string error into a stable top-level code and preserve
-/// any structured per-function diagnostics appended by the lifter.  The
-/// parser deliberately falls back to a coarse code for older/errors outside
-/// the structuring pipeline, so mixed-version corpus manifests remain useful.
-/// Work indices grouped by identical wrapped payload and module hint, in input
-/// order. Unreadable inputs stay alone and fail in their own slot.
-fn duplicate_groups(
-    work: &[crate::decompile_core::Work],
-    texts: &[std::sync::Mutex<Option<std::io::Result<Vec<u8>>>>],
-) -> Vec<Vec<usize>> {
+/// Hash and length of the payload the decoder sees: lines starting with `--`
+/// dropped, spaces, tabs and carriage returns removed.
+fn payload_key(text: &[u8]) -> (u64, usize) {
     use std::hash::Hasher;
+    let mut hasher = rustc_hash::FxHasher::default();
+    let mut length = 0usize;
+    for line in text.split(|&byte| byte == b'\n').filter(|line| !line.starts_with(b"--")) {
+        for run in line.split(|&byte| byte == b' ' || byte == b'\t' || byte == b'\r') {
+            hasher.write(run);
+            length += run.len();
+        }
+    }
+    (hasher.finish(), length)
+}
+
+/// Work indices grouped by identical payload key and module hint, in input
+/// order. Unreadable inputs stay alone and fail in their own slot.
+fn duplicate_groups(work: &[crate::decompile_core::Work], payloads: &[Option<(u64, usize)>]) -> Vec<Vec<usize>> {
     let mut contexts = rustc_hash::FxHashMap::default();
     let mut groups: Vec<Vec<usize>> = Vec::with_capacity(work.len());
-    for (index, (item, text)) in work.iter().zip(texts).enumerate() {
-        let text = text.lock().unwrap();
-        let Some(Ok(text)) = text.as_ref() else {
+    for (index, (item, payload)) in work.iter().zip(payloads).enumerate() {
+        let Some(payload) = payload else {
             groups.push(vec![index]);
             continue;
         };
-        // The payload the decoder sees: lines starting with `--` dropped,
-        // spaces, tabs and carriage returns removed.
-        let mut hasher = rustc_hash::FxHasher::default();
-        let mut length = 0usize;
-        for line in text.split(|&byte| byte == b'\n').filter(|line| !line.starts_with(b"--")) {
-            for run in line.split(|&byte| byte == b' ' || byte == b'\t' || byte == b'\r') {
-                hasher.write(run);
-                length += run.len();
-            }
-        }
-        let payload = (hasher.finish(), length);
-        let context = (payload, item.kind == crate::decompile_core::WorkKind::RawBytecode,
+        let context = (*payload, item.kind == crate::decompile_core::WorkKind::RawBytecode,
             ast::name_locals::script_module_hint(&item.rel));
         let group = *contexts.entry(context).or_insert_with(|| {
             groups.push(Vec::new());
@@ -381,6 +378,10 @@ fn duplicate_groups(
     groups
 }
 
+/// Convert the legacy string error into a stable top-level code and preserve
+/// any structured per-function diagnostics appended by the lifter.  The
+/// parser deliberately falls back to a coarse code for older/errors outside
+/// the structuring pipeline, so mixed-version corpus manifests remain useful.
 fn cache_work_groups<'a>(names: impl Iterator<Item = &'a str>) -> Vec<Vec<usize>> {
     let mut contexts = rustc_hash::FxHashMap::default();
     let mut groups: Vec<Vec<usize>> = Vec::new();
