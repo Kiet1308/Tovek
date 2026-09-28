@@ -41,6 +41,7 @@ pub mod cleanup_final;
 pub mod cleanup_returns;
 pub mod coalesce_locals;
 pub mod compact_conditionals;
+pub mod compound_bases;
 pub mod conditional_expressions;
 pub mod terminal_returns;
 pub mod copy_cleanup;

@@ -48,7 +48,7 @@ fn assign(target: &RcLocal, value: RValue, prefix: bool) -> Statement {
         left: vec![target.clone().into()],
         right: vec![value],
         prefix,
-        parallel: false,
+        parallel: false, compound: false,
     }
     .into()
 }

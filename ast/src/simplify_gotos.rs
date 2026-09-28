@@ -127,6 +127,7 @@ fn dc_stmt(statement: &Statement) -> Statement {
             right: assign.right.iter().map(dc_rvalue).collect(),
             prefix: assign.prefix,
             parallel: assign.parallel,
+            compound: assign.compound,
         }),
         Statement::Call(call) => Statement::Call(dc_call(call)),
         Statement::MethodCall(method_call) => Statement::MethodCall(dc_method_call(method_call)),

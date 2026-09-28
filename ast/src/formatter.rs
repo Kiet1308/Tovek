@@ -3086,7 +3086,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             && assign.right.len() == 1
             && let RValue::Binary(binary) = &assign.right[0]
             && let Some(op) = compound_assignment_operator(binary.operation)
-            && compound_assign_target_matches(&assign.left[0], binary.left.as_ref())
+            // A `compound` assignment's base is evaluated once and must never
+            // be expanded (`compound_bases`).
+            && (assign.compound || compound_assign_target_matches(&assign.left[0], binary.left.as_ref()))
         {
             self.format_lvalue(&assign.left[0])?;
             write!(self.output, " {} ", op)?;

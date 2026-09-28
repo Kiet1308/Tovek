@@ -1226,7 +1226,7 @@ mod tests {
             left: vec![local.clone().into()],
             right: vec![value],
             prefix: true,
-            parallel: false,
+            parallel: false, compound: false,
         }
         .into()
     }
@@ -1336,7 +1336,7 @@ mod tests {
                 statements.push(Assign::new(vec![helper.clone().into()], vec![global("unknown")]).into());
             }
             statements.push(Assign { node_origin: Default::default(), left: vec![result.clone().into(), second.clone().into()],
-                right: vec![Call::new(helper.clone().into(), vec![]).into()], prefix: true, parallel: false }.into());
+                right: vec![Call::new(helper.clone().into(), vec![]).into()], prefix: true, parallel: false, compound: false}.into());
             let report = run(&Block(statements));
             assert_eq!(result.to_string(), if refuse == 0 { "width2" } else { "v3" });
             if refuse == 0 {
@@ -1357,7 +1357,7 @@ mod tests {
             Index::new(global("record"), text("Height")).into()];
         let block = Block(vec![declare(&helper, closure(vec![], Block(vec![Return::new(reads).into()]))),
             Assign { node_origin: Default::default(), left: vec![width.clone().into(), height.clone().into()],
-                right: vec![RValue::Select(Select::Call(Call::new(helper.clone().into(), vec![])))], prefix: true, parallel: false }.into()]);
+                right: vec![RValue::Select(Select::Call(Call::new(helper.clone().into(), vec![])))], prefix: true, parallel: false, compound: false}.into()]);
         let report = run(&block);
         assert_eq!(width.to_string(), "width");
         assert_eq!(height.to_string(), "height");
@@ -1373,7 +1373,7 @@ mod tests {
             let width = local("v");
             let height = local("v2");
             let mut body = vec![Assign { node_origin: Default::default(), left: vec![width.clone().into(), height.clone().into()],
-                right: vec![Call::new(helper.clone().into(), vec![]).into()], prefix: true, parallel: false }.into()];
+                right: vec![Call::new(helper.clone().into(), vec![]).into()], prefix: true, parallel: false, compound: false}.into()];
             if rebound {
                 body.push(Assign::new(vec![helper.clone().into()], vec![global("unknown")]).into());
             }

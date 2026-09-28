@@ -148,6 +148,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
                     right: Vec::new(),
                     prefix: true,
                     parallel: false,
+                    compound: false,
                 }),
             );
         }
@@ -174,6 +175,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
             right: vec![RValue::Closure(closure)],
             prefix: true,
             parallel: false,
+            compound: false,
         });
         let marker = Statement::Comment(Comment::new(format!(
             "[DEDUP] synthesized from {replaced} duplicated terminal regions"
@@ -949,7 +951,7 @@ mod tests {
                             vec![RValue::Literal(Literal::from("Template"))],
                         ))],
                         prefix: false,
-                        parallel: false,
+                        parallel: false, compound: false,
                     }),
                     Statement::If(If::new(
                         RValue::Local(result.clone()),
@@ -983,14 +985,14 @@ mod tests {
                 left: vec![LValue::Local(frames)],
                 right: vec![RValue::Table(crate::Table::default())],
                 prefix: true,
-                parallel: false,
+                parallel: false, compound: false,
             }),
             Statement::Assign(Assign {
                 node_origin: Default::default(),
                 left: vec![LValue::Local(result.clone())],
                 right: Vec::new(),
                 prefix: true,
-                parallel: false,
+                parallel: false, compound: false,
             }),
         ]);
         body.0.extend(arms);
@@ -1083,7 +1085,7 @@ mod tests {
             left: vec![LValue::Index(Index::new(global("table"), closure))],
             right: vec![RValue::Literal(Literal::Boolean(true))],
             prefix: false,
-            parallel: false,
+            parallel: false, compound: false,
         });
         let mut captured = FxHashSet::default();
         collect_captured_locals(std::slice::from_ref(&statement), &mut captured);

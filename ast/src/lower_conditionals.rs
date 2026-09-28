@@ -596,7 +596,7 @@ fn assign(local: &RcLocal, value: RValue, prefix: bool) -> Statement {
         left: vec![local.clone().into()],
         right: vec![value],
         prefix,
-        parallel: false,
+        parallel: false, compound: false,
     }
     .into()
 }
@@ -698,7 +698,7 @@ impl Attempt<'_> {
                         left: vec![local.clone().into()],
                         right: vec![],
                         prefix: true,
-                        parallel: false,
+                        parallel: false, compound: false,
                     }
                     .into(),
                 );

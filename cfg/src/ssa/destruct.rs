@@ -1303,7 +1303,7 @@ impl<'a> Destructor<'a> {
                     left: param_map.keys().map(|k| k.clone().into()).collect(),
                     right: param_map.values().map(|v| v.clone().into()).collect(),
                     prefix: false,
-                    parallel: true,
+                    parallel: true, compound: false,
                 }
                 .into(),
             );
@@ -1347,7 +1347,7 @@ impl<'a> Destructor<'a> {
                     left: Vec::with_capacity(args.len()),
                     right: Vec::with_capacity(args.len()),
                     prefix: false,
-                    parallel: true,
+                    parallel: true, compound: false,
                 };
 
                 for (param, arg) in args {
@@ -1495,7 +1495,7 @@ impl<'a> Destructor<'a> {
             left: Vec::new(),
             right: Vec::new(),
             prefix: false,
-            parallel: true,
+            parallel: true, compound: false,
         };
         let mut after = before.clone();
         for (left, right) in transfer.left.into_iter().zip(transfer.right) {

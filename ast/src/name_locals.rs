@@ -7379,7 +7379,7 @@ mod tests {
             left: vec![LValue::Local(handler.clone())],
             right: Vec::new(),
             prefix: true,
-            parallel: false,
+            parallel: false, compound: false,
         });
         let definition = Statement::Assign(Assign::new(
             vec![LValue::Local(handler.clone())],

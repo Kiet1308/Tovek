@@ -264,6 +264,7 @@ fn rehoist_one_scope(
             right: vec![RValue::Literal(candidate.literal())],
             prefix: true,
             parallel: false,
+            compound: false,
         }));
         replacements.insert(candidate, local);
     }
@@ -569,7 +570,7 @@ mod tests {
                 )))))],
                 right: vec![number(index as f64)],
                 prefix: true,
-                parallel: false,
+                parallel: false, compound: false,
             }));
         }
         statements.extend([wait(10.0), wait(10.0), wait(10.0)]);
@@ -720,7 +721,7 @@ mod tests {
             left: vec![LValue::Local(binder)],
             right: vec![closure],
             prefix: true,
-            parallel: false,
+            parallel: false, compound: false,
         })]);
         assert_eq!(rehoist_constants(&mut body), 1);
         assert!(
@@ -751,7 +752,7 @@ mod tests {
                 left: vec![LValue::Local(local)],
                 right: vec![closure],
                 prefix: true,
-                parallel: false,
+                parallel: false, compound: false,
             }),
             Statement::Return(Return::default()),
         ]);

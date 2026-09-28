@@ -67,6 +67,13 @@
       "expected_stdout": "11000\tfalse\tc\t11004\t11005\t5\n"
     },
     {
+      "name": "compound_bases",
+      "group": "effect/order",
+      "source": "compound_bases.luau",
+      "driver": "compound_bases.driver.luau",
+      "expected_stdout": "4\t4\t5\tb!\n"
+    },
+    {
       "name": "global_evaluation_order",
       "group": "effect/order",
       "source": "global_evaluation_order.luau",

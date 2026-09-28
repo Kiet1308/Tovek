@@ -912,14 +912,14 @@ mod tests {
             left: vec![LValue::Local(local.clone())],
             right: vec![RValue::Literal(Literal::Number(1.0))],
             prefix: true,
-            parallel: false,
+            parallel: false, compound: false,
         });
         let other_declaration = Statement::Assign(Assign {
             node_origin: Default::default(),
             left: vec![LValue::Local(local.clone())],
             right: vec![RValue::Literal(Literal::Number(2.0))],
             prefix: true,
-            parallel: false,
+            parallel: false, compound: false,
         });
         let use_local = Statement::Call(Call::new(global("print"), vec![RValue::Local(local)]));
         let mut body = Block(vec![cond_if(
@@ -958,7 +958,7 @@ mod tests {
                 left: vec![LValue::Local(local.clone())],
                 right: vec![global("source")],
                 prefix: false,
-                parallel: false,
+                parallel: false, compound: false,
             })
         };
         let use_temp = |local: &RcLocal| {
@@ -1122,7 +1122,7 @@ mod tests {
                     2 => Statement::Assign(Assign {
                         node_origin: Default::default(),
                         left: vec![LValue::Local(local.clone())], right: vec![global("source")],
-                        prefix: next(seed) % 2 == 0, parallel: false,
+                        prefix: next(seed) % 2 == 0, parallel: false, compound: false,
                     }),
                     3 => Statement::Comment(crate::Comment::trailing("inferred call".to_string())),
                     4 => loop_body(generate(seed, depth - 1, local).0),

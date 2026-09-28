@@ -11,6 +11,10 @@ pub struct Assign {
     pub right: Vec<RValue>,
     pub prefix: bool,
     pub parallel: bool,
+    /// `target op= value`, with the target's base and key evaluated once.
+    /// Set only for `t[i].k = t[i].k op value` shapes whose base is not
+    /// repeatable; the formatter must not expand them.
+    pub compound: bool,
 }
 
 impl Assign {
@@ -21,6 +25,7 @@ impl Assign {
             right,
             prefix: false,
             parallel: false,
+            compound: false,
         }
     }
 }

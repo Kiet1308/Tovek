@@ -995,7 +995,7 @@ fn try_remove_unnecessary_condition(function: &mut Function, node: NodeIndex) ->
                     left: vec![ast::RcLocal::default().into()],
                     right: vec![cond],
                     prefix: true,
-                    parallel: false,
+                    parallel: false, compound: false,
                 }
                 .into(),
             ),

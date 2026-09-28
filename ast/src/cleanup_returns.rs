@@ -394,7 +394,7 @@ mod tests {
             ))],
             right: vec![string("value")],
             prefix: false,
-            parallel: false,
+            parallel: false, compound: false,
         })]);
 
         cleanup_redundant_returns(&mut block);

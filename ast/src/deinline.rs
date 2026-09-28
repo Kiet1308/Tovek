@@ -722,6 +722,7 @@ fn collapse_use(
                 right: vec![call.clone()],
                 prefix: a.prefix,
                 parallel: a.parallel,
+                compound: false,
             }))
         }
         _ => None,
@@ -2051,6 +2052,7 @@ fn deinline_block(
                     right: vec![RValue::Call(call)],
                     prefix: true,
                     parallel: false,
+                    compound: false,
                 }),
             };
             let marker = Statement::Comment(Comment::trailing(CALL_MARKER.to_string()));
@@ -3002,6 +3004,7 @@ fn alias_leaf_block(stmts: &mut Vec<Statement>, r: &RcLocal, changed: &mut bool)
         right: vec![RValue::Local(t)],
         prefix: false,
         parallel: false,
+        compound: false,
     }));
     *changed = true;
 }
@@ -4966,7 +4969,7 @@ mod tests {
             left: vec![LValue::Local(local.clone())],
             right: vec![value],
             prefix,
-            parallel: false,
+            parallel: false, compound: false,
         })
     }
 
@@ -5904,7 +5907,7 @@ mod tests {
             left: vec![LValue::Local(l.clone())],
             right: vec![],
             prefix: true,
-            parallel: false,
+            parallel: false, compound: false,
         })
     }
 
@@ -6556,7 +6559,7 @@ mod tests {
             left: vec![LValue::Index(Index::new(local_value(&t), string("field")))],
             right: vec![local_value(&v)],
             prefix: false,
-            parallel: false,
+            parallel: false, compound: false,
         });
         let empty = FxHashSet::default();
         assert!(collapse_use(&indexed, &v, &call, &empty).is_none());
@@ -6604,7 +6607,7 @@ mod tests {
             left: vec![LValue::Local(a.clone()), LValue::Local(b.clone())],
             right: vec![local_value(&v)],
             prefix: false,
-            parallel: false,
+            parallel: false, compound: false,
         });
         assert!(
             collapse_use(&multi_lhs, &v, &call, &multivalue).is_none(),
