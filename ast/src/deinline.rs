@@ -297,6 +297,11 @@ impl Target {
 // ===================================================================
 
 pub fn deinline(body: &mut Block) {
+    // Every rewrite needs a target; the module-wide censuses below are only
+    // worth building when some helper passes the per-declaration gates.
+    if !any_structural_target(body) {
+        return;
+    }
     let captures = crate::deinline_safety::CaptureSafety::new(body);
     if !captures.complete() { return; }
     // The entry budget census describes the unchanged first iteration too.
@@ -3862,6 +3867,33 @@ fn has_loop_void_return(stmts: &[Statement], inside_loop: bool) -> bool {
 // ===================================================================
 // Target collection + per-function gates
 // ===================================================================
+
+/// Whether some `local f = function ... end` passes the gates of
+/// [`collect_targets`] that depend only on the helper itself (a necessary
+/// condition for any target).
+fn any_structural_target(body: &Block) -> bool {
+    let mut found = false;
+    each_closure_decl(&body.0, &mut |_, function| {
+        if found {
+            return;
+        }
+        let g = function.lock();
+        if g.is_variadic || body_unsafe(&g.body.0) {
+            return;
+        }
+        let Some(kind) = classify_returns(&g.body.0) else { return; };
+        let pattern = canon(&g.body.0);
+        if pattern.is_empty() || anchors_in_block(&pattern) < 2 {
+            return;
+        }
+        found = match kind {
+            TKind::Void => !block_has_return(&pattern)
+                || has_loop_void_return(&pattern, false),
+            TKind::Value => value_leaf_shape(&pattern),
+        };
+    });
+    found
+}
 
 fn collect_targets(
     body: &Block,
