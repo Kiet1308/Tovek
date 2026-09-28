@@ -841,6 +841,13 @@ fn can_fold_table_field_assignment(
         && !rvalue_reads_local(value, object_local)
 }
 
+/// Where a contiguous field store lands in the constructor being folded.
+enum FieldSlot {
+    Replace(usize),
+    MoveToEnd(usize),
+    Append,
+}
+
 fn fold_table_constructor_field_assignments(
     block: &mut ast::Block,
     local_usages: &mut FxHashMap<ast::RcLocal, usize>,
@@ -867,6 +874,7 @@ fn fold_table_constructor_field_assignments(
             .unwrap()
             .0
             .len();
+        let mut listed = None;
         i += 1;
         while i < block.len() {
             let Some((key, value)) = block[i]
@@ -889,6 +897,31 @@ fn fold_table_constructor_field_assignments(
             {
                 break;
             }
+            // Replacing a nil/zero template field moves this evaluation across the
+            // rest of the constructor. Cross only total fields without
+            // mutable-cell snapshots; otherwise append in the original order. A
+            // key the constructor already lists stays a statement: the later
+            // store is a mutation, and `{ k = a, k = b }` is never how a table
+            // is written.
+            let slot = match table
+                .0
+                .iter()
+                .take(initial_len)
+                .position(|(k, _)| k.as_ref() == Some(key))
+            {
+                Some(p)
+                    if ast::is_inert_entry_value(&table.0[p].1)
+                        && table.0[p..].iter().all(|(key, value)| {
+                            key.as_ref().is_some_and(ast::is_total_table_key)
+                                && ast::is_total_pure(value)
+                                && !value.any_local_read(&mut |read| upvalue_to_group.contains_key(read))
+                        }) => FieldSlot::Replace(p),
+                Some(p) if ast::is_template_placeholder(&table.0[p].1) && ast::is_total_table_key(key) => {
+                    FieldSlot::MoveToEnd(p)
+                }
+                _ if listed.get_or_insert_with(|| ast::ListedKeys::new(table)).lists(table, key) => break,
+                _ => FieldSlot::Append,
+            };
 
             decrement_local_usage(local_usages, &object_local, usage_changed);
             let field_assign = std::mem::replace(&mut block[i], ast::Empty {}.into())
@@ -908,34 +941,19 @@ fn fold_table_constructor_field_assignments(
             let table = block[table_index].as_assign_mut().unwrap().right[0]
                 .as_table_mut()
                 .unwrap();
-            // Replacing a nil/zero template field moves this evaluation across the
-            // rest of the constructor. Cross only total fields without
-            // mutable-cell snapshots; otherwise append in the original order.
-            match table
-                .0
-                .iter()
-                .take(initial_len)
-                .position(|(k, _)| k.as_ref() == Some(&new_key))
-            {
-                Some(p)
-                    if matches!(&table.0[p].1, ast::RValue::Literal(ast::Literal::Nil | ast::Literal::Number(0.0)))
-                        && table.0[p..].iter().all(|(key, value)| {
-                            key.as_ref().is_some_and(ast::is_total_table_key)
-                                && ast::is_total_pure(value)
-                                && !value.any_local_read(&mut |read| upvalue_to_group.contains_key(read))
-                        }) =>
-                {
+            match slot {
+                FieldSlot::Replace(p) => {
                     decrement_rvalue_usages(local_usages, &table.0[p].1, usage_changed);
                     table.0[p].1 = new_value;
                 }
-                Some(p)
-                    if matches!(&table.0[p].1, ast::RValue::Literal(ast::Literal::Nil | ast::Literal::Number(0.0)))
-                        && ast::is_total_table_key(&new_key) =>
-                {
+                FieldSlot::MoveToEnd(p) => {
                     table.0.remove(p);
                     table.0.push((Some(new_key), new_value));
                 }
-                _ => {
+                FieldSlot::Append => {
+                    if let Some(listed) = &mut listed {
+                        listed.add(&new_key);
+                    }
                     table.0.push((Some(new_key), new_value));
                 }
             }

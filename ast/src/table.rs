@@ -14,6 +14,59 @@ impl fmt::Debug for Table {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.debug_tuple("Table").field(&self.0).finish() }
 }
 
+/// A DUPTABLE template field. The VM loader creates every template key with the
+/// value `0` before any store runs (older lifts modelled it as `nil`), so the
+/// entry evaluates nothing and a store that follows may take its slot.
+pub fn is_template_placeholder(value: &RValue) -> bool {
+    matches!(value, RValue::Literal(Literal::Nil | Literal::Number(0.0)))
+}
+
+/// A constructor entry whose value evaluates nothing: a template placeholder or
+/// a constant the template carries. A later store may take its slot, and a
+/// value may be moved ahead of it, without reordering any evaluation.
+pub fn is_inert_entry_value(value: &RValue) -> bool {
+    matches!(value, RValue::Literal(_))
+}
+
+/// Literal keys a constructor already lists. A later store to one of them
+/// mutates a finished table; folding it would print the key twice, which is
+/// never how a table is written. Hashes keep the check O(1) on long field runs,
+/// and a hit is confirmed against the entries.
+#[derive(Default)]
+pub struct ListedKeys(rustc_hash::FxHashSet<u64>);
+
+impl ListedKeys {
+    pub fn new(table: &Table) -> Self {
+        Self(table.0.iter().filter_map(|(key, _)| key.as_ref().and_then(literal_key_hash)).collect())
+    }
+
+    pub fn lists(&self, table: &Table, key: &RValue) -> bool {
+        literal_key_hash(key).is_some_and(|hash| {
+            self.0.contains(&hash) && table.0.iter().any(|(listed, _)| listed.as_ref() == Some(key))
+        })
+    }
+
+    pub fn add(&mut self, key: &RValue) {
+        if let Some(hash) = literal_key_hash(key) {
+            self.0.insert(hash);
+        }
+    }
+}
+
+fn literal_key_hash(key: &RValue) -> Option<u64> {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = rustc_hash::FxHasher::default();
+    match key {
+        RValue::Literal(Literal::String(bytes)) => (0u8, bytes).hash(&mut hasher),
+        // `t[0]` and `t[-0]` are the same slot.
+        RValue::Literal(Literal::Number(number)) => {
+            (1u8, if *number == 0.0 { 0 } else { number.to_bits() }).hash(&mut hasher)
+        }
+        _ => return None,
+    }
+    Some(hasher.finish())
+}
+
 impl Reduce for Table {
     fn reduce(self) -> RValue {
         self.into()

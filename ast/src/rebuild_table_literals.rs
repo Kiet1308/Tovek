@@ -123,6 +123,7 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
             .as_table_mut().unwrap();
         let mut array_len = table.0.iter().filter(|(key, _)| key.is_none()).count();
         let mut entries = PlaceholderEntries::new(table);
+        let mut listed = None;
         for statement in remaining {
             if let Statement::SetList(set_list) = statement {
                 if let Some(entries) = entries.take() { entries.finish(table); }
@@ -160,16 +161,21 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
             {
                 break;
             }
+            if !matches!(key, RValue::Literal(crate::Literal::String(_))) {
+                if let Some(entries) = entries.take() { entries.finish(table); }
+            }
+            let placement = match &entries {
+                Some(entries) => entries.placement(table, key),
+                None => placement(table, initial_len, key,
+                    listed.get_or_insert_with(|| crate::ListedKeys::new(table))),
+            };
+            let Some(placement) = placement else { break };
 
             let field_assign = std::mem::replace(statement, crate::Empty {}.into()).into_assign().unwrap();
             let (key, value) = field_assignment_key_value(field_assign);
-            if !matches!(&key, RValue::Literal(crate::Literal::String(_))) {
-                if let Some(entries) = entries.take() { entries.finish(table); }
-            }
-            if let Some(entries) = &mut entries {
-                entries.insert(table, key, value);
-            } else {
-                insert_table_entry(table, initial_len, key, value);
+            match &mut entries {
+                Some(entries) => entries.insert(table, placement, key, value),
+                None => insert_table_entry(table, placement, key, value, listed.as_mut().unwrap()),
             }
             changed = true;
             read += 1;
@@ -316,10 +322,10 @@ fn sink_total_table_declarations(
         }
         if field_index == index + 1
             || field_index >= block.0.len()
-            || block.0[field_index]
+            || !block.0[field_index]
                 .as_assign()
                 .and_then(|assign| field_assignment_parts(assign, &object))
-                .is_none()
+                .is_some_and(|(key, _)| absorbs_store(table, key))
         {
             index += 1;
             continue;
@@ -440,7 +446,8 @@ fn sink_private_constructor_regions(
                     // Preserve statement function definitions and callback
                     // property layout; motion must improve the output tree.
                     .is_some_and(|(key, value)| !matches!(value, RValue::Closure(_))
-                        && can_fold_table_field_assignment(key, value, &object)),
+                        && can_fold_table_field_assignment(key, value, &object)
+                        && absorbs_store(table, key)),
                 Statement::SetList(list) => can_append_set_list(table, list, &object),
                 _ => false,
             };
@@ -725,38 +732,76 @@ fn field_assignment_key_value(assign: Assign) -> (RValue, RValue) {
     (key, value)
 }
 
-fn insert_table_entry(table: &mut Table, initial_len: usize, key: RValue, value: RValue) {
+/// Where a contiguous field store lands in the constructor being rebuilt.
+#[derive(Clone, Copy)]
+enum Placement {
+    /// Take the key's slot. Replacing an entry in place moves the new value
+    /// ahead of every entry after it, so this requires the slot and every
+    /// crossed entry to evaluate nothing (template placeholders or constants).
+    Replace(usize),
+    /// A store after a fresh `nil` slot: drop the slot and append, keeping the
+    /// value after every intervening evaluation.
+    MoveToEnd(usize),
+    Append,
+}
+
+/// The placement for a store to `key`, or `None` when the constructor already
+/// lists `key` and cannot absorb the store. The store then stays a statement:
+/// `{ value = a, value = b }` is never how a table is written, and the
+/// statement form evaluates in exactly the same order.
+fn placement(table: &Table, initial_len: usize, key: &RValue, listed: &crate::ListedKeys) -> Option<Placement> {
     match table
         .0
         .iter()
         .take(initial_len)
-        .position(|(existing_key, _)| existing_key.as_ref() == Some(&key))
+        .position(|(existing_key, _)| existing_key.as_ref() == Some(key))
     {
-        // Replacing an old placeholder in place moves the new value ahead of
-        // every constructor entry after it. That is only order-preserving for
-        // the common lowering shape where the old entry and every crossed entry
-        // are inert `literalKey = nil` placeholders. Otherwise retain the old
-        // entry and append the later write as a duplicate constructor field;
-        // Luau evaluates duplicate fields in order, exactly like the original
-        // constructor followed by `t[key] = value`.
-        Some(position) if inert_nil_placeholder_suffix(table, position, initial_len) => {
-            table.0[position].1 = value;
+        Some(position) if inert_suffix(table, position, initial_len) => {
+            Some(Placement::Replace(position))
         }
         Some(position)
             if matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil))
-                && crate::is_total_table_key(&key) =>
+                && crate::is_total_table_key(key) =>
         {
-            // A nil store to a fresh literal-key slot does nothing. Remove
-            // just that placeholder, keeping the later value after every
-            // intervening evaluation instead of moving it to the old slot.
-            table.0.remove(position);
-            table.0.push((Some(key), value));
+            Some(Placement::MoveToEnd(position))
         }
-        _ => table.0.push((Some(key), value)),
+        _ if listed.lists(table, key) => None,
+        _ => Some(Placement::Append),
     }
 }
 
-/// DUPTABLE templates are keyed nil placeholders. Keep their logical order
+/// Whether the constructor could take a store to `key` right now. Sinking a
+/// declaration toward a store it cannot absorb only moves the table.
+fn absorbs_store(table: &Table, key: &RValue) -> bool {
+    match table.0.iter().position(|(existing_key, _)| existing_key.as_ref() == Some(key)) {
+        None => true,
+        Some(position) => inert_suffix(table, position, table.0.len())
+            || (matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil))
+                && crate::is_total_table_key(key)),
+    }
+}
+
+fn insert_table_entry(
+    table: &mut Table,
+    placement: Placement,
+    key: RValue,
+    value: RValue,
+    listed: &mut crate::ListedKeys,
+) {
+    match placement {
+        Placement::Replace(position) => table.0[position].1 = value,
+        Placement::MoveToEnd(position) => {
+            table.0.remove(position);
+            table.0.push((Some(key), value));
+        }
+        Placement::Append => {
+            listed.add(&key);
+            table.0.push((Some(key), value));
+        }
+    }
+}
+
+/// DUPTABLE templates are keyed placeholders. Keep their logical order
 /// while replacing/removing entries, without repeatedly scanning or shifting
 /// the prefix. The old algorithm searches exactly the first `initial_len`
 /// *live* entries, including appended entries that enter that window after a
@@ -774,7 +819,7 @@ impl PlaceholderEntries {
     fn new(table: &Table) -> Option<Self> {
         if table.0.len() < 16 || !table.0.iter().all(|(key, value)| {
             matches!(key, Some(RValue::Literal(crate::Literal::String(_))))
-                && matches!(value, RValue::Literal(crate::Literal::Nil))
+                && crate::is_inert_entry_value(value)
         }) { return None; }
         let mut positions: rustc_hash::FxHashMap<_, std::collections::VecDeque<_>> = Default::default();
         for (index, (key, _)) in table.0.iter().enumerate() {
@@ -785,24 +830,41 @@ impl PlaceholderEntries {
             removed: vec![false; table.0.len()], boundary: table.0.len() - 1 })
     }
 
-    fn insert(&mut self, table: &mut Table, key: RValue, value: RValue) {
+    /// [`placement`] over stable slot indices.
+    fn placement(&self, table: &Table, key: &RValue) -> Option<Placement> {
+        let RValue::Literal(crate::Literal::String(bytes)) = key else { unreachable!() };
+        let Some(position) = self.positions.get(bytes).and_then(|positions| positions.front().copied()) else {
+            return Some(Placement::Append);
+        };
+        if position > self.boundary {
+            // Only an appended copy lists the key.
+            None
+        } else if self.non_inert.range(position..=self.boundary).next().is_none() {
+            Some(Placement::Replace(position))
+        } else if matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil)) {
+            Some(Placement::MoveToEnd(position))
+        } else {
+            None
+        }
+    }
+
+    fn insert(&mut self, table: &mut Table, placement: Placement, key: RValue, value: RValue) {
         let RValue::Literal(crate::Literal::String(bytes)) = &key else { unreachable!() };
-        let position = self.positions.get(bytes).and_then(|positions| positions.front().copied())
-            .filter(|position| *position <= self.boundary);
-        let inert_value = matches!(&value, RValue::Literal(crate::Literal::Nil));
-        if let Some(position) = position {
-            if self.non_inert.range(position..=self.boundary).next().is_none() {
+        let inert_value = crate::is_inert_entry_value(&value);
+        match placement {
+            Placement::Replace(position) => {
                 table.0[position].1 = value;
                 if !inert_value { self.non_inert.insert(position); }
                 return;
             }
-            if matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil)) {
+            Placement::MoveToEnd(position) => {
                 self.removed[position] = true;
                 self.positions.get_mut(bytes).unwrap().pop_front();
                 // Removed slots are always inside the window. The immediately
                 // following slot therefore remains live, or is appended below.
                 self.boundary += 1;
             }
+            Placement::Append => {}
         }
         let index = table.0.len();
         self.positions.entry(bytes.clone()).or_default().push_back(index);
@@ -817,11 +879,11 @@ impl PlaceholderEntries {
     }
 }
 
-fn inert_nil_placeholder_suffix(table: &Table, position: usize, initial_len: usize) -> bool {
+fn inert_suffix(table: &Table, position: usize, initial_len: usize) -> bool {
     table.0[position..initial_len].iter().all(|(key, value)| {
         key.as_ref()
             .is_some_and(crate::side_effects::is_total_table_key)
-            && matches!(value, RValue::Literal(crate::Literal::Nil))
+            && crate::is_inert_entry_value(value)
     })
 }
 
@@ -930,6 +992,18 @@ mod tests {
         assert_eq!(actual, expected);
     }
 
+    /// The general (scanning) placement, applied when it accepts the store.
+    fn general_insert(table: &mut Table, initial_len: usize, key: RValue, value: RValue) -> bool {
+        let mut listed = crate::ListedKeys::new(table);
+        match super::placement(table, initial_len, &key, &listed) {
+            Some(placement) => {
+                super::insert_table_entry(table, placement, key, value, &mut listed);
+                true
+            }
+            None => false,
+        }
+    }
+
     #[test]
     fn indexed_placeholders_preserve_the_moving_prefix_and_evaluation_order() {
         for seed in 0..256usize {
@@ -951,8 +1025,12 @@ mod tests {
                     2 => Call::new(global("effect"), vec![number(step as f64)]).into(),
                     _ => number(step as f64),
                 };
-                super::insert_table_entry(&mut expected, initial_len, key.clone(), value.clone());
-                index.insert(&mut actual, key, value);
+                let placement = index.placement(&actual, &key);
+                let accepted = general_insert(&mut expected, initial_len, key.clone(), value.clone());
+                assert_eq!(placement.is_some(), accepted, "seed={seed}, step={step}");
+                if let Some(placement) = placement {
+                    index.insert(&mut actual, placement, key, value);
+                }
                 let mut compacted = actual.clone();
                 index.clone().finish(&mut compacted);
                 assert_eq!(compacted, expected, "seed={seed}, step={step}");
@@ -970,7 +1048,7 @@ mod tests {
             for i in (0..32).rev() {
                 let key = string(&format!("f{i}"));
                 let value: RValue = Call::new(global("effect"), vec![number(i as f64)]).into();
-                super::insert_table_entry(&mut expected, 32, key.clone(), value.clone());
+                assert!(general_insert(&mut expected, 32, key.clone(), value.clone()));
                 statements.push(assign_field(&object, key, value));
             }
             if with_setlist {
@@ -980,7 +1058,7 @@ mod tests {
                 expected.0.push((None, number(7.0)));
             } else {
                 let key: RValue = Call::new(global("key"), vec![]).into();
-                super::insert_table_entry(&mut expected, 32, key.clone(), number(7.0));
+                assert!(general_insert(&mut expected, 32, key.clone(), number(7.0)));
                 statements.push(assign_field(&object, key, number(7.0)));
             }
             statements.push(Return::new(vec![object.into()]).into());
@@ -1638,7 +1716,7 @@ mod tests {
     }
 
     #[test]
-    fn does_not_overwrite_fields_folded_from_earlier_assignments() {
+    fn keeps_a_second_store_to_a_listed_key_as_a_statement() {
         let props = local("props");
         let mut block = Block(vec![
             declare(&props, RValue::Table(Table::default())),
@@ -1650,7 +1728,31 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local props = {\n\tName = \"First\",\n\tName = \"Second\"\n}"
+            "local props = {\n\tName = \"First\"\n}\nprops.Name = \"Second\""
+        );
+    }
+
+    #[test]
+    fn stores_take_zero_template_slots_across_constants() {
+        // DUPTABLE creates template keys with the value 0; a constant the
+        // template carries evaluates nothing, so later stores take their slots.
+        let part = local("part");
+        let mut block = Block(vec![
+            declare(&part, RValue::Table(Table::new(vec![
+                (Some(string("Size")), number(0.0)),
+                (Some(string("Anchored")), RValue::Literal(Literal::Boolean(true))),
+                (Some(string("Parent")), number(0.0)),
+            ]))),
+            assign_field(&part, string("Size"), Call::new(global("size"), vec![]).into()),
+            assign_field(&part, string("Parent"), global("workspace")),
+            Return::new(vec![part.clone().into()]).into(),
+        ]);
+
+        rebuild_table_literals(&mut block);
+
+        assert_eq!(
+            block.to_string(),
+            "local part = {\n\tSize = size(),\n\tAnchored = true,\n\tParent = workspace\n}\nreturn part"
         );
     }
 
