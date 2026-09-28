@@ -456,6 +456,41 @@ impl DerefMut for Block {
     }
 }
 
+impl Block {
+    /// Whether `predicate` holds for a statement of this function body,
+    /// including nested control-flow blocks but not nested closure bodies.
+    pub fn any_statement(&self, predicate: &mut impl FnMut(&Statement) -> bool) -> bool {
+        self.0.iter().any(|statement| {
+            predicate(statement)
+                || match statement {
+                    Statement::If(node) => {
+                        node.then_block.lock().any_statement(predicate)
+                            || node.else_block.lock().any_statement(predicate)
+                    }
+                    Statement::While(node) => node.block.lock().any_statement(predicate),
+                    Statement::Repeat(node) => node.block.lock().any_statement(predicate),
+                    Statement::NumericFor(node) => node.block.lock().any_statement(predicate),
+                    Statement::GenericFor(node) => node.block.lock().any_statement(predicate),
+                    _ => false,
+                }
+        })
+    }
+
+    /// Like [`Block::any_statement`], also searching every nested closure body.
+    pub fn any_statement_deep(&self, predicate: &mut impl FnMut(&Statement) -> bool) -> bool {
+        fn closures_any(value: &RValue, predicate: &mut impl FnMut(&Statement) -> bool) -> bool {
+            if let RValue::Closure(closure) = value {
+                return closure.function.lock().body.any_statement_deep(predicate);
+            }
+            !value.visit_rvalues(&mut |child| !closures_any(child, predicate))
+        }
+        self.any_statement(&mut |statement| {
+            predicate(statement)
+                || !crate::deinline::visit_stmt_rvalues(statement, &mut |value| !closures_any(value, predicate))
+        })
+    }
+}
+
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Formatter::format(self, f, Default::default())

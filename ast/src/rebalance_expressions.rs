@@ -26,14 +26,18 @@ struct FunctionContext {
 }
 
 impl FunctionContext {
+    /// Only a split `return` mints a local, and no rewrite creates one. The
+    /// name snapshot precedes nested closure rewrites, so it is taken eagerly,
+    /// but only for a function that owns such a `return`.
     fn new(block: &mut Block, parameter_count: usize) -> Self {
         let mut reserved = FxHashSet::default();
-        crate::rehoist_constants::collect_reserved_identifiers(block, &mut reserved);
-        let declared = count_declared_locals(block);
-        Self {
-            local_headroom: MAX_ACTIVE_LOCALS.saturating_sub(parameter_count + declared),
-            reserved,
+        let mut local_headroom = 0;
+        if block.any_statement(&mut |statement| return_concat_parts_spine(statement)) {
+            crate::rehoist_constants::collect_reserved_identifiers(block, &mut reserved);
+            let declared = count_declared_locals(block);
+            local_headroom = MAX_ACTIVE_LOCALS.saturating_sub(parameter_count + declared);
         }
+        Self { local_headroom, reserved }
     }
 
     fn fresh_text_local(&mut self) -> Option<RcLocal> {
@@ -155,7 +159,8 @@ fn conditional_assignment_parts(
     let LValue::Local(local) = &assign.left[0] else {
         return None;
     };
-    if assign.prefix && reads_rendered_name(&assign.right[0], local) {
+    // At least two selected arms plus a fallback: the root must be `or`.
+    if !matches!(&assign.right[0], RValue::Binary(binary) if binary.operation == BinaryOperation::Or) {
         return None;
     }
     if crate::expression_budget::collapse_allowed(&assign.right[0]) {
@@ -180,6 +185,9 @@ fn conditional_assignment_parts(
         }
     }
     if terms.len() < 3 && crate::expression_budget::expression_cost(fallback) < 10 {
+        return None;
+    }
+    if assign.prefix && reads_rendered_name(&assign.right[0], local) {
         return None;
     }
     // Clone only after every refusal gate has passed. Keep the original
@@ -252,7 +260,7 @@ fn declaration_concat_parts(statement: &Statement) -> Option<(RcLocal, Vec<RValu
     let LValue::Local(local) = &assign.left[0] else {
         return None;
     };
-    if reads_rendered_name(&assign.right[0], local) {
+    if !long_concat_spine(&assign.right[0]) || reads_rendered_name(&assign.right[0], local) {
         return None;
     }
     long_concat_parts(&assign.right[0]).map(|parts| (local.clone(), parts))
@@ -328,15 +336,27 @@ fn return_concat_parts(statement: &Statement) -> Option<Vec<RValue>> {
     long_concat_parts(value)
 }
 
-fn long_concat_parts(value: &RValue) -> Option<Vec<RValue>> {
-    // The collector yields one part plus one per left-spine concat. Most
-    // callers have an unrelated or short RHS: prove eligibility without
-    // cloning any of their subtrees, stopping after four operators.
+fn return_concat_parts_spine(statement: &Statement) -> bool {
+    matches!(statement, Statement::Return(return_)
+        if matches!(return_.values.as_slice(), [value] if long_concat_spine(value)))
+}
+
+/// The collector yields one part plus one per left-spine concat. Most
+/// callers have an unrelated or short RHS: prove eligibility without
+/// cloning any of their subtrees, stopping after four operators.
+fn long_concat_spine(value: &RValue) -> bool {
     let mut spine = value;
     for _ in 0..MIN_CONCAT_OPERATORS {
-        let RValue::Binary(binary) = spine else { return None; };
-        if binary.operation != BinaryOperation::Concat { return None; }
+        let RValue::Binary(binary) = spine else { return false; };
+        if binary.operation != BinaryOperation::Concat { return false; }
         spine = &binary.left;
+    }
+    true
+}
+
+fn long_concat_parts(value: &RValue) -> Option<Vec<RValue>> {
+    if !long_concat_spine(value) {
+        return None;
     }
     let mut parts = Vec::new();
     collect_left_concat_parts(value, &mut parts);

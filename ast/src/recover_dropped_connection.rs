@@ -26,6 +26,11 @@ use crate::{
 ///     Connections that ARE stored (a non-`nil` assignment exists) are never
 ///     touched, which also disambiguates a closure that manages several handles.
 pub fn recover_dropped_connection(block: &mut Block) {
+    // Every rewrite needs a call declaration whose closure ref-captures and
+    // disconnects a cell. Without one, skip both module-wide censuses.
+    if !block.any_statement_deep(&mut connection_declaration) {
+        return;
+    }
     let usage = collect_usage(block);
     let mut assigned = FxHashSet::default();
     collect_non_nil_assigned(block, &mut assigned);
@@ -103,6 +108,24 @@ fn recover_in_block(
         assign.left[0] = LValue::Local(cell);
         assign.prefix = false;
     }
+}
+
+/// Necessary shape of a rewritten statement, before the census-dependent gates.
+fn connection_declaration(statement: &Statement) -> bool {
+    let Statement::Assign(assign) = statement else { return false; };
+    if !assign.prefix || assign.parallel || assign.left.len() != 1 || assign.right.len() != 1
+        || !matches!(assign.left[0], LValue::Local(_))
+        || !matches!(assign.right[0], RValue::Call(_) | RValue::MethodCall(_)
+            | RValue::Select(Select::Call(_) | Select::MethodCall(_)))
+    {
+        return false;
+    }
+    let mut found = false;
+    for_each_closure(&assign.right[0], &mut |closure| {
+        found = found || closure.upvalues.iter().any(|upvalue| matches!(upvalue,
+            Upvalue::Ref(cell) if closure_disconnects(&closure.function.lock().body, cell)));
+    });
+    found
 }
 
 /// The single cell a closure in `rvalue` ref-captures and `:Disconnect()`s that

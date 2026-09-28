@@ -26,6 +26,13 @@ struct FunctionFacts {
 
 impl FunctionFacts {
     fn collect(block: &Block, parameters: &[RcLocal]) -> Self {
+        // The facts only gate parent-walk recovery, which needs a `while true`
+        // loop of this function. No rewrite in this pass creates one.
+        if !block.any_statement(&mut |statement| {
+            matches!(statement, Statement::While(node) if is_true(&node.condition))
+        }) {
+            return Self { declared: FxHashSet::default(), captured: FxHashSet::default() };
+        }
         let usage = crate::inline_temps::collect_usage(block);
         let captured = usage
             .into_iter()

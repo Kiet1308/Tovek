@@ -138,7 +138,7 @@ pub fn expr_deinline(body: &mut Block) { run(body, false); }
 pub fn arithmetic_deinline_early(body: &mut Block) { run(body, true); }
 
 fn run(body: &mut Block, arithmetic_only: bool) {
-    let mut targets = collect_expr_targets(body);
+    let mut targets = collect_expr_targets(body, arithmetic_only);
     if arithmetic_only {
         targets.retain(|t| t.arithmetic.is_some());
         for target in &mut targets { target.protect_definition = true; }
@@ -200,28 +200,21 @@ fn run(body: &mut Block, arithmetic_only: bool) {
 // Target collection
 // ===================================================================
 
-fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
-    // Writes to every local across the whole module, shared with the statement
-    // de-inliner. Refcounts cannot establish whether a helper is reassigned: a
-    // genuine call or an earlier de-inline also raises them. Refuse a binder
-    // with a second write: if
-    // `local f = function...end` is later rebound (`f = otherFn`), emitting `f(args)`
-    // at a site past the rebind would call the wrong function. A binder that is
-    // never rebound is written exactly once (its declaration); any extra write
-    // refuses it.
-    let captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body));
-    if !captures.complete() { return Vec::new(); }
-    let mut write_counts: FxHashMap<RcLocal, usize> = FxHashMap::default();
-    collect_write_counts(&body.0, &mut write_counts);
-    let search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
-    let arithmetic_budget = std::rc::Rc::new(arithmetic::AttemptBudget::default());
-    let mut arithmetic_targets = 0usize;
-    let mut targets = Vec::new();
+/// Structural facts of one helper declaration. Every per-declaration gate is
+/// pure, so all of them run before the module-wide capture and write censuses:
+/// a module without an eligible helper never pays for either census.
+struct HelperCandidate {
+    f_local: RcLocal,
+    func_ptr: FnPtr,
+    expr: RValue,
+    parameters: Vec<RcLocal>,
+    prototype: Option<usize>,
+    arithmetic: bool,
+}
+
+fn helper_candidates(body: &Block, arithmetic_only: bool) -> Vec<HelperCandidate> {
+    let mut candidates = Vec::new();
     each_closure_decl(&body.0, &mut |l, fa| {
-        // Refuse a reassigned helper binder (written anywhere beyond its decl).
-        if write_counts.get(l).copied().unwrap_or(0) != 1 {
-            return;
-        }
         let g = fa.lock();
         // Fixed-arity, no goto/label/comment/close/for-init, NO nested closure
         // (identity-matching closures is unsound). P5-A: the `g.name.is_none()`
@@ -233,27 +226,19 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
         if g.is_variadic || body_unsafe(&g.body.0) {
             return;
         }
+        let candidate = |expr, arithmetic| HelperCandidate {
+            f_local: l.clone(),
+            func_ptr: Arc::as_ptr(fa),
+            expr,
+            parameters: g.parameters.clone(),
+            prototype: g.bytecode_proto_id,
+            arithmetic,
+        };
         if let Some(expr) = arithmetic::pattern(&g) {
-            arithmetic_targets += 1;
-            if arithmetic_targets > arithmetic::MAX_TARGETS {
-                return;
-            }
-            crate::call_origins::register_callee(l.stable_id(), g.bytecode_proto_id);
-            targets.push(ExprTarget {
-                f_local: l.clone(),
-                func_ptr: Arc::as_ptr(fa),
-                expr,
-                params: g.parameters.iter().cloned().collect(),
-                locals: FxHashSet::default(),
-                param_order: g.parameters.clone(),
-                arithmetic: Some(arithmetic_budget.clone()),
-                captures: captures.clone(),
-                search: search.clone(),
-                // Keep competing helper definitions intact in every phase.
-                // Folding one helper into another would erase the ambiguity
-                // that must also block reconstruction in their callers.
-                protect_definition: true,
-            });
+            candidates.push(candidate(expr, true));
+            return;
+        }
+        if arithmetic_only {
             return;
         }
         // The body must canonicalise to EXACTLY `return <one value>`. `canon` folds
@@ -290,22 +275,67 @@ fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
         if node_count(&expr) < NODE_COUNT_FLOOR {
             return;
         }
-        let params: FxHashSet<RcLocal> = g.parameters.iter().cloned().collect();
-        let param_order = g.parameters.clone();
-        crate::call_origins::register_callee(l.stable_id(), g.bytecode_proto_id);
-        targets.push(ExprTarget {
-            f_local: l.clone(),
-            func_ptr: Arc::as_ptr(fa),
-            expr,
-            params,
-            locals: FxHashSet::default(),
-            param_order,
-            arithmetic: None,
-            captures: captures.clone(),
-                search: search.clone(),
-                protect_definition: false,
-        });
+        candidates.push(candidate(expr, false));
     });
+    candidates
+}
+
+fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> {
+    // The early phase keeps only arithmetic helpers, so without one its result
+    // is empty. Other helpers still register callees for call provenance, so
+    // that report keeps the complete collection.
+    let recording = crate::call_origins::active();
+    if arithmetic_only && !recording && helper_candidates(body, true).is_empty() {
+        return Vec::new();
+    }
+    let candidates = helper_candidates(body, false);
+    if candidates.is_empty() {
+        return Vec::new();
+    }
+    // Writes to every local across the whole module, shared with the statement
+    // de-inliner. Refcounts cannot establish whether a helper is reassigned: a
+    // genuine call or an earlier de-inline also raises them. Refuse a binder
+    // with a second write: if
+    // `local f = function...end` is later rebound (`f = otherFn`), emitting `f(args)`
+    // at a site past the rebind would call the wrong function. A binder that is
+    // never rebound is written exactly once (its declaration); any extra write
+    // refuses it.
+    let captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body));
+    if !captures.complete() { return Vec::new(); }
+    let mut write_counts: FxHashMap<RcLocal, usize> = FxHashMap::default();
+    collect_write_counts(&body.0, &mut write_counts);
+    let search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
+    let arithmetic_budget = std::rc::Rc::new(arithmetic::AttemptBudget::default());
+    let mut arithmetic_targets = 0usize;
+    let mut targets = Vec::new();
+    for candidate in candidates {
+        // Refuse a reassigned helper binder (written anywhere beyond its decl).
+        if write_counts.get(&candidate.f_local).copied().unwrap_or(0) != 1 {
+            continue;
+        }
+        if candidate.arithmetic {
+            arithmetic_targets += 1;
+            if arithmetic_targets > arithmetic::MAX_TARGETS {
+                continue;
+            }
+        }
+        crate::call_origins::register_callee(candidate.f_local.stable_id(), candidate.prototype);
+        targets.push(ExprTarget {
+            params: candidate.parameters.iter().cloned().collect(),
+            f_local: candidate.f_local,
+            func_ptr: candidate.func_ptr,
+            expr: candidate.expr,
+            locals: FxHashSet::default(),
+            param_order: candidate.parameters,
+            arithmetic: candidate.arithmetic.then(|| arithmetic_budget.clone()),
+            captures: captures.clone(),
+            search: search.clone(),
+            // Keep competing helper definitions intact in every phase.
+            // Folding one helper into another would erase the ambiguity
+            // that must also block reconstruction in their callers.
+            protect_definition: candidate.arithmetic,
+        });
+    }
     if targets.len() > 256 { return Vec::new(); }
     // Never silently truncate the ambiguity set: an omitted helper might also
     // match. Budget exhaustion disables the entire new family for this module.

@@ -22,14 +22,18 @@ struct FunctionContext {
 }
 
 impl FunctionContext {
+    /// Only a receiver rewrite mints a local, and rewriting never creates a
+    /// receiver call in the same function. The name snapshot precedes nested
+    /// closure rewrites, so it is taken eagerly, but only when it can be used.
     fn new(block: &mut Block, parameter_count: usize) -> Self {
         let mut reserved = FxHashSet::default();
-        crate::rehoist_constants::collect_reserved_identifiers(block, &mut reserved);
-        let declared = count_declared_locals(block);
-        Self {
-            local_headroom: MAX_ACTIVE_LOCALS.saturating_sub(parameter_count + declared),
-            reserved,
+        let mut local_headroom = 0;
+        if block.any_statement(&mut |statement| receiver_call(statement).is_some()) {
+            crate::rehoist_constants::collect_reserved_identifiers(block, &mut reserved);
+            let declared = count_declared_locals(block);
+            local_headroom = MAX_ACTIVE_LOCALS.saturating_sub(parameter_count + declared);
         }
+        Self { local_headroom, reserved }
     }
 
     fn fresh_receiver(&mut self, hint: Option<String>) -> Option<RcLocal> {

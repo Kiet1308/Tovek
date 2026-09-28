@@ -49,6 +49,11 @@ impl Drop for Scope {
     fn drop(&mut self) { STATE.with(|s| { s.replace(self.0.take()); }); }
 }
 
+/// Whether this decompilation records call provenance.
+pub(crate) fn active() -> bool {
+    STATE.with(|s| s.borrow().is_some())
+}
+
 pub(crate) fn register_callee(binding: u64, prototype: Option<usize>) {
     STATE.with(|s| {
         let mut state = s.borrow_mut();
