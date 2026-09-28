@@ -169,7 +169,7 @@ fn reconstruct_at(block: &mut Block, decl_index: usize, if_index: usize, use_ind
     }
 
     let replacement = if allow_if_expression {
-        build_if_expression(condition, then_value, else_value)
+        select_expression(condition, then_value, else_value)
     } else if let Some(value) = build_short_circuit(condition, then_value, else_value) {
         value
     } else {
@@ -226,7 +226,7 @@ fn reconstruct_once(block: &mut Block, allow_if_expression: bool) -> bool {
         }
 
         let replacement = if allow_if_expression {
-            build_if_expression(condition, then_value, else_value)
+            select_expression(condition, then_value, else_value)
         } else if let Some(value) = build_short_circuit(condition, then_value, else_value) {
             value
         } else {
@@ -284,34 +284,81 @@ fn single_local_assignment_value(block: &Block, local: &RcLocal) -> Option<RValu
     Some(assign.right[0].clone())
 }
 
-fn build_short_circuit(condition: RValue, then_value: RValue, else_value: RValue) -> Option<RValue> {
+/// The value-exact boolean idiom a select can be written as.
+enum ShortCircuit {
+    /// `if c then false else true` is `not c`.
+    Not,
+    /// `if c then false else e` is `not c and e`.
+    NotAnd,
+    /// `if c then t else true` is `not c or t`.
+    NotOr,
+    /// `if c then true else false` is `c` for a boolean `c`.
+    Condition,
+    /// `if c then t else false` is `c and t` for a boolean `c`.
+    And,
+    /// `if c then true else e` is `c or e` for a boolean `c`.
+    Or,
+}
+
+fn short_circuit_shape(condition: &RValue, then_value: &RValue, else_value: &RValue) -> Option<ShortCircuit> {
     let then_true = matches!(then_value, RValue::Literal(Literal::Boolean(true)));
     let then_false = matches!(then_value, RValue::Literal(Literal::Boolean(false)));
     let else_true = matches!(else_value, RValue::Literal(Literal::Boolean(true)));
     let else_false = matches!(else_value, RValue::Literal(Literal::Boolean(false)));
     if then_false && else_true {
-        return Some(Unary::new(condition, UnaryOperation::Not).into());
+        return Some(ShortCircuit::Not);
     }
     // `not C` is always boolean, even when C is nil or a non-boolean value.
     if then_false {
-        return Some(Binary::new(Unary::new(condition, UnaryOperation::Not).into(),
-            else_value, BinaryOperation::And).into());
+        return Some(ShortCircuit::NotAnd);
     }
     if else_true {
-        return Some(Binary::new(Unary::new(condition, UnaryOperation::Not).into(),
-            then_value, BinaryOperation::Or).into());
+        return Some(ShortCircuit::NotOr);
     }
-    if !crate::binary::is_boolean(&condition) {
+    if !crate::binary::is_boolean(condition) {
         return None;
     }
     if then_true && else_false {
-        Some(condition)
+        Some(ShortCircuit::Condition)
     } else if else_false {
-        Some(Binary::new(condition, then_value, BinaryOperation::And).into())
+        Some(ShortCircuit::And)
     } else if then_true {
-        Some(Binary::new(condition, else_value, BinaryOperation::Or).into())
+        Some(ShortCircuit::Or)
     } else {
         None
+    }
+}
+
+fn build_shape(shape: ShortCircuit, condition: RValue, then_value: RValue, else_value: RValue) -> RValue {
+    let not = |condition| -> RValue { Unary::new(condition, UnaryOperation::Not).into() };
+    match shape {
+        ShortCircuit::Not => not(condition),
+        ShortCircuit::NotAnd => Binary::new(not(condition), else_value, BinaryOperation::And).into(),
+        ShortCircuit::NotOr => Binary::new(not(condition), then_value, BinaryOperation::Or).into(),
+        ShortCircuit::Condition => condition,
+        ShortCircuit::And => Binary::new(condition, then_value, BinaryOperation::And).into(),
+        ShortCircuit::Or => Binary::new(condition, else_value, BinaryOperation::Or).into(),
+    }
+}
+
+fn build_short_circuit(condition: RValue, then_value: RValue, else_value: RValue) -> Option<RValue> {
+    let shape = short_circuit_shape(&condition, &then_value, &else_value)?;
+    Some(build_shape(shape, condition, then_value, else_value))
+}
+
+/// A select written as its value-exact boolean idiom when one exists
+/// (`c and t`, `not c or t`, ...), otherwise as an if-expression. An idiom
+/// whose remaining operand is `nil` (`not c and nil`) says less than the
+/// if-expression it replaces, so that select stays an if-expression.
+pub(crate) fn select_expression(condition: RValue, then_value: RValue, else_value: RValue) -> RValue {
+    let shape = short_circuit_shape(&condition, &then_value, &else_value).filter(|shape| match shape {
+        ShortCircuit::NotAnd => !is_nil(&else_value),
+        ShortCircuit::NotOr => !is_nil(&then_value),
+        _ => true,
+    });
+    match shape {
+        Some(shape) => build_shape(shape, condition, then_value, else_value),
+        None => build_if_expression(condition, then_value, else_value),
     }
 }
 
@@ -1467,7 +1514,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "children.Label = if cond then (createElement(\"TextLabel\")) else nil"
+            "children.Label = if cond then createElement(\"TextLabel\") else nil"
         );
     }
 

@@ -2185,7 +2185,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             formatter: &mut Formatter<'_, W>,
             value: &RValue,
         ) -> fmt::Result {
-            let wrap = matches!(value, RValue::IfExpression(_) | RValue::Select(_));
+            // Every part is one value already, so a call needs no truncating
+            // parentheses; a nested if-expression keeps them for legibility.
+            let wrap = matches!(value, RValue::IfExpression(_));
             if wrap {
                 write!(formatter.output, "(")?;
             }
@@ -2197,11 +2199,18 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
 
         write!(self.output, "if ")?;
-        format_part(self, &if_expression.condition)?;
-        write!(self.output, " then ")?;
-        format_part(self, &if_expression.then_value)?;
+        let mut arm = if_expression;
+        loop {
+            format_part(self, &arm.condition)?;
+            write!(self.output, " then ")?;
+            format_part(self, &arm.then_value)?;
+            // A nested else arm is the `elseif` chain it parses back to.
+            let RValue::IfExpression(next) = arm.else_value.as_ref() else { break };
+            write!(self.output, " elseif ")?;
+            arm = next;
+        }
         write!(self.output, " else ")?;
-        format_part(self, &if_expression.else_value)
+        format_part(self, &arm.else_value)
     }
 
     fn format_closure_parameters_from(&mut self, closure: &Closure, skip: usize) -> fmt::Result {

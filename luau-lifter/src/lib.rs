@@ -54,6 +54,8 @@ pub const EMIT_BINDING_PROVENANCE: u32 = 1 << 4;
 /// Opt-in arithmetic loop synthesis; does not establish original source structure.
 pub const SYNTHESIZE_ARITHMETIC_LOOPS: u32 = 1 << 5;
 pub const COMPACT_ANNOTATIONS: u32 = 1 << 6;
+/// `--style compact`: scalar selects as if-expressions instead of statements.
+pub const COMPACT_STYLE: u32 = 1 << 7;
 
 // ---- TEMPORARY PROFILING (env-gated, remove before ship) ----
 #[doc(hidden)]
@@ -150,6 +152,9 @@ pub struct DecompileOptions {
     pub synthesize_arithmetic_loops: bool,
     /// Short source labels; full emitter annotation text stays in provenance.
     pub compact_annotations: bool,
+    /// Opt-in presentation: write a scalar select as `if c then a else b`
+    /// instead of the default branch statements (ROADMAP V2 §1).
+    pub compact_style: bool,
 }
 
 /// Controls whether the certified CFG dispatcher is an acceptable output
@@ -165,7 +170,7 @@ pub enum ControlFlowOutputPolicy {
 
 impl DecompileOptions {
     pub fn from_flag_bits(bits: u32) -> Option<Self> {
-        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL | EMIT_BINDING_PROVENANCE | SYNTHESIZE_ARITHMETIC_LOOPS | COMPACT_ANNOTATIONS)
+        if bits & !(DONT_REUSE_VAR | NO_SYNTH_HELPERS | ASSUME_NO_NAN | STRICT_NO_SYNTHETIC_CONTROL | EMIT_BINDING_PROVENANCE | SYNTHESIZE_ARITHMETIC_LOOPS | COMPACT_ANNOTATIONS | COMPACT_STYLE)
             != 0
         {
             return None;
@@ -177,6 +182,7 @@ impl DecompileOptions {
             emit_binding_provenance: bits & EMIT_BINDING_PROVENANCE != 0,
             synthesize_arithmetic_loops: bits & SYNTHESIZE_ARITHMETIC_LOOPS != 0,
             compact_annotations: bits & COMPACT_ANNOTATIONS != 0,
+            compact_style: bits & COMPACT_STYLE != 0,
             control_flow_policy: if bits & STRICT_NO_SYNTHETIC_CONTROL != 0 {
                 ControlFlowOutputPolicy::StrictNoSyntheticControl
             } else {
@@ -192,6 +198,7 @@ impl DecompileOptions {
             | u32::from(self.emit_binding_provenance) * EMIT_BINDING_PROVENANCE
             | u32::from(self.synthesize_arithmetic_loops) * SYNTHESIZE_ARITHMETIC_LOOPS
             | u32::from(self.compact_annotations) * COMPACT_ANNOTATIONS
+            | u32::from(self.compact_style) * COMPACT_STYLE
             | u32::from(
                 self.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl,
             ) * STRICT_NO_SYNTHETIC_CONTROL
@@ -205,6 +212,7 @@ impl DecompileOptions {
             emit_binding_provenance: self.emit_binding_provenance || other.emit_binding_provenance,
             synthesize_arithmetic_loops: self.synthesize_arithmetic_loops || other.synthesize_arithmetic_loops,
             compact_annotations: self.compact_annotations || other.compact_annotations,
+            compact_style: self.compact_style || other.compact_style,
             control_flow_policy: if self.control_flow_policy
                 == ControlFlowOutputPolicy::StrictNoSyntheticControl
                 || other.control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl
@@ -786,7 +794,11 @@ fn decompile_bytecode_internal(
             // not need to fold those regions into IfExpression initializers.
             {
                 ptime!(S_COND_EXPRS);
-                ast::conditional_expressions::reconstruct_short_circuit_expressions(&mut body);
+                if options.compact_style {
+                    ast::conditional_expressions::reconstruct_conditional_expressions(&mut body);
+                } else {
+                    ast::conditional_expressions::reconstruct_short_circuit_expressions(&mut body);
+                }
             }
             // Rebuild declarative table trees from the leaves upward. Inlining a
             // child table can make a parent's formerly-separated field writes
@@ -941,7 +953,7 @@ fn decompile_bytecode_internal(
             // Lower remaining scalar selects at their evaluation point. Only
             // literal `not` break guards are introduced; comparisons are never
             // complemented. No expression cleanup may erase these snapshots.
-            let conditional_lowering = if chunk.version == 9 {
+            let conditional_lowering = if chunk.version == 9 && !options.compact_style {
                 let _span = ast::telemetry::Span::new("S_LOWER_SELECTS");
                 let report = ast::lower_conditionals::lower_existing_conditionals(&mut body);
                 if options.emit_binding_provenance {
@@ -966,6 +978,10 @@ fn decompile_bytecode_internal(
                 {
                     if options.emit_binding_provenance { local_producers.push(pass); }
                 }
+            }
+            if options.compact_style {
+                let _span = ast::telemetry::Span::new("S_COMPACT_CONDITIONALS");
+                ast::compact_conditionals::compact_conditionals(&mut body);
             }
             ast::forward_declarations::bare_forward_declarations(&mut body);
             // No expression/condition mutation is permitted after this point.

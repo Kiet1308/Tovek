@@ -100,6 +100,10 @@ struct FolderArgs {
     /// Short source labels while retaining full annotation text in metadata.
     #[arg(long, requires = "emit_binding_provenance")]
     compact_annotations: bool,
+    /// Output style: `default` writes branch statements; `compact` writes a
+    /// scalar select as `if c then a else b`.
+    #[arg(long, default_value = "default", value_parser = ["default", "compact"])]
+    style: String,
     /// Source extension written by the folder decompiler.
     #[arg(long, default_value = "luau", value_parser = ["lua", "luau"])]
     output_extension: String,
@@ -160,6 +164,9 @@ struct ValidateArgs {
     /// Directory holding `luau-analyze.exe` (used if --analyze is unset).
     #[arg(long)]
     tool_dir: Option<PathBuf>,
+    /// Output style: `default` or `compact` (see `decompile-folder --help`).
+    #[arg(long, default_value = "default", value_parser = ["default", "compact"])]
+    style: String,
     /// luau-analyze typechecker: `new` (default, the validate_all.sh parity
     /// baseline) or `old` (~8x faster, opt-in fast path; diagnostics may differ
     /// on dirty corpora, so not for CI gating).
@@ -185,6 +192,7 @@ fn main() {
                     synthesize_arithmetic_loops: a.synthesize_arithmetic_loops,
                     emit_binding_provenance: a.emit_binding_provenance,
                     compact_annotations: a.compact_annotations,
+                    compact_style: a.style == "compact",
                     control_flow_policy: folder_control_flow_policy(
                         a.strict_no_synthetic_control,
                         a.allow_certified_dispatcher,
@@ -230,6 +238,7 @@ fn main() {
                         no_synth_helpers: a.no_synth_helpers,
                         assume_no_nan: a.assume_no_nan,
                     synthesize_arithmetic_loops: a.synthesize_arithmetic_loops,
+                        compact_style: a.style == "compact",
                         control_flow_policy: folder_control_flow_policy(
                             a.strict_no_synthetic_control,
                             a.allow_certified_dispatcher,
@@ -367,6 +376,17 @@ fn run_single_file() {
             }
             "--script-name" => {
                 script_name = Some(args.next().expect("--script-name requires a value"));
+            }
+            "--style" | "--style=default" | "--style=compact" => {
+                let style = match arg.strip_prefix("--style=") {
+                    Some(style) => style.to_owned(),
+                    None => args.next().expect("--style requires `default` or `compact`"),
+                };
+                options.compact_style = match style.as_str() {
+                    "compact" => true,
+                    "default" => false,
+                    other => panic!("--style must be `default` or `compact`, got `{other}`"),
+                };
             }
             _ => panic!("unexpected argument: {arg}"),
         }
