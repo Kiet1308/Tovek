@@ -533,20 +533,31 @@ impl PostDominators {
                 work.extend(function.predecessor_blocks(node).filter(|prev| reachable.contains(prev)));
             }
         }
-        let mut reverse = petgraph::graphmap::DiGraphMap::<Option<NodeIndex>, ()>::new();
-        reverse.add_node(None);
+        // Immediate dominators are unique, so a dense graph with a virtual
+        // exit (`None`) yields exactly the tree of the former hashed graph.
+        let mut reverse = petgraph::Graph::<Option<NodeIndex>, ()>::new();
+        let mut index = FxHashMap::<Option<NodeIndex>, petgraph::graph::NodeIndex>::default();
+        let mut vertex = |graph: &mut petgraph::Graph<Option<NodeIndex>, ()>, node: Option<NodeIndex>| {
+            *index.entry(node).or_insert_with(|| graph.add_node(node))
+        };
+        let exit = vertex(&mut reverse, None);
         for &node in nodes.iter().filter(|node| !divergent.contains(node)) {
-            reverse.add_node(Some(node));
+            let target = vertex(&mut reverse, Some(node));
             for next in function.successor_blocks(node).filter(|next| reachable.contains(next)) {
-                reverse.add_edge(Some(next), Some(node), ());
+                let source = vertex(&mut reverse, Some(next));
+                reverse.add_edge(source, target, ());
             }
         }
-        for node in terminals { reverse.add_edge(None, Some(node), ()); }
-        let tree = simple_fast(&reverse, None);
+        for node in terminals {
+            let target = vertex(&mut reverse, Some(node));
+            reverse.add_edge(exit, target, ());
+        }
+        let tree = simple_fast(&reverse, exit);
         let mut parent = FxHashMap::default();
         let mut children = FxHashMap::<Option<NodeIndex>, Vec<NodeIndex>>::default();
         for &node in nodes {
-            if let Some(above) = tree.immediate_dominator(Some(node)) {
+            if let Some(above) = index.get(&Some(node)).and_then(|&vertex| tree.immediate_dominator(vertex)) {
+                let above = reverse[above];
                 parent.insert(node, above);
                 children.entry(above).or_default().push(node);
             }
@@ -5672,7 +5683,7 @@ impl<'a> Builder<'a> {
     /// Keep failed proof locations visible without changing the public routing
     /// result or enabling the much larger full-CFG dump.
     fn trace_unsupported(&self, reason: &str, node: NodeIndex, stop: Option<NodeIndex>) {
-        if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+        if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
             eprintln!(
                 "source-like unsupported id={} shared_tail={} reason={} node={} stop={:?}",
                 self.function.id,
@@ -6240,7 +6251,7 @@ impl<'a> Builder<'a> {
                     // region (for example a loop exit adapter).
                     && !self.visited.contains(&join)
                 {
-                    if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                    if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
                         eprintln!(
                             "shared tail (loop): source={} join={}",
                             source.index(),
@@ -6249,7 +6260,7 @@ impl<'a> Builder<'a> {
                     }
                     return Some(result);
                 }
-                if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
                     eprintln!(
                         "shared tail (loop) FAILED: source={} join={}",
                         source.index(),
@@ -6368,7 +6379,7 @@ impl<'a> Builder<'a> {
                     )
                         && !self.visited.contains(&shared)
                     {
-                        if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                        if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
                             eprintln!(
                                 "shared tail: source={} join={}",
                                 source.index(),
@@ -6377,7 +6388,7 @@ impl<'a> Builder<'a> {
                         }
                         return Some(result);
                     }
-                    if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                    if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
                         eprintln!(
                             "shared tail FAILED: source={} join={}",
                             source.index(),
@@ -7406,6 +7417,18 @@ pub fn lift_attempt_with_ignored_locals(
 /// proofs here: every refusal returns to the unchanged typed validation path,
 /// retaining its Unsafe/Unsupported precedence and retry behavior.
 fn clone_terminal_single_block(function: &Function) -> Option<Block> {
+    terminal_single_block(function).map(|entry| function.block(entry).unwrap().clone())
+}
+
+/// Move the statements of a terminal single-block function out of its CFG.
+/// The CFG keeps an empty block, so the caller must not use it as a fallback.
+/// Node origins record clones, so traced functions keep the cloning path.
+pub fn take_terminal_single_block(function: &mut Function) -> Option<Block> {
+    let entry = terminal_single_block(function)?;
+    Some(std::mem::take(function.block_mut(entry).unwrap()))
+}
+
+fn terminal_single_block(function: &Function) -> Option<petgraph::stable_graph::NodeIndex> {
     #[cfg(test)]
     if REFERENCE_TERMINAL_BLOCK.with(std::cell::Cell::get)
         || REFERENCE_VISITED.with(std::cell::Cell::get)
@@ -7442,7 +7465,7 @@ fn clone_terminal_single_block(function: &Function) -> Option<Block> {
     ast::telemetry::count("restructure_terminal_single_block_statements", block.len() as u64);
     #[cfg(test)]
     TERMINAL_BLOCK_ADMISSIONS.with(|count| count.set(count.get() + 1));
-    Some(block.clone())
+    Some(entry)
 }
 
 #[cfg(test)]
@@ -7482,7 +7505,7 @@ pub fn lift_attempt_borrowed_with_ignored_locals(
         committed: false,
     };
     if let Some(block) = clone_terminal_single_block(function) {
-        if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+        if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
             eprintln!("source-like first attempt id={} -> Structured({} stmts)", function.id, block.len());
         }
         local_ids.committed = true;
@@ -7511,9 +7534,9 @@ pub fn lift_attempt_borrowed_with_ignored_locals(
     let Some(analysis) = Analysis::new(function) else {
         return StructureAttempt::Unsupported;
     };
-    let allow_shared_tail = std::env::var_os("MEDAL_NO_SHARED_TAIL").is_none();
+    let allow_shared_tail = !ast::env_flag!("MEDAL_NO_SHARED_TAIL");
     let mut attempt = structure_once(function, &analysis, protected_locals, allow_shared_tail);
-    if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+    if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
         eprintln!(
             "source-like first attempt id={} -> {}",
             function.id,
@@ -7530,7 +7553,7 @@ pub fn lift_attempt_borrowed_with_ignored_locals(
         // cost a function its structured output.
         ast::set_local_id_base(local_ids.base);
         attempt = structure_once(function, &analysis, protected_locals, false);
-        if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+        if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
             eprintln!(
                 "source-like retry id={} -> {}",
                 function.id,

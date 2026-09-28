@@ -1,7 +1,7 @@
 use std::{cell::{OnceCell, RefCell}, collections::BTreeMap, ops::Deref, rc::Rc};
 
 use ast::{LocalRw, RcLocal};
-use indexmap::IndexMap;
+use ast::FxIndexMap as IndexMap;
 use itertools::Itertools;
 use petgraph::{
     algo::dominators::simple_fast,
@@ -1559,7 +1559,7 @@ mod copy_sharing_regressions {
             function.set_entry(entry);
             let members: Vec<_> = (0..6).map(|_| RcLocal::default()).collect();
             let ancestors: Vec<_> = (0..4).map(|_| RcLocal::default()).collect();
-            let mut destructor = Destructor::new(&mut function, IndexMap::new(), FxHashSet::default(), 10);
+            let mut destructor = Destructor::new(&mut function, IndexMap::default(), FxHashSet::default(), 10);
             for (index, local) in ancestors.iter().chain(&members).enumerate() {
                 destructor.local_defs.insert(local.clone(), (0, entry, ParamOrStatIndex::Stat(index)));
             }
@@ -1618,7 +1618,7 @@ mod copy_sharing_regressions {
             // conflict. The equal-value variant permits the complete walk.
             function.block_mut(entry).unwrap().push(
                 ast::Return::new(locals.iter().cloned().map(Into::into).collect()).into());
-            let mut destructor = Destructor::new(&mut function, IndexMap::new(), FxHashSet::default(), locals.len());
+            let mut destructor = Destructor::new(&mut function, IndexMap::default(), FxHashSet::default(), locals.len());
             destructor.liveness = Liveness::calculate(destructor.function);
             destructor.build_def_use();
             destructor.compute_value_interference();
@@ -1651,7 +1651,7 @@ mod copy_sharing_regressions {
                 ast::Assign::new(vec![b.clone().into()], vec![second]).into(),
                 ast::Return::new(vec![a.clone().into(), b.clone().into()]).into(),
             ]);
-            let mut destructor = Destructor::new(&mut function, IndexMap::new(), FxHashSet::default(), 2);
+            let mut destructor = Destructor::new(&mut function, IndexMap::default(), FxHashSet::default(), 2);
             destructor.liveness = Liveness::calculate(destructor.function);
             destructor.build_def_use();
             destructor.compute_value_interference();
@@ -1672,7 +1672,7 @@ mod copy_sharing_regressions {
             function.set_edges(pair[0], vec![(pair[1], BlockEdge::default())]);
         }
         let mut destructor =
-            Destructor::new(&mut function, IndexMap::new(), FxHashSet::default(), 0);
+            Destructor::new(&mut function, IndexMap::default(), FxHashSet::default(), 0);
         destructor.build_def_use();
         assert_eq!(destructor.dominators.len(), nodes.len());
         for pair in nodes.windows(2) {
@@ -1834,7 +1834,7 @@ mod copy_sharing_regressions {
                     eval(&f, &[Value::Number(11.0), Value::Boolean(false)]),
                     eval(&f, &[Value::Number(11.0), Value::Boolean(true)]),
                 ];
-                Destructor::new(&mut f, IndexMap::new(), FxHashSet::default(), 32).destruct();
+                Destructor::new(&mut f, IndexMap::default(), FxHashSet::default(), 32).destruct();
                 let after = [
                     eval(&f, &[Value::Number(11.0), Value::Boolean(false)]),
                     eval(&f, &[Value::Number(11.0), Value::Boolean(true)]),

@@ -28,7 +28,7 @@ use cfg::{
         structuring::{structure_conditionals_with_changes, structure_jumps},
     },
 };
-use indexmap::IndexMap;
+use ast::FxIndexMap as IndexMap;
 
 use lifter::Lifter;
 
@@ -1774,7 +1774,7 @@ fn decompile_function(
     // must be recalculated.
     // etc.
     // the macro could also maybe generate an optimal ordering?
-    if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+    if ast::env_flag!("MEDAL_DUMP_CFG") {
         eprintln!("CFG parameters id={} {:?}; capture groups {:?}", function.id,
             function.parameters.iter().map(ast::RcLocal::stable_id).collect::<Vec<_>>(),
             upvalue_to_group.iter().map(|(local, group)| (local.stable_id(), group.stable_id())).collect::<Vec<_>>());
@@ -1796,7 +1796,7 @@ fn decompile_function(
         }), function.provenance.take());
     }
     // cfg::dot::render_to(&function, &mut std::io::stdout()).unwrap();
-    if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+    if ast::env_flag!("MEDAL_DUMP_CFG") {
         debug_dump_cfg(&function, "pre-destruct");
     }
     if function.provenance.is_some() {
@@ -1827,7 +1827,7 @@ fn decompile_function(
     // Destruction picks a member/root of each captured-cell group. None of
     // these SSA identities belongs to an incoming upvalue group.
     function.local_capture_bindings = local_capture_bindings;
-    if std::env::var_os("MEDAL_DUMP_CFG").is_some() {
+    if ast::env_flag!("MEDAL_DUMP_CFG") {
         debug_dump_cfg(&function, "post-destruct");
     }
     // The proof-driven pass is read-only: it never mutates CFG nodes or nested
@@ -1851,12 +1851,22 @@ fn decompile_function(
     let is_variadic = fallback_source.as_ref().unwrap().is_variadic;
     let mut fallback_function = None;
     let mut used_certified_dispatcher = false;
+    // A straight-line function is its own structure. Without a trace (whose
+    // node origins record clones) its statements move out of the CFG instead
+    // of being cloned; such a block can never need the control-flow fallback.
+    let terminal_block = if trace.is_none() {
+        restructure::take_terminal_single_block(fallback_source.as_mut().unwrap())
+    } else { None };
+    let took_terminal_block = terminal_block.is_some();
     let (mut lifted, used_source_like, source_like_rejection) = {
         ptime!(F_RESTRUCTURE);
-        let source_like_attempt = restructure::lift_source_like_attempt_borrowed_with_ignored_locals(
-            fallback_source.as_ref().unwrap(),
-            &source_like_protected_locals,
-        );
+        let source_like_attempt = match terminal_block {
+            Some(block) => restructure::StructureAttempt::Structured(block),
+            None => restructure::lift_source_like_attempt_borrowed_with_ignored_locals(
+                fallback_source.as_ref().unwrap(),
+                &source_like_protected_locals,
+            ),
+        };
         params = std::mem::take(&mut fallback_source.as_mut().unwrap().parameters);
         match source_like_attempt {
             restructure::StructureAttempt::Structured(block) => (block, true, None),
@@ -1872,7 +1882,7 @@ fn decompile_function(
                     ),
                     restructure::StructureAttempt::Structured(_) => unreachable!(),
                 };
-                if std::env::var_os("MEDAL_DEBUG_RESTRUCTURE").is_some() {
+                if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
                     let function = fallback_source.as_ref().unwrap();
                     eprintln!(
                         "source-like structuring rejected function id={} name={:?}: {:?}",
@@ -1923,7 +1933,8 @@ fn decompile_function(
         }
         let fallback_function = fallback_function
             .or_else(|| fallback_source.take().map(|function| function.deep_clone()));
-        if control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl {
+        if control_flow_policy == ControlFlowOutputPolicy::StrictNoSyntheticControl || took_terminal_block {
+            debug_assert!(!took_terminal_block, "a straight-line block has no residual control flow");
             lifted = unsupported_structuring_sentinel();
         } else if let Some(fallback) = fallback_function.and_then(|function| {
             used_certified_dispatcher = true;

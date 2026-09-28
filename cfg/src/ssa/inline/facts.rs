@@ -4,7 +4,7 @@
 //! cache is discarded before cleanup can remove, move, or fold statements.
 //! Only integer group IDs and booleans are retained, never AST/local owners.
 use ast::{LocalRw, RcLocal, Statement};
-use indexmap::IndexMap;
+use ast::FxIndexMap as IndexMap;
 use rustc_hash::FxHashMap;
 
 const MIN_CACHED_STATEMENTS: usize = 4;
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn bounded_cache_tags_evictions_and_invalidations_on_large_blocks() {
         let groups = FxHashMap::default();
-        let captures = IndexMap::new();
+        let captures = IndexMap::default();
         let mut cache = Cache::with_limit(5, 4, &groups, &captures);
         let mut statement: Statement = ast::Return::new(vec![Literal::Nil.into()]).into();
         assert_eq!(cache.statistics().slots, 4);
@@ -353,7 +353,7 @@ mod tests {
     #[should_panic(expected = "SSA inline statement facts were not invalidated")]
     fn debug_guard_detects_a_missing_invalidation() {
         let groups = FxHashMap::default();
-        let captures = IndexMap::new();
+        let captures = IndexMap::default();
         let mut cache = Cache::new(4, &groups, &captures);
         let mut statement: Statement = ast::Empty {}.into();
         cache.get(0, &statement);

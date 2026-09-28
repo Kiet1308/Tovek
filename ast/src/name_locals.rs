@@ -1528,10 +1528,7 @@ fn is_callback_key(key: &str) -> bool {
 /// Does an rvalue (not descending into closures) contain a `createElement` call?
 fn rvalue_contains_create_element(rvalue: &RValue, aliases: &FxHashSet<usize>) -> bool {
     is_create_element_call(rvalue, aliases)
-        || rvalue
-            .rvalues()
-            .iter()
-            .any(|child| rvalue_contains_create_element(child, aliases))
+        || !rvalue.visit_rvalues(&mut |child| !rvalue_contains_create_element(child, aliases))
 }
 
 /// Does a function body render a React element (call `createElement` in its own
@@ -1539,10 +1536,7 @@ fn rvalue_contains_create_element(rvalue: &RValue, aliases: &FxHashSet<usize>) -
 /// which gates the `props` parameter heuristic.
 fn uses_create_element(block: &Block, aliases: &FxHashSet<usize>) -> bool {
     block.0.iter().any(|statement| {
-        statement
-            .rvalues()
-            .iter()
-            .any(|rvalue| rvalue_contains_create_element(rvalue, aliases))
+        !statement.visit_rvalues(&mut |rvalue| !rvalue_contains_create_element(rvalue, aliases))
             || match statement {
                 Statement::If(r#if) => {
                     uses_create_element(&r#if.then_block.lock(), aliases)
@@ -3858,11 +3852,10 @@ impl Namer {
     /// (score 50). Gated hard: the enclosing function must render an element, and
     /// the param must look like a read-only record (>=3 distinct string fields,
     /// never invoked, indexed, iterated, mutated, or `self`-like).
-    fn props_param_hint(&mut self, param: &RcLocal, function_renders_element: bool) {
-        if !function_renders_element {
-            return;
-        }
-        let qualifies = match self.usage.get(&local_ptr(param)) {
+    /// A component's parameter read as a plain record: `props`, when the
+    /// function also renders an element.
+    fn props_param_qualifies(&self, param: &RcLocal) -> bool {
+        match self.usage.get(&local_ptr(param)) {
             Some(usage) => {
                 let distinct = usage.string_fields_read.len();
                 let underscore = usage
@@ -3878,9 +3871,6 @@ impl Namer {
                     && !usage.field_written
             }
             None => false,
-        };
-        if qualifies {
-            self.set_hint_str(param, "props", 50);
         }
     }
 
@@ -4389,10 +4379,17 @@ impl Namer {
                 // that renders an element) whose parameter is read as a record is
                 // `props`; a parameter stored under an `onX`/`setX` field is that
                 // callback.
-                let renders_element =
-                    uses_create_element(&function.body, &self.create_element_aliases);
+                // Scanning for element creation is needed only for a
+                // record-like parameter; do it at most once per function.
+                let mut renders_element = None;
                 for param in &function.parameters {
-                    self.props_param_hint(param, renders_element);
+                    if self.props_param_qualifies(param)
+                        && *renders_element.get_or_insert_with(|| {
+                            uses_create_element(&function.body, &self.create_element_aliases)
+                        })
+                    {
+                        self.set_hint_str(param, "props", 50);
+                    }
                     self.callback_hint(param);
                     self.usage_param_hint(param);
                     self.param_dataflow_hint(param);

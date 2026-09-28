@@ -3968,7 +3968,7 @@ fn collect_targets(
                 }
             }
         }
-        if std::env::var("DEINLINE_ANCHOR_TRACE").is_ok() {
+        if crate::env_flag!("DEINLINE_ANCHOR_TRACE") {
             let a = anchors_in_block(&pat);
             let nc: usize = pat.iter().map(crate::deinline::dbg_stmt_node_count).sum();
             let nm = g.name.as_deref().unwrap_or("<none>");

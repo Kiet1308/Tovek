@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use ast::LocalRw;
-use indexmap::IndexSet;
+use ast::FxIndexSet as IndexSet;
 use petgraph::stable_graph::NodeIndex;
 use rangemap::RangeInclusiveMap;
 use rustc_hash::{FxHashMap, FxHashSet};

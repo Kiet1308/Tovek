@@ -30,4 +30,5 @@ pub use region::{
     StructureAttempt, UnsafeStructureReason,
     lift_attempt_with_ignored_locals as lift_source_like_attempt_with_ignored_locals,
     lift_attempt_borrowed_with_ignored_locals as lift_source_like_attempt_borrowed_with_ignored_locals,
+    take_terminal_single_block,
 };

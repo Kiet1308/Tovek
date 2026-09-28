@@ -1,7 +1,7 @@
 use std::{hash::BuildHasherDefault, iter};
 
 use ast::{LocalRw, RcLocal, Traverse};
-use indexmap::{IndexMap, IndexSet};
+use ast::{FxIndexMap as IndexMap, FxIndexSet as IndexSet};
 use itertools::{Either, Itertools};
 use petgraph::{
     algo::kosaraju_scc,
@@ -19,7 +19,7 @@ use super::upvalues::UpvaluesOpen;
 // IndexSet fixes DFS iteration order independently of its hash function.
 // Sealing queries ranks for every predecessor, so use the same inexpensive
 // hashing as the other block indexes instead of the default keyed hasher.
-type DfsOrder = IndexSet<NodeIndex, BuildHasherDefault<FxHasher>>;
+type DfsOrder = IndexSet<NodeIndex>;
 
 /// Lookup-only SSA availability for one source register. Most straight-line
 /// registers never need a per-block hash table. Keep exactly one owned SSA
@@ -1431,7 +1431,7 @@ pub fn construct(
         .predecessor_blocks(function.entry().unwrap())
         .next()
         .is_none());
-    let mut new_upvalues_in = IndexMap::with_capacity(upvalues_in.len());
+    let mut new_upvalues_in = IndexMap::with_capacity_and_hasher(upvalues_in.len(), Default::default());
     for upvalue in upvalues_in {
         new_upvalues_in.insert(upvalue.clone(), FxHashSet::default());
     }
@@ -2387,7 +2387,7 @@ mod tests {
         assert!(!remove_upvalue_param_sccs(
             &mut function,
             &mut map,
-            &IndexMap::new()
+            &IndexMap::default()
         ));
         assert!(map.is_empty());
     }

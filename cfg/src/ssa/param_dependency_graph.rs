@@ -1,5 +1,5 @@
 use ast::{LocalRw, RcLocal};
-use indexmap::IndexSet;
+use ast::FxIndexSet as IndexSet;
 use petgraph::{
     prelude::DiGraph,
     stable_graph::NodeIndex,
@@ -65,7 +65,7 @@ impl ParamDependencyGraph {
     // This function computes a directed feedback vertex (directed fvs) set of a given graph.
     // Since this problem is NP-hard, we only compute an approximate solution.
     pub fn compute_directed_fvs(&self) -> IndexSet<NodeIndex> {
-        let mut directed_fvs = IndexSet::new();
+        let mut directed_fvs = IndexSet::default();
         let mut dfs_post_order = DfsPostOrder::empty(&self.graph);
         dfs_post_order.stack.extend(self.graph.node_indices());
         let mut topological_order = dfs_post_order.iter(&self.graph).collect::<Vec<_>>();

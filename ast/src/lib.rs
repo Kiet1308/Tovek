@@ -119,6 +119,22 @@ pub use unary::*;
 pub use vararg::*;
 pub use r#while::*;
 
+/// Whether a diagnostic environment variable is set, read once per process.
+/// Hot per-function paths consult these switches; the environment is never
+/// modified while decompiling.
+#[macro_export]
+macro_rules! env_flag {
+    ($name:literal) => {{
+        static FLAG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *FLAG.get_or_init(|| std::env::var_os($name).is_some())
+    }};
+}
+
+/// Insertion-ordered map/set with the fast deterministic hasher. Iteration
+/// order is insertion order, independent of the hash function.
+pub type FxIndexMap<K, V> = indexmap::IndexMap<K, V, std::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
+pub type FxIndexSet<K> = indexmap::IndexSet<K, std::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
+
 pub trait Reduce {
     fn reduce(self) -> RValue;
     fn reduce_condition(self) -> RValue;

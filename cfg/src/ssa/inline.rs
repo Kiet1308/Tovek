@@ -1,6 +1,6 @@
 use crate::function::Function;
 use ast::{LocalRw, Reduce, SideEffects, Traverse};
-use indexmap::IndexMap;
+use ast::FxIndexMap as IndexMap;
 use itertools::{Either, Itertools};
 use petgraph::visit::EdgeRef;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -1339,7 +1339,7 @@ mod tests {
         Assign, Binary, Block, Global, Index, LValue, Literal, Local, RValue, RcLocal, Return,
         Statement, Table, LocalRw,
     };
-    use indexmap::IndexMap;
+    use ast::FxIndexMap as IndexMap;
     use petgraph::visit::EdgeRef;
     use rustc_hash::FxHashMap;
 
@@ -1397,7 +1397,7 @@ mod tests {
     }
 
     fn fold_fields(block: &mut Block) -> bool {
-        fold_table_constructor_field_assignments(block, &mut FxHashMap::default(), &IndexMap::new(), &mut |_| {})
+        fold_table_constructor_field_assignments(block, &mut FxHashMap::default(), &IndexMap::default(), &mut |_| {})
     }
 
     fn inline_block(block: Block) -> Block {
@@ -1406,7 +1406,7 @@ mod tests {
         *function.block_mut(entry).unwrap() = block;
         function.set_entry(entry);
 
-        inline(&mut function, &FxHashMap::default(), &IndexMap::new());
+        inline(&mut function, &FxHashMap::default(), &IndexMap::default());
 
         function.block(entry).unwrap().clone()
     }
@@ -1425,8 +1425,8 @@ mod tests {
             vec![RcLocal::default().into()], vec![number(1.0)],
         ).into());
         let mut reference = function.clone();
-        let (actual, statistics) = run_scheduled(&mut function, &FxHashMap::default(), &IndexMap::new(), false);
-        let (expected, legacy) = run_scheduled(&mut reference, &FxHashMap::default(), &IndexMap::new(), true);
+        let (actual, statistics) = run_scheduled(&mut function, &FxHashMap::default(), &IndexMap::default(), false);
+        let (expected, legacy) = run_scheduled(&mut reference, &FxHashMap::default(), &IndexMap::default(), true);
         assert_eq!(actual, expected);
         assert_eq!(statistics.sweeps, 2, "only the dead assignment requests another sweep");
         assert_eq!(statistics.sweeps, legacy.sweeps);
@@ -1447,8 +1447,8 @@ mod tests {
             table_decl(&table), field_assign(&table, string("value"), number(1.0)), return_local(&table),
         ]);
         let mut reference = function.clone();
-        let (actual, statistics) = run_scheduled(&mut function, &FxHashMap::default(), &IndexMap::new(), false);
-        let (expected, legacy) = run_scheduled(&mut reference, &FxHashMap::default(), &IndexMap::new(), true);
+        let (actual, statistics) = run_scheduled(&mut function, &FxHashMap::default(), &IndexMap::default(), false);
+        let (expected, legacy) = run_scheduled(&mut reference, &FxHashMap::default(), &IndexMap::default(), true);
         assert_eq!(actual, expected);
         assert_eq!(statistics.sweeps, 2, "the last inline move must not start a third sweep");
         assert_eq!(statistics.sweeps, legacy.sweeps);
@@ -1481,8 +1481,8 @@ mod tests {
                 ]);
                 function.block_mut(nodes[1]).unwrap().push(ast::Call::new(global("untouched"), Vec::new()).into());
                 let mut reference = function.clone();
-                let (actual, _) = run_scheduled(&mut function, &FxHashMap::default(), &IndexMap::new(), false);
-                let (expected, _) = run_scheduled(&mut reference, &FxHashMap::default(), &IndexMap::new(), true);
+                let (actual, _) = run_scheduled(&mut function, &FxHashMap::default(), &IndexMap::default(), false);
+                let (expected, _) = run_scheduled(&mut reference, &FxHashMap::default(), &IndexMap::default(), true);
                 assert_eq!(actual, expected, "edge_use={edge_use}, changed_first={changed_first}");
                 assert!(function.block(candidate).unwrap().iter().all(|statement| statement.as_assign().is_none()));
             }
@@ -1708,7 +1708,7 @@ mod tests {
                 Return::new(vec![ast::Call::new(local_value(&callee), vec![local_value(&argument)]).into()]).into(),
             ]);
             function.set_entry(entry);
-            let captures = if captured { IndexMap::from([(callee.clone(), callee)]) } else { IndexMap::new() };
+            let captures = if captured { IndexMap::from_iter([(callee.clone(), callee)]) } else { IndexMap::default() };
             inline(&mut function, &FxHashMap::default(), &captures);
             let result = function.block_mut(entry).unwrap();
             remove_empty(result);
@@ -1746,7 +1746,7 @@ mod tests {
                 Return::new(vec![returned]).into(),
             ]);
             function.set_entry(entry);
-            let captures = IndexMap::from([(value.clone(), value.clone())]);
+            let captures = IndexMap::from_iter([(value.clone(), value.clone())]);
             let incoming_ids = if incoming {
                 rustc_hash::FxHashSet::from_iter([value.stable_id()])
             } else {
@@ -1772,7 +1772,7 @@ mod tests {
             Return::new(vec![ast::Call::new(local_value(&callee), vec![local_value(&argument)]).into()]).into(),
         ]);
         function.set_entry(entry);
-        let captures = IndexMap::from([(callee.clone(), callee), (captured_value.clone(), captured_value)]);
+        let captures = IndexMap::from_iter([(callee.clone(), callee), (captured_value.clone(), captured_value)]);
         inline(&mut function, &FxHashMap::default(), &captures);
         let result = function.block_mut(entry).unwrap();
         remove_empty(result);

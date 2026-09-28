@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use by_address::ByAddress;
-use indexmap::{IndexMap, IndexSet};
+use crate::{FxIndexMap as IndexMap, FxIndexSet as IndexSet};
 use itertools::Itertools;
 use parking_lot::Mutex;
 use petgraph::{
@@ -291,7 +291,7 @@ mod tests {
     // mover, including prefixing, duplicate destinations and self reads.
     fn legacy_apply_declarations(
         block: &mut crate::Block,
-        declarations: std::collections::BTreeMap<usize, indexmap::IndexSet<crate::RcLocal>>,
+        declarations: std::collections::BTreeMap<usize, crate::FxIndexSet<crate::RcLocal>>,
     ) {
         use crate::LocalRw;
         for (index, mut locals) in declarations.into_iter().rev() {
@@ -341,7 +341,7 @@ mod tests {
                 }
                 statements.push(statement);
                 if random() % 3 != 0 {
-                    let set: indexmap::IndexSet<_> = locals.iter().filter(|_| random() % 2 == 0).cloned().collect();
+                    let set: crate::FxIndexSet<_> = locals.iter().filter(|_| random() % 2 == 0).cloned().collect();
                     declarations.insert(position, set);
                 }
             }
