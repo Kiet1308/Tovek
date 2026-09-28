@@ -41,6 +41,8 @@ fn compound_assignment_operator(operation: BinaryOperation) -> Option<&'static s
 ///
 /// * `LValue::Local(t)` matches `RValue::Local(t)` by id-based handle equality —
 ///   no re-evaluation is possible, so this is unconditionally safe.
+/// * `LValue::Global(g)` matches `RValue::Global(g)`: both spellings read the
+///   global once, before the right operand, and write it once.
 /// * `LValue::Index(i)` matches `RValue::Index(j)` when the two indexes are
 ///   structurally identical AND both the base and key are [`pure_repeatable`].
 ///   Compound `t.k op= e` evaluates base+key once; the expanded form evaluates
@@ -48,6 +50,9 @@ fn compound_assignment_operator(operation: BinaryOperation) -> Option<&'static s
 fn compound_assign_target_matches(target: &LValue, binary_left: &RValue) -> bool {
     match (target, binary_left) {
         (LValue::Local(t), RValue::Local(l)) => t == l,
+        // Both spellings read the global once before the right operand and
+        // write it once (GETGLOBAL, op, SETGLOBAL).
+        (LValue::Global(t), RValue::Global(g)) => t == g,
         (LValue::Index(lhs), RValue::Index(rhs)) => {
             pure_repeatable(&lhs.left) && pure_repeatable(&lhs.right) && lhs == rhs
         }
@@ -184,6 +189,25 @@ mod tests {
 
     fn reassign(target: &RcLocal, rhs: RValue) -> Statement {
         Assign::new(vec![LValue::Local(target.clone())], vec![rhs]).into()
+    }
+
+    #[test]
+    fn compound_assignment_for_globals() {
+        let counter = || RValue::Global(Global(b"counter".to_vec()));
+        let block = Block(vec![
+            Assign::new(
+                vec![LValue::Global(Global(b"counter".to_vec()))],
+                vec![binary(counter(), number(1.0), BinaryOperation::Add)],
+            )
+            .into(),
+            Assign::new(
+                vec![LValue::Global(Global(b"counter".to_vec()))],
+                vec![binary(global("other"), counter(), BinaryOperation::Add)],
+            )
+            .into(),
+        ]);
+
+        assert_eq!(block.to_string(), "counter += 1\ncounter = other + counter");
     }
 
     #[test]
