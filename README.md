@@ -207,6 +207,21 @@ Condition normalization is NaN-safe by default. `--assume-no-nan` permits the
 more aggressive rewrite `not (a < b)` → `a >= b` when static proof is unavailable;
 use it only when inputs cannot be NaN, because the two forms differ for NaN.
 
+`--style compact` writes a scalar select as a Luau if-expression instead of
+branch statements (`local mode = if flag then "a" else "b"`), and a
+value-exact boolean select as its idiom (`ready and visible`). Conditions and
+the chosen arm evaluate in the same order; function and table literals and
+expressions longer than one line stay statements. The default style is
+unchanged. Available in single-file and folder modes.
+
+`--assume-standard-libraries` writes constants the compiler folded out of a
+library as `math.pi`, `math.huge` and `Vector3.new(x, y, z)` instead of
+`3.141592653589793`, `1e999` and a `createVector` snapshot. It applies only
+when the script never writes those globals and never names getfenv/setfenv,
+so the spelling compiles back to the same constant; it still assumes no other
+script replaces the libraries in its environment, which the exact default
+does not.
+
 `--synthesize-arithmetic-loops` enables an experimental presentation of exact
 4-8-term arithmetic accumulations as finite loops. It is off by default and
 labels generated loops as synthesis: the original source may have contained
