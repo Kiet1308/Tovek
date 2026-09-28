@@ -967,6 +967,7 @@ fn decompile_bytecode_internal(
                     if options.emit_binding_provenance { local_producers.push(pass); }
                 }
             }
+            ast::forward_declarations::bare_forward_declarations(&mut body);
             // No expression/condition mutation is permitted after this point.
             let name_inference = {
                 let _span = ast::telemetry::Span::new("S_REFINE_NAMES");

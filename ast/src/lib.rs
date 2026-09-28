@@ -55,6 +55,7 @@ mod numeric_facts;
 pub mod evaluation_order;
 pub mod factor_common_tails;
 pub mod flatten_guards;
+pub mod forward_declarations;
 pub mod guard_exhaustion_adapters;
 pub mod inline_temps;
 pub mod local_declarations;
