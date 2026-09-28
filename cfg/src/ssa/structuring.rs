@@ -2,7 +2,6 @@ use ast::{LocalRw, Reduce, SideEffects, Traverse, UnaryOperation};
 
 use itertools::Itertools;
 use petgraph::{
-    algo::dominators::Dominators,
     stable_graph::{EdgeIndex, NodeIndex},
     visit::{DfsPostOrder, EdgeRef},
     Direction,
@@ -1043,7 +1042,7 @@ fn is_for_body_edge(function: &Function, before: NodeIndex, body: NodeIndex) -> 
 
 // TODO: REFACTOR: same as match_jump in restructure, maybe can use some common code?
 // TODO: STYLE: rename to merge_blocks or something
-pub fn structure_jumps(function: &mut Function, dominators: &Dominators<NodeIndex>) -> bool {
+pub fn structure_jumps(function: &mut Function, dominators: &crate::dominators::Dominators) -> bool {
     let mut did_structure = false;
     for node in function.graph().node_indices().collect_vec() {
         // we call function.remove_block, that might've resulted in node being removed

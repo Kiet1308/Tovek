@@ -4,7 +4,6 @@ use ast::{LocalRw, RcLocal};
 use ast::FxIndexMap as IndexMap;
 use itertools::Itertools;
 use petgraph::{
-    algo::dominators::simple_fast,
     prelude::DiGraphMap,
     stable_graph::NodeIndex,
     visit::{Dfs, DfsPostOrder, EdgeRef},
@@ -630,7 +629,7 @@ impl<'a> Destructor<'a> {
         #[cfg(test)]
         let mut last_use_reference = FxHashMap::<RcLocal, FxHashMap<NodeIndex, (usize, ParamOrStatIndex)>>::default();
         if self.terminal_block.is_none() {
-            let dominators = simple_fast(self.function.graph(), self.function.entry().unwrap());
+            let dominators = crate::dominators::Dominators::new(self.function.graph(), self.function.entry().unwrap());
             for node in self.function.graph().node_indices() {
                 if let Some(dominator) = dominators.immediate_dominator(node) {
                     self.dominator_tree.add_edge(dominator, node, ());

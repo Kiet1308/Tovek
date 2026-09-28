@@ -383,7 +383,7 @@ struct DominanceIndex {
 
 impl DominanceIndex {
     fn new(function: &Function, entry: NodeIndex) -> Self {
-        let tree = simple_fast(function.graph(), entry);
+        let tree = cfg::dominators::Dominators::new(function.graph(), entry);
         let mut children = vec![Vec::new(); function.graph().node_bound()];
         for node in function.graph().node_indices() {
             if let Some(parent) = tree.immediate_dominator(node) {

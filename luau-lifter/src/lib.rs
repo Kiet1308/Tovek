@@ -34,7 +34,6 @@ use lifter::Lifter;
 
 //use cfg_ir::{dot, function::Function, ssa};
 use parking_lot::Mutex;
-use petgraph::algo::dominators::simple_fast;
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
@@ -1569,7 +1568,7 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
 
         let dominators = dominator_cache.get_or_insert_with(|| {
             ptime!(F_SIMPLE_FAST);
-            simple_fast(function.graph(), function.entry().unwrap())
+            cfg::dominators::Dominators::new(function.graph(), function.entry().unwrap())
         });
         let topology_changed = {
             ptime!(F_STRUCTURE_JUMPS);
