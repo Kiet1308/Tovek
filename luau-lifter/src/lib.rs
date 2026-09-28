@@ -133,6 +133,7 @@ pub mod prof {
         S_LOWER_SELECTS,
         S_LATE,
         S_REFINE_NAMES,
+        F_TOTAL,
     );
 
     pub struct Timer(Option<(Instant, &'static AtomicU64)>);
@@ -623,6 +624,7 @@ fn decompile_bytecode_internal(
                     // set_hook/take_hook corrupts the hook. catch_unwind alone
                     // isolates the per-function panic.
                     let result = panic::catch_unwind(move || {
+                        let _function_timer = prof::Timer::new(&prof::F_TOTAL);
                         let (ast_function, function, upvalues_in) = args.take().unwrap();
                         decompile_function(
                             ast_function,
