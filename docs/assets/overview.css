@@ -709,12 +709,7 @@ button { font: inherit; color: inherit; }
 
 .iris {
   position: fixed; inset: 0; z-index: 250; pointer-events: none;
-  background:
-    radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, .7), transparent),
-    radial-gradient(1px 1px at 70% 60%, rgba(255, 255, 255, .5), transparent),
-    radial-gradient(1.5px 1.5px at 40% 80%, rgba(255, 255, 255, .6), transparent),
-    radial-gradient(1px 1px at 85% 20%, rgba(255, 255, 255, .6), transparent),
-    #020507;
+  background: var(--film);
   clip-path: circle(0 at var(--ix, 50%) var(--iy, 50%));
   transition: clip-path .75s cubic-bezier(.7, 0, .2, 1);
 }

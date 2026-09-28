@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tovek V2.1</title>
+  <meta name="description" content="Tovek V2.1 decompiles a full Roblox game up to twice as fast as V2, reads Luau bytecode v14 and fixes every case we found where decompiled code could behave differently from the original.">
+  <meta name="theme-color" content="#0e0d0c">
+  <meta property="og:title" content="Tovek V2.1">
+  <meta property="og:description" content="Up to twice as fast as V2, ready for Luau bytecode v14, and exact where V2 guessed.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://kiet1308.github.io/Tovek/changelog/v2.1/">
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..600&display=swap">
+  <link rel="stylesheet" href="v21.css?v=1">
+  <script>document.documentElement.classList.add('js')</script>
+  <script src="v21.js?v=1" defer></script>
+</head>
+<body>
+<a class="skip" href="#introduction">Skip to article</a>
+
+<header class="nav">
+  <a class="wordmark" href="../../index.html" aria-label="Tovek home"><svg viewBox="0 0 28 30" aria-hidden="true"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg>Tovek</a>
+  <nav class="nav-links" aria-label="Main">
+    <a href="../../index.html">Overview</a>
+    <a href="../../changelog.html" aria-current="true">Changelog</a>
+    <a class="opt" href="https://github.com/Kiet1308/Tovek">GitHub</a>
+    <a class="opt" href="https://discord.gg/phY6VUDSF7">Discord</a>
+    <a class="nav-cta" href="#availability">Download V2.1 <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1v8M2.5 5.5 6 9l3.5-3.5M1.5 11h9" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-stage">
+      <canvas class="hero-art" aria-hidden="true"></canvas>
+      <div class="hero-copy">
+        <p class="hero-date"><time datetime="2026-09-28">September 28, 2026</time></p>
+        <h1 id="hero-title">Tovek V2.1</h1>
+        <ol class="toc" aria-label="Contents">
+          <li><a href="#introduction"><span class="n">(1)</span><span class="t">Introduction</span></a></li>
+          <li><a href="#performance"><span class="n">(2)</span><span class="t">Performance and speed</span></a></li>
+          <li><a href="#reliability"><span class="n">(3)</span><span class="t">Reliability</span></a></li>
+          <li><a href="#availability"><span class="n">(4)</span><span class="t">Availability</span></a></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <article class="article">
+    <div class="read" id="introduction">
+      <p class="lede">We’re introducing Tovek V2.1, the first update to the V2 generation. It decompiles a full Roblox game 1.7× to 2.1× faster than V2, reads Luau bytecode v14, and fixes every case we found where decompiled code could behave differently from the original script.</p>
+      <p>Since V2 shipped, the decompiler has been through three independent code reviews and a week of focused performance work. The reviews looked for one thing above all: places where the code Tovek writes runs differently from the code that was compiled. Everything they found is fixed in V2.1, and every case is now a permanent test that each future release has to pass.</p>
+      <p>Here are some of the improvements you can expect from V2.1:</p>
+      <p><b>Speed.</b> V2.1 decompiles our 3,978-script test game in 11.5 seconds on a single thread, down from 20.1 seconds with V2. With every core busy it finishes in under a second. It’s faster at every thread count we tried, and it uses less memory while doing it: peak memory at 16 threads fell from 122 MB to 103 MB. Scripts sent through the local server come back 1.5× faster overall, and large ones up to 2.5× faster.</p>
+      <p><b>Correctness.</b> V2 could occasionally write code that looked right but didn’t act right: a saved copy of a variable read after a call had already changed it, a write inside an <code>if</code> applied unconditionally, a replaced <code>Vector3</code> global quietly bypassed. V2.1 fixes all of them. On our deep-review suite of 199 behaviour checks, V2 passes 80; V2.1 passes all 199.</p>
+      <p><b>Newest bytecode.</b> Luau bytecode v14 now decompiles directly, and its new fast path for <code>pcall</code> and <code>xpcall</code> comes back as the plain call you wrote. V2 couldn’t read these files at all.</p>
+      <p><b>Reliability.</b> Damaged, truncated or deliberately malformed bytecode is now checked before any analysis starts. In our tests V2 aborted on 6.9% of damaged files, often without a word; V2.1 never did. It tells you what is wrong and where, like <code>prototype 0, pc 0: invalid jump target</code>, and one bad script no longer takes a whole batch down with it.</p>
+      <p><b>A steadier local server.</b> The HTTP server now decides whether it has room for a job before it reads the upload, answers overload with a clear message, and puts a firm deadline on slow uploads.</p>
+      <p>The next major updates to Tovek will follow in the coming weeks, with much larger improvements to readability, naming and speed.</p>
+    </div>
+
+    <h2 class="post-heading" id="performance">Performance and efficiency</h2>
+    <div class="read">
+      <p>On our benchmarks, Tovek V2.1 is the fastest Tovek yet, and it matches or improves on V2 in every correctness suite we run. Where a version can’t read a bytecode format at all, the table says so instead of counting it as a zero.</p>
+    </div>
+
+    <figure class="bench" data-in>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Benchmark results">
+        <table class="grid">
+          <thead>
+            <tr><th scope="col"><span class="sr-only">Benchmark</span></th><th scope="col" class="hl">Tovek V2.1</th><th scope="col">Tovek V2</th><th scope="col">Tovek v0.9 beta</th><th scope="col">lua.expert<sup>1</sup></th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Speed<span>Full game, one thread</span></th><td class="hl"><b>11.5 s</b></td><td>20.1 s</td><td>14.0 s</td><td class="na">—</td></tr>
+            <tr><th scope="row">Speed<span>Full game, 16 threads</span></th><td class="hl"><b>1.13 s</b></td><td>1.94 s</td><td>1.59 s</td><td class="na">—</td></tr>
+            <tr><th scope="row">Speed<span>Local server, median script<sup>5</sup></span></th><td class="hl"><b>2.5 ms</b></td><td>3.3 ms</td><td class="na">—</td><td class="na">—</td></tr>
+            <tr><th scope="row">Memory<span>Peak, full game at 16 threads</span></th><td class="hl"><b>103 MB</b></td><td>122 MB</td><td>107 MB</td><td class="na">—</td></tr>
+            <tr><th scope="row">Behaviour<span>Deep-review suite<sup>2</sup></span></th><td class="hl"><b>199 / 199</b></td><td>80 / 199</td><td>87 / 199</td><td class="na">—</td></tr>
+            <tr><th scope="row">Behaviour<span>Regression programs, v9<sup>1</sup></span></th><td class="hl"><b>369 / 369</b></td><td>369 / 369</td><td>261 / 369</td><td>232 / 369</td></tr>
+            <tr><th scope="row">Behaviour<span>Freshly generated programs, v9<sup>1</sup></span></th><td class="hl"><b>192 / 192</b></td><td>192 / 192</td><td>192 / 192</td><td>160 / 192</td></tr>
+            <tr><th scope="row">Roblox bytecode v12<span>Regression programs<sup>1</sup></span></th><td class="hl"><b>369 / 369</b></td><td>369 / 369</td><td class="na">Can’t read<small>format unsupported</small></td><td class="na">Can’t read<small>format unsupported</small></td></tr>
+            <tr><th scope="row">Luau bytecode v14<span>Runtime profiles<sup>3</sup></span></th><td class="hl"><b>252 / 252</b></td><td class="na">Can’t read<small>format unsupported</small></td><td class="na">Can’t read<small>format unsupported</small></td><td class="na">—</td></tr>
+            <tr><th scope="row">Recompiles<span>Public source files, v14</span></th><td class="hl"><b>513 / 513</b></td><td class="na">Can’t read<small>format unsupported</small></td><td class="na">Can’t read<small>format unsupported</small></td><td class="na">—</td></tr>
+            <tr><th scope="row">Robustness<span>Damaged files, aborted<sup>4</sup></span></th><td class="hl"><b>0</b><small>of 1,500</small></td><td>104<small>of 1,500</small></td><td>105<small>of 1,500</small></td><td class="na">—</td></tr>
+            <tr><th scope="row">Source structure<span>Public files, similarity to original<sup>6</sup></span></th><td class="hl"><b>0.861</b></td><td class="alt"><b>0.866</b></td><td>0.827</td><td>0.812</td></tr>
+            <tr><th scope="row">Source structure<span>Generated programs, similarity<sup>6</sup></span></th><td class="hl"><b>0.597</b></td><td>0.597</td><td>0.604</td><td class="alt"><b>0.746</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figcaption class="footnotes">
+        <p>All timings use the official release builds with default options on a Windows laptop with an Intel Core Ultra 9 275HX (24 threads), and no artifact cache. Each is the median of repeated runs that alternate between versions, so background load affects every version equally. The test game is 3,978 scripts saved from a live Roblox experience; its source is private.</p>
+        <p><sup>1</sup><b>lua.expert:</b> outputs were collected from its public API on September 19, 2026, for the same frozen set of Tovek regression fixtures, freshly generated programs and public source files, then recompiled, run and scored by the same pinned Luau compiler and VM as every Tovek version. lua.expert rejects bytecode v12 (“Bytecode version (12) unhandled”). Timings are not comparable with a hosted API and are not shown.</p>
+        <p><sup>2</sup><b>Deep-review suite:</b> behaviour checks written during this release’s three code reviews. Each script is compiled at several optimisation and debug levels; the decompiled output is recompiled and run beside the original in an isolated Luau VM. Most of the suite covers bugs found in V2, so V2’s score is expected to be low.</p>
+        <p><sup>3</sup><b>Runtime profiles:</b> 252 fixture profiles that run decompiled output against the original and compare every observable result. v0.9 beta cannot read v12 or v14, and V2 cannot read v14.</p>
+        <p><sup>4</sup><b>Damaged files:</b> 1,500 seeded copies of real scripts with truncation, flipped bits or random splices. “Aborted” means the process died from an uncaught error instead of reporting one.</p>
+        <p><sup>5</sup><b>Local server:</b> one request at a time to <code>/decompile/raw</code> on the same machine, for a 311-script sample of the game spread across all sizes. Each script’s time is the best of five runs, which filters out scheduling noise from the operating system’s timer; the table shows the median script.</p>
+        <p><sup>6</sup><b>Source structure:</b> how closely the decompiled syntax tree matches the original source, where 1.0 is an identical shape, averaged over the measured profiles. It rewards familiar spelling rather than correct behaviour, and it doesn’t score names.</p>
+      </figcaption>
+    </figure>
+
+    <div class="read">
+      <p style="margin-top:34px">The one measure where V2.1 gives a little ground is source structure: its output follows the original’s shape very slightly less closely than V2’s (0.861 against 0.866). That is the price of the exactness fixes described under Correctness below, and it is one of the first things the next updates will win back.</p>
+      <p>Where V2.1’s advantage is clearest is speed. It removes a great deal of repeated work across the pipeline, from reading bytecode to naming variables, which adds up to a game decompiled in a little over half the time.</p>
+    </div>
+    <p class="label-line">Resource use</p>
+    <div class="read" data-in>
+      <table class="grid cost">
+        <thead><tr><th scope="col">Full game, 3,978 scripts</th><th scope="col" class="hl">Tovek V2.1</th><th scope="col">Tovek V2</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">One thread</th><td class="hl"><b>11.5 s</b></td><td>20.1 s</td></tr>
+          <tr><th scope="row">24 threads</th><td class="hl"><b>0.94 s</b></td><td>1.59 s</td></tr>
+          <tr><th scope="row">Peak memory, 16 threads</th><td class="hl"><b>103 MB</b></td><td>122 MB</td></tr>
+          <tr><th scope="row">Scripts per second, 24 threads</th><td class="hl"><b>4,248</b></td><td>2,503</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="read">
+      <p style="margin-top:24px">The command-line decompiler, the local HTTP server and the executor client scripts all ship in the same download, as before.</p>
+    </div>
+
+    <h2 class="post-heading" id="speed">Speed</h2>
+    <div class="read">
+      <p>Most people meet a decompiler in one of two ways: a whole game at once, from a SaveInstance dump, or one script at a time through the local server. V2.1 is faster at both.</p>
+      <p>For a whole game, V2.1 gets more out of every thread. On one thread it decompiles 346 scripts per second, against 198 for V2, which means V2.1 on one thread is faster than V2 on two. With 24 threads it passes 4,000 scripts per second, so the entire test game takes less than a second.</p>
+      <p>For single scripts, the gains are largest exactly where waiting hurts. Through the local server, a typical script comes back in 2.5 milliseconds instead of 3.3, and the largest script in the game, an 83 KB lightning-effects module, returns in 76 milliseconds instead of 113. A 40 KB network buffer encoder is 2.5× faster.</p>
+    </div>
+
+    <figure class="chart-fig" data-charts data-in>
+      <div class="tabbar" role="tablist" aria-label="Speed charts">
+        <button type="button" role="tab" aria-selected="true">Full game</button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1">Single script</button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1">Memory</button>
+      </div>
+      <div class="chart-panel" data-chart="throughput" role="tabpanel">
+        <div class="chart-frame">
+          <div class="chart-head"><h3 class="chart-title">Full-game decompilation</h3><span class="chart-kind">Throughput vs threads</span></div>
+          <ul class="legend"><li><i style="--dot:var(--c-v21)"></i>Tovek V2.1</li><li><i style="--dot:var(--c-v2)"></i>Tovek V2</li><li><i style="--dot:var(--c-v09)"></i>Tovek v0.9 beta</li></ul>
+          <svg class="chart-svg" role="img" aria-label="Scripts per second at 1 to 24 threads. Tovek V2.1 is faster than V2 and v0.9 beta at every thread count."></svg>
+        </div>
+        <p class="chart-cap">Scripts decompiled per second for the full 3,978-script game at each thread count. V2.1 is 1.7× to 2.1× faster than V2 at every point, and on one thread it beats V2 running on two.</p>
+      </div>
+      <div class="chart-panel" data-chart="server" role="tabpanel" hidden>
+        <div class="chart-frame">
+          <div class="chart-head"><h3 class="chart-title">One script through the local server</h3><span class="chart-kind">Latency vs size</span></div>
+          <ul class="legend"><li><i style="--dot:var(--c-v21)"></i>Tovek V2.1</li><li><i style="--dot:var(--c-v2)"></i>Tovek V2</li></ul>
+          <svg class="chart-svg" role="img" aria-label="Round-trip time for one script by bytecode size. Tovek V2.1 is faster than V2 for every size group."></svg>
+        </div>
+        <p class="chart-cap">Round trip for one script through the local HTTP server, by bytecode size, for a 311-script sample of the game. Each point is the median of its size group, using each script’s best of five runs; lower is better. The bigger the script, the bigger V2.1’s lead.</p>
+      </div>
+      <div class="chart-panel" data-chart="memory" role="tabpanel" hidden>
+        <div class="chart-frame">
+          <div class="chart-head"><h3 class="chart-title">Peak memory, full game</h3><span class="chart-kind">Memory vs threads</span></div>
+          <ul class="legend"><li><i style="--dot:var(--c-v21)"></i>Tovek V2.1</li><li><i style="--dot:var(--c-v2)"></i>Tovek V2</li></ul>
+          <svg class="chart-svg" role="img" aria-label="Peak memory while decompiling the full game at 1 to 24 threads. Tovek V2.1 uses less memory than V2 at every thread count."></svg>
+        </div>
+        <p class="chart-cap">Peak working set while decompiling the full game. V2.1 uses less memory than V2 at every thread count, and 20% less at 24 threads.</p>
+      </div>
+    </figure>
+
+    <div class="read"><p style="margin-top:44px">Here is what that looks like on individual workloads:</p></div>
+    <div class="cards" data-cards data-in>
+      <div class="tabbar" role="tablist" aria-label="Measured results">
+        <button type="button" role="tab">Full game</button>
+        <button type="button" role="tab">Largest script</button>
+        <button type="button" role="tab">Memory</button>
+        <button type="button" role="tab">Bytecode v14</button>
+        <button type="button" role="tab">Invalid input</button>
+      </div>
+      <div class="card-track">
+        <div class="card" role="tabpanel">
+          <div class="card-quote"><span class="k">Result</span><p>“A 3,978-script Roblox game now decompiles in 11.5 seconds on one thread, down from 20.1 with V2, and in 0.94 seconds across 24 threads. Every script produces exactly the same output at both settings.”</p></div>
+          <div class="card-meta"><div><span class="k">Workload</span><b>SaveInstance dump, folder mode</b></div><div><span class="k">Change</span><b>1.75× faster on one thread</b></div></div>
+        </div>
+        <div class="card" role="tabpanel" hidden>
+          <div class="card-quote"><span class="k">Result</span><p>“The biggest script in the game, an 83 KB lightning-effects module, comes back from the local server in 76 ms instead of 113 ms. A 40 KB network buffer encoder drops from 158 ms to 64 ms.”</p></div>
+          <div class="card-meta"><div><span class="k">Workload</span><b>Local HTTP server, one request</b></div><div><span class="k">Change</span><b>1.5× faster</b></div></div>
+        </div>
+        <div class="card" role="tabpanel" hidden>
+          <div class="card-quote"><span class="k">Result</span><p>“Decompiling the whole game on 24 threads peaks at 125 MB of memory, down from 155 MB. At every thread count we measured, V2.1 needs less memory than V2.”</p></div>
+          <div class="card-meta"><div><span class="k">Workload</span><b>Full game, peak working set</b></div><div><span class="k">Change</span><b>20% less memory</b></div></div>
+        </div>
+        <div class="card" role="tabpanel" hidden>
+          <div class="card-quote"><span class="k">Result</span><p>“<code>pcall(require, script.Parent.Config)</code> compiled for bytecode v14: V2 stopped with a parse failure on the first function. V2.1 returns the call exactly as written, with <code>success</code> and <code>config</code> named from how they are used.”</p></div>
+          <div class="card-meta"><div><span class="k">Workload</span><b>Luau bytecode v14</b></div><div><span class="k">Change</span><b>Unreadable → decompiled</b></div></div>
+        </div>
+        <div class="card" role="tabpanel" hidden>
+          <div class="card-quote"><span class="k">Result</span><p>“A jump that points past the end of its function used to make V2 exit with code 101 and no message. V2.1 answers with <code>prototype 0, pc 0: invalid jump target</code> and moves on to the next script.”</p></div>
+          <div class="card-meta"><div><span class="k">Workload</span><b>Malformed bytecode</b></div><div><span class="k">Change</span><b>Silent abort → clear error</b></div></div>
+        </div>
+        <div class="card card-ghost" aria-hidden="true"></div>
+      </div>
+      <div class="card-nav"><button type="button" data-prev aria-label="Previous result">←</button><button type="button" data-next aria-label="Next result">→</button></div>
+    </div>
+
+    <h2 class="post-heading" id="bytecode-v14">Ready for bytecode v14</h2>
+    <div class="read">
+      <p>Luau keeps evolving, and the bytecode format moves with it. Version 14 adds a fast path for protected calls: the compiler now evaluates the arguments first and fetches <code>pcall</code> or <code>xpcall</code> last. V2 couldn’t read these files at all.</p>
+      <p>V2.1 reads v14 directly and puts every protected call back the way it was written. Read naïvely, the new instruction order would turn each <code>pcall(require, module)</code> into a stray <code>local require2 = require</code>; V2.1 recognises the pattern and leaves the call alone. Across our 513 public source profiles, the v14 output matches the v12 output in 512 and is cleaner in the last one.</p>
+    </div>
+    <div class="matrix" data-in>
+      <table>
+        <caption class="sr-only">Bytecode versions each release can read</caption>
+        <thead><tr><th scope="col">Reads bytecode</th><th scope="col">v9</th><th scope="col">v10</th><th scope="col">v11</th><th scope="col">v12</th><th scope="col">v13</th><th scope="col">v14</th></tr></thead>
+        <tbody>
+          <tr class="now"><td>Tovek V2.1</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+          <tr><td>Tovek V2</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td class="n">—</td></tr>
+          <tr><td>Tovek v0.9 beta</td><td>✓</td><td>✓</td><td>✓</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Versions after v14 are rejected with a clear message until they are supported.</p>
+
+    <h2 class="post-heading" id="reliability">Reliability</h2>
+    <div class="read">
+      <p>A decompiler reads files from all kinds of places: executor dumps, old exports, files cut short on the way to disk. V2.1 now checks every instruction before any analysis starts. Jump targets, registers, constants, upvalues and table indices all have to make sense, and so do the sizes and counts that describe them.</p>
+      <p>When they don’t, you get a precise message instead of a silent exit, or worse, plausible-looking code built from nonsense. We fed all three versions the same 1,500 damaged copies of real scripts from the test game. V2 and v0.9 beta aborted on 104 and 105 of them; V2.1 aborted on none.</p>
+    </div>
+
+    <figure class="chart-fig" data-in>
+      <div class="chart-frame">
+        <div class="chart-head"><h3 class="chart-title">Damaged bytecode</h3><span class="chart-kind">Outcome by damage type</span></div>
+        <div class="bars">
+          <div class="bar-group"><h4>All damage types</h4>
+            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 232 decompiled, 1264 rejected, 4 internal errors, 0 aborted"><span style="width:15.47%;background:var(--c-v2)" title="decompiled: 232"></span><span style="width:84.27%;background:#e9e6dc" title="rejected: 1264"></span><span style="width:0.27%;background:var(--clay)" title="internal: 4"></span></span><span class="val">0 aborted</span></div>
+            <div class="bar-row"><span class="who">Tovek V2</span><span class="bar-track" role="img" aria-label="Tovek V2: 269 decompiled, 1127 rejected, 0 internal errors, 104 aborted"><span style="width:17.93%;background:var(--c-v2)" title="decompiled: 269"></span><span style="width:75.13%;background:#e9e6dc" title="rejected: 1127"></span><span style="width:6.93%;background:var(--slate)" title="crash: 104"></span></span><span class="val">104 aborted</span></div>
+            <div class="bar-row"><span class="who">v0.9 beta</span><span class="bar-track" role="img" aria-label="v0.9 beta: 279 decompiled, 1116 rejected, 0 internal errors, 105 aborted"><span style="width:18.60%;background:var(--c-v2)" title="decompiled: 279"></span><span style="width:74.40%;background:#e9e6dc" title="rejected: 1116"></span><span style="width:7.00%;background:var(--slate)" title="crash: 105"></span></span><span class="val">105 aborted</span></div>
+          </div>
+          <div class="bar-group"><h4>One flipped bit</h4>
+            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 176 decompiled, 121 rejected, 3 internal errors, 0 aborted"><span style="width:58.67%;background:var(--c-v2)" title="decompiled: 176"></span><span style="width:40.33%;background:#e9e6dc" title="rejected: 121"></span><span style="width:1.00%;background:var(--clay)" title="internal: 3"></span></span><span class="val">0 aborted</span></div>
+            <div class="bar-row"><span class="who">Tovek V2</span><span class="bar-track" role="img" aria-label="Tovek V2: 202 decompiled, 56 rejected, 0 internal errors, 42 aborted"><span style="width:67.33%;background:var(--c-v2)" title="decompiled: 202"></span><span style="width:18.67%;background:#e9e6dc" title="rejected: 56"></span><span style="width:14.00%;background:var(--slate)" title="crash: 42"></span></span><span class="val">42 aborted</span></div>
+            <div class="bar-row"><span class="who">v0.9 beta</span><span class="bar-track" role="img" aria-label="v0.9 beta: 208 decompiled, 50 rejected, 0 internal errors, 42 aborted"><span style="width:69.33%;background:var(--c-v2)" title="decompiled: 208"></span><span style="width:16.67%;background:#e9e6dc" title="rejected: 50"></span><span style="width:14.00%;background:var(--slate)" title="crash: 42"></span></span><span class="val">42 aborted</span></div>
+          </div>
+          <div class="bar-group"><h4>Eight flipped bits</h4>
+            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 9 decompiled, 290 rejected, 1 internal errors, 0 aborted"><span style="width:3.00%;background:var(--c-v2)" title="decompiled: 9"></span><span style="width:96.67%;background:#e9e6dc" title="rejected: 290"></span><span style="width:0.33%;background:var(--clay)" title="internal: 1"></span></span><span class="val">0 aborted</span></div>
+            <div class="bar-row"><span class="who">Tovek V2</span><span class="bar-track" role="img" aria-label="Tovek V2: 19 decompiled, 226 rejected, 0 internal errors, 55 aborted"><span style="width:6.33%;background:var(--c-v2)" title="decompiled: 19"></span><span style="width:75.33%;background:#e9e6dc" title="rejected: 226"></span><span style="width:18.33%;background:var(--slate)" title="crash: 55"></span></span><span class="val">55 aborted</span></div>
+            <div class="bar-row"><span class="who">v0.9 beta</span><span class="bar-track" role="img" aria-label="v0.9 beta: 23 decompiled, 222 rejected, 0 internal errors, 55 aborted"><span style="width:7.67%;background:var(--c-v2)" title="decompiled: 23"></span><span style="width:74.00%;background:#e9e6dc" title="rejected: 222"></span><span style="width:18.33%;background:var(--slate)" title="crash: 55"></span></span><span class="val">55 aborted</span></div>
+          </div>
+          <div class="bar-group"><h4>A random splice</h4>
+            <div class="bar-row"><span class="who">Tovek V2.1</span><span class="bar-track" role="img" aria-label="Tovek V2.1: 44 decompiled, 256 rejected, 0 internal errors, 0 aborted"><span style="width:14.67%;background:var(--c-v2)" title="decompiled: 44"></span><span style="width:85.33%;background:#e9e6dc" title="rejected: 256"></span></span><span class="val">0 aborted</span></div>
+            <div class="bar-row"><span class="who">Tovek V2</span><span class="bar-track" role="img" aria-label="Tovek V2: 45 decompiled, 248 rejected, 0 internal errors, 7 aborted"><span style="width:15.00%;background:var(--c-v2)" title="decompiled: 45"></span><span style="width:82.67%;background:#e9e6dc" title="rejected: 248"></span><span style="width:2.33%;background:var(--slate)" title="crash: 7"></span></span><span class="val">7 aborted</span></div>
+            <div class="bar-row"><span class="who">v0.9 beta</span><span class="bar-track" role="img" aria-label="v0.9 beta: 45 decompiled, 247 rejected, 0 internal errors, 8 aborted"><span style="width:15.00%;background:var(--c-v2)" title="decompiled: 45"></span><span style="width:82.33%;background:#e9e6dc" title="rejected: 247"></span><span style="width:2.67%;background:var(--slate)" title="crash: 8"></span></span><span class="val">8 aborted</span></div>
+          </div>
+        </div>
+        <div class="bar-key">
+          <span><i style="background:var(--c-v2)"></i>Decompiled</span>
+          <span><i style="background:#e9e6dc"></i>Rejected with a message</span>
+          <span><i style="background:var(--clay)"></i>Internal error, reported</span>
+          <span><i style="background:var(--slate)"></i>Aborted</span>
+        </div>
+      </div>
+      <p class="chart-cap">300 real scripts, each damaged five ways with a fixed seed, run through every version. A damaged file can still be valid bytecode, which is why some decompile. V2.1 rejects more of the rest instead of turning corrupted instructions into code.</p>
+    </figure>
+
+    <div class="read"><p style="margin-top:44px">The difference is easiest to see on hand-built files that break one rule at a time:</p></div>
+    <figure class="bench" data-in style="margin-top:18px">
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Malformed bytecode examples">
+        <table class="grid">
+          <thead><tr><th scope="col">Input</th><th scope="col" class="hl">Tovek V2.1</th><th scope="col">Tovek V2</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">A jump past the end<span>Target outside the function</span></th><td class="hl"><b>invalid jump target</b><small>prototype 0, pc 0</small></td><td>Aborts<small>exit code 101, no message</small></td></tr>
+            <tr><th scope="row">A register beyond the stack<span>Operand larger than the frame</span></th><td class="hl"><b>invalid register</b><small>prototype 0, pc 0</small></td><td>Writes <code>local v return v</code><small>code the VM would never run</small></td></tr>
+            <tr><th scope="row">A list write at index 0<span>SETLIST starting below 1</span></th><td class="hl"><b>invalid SETLIST index</b><small>prototype 0, pc 3 (must be positive)</small></td><td>“control-flow structuring failed”<small>misleading error</small></td></tr>
+            <tr><th scope="row">An orphaned loop jump<span>FORNPREP without its loop</span></th><td class="hl"><b>Internal error, reported</b><small>no matching FORNLOOP block</small></td><td>Aborts<small>exit code 101, no message</small></td></tr>
+            <tr><th scope="row">A skipped instruction<span>LOADB that jumps over a LOADN</span></th><td class="hl"><b><code>return true</code></b><small>what the VM returns</small></td><td><code>return 5</code><small>executes the skipped instruction</small></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </figure>
+
+    <h2 class="post-heading" id="correctness">Correctness</h2>
+    <div class="read">
+      <p>The most important change in V2.1 is also the least visible. Code that used to look right and act wrong now does both right.</p>
+      <p>Every example below is real. We compiled the original script, decompiled it with V2 and with V2.1, and then ran all three in the Luau VM:</p>
+    </div>
+
+    <div class="compare" data-compare data-in>
+      <div class="compare-top">
+        <div class="tabbar" role="tablist" aria-label="Before and after examples">
+          <button type="button" role="tab">A saved copy</button>
+          <button type="button" role="tab">A write inside if</button>
+          <button type="button" role="tab">Unary minus</button>
+          <button type="button" role="tab">A replaced global</button>
+          <button type="button" role="tab">String formatting</button>
+        </div>
+        <button class="replay" type="button" aria-label="Replay example"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3h-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+      <div class="compare-panel" role="tabpanel">
+      <div class="compare-cols">
+        <div class="compare-col then">
+          <h4>Tovek V2</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>local function makeCounter()
+    local count = 1
+    local function bump()
+        count = 2
+        return 3
+    end
+    local before = count
+    return bump(), before
+end
+return makeCounter</div>
+            <pre class="reveal">return function()
+    local v = 1
+    return (function()
+        v = 2
+        return 3
+<span class="bad">    end)(), v</span>
+end</pre>
+            <div class="verdict no reveal"><span class="tag">Differs</span><span><b>Returns 3, 2</b> for <code>makeCounter()()</code>. The original returns 3, 1. V2 reads <code>count</code> after <code>bump()</code> has already changed it.</span></div>
+          </div>
+        </div>
+        <div class="compare-col now">
+          <h4><i aria-hidden="true"></i>Tovek V2.1</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>local function makeCounter()
+    local count = 1
+    local function bump()
+        count = 2
+        return 3
+    end
+    local before = count
+    return bump(), before
+end
+return makeCounter</div>
+            <pre class="reveal">return function()
+    local v = 1
+<span class="ok">    local v2 = v</span>
+    return (function()
+        v = 2
+        return 3
+<span class="ok">    end)(), v2</span>
+end</pre>
+            <div class="verdict yes reveal"><span class="tag">Same</span><span><b>Returns 3, 1</b> for <code>makeCounter()()</code>. Like the original: the value is saved before the call.</span></div>
+          </div>
+        </div>
+      </div>
+      </div>
+      <div class="compare-panel" role="tabpanel" hidden>
+      <div class="compare-cols">
+        <div class="compare-col then">
+          <h4>Tovek V2</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>return function(amount, reset)
+    local total = amount
+    local read = function()
+        return total
+    end
+    if reset then
+        total = false
+        if total then
+            return &quot;unreachable&quot;
+        end
+    end
+    return total, read()
+end</div>
+            <pre class="reveal">return function(p, p2)
+    local v = p
+
+    local function fn()
+        return v
+    end
+
+<span class="bad">    v = p2 and false</span>
+
+    if v then
+        return &quot;unreachable&quot;
+    else
+        return v, fn()
+    end
+end</pre>
+            <div class="verdict no reveal"><span class="tag">Differs</span><span><b>Returns false, false</b> for <code>f(1, false)</code>. The original returns 1, 1. V2 writes to the captured variable even when <code>reset</code> is false.</span></div>
+          </div>
+        </div>
+        <div class="compare-col now">
+          <h4><i aria-hidden="true"></i>Tovek V2.1</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>return function(amount, reset)
+    local total = amount
+    local read = function()
+        return total
+    end
+    if reset then
+        total = false
+        if total then
+            return &quot;unreachable&quot;
+        end
+    end
+    return total, read()
+end</div>
+            <pre class="reveal">return function(p, p2)
+    local v = p
+
+    local function fn()
+        return v
+    end
+
+<span class="ok">    if not p2 then</span>
+<span class="ok">        return v, fn()</span>
+<span class="ok">    end</span>
+<span class="ok"></span>
+<span class="ok">    v = false</span>
+    return v, fn()
+end</pre>
+            <div class="verdict yes reveal"><span class="tag">Same</span><span><b>Returns 1, 1</b> for <code>f(1, false)</code>. Like the original: the write only happens inside the branch.</span></div>
+          </div>
+        </div>
+      </div>
+      </div>
+      <div class="compare-panel" role="tabpanel" hidden>
+      <div class="compare-cols">
+        <div class="compare-col then">
+          <h4>Tovek V2</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>return function(flag)
+    if -(flag and 3) then
+        return 7
+    else
+        return 8
+    end
+end</div>
+            <pre class="reveal">return function(p)
+<span class="bad">    return -p and 7 or 8</span>
+end</pre>
+            <div class="verdict no reveal"><span class="tag">Differs</span><span><b>Throws an error</b> for <code>f(true)</code>. Attempt to perform arithmetic (unm) on boolean. The original returns 7.</span></div>
+          </div>
+        </div>
+        <div class="compare-col now">
+          <h4><i aria-hidden="true"></i>Tovek V2.1</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>return function(flag)
+    if -(flag and 3) then
+        return 7
+    else
+        return 8
+    end
+end</div>
+            <pre class="reveal">return function(p)
+<span class="ok">    return -(p and 3) and 7 or 8</span>
+end</pre>
+            <div class="verdict yes reveal"><span class="tag">Same</span><span><b>Returns 7</b> for <code>f(true)</code>. Like the original: the minus applies to <code>(p and 3)</code>, not to <code>p</code>.</span></div>
+          </div>
+        </div>
+      </div>
+      </div>
+      <div class="compare-panel" role="tabpanel" hidden>
+      <div class="compare-cols">
+        <div class="compare-col then">
+          <h4>Tovek V2</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>Vector3 = { new = function(x, y, z) print(&quot;new&quot;, x, y, z) return 7 end, zero = 99 }
+print(Vector3.new(0, 0, 0))</div>
+            <pre class="reveal">Vector3 = {
+    new = function(p, p2, p3)
+        print(&quot;new&quot;, p, p2, p3)
+        return 7
+    end,
+    zero = 99
+}
+<span class="bad">print(Vector3.zero)</span></pre>
+            <div class="verdict no reveal"><span class="tag">Differs</span><span><b>Prints 99</b> for <code>run the script</code>. The script’s own <code>Vector3.new</code> is never called; V2 replaced it with <code>Vector3.zero</code>.</span></div>
+          </div>
+        </div>
+        <div class="compare-col now">
+          <h4><i aria-hidden="true"></i>Tovek V2.1</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>Vector3 = { new = function(x, y, z) print(&quot;new&quot;, x, y, z) return 7 end, zero = 99 }
+print(Vector3.new(0, 0, 0))</div>
+            <pre class="reveal">Vector3 = {
+    new = function(p, p2, p3)
+        print(&quot;new&quot;, p, p2, p3)
+        return 7
+    end,
+    zero = 99
+}
+<span class="ok">print(Vector3.new(0, 0, 0))</span></pre>
+            <div class="verdict yes reveal"><span class="tag">Same</span><span><b>Prints new 0 0 0, then 7</b> for <code>run the script</code>. Like the original: the call stays a call.</span></div>
+          </div>
+        </div>
+      </div>
+      </div>
+      <div class="compare-panel" role="tabpanel" hidden>
+      <div class="compare-cols">
+        <div class="compare-col then">
+          <h4>Tovek V2</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>local n = 5
+print((&quot;x%*y&quot;):format(n):sub(1, 1))</div>
+            <pre class="reveal"><span class="bad">print(`x{5}y`:sub(1, 1))</span></pre>
+            <div class="verdict no reveal"><span class="tag">Differs</span><span><b>Doesn’t compile</b> for <code>run the script</code>. Luau stops with <code>Expected ')' … got ':'</code>: a method call can’t follow a template string without parentheses.</span></div>
+          </div>
+        </div>
+        <div class="compare-col now">
+          <h4><i aria-hidden="true"></i>Tovek V2.1</h4>
+          <div class="pane">
+            <div class="bubble"><b>Original Luau</b>local n = 5
+print((&quot;x%*y&quot;):format(n):sub(1, 1))</div>
+            <pre class="reveal"><span class="ok">print((`x{5}y`):sub(1, 1))</span></pre>
+            <div class="verdict yes reveal"><span class="tag">Same</span><span><b>Prints x</b> for <code>run the script</code>. Like the original, and it compiles.</span></div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="read">
+      <p style="margin-top:40px">Being exact has a small cost in brevity. Where a friendlier spelling could change behaviour, V2.1 now writes what the bytecode actually does. A vector constant is built with <code>vector.create</code> rather than <code>Vector3.new</code>, and <code>math.pi</code> appears as <code>3.141592653589793</code>, because a script can replace <code>Vector3</code> or <code>math</code>, and V2’s guesses would then be wrong. Across the test game, 1,741 of 3,978 files change and total output grows by 2.2%. The friendlier spellings will return wherever we can prove they are safe.</p>
+    </div>
+
+    <h2 class="post-heading" id="trust">Built to be trusted</h2>
+    <h3 class="post-section">Hostile input</h3>
+    <div class="read">
+      <p>Every bytecode file now passes a validator before analysis. It checks each operand against the function it belongs to and names the exact prototype and instruction when something is out of range. Sizes and counts that would overflow are rejected rather than wrapped around, and an internal error that does slip through is caught and reported as a message. In batch and server mode the remaining scripts carry on.</p>
+    </div>
+    <h3 class="post-section">The local server</h3>
+    <div class="read">
+      <p>The HTTP server shares four decompilation slots across all of its routes and reserves one before reading an upload. When all four are busy, it answers straight away with <code>503 decompile capacity exhausted</code> instead of buffering a large upload it can’t process yet. An admitted upload has 30 seconds to arrive in full; a client that trickles bytes gets <code>408</code>. You can change the limit with <code>TOVEK_UPLOAD_TIMEOUT_SECS</code>. Identical scripts inside one batch are decompiled once.</p>
+      <p>One thing to know if you script against the server: the bundled executor scripts treat a <code>503</code> as a failed decompile. If you send more than four requests at once, retry the ones that come back busy.</p>
+    </div>
+    <h3 class="post-section">Same output, every time</h3>
+    <div class="read">
+      <p>V2.1 writes byte-identical output whether it runs on one thread or twenty-four, and every speed-up in this release was checked to leave the output of all 3,978 scripts in the test game unchanged. Tovek runs entirely on your machine with deterministic rules: no network access, no AI models, nothing that changes from one run to the next.</p>
+    </div>
+    <h3 class="post-section">Checked before release</h3>
+    <div class="read">
+      <p>V2.1 passes more than 1,200 workspace tests, all 252 runtime profiles at bytecode v9, v12 and v14, all 513 public source profiles at v12 and v14, and the full deep-review suite. These checks cover the programs we tested; they don’t prove equivalence for every possible script, and we have not run a complete game inside Roblox. Bytecode also can’t bring back comments, or names that were stripped before it was saved.</p>
+    </div>
+
+    <h2 class="post-heading" id="whats-next">What’s next</h2>
+    <div class="read">
+      <p>V2.1 is a foundation. The next major updates will follow in the coming weeks, and they are much bigger:</p>
+    </div>
+    <div class="next" data-in>
+      <ol>
+        <li><span class="when">Coming weeks</span><div><h4>Cleaner code</h4><p>Tighter output wherever Tovek still writes more than the original author did: fewer temporaries, if-expressions where they read better, and the friendly spellings back wherever they are provably safe.</p></div></li>
+        <li><span class="when">Coming weeks</span><div><h4>Names that travel</h4><p>Names learned in one function or module carried into the code that uses it, so far fewer values are left anonymous.</p></div></li>
+        <li><span class="when">Coming weeks</span><div><h4>Faster again</h4><p>Another round of performance work, aimed squarely at the largest scripts.</p></div></li>
+        <li><span class="when">Next</span><div><h4>V3: whole projects</h4><p>Decompiling a game as one project rather than a pile of separate scripts, following requires across modules and checking the result against real Roblox behaviour.</p></div></li>
+      </ol>
+    </div>
+
+    <h2 class="post-heading" id="availability">Availability</h2>
+    <div class="read">
+      <p>Tovek V2.1 is available now for Windows and Linux from <a href="https://github.com/Kiet1308/Tovek/releases/tag/v2.1">GitHub Releases</a>. Each download includes the command-line decompiler, the local HTTP server and the executor client scripts. To check your copy, run <span class="chip">luau-lifter --version</span>, which prints <span class="chip">luau-lifter V2.1</span>.</p>
+    </div>
+    <div class="downloads" data-in>
+      <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.1/Tovek-V2.1-windows-x86_64.zip"><span><strong>Windows</strong><span>x86_64 · ZIP</span></span><span class="arrow" aria-hidden="true">↓</span></a>
+      <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.1/Tovek-V2.1-linux-x86_64.tar.gz"><span><strong>Linux</strong><span>x86_64 · glibc 2.35+ · tar.gz</span></span><span class="arrow" aria-hidden="true">↓</span></a>
+    </div>
+    <div class="shell" data-in>
+      <div class="shell-bar"><span>Build from source</span><button type="button" data-copy="build-cmd">Copy</button></div>
+<pre id="build-cmd">git clone --branch v2.1 https://github.com/Kiet1308/Tovek.git
+cd Tovek
+<span class="cm"># rust-toolchain.toml selects nightly-2026-06-15</span>
+cargo build --release --locked -p luau-lifter -p web-server</pre>
+    </div>
+    <div class="read">
+      <p style="margin-top:26px">Tovek is free and open source under the MIT licence, and builds on the medal project. Bug reports and questions are welcome on <a href="https://github.com/Kiet1308/Tovek/issues">GitHub</a> and <a href="https://discord.gg/phY6VUDSF7">Discord</a>.</p>
+    </div>
+  </article>
+
+  <div class="weave-wrap" aria-hidden="true"><canvas class="weave"></canvas></div>
+</main>
+
+<footer class="footer">
+  <div class="footer-grid">
+    <div><a class="mark" href="../../index.html" aria-label="Tovek home"><svg viewBox="0 0 28 30" aria-hidden="true"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg></a></div>
+    <div><h3>Tovek</h3><ul><li><a href="../../index.html">Overview</a></li><li><a href="../../changelog.html">Changelog</a></li><li><a href="https://github.com/Kiet1308/Tovek/releases/latest">Download</a></li><li><a href="https://github.com/Kiet1308/Tovek/blob/main/README.md#usage">Usage guide</a></li></ul></div>
+    <div><h3>Releases</h3><ul><li><a href="./">Tovek V2.1</a></li><li><a href="../v2/">Tovek V2</a></li><li><a href="https://github.com/Kiet1308/Tovek/releases">All releases</a></li></ul></div>
+    <div><h3>Community</h3><ul><li><a href="https://github.com/Kiet1308/Tovek">GitHub</a></li><li><a href="https://discord.gg/phY6VUDSF7">Discord</a></li><li><a href="https://github.com/Kiet1308/Tovek/issues">Report an issue</a></li></ul></div>
+  </div>
+  <div class="footer-bottom">
+    <span>Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>. In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality).</span>
+    <span>© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a></span>
+  </div>
+</footer>
+
+<span id="live" class="sr-only" role="status" aria-live="polite"></span>
+<script type="application/json" id="v21-data">{"charts":{"throughput":{"x":{"scale":"log","min":0.85,"max":29,"ticks":[1,2,4,8,16,24],"title":"Worker threads (log scale)"},"y":{"scale":"linear","min":0,"max":4500,"ticks":[0,1000,2000,3000,4000],"title":"Scripts per second"},"series":[{"name":"Tovek v0.9 beta","color":"#d1cfc5","labelNarrow":false,"points":[{"x":1,"y":284,"tip":"284 scripts/s at 1 threads"},{"x":2,"y":411,"tip":"411 scripts/s at 2 threads"},{"x":4,"y":951,"tip":"951 scripts/s at 4 threads"},{"x":8,"y":1756,"tip":"1,756 scripts/s at 8 threads"},{"x":16,"y":2507,"tip":"2,507 scripts/s at 16 threads"},{"x":24,"y":3190,"tip":"3,190 scripts/s at 24 threads"}]},{"name":"Tovek V2","color":"#73726c","points":[{"x":1,"y":198,"tip":"198 scripts/s at 1 threads"},{"x":2,"y":290,"tip":"290 scripts/s at 2 threads"},{"x":4,"y":667,"tip":"667 scripts/s at 4 threads"},{"x":8,"y":1355,"tip":"1,355 scripts/s at 8 threads"},{"x":16,"y":2048,"tip":"2,048 scripts/s at 16 threads"},{"x":24,"y":2503,"tip":"2,503 scripts/s at 24 threads"}]},{"name":"Tovek V2.1","color":"#eb6834","points":[{"x":1,"y":346,"label":"1t","tip":"346 scripts/s at 1 threads"},{"x":2,"y":551,"tip":"551 scripts/s at 2 threads"},{"x":4,"y":1383,"label":"4t","tip":"1,383 scripts/s at 4 threads"},{"x":8,"y":2380,"tip":"2,380 scripts/s at 8 threads"},{"x":16,"y":3515,"label":"16t","tip":"3,515 scripts/s at 16 threads"},{"x":24,"y":4248,"label":"24t","tip":"4,248 scripts/s at 24 threads"}]}]},"server":{"x":{"scale":"log","min":0.3,"max":130,"ticks":[0.5,1,2,5,10,20,50,100],"title":"Bytecode size (KB, log scale)"},"y":{"scale":"log","min":1,"max":300,"ticks":[1,2,5,10,20,50,100,200],"title":"Round trip (ms, log scale)"},"series":[{"name":"Tovek V2","color":"#73726c","points":[{"x":0.48,"y":1.74,"tip":"1.7 ms, tiny scripts"},{"x":1.95,"y":3.25,"tip":"3.2 ms, small scripts"},{"x":6.61,"y":8.49,"tip":"8.5 ms, medium scripts"},{"x":33.36,"y":37.45,"tip":"37.5 ms, large scripts"},{"x":81.01,"y":112.54,"tip":"112.5 ms, huge scripts"}]},{"name":"Tovek V2.1","color":"#eb6834","points":[{"x":0.48,"y":1.5,"label":"tiny","tip":"1.5 ms, tiny scripts"},{"x":1.95,"y":2.44,"label":"small","tip":"2.4 ms, small scripts"},{"x":6.61,"y":5.46,"label":"medium","tip":"5.5 ms, medium scripts"},{"x":33.36,"y":19.84,"label":"large","tip":"19.8 ms, large scripts"},{"x":81.01,"y":75.92,"label":"huge","tip":"75.9 ms, huge scripts"}]}]},"memory":{"x":{"scale":"log","min":0.85,"max":29,"ticks":[1,2,4,8,16,24],"title":"Worker threads (log scale)"},"y":{"scale":"linear","min":0,"max":175,"ticks":[0,25,50,75,100,125,150,175],"title":"Peak memory (MB)"},"series":[{"name":"Tovek V2","color":"#73726c","points":[{"x":1,"y":32,"tip":"32 MB at 1 threads"},{"x":2,"y":47,"tip":"47 MB at 2 threads"},{"x":4,"y":56,"tip":"56 MB at 4 threads"},{"x":8,"y":89,"tip":"89 MB at 8 threads"},{"x":16,"y":122,"tip":"122 MB at 16 threads"},{"x":24,"y":155,"tip":"155 MB at 24 threads"}]},{"name":"Tovek V2.1","color":"#eb6834","points":[{"x":1,"y":31,"label":"31 MB","dy":24,"tip":"31 MB at 1 threads"},{"x":2,"y":37,"dy":24,"tip":"37 MB at 2 threads"},{"x":4,"y":52,"dy":24,"tip":"52 MB at 4 threads"},{"x":8,"y":69,"label":"69 MB","dy":24,"tip":"69 MB at 8 threads"},{"x":16,"y":103,"dy":24,"tip":"103 MB at 16 threads"},{"x":24,"y":125,"label":"125 MB","dy":24,"tip":"125 MB at 24 threads"}]}]}}}</script>
+</body>
+</html>

@@ -436,6 +436,11 @@ pre code {
   justify-content: center;
   gap: 20px;
 }
+.article-meta a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+.article-meta a:hover { color: #fff; }
 .article-intro h2 {
   font-size: clamp(36px, 3.9vw, 56px);
   font-weight: 500;

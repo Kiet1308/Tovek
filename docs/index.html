@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,400..800;1,62..125,400..800&family=Instrument+Sans:ital,wdth,wght@0,75..100,400..700;1,75..100,400..700&family=Martian+Mono:wdth,wght@75..112.5,400..600&display=swap">
-  <link rel="stylesheet" href="assets/overview.css?v=1">
+  <link rel="stylesheet" href="assets/overview.css?v=2">
   <link rel="prefetch" href="changelog.html">
   <script>document.documentElement.classList.add('js')</script>
   <script src="assets/overview.js?v=1" defer></script>
@@ -35,7 +35,7 @@
   </nav>
   <div class="top-actions">
     <a class="link-quiet" href="https://github.com/Kiet1308/Tovek">GitHub ↗</a>
-    <a class="btn" href="https://github.com/Kiet1308/Tovek/releases/latest"><span class="pip" aria-hidden="true"></span><span>Download<span class="lbl-long"> V2</span></span></a>
+    <a class="btn" href="https://github.com/Kiet1308/Tovek/releases/latest"><span class="pip" aria-hidden="true"></span><span>Download<span class="lbl-long"> V2.1</span></span></a>
   </div>
 </header>
 
@@ -47,7 +47,7 @@
 
     <div class="ht" id="ht">
       <div class="ht-top">
-        <p class="ht-eyebrow"><span>Tovek V2</span><span class="rule"></span><span>Luau decompiler for Roblox</span></p>
+        <p class="ht-eyebrow"><span>Tovek V2.1</span><span class="rule"></span><span>Luau decompiler for Roblox</span></p>
         <p class="ht-file"><span class="f-paper">Sprint.client.luau · 1,557 bytes · Luau -O2</span><span class="f-film">Decompiled by Tovek V2 · 41 lines</span></p>
       </div>
       <h1 id="hero-title"><span class="l"><span>See through</span></span><span class="l"><span><em>bytecode.</em></span></span></h1>
@@ -175,12 +175,12 @@ return Timer</pre>
     <div class="hc" id="hc">
       <p class="hc-lede"><strong>Tovek turns compiled Luau back into source a person can read</strong> — inlined helpers put back, names recovered from evidence, loops rebuilt — without guessing at what the program does.</p>
       <dl class="spec">
-        <div><dt>Reads</dt><dd>Luau bytecode · Roblox v12 ready</dd></div>
+        <div><dt>Reads</dt><dd>Luau bytecode v4–v14 · Roblox v12</dd></div>
         <div><dt>Writes</dt><dd>Readable, recompilable Luau</dd></div>
         <div><dt>Runs</dt><dd>Locally · deterministic · MIT</dd></div>
       </dl>
       <div class="hc-cta">
-        <a class="btn" href="https://github.com/Kiet1308/Tovek/releases/latest"><span class="pip" aria-hidden="true"></span>Download V2</a>
+        <a class="btn" href="https://github.com/Kiet1308/Tovek/releases/latest"><span class="pip" aria-hidden="true"></span>Download V2.1</a>
         <a class="btn btn--ghost" href="https://github.com/Kiet1308/Tovek">Source <span class="arr" aria-hidden="true">↗</span></a>
       </div>
       <button class="xray-toggle" id="xray-toggle" type="button" aria-pressed="false"><i aria-hidden="true"></i>X-ray the whole file</button>
@@ -190,18 +190,18 @@ return Timer</pre>
   <div class="ribbon" aria-label="Release highlights">
     <div class="ribbon-track">
       <div class="ribbon-set">
-        <span><em>246 / 246</em> runtime profiles pass</span>
-        <span><em>513 / 513</em> public profiles recompile</span>
-        <span>Roblox bytecode <em>v12</em> · CALLFB</span>
-        <span><em>−31.9%</em> anonymous names vs v0.9</span>
+        <span><em>1.75×</em> faster than V2 on one thread</span>
+        <span><em>252 / 252</em> runtime profiles at v9, v12, v14</span>
+        <span>Luau bytecode <em>v14</em> · Roblox v12</span>
+        <span><em>0</em> aborts on 1,500 damaged files</span>
         <span>Byte-identical output at any thread count</span>
         <span>No AI · no network · <em>MIT</em></span>
       </div>
       <div class="ribbon-set" aria-hidden="true">
-        <span><em>246 / 246</em> runtime profiles pass</span>
-        <span><em>513 / 513</em> public profiles recompile</span>
-        <span>Roblox bytecode <em>v12</em> · CALLFB</span>
-        <span><em>−31.9%</em> anonymous names vs v0.9</span>
+        <span><em>1.75×</em> faster than V2 on one thread</span>
+        <span><em>252 / 252</em> runtime profiles at v9, v12, v14</span>
+        <span>Luau bytecode <em>v14</em> · Roblox v12</span>
+        <span><em>0</em> aborts on 1,500 damaged files</span>
         <span>Byte-identical output at any thread count</span>
         <span>No AI · no network · <em>MIT</em></span>
       </div>
@@ -614,9 +614,9 @@ end</pre>
         </article>
         <article class="card" data-reveal style="--d:100">
           <span class="kick">Formats</span>
-          <p class="big-v">v12<small>ready</small></p>
-          <p>Reads Roblox bytecode v12 natively — size-delimited prototypes, 64-bit cost metadata, call feedback.</p>
-          <ul class="tags"><li>CALLFB</li><li>246/246 v12 profiles</li><li>wasm32 reader</li></ul>
+          <p class="big-v">v14<small>ready</small></p>
+          <p>Reads Luau bytecode up to v14, including Roblox v12’s cost metadata and call feedback, and puts v14’s fast <code>pcall</code> back the way it was written.</p>
+          <ul class="tags"><li>FASTPCALL</li><li>CALLFB</li><li>252/252 profiles per version</li></ul>
         </article>
         <article class="card" data-reveal style="--d:200">
           <span class="kick">Dependencies</span>
@@ -649,37 +649,37 @@ local RunService = game:GetService("RunService")</pre>
   <section class="chapter on-dark" id="proof" aria-labelledby="pr-title">
     <div class="wrap">
       <header class="ch-head">
-        <p class="ch-index" data-reveal><b>05</b><span>Evidence</span><span class="r"></span><span>V2 v0.1 vs v0.9 beta</span></p>
+        <p class="ch-index" data-reveal><b>05</b><span>Evidence</span><span class="r"></span><span>V2.1 vs V2</span></p>
         <h2 class="ch-title" id="pr-title" data-reveal style="--d:80">Measured, <em>not promised.</em></h2>
         <div class="ch-body" data-reveal style="--d:200">
-          <p>V2 is checked with Luau’s own parser, compiler and VM. Readability is counted on the same files for both versions.</p>
+          <p>Every release is checked with Luau’s own parser, compiler and VM, and timed against the one before it on the same 3,978-script game.</p>
         </div>
       </header>
       <div class="stats">
         <div class="stat" data-reveal>
-          <div class="num"><span data-count="246">246</span><small>/ 246</small></div>
-          <h3>Runtime profiles pass</h3>
-          <p>The expanded V2 suite executes decompiled output against the original. Of the 198 profiles shared with v0.9, beta passed 138.</p>
+          <div class="num"><span data-count="199">199</span><small>/ 199</small></div>
+          <h3>Deep-review checks pass</h3>
+          <p>Decompiled output runs beside the original in the Luau VM. V2 passed 80 of these behaviour checks; V2.1 passes every one.</p>
         </div>
         <div class="stat" data-reveal style="--d:120">
-          <div class="num"><span data-count="3978">3,978</span><small>/ 3,978</small></div>
-          <h3>Private files recompile</h3>
-          <p>Every file in the private corpus parses and recompiles; so do all 513 public parse/recompile profiles.</p>
+          <div class="num"><span data-count="252">252</span><small>/ 252</small></div>
+          <h3>Runtime profiles, v9 to v14</h3>
+          <p>The full runtime suite passes at bytecode v9, v12 and v14, and all 513 public source profiles recompile at v12 and v14.</p>
         </div>
         <div class="stat" data-reveal>
-          <div class="num"><span class="acc">−</span><span data-count="31.9" data-dec="1">31.9</span><small>%</small></div>
-          <h3>Fewer anonymous names</h3>
-          <p>Generated <code>p</code>/<code>v</code> bindings fell from 54,058 to 36,826 across the same 3,975 files.</p>
+          <div class="num"><span data-count="11.5" data-dec="1">11.5</span><small>s from 20.1</small></div>
+          <h3>A full game, one thread</h3>
+          <p>All 3,978 scripts decompile 1.75× faster than with V2, and in 0.94 seconds across 24 threads.</p>
         </div>
         <div class="stat" data-reveal style="--d:120">
-          <div class="num"><span data-count="98">98</span><small>from 382</small></div>
-          <h3>Lines over 180 characters</h3>
-          <p>Group-aware formatting breaks wide expressions without changing what they parse to.</p>
+          <div class="num"><span data-count="0">0</span><small>from 104</small></div>
+          <h3>Aborts on damaged files</h3>
+          <p>Across 1,500 damaged copies of real scripts, V2 aborted 104 times. V2.1 validates first and reports what is wrong.</p>
         </div>
       </div>
       <div class="proof-foot">
         <p class="note">These checks cover the tested inputs; they don’t prove equivalence for every program. Bytecode doesn’t uniquely determine source — stripped names, comments and erased types can’t be recovered with certainty.</p>
-        <a class="link-arrow" href="changelog.html#evaluation" data-iris>Full methodology <span aria-hidden="true">→</span></a>
+        <a class="link-arrow" href="changelog/v2.1/#performance" data-iris>Full methodology <span aria-hidden="true">→</span></a>
       </div>
     </div>
   </section>
@@ -690,14 +690,14 @@ local RunService = game:GetService("RunService")</pre>
       <div data-reveal>
         <p class="ch-index" style="margin-bottom:40px"><b>06</b><span>Get Tovek</span><span class="r"></span></p>
         <h2 class="get-title" id="get-title">Read what <em>shipped.</em></h2>
-        <p class="get-lede">Download the V2 release for Windows or Linux — CLI, local HTTP server and client scripts included — or build it from source with Rust.</p>
+        <p class="get-lede">Download Tovek V2.1 for Windows or Linux — CLI, local HTTP server and client scripts included — or build it from source with Rust.</p>
         <a class="link-arrow" href="https://github.com/Kiet1308/Tovek/blob/main/README.md#usage">Usage guide <span aria-hidden="true">↗</span></a>
       </div>
       <div class="get-cards">
         <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/latest" data-reveal>
           <span>
             <span class="kick">GitHub Releases</span>
-            <strong>Tovek V2 v0.1</strong>
+            <strong>Tovek V2.1</strong>
             <span class="os">Windows · Linux · MIT licensed</span>
           </span>
           <span class="go" aria-hidden="true">↓</span>
@@ -706,8 +706,8 @@ local RunService = game:GetService("RunService")</pre>
           <div class="panel-bar"><span class="k">Build from source</span><button class="copy" type="button" data-copy="build-cmd">Copy</button></div>
 <pre id="build-cmd">git clone --branch main https://github.com/Kiet1308/Tovek.git
 cd Tovek
-rustup toolchain install nightly-2024-12-15
-cargo +nightly-2024-12-15 build --release --locked -p luau-lifter -p web-server</pre>
+rustup toolchain install nightly-2026-06-15
+cargo +nightly-2026-06-15 build --release --locked -p luau-lifter -p web-server</pre>
         </div>
         <div class="shell" data-reveal style="--d:200">
           <div class="panel-bar"><span class="k">Run it</span><button class="copy" type="button" data-copy="run-cmd">Copy</button></div>
@@ -737,7 +737,7 @@ luau-lifter decompile-folder ./dump ./out</pre>
   <p class="foot-mark" aria-hidden="true">tovek<span>.</span></p>
   <div class="foot-bottom">
     <span>© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a></span>
-    <span>Tovek V2 v0.1 · September 2026</span>
+    <span>Tovek V2.1 · September 2026</span>
   </div>
 </footer>
 

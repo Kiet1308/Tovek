@@ -3,194 +3,139 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Introducing Tovek V2 — A new generation of decompilation</title>
-  <meta name="description" content="Explore Tovek V2: Roblox bytecode v12 support, faster decompilation, readable output, stronger semantics, UI reconstruction and reproducible evaluation.">
-  <meta name="theme-color" content="#020507">
-  <meta property="og:title" content="Introducing Tovek V2">
-  <meta property="og:description" content="Meet Tovek V2: Roblox bytecode v12 support, clearer Luau, faster decompilation and a ready-to-run release.">
-  <meta property="og:type" content="article">
+  <title>Tovek Changelog</title>
+  <meta name="description" content="Every Tovek release since V2, each with its own release notes: Tovek V2.1 and Tovek V2.">
+  <meta name="theme-color" content="#0e100d">
+  <meta property="og:title" content="Tovek Changelog">
+  <meta property="og:description" content="Release notes for every Tovek release since V2.">
+  <meta property="og:type" content="website">
   <meta property="og:url" content="https://kiet1308.github.io/Tovek/changelog.html">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="assets/inter-v2-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/changelog.css?v=1">
-  <script src="assets/changelog.js?v=1" defer></script>
+  <script>
+    // Old links such as changelog.html#evaluation pointed into the V2 notes, which now live on their own page.
+    (function () {
+      var v2 = ['introduction', 'bytecode-v12', 'readability', 'control-flow', 'ui-trees', 'reconstruction', 'provenance', 'workflow', 'evaluation', 'availability', 'sources'];
+      var h = location.hash.slice(1);
+      if (v2.indexOf(h) >= 0) location.replace('changelog/v2/#' + h);
+    })();
+    document.documentElement.classList.add('js');
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Instrument+Sans:wght@400..700&family=Martian+Mono:wdth,wght@75..112.5,400..600&family=Source+Serif+4:opsz,wght@8..60,400..600&display=swap">
+  <link rel="stylesheet" href="assets/releases.css?v=1">
+  <link rel="prefetch" href="changelog/v2.1/">
 </head>
-<body class="changelog">
-<a class="skip" href="#introduction">Skip to article</a>
-<div class="space-background" aria-hidden="true"></div>
-<header class="site-header">
-  <a class="brand" href="index.html" aria-label="Tovek home"><svg class="brand-mark" viewBox="0 0 28 30" aria-hidden="true"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg>tovek</a>
-  <nav class="primary-nav" aria-label="Main navigation"><a href="index.html">Overview</a><a href="changelog.html" aria-current="page">Changelog</a><a class="optional-nav" href="#availability">Download</a></nav>
-  <a class="header-link" href="#availability">Get Tovek V2 <span aria-hidden="true">↗</span></a>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="top" id="top">
+  <a class="brand" href="index.html" aria-label="Tovek overview">
+    <span class="brand-mark"><svg viewBox="0 0 28 30" aria-hidden="true"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg></span>
+    <span class="brand-name">tovek</span>
+  </a>
+  <nav class="tabs" aria-label="Pages">
+    <a class="tab" href="index.html">Overview</a>
+    <a class="tab" href="changelog.html" aria-current="page">Changelog</a>
+  </nav>
+  <div class="top-actions">
+    <a class="link-quiet" href="https://github.com/Kiet1308/Tovek">GitHub ↗</a>
+    <a class="btn" href="https://github.com/Kiet1308/Tovek/releases/latest"><span class="pip" aria-hidden="true"></span>Download V2.1</a>
+  </div>
 </header>
-<div class="reading-progress" aria-hidden="true"></div>
-<main>
-  <section class="cosmos-hero" aria-label="Introducing Tovek V2">
-    <div class="cosmos-fallback" aria-hidden="true">2</div>
-    <canvas id="cosmos" width="1440" height="850" tabindex="0" role="img" aria-label="Interactive star field forming the number 2. Drag or use the left and right arrow keys to rotate. Use the nearby pause button to stop motion."></canvas>
-    <h1><span>Tovek</span><span>V2</span><span class="sr-only">: A new generation of decompilation</span></h1>
-    <span class="cosmos-caption">A new perspective on compiled code</span>
-    <div class="cosmos-controls"><button type="button" id="cosmos-pause" aria-label="Pause star field" aria-pressed="false">Ⅱ</button><button type="button" id="cosmos-reset" aria-label="Reset star field rotation">↻</button></div>
+
+<main id="main">
+  <section class="intro" aria-labelledby="title">
+    <p class="eyebrow" data-reveal><span>Release notes</span><span class="r"></span><span>Since V2</span></p>
+    <h1 id="title" data-reveal style="--d:80">Change<em>log.</em></h1>
+    <p data-reveal style="--d:180">What’s new in each Tovek release, and how much faster, sturdier and clearer it got.</p>
   </section>
 
-  <article>
-    <header class="article-intro" id="introduction">
-      <div class="article-meta"><time datetime="2026-09-19">September 19, 2026</time><span>V2 v0.1 release</span><span>V0.9 → V2</span></div>
-      <h2>A new generation<br>of decompilation.</h2>
-      <p class="subtitle">Introducing Tovek V2. Clearer code, stronger foundations, and a closer connection to the program underneath.</p>
-      <a class="action" href="#availability">Explore Tovek V2 <span class="arrow" aria-hidden="true">↗</span></a>
-    </header>
-
-    <div class="article-body">
-      <p class="article-lead">Today, we’re introducing Tovek V2: a substantial rebuild of how Tovek reconstructs, explains, and checks decompiled Luau.</p>
-      <p>V2 supports Roblox bytecode v12, recovers more useful names and types, rebuilds loops and UI trees, and tracks the relationships between the input and the final output. Underneath those visible improvements is a stricter treatment of evaluation order, closure identity, and multiple returns.</p>
-      <p>The aim is simple: help you understand the program. That means making code clearer while retaining the details that affect what it does.</p>
-      <details class="contents"><summary>Inside this release <span>10 sections</span></summary><ol>
-        <li><a href="#bytecode-v12">Roblox bytecode v12</a></li>
-        <li><a href="#readability">Names and source bindings</a></li><li><a href="#control-flow">Control flow and semantics</a></li><li><a href="#ui-trees">Tables, modules and UI trees</a></li><li><a href="#reconstruction">Helpers and expressions</a></li><li><a href="#provenance">Traceable output</a></li><li><a href="#workflow">Local workflows and performance</a></li><li><a href="#evaluation">Evaluation and limitations</a></li><li><a href="#availability">Download and build</a></li><li><a href="#sources">Sources and methodology</a></li>
-      </ol></details>
-
-      <figure class="wide-figure" aria-labelledby="chart-title">
-        <div class="chart-tabs" role="tablist" aria-label="Evaluation metrics">
-          <button type="button" role="tab" id="metric-names" aria-selected="true" aria-controls="metric-panel" tabindex="0" data-metric="names">Anonymous bindings</button>
-          <button type="button" role="tab" id="metric-structure" aria-selected="false" aria-controls="metric-panel" tabindex="-1" data-metric="structure">Source structure</button>
-          <button type="button" role="tab" id="metric-runtime" aria-selected="false" aria-controls="metric-panel" tabindex="-1" data-metric="runtime">Runtime checks</button>
+  <section class="releases" aria-label="Releases">
+    <a class="release" href="changelog/v2.1/" data-reveal>
+      <div class="cover cover--v21" aria-hidden="true">
+        <div class="cover-inner">
+          <span class="strip-l"></span><span class="sky"></span><span class="strip-r"></span>
+          <div class="title"><small>September 28, 2026</small><span>Tovek V2.1</span></div>
         </div>
-        <div id="metric-panel" role="tabpanel" aria-labelledby="metric-names" tabindex="0">
-          <h3 class="figure-title" id="chart-title" style="margin:0 0 23px;font-size:15px">Anonymous bindings · lower is better</h3>
-          <div class="chart-legend"><span><i class="beta-dot" aria-hidden="true"></i>v0.9 beta</span><span><i aria-hidden="true"></i>Tovek V2</span></div>
-          <div class="chart-row"><div class="chart-row-label"><span>v0.9 beta</span><span id="chart-beta-value">54,058</span></div><div class="chart-bar-track" aria-hidden="true"><div class="chart-bar beta" id="chart-beta" style="--bar:90.0967%"></div></div></div>
-          <div class="chart-row"><div class="chart-row-label"><span>Tovek V2</span><span id="chart-v2-value">36,826</span></div><div class="chart-bar-track" aria-hidden="true"><div class="chart-bar" id="chart-v2" style="--bar:61.3767%"></div></div></div>
-          <div class="chart-scale" aria-hidden="true"><span>0</span><span id="chart-axis-mid">30,000</span><span id="chart-axis-max">60,000</span></div>
-          <p class="figure-note" id="chart-note">Bindings with generated p/v names fell 31.9% across the same 3,975 parseable private files. This measures fewer anonymous names, not recovery of the author’s original identifiers.</p>
-        </div>
-        <figcaption class="source-line"><a href="#evaluation">Evaluation details ↓</a><a href="https://github.com/Kiet1308/Tovek/actions/workflows/ci.yaml">Reproducible checks ↗</a></figcaption>
-      </figure>
-
-      <section id="bytecode-v12">
-        <h2>Ready for Roblox bytecode v12.</h2>
-        <p>Tovek V2 now decompiles Roblox’s v12 bytecode directly. The reader handles size-delimited prototypes, 64-bit cost metadata, and call feedback, including <code>CALLFB</code>. Wide cost values and prototype boundaries are verified on native builds and in the 32-bit WebAssembly reader.</p>
-        <p>Unlike v0.9 beta, V2 reads v12 bytecode directly. Validation passes 246/246 v12 runtime profiles, 9/9 controls, 27/27 structural cases, and 6/6 WebAssembly reader cases.</p>
-        <p>Runtime-mutated <code>CMPPROTO</code> guards remain unsupported: V2 reports their prototype and instruction location instead of emitting an inaccurate condition. Malformed or truncated v12 inputs are rejected. Bytecode v12 support is included in the V2 release.</p>
-      </section>
-
-      <section id="readability">
-        <h2>Code that tells you more.</h2>
-        <p>A useful name can turn an anonymous value into a recognizable role. V2 combines retained bytecode information with evidence from field access, argument positions, API usage, branches, and returned tuples. That lets an otherwise generic pair become <code>width, height</code>, a Fusion callback become <code>processor</code>, or a buffer-growth parameter become <code>size</code>.</p>
-        <p>Recorded debug names take priority. When the input contains type information, V2 can restore supported parameter annotations such as <code>number</code>, <code>string?</code>, <code>Vector3</code>, <code>buffer</code>, and named host types. Missing type spellings stay unknown. Inferred roles carry confidence and competing evidence, reducing misleading collection names and awkward forms such as <code>serializeds</code>.</p>
-        <p>V2 also preserves meaningful binding boundaries through SSA transformations. A result selected between parameters can retain its own local when it is both observed and returned. Recorded source intervals, captured storage, and stronger names remain protected. The change is deliberately selective: normalizing an optional argument does not automatically create another variable.</p>
-      </section>
-
-      <section id="control-flow">
-        <h2>A stronger foundation for every transformation.</h2>
-        <p>The control-flow engine now reconstructs source-like loops using explicit ownership, edge-transfer, iterator-protocol, and close-event checks. Shared continuations can be emitted once after a branch. Loop initialization stays in the right place, and captures retain the correct storage cell across iterations. The previous structurer has been removed.</p>
-        <p>Correctness fixes reach beyond loops. V2 protects global and field lookup order, the order of equality metamethod arguments, repeated index evaluation, nested assignment addresses, and reads of mutable captured values. It also preserves trailing nil values and the exact number of results from calls and varargs.</p>
-        <p>These details can be observable. Moving a field lookup across a call may change which value is read—or which error happens first. V2 retains a snapshot when a transformation cannot justify that move.</p>
-        <p class="inline-note">Across the 198 runtime profiles shared with beta, v0.9 passed 138 and diverged in 60. V2 passed all 198. The expanded V2 suite now passes 246 profiles.</p>
-        <p>Short terminal branches can now become direct returns or compact scalar guards when their values and evaluation order are exact. A call that originally contributed one result still contributes one result. Default output continues to favor clear statements over nested if-expressions.</p>
-      </section>
-
-      <div class="article-divider" aria-hidden="true"><span>{ }</span></div>
-
-      <section id="ui-trees">
-        <h2>From scattered assignments to coherent structures.</h2>
-        <p>Optimized Luau can spread a single UI tree across temporary factory handles, property writes, callbacks, and list-packing code. V2 brings eligible regions together into nested constructors, including curried factories and dynamic event keys.</p>
-        <p>The reconstruction follows the order of each observable operation. A table can absorb initialization before its first capture or observation; initialization that is already visible to another part of the program stays in place. Nil overwrites, dynamic keys, and multiple-return tails retain their behavior.</p>
-        <figure class="wide-figure code-figure">
-          <figcaption class="code-figure-title"><span>Import → export field</span><span>Illustrative excerpt</span></figcaption>
-          <pre><code><span class="syntax-comment">-- v0.9 beta</span>
-<span class="syntax-key">local</span> styledTextLabel = <span class="syntax-key">require</span>(components.StyledTextLabel)
-exports.StyledTextLabel = styledTextLabel
-
-<span class="syntax-comment">-- V2, when single-use and ordering checks pass</span>
-exports.StyledTextLabel = <span class="syntax-key">require</span>(components.StyledTextLabel)</code></pre>
-        </figure>
-        <p>The final corpus contains zero adjacent single-use require-to-field relays recognized by the scanner. The broader constructor pass groups related component exports inside their table. Named imports used as meaningful callees remain useful and are preserved.</p>
-      </section>
-
-      <section id="reconstruction">
-        <h2>Recover the shape. Respect the evidence.</h2>
-        <p>V2 extends de-inlining for bounded named arithmetic helpers and scalar regions. Candidate helpers survive long enough to be compared with the code that may have come from them. Each replacement checks the helper body, arguments, capture behavior, and result arity; a familiar API name is never a purity guarantee.</p>
-        <p>Completed numeric values enable narrow arithmetic cleanup, including results already produced by a length operation. Recursive callees installed in a proven stable pattern can lose redundant aliases. Where a snapshot still needs to remain, late naming can expose its purpose as <code>midpoint</code>, <code>midpointX</code>, or <code>halfSegCount</code>.</p>
-        <ul class="feature-list">
-          <li><strong>Helper placement:</strong> eligible single-use helpers can join a constructor that already mixes inline callbacks and named helpers. Uniform helper lists remain separate.</li>
-          <li><strong>Wide expressions:</strong> group-aware formatting reduces long lines without changing the parsed expression.</li>
-          <li><strong>Unused checks:</strong> discard cleanup removes only expressions whose effects are proven safe to discard.</li>
-          <li><strong>Optional synthesis:</strong> bounded arithmetic loop synthesis stays opt-in and is identified separately from recovered calls.</li>
+      </div>
+      <div class="body">
+        <p class="meta"><span class="badge">Latest</span><time datetime="2026-09-28">September 28, 2026</time></p>
+        <h2>Tovek V2.1</h2>
+        <h3>Faster on every workload we measured, sturdier against damaged files, and ready for bytecode v14.</h3>
+        <ul>
+          <li><span>Full game, one thread</span><b>11.5 s <small>from 20.1</small></b></li>
+          <li><span>Full game, 16 threads</span><b>1.13 s <small>from 1.94</small></b></li>
+          <li><span>Luau bytecode v14</span><b>Supported</b></li>
         </ul>
-        <p>These are targeted improvements. Geometry and prettyPrint still contain more intermediate steps than beta. The arithmetic fixes improve some expressions and names; they do not recover every original formula or function boundary.</p>
-      </section>
+        <div class="foot-row"><span class="style">Read the release notes</span><span class="go" aria-hidden="true">↗</span></div>
+      </div>
+    </a>
 
-      <section id="provenance">
-        <h2>Look behind the output.</h2>
-        <p>V0.9 introduced static upvalue sidecars. V2 expands that foundation into optional binding provenance, input-node and statement ancestry, conditional lineage, lexical declarations, and exact emitted identifier spans. Tools can follow an output token to its binding and the available input evidence.</p>
-        <p>Recorded facts, inferred roles, reconstructed calls, and synthesized elements are kept distinct. Unknown origins remain unknown. These diagnostics support inspection without presenting a guessed name or a convenient helper as proven original source.</p>
-        <p>Compact annotations are also optional. They shorten recognized comments while retaining the complete text in provenance sidecars. If metadata cannot retain the text, the formatter falls back to the full comment. Default output keeps full diagnostics.</p>
-        <p>An independent offline source registry can identify matched upstream source against pinned, licensed entries and exact execution images, followed by recompilation. This is explicitly labeled source lookup; it is not a claim that comments or stripped names were recovered from bytecode.</p>
-      </section>
+    <a class="release" href="changelog/v2/" data-reveal>
+      <div class="cover cover--v2" aria-hidden="true">
+        <div class="cover-inner"><div class="title"><span>Tovek</span><span>V2</span></div></div>
+      </div>
+      <div class="body">
+        <p class="meta"><span class="badge quiet">V2 v0.1</span><time datetime="2026-09-19">September 19, 2026</time></p>
+        <h2>Tovek V2</h2>
+        <h3>A new generation of decompilation: Roblox bytecode v12, clearer names, a rebuilt control-flow engine.</h3>
+        <ul>
+          <li><span>Runtime profiles</span><b>246 / 246</b></li>
+          <li><span>Anonymous names vs v0.9</span><b>−31.9%</b></li>
+          <li><span>Roblox bytecode v12</span><b>Supported</b></li>
+        </ul>
+        <div class="foot-row"><span class="style">Read the release notes</span><span class="go" aria-hidden="true">↗</span></div>
+      </div>
+    </a>
+  </section>
 
-      <section id="workflow">
-        <h2>A local tool, with room to inspect.</h2>
-        <p>The Rust CLI continues to handle single files and complete folders. V2 adds an optional bounded artifact cache that accounts for the executable, bytecode, options, and naming context. Path-specific metadata is regenerated, and cache integrity is checked before reuse.</p>
-        <p>V2 uses cached analysis facts and bounded rescans to reduce repeated work in large functions. Parallel processing handles functions and folders, while optional pass-level profiling helps locate expensive stages. These optimizations retain the checks that protect source bindings and evaluation order.</p>
-        <p>Core decompilation runs locally using deterministic rules. AI is disabled by default, and the current implementation does not load or download models or call AI services.</p>
-        <h3>Choosing a workflow</h3>
-        <p>Tovek provides source you can build and a local CLI you can inspect. <a href="https://lua.expert/docs">lua.expert’s documented interface</a> is a hosted API that accepts base64 bytecode and returns Luau text. This is a deployment distinction, not a quality ranking. We have not run a fresh, matched V2-versus-lua.expert evaluation for this release article.</p>
-      </section>
-
-      <div class="article-divider" aria-hidden="true"><span>↗</span></div>
-
-      <section id="evaluation">
-        <h2>Measured improvements, visible limitations.</h2>
-        <p>The comparison below uses the v0.9 beta release and Tovek V2 on the same inputs. It measures output readability, source structure and runtime behavior. Compiler, VM, source revisions, and input/output hashes are recorded in the acceptance reports.</p>
-        <div class="table-scroll" tabindex="0" role="region" aria-label="Evaluation comparison table">
-          <table><caption>v0.9 beta → Tovek V2</caption><thead><tr><th scope="col">Measurement</th><th scope="col">v0.9 beta</th><th scope="col">Tovek V2</th></tr></thead><tbody>
-            <tr><th scope="row">Private files parsing and recompiling</th><td>3,975 / 3,978</td><td>3,978 / 3,978</td></tr>
-            <tr><th scope="row">Generated p/v bindings¹</th><td>54,058</td><td>36,826</td></tr>
-            <tr><th scope="row">Lines over 180 characters</th><td>382</td><td>98</td></tr>
-            <tr><th scope="row">Private output lines</th><td>493,350</td><td>508,870</td></tr>
-            <tr><th scope="row">Public parse/recompile profiles</th><td>513 / 513</td><td>513 / 513</td></tr>
-            <tr><th scope="row">Mean raw structural ratio²</th><td>0.8265</td><td>0.8660</td></tr>
-            <tr><th scope="row">Mean normalized structural ratio²</th><td>0.8260</td><td>0.8648</td></tr>
-            <tr><th scope="row">Passing shared runtime profiles</th><td>138 / 198</td><td>198 / 198</td></tr>
-            <tr><th scope="row">Expanded V2 runtime suite</th><td>Not evaluated</td><td>246 / 246</td></tr>
-          </tbody></table>
-        </div>
-        <p class="figure-note">¹ Same 3,975 files parseable in both versions. ² Same 405 measured profiles; 108 profiles exceeded alignment budget and remain unknown.</p>
-        <p style="margin-top:28px">Of the 405 measured public profiles, raw structural similarity improves in 217, declines in 59, and is unchanged in 129. The normalized comparison records 215 improvements, 61 declines, and 129 unchanged. Better averages do not erase those regressions.</p>
-        <p>The 513 public profiles come from 171 source files at O0/O1/O2. Three optimization profiles are not three independent programs. Private coverage includes 3,936 nonempty inputs and 42 empty inputs; the private game was not executed as a complete Roblox experience.</p>
-        <p>Validation includes 1,054 primary workspace tests, one child-test repeat, and 135 Python tests. Parser, compiler, runtime, metadata, thread determinism, and output-quality checks answer different questions. Neither a successful recompile nor a structural ratio proves general semantic equivalence.</p>
-        <p class="inline-note">Bytecode does not uniquely determine the original source. Stripped names, comments, erased types, and many author choices cannot be recovered with certainty. V2 makes the remaining evidence more useful.</p>
-      </section>
-
-      <section id="availability">
-        <h2>Download Tovek V2.</h2>
-        <p>Get Tovek V2 v0.1 for Windows or Linux from GitHub Releases, or build from the <a href="https://github.com/Kiet1308/Tovek/tree/main">source on main</a>. The release includes bytecode v12 support, the updated reconstruction engine, and the latest performance improvements.</p>
-        <p><a class="action" href="https://github.com/Kiet1308/Tovek/releases/latest">Download Tovek V2 <span class="arrow" aria-hidden="true">↗</span></a></p>
-        <figure class="wide-figure code-figure"><figcaption class="code-figure-title"><span>Build from source</span><span>Rust · Windows / Linux</span></figcaption><pre><code id="build-command">git clone --branch main https://github.com/Kiet1308/Tovek.git
-cd Tovek
-rustup toolchain install nightly-2024-12-15
-cargo +nightly-2024-12-15 build --release --locked -p luau-lifter -p web-server</code></pre><button class="copy-button" type="button" data-copy="build-command">Copy commands</button></figure>
-        <p>Run <code>target/release/luau-lifter</code> (or <code>target\release\luau-lifter.exe</code> on Windows) with your bytecode file. For a folder, use <code>decompile-folder &lt;input&gt; &lt;output&gt;</code>. Folder mode defaults to Roblox’s encoding key 203; raw single-file mode uses unencoded bytecode unless specified.</p>
-        <p>Visit the <a href="https://github.com/Kiet1308/Tovek/blob/main/README.md#usage">usage guide</a> for encoded files, output extensions, analysis sidecars, cache options, and the local server. Tovek is MIT licensed and builds on the work of the medal project.</p>
-      </section>
-
-      <section id="sources">
-        <h2>Sources and methodology.</h2>
-        <p>This release overview describes V2’s behavior, compatibility, and measured improvements over v0.9 beta. Public fixtures and pinned tools make the regression checks reproducible. The private-corpus measurements above describe the tested sample; private inputs and internal reports remain local.</p>
-        <ol class="feature-list">
-          <li><a href="https://github.com/Kiet1308/Tovek/actions/workflows/ci.yaml">Continuous integration</a>: workspace tests, compiler/runtime checks, thread determinism, provenance and output-quality gates.</li>
-          <li><a href="https://github.com/Kiet1308/Tovek/blob/main/scripts/roadmap_v2.py">Runtime fixture runner</a> and <a href="https://github.com/Kiet1308/Tovek/blob/main/scripts/check_v12_wasm.py">WebAssembly reader checks</a>: executable v12 validation with the pinned Luau compiler.</li>
-          <li><a href="https://github.com/Kiet1308/Tovek/tree/main/docs/failure_fixtures">Owned regression fixtures</a> and <a href="source_corpus_v2.json">pinned public-source manifest</a>: reproducible inputs and provenance.</li>
-          <li><a href="https://lua.expert/docs">lua.expert API documentation</a>, checked September 19, 2026, for the hosted-interface description. No comparative quality or speed claim is derived from that page.</li>
-        </ol>
-      </section>
-
-      <div class="article-end"><h2>See what’s underneath.</h2><p>Download Tovek V2. Bring your bytecode. Get back to code.</p><a class="action" href="https://github.com/Kiet1308/Tovek/releases/latest">Download Tovek V2 <span class="arrow" aria-hidden="true">↗</span></a></div>
+  <section class="earlier" aria-labelledby="earlier-title">
+    <div data-reveal>
+      <h2 id="earlier-title">Before V2</h2>
+      <p>The beta series built the foundations: de-inlining, evidence-based naming and source-shaped control flow. Its notes live on GitHub Releases.</p>
     </div>
-  </article>
+    <ul class="beta" data-reveal style="--d:120">
+      <li><a href="https://github.com/Kiet1308/Tovek/releases/tag/v0.9.0-beta"><b>v0.9 beta</b><span>Deterministic static upvalue analysis</span><time datetime="2026-07-29">Jul 29</time></a></li>
+      <li><a href="https://github.com/Kiet1308/Tovek/releases/tag/v0.8"><b>v0.8</b><span>Control flow without goto, shared continuations</span><time datetime="2026-07-10">Jul 10</time></a></li>
+      <li><a href="https://github.com/Kiet1308/Tovek/releases/tag/v0.7.0"><b>v0.7</b><span>Rebuilt SSA and cleanup pipeline</span><time datetime="2026-07-10">Jul 10</time></a></li>
+      <li><a href="https://github.com/Kiet1308/Tovek/releases/tag/v0.6.0-beta"><b>v0.6 beta</b><span>Unique local names per file</span><time datetime="2026-06-23">Jun 23</time></a></li>
+      <li><a href="https://github.com/Kiet1308/Tovek/releases/tag/v0.5.2-beta"><b>v0.5 beta</b><span>Correctness audit and de-inline review</span><time datetime="2026-06-21">Jun 21</time></a></li>
+      <li><a href="https://github.com/Kiet1308/Tovek/releases/tag/v0.4.0-beta"><b>v0.4 beta</b><span>Bytecode v10 and v11</span><time datetime="2026-06-20">Jun 20</time></a></li>
+      <li><a href="https://github.com/Kiet1308/Tovek/releases?q=beta"><b>v0.1–0.3</b><span>First public betas</span><time datetime="2026-06-19">Jun 19</time></a></li>
+    </ul>
+  </section>
 </main>
-<footer class="site-footer"><div class="footer-top"><a class="brand" href="index.html">tovek</a><nav aria-label="Footer"><a href="index.html">Overview</a><a href="changelog.html">Changelog</a><a href="https://github.com/Kiet1308/Tovek">GitHub ↗</a><a href="https://discord.gg/phY6VUDSF7">Discord ↗</a></nav></div><div class="footer-credit"><p>Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>.<br>In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality).</p><p>© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a><br>Tovek V2 v0.1 · September 2026</p></div></footer>
-<span id="copy-status" class="sr-only" role="status" aria-live="polite"></span>
+
+<footer class="foot">
+  <div class="foot-top">
+    <p>Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>. In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality).</p>
+    <nav aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="changelog.html" aria-current="page">Changelog</a>
+      <a href="https://github.com/Kiet1308/Tovek">GitHub ↗</a>
+      <a href="https://github.com/Kiet1308/Tovek/releases/latest">Releases ↗</a>
+      <a href="https://discord.gg/phY6VUDSF7">Discord ↗</a>
+    </nav>
+  </div>
+  <div class="foot-bottom">
+    <span>© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a></span>
+    <span>Tovek V2.1 · September 2026</span>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var top = document.getElementById('top');
+    var onScroll = function () { top.classList.toggle('is-scrolled', scrollY > 8); };
+    addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -6% 0px' });
+    document.querySelectorAll('[data-reveal]').forEach(function (n) { io.observe(n); });
+  })();
+</script>
 </body>
 </html>
