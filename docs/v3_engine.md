@@ -110,6 +110,12 @@ oracle, compact) chạy ở mốc M0 và cuối mỗi mốc.
 | 2026-09-29 | Bộ đếm `prof` ns dùng chung mọi crate; `latbench` đo từng pha trong tiến trình (script mẫu và cả corpus) | `430c626`, `d1e0d36`, … | |
 | 2026-09-29 | M1: `ast::dense` (slot local tính từ id, không băm); đổi tên SSA dùng bảng dày | `c8f8be7` | Đổi tên SSA: 38→33 µs (p50), 230→210 µs (p90) |
 | 2026-09-29 | Gate `deinline` khi không có helper đủ điều kiện cấu trúc | `b7e7b9c` | p90: 67→13 µs |
+| 2026-09-29 | M2: dominator tức thời dạng mảng (Cooper–Harvey–Kennedy) thay `simple_fast`; test ngẫu nhiên so với petgraph | `3daaabe` | |
+| 2026-09-29 | M2: cây dominator + duyệt CFG dạng mảng trong out-of-SSA | `d81dde8` | |
+| 2026-09-29 | M2: đếm lượt đọc dạng mảng (`Usages`) trong SSA inliner | `eca6267` | |
+| 2026-09-29 | M1: duyệt con biểu thức bằng visitor, không cấp phát `Vec` mỗi nút (inventory ngân sách cây, capture safety, refine tên, synth helper, …) | `6661c9a` | corpus trong tiến trình 7,14→6,92 s |
+| 2026-09-29 | Một lượt duyệt cho bất biến cuối (goto/label + marker vòng lặp); visitor cho lượt đọc local ở link upvalue, deinline, phụ thuộc tham số | `542b57b` | 6,92→6,78 s |
+| 2026-09-29 | **Đo cuối (release fat LTO, corpus 3.978 file)** | `542b57b` | 1 luồng: v2.2 12,02 s → M0 9,62 s → **V3 8,07 s (1,49x)**; 24 luồng: 1,18 → 1,04 → **0,92 s (1,28x)**. Giống hệt từng byte với `corpus-m0` |
 
 ### Thí nghiệm đã loại
 
@@ -117,6 +123,10 @@ oracle, compact) chạy ở mốc M0 và cuối mỗi mốc.
 |---|---|---|
 | Arena bump theo từng lần decompile (giải phóng = no-op) | 3–7% | Rủi ro đối tượng thoát arena (thread-local, bộ đệm nội bộ rayon/std) lớn so với lợi ích |
 | Thay mọi bảng băm bằng mảng | ~10% ở pha đổi tên SSA | Băm không phải chi phí chính; giữ làm hạ tầng |
+| `get_mut` trước `entry(local.clone())` trong census (tránh tăng/giảm refcount atomic) | 0% trên corpus | Atomic của `RcLocal` không đáng kể |
+| Tập `stable_captured` của inline_temps chỉ giữ local bị capture | 0% | Chi phí nằm ở lượt duyệt, không ở insert |
+| Cờ "cả chunk không có goto" tính một lần cho inline_temps | lợi ~45 ms, tốn ~60 ms để tính | Chỉ có lời nếu bỏ luôn kiểm tra bất biến cuối, mà đó là lưới an toàn |
+| Bỏ lượt quét "không đổi" cuối của SSA inliner (~0,35 s) | không chứng minh được | Census mới mỗi lần gọi có thể mở cơ hội inline mới; bỏ qua sẽ đổi output |
 
 ### Bản đồ chi phí (corpus 3.350 script duy nhất, trong tiến trình, 1 luồng: 7,17 s)
 
@@ -129,3 +139,34 @@ mỗi vòng (~14–15% thời gian).
 Kết luận: chi phí nằm ở **lượng việc** của thuật toán (vòng lặp chạy lại, phân tích tính lại,
 duyệt cây nhiều lần), không ở cấu trúc dữ liệu. Hướng tiếp theo: bỏ việc lặp lại trong từng
 thuật toán mà giữ nguyên kết quả.
+
+### Đo thêm sau M2 (corpus trong tiến trình, 1 luồng: 6,78 s)
+
+- **Pass chunk chạy mà không đổi gì: ~1,2 s/7,1 s (17%)** (đo bằng dấu vân tay `Debug` của cây
+  trước/sau mỗi pass, `tools/fp_instrument.patch`). Lớn nhất: `inline_single_use_temps` (98% lượt
+  không đổi, ~216 ms), `normalize_conditions` (~126 ms), `cleanup_final` (~106 ms),
+  `rehoist_constants` (~101 ms), `branch_constructors`/`synthesize_terminal_helpers` (không bao giờ
+  đổi trên corpus, ~64/62 ms). Phần lớn chi phí là census toàn cây trước khi biết không có gì để
+  làm; muốn gác chính xác cần điều kiện cần rẻ riêng cho từng pass, và nhiều pass không có điều
+  kiện như vậy (ví dụ inline temp cần đếm lượt dùng mới biết).
+- Một lượt duyệt toàn cây tốn ~30 ms trên corpus (~6 ns/nút) — đã sát giới hạn của cây `Box` +
+  visitor. Phần chunk ≈ số lượt duyệt × 30 ms; ~50 pass × 2–3 lượt.
+- SSA inliner: lượt quét cuối không đổi ~0,35 s; block được quét lại mà không đổi chỉ ~0,12 s
+  (18%) — phần lớn là việc inline thật.
+
+## 8. Đánh giá
+
+Mục tiêu 10x **không đạt được** dưới ràng buộc output giống hệt từng byte. Hồ sơ chi phí phẳng:
+không pha nào quá ~12%, và mỗi pha đã là thuật toán hợp lý chạy trên một cây AST mà hàng chục pass
+lần lượt duyệt. Mọi thay đổi cấu trúc dữ liệu (băm → mảng, arena, allocator, khoá/atomic) chỉ cho
+vài phần trăm. Trần thực tế của hướng "viết lại chính xác từng pha" ước khoảng 2x so với v2.2;
+V3 hiện ở 1,49x (1 luồng) / 1,28x (24 luồng).
+
+Muốn vượt xa hơn cần một trong các hướng không còn giữ nguyên từng byte:
+
+1. **Hợp nhất pass**: gộp các pass chunk cùng loại (census + viết lại) thành ít lượt duyệt hơn.
+   Thứ tự áp dụng quy tắc thay đổi nên output có thể khác (cần gate chất lượng thay cho so byte).
+2. **IR mới cho phần chunk** (mảng phẳng thay cây `Box`/`Mutex`), viết lại toàn bộ ~50 pass.
+   Khối lượng rất lớn; lợi ích chủ yếu là hằng số duyệt.
+3. **Cache theo hàm/script** (đã để sau theo yêu cầu): script trùng lặp giữa các game (thư viện
+   bundle) có thể bỏ qua toàn bộ pipeline — đây là cách duy nhất cho hệ số lớn trên web server.
