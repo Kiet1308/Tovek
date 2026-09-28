@@ -61,13 +61,20 @@ jobs:
           toolchain: nightly-2026-06-15
           components: rust-src
           targets: wasm32-unknown-unknown
-      # worker-build 0.8.7 explicitly invokes cargo +nightly for build-std.
-      # Point that name at the pinned toolchain rather than the moving nightly,
-      # which has since removed features this workspace still uses.
+      # worker-build 0.8.7 explicitly invokes `cargo +nightly` for build-std.
+      # The moving nightly has removed features this workspace still uses, and
+      # rustup reserves the name `nightly`, so a small shim routes that request
+      # to the pinned toolchain.
       - run: |
-          rustup toolchain uninstall nightly 2>/dev/null || true
-          rustup toolchain link nightly "$(rustc +nightly-2026-06-15 --print sysroot)"
-          cargo +nightly --version
+          mkdir -p "$RUNNER_TEMP/cargo-shim"
+          cat > "$RUNNER_TEMP/cargo-shim/cargo" <<'SHIM'
+          #!/usr/bin/env bash
+          if [ "${1:-}" = "+nightly" ]; then shift; set -- +nightly-2026-06-15 "$@"; fi
+          exec "${CARGO_HOME:-$HOME/.cargo}/bin/cargo" "$@"
+          SHIM
+          chmod +x "$RUNNER_TEMP/cargo-shim/cargo"
+          echo "$RUNNER_TEMP/cargo-shim" >> "$GITHUB_PATH"
+          PATH="$RUNNER_TEMP/cargo-shim:$PATH" cargo +nightly --version
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-node@v4
         with:

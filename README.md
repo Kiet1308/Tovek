@@ -278,14 +278,22 @@ Prebuilt binaries are attached to each [release](https://github.com/Kiet1308/Tov
 ### Worker: build và cấu hình xác thực
 
 Worker cần `worker-build 0.8.7` và chế độ `--panic-unwind` để lỗi của một script
-không dừng cả batch. Phiên bản công cụ này gọi `cargo +nightly` khi build lại std,
-nên trỏ tên `nightly` tới toolchain đã ghim ở trên: kênh nightly mới nhất đã bỏ
-những feature workspace còn dùng. Nếu máy đã có kênh `nightly`, gỡ nó trước bằng
-`rustup toolchain uninstall nightly`.
+không dừng cả batch. Phiên bản công cụ này gọi `cargo +nightly` khi build lại
+std. Kênh nightly mới nhất đã bỏ những feature workspace còn dùng, và rustup không cho đặt tên
+`nightly` cho toolchain tự tạo, nên CI dùng một shim `cargo` nhỏ để chuyển
+`+nightly` sang toolchain đã ghim (job `worker` trong `.github/workflows/ci.yaml`).
+Khi build cục bộ trong shell POSIX, làm tương tự:
 
 ```sh
 rustup toolchain install nightly-2026-06-15 --component rust-src --target wasm32-unknown-unknown
-rustup toolchain link nightly "$(rustc +nightly-2026-06-15 --print sysroot)"
+mkdir -p ~/.cargo-shim
+cat > ~/.cargo-shim/cargo <<'SHIM'
+#!/usr/bin/env bash
+if [ "${1:-}" = "+nightly" ]; then shift; set -- +nightly-2026-06-15 "$@"; fi
+exec "${CARGO_HOME:-$HOME/.cargo}/bin/cargo" "$@"
+SHIM
+chmod +x ~/.cargo-shim/cargo
+export PATH="$HOME/.cargo-shim:$PATH"
 cargo install worker-build --version 0.8.7 --locked
 cd luau-worker
 worker-build --release --panic-unwind --no-opt
