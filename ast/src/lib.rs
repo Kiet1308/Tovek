@@ -49,6 +49,8 @@ pub mod deinline;
 pub mod reconstruction_search;
 mod deinline_safety;
 pub mod telemetry;
+#[doc(hidden)]
+pub mod prof;
 pub mod eliminate_nil;
 pub mod expr_deinline;
 pub mod expression_budget;

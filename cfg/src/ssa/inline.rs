@@ -1038,6 +1038,7 @@ pub fn inline_with_readonly_captures(
     readonly_capture_ids: &FxHashSet<u64>,
     incoming_upvalue_ids: Option<&FxHashSet<u64>>,
 ) {
+    let census_timer = ast::prof::Timer::new(&ast::prof::I_CENSUS);
     // Lookup-only census: size it for about one read per statement up front.
     let statements = function.blocks().map(|(_, block)| block.len()).sum::<usize>();
     let mut local_usages = FxHashMap::with_capacity_and_hasher(statements, Default::default());
@@ -1056,6 +1057,7 @@ pub fn inline_with_readonly_captures(
         }
     }
 
+    drop(census_timer);
     #[cfg(not(test))]
     let dirty_scheduling = !cfg!(feature = "reference-inline-sweeps");
     #[cfg(test)]
@@ -1065,6 +1067,7 @@ pub fn inline_with_readonly_captures(
     while changed {
         changed = false;
         schedule.begin_sweep();
+        let inline_timer = ast::prof::Timer::new(&ast::prof::I_INLINE);
         Inliner::new(
             function,
             local_to_group,
@@ -1074,6 +1077,8 @@ pub fn inline_with_readonly_captures(
             incoming_upvalue_ids,
         )
         .inline_rvalues(&mut schedule);
+        drop(inline_timer);
+        let dead_timer = ast::prof::Timer::new(&ast::prof::I_DEAD);
 
         // remove unused locals
         for node_index in 0..schedule.nodes.len() {
@@ -1150,6 +1155,8 @@ pub fn inline_with_readonly_captures(
             }
         }
 
+        drop(dead_timer);
+        let _tables_timer = ast::prof::Timer::new(&ast::prof::I_TABLES);
         for node_index in 0..schedule.nodes.len() {
             let node = schedule.nodes[node_index];
             let block = function.block_mut(node).unwrap();
