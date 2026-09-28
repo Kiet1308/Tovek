@@ -57,6 +57,25 @@ pub fn is_total_pure(value: &crate::RValue) -> bool {
         {
             is_total_pure(&binary.left) && is_total_pure(&binary.right)
         }
+        // Concatenating string/number literals and arithmetic on number
+        // literals never raise and reach no metamethod (division by zero
+        // yields inf/NaN). The compiler folds the arithmetic but never the
+        // concatenation, so `"slot" .. 1` survives as a movable value.
+        RValue::Binary(binary) => {
+            let text = |value: &RValue| matches!(value, RValue::Literal(crate::Literal::String(_) | crate::Literal::Number(_)));
+            let number = |value: &RValue| matches!(value, RValue::Literal(crate::Literal::Number(_)));
+            match binary.operation {
+                BinaryOperation::Concat => text(&binary.left) && text(&binary.right),
+                BinaryOperation::Add
+                | BinaryOperation::Sub
+                | BinaryOperation::Mul
+                | BinaryOperation::Div
+                | BinaryOperation::IDiv
+                | BinaryOperation::Mod
+                | BinaryOperation::Pow => number(&binary.left) && number(&binary.right),
+                _ => false,
+            }
+        }
         // A table constructor with a computed key can raise for nil/NaN even
         // though evaluating the key itself has no side effect. Only literal
         // keys known to be valid table keys are total; all computed keys are
