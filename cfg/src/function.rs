@@ -59,9 +59,18 @@ pub struct Function {
     pub local_capture_bindings: FxHashSet<RcLocal>,
     /// Optional diagnostic history, containing IDs rather than RcLocal owners.
     pub provenance: Option<Box<crate::provenance::FunctionTrace>>,
+    /// Ids minted while lifting this function (its register locals) and the
+    /// first id of the segment it mints versions from; see [`ast::dense`].
+    pub lifted_ids: std::ops::Range<u64>,
+    pub minted_ids: u64,
 }
 
 impl Function {
+    /// Dense slots for the locals of this function (see [`ast::dense`]).
+    pub fn local_index(&self) -> ast::dense::LocalIndex {
+        ast::dense::LocalIndex::new(self.lifted_ids.clone(), self.minted_ids)
+    }
+
     pub fn new(id: usize) -> Self {
         Self {
             id,
@@ -78,6 +87,8 @@ impl Function {
             iteration_capture_obligations: FxHashMap::default(),
             local_capture_bindings: FxHashSet::default(),
             provenance: None,
+            lifted_ids: 0..0,
+            minted_ids: 0,
         }
     }
 
@@ -112,6 +123,8 @@ impl Function {
             iteration_capture_obligations: self.iteration_capture_obligations.clone(),
             local_capture_bindings: self.local_capture_bindings.clone(),
             provenance: self.provenance.clone(),
+            lifted_ids: self.lifted_ids.clone(),
+            minted_ids: self.minted_ids,
         }
     }
 

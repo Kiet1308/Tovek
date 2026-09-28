@@ -25,6 +25,7 @@ type DfsOrder = IndexSet<NodeIndex>;
 /// registers never need a per-block hash table. Keep exactly one owned SSA
 /// handle per occupied block, and preserve ordinary HashMap insertion once a
 /// register reaches more than one block (including duplicate-insert growth).
+#[derive(Clone)]
 enum CurrentDefinitions {
     Empty,
     One(NodeIndex, RcLocal),
@@ -83,8 +84,12 @@ struct SsaConstructor<'a> {
     incomplete_params: FxHashMap<NodeIndex, FxHashMap<RcLocal, RcLocal>>,
     sealed_blocks: FxHashSet<NodeIndex>,
     // TODO: combine current/all/old into one map
-    current_definition: FxHashMap<RcLocal, CurrentDefinitions>,
-    all_definitions: FxHashMap<RcLocal, FxHashSet<RcLocal>>,
+    /// Dense slots for registers and the versions minted for them.
+    index: ast::dense::LocalIndex,
+    current_definition: ast::dense::LocalVec<CurrentDefinitions>,
+    /// Versions of each register, and whether a version is already recorded.
+    all_definitions: ast::dense::LocalVec<Vec<RcLocal>>,
+    recorded: ast::dense::LocalVec<bool>,
     old_locals: FxHashMap<RcLocal, RcLocal>,
     local_count: usize,
     local_map: FxHashMap<RcLocal, RcLocal>,
@@ -803,14 +808,14 @@ impl<'a> SsaConstructor<'a> {
 
     fn write_local(&mut self, node: NodeIndex, local: &RcLocal, new_local: &RcLocal) {
         self.definition_records += 1;
-        self.all_definitions
-            .entry(local.clone())
-            .or_default()
-            .insert(new_local.clone());
-        self.current_definition
-            .entry(local.clone())
-            .or_default()
-            .insert(node, new_local.clone());
+        let register = self.index.slot(local);
+        let version = self.index.slot(new_local);
+        let recorded = self.recorded.get_mut(version);
+        if !*recorded {
+            *recorded = true;
+            self.all_definitions.get_mut(register).push(new_local.clone());
+        }
+        self.current_definition.get_mut(register).insert(node, new_local.clone());
     }
 
     fn add_param_args(
@@ -920,10 +925,8 @@ impl<'a> SsaConstructor<'a> {
     }
 
     fn find_local(&mut self, node: NodeIndex, local: &RcLocal) -> RcLocal {
-        if let Some(new_local) = self
-            .current_definition
-            .get(local)
-            .and_then(|x| x.get(&node))
+        if let Some(slot) = self.index.find(local)
+            && let Some(new_local) = self.current_definition.get(slot).get(&node)
         {
             // This version was already recorded in both definition maps.
             // A read must not pay to reinsert it into both maps on every hit.
@@ -1211,7 +1214,7 @@ impl<'a> SsaConstructor<'a> {
         mut self,
     ) -> (
         usize,
-        Vec<FxHashSet<RcLocal>>,
+        Vec<Vec<RcLocal>>,
         Vec<(RcLocal, FxHashSet<RcLocal>)>,
         Vec<FxHashSet<RcLocal>>,
     ) {
@@ -1349,7 +1352,7 @@ impl<'a> SsaConstructor<'a> {
             let mut single_block = 0u64;
             let mut multiple_blocks = 0u64;
             let mut retained_versions = 0u64;
-            for definitions in self.current_definition.values() {
+            for definitions in self.current_definition.values().filter(|definitions| definitions.len() != 0) {
                 single_block += u64::from(matches!(definitions, CurrentDefinitions::One(_, _)));
                 multiple_blocks += u64::from(matches!(definitions, CurrentDefinitions::Many(_)));
                 retained_versions += definitions.len() as u64;
@@ -1362,7 +1365,7 @@ impl<'a> SsaConstructor<'a> {
             ast::telemetry::count("ssa_current_definition_peak_version_owners", retained_versions);
             // Slot payloads exclude control bytes/allocator rounding. These
             // counters expose the enum's cost as well as avoided inner tables.
-            let capacity = self.current_definition.capacity() as u64;
+            let capacity = self.current_definition.values().count() as u64;
             ast::telemetry::count("ssa_current_definition_outer_slot_bytes", capacity
                 * std::mem::size_of::<(RcLocal, CurrentDefinitions)>() as u64);
             ast::telemetry::count("ssa_current_definition_legacy_outer_slot_bytes", capacity
@@ -1413,7 +1416,7 @@ impl<'a> SsaConstructor<'a> {
 
         (
             self.local_count,
-            self.all_definitions.into_values().collect(),
+            self.all_definitions.values().filter(|group| !group.is_empty()).cloned().collect(),
             self.new_upvalues_in.into_iter().collect(),
             self.upvalues_passed
                 .into_values()
@@ -1428,7 +1431,7 @@ pub fn construct(
     upvalues_in: &Vec<RcLocal>,
 ) -> (
     usize,
-    Vec<FxHashSet<RcLocal>>,
+    Vec<Vec<RcLocal>>,
     Vec<(RcLocal, FxHashSet<RcLocal>)>,
     Vec<FxHashSet<RcLocal>>,
 ) {
@@ -1462,13 +1465,16 @@ pub fn construct(
     // Lookup-only tables (never iterated for output): size them for about
     // one definition per statement instead of growing through rehashes.
     let statements = function.blocks().map(|(_, block)| block.len()).sum::<usize>();
+    let index = function.local_index();
     SsaConstructor {
         function,
         dfs,
         incomplete_params: FxHashMap::with_capacity_and_hasher(node_count, Default::default()),
         sealed_blocks: FxHashSet::with_capacity_and_hasher(node_count, Default::default()),
-        current_definition: FxHashMap::with_capacity_and_hasher(statements, Default::default()),
-        all_definitions: FxHashMap::default(),
+        index,
+        current_definition: ast::dense::LocalVec::new(CurrentDefinitions::default()),
+        all_definitions: ast::dense::LocalVec::new(Vec::new()),
+        recorded: ast::dense::LocalVec::new(false),
         old_locals: FxHashMap::with_capacity_and_hasher(statements, Default::default()),
         local_count: 0,
         local_map: FxHashMap::default(),
@@ -1738,12 +1744,12 @@ mod tests {
     }
 
     type ConstructionGroups = (
-        usize, Vec<FxHashSet<RcLocal>>, Vec<(RcLocal, FxHashSet<RcLocal>)>, Vec<FxHashSet<RcLocal>>,
+        usize, Vec<Vec<RcLocal>>, Vec<(RcLocal, FxHashSet<RcLocal>)>, Vec<FxHashSet<RcLocal>>,
     );
 
     fn group_iteration(groups: &ConstructionGroups) -> (Vec<Vec<u64>>, Vec<(u64, Vec<u64>)>, Vec<Vec<u64>>) {
         let ids = |group: &FxHashSet<RcLocal>| group.iter().map(RcLocal::stable_id).collect();
-        (groups.1.iter().map(ids).collect(),
+        (groups.1.iter().map(|group| group.iter().map(RcLocal::stable_id).collect()).collect(),
             groups.2.iter().map(|(root, group)| (root.stable_id(), ids(group))).collect(),
             groups.3.iter().map(ids).collect())
     }

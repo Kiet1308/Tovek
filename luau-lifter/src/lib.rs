@@ -448,7 +448,8 @@ fn decompile_bytecode_internal(
                         &chunk.userdata_type_names,
                     )
                 };
-                let (function, upvalues, child_functions) = Lifter::lift(
+                let lifted_start = ast::current_local_id();
+                let (mut function, upvalues, child_functions) = Lifter::lift(
                     &chunk.functions,
                     &chunk.string_table,
                     chunk.version,
@@ -457,6 +458,7 @@ fn decompile_bytecode_internal(
                     &typed_locals,
                     emit_upvalue_analysis && options.emit_binding_provenance,
                 );
+                function.lifted_ids = lifted_start..ast::current_local_id();
                 lifted.push((ast_func, function, upvalues));
                 // The whole-program decompile order determines the monotonic
                 // local-id assignment and thus the generated local names, so it
@@ -1639,6 +1641,7 @@ fn decompile_function(
     Option<Box<cfg::provenance::FunctionTrace>>,
 ) {
     let function_identity = format!("p{}", function.id);
+    function.minted_ids = ast::current_local_id();
     let (local_count, local_groups, upvalue_in_groups, upvalue_passed_groups) = {
         ptime!(F_SSA_CONSTRUCT);
         cfg::ssa::construct(&mut function, &upvalues_in)
