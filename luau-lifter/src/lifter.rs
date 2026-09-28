@@ -888,7 +888,7 @@ impl<'a> Lifter<'a> {
                             aux as usize
                         };
                         let namecall_method = match self.constant(method_key) {
-                            ast::Literal::String(string) => String::from_utf8(string).unwrap(),
+                            ast::Literal::String(string) => string,
                             _ => unreachable!(),
                         };
                         assert!(matches!(
@@ -923,29 +923,56 @@ impl<'a> Lifter<'a> {
                                         .collect()
                                 };
 
-                                // TODO: make sure `a:method with space()` doesnt happen
-                                let call = ast::MethodCall::new(
-                                    namecall_object.into(),
-                                    namecall_method,
-                                    arguments,
-                                );
+                                // `object:name(...)` needs an identifier. Compilers only
+                                // emit NAMECALL for that syntax, but the VM accepts any
+                                // string key; call such a key through an index, passing
+                                // the object first exactly as NAMECALL does.
+                                let call: ast::Select = match std::str::from_utf8(&namecall_method) {
+                                    Ok(name) if ast::valid_source_name(name) => ast::MethodCall::new(
+                                        namecall_object.into(),
+                                        name.to_owned(),
+                                        arguments,
+                                    )
+                                    .into(),
+                                    _ => ast::Call::new(
+                                        ast::Index::new(
+                                            namecall_object.clone().into(),
+                                            ast::Literal::String(namecall_method).into(),
+                                        )
+                                        .into(),
+                                        std::iter::once(namecall_object.into())
+                                            .chain(arguments)
+                                            .collect(),
+                                    )
+                                    .into(),
+                                };
 
                                 if c != 0 {
                                     if c == 1 {
-                                        statements.push(call.into());
+                                        statements.push(match call {
+                                            ast::Select::Call(call) => call.into(),
+                                            ast::Select::MethodCall(call) => call.into(),
+                                            ast::Select::VarArg(_) => unreachable!(),
+                                        });
                                     } else {
                                         statements.push(
                                             ast::Assign::new(
                                                 (a..a + c - 1)
                                                     .map(|r| self.register(r as _).into())
                                                     .collect(),
-                                                vec![ast::RValue::Select(call.into())],
+                                                vec![ast::RValue::Select(call)],
                                             )
                                             .into(),
                                         );
                                     }
                                 } else {
-                                    top = Some((call.into(), a));
+                                    // An open result list keeps every value: the plain call.
+                                    let call = match call {
+                                        ast::Select::Call(call) => ast::RValue::Call(call),
+                                        ast::Select::MethodCall(call) => ast::RValue::MethodCall(call),
+                                        ast::Select::VarArg(_) => unreachable!(),
+                                    };
+                                    top = Some((call, a));
                                     set_pending = true;
                                 }
                             }

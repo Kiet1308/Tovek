@@ -30,6 +30,8 @@ pub(crate) fn validate(chunk: &Chunk) -> Result<(), String> {
         if function.num_parameters > function.max_stack_size {
             return Err(format!("prototype {id}: parameters exceed register stack"));
         }
+        // Branch destinations, for instruction groups that must not be entered midway.
+        let mut targets = vec![false; code.len()];
         for (pc, instruction) in code.iter().enumerate().filter(|(pc, _)| starts[*pc]) {
             let error = |what: &str| format!("prototype {id}, pc {pc}: invalid {what}");
             let reg = |index: usize| {
@@ -49,8 +51,11 @@ pub(crate) fn validate(chunk: &Chunk) -> Result<(), String> {
                 Constant::String(_) => Ok(()),
                 _ => Err(error("string constant")),
             };
-            let target = |offset: isize| match (pc + 1).checked_add_signed(offset) {
-                Some(to) if starts.get(to) == Some(&true) => Ok(()),
+            let mut target = |offset: isize| match (pc + 1).checked_add_signed(offset) {
+                Some(to) if starts.get(to) == Some(&true) => {
+                    targets[to] = true;
+                    Ok(())
+                }
                 _ => Err(error("jump target")),
             };
             match *instruction {
@@ -234,6 +239,55 @@ pub(crate) fn validate(chunk: &Chunk) -> Result<(), String> {
                         _ => {}
                     }
                 }
+            }
+        }
+        // The lifter reads a closure with its CAPTURE list, and NAMECALL with the
+        // CALL that uses it, as single units. Compilers always emit them intact.
+        let mut captured = vec![false; code.len()];
+        for pc in (0..code.len()).filter(|pc| starts[*pc]) {
+            let error = |what: &str| format!("prototype {id}, pc {pc}: invalid {what}");
+            match code[pc] {
+                Instruction::AD {
+                    op_code: op_code @ (LOP_NEWCLOSURE | LOP_DUPCLOSURE),
+                    d,
+                    ..
+                } => {
+                    let child = if op_code == LOP_NEWCLOSURE {
+                        function.functions.get(d as usize).copied()
+                    } else {
+                        match function.constants.get(d as usize) {
+                            Some(&Constant::Closure(child)) => Some(child),
+                            _ => None,
+                        }
+                    };
+                    let child = child
+                        .and_then(|child| chunk.functions.get(child))
+                        .ok_or_else(|| error("closure prototype"))?;
+                    for at in pc + 1..=pc + usize::from(child.num_upvalues) {
+                        match code.get(at) {
+                            Some(Instruction::BC { op_code: LOP_CAPTURE, .. }) if !targets[at] => {
+                                captured[at] = true;
+                            }
+                            _ => return Err(error("closure capture list")),
+                        }
+                    }
+                }
+                Instruction::BC {
+                    op_code: LOP_NAMECALL | LOP_NAMECALLUDATA,
+                    a,
+                    ..
+                } => match code.get(pc + 2) {
+                    Some(&Instruction::BC {
+                        op_code: LOP_CALL | LOP_CALLFB,
+                        a: call_base,
+                        ..
+                    }) if call_base == a && !targets[pc + 2] => {}
+                    _ => return Err(error("method call")),
+                },
+                Instruction::BC { op_code: LOP_CAPTURE, .. } if !captured[pc] => {
+                    return Err(error("capture outside a closure"));
+                }
+                _ => {}
             }
         }
         for value in &function.constants {
