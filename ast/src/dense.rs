@@ -69,7 +69,7 @@ impl LocalIndex {
 }
 
 /// A value per local slot; unset slots read as `fill`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct LocalVec<T> {
     lifted: Vec<T>,
     minted: Vec<T>,

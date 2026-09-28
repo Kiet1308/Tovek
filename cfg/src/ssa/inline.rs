@@ -8,6 +8,55 @@ use rustc_hash::{FxHashMap, FxHashSet};
 mod facts;
 mod schedule;
 
+/// How many times each local is read, in dense slots (see [`ast::dense`]).
+/// A local that is never read counts zero.
+#[derive(Default)]
+pub(crate) struct Usages {
+    index: ast::dense::LocalIndex,
+    counts: ast::dense::LocalVec<usize>,
+}
+
+impl Usages {
+    fn census(function: &Function) -> Self {
+        let mut usages = Self { index: function.local_index(), counts: ast::dense::LocalVec::new(0) };
+        for node in function.graph().node_indices() {
+            let mut record = |read: &ast::RcLocal| {
+                *usages.counts.get_mut(usages.index.slot(read)) += 1;
+                true
+            };
+            for statement in function.block(node).unwrap().iter() {
+                statement.visit_local_reads(&mut record);
+            }
+            for edge in function.edges(node) {
+                for (_, argument) in &edge.weight().arguments {
+                    argument.visit_local_reads(&mut record);
+                }
+            }
+        }
+        usages
+    }
+
+    #[inline]
+    fn get(&self, local: &ast::RcLocal) -> usize {
+        self.index.find(local).map_or(0, |slot| *self.counts.get(slot))
+    }
+
+    /// Remove one read; false when the count was already zero.
+    #[inline]
+    fn decrement(&mut self, local: &ast::RcLocal) -> bool {
+        let slot = self.index.slot(local);
+        let count = self.counts.get_mut(slot);
+        let previous = *count;
+        *count = previous.saturating_sub(1);
+        *count != previous
+    }
+
+    #[cfg(test)]
+    fn counts(&self) -> Vec<usize> {
+        self.counts.values().copied().collect()
+    }
+}
+
 /// Candidate definitions cannot move during one block visit: successful
 /// substitution only empties a producer or rewrites a consumer's expressions.
 /// Remember the first assignment that could produce each local, including
@@ -232,7 +281,7 @@ struct Inliner<'a> {
     function: &'a mut Function,
     local_to_group: &'a FxHashMap<ast::RcLocal, usize>,
     upvalue_to_group: &'a IndexMap<ast::RcLocal, ast::RcLocal>,
-    local_usages: &'a mut FxHashMap<ast::RcLocal, usize>,
+    local_usages: &'a mut Usages,
     readonly_capture_ids: &'a FxHashSet<u64>,
     incoming_upvalue_ids: Option<&'a FxHashSet<u64>>,
 }
@@ -242,7 +291,7 @@ impl<'a> Inliner<'a> {
         function: &'a mut Function,
         local_to_group: &'a FxHashMap<ast::RcLocal, usize>,
         upvalue_to_group: &'a IndexMap<ast::RcLocal, ast::RcLocal>,
-        local_usages: &'a mut FxHashMap<ast::RcLocal, usize>,
+        local_usages: &'a mut Usages,
         readonly_capture_ids: &'a FxHashSet<u64>,
         incoming_upvalue_ids: Option<&'a FxHashSet<u64>>,
     ) -> Self {
@@ -384,7 +433,7 @@ impl<'a> Inliner<'a> {
             let mut stat_to_values_read = Vec::with_capacity(block.len());
             for stat in &block.0 {
                 stat_to_values_read.push(eligible_reads(stat, |local| {
-                    self.local_usages[local] == 1 && !self.upvalue_to_group.contains_key(local)
+                    self.local_usages.get(local) == 1 && !self.upvalue_to_group.contains_key(local)
                         && (!local.preserve_binding() || ast::assignment_preserves_function_name(stat, local))
                 }));
             }
@@ -489,11 +538,7 @@ impl<'a> Inliner<'a> {
                                     // TODO: PERF: remove `local_usages[l] == 1` filter in stat_to_values_read
                                     // and use stat_to_values_read here
                                     block[stat_index].visit_local_reads(&mut |local| {
-                                        let local_usage_count =
-                                            self.local_usages.get_mut(local).unwrap();
-                                        let previous = *local_usage_count;
-                                        *local_usage_count = previous.saturating_sub(1);
-                                        if *local_usage_count != previous { schedule.usage_changed(local); }
+                                        if self.local_usages.decrement(local) { schedule.usage_changed(local); }
                                         true
                                     });
                                     // we dont need to update local usages because tracking usages for a local
@@ -570,11 +615,7 @@ impl<'a> Inliner<'a> {
                                     // TODO: PERF: remove `local_usages[l] == 1` filter in stat_to_values_read
                                     // and use stat_to_values_read here
                                     block[stat_index].visit_local_reads(&mut |local| {
-                                        let local_usage_count =
-                                            self.local_usages.get_mut(local).unwrap();
-                                        let previous = *local_usage_count;
-                                        *local_usage_count = previous.saturating_sub(1);
-                                        if *local_usage_count != previous { schedule.usage_changed(local); }
+                                        if self.local_usages.decrement(local) { schedule.usage_changed(local); }
                                         true
                                     });
                                     // we dont need to update local usages because tracking usages for a local
@@ -616,7 +657,7 @@ impl<'a> Inliner<'a> {
                     .arguments
                     .iter()
                     .map(|(_, argument)| eligible_reads(argument, |local| {
-                        self.local_usages[local] == 1 && !self.upvalue_to_group.contains_key(local)
+                        self.local_usages.get(local) == 1 && !self.upvalue_to_group.contains_key(local)
                     }))
                     .collect_vec();
 
@@ -707,11 +748,7 @@ impl<'a> Inliner<'a> {
                                     // TODO: PERF: remove `local_usages[l] == 1` filter in stat_to_values_read
                                     // and use stat_to_values_read here
                                     block[stat_index].visit_local_reads(&mut |local| {
-                                        let local_usage_count =
-                                            self.local_usages.get_mut(local).unwrap();
-                                        let previous = *local_usage_count;
-                                        *local_usage_count = previous.saturating_sub(1);
-                                        if *local_usage_count != previous { schedule.usage_changed(local); }
+                                        if self.local_usages.decrement(local) { schedule.usage_changed(local); }
                                         true
                                     });
                                     // we dont need to update local usages because tracking usages for a local
@@ -791,19 +828,15 @@ fn rvalue_reads_local(rvalue: &ast::RValue, local: &ast::RcLocal) -> bool {
 }
 
 fn decrement_local_usage(
-    local_usages: &mut FxHashMap<ast::RcLocal, usize>,
+    local_usages: &mut Usages,
     local: &ast::RcLocal,
     usage_changed: &mut impl FnMut(&ast::RcLocal),
 ) {
-    if let Some(usage) = local_usages.get_mut(local) {
-        let previous = *usage;
-        *usage = previous.saturating_sub(1);
-        if *usage != previous { usage_changed(local); }
-    }
+    if local_usages.decrement(local) { usage_changed(local); }
 }
 
 fn decrement_rvalue_usages(
-    local_usages: &mut FxHashMap<ast::RcLocal, usize>,
+    local_usages: &mut Usages,
     rvalue: &ast::RValue,
     usage_changed: &mut impl FnMut(&ast::RcLocal),
 ) {
@@ -900,7 +933,7 @@ enum FieldSlot {
 
 fn fold_table_constructor_field_assignments(
     block: &mut ast::Block,
-    local_usages: &mut FxHashMap<ast::RcLocal, usize>,
+    local_usages: &mut Usages,
     upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
     usage_changed: &mut impl FnMut(&ast::RcLocal),
 ) -> bool {
@@ -1039,24 +1072,7 @@ pub fn inline_with_readonly_captures(
     incoming_upvalue_ids: Option<&FxHashSet<u64>>,
 ) {
     let census_timer = ast::prof::Timer::new(&ast::prof::I_CENSUS);
-    // Lookup-only census: size it for about one read per statement up front.
-    let statements = function.blocks().map(|(_, block)| block.len()).sum::<usize>();
-    let mut local_usages = FxHashMap::with_capacity_and_hasher(statements, Default::default());
-    for node in function.graph().node_indices() {
-        let mut record = |read: &ast::RcLocal| {
-            *local_usages.entry(read.clone()).or_insert(0usize) += 1;
-            true
-        };
-        for statement in function.block(node).unwrap().iter() {
-            statement.visit_local_reads(&mut record);
-        }
-        for edge in function.edges(node) {
-            for (_, argument) in &edge.weight().arguments {
-                argument.visit_local_reads(&mut record);
-            }
-        }
-    }
-
+    let mut local_usages = Usages::census(function);
     drop(census_timer);
     #[cfg(not(test))]
     let dirty_scheduling = !cfg!(feature = "reference-inline-sweeps");
@@ -1094,7 +1110,7 @@ pub fn inline_with_readonly_captures(
                     let has_side_effects = rvalue.has_side_effects();
                     // TODO: REFACTOR: is_some_and
                     if !upvalue_to_group.contains_key(local)
-                        && local_usages.get(local).map_or(true, |&u| u == 0)
+                        && local_usages.get(local) == 0
                     {
                         if has_side_effects {
                             // TODO: PERF: dont clone
@@ -1218,7 +1234,8 @@ pub fn inline_with_readonly_captures(
                         let set_list = std::mem::replace(&mut block[i], ast::Empty {}.into())
                             .into_set_list()
                             .unwrap();
-                        *local_usages.get_mut(&set_list.object_local).unwrap() -= 1;
+                        let decremented = local_usages.decrement(&set_list.object_local);
+                        debug_assert!(decremented, "a SETLIST reads its table");
                         schedule.usage_changed(&set_list.object_local);
                         let assign = block.get_mut(i - 1).unwrap().as_assign_mut().unwrap();
                         let table = assign.right[0].as_table_mut().unwrap();
@@ -1265,12 +1282,12 @@ mod tests {
     struct Sweep {
         blocks: Vec<(usize, Block)>,
         edges: Vec<(usize, usize, crate::block::BranchType, Vec<(RcLocal, RValue)>)>,
-        usages: FxHashMap<u64, usize>,
+        usages: Vec<usize>,
         origins: Vec<Option<(Vec<ast::node_origins::Input>, bool, bool, Option<&'static str>, bool)>>,
         inline_events: Vec<(u64, Vec<u64>, &'static str)>,
     }
 
-    pub(super) fn record_sweep(function: &Function, usages: &FxHashMap<RcLocal, usize>) {
+    pub(super) fn record_sweep(function: &Function, usages: &super::Usages) {
         use ast::Traverse;
         SWEEPS.with(|sweeps| {
             let mut sweeps = sweeps.borrow_mut();
@@ -1299,7 +1316,7 @@ mod tests {
             sweeps.push(Sweep {
                 blocks: function.blocks().map(|(node, block)| (node.index(), block.clone())).collect(),
                 edges,
-                usages: usages.iter().map(|(local, &uses)| (local.stable_id(), uses)).collect(),
+                usages: usages.counts(),
                 origins,
                 inline_events: function.provenance.as_ref().map(|trace| trace.inlines.iter()
                     .map(|event| (event.producer, event.consumer_bindings.clone(), event.site_kind)).collect()).unwrap_or_default(),
@@ -1406,7 +1423,7 @@ mod tests {
     }
 
     fn fold_fields(block: &mut Block) -> bool {
-        fold_table_constructor_field_assignments(block, &mut FxHashMap::default(), &IndexMap::default(), &mut |_| {})
+        fold_table_constructor_field_assignments(block, &mut super::Usages::default(), &IndexMap::default(), &mut |_| {})
     }
 
     fn inline_block(block: Block) -> Block {
@@ -1826,7 +1843,7 @@ mod tests {
         let protected = IndexMap::from_iter([(config.clone(), config.clone())]);
         assert!(!fold_table_constructor_field_assignments(
             &mut captured,
-            &mut FxHashMap::default(),
+            &mut super::Usages::default(),
             &protected,
             &mut |_| {},
         ));
