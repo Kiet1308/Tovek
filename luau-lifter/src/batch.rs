@@ -140,19 +140,42 @@ pub fn run_with_cache(
         Option<GeneratedSourceRecord>,
         Option<(u64, String)>,
     );
-    let process = |w: &crate::decompile_core::Work, b64: &mut Vec<u8>| {
-            let text = match std::fs::read(&w.input) {
+    let process_text = |w: &crate::decompile_core::Work, text: std::io::Result<Vec<u8>>, b64: &mut Vec<u8>,
+                        memo: Option<&crate::decompile_core::DuplicateMemo>| {
+            let text = match text {
                 Ok(text) => text,
                 Err(error) => return (Outcome::Fail(format!("read: {error}")), None, None, None, None),
             };
             let digest = emit_upvalue_analysis.then(|| (text.len() as u64, sha256_hex(&text)));
             let (outcome, entry, unavailable, source) = crate::decompile_core::process_one_preloaded(
                 w, &text, key, b64, verbose, options,
-                emit_upvalue_analysis.then_some(analysis_root.as_path()), cache.as_ref(),
+                emit_upvalue_analysis.then_some(analysis_root.as_path()), cache.as_ref(), memo,
             );
             (outcome, entry, unavailable, source, digest)
         };
-    let outcomes: Vec<Row> = if cache.as_ref().is_some_and(|cache| cache.is_empty()) {
+    let process = |w: &crate::decompile_core::Work, b64: &mut Vec<u8>| {
+        process_text(w, std::fs::read(&w.input), b64, None)
+    };
+    let outcomes: Vec<Row> = if cache.is_none() && !luau_lifter::requires_fresh_decompilation() {
+        // Game dumps repeat modules verbatim. Group identical payloads that
+        // share a module hint and decompile each group once on one worker; the
+        // memo still verifies exact bytecode before reusing an artifact.
+        let texts = work.par_iter()
+            .map(|item| std::sync::Mutex::new(Some(std::fs::read(&item.input))))
+            .collect::<Vec<_>>();
+        let groups = duplicate_groups(&work, &texts);
+        let grouped = groups.par_iter().map_init(Vec::<u8>::new, |b64, group| {
+            let memo = crate::decompile_core::DuplicateMemo::default();
+            let memo = (group.len() > 1).then_some(&memo);
+            group.iter().map(|&index| {
+                let text = texts[index].lock().unwrap().take().unwrap();
+                (index, process_text(&work[index], text, b64, memo))
+            }).collect::<Vec<_>>()
+        }).collect::<Vec<_>>();
+        let mut ordered = (0..work.len()).map(|_| None).collect::<Vec<_>>();
+        for (index, outcome) in grouped.into_iter().flatten() { ordered[index] = Some(outcome); }
+        ordered.into_iter().map(Option::unwrap).collect()
+    } else if cache.as_ref().is_some_and(|cache| cache.is_empty()) {
         // Equal complete cache keys must have equal module hints. Scheduling
         // each hint's files on one worker prevents duplicate cold computation
         // without an extra input read/hash or waiting inside nested Rayon work.
@@ -321,6 +344,43 @@ struct FolderDiagnostic {
 /// any structured per-function diagnostics appended by the lifter.  The
 /// parser deliberately falls back to a coarse code for older/errors outside
 /// the structuring pipeline, so mixed-version corpus manifests remain useful.
+/// Work indices grouped by identical wrapped payload and module hint, in input
+/// order. Unreadable inputs stay alone and fail in their own slot.
+fn duplicate_groups(
+    work: &[crate::decompile_core::Work],
+    texts: &[std::sync::Mutex<Option<std::io::Result<Vec<u8>>>>],
+) -> Vec<Vec<usize>> {
+    use std::hash::Hasher;
+    let mut contexts = rustc_hash::FxHashMap::default();
+    let mut groups: Vec<Vec<usize>> = Vec::with_capacity(work.len());
+    for (index, (item, text)) in work.iter().zip(texts).enumerate() {
+        let text = text.lock().unwrap();
+        let Some(Ok(text)) = text.as_ref() else {
+            groups.push(vec![index]);
+            continue;
+        };
+        // The payload the decoder sees: lines starting with `--` dropped,
+        // spaces, tabs and carriage returns removed.
+        let mut hasher = rustc_hash::FxHasher::default();
+        let mut length = 0usize;
+        for line in text.split(|&byte| byte == b'\n').filter(|line| !line.starts_with(b"--")) {
+            for &byte in line.iter().filter(|&&byte| byte != b' ' && byte != b'\t' && byte != b'\r') {
+                hasher.write_u8(byte);
+                length += 1;
+            }
+        }
+        let payload = (hasher.finish(), length);
+        let context = (payload, item.kind == crate::decompile_core::WorkKind::RawBytecode,
+            ast::name_locals::script_module_hint(&item.rel));
+        let group = *contexts.entry(context).or_insert_with(|| {
+            groups.push(Vec::new());
+            groups.len() - 1
+        });
+        groups[group].push(index);
+    }
+    groups
+}
+
 fn cache_work_groups<'a>(names: impl Iterator<Item = &'a str>) -> Vec<Vec<usize>> {
     let mut contexts = rustc_hash::FxHashMap::default();
     let mut groups: Vec<Vec<usize>> = Vec::new();

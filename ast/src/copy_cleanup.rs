@@ -24,6 +24,10 @@ use crate::{
 /// `src` while `dst` is still live and so are caught by the src-not-rewritten
 /// gate.
 pub fn copy_cleanup(block: &mut Block) {
+    // Every rewrite starts at a `local dst = src` alias.
+    if !block.any_statement_deep(&mut |statement| candidate_copy(statement).is_some()) {
+        return;
+    }
     // Whole-program capture set, computed ONCE (the per-block usage recomputed
     // during recursion is blind to a closure that captures a local but lives in a
     // sibling/enclosing scope — the C10 family). Mirrors `inline_temps`.

@@ -65,6 +65,14 @@ use crate::{
 /// Delete redundant `x = nil` stores throughout `block`, its nested blocks, and
 /// its closures. See the module docs for the soundness argument.
 pub fn eliminate_redundant_nil(block: &mut Block) {
+    // Only a bare `x = nil` store can be deleted; skip the census without one.
+    if !block.any_statement_deep(&mut |statement| matches!(statement, Statement::Assign(assign)
+        if !assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1
+            && matches!(assign.left[0], LValue::Local(_))
+            && matches!(assign.right[0], RValue::Literal(Literal::Nil))))
+    {
+        return;
+    }
     let usage = collect_usage(block);
     let excluded: FxHashSet<RcLocal> = usage
         .into_iter()

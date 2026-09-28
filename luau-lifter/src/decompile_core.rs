@@ -1191,13 +1191,37 @@ pub(crate) fn process_one_capture(
 }
 
 /// Process the exact bytes already read and hashed by a folder worker.
+/// The artifact of the previous input of a duplicate group. Identical bytecode
+/// with the same module hint, options and decode key decompiles to the same
+/// artifact (the invariant the artifact cache key relies on), so later members
+/// reuse it instead of decompiling again. Failures are never shared.
+#[derive(Default)]
+pub(crate) struct DuplicateMemo(std::cell::RefCell<Option<(Vec<u8>, luau_lifter::DecompileArtifact)>>);
+
+impl DuplicateMemo {
+    fn get_or_compute(
+        &self,
+        bytecode: &[u8],
+        compute: impl FnOnce() -> Result<luau_lifter::DecompileArtifact, String>,
+    ) -> Result<luau_lifter::DecompileArtifact, String> {
+        if let Some((previous, artifact)) = &*self.0.borrow()
+            && previous.as_slice() == bytecode
+        {
+            return Ok(artifact.clone());
+        }
+        let artifact = compute()?;
+        *self.0.borrow_mut() = Some((bytecode.to_vec(), artifact.clone()));
+        Ok(artifact)
+    }
+}
+
 pub(crate) fn process_one_preloaded(
     w: &Work, text: &[u8], key: u8, b64: &mut Vec<u8>, verbose: bool,
     options: DecompileOptions, analysis_root: Option<&Path>,
-    cache: Option<&crate::decompile_cache::Cache>,
+    cache: Option<&crate::decompile_cache::Cache>, memo: Option<&DuplicateMemo>,
 ) -> (Outcome, Option<AnalysisManifestEntry>, Option<AnalysisUnavailable>, Option<GeneratedSourceRecord>) {
     let (outcome, _, entry, source_record) = decode_preloaded(
-        w, text, key, b64, true, false, verbose, options, analysis_root, cache,
+        w, text, key, b64, true, false, verbose, options, analysis_root, cache, memo,
     );
     if analysis_root.is_some() { finish_analysis(w, outcome, entry, source_record) }
     else { (outcome, None, None, None) }
@@ -1232,7 +1256,7 @@ fn decode_and_decompile(
         Err(e) => return (Outcome::Fail(format!("read: {e}")), None, None, None),
     };
 
-    decode_preloaded(w, &text, key, b64, write_skipped, capture, verbose, options, analysis_root, cache)
+    decode_preloaded(w, &text, key, b64, write_skipped, capture, verbose, options, analysis_root, cache, None)
 }
 
 fn decode_preloaded(
@@ -1246,6 +1270,7 @@ fn decode_preloaded(
     options: DecompileOptions,
     analysis_root: Option<&Path>,
     cache: Option<&crate::decompile_cache::Cache>,
+    memo: Option<&DuplicateMemo>,
 ) -> (Outcome, Option<String>, Option<AnalysisManifestEntry>, Option<GeneratedSourceRecord>) {
     // Replicate `grep -v '^--' | tr -d ' \t\r\n'`: drop lines starting with
     // "--" (start-of-line anchor — no trim), keep all non-whitespace bytes.
@@ -1360,9 +1385,10 @@ fn decode_preloaded(
                 .map(|source| luau_lifter::DecompileArtifact { source, upvalue_analysis: None })
         }
     };
-    let result = catch_unwind(AssertUnwindSafe(|| match cache {
-        Some(cache) => cache.get_or_compute(&bytecode, key, &w.rel, options, analysis_root.is_some(), compute),
-        None => compute(),
+    let result = catch_unwind(AssertUnwindSafe(|| match (cache, memo) {
+        (Some(cache), _) => cache.get_or_compute(&bytecode, key, &w.rel, options, analysis_root.is_some(), compute),
+        (None, Some(memo)) => memo.get_or_compute(&bytecode, compute),
+        (None, None) => compute(),
     }));
     let artifact = match result {
         Ok(Ok(artifact)) => artifact,
