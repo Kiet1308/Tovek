@@ -1,10 +1,10 @@
 # Tovek
 
-**A high-readability, high-performance Luau decompiler.** **Tovek V2 v0.1**
+**A high-readability, high-performance Luau decompiler.** **Tovek V2.1**
 
-[**Download V2 v0.1 for Windows or Linux**](https://github.com/Kiet1308/Tovek/releases/tag/v2-v0.1) · [What’s new in V2](https://kiet1308.github.io/Tovek/changelog.html)
+[**Download V2.1 for Windows or Linux**](https://github.com/Kiet1308/Tovek/releases/tag/v2.1) · [What’s new in V2.1](https://kiet1308.github.io/Tovek/changelog/v2.1/) · [All release notes](https://kiet1308.github.io/Tovek/changelog.html)
 
-Each package includes the CLI, the local HTTP server, client scripts and quick-start instructions. The release tag is `v2-v0.1`; Rust package versions are `0.1.0` within the V2 generation.
+Each package includes the CLI, the local HTTP server, client scripts and quick-start instructions. The release tag is `v2.1`; Rust package versions are `2.1.0`.
 
 [**💬 Join the Tovek Discord →**](https://discord.gg/phY6VUDSF7)
 
@@ -21,9 +21,27 @@ assets, workflow artifacts or Git LFS.
 
 ---
 
+## What's new in V2.1
+
+| | Tovek V2 | **Tovek V2.1** |
+|---|---|---|
+| Full 3,978-script game, one thread | 20.1 s | **11.5 s** |
+| Full game, 16 threads | 1.94 s | **1.13 s** |
+| Peak memory, full game at 16 threads | 122 MB | **103 MB** |
+| Deep-review behaviour suite | 80 / 199 | **199 / 199** |
+| Luau bytecode v14 | Not supported | **Supported** (252 / 252 runtime profiles) |
+| Damaged files that abort the process | 104 of 1,500 | **0 of 1,500** |
+
+V2.1 fixes every case found by three code reviews since V2 where decompiled code
+could behave differently from the original, validates bytecode before analysis,
+and hardens the local HTTP server (shared admission, clear `503`/`408` answers,
+upload deadline via `TOVEK_UPLOAD_TIMEOUT_SECS`). See the
+[V2.1 release notes](https://kiet1308.github.io/Tovek/changelog/v2.1/) for
+methodology, examples and output changes.
+
 ## What's new in V2
 
-| | v0.9 beta | **Tovek V2 v0.1** |
+| | v0.9 beta | **Tovek V2** |
 |---|---|---|
 | Roblox bytecode v12 | Not supported | Native support, including CALLFB |
 | Anonymous p/v bindings | 54,058 | 36,826 |
@@ -33,7 +51,7 @@ assets, workflow artifacts or Git LFS.
 
 Readability counts use the same 3,975 private files parseable in both versions.
 The public profiles cover 171 source files at three optimization levels.
-See the [release evaluation](https://kiet1308.github.io/Tovek/changelog.html#evaluation)
+See the [release evaluation](https://kiet1308.github.io/Tovek/changelog/v2/#evaluation)
 for scope, methodology and remaining regressions.
 
 ### Core capabilities
@@ -70,7 +88,7 @@ for scope, methodology and remaining regressions.
   tests. v13 double-vector serialization has targeted coverage; v15 and the experimental
   class opcodes (`NEWCLASS`) are unsupported. Runtime-mutated `CMPPROTO` guards are explicitly rejected because their
   prototype-identity predicate cannot be faithfully reconstructed in source. See the
-  [v12 validation and limits](https://kiet1308.github.io/Tovek/changelog.html#bytecode-v12).
+  [v12 validation and limits](https://kiet1308.github.io/Tovek/changelog/v2/#bytecode-v12).
 - **Literal and runtime fidelity.** Integer constants retain their signed 64-bit value
   and `i` suffix; recompilation requires Luau's `LuauIntegerType2` feature. Vector
   constants capture the standard `vector.create` function at chunk entry, preserving
@@ -107,9 +125,9 @@ for scope, methodology and remaining regressions.
 
 ## Output and validation
 
-The [V2 release article](https://kiet1308.github.io/Tovek/changelog.html#evaluation)
+The [V2 release article](https://kiet1308.github.io/Tovek/changelog/v2/#evaluation)
 compares the validated V2 output with v0.9 beta, including readability gains,
-runtime checks and remaining regressions. The [UI reconstruction example](https://kiet1308.github.io/Tovek/changelog.html#ui-trees)
+runtime checks and remaining regressions. The [UI reconstruction example](https://kiet1308.github.io/Tovek/changelog/v2/#ui-trees)
 illustrates how module exports can be reconstructed into a table.
 
 Public regression fixtures, pinned corpus manifests and the CI workflow remain in
@@ -261,10 +279,13 @@ Prebuilt binaries are attached to each [release](https://github.com/Kiet1308/Tov
 
 Worker cần `worker-build 0.8.7` và chế độ `--panic-unwind` để lỗi của một script
 không dừng cả batch. Phiên bản công cụ này gọi `cargo +nightly` khi build lại std,
-nên cần cài thêm kênh `nightly` bên cạnh toolchain native được ghim ở trên.
+nên trỏ tên `nightly` tới toolchain đã ghim ở trên: kênh nightly mới nhất đã bỏ
+những feature workspace còn dùng. Nếu máy đã có kênh `nightly`, gỡ nó trước bằng
+`rustup toolchain uninstall nightly`.
 
 ```sh
-rustup toolchain install nightly --component rust-src --target wasm32-unknown-unknown
+rustup toolchain install nightly-2026-06-15 --component rust-src --target wasm32-unknown-unknown
+rustup toolchain link nightly "$(rustc +nightly-2026-06-15 --print sysroot)"
 cargo install worker-build --version 0.8.7 --locked
 cd luau-worker
 worker-build --release --panic-unwind --no-opt

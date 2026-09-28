@@ -1,4 +1,4 @@
-Tovek V2 v0.1
+Tovek V2.1
 https://github.com/Kiet1308/Tovek
 
 This package contains the local Luau decompiler CLI and HTTP server.
@@ -19,17 +19,22 @@ The server listens locally at http://127.0.0.1:3000.
 POST /decompile accepts base64 bytecode; /decompile/raw accepts raw bytes.
 The included decompile.client.luau and decompile-batch.client.luau connect an
 executor to the local server. See README.md for usage and endpoint formats.
+Up to four decompile requests run at once; further requests get an immediate
+503 "decompile capacity exhausted" and should be retried. An upload must finish
+within 30 seconds (408 otherwise); set TOVEK_UPLOAD_TIMEOUT_SECS to change it.
 
 COMPATIBILITY
 Windows x86_64, or Linux x86_64 with glibc 2.35 or newer (Ubuntu 22.04+).
-Roblox bytecode v12 is supported, including CALLFB and wide cost metadata.
-Runtime-mutated CMPPROTO guards and malformed/truncated inputs are rejected.
+Luau bytecode v4-v14 is supported, including Roblox v12 (CALLFB, wide cost
+metadata) and the v14 FASTPCALL fast path for pcall/xpcall.
+Malformed or truncated bytecode is rejected with the prototype and instruction
+at fault. v15+ and runtime-mutated CMPPROTO guards are rejected.
 Decompilation cannot recover stripped comments or guarantee original names.
 
 VERIFY THE DOWNLOAD
 SHA256SUMS.txt is attached to the GitHub release.
-Windows PowerShell: Get-FileHash .\Tovek-V2-v0.1-windows-x86_64.zip -Algorithm SHA256
+Windows PowerShell: Get-FileHash .\Tovek-V2.1-windows-x86_64.zip -Algorithm SHA256
 Linux: sha256sum --check --ignore-missing SHA256SUMS.txt
 
 The source code is MIT licensed; see LICENSE.txt. Builds use the pinned
-nightly-2024-12-15 Rust toolchain. No AI model files are included.
+nightly-2026-06-15 Rust toolchain. No AI model files are included.

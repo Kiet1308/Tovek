@@ -2,7 +2,7 @@ name: Build and Release
 
 on:
   push:
-    tags: ['v2-v*']
+    tags: ['v2-v*', 'v2.*']
   workflow_dispatch:
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.platform }}
-    if: startsWith(github.ref, 'refs/tags/v2-v')
+    if: startsWith(github.ref, 'refs/tags/v2-v') || startsWith(github.ref, 'refs/tags/v2.')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -69,8 +69,13 @@ jobs:
           cat SHA256SUMS-*.txt > SHA256SUMS.txt
           sha256sum --check SHA256SUMS.txt
           cd ..
+          # v2-v0.1 -> "Tovek V2 v0.1"; v2.1 -> "Tovek V2.1"
+          case "$RELEASE_TAG" in
+            v2-v*) TITLE="Tovek V2 ${RELEASE_TAG#v2-}" ;;
+            *) TITLE="Tovek V${RELEASE_TAG#v}" ;;
+          esac
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" --verify-tag --draft \
-              --title "Tovek V2 ${RELEASE_TAG#v2-}" --notes-file release/notes.txt
+              --title "$TITLE" --notes-file release/notes.txt
           fi
           gh release upload "$RELEASE_TAG" dist/*.zip dist/*.tar.gz dist/SHA256SUMS.txt --clobber

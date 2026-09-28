@@ -62,7 +62,12 @@ jobs:
           components: rust-src
           targets: wasm32-unknown-unknown
       # worker-build 0.8.7 explicitly invokes cargo +nightly for build-std.
-      - run: rustup toolchain install nightly --component rust-src --target wasm32-unknown-unknown
+      # Point that name at the pinned toolchain rather than the moving nightly,
+      # which has since removed features this workspace still uses.
+      - run: |
+          rustup toolchain uninstall nightly 2>/dev/null || true
+          rustup toolchain link nightly "$(rustc +nightly-2026-06-15 --print sysroot)"
+          cargo +nightly --version
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-node@v4
         with:

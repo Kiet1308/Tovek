@@ -60,21 +60,26 @@ def main():
     parser.add_argument('--bin-dir', type=pathlib.Path, required=True)
     parser.add_argument('--out', type=pathlib.Path, required=True)
     args = parser.parse_args()
-    if not re.fullmatch(r'v2-v\d+\.\d+(?:\.\d+)?', args.tag):
-        parser.error('expected a V2 release tag such as v2-v0.1')
-    version = args.tag.removeprefix('v2-')
+    # Two tag schemes: the first V2 build was `v2-v0.1` ("V2 v0.1"); later
+    # releases use the product version directly, e.g. `v2.1` ("V2.1").
+    if re.fullmatch(r'v2-v\d+\.\d+(?:\.\d+)?', args.tag):
+        display = 'V2 ' + args.tag.removeprefix('v2-')
+    elif re.fullmatch(r'v2\.\d+(?:\.\d+)?', args.tag):
+        display = 'V' + args.tag.removeprefix('v')
+    else:
+        parser.error('expected a V2 release tag such as v2.1 or v2-v0.1')
     suffix = '.exe' if args.platform.startswith('windows') else ''
     cli = (args.bin_dir / ('luau-lifter' + suffix)).resolve()
     server = (args.bin_dir / ('web-server' + suffix)).resolve()
     assert cli.is_file() and server.is_file(), 'both binaries are required'
     reported = subprocess.check_output([str(cli), '--version'], text=True).strip()
-    assert reported == f'luau-lifter V2 {version}', reported
+    assert reported == f'luau-lifter {display}', reported
     subprocess.run([str(cli), '--help'], check=True, stdout=subprocess.DEVNULL, timeout=30)
     fixture = ROOT / 'luau-lifter/tests/fixtures/cache_context.luaubc'
     output = subprocess.check_output([str(cli), str(fixture)], timeout=30)
     assert b'function Module.Read(' in output and b'return Module' in output, 'CLI fixture smoke test failed'
     smoke_server(server, fixture.read_bytes(), output)
-    name = f'Tovek-V2-{version}-{args.platform}'
+    name = f"Tovek-{display.replace(' ', '-')}-{args.platform}"
     args.out.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='tovek-release-') as temp:
         package = pathlib.Path(temp) / name
