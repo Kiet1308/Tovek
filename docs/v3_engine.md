@@ -106,4 +106,26 @@ oracle, compact) chạy ở mốc M0 và cuối mỗi mốc.
 |---|---|---|---|
 | 2026-09-29 | Tối ưu trên `main` trước V3 (gác ứng viên, dedupe, FxHash, liveness bitset, …) | `88cc56a`…`985df98` | 1,26x một luồng, 1,15x 24 luồng; giống hệt từng byte |
 | 2026-09-29 | Đo độ trễ từng script, chẩn đoán, thiết kế V3 | tài liệu này | |
-| | M0: tìm các chỗ phụ thuộc thứ tự băm | | đang làm |
+| 2026-09-29 | M0: một chỗ duy nhất gây phụ thuộc thứ tự băm (thứ tự seal tham số phi trong SSA). Sửa theo thứ tự tạo phi | `7f456fe` | 3 seed băm khác nhau cho output giống hệt nhau; 158 file đổi một lần (chỉ thứ tự khai báo/số của biến tạm, số dòng không đổi); mọi gate qua; golden mới `corpus-m0` |
+| 2026-09-29 | Bộ đếm `prof` ns dùng chung mọi crate; `latbench` đo từng pha trong tiến trình (script mẫu và cả corpus) | `430c626`, `d1e0d36`, … | |
+| 2026-09-29 | M1: `ast::dense` (slot local tính từ id, không băm); đổi tên SSA dùng bảng dày | `c8f8be7` | Đổi tên SSA: 38→33 µs (p50), 230→210 µs (p90) |
+| 2026-09-29 | Gate `deinline` khi không có helper đủ điều kiện cấu trúc | `b7e7b9c` | p90: 67→13 µs |
+
+### Thí nghiệm đã loại
+
+| Ý tưởng | Kết quả | Lý do bỏ |
+|---|---|---|
+| Arena bump theo từng lần decompile (giải phóng = no-op) | 3–7% | Rủi ro đối tượng thoát arena (thread-local, bộ đệm nội bộ rayon/std) lớn so với lợi ích |
+| Thay mọi bảng băm bằng mảng | ~10% ở pha đổi tên SSA | Băm không phải chi phí chính; giữ làm hạ tầng |
+
+### Bản đồ chi phí (corpus 3.350 script duy nhất, trong tiến trình, 1 luồng: 7,17 s)
+
+Pha theo hàm 3,59 s: inliner 0,88 (vòng lặp chính 0,64, census 0,10), dựng SSA 0,81 (đổi tên
+0,36), destruct 0,55, restructure 0,45, khai báo local 0,12, dominator 0,10. Phần chunk
+~3,5 s: rebuild bảng 0,48, đặt tên 0,42, lift 0,33, deinline 0,33, format 0,23, inline temps
+0,21, normalize 0,18, refine tên 0,17, cleanup_final 0,13. Cấp phát: 41,5 triệu lần/4,5 GB
+mỗi vòng (~14–15% thời gian).
+
+Kết luận: chi phí nằm ở **lượng việc** của thuật toán (vòng lặp chạy lại, phân tích tính lại,
+duyệt cây nhiều lần), không ở cấu trúc dữ liệu. Hướng tiếp theo: bỏ việc lặp lại trong từng
+thuật toán mà giữ nguyên kết quả.
