@@ -28,12 +28,19 @@ struct Writes {
 
 /// Rewrite `local f = nil` to `local f` for every forward-declared function.
 pub fn bare_forward_declarations(block: &mut Block) {
-    // Candidates are the `local f = nil` declarations, usually few; only their
-    // writes are counted.
+    // Candidates are locals that a later statement assigns a closure (rare);
+    // only their writes are counted.
     let mut writes = FxHashMap::default();
     visit_statements(block, &mut |statement| {
-        if let Some(local) = nil_declaration(statement) {
-            writes.insert(local.clone(), Writes::default());
+        if let Statement::Assign(assign) = statement
+            && !assign.prefix
+            && assign.left.len() == assign.right.len()
+        {
+            for (left, right) in assign.left.iter().zip(&assign.right) {
+                if let (LValue::Local(local), RValue::Closure(_)) = (left, right) {
+                    writes.entry(local.clone()).or_insert_with(Writes::default);
+                }
+            }
         }
     });
     if writes.is_empty() {
@@ -47,14 +54,6 @@ pub fn bare_forward_declarations(block: &mut Block) {
 
 fn is_forward_function(writes: &Writes) -> bool {
     writes.nil_declarations == 1 && writes.closures != 0 && writes.other == 0
-}
-
-fn nil_declaration(statement: &Statement) -> Option<&RcLocal> {
-    let Statement::Assign(assign) = statement else { return None };
-    match (assign.left.as_slice(), assign.right.as_slice()) {
-        ([LValue::Local(local)], [RValue::Literal(Literal::Nil)]) if assign.prefix => Some(local),
-        _ => None,
-    }
 }
 
 /// Every statement of the function tree, including nested closures.
