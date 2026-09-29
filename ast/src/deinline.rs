@@ -200,6 +200,14 @@ struct Target {
     /// length plus the arms of every tail-spine `if` that inlining may lift into
     /// guard form at the site.
     pat_spine_len: usize,
+    /// Node count of `pat`: the most one unification against it can walk.
+    pat_nodes: usize,
+    /// Tried at every position in this fixed-point iteration. After the first
+    /// iteration only a target that can match anew is: its own body was
+    /// rewritten, its pattern calls a helper that gained call sites, a site it
+    /// matched was refused as ambiguous, or it compares against the rest of the
+    /// block (`cps_loop_return`).
+    focused: bool,
     /// For Value targets: where the RESULT-register decl sits (see `ValueAnchor`).
     /// `Void` targets always use `AtResultDecl` (unused for them).
     value_anchor: ValueAnchor,
@@ -296,6 +304,17 @@ impl Target {
 // Entry point
 // ===================================================================
 
+/// What one fixed-point iteration rewrote: the helpers it spliced calls to,
+/// and the function bodies it spliced into (`None` is the chunk). `contested`
+/// holds the helpers of every site refused because two of them matched: a
+/// rival whose pattern changes may leave the other one unambiguous.
+#[derive(Default)]
+struct Progress {
+    binders: FxHashSet<RcLocal>,
+    bodies: FxHashSet<Option<FnPtr>>,
+    contested: FxHashSet<RcLocal>,
+}
+
 pub fn deinline(body: &mut Block) {
     // Every rewrite needs a target; the module-wide censuses below are only
     // worth building when some helper passes the per-declaration gates.
@@ -328,6 +347,9 @@ pub fn deinline(body: &mut Block) {
         crate::expr_deinline::collect_write_counts(&body.0, &mut write_counts);
         crate::telemetry::count("bindings", write_counts.len() as u64);
     }
+    // What the previous iteration rewrote: it decides which targets can match
+    // anew (`Target::focused`).
+    let mut previous: Option<Progress> = None;
     for _ in 0..64 {
         dprof::inc(&dprof::ITERATIONS, 1);
         crate::telemetry::count("iterations", 1);
@@ -342,7 +364,15 @@ pub fn deinline(body: &mut Block) {
                 crate::telemetry::count("target_budget_exhausted", 1);
                 break;
             }
-            for target in &mut targets { target.search = search.clone(); }
+            for target in &mut targets {
+                target.search = search.clone();
+                if let Some(previous) = &previous {
+                    target.focused = target.cps_loop_return
+                        || previous.contested.contains(&target.f_local)
+                        || previous.bodies.contains(&Some(target.func_ptr))
+                        || previous.binders.iter().any(|binder| block_reads_local(&target.pat, binder));
+                }
+            }
             targets
         };
         if targets.is_empty() {
@@ -355,7 +385,7 @@ pub fn deinline(body: &mut Block) {
             .enumerate()
             .map(|(idx, t)| (t.f_local.clone(), idx))
             .collect();
-        let mut newly: FxHashSet<RcLocal> = FxHashSet::default();
+        let mut newly = Progress::default();
         {
             let _span = crate::telemetry::Span::new("D_SCAN");
             deinline_block(
@@ -369,7 +399,7 @@ pub fn deinline(body: &mut Block) {
                 true,
                 &mut newly,
             );
-            crate::telemetry::count("converted_binders", newly.len() as u64);
+            crate::telemetry::count("converted_binders", newly.binders.len() as u64);
         }
         // Fixed point is reached when an iteration rewrites NOTHING. `newly` gains a
         // binder on EVERY splice (`deinline_block` -> `newly.insert(hit.f_local)`),
@@ -390,10 +420,11 @@ pub fn deinline(body: &mut Block) {
         // floor, so it can never be re-collected as a target body. Thus the count of
         // matchable inlined regions strictly decreases each productive iteration and
         // is bounded by the initial AST size.
-        if newly.is_empty() {
+        if newly.binders.is_empty() {
             break;
         }
-        converted.extend(newly);
+        converted.extend(newly.binders.iter().cloned());
+        previous = Some(newly);
         if search.exhausted() { break; }
     }
     if !converted.is_empty() {
@@ -1095,6 +1126,7 @@ type CanonCache = FxHashMap<(usize, usize), std::rc::Rc<Vec<Statement>>>;
 /// active targets with equal pattern length — pay the deep clone once.
 fn canon_window(
     cache: &mut CanonCache,
+    t: &Target,
     stmts: &[Statement],
     start: usize,
     w: usize,
@@ -1105,6 +1137,8 @@ fn canon_window(
     dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
     crate::telemetry::count("canonicalize_calls", 1);
     let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
+    // An exhausted budget refuses the whole position (`try_match_at`).
+    charge_window(t, &stmts[start..start + w]);
     let c = std::rc::Rc::new(canon_recurse(
         canon_top(&stmts[start..start + w], true),
         true,
@@ -1373,42 +1407,49 @@ fn is_foldable_guard(s: &Statement) -> bool {
 /// length becomes that guard's index + 1; otherwise no change). The debug_assert
 /// pins it to the real `canon_top` length in debug / test builds.
 fn canon_top_len(stmts: &[Statement], tail: bool) -> usize {
-    dprof::inc(&dprof::CANON_TOP_LEN_CALLS, 1);
-    crate::telemetry::count("canonical_top_length_calls", 1);
-    let _t = dprof::T::new(&dprof::CANON_TOP_LEN_US);
-    let total = stmts.iter().filter(|s| !is_match_trivia(s)).count();
-    let n = if !tail || total == 0 {
-        total
-    } else {
-        // N1: drop a trailing void return (the LAST non-trivia statement).
-        let last_void = stmts
-            .iter()
-            .rev()
-            .find(|s| !is_match_trivia(s))
-            .is_some_and(|s| matches!(s, Statement::Return(r) if r.values.is_empty()));
-        let effective = total - usize::from(last_void);
-        // N3: unguard folds at the first foldable guard that has a following
-        // (within-`effective`) statement -> top-level length is its index + 1.
-        let mut len = effective;
-        for (idx, s) in stmts
-            .iter()
-            .filter(|s| !is_match_trivia(s))
-            .take(effective)
-            .enumerate()
-        {
-            if idx + 1 < effective && is_foldable_guard(s) {
-                len = idx + 1;
-                break;
-            }
-        }
-        len
-    };
+    let n = canon_top_len_of(stmts.iter(), tail);
     debug_assert_eq!(
         n,
         canon_top(stmts, tail).len(),
         "canon_top_len must mirror canon_top length exactly"
     );
     n
+}
+
+/// `canon_top_len` over statements that need not be contiguous (a callee
+/// prefix followed by a region, without building the joined window).
+fn canon_top_len_of<'a, I>(stmts: I, tail: bool) -> usize
+where
+    I: DoubleEndedIterator<Item = &'a Statement> + Clone,
+{
+    dprof::inc(&dprof::CANON_TOP_LEN_CALLS, 1);
+    crate::telemetry::count("canonical_top_length_calls", 1);
+    let _t = dprof::T::new(&dprof::CANON_TOP_LEN_US);
+    let total = stmts.clone().filter(|s| !is_match_trivia(s)).count();
+    if !tail || total == 0 {
+        return total;
+    }
+    // N1: drop a trailing void return (the LAST non-trivia statement).
+    let last_void = stmts
+        .clone()
+        .rev()
+        .find(|s| !is_match_trivia(s))
+        .is_some_and(|s| matches!(s, Statement::Return(r) if r.values.is_empty()));
+    let effective = total - usize::from(last_void);
+    // N3: unguard folds at the first foldable guard that has a following
+    // (within-`effective`) statement -> top-level length is its index + 1.
+    let mut len = effective;
+    for (idx, s) in stmts
+        .filter(|s| !is_match_trivia(s))
+        .take(effective)
+        .enumerate()
+    {
+        if idx + 1 < effective && is_foldable_guard(s) {
+            len = idx + 1;
+            break;
+        }
+    }
+    len
 }
 
 /// A cheap hash prefilter key for the FIRST statement a Void / AtPrefix-Value
@@ -1437,6 +1478,33 @@ fn stmt_anchor_key(s: &Statement) -> Option<u64> {
                 g.0.hash(&mut h);
                 Some(h.finish())
             }
+            _ => None,
+        },
+        // Only the value's root: the unifier compares it structurally, and a
+        // pattern parameter there yields no key. The assigned target may not
+        // be used - a pattern `t[p] = v` also matches a site `t.Name = v`.
+        Statement::Assign(a) if a.right.len() == 1 => match &a.right[0] {
+            RValue::MethodCall(m) | RValue::Select(Select::MethodCall(m)) => {
+                2u8.hash(&mut h);
+                m.method.hash(&mut h);
+                Some(h.finish())
+            }
+            RValue::Call(c) | RValue::Select(Select::Call(c)) => match c.value.as_ref() {
+                RValue::Global(g) => {
+                    3u8.hash(&mut h);
+                    g.0.hash(&mut h);
+                    Some(h.finish())
+                }
+                _ => None,
+            },
+            RValue::Index(index) => match index.right.as_ref() {
+                RValue::Literal(Literal::String(key)) => {
+                    4u8.hash(&mut h);
+                    key.hash(&mut h);
+                    Some(h.finish())
+                }
+                _ => None,
+            },
             _ => None,
         },
         _ => None,
@@ -1991,7 +2059,7 @@ fn deinline_block(
     current_func: Option<FnPtr>,
     is_func_tail: bool,
     is_func_body_top: bool,
-    newly: &mut FxHashSet<RcLocal>,
+    newly: &mut Progress,
 ) {
     // 1. recurse into nested statement-blocks and into closure bodies first.
     //    A child block/closure only sees targets whose declaration lexically
@@ -2106,6 +2174,19 @@ fn deinline_block(
 
     // 2. scan this block left to right, activating each target after its decl.
     let mut active: Vec<usize> = outer_active.to_vec();
+    // A position tries the focused active targets in priority order, and the
+    // rest only where one of those matches (two matches refuse the site). Both
+    // depend only on this function and the active set: compute them when the
+    // set grows, not at every position.
+    let prioritize = |active: &[usize]| {
+        let (focused, rivals): (Vec<usize>, Vec<usize>) =
+            active.iter().partition(|&&i| targets[i].focused);
+        let focused = crate::reconstruction_search::prioritize(&focused, current_func.map(|p| p as usize), |i| {
+            targets[i].func_ptr as usize
+        });
+        (focused, rivals)
+    };
+    let (mut ordered, mut rivals) = prioritize(&active);
     let mut i = 0;
     // Tail-liveness index, replacing the per-window O(N) `any_local_live` rescan
     // with an O(|set|) lookup. Built lazily on the first query (so target-free /
@@ -2125,7 +2206,9 @@ fn deinline_block(
             stmts,
             i,
             targets,
-            &active,
+            &ordered,
+            &rivals,
+            &mut newly.contested,
             current_func,
             is_func_tail,
             is_func_body_top,
@@ -2168,7 +2251,8 @@ fn deinline_block(
             }
             let advance = replacement.len();
             stmts.splice(i..i + consume, replacement);
-            newly.insert(hit.f_local);
+            newly.binders.insert(hit.f_local);
+            newly.bodies.insert(current_func);
             i += advance;
             // The block changed; drop the cached index so the next query rebuilds
             // it against the spliced `stmts`.
@@ -2178,6 +2262,7 @@ fn deinline_block(
             // with a closure is refused), so activating here is safe.
             if let Some(idx) = target_decl_index(&stmts[i], decl_map, targets) {
                 active.push(idx);
+                (ordered, rivals) = prioritize(&active);
             }
             i += 1;
         }
@@ -2267,7 +2352,7 @@ fn recurse_into_closures(
     targets: &[Target],
     decl_map: &FxHashMap<RcLocal, usize>,
     active: &[usize],
-    newly: &mut FxHashSet<RcLocal>,
+    newly: &mut Progress,
 ) {
     match rv {
         RValue::Closure(c) => {
@@ -2564,7 +2649,12 @@ fn try_match_at(
     stmts: &[Statement],
     i: usize,
     targets: &[Target],
-    active: &[usize],
+    // The targets in scope here, in `reconstruction_search` priority order.
+    ordered: &[usize],
+    // The other targets in scope: consulted only where an `ordered` one matches.
+    rivals: &[usize],
+    // Receives the helpers of a site refused because two of them match.
+    contested: &mut FxHashSet<RcLocal>,
     current_func: Option<FnPtr>,
     is_func_tail: bool,
     is_func_body_top: bool,
@@ -2572,7 +2662,7 @@ fn try_match_at(
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
     canon_cache: &mut CanonCache,
 ) -> Option<Hit> {
-    if active.is_empty() {
+    if ordered.is_empty() {
         return None; // no targets in scope here — nothing to match (skip the scan)
     }
     // Fresh per-position: `stmts` mutates on each splice, so absolute (start, w)
@@ -2581,7 +2671,6 @@ fn try_match_at(
     dprof::inc(&dprof::MATCH_CALLS, 1);
     crate::telemetry::count("match_calls", 1);
     let _mt = dprof::T::new(&dprof::MATCH_US);
-    let mut found: Option<Hit> = None;
     // Cheap O(1) prefilter anchor: the first non-`Empty` statement at/after `i`.
     // Every candidate window is `canon`'d before unification, and `canon` drops
     // leading `Empty`s while preserving the first surviving statement's variant,
@@ -2608,17 +2697,19 @@ fn try_match_at(
     // (method / global-call name). Computed once per position; compared to each
     // candidate target's `pat0_anchor_key`. Same sound domain as `pat0_kind`.
     let anchor_key = anchor_stmt.and_then(stmt_anchor_key);
+    let anchor_is_if = matches!(anchor_stmt, Some(Statement::If(_)));
+    let assign_kind = std::mem::discriminant(&Statement::Assign(Assign::new(Vec::new(), Vec::new())));
     // only targets whose local function is in scope here (declared earlier, in a
     // visible block) are candidates — emitting a call to an out-of-scope local
     // would be invalid.
-    let ordered = crate::reconstruction_search::prioritize(active, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
-    for &ti in &ordered {
+    // One target's attempt at this position; `Err` when the fuel ran out.
+    let mut attempt = |ti: usize| -> Result<Option<Hit>, ()> {
         let t = &targets[ti];
         if current_func == Some(t.func_ptr) {
-            continue; // never match a function against its own definition body
+            return Ok(None); // never match a function against its own definition body
         }
         if t.pat.is_empty() {
-            continue;
+            return Ok(None);
         }
         // O(1) variant prefilter: the first non-`Empty` statement at `i` must share
         // `pat[0]`'s variant. Applies to Void targets and to `AtPrefix` Value
@@ -2628,8 +2719,11 @@ fn try_match_at(
         // check would be unsound there.
         let use_disc = t.kind == TKind::Void
             || (t.kind == TKind::Value && t.value_anchor == ValueAnchor::AtPrefix);
-        if use_disc && anchor_disc != Some(t.pat0_kind) {
-            continue; // first-statement variant cannot match this pattern
+        // Canon may fuse a site's select `if` into the assignment a pattern
+        // starts with (N5).
+        let fused_head = anchor_is_if && t.pat0_kind == assign_kind;
+        if use_disc && anchor_disc != Some(t.pat0_kind) && !fused_head {
+            return Ok(None); // first-statement variant cannot match this pattern
         }
         // Name prefilter (same targets as the variant check): when BOTH the position
         // and the pattern have a fixed-name head anchor and they differ, the exact
@@ -2638,10 +2732,12 @@ fn try_match_at(
             && let (Some(ak), Some(tk)) = (anchor_key, t.pat0_anchor_key)
             && ak != tk
         {
-            continue;
+            return Ok(None);
         }
-        if !t.search.spend(t.pat_raw_len.saturating_add(t.pat_spine_len).saturating_add(2).saturating_mul(2048)) { return None; }
-        let hit = match (t.kind, t.value_anchor) {
+        // One unit per width the non-allocating length check scans; the deep
+        // canon/unify work is charged where it happens (`charge_unify`).
+        if !t.search.spend(t.pat_spine_len.saturating_add(2)) { return Err(()); }
+        Ok(match (t.kind, t.value_anchor) {
             (TKind::Void, _) => match_void(
                 stmts,
                 i,
@@ -2658,13 +2754,37 @@ fn try_match_at(
             (TKind::Value, ValueAnchor::AtPrefix) => {
                 match_value_prefixed(stmts, i, t, is_func_body_top, last_occ)
             }
-        };
+        })
+    };
+    let mut found: Option<Hit> = None;
+    for &ti in ordered {
+        let Ok(hit) = attempt(ti) else { return None };
         if let Some(h) = hit {
-            if found.is_some() {
-                return None; // two different functions match here: refuse
+            if let Some(first) = found {
+                // two different functions match here: refuse
+                contested.extend([first.f_local, h.f_local]);
+                return None;
             }
             found = Some(h);
         }
+    }
+    // A target outside this iteration's focus cannot match anew, but where a
+    // focused one matches, it may still make the site ambiguous.
+    if let Some(first) = &found {
+        for &ti in rivals {
+            match attempt(ti) {
+                Ok(None) => {}
+                Ok(Some(rival)) => {
+                    contested.extend([first.f_local.clone(), rival.f_local]);
+                    return None;
+                }
+                Err(()) => return None,
+            }
+        }
+    }
+    // A width or target skipped for fuel may have been a competing match.
+    if ordered.iter().chain(rivals).next().is_some_and(|&ti| targets[ti].search.exhausted()) {
+        return None;
     }
     found
 }
@@ -2735,8 +2855,8 @@ fn match_void(
                 let _t = dprof::T::new(&dprof::BHR_US);
                 block_has_return(raw) && !(is_func_tail && start + w == stmts.len())
             };
-            if !plain_blocked {
-                let plain = canon_window(canon_cache, stmts, start, w);
+            if !plain_blocked && plain_kinds_may_match(t, raw) {
+                let plain = canon_window(canon_cache, t, stmts, start, w);
                 if let Some(u) = try_unify_site_any(t, &plain, &prefix) {
                     // every callee-temp must be dead after the consumed window, else
                     // a later use would reference a now-removed declaration.
@@ -2749,7 +2869,7 @@ fn match_void(
             // guard followed by a cloned caller continuation.  Verify the clone
             // against the actual suffix before replacing only the helper prefix.
             if t.cps_loop_return && (start + w < stmts.len() || !outer_continuation.is_empty()) {
-                let plain = canon_window(canon_cache, stmts, start, w);
+                let plain = canon_window(canon_cache, t, stmts, start, w);
                 let continuation = semantic_continuation(&stmts[start + w..], outer_continuation);
                 if let Some(u) = try_unify_cps_site(t, &plain, &continuation, &prefix) {
                     let live = tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals);
@@ -2764,6 +2884,7 @@ fn match_void(
         if let Some(ret) = value_tail_ret(stmts, start, w, is_func_tail) {
             let rewritten = rewrite_return_to_void(raw, &ret);
             if canon_top_len(&rewritten, true) == kc {
+                charge_window(t, &rewritten);
                 let folded = canon_recurse(canon_top(&rewritten, true), true);
                 if let Some(u) = try_unify_site_any(t, &folded, &prefix) {
                     if !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals) {
@@ -2778,6 +2899,7 @@ fn match_void(
         if let Some(ret) = arm_tail_ret(stmts, start, w, is_func_tail) {
             let rewritten = rewrite_return_to_void(raw, &ret);
             if canon_top_len(&rewritten, true) == kc {
+                charge_window(t, &rewritten);
                 let folded = canon_recurse(canon_top(&rewritten, true), true);
                 if let Some(u) = try_unify_site_any(t, &folded, &prefix) {
                     if !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals) {
@@ -2836,7 +2958,12 @@ fn match_value(
         if block_has_return(region) {
             continue;
         }
-        let cwin = canon_window(canon_cache, stmts, body_start, w);
+        // An empty window stands for a plain form whose kinds cannot match.
+        let cwin = if plain_kinds_may_match(t, region) {
+            canon_window(canon_cache, t, stmts, body_start, w)
+        } else {
+            std::rc::Rc::new(Vec::new())
+        };
         // Plain form first; then the result-alias form (`alias_result_leaves`):
         // a leaf that writes RESULT early and keeps using it (`RESULT = E;
         // S(RESULT)…`) is rewritten to `local T = E; S(T)…; RESULT = T` — the
@@ -2845,14 +2972,17 @@ fn match_value(
             (cwin, None),
             match alias_result_leaves(region, &r) {
                 Some(rw) if !block_has_return(&rw) && canon_top_len(&rw, true) == kc => (
-                    std::rc::Rc::new(canon_recurse(canon_top(&rw, true), true)),
+                    std::rc::Rc::new({
+                        charge_window(t, &rw);
+                        canon_recurse(canon_top(&rw, true), true)
+                    }),
                     Some(rw),
                 ),
                 _ => (std::rc::Rc::new(Vec::new()), None),
             },
         ];
         for (idx, (cw, rewritten)) in attempts.iter().enumerate() {
-            if idx == 1 && rewritten.is_none() {
+            if (idx == 0 && cw.is_empty()) || (idx == 1 && rewritten.is_none()) {
                 continue;
             }
             let region_eff: &[Statement] = rewritten.as_deref().unwrap_or(region);
@@ -2946,23 +3076,25 @@ fn match_value_prefixed(
             continue;
         }
         let region = &stmts[region_start..region_start + w];
+        // Cheapest reject first: the non-allocating top-level canon length of
+        // the UNION window (prefix + region, RESULT decl spliced out) rejects
+        // most widths before the return scan and the deep window copy.
+        if canon_top_len_of(prefix.iter().chain(region), true) != kc {
+            continue;
+        }
         // the value region must not contain a return: it assigns RESULT on every
         // path; a return would be a different shape.
         if block_has_return(region) {
             continue;
         }
-        // UNION window with the RESULT decl spliced out.
         let mut union: Vec<Statement> = Vec::with_capacity(p + w);
         union.extend_from_slice(prefix);
         union.extend_from_slice(region);
-        // cheap (non-allocating) top-level canon length reject BEFORE the deep rebuild.
-        if canon_top_len(&union, true) != kc {
-            continue;
-        }
         let cwin = {
             dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
             crate::telemetry::count("canonicalize_calls", 1);
             let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
+            charge_window(t, &union);
             canon_recurse(canon_top(&union, true), true)
         };
         if let Some(u) = try_unify_site_any(t, &cwin, &[]) {
@@ -3310,7 +3442,45 @@ fn finish_unified(
 /// it only uses it to seed arguments, specializes a deep copy of the recovered
 /// definition, then requires a full structural unification against the site.
 fn try_unify_site_any(t: &Target, cwin: &[Statement], prefix: &Prefix) -> Option<Unified> {
+    if !charge_unify(t, cwin) {
+        return None;
+    }
     try_unify_site(t, cwin, prefix).or_else(|| try_unify_specialized_site(t, cwin, prefix))
+}
+
+/// Fuel for unifying one candidate window: the pattern's node count, the most
+/// a lockstep unification walks. Building the window is charged once, where
+/// it is built (`canon_window`), however many targets then compare against it.
+fn charge_unify(t: &Target, _cwin: &[Statement]) -> bool {
+    t.search.spend(t.pat_nodes)
+}
+
+/// Whether `window` can canonicalize to statements of `t.pat`'s kinds, checked
+/// before building the canonical copy. Canon keeps each top-level kind except
+/// that an `if` may fuse into an assignment or a return (N4/N5), and a value
+/// pattern's `return` stands for the site's RESULT assignment. A specializable
+/// target changes shape under partial evaluation and a written-param target
+/// matches after a consumed prefix, so both skip the gate.
+fn plain_kinds_may_match(t: &Target, window: &[Statement]) -> bool {
+    if t.specializable || !t.written_params.is_empty() {
+        return true;
+    }
+    let mut real = window.iter().filter(|s| !is_match_trivia(s));
+    t.pat.iter().all(|pattern| {
+        real.next().is_some_and(|site| {
+            std::mem::discriminant(site) == std::mem::discriminant(pattern)
+                || matches!(
+                    (pattern, site),
+                    (Statement::Assign(_) | Statement::Return(_), Statement::If(_))
+                        | (Statement::Return(_), Statement::Assign(_))
+                )
+        })
+    })
+}
+
+/// Fuel for building a canonical window: its node count.
+fn charge_window(t: &Target, window: &[Statement]) -> bool {
+    t.search.spend(window.iter().map(dbg_stmt_node_count).sum())
 }
 
 fn try_unify_cps_site(
@@ -3323,6 +3493,7 @@ fn try_unify_cps_site(
         || continuation.is_empty()
         || !sequence_has_return_tail(continuation)
         || has_depth_zero_loop_control(continuation, 0)
+        || !charge_unify(t, cwin)
     {
         return None;
     }
@@ -4215,6 +4386,7 @@ fn collect_targets(
         };
         crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
         drop(g);
+        let pat_nodes = pat.iter().map(dbg_stmt_node_count).sum();
         targets.push(Target {
             f_local,
             func_ptr,
@@ -4222,6 +4394,8 @@ fn collect_targets(
             pat,
             pat_raw_len,
             pat_spine_len,
+            pat_nodes,
+            focused: true,
             value_anchor,
             prefix_len,
             pat0_kind,
@@ -5115,6 +5289,8 @@ mod tests {
             kind: TKind::Void,
             pat_raw_len: pat.len(),
             pat_spine_len: tail_spine_len(&pat),
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtResultDecl,
             prefix_len: 0,
             pat0_kind,
@@ -5287,6 +5463,8 @@ mod tests {
             kind: TKind::Void,
             pat_raw_len: raw.len(),
             pat_spine_len: raw.len(),
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtResultDecl,
             prefix_len: 0,
             pat0_kind: std::mem::discriminant(&pat[0]),
@@ -5357,6 +5535,8 @@ mod tests {
             kind: TKind::Void,
             pat_raw_len: raw.len(),
             pat_spine_len: raw.len(),
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtResultDecl,
             prefix_len: 0,
             pat0_kind: std::mem::discriminant(&pat[0]),
@@ -5417,6 +5597,8 @@ mod tests {
             kind: TKind::Void,
             pat_raw_len: raw.len(),
             pat_spine_len: raw.len(),
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtResultDecl,
             prefix_len: 0,
             pat0_kind: std::mem::discriminant(&pat[0]),
@@ -5492,6 +5674,8 @@ mod tests {
             kind: TKind::Void,
             pat_raw_len: raw.len(),
             pat_spine_len: raw.len(),
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtResultDecl,
             prefix_len: 0,
             pat0_kind: std::mem::discriminant(&pat[0]),
@@ -5830,6 +6014,8 @@ mod tests {
             kind: TKind::Value,
             pat_raw_len: 2,
             pat_spine_len: 2,
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtPrefix,
             prefix_len: 1,
             pat0_kind,
@@ -5913,6 +6099,8 @@ mod tests {
             // fine. A window-scan (match_void) test would need the RAW body length.
             pat_raw_len: pat.len(),
             pat_spine_len: tail_spine_len(&pat),
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtResultDecl,
             prefix_len: 0,
             pat0_kind,
@@ -6058,6 +6246,8 @@ mod tests {
             kind: TKind::Value,
             pat_raw_len: body.len(),
             pat_spine_len: body.len(),
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtPrefix,
             prefix_len: 1,
             pat0_kind,
@@ -6098,6 +6288,8 @@ mod tests {
             kind: TKind::Value,
             pat_raw_len: body.len(),
             pat_spine_len: body.len(),
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtPrefix,
             prefix_len: k,
             pat0_kind,
@@ -7203,6 +7395,8 @@ mod tests {
             kind: TKind::Void,
             pat_raw_len: 2,
             pat_spine_len: tail_spine_len(&pat),
+            pat_nodes: 1,
+            focused: true,
             value_anchor: ValueAnchor::AtResultDecl,
             prefix_len: 0,
             pat0_kind,
