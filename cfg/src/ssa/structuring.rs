@@ -821,16 +821,24 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
                 return false;
             }
             // Two RETURNs are two source `return`s: `return c and a or b`
-            // compiles to one. Only `return true` / `return false` arms fold,
-            // into the plain `return c`; other values keep the source's
+            // compiles to one. Only `return true` / `return false` arms on a
+            // condition that is already a boolean fold, into the plain
+            // `return a == b`; other values keep the source's
             // `if c then return a end return b`.
-            if !matches!(
-                (&then_value, &else_value),
-                (
-                    ast::RValue::Literal(ast::Literal::Boolean(_)),
-                    ast::RValue::Literal(ast::Literal::Boolean(_))
+            let condition_is_boolean = function
+                .block(node)
+                .and_then(|block| block.last())
+                .and_then(|statement| statement.as_if())
+                .is_some_and(|r#if| ast::is_boolean(&r#if.condition));
+            if !condition_is_boolean
+                || !matches!(
+                    (&then_value, &else_value),
+                    (
+                        ast::RValue::Literal(ast::Literal::Boolean(_)),
+                        ast::RValue::Literal(ast::Literal::Boolean(_))
+                    )
                 )
-            ) {
+            {
                 return false;
             }
 

@@ -48,7 +48,8 @@ impl BinaryOperation {
 ///
 /// `not X` is always boolean regardless of `X`. Method names alone are not type
 /// proofs: an arbitrary table can expose an `IsA` method returning any value.
-pub(crate) fn is_boolean(r: &RValue) -> bool {
+/// Whether `r` always yields a boolean.
+pub fn is_boolean(r: &RValue) -> bool {
     match r {
         RValue::Binary(binary) if binary.operation.is_comparator() => true,
         RValue::Binary(Binary {
