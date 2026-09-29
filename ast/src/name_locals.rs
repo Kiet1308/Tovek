@@ -189,6 +189,14 @@ fn call_hint(call: &Call) -> Option<String> {
     {
         return std::str::from_utf8(arg).ok().and_then(sanitize);
     }
+    // Fusion's `peek` is usually bound to a local (`local peek = Fusion.peek`);
+    // it reads a state as transparently as the global does below.
+    if let RValue::Local(callee) = &*call.value
+        && call.arguments.len() == 1
+        && callee.0 .0.lock().0.as_deref() == Some("peek")
+    {
+        return rvalue_hint(&call.arguments[0]);
+    }
     if let Some((namespace, member)) = static_callee(call) {
         let argument_count = call.arguments.len();
         // A single-argument numeric/string/state transform is transparent for
@@ -378,7 +386,7 @@ fn strip_predicate_prefix(name: &str) -> Option<&str> {
 /// qualifier ("from node", "and position"), not as the produced value, so it is
 /// worse than the generic `vN`. Catches the verb+preposition+noun shape the
 /// compound `getOr…`/`findOr…` rule does not.
-fn strip_verb_prefix(name: &str) -> Option<&str> {
+pub(crate) fn strip_verb_prefix(name: &str) -> Option<&str> {
     // Accept a stripped remainder only if it is a noun-like PascalCase word — it
     // must be uppercase-led AND not begin with a connective word.
     fn noun_like(rest: &str) -> Option<&str> {
@@ -989,7 +997,7 @@ fn first_string_argument(arguments: &[RValue]) -> Option<&str> {
     })
 }
 
-fn rvalue_hint(rvalue: &RValue) -> Option<String> {
+pub(crate) fn rvalue_hint(rvalue: &RValue) -> Option<String> {
     match rvalue {
         RValue::Index(index) => index_hint(index),
         RValue::Call(call) | RValue::Select(Select::Call(call)) => call_hint(call),

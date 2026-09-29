@@ -4,6 +4,9 @@
 //! property is being mutated and is rarely how Roblox source is written. More
 //! importantly, this shape can already exist before the late UI inliner runs,
 //! so merely refusing to create new instances is insufficient.
+//!
+//! `getmetatable(x).__index = ...` is the exception: it configures the
+//! metatable of the already-named `x`, and that is how Lua source writes it.
 
 use rustc_hash::FxHashSet;
 
@@ -145,12 +148,17 @@ fn call_root(mut value: &RValue) -> Option<&RValue> {
     loop {
         match value {
             RValue::Index(index) => value = &index.left,
-            RValue::Call(_)
-            | RValue::MethodCall(_)
-            | RValue::Select(Select::Call(_) | Select::MethodCall(_)) => return Some(value),
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+                return (!is_metatable_access(call)).then_some(value);
+            }
+            RValue::MethodCall(_) | RValue::Select(Select::MethodCall(_)) => return Some(value),
             _ => return None,
         }
     }
+}
+
+fn is_metatable_access(call: &crate::Call) -> bool {
+    matches!(call.value.as_ref(), RValue::Global(global) if global.0.as_slice() == b"getmetatable")
 }
 
 fn take_receiver_call(statement: &mut Statement, local: &RcLocal) -> Option<RValue> {
@@ -174,7 +182,13 @@ fn take_receiver_call(statement: &mut Statement, local: &RcLocal) -> Option<RVal
     }
 }
 
+/// The name `name_locals` would give the call's result
+/// (`script:WaitForChild("PlayEmote")` -> `playEmote`), else the callee's name
+/// without its verb (`createLabel(...)` -> `label`), else the callee's name.
 fn call_result_hint(value: &RValue) -> Option<String> {
+    if let Some(hint) = crate::name_locals::rvalue_hint(value) {
+        return sanitize_hint(&hint);
+    }
     let raw = match value {
         RValue::Call(call) => callee_name(&call.value),
         RValue::MethodCall(call) => Some(call.method.clone()),
@@ -182,7 +196,8 @@ fn call_result_hint(value: &RValue) -> Option<String> {
         RValue::Select(Select::MethodCall(call)) => Some(call.method.clone()),
         _ => None,
     }?;
-    sanitize_hint(&raw)
+    let noun = crate::name_locals::strip_verb_prefix(&raw);
+    sanitize_hint(noun.unwrap_or(&raw))
 }
 
 fn callee_name(value: &RValue) -> Option<String> {
@@ -271,6 +286,51 @@ mod tests {
         let once = block.to_string();
         materialize_call_assignment_receivers(&mut block);
         assert_eq!(block.to_string(), once);
+    }
+
+    #[test]
+    fn keeps_metatable_configuration_inline() {
+        let object = local("object");
+        let receiver = Call::new(RValue::Global(Global::from("getmetatable")), vec![local_value(&object)]);
+        let mut block = Block(vec![Assign::new(
+            vec![LValue::Index(Index::new(RValue::Select(crate::Select::Call(receiver)), string("__index")))],
+            vec![local_value(&object)],
+        )
+        .into()]);
+        let before = block.to_string();
+
+        materialize_call_assignment_receivers(&mut block);
+
+        assert_eq!(block.to_string(), before);
+        assert_eq!(before, "getmetatable(object).__index = object");
+    }
+
+    #[test]
+    fn names_receiver_after_the_produced_value() {
+        let create_label = local("createLabel");
+        let peek = local("peek");
+        let data = local("data");
+        let label = Call::new(local_value(&create_label), vec![string("Title")]);
+        let state = Call::new(local_value(&peek), vec![RValue::Index(Index::new(local_value(&data), string("PlayerData")))]);
+        let mut block = Block(vec![
+            Assign::new(
+                vec![LValue::Index(Index::new(RValue::Call(label), string("TextSize")))],
+                vec![RValue::Literal(Literal::Number(12.0))],
+            )
+            .into(),
+            Assign::new(
+                vec![LValue::Index(Index::new(RValue::Call(state), string("Coins")))],
+                vec![RValue::Literal(Literal::Number(0.0))],
+            )
+            .into(),
+        ]);
+
+        materialize_call_assignment_receivers(&mut block);
+
+        assert_eq!(
+            block.to_string(),
+            "local label = createLabel(\"Title\")\nlabel.TextSize = 12\nlocal playerData = peek(data.PlayerData)\nplayerData.Coins = 0"
+        );
     }
 
     #[test]
