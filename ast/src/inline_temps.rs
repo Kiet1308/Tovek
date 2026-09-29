@@ -658,13 +658,27 @@ fn spreads_into_iterator(statement: &Statement, local: &RcLocal, replacement: &R
             if matches!(generic_for.right.last(), Some(RValue::Local(read)) if read == local))
 }
 
+/// `x.Name = local`, or `{ Name = local }` in a constructor: the field names
+/// the value.
 fn is_named_field_store_use(statement: &Statement, local: &RcLocal) -> bool {
-    matches!(statement, Statement::Assign(assign)
+    fn is_name_key(key: &RValue) -> bool {
+        matches!(key, RValue::Literal(crate::Literal::String(key))
+            if std::str::from_utf8(key).ok().is_some_and(crate::valid_source_name))
+    }
+    fn in_constructor(value: &RValue, local: &RcLocal) -> bool {
+        let RValue::Table(table) = value else { return false };
+        table.0.iter().any(|(key, value)| {
+            (matches!(value, RValue::Local(read) if read == local) && key.as_ref().is_some_and(is_name_key))
+                || in_constructor(value, local)
+        })
+    }
+    let store = matches!(statement, Statement::Assign(assign)
         if !assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1
             && matches!(&assign.right[0], RValue::Local(read) if read == local)
-            && matches!(&assign.left[0], LValue::Index(index)
-                if matches!(index.right.as_ref(), RValue::Literal(crate::Literal::String(key))
-                    if std::str::from_utf8(key).ok().is_some_and(crate::valid_source_name))))
+            && matches!(&assign.left[0], LValue::Index(index) if is_name_key(&index.right)));
+    let mut field = false;
+    for_each_inlineable_direct_rvalue(statement, &mut |value| field |= in_constructor(value, local));
+    store || field
 }
 
 fn is_call_callee_use(statement: &Statement, local: &RcLocal) -> bool {
@@ -1966,6 +1980,28 @@ mod tests {
             if barrier == 0 { assert_eq!(block.to_string(), "components.Component = require(\"Component\")"); }
             else { assert_eq!(block.to_string(), before); }
         }
+    }
+
+    #[test]
+    fn named_import_folds_into_a_constructor_field() {
+        // `return { A = require(a), B = require(b) }`: once the table literal
+        // is rebuilt, the first import's use is a constructor field, which
+        // names it exactly as the field store `t.A = a` did.
+        let first = local("a");
+        let second = local("b");
+        let import = |name: &str| RValue::Select(Select::Call(Call::new(global("require"), vec![string(name)])));
+        let table = crate::Table::new(vec![
+            (Some(string("A")), local_value(&first)),
+            (Some(string("B")), local_value(&second)),
+        ]);
+        let mut block = Block(vec![
+            declare(&first, import("A")),
+            declare(&second, import("B")),
+            Return::new(vec![table.into()]).into(),
+        ]);
+
+        assert!(super::rebuild_ui_expression_trees(&mut block));
+        assert_eq!(block.to_string(), "return {\n\tA = require(\"A\"),\n\tB = require(\"B\")\n}");
     }
 
     #[test]
