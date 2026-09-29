@@ -394,6 +394,22 @@ fn remove_upvalue_param_sccs(
 #[path = "construct/params_reference.rs"]
 mod params_reference;
 
+/// The name the param removal pass uses for `param`: its captured cell for a
+/// value renamed into one, the param itself otherwise.
+fn cell_param_name(
+    cell_renamed: &FxHashSet<RcLocal>,
+    local_map: &FxHashMap<RcLocal, RcLocal>,
+    param: &RcLocal,
+) -> RcLocal {
+    let mut name = param;
+    if cell_renamed.contains(param) {
+        while let Some(renamed) = local_map.get(name) {
+            name = renamed;
+        }
+    }
+    name.clone()
+}
+
 fn remove_trivial_dependency(
     graph: &mut Option<ParamDependencyGraph>,
     deferred: &mut Vec<RcLocal>,
@@ -420,6 +436,9 @@ pub fn remove_unnecessary_params(
 ) -> bool {
     let mut changed = upvalue_to_group
         .is_some_and(|groups| remove_upvalue_param_sccs(function, local_map, groups));
+    // Values renamed into a captured cell below. A later block whose param is
+    // one of them keys its dependency graph by the new name.
+    let mut cell_renamed = FxHashSet::default();
     let mut graphs_built = 0u64;
     let mut graphs_skipped = 0u64;
     for node in function.blocks().map(|(i, _)| i).collect::<Vec<_>>() {
@@ -440,7 +459,8 @@ pub fn remove_unnecessary_params(
                 && edge.weight().arguments.iter().zip(&first.weight().arguments)
                     .all(|((param, _), (first_param, _))| param == first_param)
         }));
-        let mut dependency_graph = (!aligned).then(|| ParamDependencyGraph::new(function, node));
+        let mut dependency_graph = (!aligned)
+            .then(|| ParamDependencyGraph::with_param_names(function, node, |p| cell_param_name(&cell_renamed, local_map, p)));
         let mut deferred_trivial = Vec::new();
         if !edges.is_empty() {
             let params = edges[0].weight().arguments.iter().map(|(p, _)| p);
@@ -561,6 +581,7 @@ pub fn remove_unnecessary_params(
                             }) && !function.parameters.contains(arg);
                             if joins_cell {
                                 let (arg, param) = (arg.clone(), param.clone());
+                                cell_renamed.insert(arg.clone());
                                 local_map.insert(arg, param.clone());
                                 remove_trivial_dependency(&mut dependency_graph, &mut deferred_trivial, &param);
                                 params_to_remove.insert(param);
@@ -580,7 +601,8 @@ pub fn remove_unnecessary_params(
                 // Build from the untouched raw arguments. Replaying by local
                 // identity in the original order also retains DiGraph's
                 // existing swap-removal/local_to_node behavior exactly.
-                let mut graph = ParamDependencyGraph::new(function, node);
+                let mut graph =
+                    ParamDependencyGraph::with_param_names(function, node, |p| cell_param_name(&cell_renamed, local_map, p));
                 for local in deferred_trivial {
                     if let Some(&param_node) = graph.local_to_node.get(&local) {
                         graph.remove_node(param_node);

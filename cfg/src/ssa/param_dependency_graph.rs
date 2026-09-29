@@ -19,23 +19,40 @@ pub struct ParamDependencyGraph {
 
 impl ParamDependencyGraph {
     pub fn new(function: &Function, node: NodeIndex) -> Self {
+        Self::with_param_names(function, node, RcLocal::clone)
+    }
+
+    /// Nodes are keyed by `name(param)`: the pass building this graph may
+    /// already have renamed a param (to the captured cell its value merges
+    /// into), and its own lookups use that name.
+    pub fn with_param_names(
+        function: &Function,
+        node: NodeIndex,
+        name: impl Fn(&RcLocal) -> RcLocal,
+    ) -> Self {
         let mut this = Self {
             graph: DiGraph::new(),
             local_to_node: FxHashMap::default(),
         };
+        let resolve = |local: &RcLocal| name(local);
+        let mut own_params = FxHashMap::default();
 
         let edges = function.edges_to_block(node);
         for (edge_index, edge) in edges.enumerate() {
             if edge_index == 0 {
                 for (param, _) in &edge.1.arguments {
-                    this.add_node(param.clone());
+                    let key = resolve(param);
+                    own_params.insert(param.clone(), key.clone());
+                    this.add_node(key);
                 }
             }
             // TODO: support non-local block arguments
             for (param, arg) in &edge.1.arguments {
+                let param = own_params.get(param).cloned().unwrap_or_else(|| resolve(param));
                 arg.visit_local_reads(&mut |read| {
+                    let read = own_params.get(read).unwrap_or(read);
                     if let Some(&defining_param_node) = this.local_to_node.get(read) {
-                        let param_node = this.local_to_node[param];
+                        let param_node = this.local_to_node[&param];
                         if param_node != defining_param_node {
                             this.graph.add_edge(param_node, defining_param_node, ());
                         }
