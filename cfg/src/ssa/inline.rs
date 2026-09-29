@@ -247,6 +247,24 @@ fn forwards_table_into_index_write(
         })
 }
 
+/// Never forward a single-result call into the iterator of generalized
+/// iteration (`local t = f(); for k, v in t do`). The two nils after it are
+/// VM protocol, not source, and are dropped when structuring; `for k, v in
+/// f() do` would then spread every result of `f` into the iterator triple.
+fn forwards_call_into_generalized_iteration(
+    new_rvalue: &ast::RValue,
+    use_stat: &ast::Statement,
+    local: &ast::RcLocal,
+) -> bool {
+    let ast::Statement::GenericForInit(ast::GenericForInit(init, Some(origin))) = use_stat else {
+        return false;
+    };
+    matches!(new_rvalue, ast::RValue::Select(_))
+        && origin.prep_kind == ast::ForPrepKind::Generic
+        && !origin.explicit_nil_args
+        && matches!(init.right.first(), Some(ast::RValue::Local(first)) if first == local)
+}
+
 /// The operand of `rvalue` that Luau reads from its register only when the
 /// operation itself runs. The compiler hands a register local straight to an
 /// arithmetic or comparison instruction and to GETTABLE, so in `v + f()`,
@@ -538,6 +556,7 @@ impl<'a> Inliner<'a> {
                         {
                             if let Ok(ast::LValue::Local(local)) = &assign.left.iter().exactly_one()
                                 && !forwards_table_into_index_write(new_rvalue, &block[index], local)
+                                && !forwards_call_into_generalized_iteration(new_rvalue, &block[index], local)
                                 && let Some(read) = stat_to_values_read[index]
                                     .iter_mut()
                                     .find(|l| l.as_ref() == Some(local))

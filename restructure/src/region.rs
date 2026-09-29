@@ -5630,7 +5630,7 @@ impl<'a> Builder<'a> {
             && !info.origin.is_some_and(|origin| origin.explicit_nil_args)
             && !matches!(
                 right.first(),
-                Some(RValue::Call(_)) | Some(RValue::VarArg(_))
+                Some(RValue::Call(_) | RValue::VarArg(_) | RValue::Select(_))
             )
         {
             right.truncate(1);

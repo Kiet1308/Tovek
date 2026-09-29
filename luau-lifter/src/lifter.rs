@@ -373,6 +373,8 @@ impl<'a> Lifter<'a> {
     /// multi-result call is written directly into the protocol base register
     /// with `C=3`; explicit padding uses `C=1` and either writes the base
     /// directly or moves the temporary result into it before the two nil loads.
+    /// That temporary is allocated above the loop base; a MOVE from below the
+    /// base copies a local (`local t = f(); for k, v in t do`) instead.
     fn has_explicit_nil_args(instructions: &[Instruction], prep_pc: usize, base: u8) -> bool {
         let load_nil = |pc: usize, register: u8| {
             matches!(
@@ -435,7 +437,7 @@ impl<'a> Lifter<'a> {
                 a,
                 b,
                 ..
-            }) if *a == base => {
+            }) if *a == base && *b > base => {
                 let Some(mut call_pc) = cursor.checked_sub(1) else {
                     return false;
                 };
@@ -2300,5 +2302,31 @@ mod tests {
         // Short prefixes must fail closed without underflowing while looking
         // behind the prep instruction.
         assert!(!Lifter::has_explicit_nil_args(&instructions, 2, 1));
+    }
+
+    #[test]
+    fn local_iterated_after_its_call_has_no_explicit_nil_args() {
+        // `local t = table.clone(x); for k, v in t do`: the call result lives
+        // in a local below the loop base and is copied into it.
+        let bc = |op_code, a, b, c| Instruction::BC {
+            op_code,
+            a,
+            b,
+            c,
+            aux: 0,
+        };
+        let instructions = vec![
+            bc(OpCode::LOP_CALL, 2, 2, 2),
+            bc(OpCode::LOP_MOVE, 3, 2, 0),
+            bc(OpCode::LOP_LOADNIL, 4, 0, 0),
+            bc(OpCode::LOP_LOADNIL, 5, 0, 0),
+            Instruction::AD {
+                op_code: OpCode::LOP_FORGPREP,
+                a: 3,
+                d: 0,
+                aux: 0,
+            },
+        ];
+        assert!(!Lifter::has_explicit_nil_args(&instructions, 4, 3));
     }
 }

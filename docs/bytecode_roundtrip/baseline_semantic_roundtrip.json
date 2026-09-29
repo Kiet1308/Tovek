@@ -18,7 +18,8 @@
    "captured_connection_after_branch": "Regression fixture for a real-dump dropped captured write (2026-09-29); baselined from the fixing commit output.",
    "captured_cell_block_param_rename": "Regression fixture for a real-dump captured cell split (2026-09-29); baselined from the fixing commit output.",
    "captured_handle_from_merge": "Regression fixture for a real-dump captured cell split (2026-09-29); baselined from the fixing commit output.",
-   "fastcall_argument_order": "Argument order fixture for FASTCALL callee folding (2026-09-29); baselined from the introducing commit output."
+   "fastcall_argument_order": "Argument order fixture for FASTCALL callee folding (2026-09-29); baselined from the introducing commit output.",
+   "generic_for_iterates_local_call": "added_fixtures"
   }
  },
  "summary": {
@@ -103,6 +104,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 2
+  },
+  {
+   "file": "generic_for_iterates_local_call",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
   },
   {
    "file": "inner_loop_continues_outer",

@@ -513,6 +513,9 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
     if named_table && !is_declarative_table_use(&block.0[use_index], &local) {
         return false;
     }
+    if spreads_into_iterator(&block.0[use_index], &local, replacement) {
+        return false;
+    }
     if !motion.allows(block, replacement, index + 1, use_index, facts) {
         crate::telemetry::count("inline_refused_intervening_statement", 1);
         return false;
@@ -644,6 +647,15 @@ fn candidate_decl(statement: &Statement) -> Option<(&RcLocal, &RValue)> {
         return None;
     };
     Some((local, &assign.right[0]))
+}
+
+/// The last iterator expression of a generic `for` is adjusted to the
+/// generator/state/control triple: a call moved there from `local t = f()`
+/// would spread every result of `f` where the local held only the first.
+fn spreads_into_iterator(statement: &Statement, local: &RcLocal, replacement: &RValue) -> bool {
+    matches!(replacement, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_) | RValue::Select(_))
+        && matches!(statement, Statement::GenericFor(generic_for)
+            if matches!(generic_for.right.last(), Some(RValue::Local(read)) if read == local))
 }
 
 fn is_named_field_store_use(statement: &Statement, local: &RcLocal) -> bool {
