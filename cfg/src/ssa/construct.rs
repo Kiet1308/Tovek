@@ -545,6 +545,27 @@ pub fn remove_unnecessary_params(
                             if !param.source_bindings_compatible(arg) {
                                 continue;
                             }
+                            // A captured cell's version merging one uncaptured
+                            // value (`local conn = nil`, then an unrelated `if`,
+                            // then `conn = sig:Connect(function() conn:Disconnect()
+                            // end)`): when the cell has other versions (a later
+                            // write), keep its identity by renaming the value to
+                            // the phi instead. Every use of the value precedes the
+                            // merge, so it reads the same content. A cell with no
+                            // other version is only read; the value can stand in.
+                            let joins_cell = upvalue_to_group.is_some_and(|groups| {
+                                groups.get(param).is_some_and(|cell| {
+                                    !groups.contains_key(arg)
+                                        && groups.iter().any(|(version, root)| root == cell && version != param)
+                                })
+                            }) && !function.parameters.contains(arg);
+                            if joins_cell {
+                                let (arg, param) = (arg.clone(), param.clone());
+                                local_map.insert(arg, param.clone());
+                                remove_trivial_dependency(&mut dependency_graph, &mut deferred_trivial, &param);
+                                params_to_remove.insert(param);
+                                continue;
+                            }
                             // param is not trivial, replace the param with the arg
                             removable_params.insert(param.clone(), arg.clone());
                         } else {

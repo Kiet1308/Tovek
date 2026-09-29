@@ -14,7 +14,8 @@
    "report_nested_numeric_accumulate": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
    "report_repeat_break_in_numeric_for": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
    "builtin_alias_across_blocks": "Regression fixture for a real-dump structuring failure (2026-09-29); baselined from the fixing commit output.",
-   "while_header_opens_for": "Regression fixture for a real-dump structuring failure (2026-09-29); baselined from the fixing commit output."
+   "while_header_opens_for": "Regression fixture for a real-dump structuring failure (2026-09-29); baselined from the fixing commit output.",
+   "captured_connection_after_branch": "Regression fixture for a real-dump dropped captured write (2026-09-29); baselined from the fixing commit output."
   }
  },
  "summary": {
@@ -57,6 +58,12 @@
    "status": "ok",
    "nonequiv": 3,
    "protos": 5
+  },
+  {
+   "file": "captured_connection_after_branch",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 6
   },
   {
    "file": "captured_result",
