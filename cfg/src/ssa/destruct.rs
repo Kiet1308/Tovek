@@ -439,6 +439,7 @@ impl<'a> Destructor<'a> {
         drop(phase);
         let phase = ast::telemetry::Span::new("SSA_COALESCE_COPIES");
         self.coalesce_copies();
+        self.coalesce_dead_self_updates();
         drop(phase);
 
         let phase = ast::telemetry::Span::new("SSA_APPLY_LOCAL_MAP");
@@ -896,6 +897,72 @@ impl<'a> Destructor<'a> {
             let mut dominator_dfs = Dfs::new(self.function.graph(), self.function.entry().unwrap());
             while let Some(node) = dominator_dfs.next(self.function.graph()) {
                 self.coalesce_copies_for_block(node, same_register_only);
+            }
+        }
+    }
+
+    /// A dead self-update `v = v + 1` (no statement reads its result and no
+    /// phi rescues it, e.g. the last increment on one branch) is otherwise a
+    /// singleton class and prints as `local _ = v + 1`, hiding the source
+    /// `v += 1` (C13 self-update). When its value reads exactly one version of
+    /// its own bytecode register, join that version's class if the ordinary
+    /// interference and binding checks allow. The same-register read keeps
+    /// every other `local _ =` (a discarded field read, call or unrelated
+    /// closure reusing the register) out of reach.
+    fn coalesce_dead_self_updates(&mut self) {
+        if self.register_groups.is_none() {
+            return;
+        }
+        let mut self_updates = Vec::new();
+        for (_, block) in self.function.blocks() {
+            for statement in block.iter() {
+                let ast::Statement::Assign(assign) = statement else { continue };
+                if assign.parallel || assign.left.len() != 1 {
+                    continue;
+                }
+                let Some(dst) = assign.left[0].as_local() else { continue };
+                if self.local_last_use.contains_key(dst)
+                    || self.upvalues_in.contains(dst)
+                    || self.upvalue_to_group.contains_key(dst)
+                {
+                    continue;
+                }
+                let Some(group) = self.register_group(dst) else { continue };
+                // One version of the register, possibly read twice (`v + v`);
+                // two distinct versions are ambiguous.
+                let mut operand: Option<&RcLocal> = None;
+                let single = statement.visit_local_reads(&mut |read| {
+                    if self.register_group(read) != Some(group) {
+                        return true;
+                    }
+                    match operand {
+                        Some(seen) => seen == read,
+                        None => {
+                            operand = Some(read);
+                            true
+                        }
+                    }
+                });
+                if let Some(operand) = operand.filter(|_| single) {
+                    self_updates.push((dst.clone(), operand.clone()));
+                }
+            }
+        }
+        self_updates.sort_by_key(|(dst, _)| self.local_defs.get(dst).map(|&(order, _, index)| (order, index)));
+        for (dst, operand) in self_updates {
+            if !dst.source_bindings_compatible(&operand) {
+                continue;
+            }
+            let dead_class = self.get_congruence_class(dst).clone();
+            let live_class = self.get_congruence_class(operand).clone();
+            if Rc::ptr_eq(&dead_class, &live_class)
+                || dead_class.borrow().len() != 1
+                || !live_class.borrow().bindings().compatible(dead_class.borrow().bindings())
+            {
+                continue;
+            }
+            if !self.check_interfere(&live_class, &dead_class) {
+                self.merge_congruence_classes(&live_class, &dead_class);
             }
         }
     }
