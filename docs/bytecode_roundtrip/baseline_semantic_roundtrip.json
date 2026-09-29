@@ -12,7 +12,9 @@
    "inner_loop_continues_outer": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
    "nested_loop_exits_parent": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
    "report_nested_numeric_accumulate": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
-   "report_repeat_break_in_numeric_for": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output."
+   "report_repeat_break_in_numeric_for": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
+   "builtin_alias_across_blocks": "Regression fixture for a real-dump structuring failure (2026-09-29); baselined from the fixing commit output.",
+   "while_header_opens_for": "Regression fixture for a real-dump structuring failure (2026-09-29); baselined from the fixing commit output."
   }
  },
  "summary": {
@@ -30,6 +32,12 @@
    "file": "alias_iterators",
    "status": "ok",
    "nonequiv": 1,
+   "protos": 2
+  },
+  {
+   "file": "builtin_alias_across_blocks",
+   "status": "ok",
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -139,6 +147,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 10
+  },
+  {
+   "file": "while_header_opens_for",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
   },
   {
    "file": "zero_trip_suffix",

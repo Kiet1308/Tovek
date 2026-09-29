@@ -1204,6 +1204,12 @@ fn block_contains_hidden_unlowered_control(block: &Block) -> bool {
 
 impl Analysis {
     fn new(function: &Function) -> Option<Self> {
+        Self::build(function, false)
+    }
+
+    /// With `preparation_headers`, a `while` header may end with a nested
+    /// loop's preparation (see `find_while_loops`).
+    fn build(function: &Function, preparation_headers: bool) -> Option<Self> {
         let entry = function.entry().as_ref().copied()?;
         let mut reachable = FxHashSet::default();
         let mut work = vec![entry];
@@ -1262,8 +1268,9 @@ impl Analysis {
             Self::find_generic_loops(function, &nodes, &reachable, &dominators, &post_dominators)?;
         let (numeric_loops_by_init, numeric_loops_by_header) =
             Self::find_numeric_loops(function, &nodes, &reachable, &dominators, &post_dominators);
-        let while_loops_by_header =
-            Self::find_while_loops(function, &nodes, &reachable, &dominators, &post_dominators);
+        let while_loops_by_header = Self::find_while_loops(
+            function, &nodes, &reachable, &dominators, &post_dominators, preparation_headers,
+        );
         Some(Self {
             reachable,
             nodes,
@@ -2031,12 +2038,19 @@ impl Analysis {
     /// as a plain `If` block whose body eventually reaches the header through
     /// a nested iterator; recovering that shape here prevents a harmless
     /// loop-carried condition from becoming a cross-loop goto.
+    ///
+    /// A header ending with a nested loop's preparation (the lifter keeps the
+    /// code opening the body and a nested `for` prep in one block) is only a
+    /// candidate with `preparation_headers`: the generic-for re-entry lowering
+    /// handles the simple `while true do for ... end end` shapes more
+    /// compactly, so these headers are a fallback when it cannot.
     fn find_while_loops(
         function: &Function,
         nodes: &[NodeIndex],
         reachable: &FxHashSet<NodeIndex>,
         dominators: &DominanceIndex,
         post_dominators: &PostDominators,
+        preparation_headers: bool,
     ) -> FxHashMap<NodeIndex, LoopInfo> {
         let mut candidates = FxHashMap::<NodeIndex, FxHashSet<NodeIndex>>::default();
         for source in nodes {
@@ -2050,14 +2064,11 @@ impl Analysis {
                 let Some(block) = function.block(header) else {
                     continue;
                 };
-                if block.iter().any(|statement| {
-                    matches!(
-                        statement,
-                        Statement::GenericForInit(_)
-                            | Statement::GenericForNext(_)
-                            | Statement::NumForInit(_)
-                            | Statement::NumForNext(_)
-                    )
+                // A FORGLOOP/FORNLOOP block heads its own `for`.
+                if block.iter().any(|statement| match statement {
+                    Statement::GenericForNext(_) | Statement::NumForNext(_) => true,
+                    Statement::GenericForInit(_) | Statement::NumForInit(_) => !preparation_headers,
+                    _ => false,
                 }) {
                     continue;
                 }
@@ -7289,6 +7300,7 @@ fn source_proves_for_prep_kind_with_alias(
         origin,
         alias_context,
         &FxHashSet::default(),
+        &FxHashMap::default(),
     )
 }
 
@@ -7302,11 +7314,17 @@ fn source_proves_for_prep_kind_with_alias(
 /// example).  The specialized opcode is therefore itself the compiler's proof
 /// that such an alias is the builtin, and printing the alias call preserves the
 /// exact source form; recompiling the emitted source selects the same prep.
+///
+/// `dominating_globals` are locals of this function whose only write is
+/// `local = <global>` in a block that strictly dominates the marker's block
+/// (`local pairs = pairs` before an earlier loop): the same never-written
+/// alias, defined outside the marker's own block.
 fn source_proves_for_prep_kind_with_alias_and_upvalues(
     init: &ast::GenericForInit,
     origin: ast::ForOrigin,
     alias_context: Option<(&ast::Block, usize)>,
     stable_upvalues: &FxHashSet<RcLocal>,
+    dominating_globals: &FxHashMap<RcLocal, ast::Global>,
 ) -> bool {
     let ipairs_aux = origin.aux & 0x8000_0000 != 0;
     let canonical_aux = (if ipairs_aux { 0x8000_0000 } else { 0 }) | origin.result_count as u32;
@@ -7332,7 +7350,12 @@ fn source_proves_for_prep_kind_with_alias_and_upvalues(
                 .into_iter()
                 .any(|written| written == callee)
         });
-        let Some(Statement::Assign(assign)) = definition else {
+        let Some(definition) = definition else {
+            return dominating_globals
+                .get(callee)
+                .is_some_and(|global| global_is_named(global, name));
+        };
+        let Statement::Assign(assign) = definition else {
             return false;
         };
         assign.left.len() == 1
@@ -7417,6 +7440,56 @@ fn validate_for_origins(
             .cloned()
             .collect::<FxHashSet<_>>()
     };
+    // Locals whose only write in this function is `local = <global>`: no
+    // parameter, capture group or edge transfer, which could hold another
+    // value. `dominating_globals` keeps those whose write dominates a marker.
+    let single_global_writes = {
+        let mut writes = FxHashMap::<RcLocal, (usize, Option<(NodeIndex, ast::Global)>)>::default();
+        for (node, block) in function.blocks() {
+            for statement in block.iter() {
+                let global_assignment = statement.as_assign().and_then(|assign| {
+                    match (assign.left.as_slice(), assign.right.as_slice()) {
+                        ([LValue::Local(local)], [RValue::Global(global)]) => Some((local, global)),
+                        _ => None,
+                    }
+                });
+                for written in statement.values_written() {
+                    let entry = writes.entry(written.clone()).or_insert((0, None));
+                    entry.0 += 1;
+                    entry.1 = global_assignment
+                        .filter(|(local, _)| *local == written)
+                        .map(|(_, global)| (node, global.clone()));
+                }
+            }
+        }
+        for edge in function.graph().edge_weights() {
+            for (param, _) in &edge.arguments {
+                writes.entry(param.clone()).or_insert((0, None)).0 += 2;
+            }
+        }
+        writes
+            .into_iter()
+            .filter(|(local, (count, _))| {
+                *count == 1 && !protected_locals.contains(local) && !function.parameters.contains(local)
+            })
+            .filter_map(|(local, (_, definition))| Some((local, definition?)))
+            .collect::<FxHashMap<_, _>>()
+    };
+    let dominators = OnceCell::new();
+    let dominating_globals = |marker_block: NodeIndex| {
+        let dominators =
+            dominators.get_or_init(|| cfg::dominators::Dominators::new(function.graph(), entry));
+        single_global_writes
+            .iter()
+            .filter(|(_, (definition_block, _))| {
+                *definition_block != marker_block
+                    && dominators
+                        .dominators(marker_block)
+                        .is_some_and(|mut chain| chain.any(|node| node == *definition_block))
+            })
+            .map(|(local, (_, global))| (local.clone(), global.clone()))
+            .collect::<FxHashMap<_, _>>()
+    };
     let mut reachable = FxHashSet::default();
     let mut work = vec![entry];
     while let Some(node) = work.pop() {
@@ -7451,6 +7524,7 @@ fn validate_for_origins(
                         origin,
                         Some((block, statement_index)),
                         &stable_upvalues,
+                        &dominating_globals(node),
                     );
                     init_source_proven.insert(origin.id(), proven);
                 }
@@ -7668,6 +7742,22 @@ pub fn lift_attempt_borrowed_with_ignored_locals(
                     StructureAttempt::Unsafe(reason) => format!("Unsafe({reason:?})"),
                 }
             );
+        }
+    }
+    if matches!(attempt, StructureAttempt::Unsupported)
+        && let Some(fallback) = Analysis::build(function, true)
+            .filter(|fallback| fallback.while_loops_by_header.len() > analysis.while_loops_by_header.len())
+    {
+        for shared_tail in [allow_shared_tail, false].into_iter().dedup() {
+            ast::set_local_id_base(local_ids.base);
+            attempt = structure_once(function, &fallback, protected_locals, shared_tail);
+            if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
+                eprintln!("source-like preparation-headed while id={} -> {}", function.id,
+                    if matches!(attempt, StructureAttempt::Structured(_)) { "Structured" } else { "rejected" });
+            }
+            if !matches!(attempt, StructureAttempt::Unsupported) {
+                break;
+            }
         }
     }
     if matches!(attempt, StructureAttempt::Structured(_)) {
@@ -8605,6 +8695,7 @@ mod tests {
             origin,
             None,
             &stable,
+            &FxHashMap::default(),
         ));
         // The same callee without the upvalue proof stays rejected.
         assert!(!super::source_proves_for_prep_kind_with_alias(&init, origin, None));
@@ -8613,6 +8704,53 @@ mod tests {
             origin,
             None,
             &FxHashSet::default(),
+            &FxHashMap::default(),
+        ));
+    }
+
+    #[test]
+    fn accepts_single_write_alias_from_a_dominating_block() {
+        // `local pairs = pairs` in the function's first block, called by a
+        // later loop's prep in another block (the RbxCharacterSounds shape).
+        let generator = RcLocal::new(Local::new(Some("generator".into())));
+        let state = RcLocal::new(Local::new(Some("state".into())));
+        let control = RcLocal::new(Local::new(Some("control".into())));
+        let callee = RcLocal::new(Local::new(Some("pairs2".into())));
+        let mut init = GenericForInit::new(generator, state, control);
+        init.0.right = vec![RValue::Call(Call::new(
+            RValue::Local(callee.clone()),
+            vec![RValue::Global(Global::from("items"))],
+        ))];
+        let origin = ForOrigin {
+            prep_pc: 1,
+            step_pc: 2,
+            body_pc: 3,
+            follow_pc: 4,
+            prep_kind: ForPrepKind::Next,
+            base_register: 0,
+            result_count: 1,
+            aux: 1,
+            bytecode_version: 9,
+            vm_profile: VmProfileId::Luau,
+            explicit_nil_args: false,
+        };
+        let marker_block = Block::from(vec![init.clone().into()]);
+        let prove = |alias: &str| {
+            super::source_proves_for_prep_kind_with_alias_and_upvalues(
+                &init,
+                origin,
+                Some((&marker_block, 0)),
+                &FxHashSet::default(),
+                &FxHashMap::from_iter([(callee.clone(), Global::from(alias))]),
+            )
+        };
+        assert!(prove("pairs"));
+        assert!(!prove("next"));
+        // Without the dominating single write the alias is not proven.
+        assert!(!super::source_proves_for_prep_kind_with_alias(
+            &init,
+            origin,
+            Some((&marker_block, 0)),
         ));
     }
 
@@ -8655,6 +8793,7 @@ mod tests {
                 origin,
                 None,
                 &stable,
+                &FxHashMap::default(),
             ));
             assert!(!super::source_proves_for_prep_kind_with_alias(&init, origin, None));
         }
