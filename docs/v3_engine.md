@@ -170,3 +170,20 @@ Muốn vượt xa hơn cần một trong các hướng không còn giữ nguyên
    Khối lượng rất lớn; lợi ích chủ yếu là hằng số duyệt.
 3. **Cache theo hàm/script** (đã để sau theo yêu cầu): script trùng lặp giữa các game (thư viện
    bundle) có thể bỏ qua toàn bộ pipeline — đây là cách duy nhất cho hệ số lớn trên web server.
+
+## 9. Nghiên cứu hướng khác (sau khi bỏ hướng chấp nhận output thay đổi)
+
+Hướng "bỏ/gộp pass, chấp nhận output thay đổi" đã thử trên `v3-engine` (ablation từng pass):
+chỉ một pass thừa thực nghiệm (`inline_single_use_temps` riêng, ~3%); không merge.
+
+| Hướng | Cách đo | Kết quả |
+|---|---|---|
+| PGO (profile-guided optimization) | Train trên 1.774 input benchmark V2.1, đo corpus Roblox; thêm lần train trên chính corpus | 0–2% (kể cả khi train trên chính bộ đo); loại |
+| Cache theo hàm (proto) | Khoá = code + hằng số + hình dạng + con (đệ quy); đếm proto đã gặp ở script trước (`tools/proto_dup.py`) | 12,5% proto nhưng chỉ 4,1% số lệnh trùng; trung vị mỗi file 0%. Cache nguyên file (đã có) mới có ích, tuỳ tần suất lặp |
+| Chế độ analysis (Volt `decompile_all`, `--emit-upvalue-analysis`) | Corpus 3.978 file, 24 luồng | 5,0 s so với 0,9 s chế độ thường (5,6x), 381 MB sidecar. Profile 24 luồng: rename 33%, tạo file 15%, `canonicalize` trong `validate_analysis_scripts_root` 12% (mỗi file một lần), flush 10%, close 8%; decompile ~7% |
+
+Bỏ fsync riêng lẻ: 1 luồng 31,8→25,1 s nhưng 24 luồng không đổi — ở 24 luồng nút thắt là
+metadata của hệ thống file (temp + rename từng file trong cùng thư mục), không phải fsync.
+Hướng đề xuất: publish nguyên cây output một lần (ghi thẳng vào thư mục staging rồi đổi tên
+thư mục), kiểm tra gốc `scripts` một lần mỗi lần chạy, giữ handle thư mục; giữ nguyên nội dung
+output và các bảo đảm chống thoát đường dẫn.
