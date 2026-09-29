@@ -115,16 +115,38 @@ fn clean_function_body(body: &mut Block) {
 }
 
 fn strip_trailing_void_return(body: &mut Block) {
+    strip_tail(body, true);
+}
+
+/// Drop a value-less return that ends a block in tail position: the function
+/// body, and every arm of an `if` that is itself in tail position, where the
+/// return skips nothing either. A then-arm keeps its only statement so no
+/// empty arm is left behind (`if c then return end` is a real guard shape).
+fn strip_tail(block: &mut Block, may_empty: bool) {
     // Skip trailing `Empty` placeholders (they render to nothing) to find the
-    // real last statement; if it is a value-less return, drop it.
-    if let Some(pos) = body
-        .0
-        .iter()
-        .rposition(|s| !matches!(s, Statement::Empty(_)))
-        && matches!(&body.0[pos], Statement::Return(r) if r.values.is_empty())
-    {
-        body.0.remove(pos);
+    // real last statement.
+    let Some(pos) = block.0.iter().rposition(|s| !matches!(s, Statement::Empty(_))) else {
+        return;
+    };
+    let real = block.0.iter().filter(|s| !matches!(s, Statement::Empty(_))).count();
+    if matches!(&block.0[pos], Statement::Return(r) if r.values.is_empty()) {
+        if !may_empty && real == 1 {
+            return;
+        }
+        block.0.remove(pos);
+        if let Some(pos) = block.0.iter().rposition(|s| !matches!(s, Statement::Empty(_)))
+            && let Statement::If(r#if) = &block.0[pos]
+        {
+            strip_if_arms(r#if);
+        }
+    } else if let Statement::If(r#if) = &block.0[pos] {
+        strip_if_arms(r#if);
     }
+}
+
+fn strip_if_arms(r#if: &crate::If) {
+    strip_tail(&mut r#if.then_block.lock(), false);
+    strip_tail(&mut r#if.else_block.lock(), true);
 }
 
 #[cfg(test)]
@@ -187,6 +209,44 @@ mod tests {
         cleanup_redundant_returns(&mut block);
 
         assert_eq!(f.lock().body.to_string(), "return \"x\"");
+    }
+
+    #[test]
+    fn strips_void_returns_ending_tail_if_arms() {
+        // `if c then a() return elseif d then return else b() return end`
+        // at the function tail: no arm return skips anything.
+        let inner = If::new(
+            global("d"),
+            Block(vec![void_return()]),
+            Block(vec![call("b"), void_return()]),
+        );
+        let outer = If::new(
+            global("c"),
+            Block(vec![call("a"), void_return()]),
+            Block(vec![inner.into()]),
+        );
+        let f = function(vec![outer.into()]);
+        let mut block = Block(vec![Call::new(global("use"), vec![closure(&f)]).into()]);
+
+        cleanup_redundant_returns(&mut block);
+
+        // A then-arm keeps its only `return`: dropping it would leave an
+        // empty arm (`if d then return end` is a real guard).
+        assert_eq!(
+            f.lock().body.to_string(),
+            "if c then\n\ta()\nelseif d then\n\treturn\nelse\n\tb()\nend"
+        );
+    }
+
+    #[test]
+    fn keeps_void_returns_in_arms_followed_by_code() {
+        let r#if = If::new(global("c"), Block(vec![call("a"), void_return()]), Block::default());
+        let f = function(vec![r#if.into(), call("b")]);
+        let mut block = Block(vec![Call::new(global("use"), vec![closure(&f)]).into()]);
+
+        cleanup_redundant_returns(&mut block);
+
+        assert_eq!(f.lock().body.to_string(), "if c then\n\ta()\n\treturn\nend\n\nb()");
     }
 
     #[test]

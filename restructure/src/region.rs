@@ -3012,6 +3012,10 @@ struct Builder<'a> {
     /// readability optimization can never turn a structurable function into
     /// an unsupported one.
     allow_shared_tail: bool,
+    /// Joins of the shared-tail conditionals being built, innermost last.
+    /// Such a join is emitted once after its `if`, so a nested conditional
+    /// may target it as a guard even when it is a small terminal.
+    shared_joins: Vec<NodeIndex>,
 }
 
 impl<'a> Builder<'a> {
@@ -3113,6 +3117,7 @@ impl<'a> Builder<'a> {
             protected_locals,
             unsafe_reason,
             allow_shared_tail: true,
+            shared_joins: Vec::new(),
         }
     }
 
@@ -6340,7 +6345,7 @@ impl<'a> Builder<'a> {
                 self.allow_shared_tail
                     && *join != ctx.info.header
                     && ctx.info.nodes.contains(join)
-                    && !self.block_is_small_terminal(*join)
+                    && self.may_guard_to(*join)
             });
             let candidates = [
                 self.shared_tail_join(then_target, else_target, Some(ctx), stop),
@@ -6354,7 +6359,8 @@ impl<'a> Builder<'a> {
                 tried = Some(join);
                 let base_rewrite = self.rewrite.clone();
                 let base_visited = self.visited.checkpoint();
-                if let Some(result) = self.build_inside_join_conditional(
+                self.shared_joins.push(join);
+                let result = self.build_inside_join_conditional(
                     source,
                     &statement,
                     then_target,
@@ -6362,7 +6368,9 @@ impl<'a> Builder<'a> {
                     join,
                     true,
                     ctx,
-                )
+                );
+                self.shared_joins.pop();
+                if let Some(result) = result
                     // The continuation must still be able to start at the
                     // join: an arm may have consumed it through a nested
                     // region (for example a loop exit adapter).
@@ -6469,11 +6477,8 @@ impl<'a> Builder<'a> {
                 // terminates), build the arms up to that node and emit the
                 // tail once after the `if`.  Each attempt is rolled back on
                 // failure.
-                // A one-statement terminal stop (`return x`) is not used as a
-                // guard target: duplicating it keeps every inlined copy of a
-                // body in the same shape for the de-inline pass.
-                let stop_join = stop
-                    .filter(|join| self.allow_shared_tail && !self.block_is_small_terminal(*join));
+                let stop_join =
+                    stop.filter(|join| self.allow_shared_tail && self.may_guard_to(*join));
                 let candidates = [
                     self.shared_tail_join(then_target, else_target, None, stop),
                     stop_join,
@@ -6486,14 +6491,17 @@ impl<'a> Builder<'a> {
                     tried = Some(shared);
                     let base_rewrite = self.rewrite.clone();
                     let base_visited = self.visited.checkpoint();
-                    if let Some(result) = self.build_plain_conditional(
+                    self.shared_joins.push(shared);
+                    let result = self.build_plain_conditional(
                         source,
                         &statement,
                         then_target,
                         else_target,
                         Some(shared),
                         true,
-                    )
+                    );
+                    self.shared_joins.pop();
+                    if let Some(result) = result
                         && !self.visited.contains(&shared)
                     {
                         if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
@@ -6761,6 +6769,37 @@ impl<'a> Builder<'a> {
             }
         }
         best.map(|(_, join)| join)
+    }
+
+    /// Whether a conditional may use the enclosing walk's stop `join` as its
+    /// guard target.  A one-statement terminal stop (`return x`) is not:
+    /// duplicating it keeps every inlined copy of a body in the same shape for
+    /// the de-inline pass.  The exception is the join of an enclosing
+    /// shared-tail conditional, which is emitted once whatever its size -
+    /// unless it returns a value its predecessors assign (`v = true` ...
+    /// `return v`, an out-of-SSA phi): each arm would then assign `v` only for
+    /// the return to be pushed back into the arm.
+    fn may_guard_to(&self, join: NodeIndex) -> bool {
+        !self.block_is_small_terminal(join)
+            || (self.shared_joins.contains(&join) && !self.returns_path_value(join))
+    }
+
+    fn returns_path_value(&self, join: NodeIndex) -> bool {
+        let Some(block) = self.function.block(join) else {
+            return false;
+        };
+        let read = block
+            .iter()
+            .flat_map(|statement| statement.values_read())
+            .collect::<FxHashSet<_>>();
+        !read.is_empty()
+            && self.function.predecessor_blocks(join).any(|predecessor| {
+                self.function.block(predecessor).is_some_and(|block| {
+                    block.iter().any(|statement| {
+                        statement.values_written().into_iter().any(|local| read.contains(local))
+                    })
+                })
+            })
     }
 
     /// A block with no successor whose only real statement is a `return` or
