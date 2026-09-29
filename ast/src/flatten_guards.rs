@@ -162,8 +162,9 @@ fn negation_has_simplifiable_operand(value: &RValue) -> bool {
 
 // If `f` has a terminating branch worth lifting into a guard clause, returns the
 // guard `if` plus the statements to inline after it. Otherwise hands `f` back.
-// `has_rest` says whether more statements follow this `if` in its block.
-fn guard_split(f: If, has_rest: bool) -> Result<(Statement, Vec<Statement>), If> {
+// `has_rest` says whether more statements follow this `if` in its block;
+// `is_elseif` whether it is the sole statement of an `else` (an `elseif`).
+fn guard_split(f: If, has_rest: bool, is_elseif: bool) -> Result<(Statement, Vec<Statement>), If> {
     // Never disturb goto/label structure (see `is_guard_terminator`).
     let then_has_goto = contains_goto_or_label(&f.then_block.lock().0);
     let else_has_goto = contains_goto_or_label(&f.else_block.lock().0);
@@ -182,8 +183,19 @@ fn guard_split(f: If, has_rest: bool) -> Result<(Statement, Vec<Statement>), If>
     let then_size = block_size(&f.then_block.lock().0);
     let else_size = block_size(&f.else_block.lock().0);
 
+    // A bare `return`/`break`/`continue` else arm bails out whatever the size
+    // of the main arm: `if not c then return end <main>` is the idiomatic
+    // guard (and the order the compiler laid the code out in). Splitting an
+    // `elseif` that way would break its chain for no nesting gained.
+    let else_bails = !is_elseif && {
+        let e = f.else_block.lock();
+        matches!(e.0.as_slice(), [statement] if is_guard_terminator(statement))
+    };
     let pull = match (else_term, then_term) {
-        (true, false) if else_size <= MAX_LIFTED_GUARD_BODY_SIZE && then_size > else_size => {
+        (true, false)
+            if else_size <= MAX_LIFTED_GUARD_BODY_SIZE
+                && (then_size > else_size || else_bails) =>
+        {
             Pull::Else
         }
         (false, true) if then_size <= MAX_LIFTED_GUARD_BODY_SIZE && else_size > then_size => {
@@ -248,25 +260,30 @@ fn guard_split(f: If, has_rest: bool) -> Result<(Statement, Vec<Statement>), If>
 /// the inlined branch re-examined so a whole `if/else return` staircase collapses
 /// in one pass.
 pub fn flatten_guards(block: &mut Block) {
+    flatten_guards_in(block, false);
+}
+
+fn flatten_guards_in(block: &mut Block, is_else: bool) {
     for s in block.0.iter_mut() {
         match s {
             Statement::If(f) => {
-                flatten_guards(&mut f.then_block.lock());
-                flatten_guards(&mut f.else_block.lock());
+                flatten_guards_in(&mut f.then_block.lock(), false);
+                flatten_guards_in(&mut f.else_block.lock(), true);
             }
-            Statement::While(w) => flatten_guards(&mut w.block.lock()),
-            Statement::Repeat(r) => flatten_guards(&mut r.block.lock()),
-            Statement::NumericFor(nf) => flatten_guards(&mut nf.block.lock()),
-            Statement::GenericFor(gf) => flatten_guards(&mut gf.block.lock()),
+            Statement::While(w) => flatten_guards_in(&mut w.block.lock(), false),
+            Statement::Repeat(r) => flatten_guards_in(&mut r.block.lock(), false),
+            Statement::NumericFor(nf) => flatten_guards_in(&mut nf.block.lock(), false),
+            Statement::GenericFor(gf) => flatten_guards_in(&mut gf.block.lock(), false),
             _ => {}
         }
     }
+    let is_elseif = is_else && block.0.len() == 1;
 
     let mut work: VecDeque<Statement> = std::mem::take(&mut block.0).into();
     let mut out: Vec<Statement> = Vec::with_capacity(work.len());
     while let Some(s) = work.pop_front() {
         match s {
-            Statement::If(f) => match guard_split(f, !work.is_empty()) {
+            Statement::If(f) => match guard_split(f, !work.is_empty(), is_elseif && out.is_empty()) {
                 Ok((guard, inline)) => {
                     out.push(guard);
                     // Re-process the inlined branch so further `... else return`
@@ -490,6 +507,41 @@ mod tests {
         assert!(guard.else_block.lock().0.is_empty());
         assert!(matches!(&guard.condition,
             RValue::Binary(binary) if binary.operation == BinaryOperation::NotEqual));
+    }
+
+    #[test]
+    fn lifts_bare_return_else_over_an_equal_main_arm() {
+        // `for ... do if ok then n += 1 else return end end` reads as the
+        // guard `if not ok then return end n += 1`.
+        let ok = local("ok");
+        let mut block = Block(vec![If::new(
+            lv(&ok),
+            Block(vec![call("count")]),
+            Block(vec![Return::default().into()]),
+        )
+        .into()]);
+
+        flatten_guards(&mut block);
+
+        assert_eq!(block.to_string(), "if not ok then\n\treturn\nend\n\ncount()");
+    }
+
+    #[test]
+    fn keeps_elseif_chain_with_bare_return_else() {
+        let (a, b) = (local("a"), local("b"));
+        let chain = If::new(lv(&b), Block(vec![call("second")]), Block(vec![Return::default().into()]));
+        let mut block = Block(vec![If::new(
+            lv(&a),
+            Block(vec![call("first")]),
+            Block(vec![chain.into()]),
+        )
+        .into()]);
+        let before = block.to_string();
+
+        flatten_guards(&mut block);
+
+        assert_eq!(block.to_string(), before);
+        assert!(before.contains("elseif b then"), "{before}");
     }
 
     #[test]
