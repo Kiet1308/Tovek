@@ -820,6 +820,19 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
             if is_multret_tail(&then_value) || is_multret_tail(&else_value) {
                 return false;
             }
+            // Two RETURNs are two source `return`s: `return c and a or b`
+            // compiles to one. Only `return true` / `return false` arms fold,
+            // into the plain `return c`; other values keep the source's
+            // `if c then return a end return b`.
+            if !matches!(
+                (&then_value, &else_value),
+                (
+                    ast::RValue::Literal(ast::Literal::Boolean(_)),
+                    ast::RValue::Literal(ast::Literal::Boolean(_))
+                )
+            ) {
+                return false;
+            }
 
             if let Some(res) = make_bool_conditional(function, node, then_value, else_value) {
                 function.remove_block(then_target);

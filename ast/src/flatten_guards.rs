@@ -212,11 +212,28 @@ fn guard_split(f: If, has_rest: bool, is_elseif: bool) -> Result<(Statement, Vec
             }
             let smaller = then_size.min(else_size);
             let larger = then_size.max(else_size);
-            if smaller > MAX_LIFTED_GUARD_BODY_SIZE || larger <= smaller {
+            if smaller > MAX_LIFTED_GUARD_BODY_SIZE {
                 return Err(f);
             }
-            // Lift the smaller branch as the guard; keep the larger as main flow.
-            if else_size <= then_size {
+            if larger == smaller {
+                // Equal arms: the then arm is the guard, in the order the
+                // compiler laid them out (`if c then return a end return b`).
+                // Only value returns: a bare `return` here is still the
+                // function's implicit end, not a source exit. An `elseif`
+                // keeps its chain.
+                let returns_value = |block: &crate::Block| {
+                    matches!(block.0.last(), Some(Statement::Return(r)) if !r.values.is_empty())
+                };
+                if is_elseif
+                    || !returns_value(&f.then_block.lock())
+                    || !returns_value(&f.else_block.lock())
+                {
+                    return Err(f);
+                }
+                Pull::Then
+            } else if else_size < then_size {
+                // Lift the smaller branch as the guard; keep the larger as
+                // main flow.
                 Pull::Else
             } else {
                 Pull::Then
@@ -524,6 +541,35 @@ mod tests {
         flatten_guards(&mut block);
 
         assert_eq!(block.to_string(), "if not ok then\n\treturn\nend\n\ncount()");
+    }
+
+    #[test]
+    fn equal_value_returns_become_a_guard_and_a_tail() {
+        let ok = local("ok");
+        let mut block = Block(vec![If::new(
+            lv(&ok),
+            Block(vec![Return::new(vec![Literal::Number(1.0).into()]).into()]),
+            Block(vec![Return::new(vec![Literal::Number(2.0).into()]).into()]),
+        )
+        .into()]);
+
+        flatten_guards(&mut block);
+
+        assert_eq!(block.to_string(), "if ok then\n\treturn 1\nend\n\nreturn 2");
+    }
+
+    #[test]
+    fn equal_arms_ending_the_function_keep_their_else() {
+        // Bare returns here are the implicit end of the function, stripped
+        // later: `if c then a() else b() end` must not become a guard.
+        let ok = local("ok");
+        let arm = |name| Block(vec![call(name), Return::default().into()]);
+        let mut block = Block(vec![If::new(lv(&ok), arm("a"), arm("b")).into()]);
+        let before = block.to_string();
+
+        flatten_guards(&mut block);
+
+        assert_eq!(block.to_string(), before);
     }
 
     #[test]
