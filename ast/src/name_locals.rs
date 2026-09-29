@@ -161,6 +161,29 @@ fn base_name_of(rvalue: &RValue) -> Option<String> {
     }
 }
 
+/// The module a `require` path names, spelled as the module is: source
+/// binds `require(script.Signal)` to `Signal` and `require(script.nameOf)` to
+/// `nameOf` (97% of public requires use the module name verbatim).
+fn module_name_of(path: &RValue) -> Option<String> {
+    let name = match path {
+        RValue::Global(global) => std::str::from_utf8(&global.0).ok()?,
+        RValue::Index(index) => match index.right.as_ref() {
+            RValue::Literal(Literal::String(key)) => std::str::from_utf8(key).ok()?,
+            _ => return None,
+        },
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call))
+            if call.method.starts_with("FindFirst") || call.method.starts_with("WaitFor") =>
+        {
+            match call.arguments.first() {
+                Some(RValue::Literal(Literal::String(arg))) => std::str::from_utf8(arg).ok()?,
+                _ => return None,
+            }
+        }
+        _ => return None,
+    };
+    sanitize_preserve(name)
+}
+
 fn index_hint(index: &Index) -> Option<String> {
     if let RValue::Literal(Literal::String(key)) = &*index.right {
         return std::str::from_utf8(key).ok().and_then(sanitize);
@@ -169,15 +192,15 @@ fn index_hint(index: &Index) -> Option<String> {
 }
 
 fn call_hint(call: &Call) -> Option<String> {
-    // require(script.Foo) -> "foo"; require(script.Parent) -> "parentModule"
+    // require(script.Foo) -> "Foo"; require(script.Parent) -> "parentModule"
     // (the value is a module, not the parent Instance); require(<local>) ->
     // "module" (the path carries no name, the value is still a module).
     if let RValue::Global(global) = &*call.value
         && global.0.as_slice() == b"require"
         && call.arguments.len() == 1
     {
-        return match base_name_of(&call.arguments[0]) {
-            Some(name) if name == "parent" => Some("parentModule".to_string()),
+        return match module_name_of(&call.arguments[0]) {
+            Some(name) if name.eq_ignore_ascii_case("parent") => Some("parentModule".to_string()),
             Some(name) => Some(name),
             None => Some("module".to_string()),
         };
@@ -6334,7 +6357,7 @@ mod tests {
 
         name_locals_with_script_name(&mut block, true, Some("Collision.luau"));
 
-        assert_eq!(name_of(&module), "foo");
+        assert_eq!(name_of(&module), "Foo");
     }
 
     #[test]
@@ -9630,6 +9653,19 @@ mod tests {
             name_decl(RValue::Call(Call::new(global("require"), vec![parent]))),
             "parentModule"
         );
+    }
+
+    /// A required module keeps its own spelling, as source binds it:
+    /// `require(script.Signal)` -> `Signal`, `require(script.nameOf)` ->
+    /// `nameOf`, `require(folder:WaitForChild("Table"))` -> `Table`.
+    #[test]
+    fn required_module_keeps_its_spelling() {
+        let at = |key: &str| RValue::Index(Index::new(global("script"), string(key)));
+        let require = |path: RValue| RValue::Call(Call::new(global("require"), vec![path]));
+        assert_eq!(name_decl(require(at("Signal"))), "Signal");
+        assert_eq!(name_decl(require(at("nameOf"))), "nameOf");
+        let child = method_call(global("folder"), "WaitForChild", vec![string("Table")]);
+        assert_eq!(name_decl(require(child)), "Table");
     }
 
     /// Single-argument transforms are transparent: `math.floor(x.Y)` -> `y`,
