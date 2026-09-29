@@ -251,11 +251,26 @@ fn unify_tree(
             }
             _ => return Err(()),
         };
-        unify_tree(ctx, &pattern.condition, condition, bindings)?;
+        // `if not c then a else b` is `if c then b else a` for any `c`: the
+        // helper's guard and its inlined select may disagree on polarity
+        // (`if x > 0.2 then return f(x) end return 0` against
+        // `not (v > 0.2) and 0 or f(v)`).
+        let (pattern_condition, pattern_negated) = strip_not(&pattern.condition);
+        let (condition, negated) = strip_not(condition);
+        let (yes, no) = if pattern_negated == negated { (yes, no) } else { (no, yes) };
+        unify_tree(ctx, pattern_condition, condition, bindings)?;
         unify_tree(ctx, &pattern.then_value, yes, bindings)?;
         unify_tree(ctx, &pattern.else_value, no, bindings)
     } else {
         unify_rvalue(ctx, pattern, candidate, bindings)
+    }
+}
+
+/// A condition without its outer `not`, and whether one was removed.
+fn strip_not(condition: &RValue) -> (&RValue, bool) {
+    match condition {
+        RValue::Unary(unary) if unary.operation == UnaryOperation::Not => (&unary.value, true),
+        _ => (condition, false),
     }
 }
 

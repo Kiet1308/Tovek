@@ -85,6 +85,7 @@ pub mod replace_locals;
 pub mod library_constants;
 pub mod link_upvalues;
 mod r#return;
+mod select_value;
 mod set_list;
 mod side_effects;
 pub mod simplify_gotos;
@@ -98,6 +99,7 @@ mod r#while;
 
 pub use assign::*;
 pub use binary::*;
+pub use select_value::select_value;
 pub use r#break::*;
 pub use call::*;
 pub use close::*;

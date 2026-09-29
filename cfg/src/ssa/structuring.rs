@@ -398,147 +398,17 @@ pub fn structure_conditionals_with_changes(function: &mut Function, captured: &i
     ConditionalChanges { changed: did_structure, topology_changed }
 }
 
-// TODO: REFACTOR: move to ast
-// None = unknown
-fn is_truthy(rvalue: ast::RValue) -> Option<bool> {
-    match rvalue.reduce_condition() {
-        // __len has to return number, but __unm can return any value
-        ast::RValue::Unary(ast::Unary {
-            operation: ast::UnaryOperation::Length,
-            ..
-        }) => Some(true),
-        ast::RValue::Literal(
-            ast::Literal::Boolean(true)
-                | ast::Literal::Number(_)
-                | ast::Literal::String(_)
-                | ast::Literal::Vector(..)
-                | ast::Literal::VectorD(..),
-        )
-        | ast::RValue::Table(_)
-        | ast::RValue::Closure(_) => Some(true),
-        ast::RValue::Literal(ast::Literal::Nil | ast::Literal::Boolean(_)) => Some(false),
-        _ => None,
-    }
-}
-
-// TODO: STYLE: rename
+/// The value-exact `and`/`or` form of the select ending at `node`'s `if`
+/// (`ast::select_value`, shared with the de-inliners).
 fn make_bool_conditional(
     function: &mut Function,
     node: NodeIndex,
-    mut then_value: ast::RValue,
-    mut else_value: ast::RValue,
+    then_value: ast::RValue,
+    else_value: ast::RValue,
 ) -> Option<ast::RValue> {
     let block = function.block_mut(node).unwrap();
     let r#if = block.last_mut().unwrap().as_if_mut().unwrap();
-    if let ast::RValue::Literal(ast::Literal::Boolean(then_value)) = then_value
-        && let ast::RValue::Literal(ast::Literal::Boolean(else_value)) = else_value
-        && then_value != else_value
-    {
-        let cond = ast::Unary::new(
-            std::mem::replace(&mut r#if.condition, ast::Literal::Nil.into()),
-            ast::UnaryOperation::Not,
-        );
-        let cond = if then_value {
-            ast::Unary::new(cond.into(), ast::UnaryOperation::Not)
-        } else {
-            cond
-        };
-        Some(cond.reduce())
-    } else {
-        // If the then-value is exactly the condition, the whole `if` collapses to
-        // `condition or else_value`: when the condition is truthy it evaluates to
-        // then_value (which *is* the condition), so the result is then_value;
-        // otherwise it is else_value. This is the clean form for
-        // `x = (a and b and c) or d`-style code, and it handles whole `and`-chains
-        // that the right-operand-only check below misses.
-        //
-        // The condition is used here in value position (exactly as the original
-        // then-branch used it), so it stays a plain value-preserving `reduce()`,
-        // never `reduce_condition()`. Emitting `condition or else_value` directly
-        // (rather than routing it through the `then_truthy` path, which would build
-        // `not(cond) and X or cond` and lean on the `X and X` collapse rule) keeps
-        // De Morgan chains clean: `(not a and not b) or d` reduces to
-        // `not (a or b) or d`, not the verbose `not (a or b or (a or b)) or d`.
-        //
-        // The cheap discriminant/id `==` is tested before the recursive
-        // `has_side_effects` walk so the common non-matching call short-circuits
-        // without walking. The guard ensures the condition (== then_value) is
-        // effect-free, so evaluating it once here matches the original.
-        if r#if.condition == then_value && ast::is_total_pure(&then_value) {
-            let condition = std::mem::replace(&mut r#if.condition, ast::Literal::Nil.into());
-            return Some(
-                ast::Binary::new(condition, else_value, ast::BinaryOperation::Or).reduce(),
-            );
-        }
-        // Symmetric case: when the else-value is the condition, `if c then X else c`
-        // collapses to `c and X` (c truthy -> X; c falsy -> short-circuits to c).
-        // Unlike the then-case, X need not be truthy — `and` yields its right
-        // operand verbatim when c is truthy. Same value-position / effect-free
-        // reasoning as above (the original evaluates c twice on the falsy path, this
-        // once), and the cheap `==` gates the recursive side-effect walk.
-        if r#if.condition == else_value && ast::is_total_pure(&else_value) {
-            let condition = std::mem::replace(&mut r#if.condition, ast::Literal::Nil.into());
-            return Some(
-                ast::Binary::new(condition, then_value, ast::BinaryOperation::And).reduce(),
-            );
-        }
-        // TODO: for `v0 and v1 and v2` only the right operand v2 (and the whole
-        // chain, handled above) is recognised as truthy; inner left operands are
-        // intentionally not — `(a and b) and a or c` would not collapse and reads
-        // worse than the original if/else.
-        let then_truthy = match is_truthy(then_value.clone()) {
-            Some(truthy) => truthy,
-            None if ast::is_total_pure(&then_value) => {
-                let value = match &r#if.condition {
-                    ast::RValue::Binary(binary)
-                        if binary.operation == ast::BinaryOperation::And =>
-                    {
-                        binary.right.as_ref()
-                    }
-                    value => value,
-                };
-                ast::is_total_pure(value) && *value == then_value
-            }
-            None => false,
-        };
-        // TODO: if condition is `and not else_value` or `not else_value` then truthy?
-        let else_truthy = is_truthy(else_value.clone()).is_some_and(|v| v);
-        let cond = if !then_truthy && !else_truthy {
-            return None;
-        } else if !then_truthy {
-            std::mem::swap(&mut then_value, &mut else_value);
-            ast::Unary::new(
-                std::mem::replace(&mut r#if.condition, ast::Literal::Nil.into()),
-                ast::UnaryOperation::Not,
-            )
-            .reduce_condition()
-        } else if !else_truthy {
-            std::mem::replace(&mut r#if.condition, ast::Literal::Nil.into()).reduce_condition()
-        } else {
-            let cond =
-                std::mem::replace(&mut r#if.condition, ast::Literal::Nil.into()).reduce_condition();
-            if let ast::RValue::Unary(ast::Unary {
-                box value,
-                operation: ast::UnaryOperation::Not,
-                ..
-            }) = cond
-            {
-                std::mem::swap(&mut then_value, &mut else_value);
-                value
-            } else {
-                cond
-            }
-        };
-
-        Some(
-            ast::Binary::new(
-                ast::Binary::new(cond, then_value, ast::BinaryOperation::And).into(),
-                else_value,
-                ast::BinaryOperation::Or,
-            )
-            .reduce(),
-        )
-    }
+    ast::select_value(&mut r#if.condition, then_value, else_value)
 }
 
 // TODO: `return if g then true else false` in luau?

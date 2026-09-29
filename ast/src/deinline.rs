@@ -1149,6 +1149,10 @@ fn canon_top(stmts: &[Statement], tail: bool) -> Vec<Statement> {
         })
         .cloned()
         .collect();
+    // N5 (any level): a select diamond is matched in its `and`/`or` form.
+    for statement in &mut s {
+        fuse_assign_diamond(statement);
+    }
     if tail {
         // N1: drop a trailing void return at THIS (tail) level (implicit-return no-op).
         if matches!(s.last(), Some(Statement::Return(r)) if r.values.is_empty()) {
@@ -1157,8 +1161,84 @@ fn canon_top(stmts: &[Statement], tail: bool) -> Vec<Statement> {
         // N3: un-guard at THIS (tail) level — the guards' `[return]` then-blocks
         // are still intact here (we have NOT yet recursed into child blocks).
         s = unguard(s);
+        // N4: a trailing return diamond is matched as the select SSA gives
+        // the copy Luau inlined into a caller, whose value lands in a register
+        // (`if c then return a end return b` ~ `v = c and a or b`).
+        fuse_return_diamond(&mut s);
     }
     s
+}
+
+/// Replace `if c then x = a else x = b end` with `x = <select_value(c, a, b)>`,
+/// the form SSA gives a register select when it can. Matching fuses it on both
+/// sides, so a helper and its inlined copy agree whichever of them SSA fused.
+fn fuse_assign_diamond(statement: &mut Statement) {
+    fn single_store(block: &Block) -> Option<(RcLocal, RValue)> {
+        let mut real = block.0.iter().filter(|s| !matches!(s, Statement::Empty(_)));
+        match (real.next(), real.next()) {
+            (Some(Statement::Assign(a)), None)
+                if !a.prefix && !a.parallel && !a.compound && a.left.len() == 1 && a.right.len() == 1 =>
+            {
+                let LValue::Local(local) = &a.left[0] else { return None };
+                Some((local.clone(), a.right[0].clone()))
+            }
+            _ => None,
+        }
+    }
+    let Statement::If(f) = &*statement else {
+        return;
+    };
+    let (Some((then_local, then_value)), Some((else_local, else_value))) =
+        (single_store(&f.then_block.lock()), single_store(&f.else_block.lock()))
+    else {
+        return;
+    };
+    if then_local != else_local {
+        return;
+    }
+    let mut condition = f.condition.clone();
+    if let Some(value) = crate::select_value(&mut condition, then_value, else_value) {
+        *statement = Statement::Assign(Assign {
+            node_origin: Default::default(),
+            left: vec![LValue::Local(then_local)],
+            right: vec![value],
+            prefix: false,
+            parallel: false,
+            compound: false,
+        });
+    }
+}
+
+/// Replace a trailing `if c then return a else return b end` (one scalar value
+/// each) with `return <select_value(c, a, b)>`. One statement for one, so the
+/// canonical length is unchanged.
+fn fuse_return_diamond(stmts: &mut [Statement]) {
+    fn single_value(block: &Block) -> Option<RValue> {
+        let mut real = block.0.iter().filter(|s| !matches!(s, Statement::Empty(_)));
+        match (real.next(), real.next()) {
+            (Some(Statement::Return(r)), None)
+                if r.values.len() == 1 && is_scalar_return_value(&r.values[0]) =>
+            {
+                Some(r.values[0].clone())
+            }
+            _ => None,
+        }
+    }
+    let Some(Statement::If(f)) = stmts.last() else {
+        return;
+    };
+    let (Some(then_value), Some(else_value)) =
+        (single_value(&f.then_block.lock()), single_value(&f.else_block.lock()))
+    else {
+        return;
+    };
+    let mut condition = f.condition.clone();
+    if let Some(value) = crate::select_value(&mut condition, then_value, else_value) {
+        *stmts.last_mut().unwrap() = Statement::Return(Return {
+            node_origin: Default::default(),
+            values: vec![value],
+        });
+    }
 }
 
 /// The recursive half of canon: canonicalise each statement's child blocks.
