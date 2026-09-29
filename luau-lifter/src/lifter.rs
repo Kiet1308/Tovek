@@ -594,8 +594,9 @@ impl<'a> Lifter<'a> {
         };
 
         let mut top: Option<(ast::RValue, u8)> = None;
-        // PC of the CALL described by the most recent FASTPCALL in this block.
-        let mut fastpcall_target: Option<usize> = None;
+        // PC of the CALL whose fallback follows the most recent FASTCALL or
+        // FASTPCALL in this block.
+        let mut fastcall_target: Option<usize> = None;
         let trace_origins = self.function.provenance.is_some();
         let mut pending_pcs = Vec::new();
         let mut statement_origins = Vec::new();
@@ -860,21 +861,22 @@ impl<'a> Lifter<'a> {
                         statements.push(ast::Return::new(values).into());
                         stop = true;
                     }
+                    // NATIVECALL is a JIT dispatch hint; the actual call is the
+                    // following CALL, so (like FASTCALL) it lifts to nothing (L5).
+                    OpCode::LOP_NATIVECALL => {}
+                    // FASTCALL (builtins) and FASTPCALL (v14 `pcall`/`xpcall`)
+                    // only accelerate the CALL at `pc + 1 + C`; the fallback
+                    // path loads the callee and calls it, which is exactly the
+                    // source form, so they lift to nothing. Remember the CALL so
+                    // its callee can be marked as fetched after the arguments
+                    // (see `Call::callee_after_arguments`).
                     OpCode::LOP_FASTCALL
                     | OpCode::LOP_FASTCALL1
                     | OpCode::LOP_FASTCALL2
                     | OpCode::LOP_FASTCALL2K
                     | OpCode::LOP_FASTCALL3
-                    // NATIVECALL is a JIT dispatch hint; the actual call is the
-                    // following CALL, so (like FASTCALL) it lifts to nothing (L5).
-                    | OpCode::LOP_NATIVECALL => {}
-                    // FASTPCALL (v14) only accelerates the `pcall`/`xpcall` CALL
-                    // that follows; the fallback path loads the global and calls
-                    // it, which is exactly the source form, so it lifts to nothing.
-                    // Remember the CALL so its callee can be marked as fetched
-                    // after the arguments (see `Call::callee_after_arguments`).
-                    OpCode::LOP_FASTPCALL => {
-                        fastpcall_target = Some(pc + 1 + c as usize);
+                    | OpCode::LOP_FASTPCALL => {
+                        fastcall_target = Some(pc + 1 + c as usize);
                     }
                     OpCode::LOP_NAMECALL | OpCode::LOP_NAMECALLUDATA => {
                         let namecall_base = a;
@@ -996,7 +998,7 @@ impl<'a> Lifter<'a> {
                         };
 
                         let mut call = ast::Call::new(self.register(a as _).into(), arguments);
-                        if fastpcall_target.take_if(|target| *target == pc).is_some() {
+                        if fastcall_target.take_if(|target| *target == pc).is_some() {
                             call.callee_after_arguments = true;
                         }
 

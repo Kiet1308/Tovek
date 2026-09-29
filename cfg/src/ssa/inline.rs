@@ -147,26 +147,36 @@ fn rvalue_blocks_reorder(rvalue: &ast::RValue) -> bool {
 /// path (`error`, `debug.traceback`) is fetched by GETIMPORT without running
 /// Lua code, so it cannot; any call, operator or other index might.
 fn may_write_capture_when_moved(rvalue: &ast::RValue) -> bool {
-    fn is_import_path(rvalue: &ast::RValue) -> bool {
-        match rvalue {
-            ast::RValue::Global(_) => true,
-            ast::RValue::Index(index) => {
-                matches!(index.right.as_ref(), ast::RValue::Literal(ast::Literal::String(_)))
-                    && is_import_path(&index.left)
-            }
-            _ => false,
-        }
-    }
     !is_import_path(rvalue) && ast::effects::may_write_capture(rvalue)
 }
 
-/// Global callees of `Call`s lifted from a FASTPCALL fallback. The bytecode
-/// fetches such an importable global after evaluating the arguments, so it is
-/// not an ordering barrier for them.
+/// A global or a constant-key field chain on one (`table.insert`): what
+/// GETIMPORT fetches.
+fn is_import_path(rvalue: &ast::RValue) -> bool {
+    match rvalue {
+        ast::RValue::Global(_) => true,
+        ast::RValue::Index(index) => {
+            matches!(index.right.as_ref(), ast::RValue::Literal(ast::Literal::String(_)))
+                && is_import_path(&index.left)
+        }
+        _ => false,
+    }
+}
+
+/// Every node of the import-path callees of `Call`s lifted from a FASTCALL or
+/// FASTPCALL fallback. The bytecode fetches such a callee after evaluating the
+/// arguments, so no part of it is an ordering barrier for them.
 fn late_global_callees(statement: &ast::Statement) -> Vec<*const ast::RValue> {
     fn mark(call: &ast::Call, out: &mut Vec<*const ast::RValue>) {
-        if call.callee_after_arguments && matches!(call.value.as_ref(), ast::RValue::Global(_)) {
-            out.push(call.value.as_ref() as *const _);
+        if !call.callee_after_arguments || !is_import_path(&call.value) {
+            return;
+        }
+        let mut node = call.value.as_ref();
+        loop {
+            out.push(node as *const _);
+            let ast::RValue::Index(index) = node else { break };
+            out.push(index.right.as_ref() as *const _);
+            node = index.left.as_ref();
         }
     }
     fn visit(rvalue: &ast::RValue, out: &mut Vec<*const ast::RValue>) {

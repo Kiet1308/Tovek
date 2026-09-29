@@ -12,12 +12,12 @@ pub struct Call {
     /// Creation event only. Copies retain the event; a newly built Call starts
     /// unattributed. Zero means no retained diagnostic record, not original code.
     pub reconstruction_event: u32,
-    /// Lifted from a v14 `FASTPCALL` fallback: the compiler evaluated every
-    /// argument first and fetched the importable `pcall`/`xpcall` global last
-    /// (it emits FASTPCALL only for a global it may import, never for a local
-    /// or an assigned `pcall`). Source `pcall(f, ...)` compiles back to exactly
-    /// that order, so a pass may treat this call's global callee as read after
-    /// its arguments. Not part of equality; rebuilt calls start without it.
+    /// Lifted from a `FASTCALL` (builtin) or v14 `FASTPCALL` fallback: the
+    /// compiler evaluated every argument first and fetched the callee last.
+    /// Source `table.insert(t, f(x))` compiles back to exactly that order, so
+    /// a pass may treat an importable callee (`tostring`, `table.insert`) as
+    /// read after its arguments. Not part of equality; rebuilt calls start
+    /// without it.
     pub callee_after_arguments: bool,
 }
 
