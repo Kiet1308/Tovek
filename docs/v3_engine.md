@@ -115,6 +115,7 @@ oracle, compact) chạy ở mốc M0 và cuối mỗi mốc.
 | 2026-09-29 | M2: đếm lượt đọc dạng mảng (`Usages`) trong SSA inliner | `eca6267` | |
 | 2026-09-29 | M1: duyệt con biểu thức bằng visitor, không cấp phát `Vec` mỗi nút (inventory ngân sách cây, capture safety, refine tên, synth helper, …) | `6661c9a` | corpus trong tiến trình 7,14→6,92 s |
 | 2026-09-29 | Một lượt duyệt cho bất biến cuối (goto/label + marker vòng lặp); visitor cho lượt đọc local ở link upvalue, deinline, phụ thuộc tham số | `542b57b` | 6,92→6,78 s |
+| 2026-09-29 | **So với bản phát hành V2.1.1** (tag `v2.1.1`, cùng máy, chạy xen kẽ; `main` từ đây gọi là V2.2) | `58b969b` | 1 luồng 10,25 → 7,80 s (**1,31x**); 24 luồng 1,06 → 0,93 s (**1,14x**), tổng CPU 14,1 → 10,9 s (1,29x). Mốc "v2.2" trong các dòng dưới là bản trình bày cũ trên `main` local, vốn chậm hơn V2.1.1 |
 | 2026-09-29 | **Đo cuối (release fat LTO, corpus 3.978 file)** | `542b57b` | 1 luồng: v2.2 12,02 s → M0 9,62 s → **V3 8,07 s (1,49x)**; 24 luồng: 1,18 → 1,04 → **0,92 s (1,28x)**. Giống hệt từng byte với `corpus-m0` |
 
 ### Thí nghiệm đã loại
