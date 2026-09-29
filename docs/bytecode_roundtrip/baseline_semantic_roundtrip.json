@@ -6,6 +6,13 @@
   "migration": "Replayed the original baseline lifter with corrected normalization; thresholds are not regenerated from current decompiler output.",
   "reviewed_count_changes": {
    "alias_iterators": "Historical output adds an implicit zero for the private sum field before its closure store. The same difference is present in current output; the fixture passes runtime round-trips at O0/O1/O2."
+  },
+  "added_fixtures": {
+   "call_before_capture_read": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
+   "inner_loop_continues_outer": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
+   "nested_loop_exits_parent": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
+   "report_nested_numeric_accumulate": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
+   "report_repeat_break_in_numeric_for": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output."
   }
  },
  "summary": {
@@ -24,6 +31,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 2
+  },
+  {
+   "file": "call_before_capture_read",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 6
   },
   {
    "file": "captured_break_continue",
@@ -56,6 +69,12 @@
    "protos": 2
   },
   {
+   "file": "inner_loop_continues_outer",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
    "file": "iter_metamethod_order",
    "status": "ok",
    "nonequiv": 0,
@@ -80,7 +99,25 @@
    "protos": 2
   },
   {
+   "file": "nested_loop_exits_parent",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 1
+  },
+  {
    "file": "parallel_copy_cycle",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
+   "file": "report_nested_numeric_accumulate",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "report_repeat_break_in_numeric_for",
    "status": "ok",
    "nonequiv": 1,
    "protos": 3

@@ -5,7 +5,7 @@
 //! Only integer group IDs and booleans are retained, never AST/local owners.
 use ast::{LocalRw, RcLocal, Statement};
 use ast::FxIndexMap as IndexMap;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 const MIN_CACHED_STATEMENTS: usize = 4;
 const MAX_CACHED_SLOTS: usize = 16_384;
@@ -15,6 +15,8 @@ pub(super) struct StatementFacts {
     pub read_groups: Vec<usize>,
     pub write_groups: Vec<usize>,
     pub writes_upvalue: bool,
+    /// Reads a captured cell that a call could write (not a read-only capture).
+    pub reads_capture: bool,
     pub observable: bool,
     pub single_rhs_observable: Option<bool>,
 }
@@ -24,6 +26,7 @@ impl StatementFacts {
         statement: &Statement,
         local_to_group: &FxHashMap<RcLocal, usize>,
         upvalue_to_group: &IndexMap<RcLocal, RcLocal>,
+        readonly_capture_ids: &FxHashSet<u64>,
         observability_reuses: &mut u64,
     ) -> Self {
         let single_rhs = statement.as_assign().filter(|assign| assign.right.len() == 1);
@@ -41,6 +44,7 @@ impl StatementFacts {
             read_groups: Vec::new(),
             write_groups: Vec::new(),
             writes_upvalue: false,
+            reads_capture: false,
             observable,
             single_rhs_observable: single_rhs
                 .map(|assign| single_rhs_effect.unwrap()
@@ -48,6 +52,8 @@ impl StatementFacts {
         };
         statement.visit_local_reads(&mut |local| {
             if let Some(&group) = local_to_group.get(local) { facts.read_groups.push(group); }
+            facts.reads_capture |= upvalue_to_group.contains_key(local)
+                && !readonly_capture_ids.contains(&local.stable_id());
             true
         });
         statement.visit_local_writes(&mut |local| {
@@ -56,7 +62,7 @@ impl StatementFacts {
             true
         });
         #[cfg(test)]
-        assert_eq!(facts, Self::new_reference(statement, local_to_group, upvalue_to_group));
+        assert_eq!(facts, Self::new_reference(statement, local_to_group, upvalue_to_group, readonly_capture_ids));
         facts
     }
 
@@ -65,6 +71,7 @@ impl StatementFacts {
         statement: &Statement,
         local_to_group: &FxHashMap<RcLocal, usize>,
         upvalue_to_group: &IndexMap<RcLocal, RcLocal>,
+        readonly_capture_ids: &FxHashSet<u64>,
     ) -> Self {
         let reads = statement.values_read();
         let writes = statement.values_written();
@@ -80,6 +87,9 @@ impl StatementFacts {
             writes_upvalue: writes
                 .iter()
                 .any(|local| upvalue_to_group.contains_key(*local)),
+            reads_capture: reads.iter().any(|local| {
+                upvalue_to_group.contains_key(*local) && !readonly_capture_ids.contains(&local.stable_id())
+            }),
             observable: ast::statement_is_observable(statement),
             single_rhs_observable: statement
                 .as_assign()
@@ -134,6 +144,7 @@ impl Statistics {
 pub(super) struct Cache<'a> {
     local_to_group: &'a FxHashMap<RcLocal, usize>,
     upvalue_to_group: &'a IndexMap<RcLocal, RcLocal>,
+    readonly_capture_ids: &'a FxHashSet<u64>,
     slots: Vec<Option<(usize, StatementFacts)>>,
     scratch: Option<StatementFacts>,
     statistics: Statistics,
@@ -144,12 +155,14 @@ impl<'a> Cache<'a> {
         statements: usize,
         local_to_group: &'a FxHashMap<RcLocal, usize>,
         upvalue_to_group: &'a IndexMap<RcLocal, RcLocal>,
+        readonly_capture_ids: &'a FxHashSet<u64>,
     ) -> Self {
         Self::with_limit(
             statements,
             MAX_CACHED_SLOTS,
             local_to_group,
             upvalue_to_group,
+            readonly_capture_ids,
         )
     }
 
@@ -158,6 +171,7 @@ impl<'a> Cache<'a> {
         limit: usize,
         local_to_group: &'a FxHashMap<RcLocal, usize>,
         upvalue_to_group: &'a IndexMap<RcLocal, RcLocal>,
+        readonly_capture_ids: &'a FxHashSet<u64>,
     ) -> Self {
         let count = if statements >= MIN_CACHED_STATEMENTS {
             statements.min(limit)
@@ -167,6 +181,7 @@ impl<'a> Cache<'a> {
         Self {
             local_to_group,
             upvalue_to_group,
+            readonly_capture_ids,
             slots: (0..count).map(|_| None).collect(),
             scratch: None,
             statistics: Statistics {
@@ -195,7 +210,8 @@ impl<'a> Cache<'a> {
                 // in debug/CI runs. Release builds do not recompute the facts.
                 debug_assert_eq!(
                     &slot.as_ref().unwrap().1,
-                    &StatementFacts::new(statement, self.local_to_group, self.upvalue_to_group, &mut 0),
+                    &StatementFacts::new(statement, self.local_to_group, self.upvalue_to_group,
+                        self.readonly_capture_ids, &mut 0),
                     "SSA inline statement facts were not invalidated",
                 );
             } else {
@@ -205,6 +221,7 @@ impl<'a> Cache<'a> {
                     statement,
                     self.local_to_group,
                     self.upvalue_to_group,
+                    self.readonly_capture_ids,
                     &mut self.statistics.observability_reuses,
                 )));
             }
@@ -215,6 +232,7 @@ impl<'a> Cache<'a> {
                 statement,
                 self.local_to_group,
                 self.upvalue_to_group,
+                self.readonly_capture_ids,
                 &mut self.statistics.observability_reuses,
             ));
             self.scratch.as_ref().unwrap()
@@ -269,8 +287,9 @@ mod tests {
                 for right in [vec![value.clone()], vec![value.clone(), value.clone()]] {
                     let statement = Assign::new(left.clone(), right).into();
                     let mut reuses = 0;
-                    let actual = StatementFacts::new(&statement, &groups, &captures, &mut reuses);
-                    assert_eq!(actual, StatementFacts::new_reference(&statement, &groups, &captures));
+                    let readonly = FxHashSet::default();
+                    let actual = StatementFacts::new(&statement, &groups, &captures, &readonly, &mut reuses);
+                    assert_eq!(actual, StatementFacts::new_reference(&statement, &groups, &captures, &readonly));
                     let assign = statement.as_assign().unwrap();
                     assert_eq!(reuses, u64::from(assign.right.len() == 1 && assign.left.iter().all(|left| left.as_local().is_some())));
                 }
@@ -285,7 +304,8 @@ mod tests {
         let c = local("c");
         let groups = FxHashMap::from_iter([(a.clone(), 1), (b.clone(), 2), (c.clone(), 3)]);
         let captures = IndexMap::from_iter([(c.clone(), c.clone())]);
-        let mut cache = Cache::new(4, &groups, &captures);
+        let readonly = FxHashSet::default();
+        let mut cache = Cache::new(4, &groups, &captures, &readonly);
         let mut statement = Assign::new(vec![LValue::Local(a.clone())], vec![RValue::Local(
             b.clone(),
         )])
@@ -294,6 +314,7 @@ mod tests {
         assert_eq!(facts.read_groups, [2]);
         assert_eq!(facts.write_groups, [1]);
         assert!(!facts.writes_upvalue);
+        assert!(!facts.reads_capture);
         assert_eq!(facts.single_rhs_observable, Some(false));
         assert!(!facts.observable);
         cache.get(0, &statement);
@@ -311,9 +332,13 @@ mod tests {
         assert!(facts.observable);
         assert_eq!(facts.single_rhs_observable, Some(true));
 
-        statement = Assign::new(vec![LValue::Local(b)], vec![c.into()]).into();
+        statement = Assign::new(vec![LValue::Local(b.clone())], vec![c.clone().into()]).into();
         cache.invalidate(0);
         assert_eq!(cache.get(0, &statement).single_rhs_observable, Some(true));
+        assert!(cache.get(0, &statement).reads_capture);
+        let readonly_c = FxHashSet::from_iter([c.stable_id()]);
+        let mut readonly_cache = Cache::new(4, &groups, &captures, &readonly_c);
+        assert!(!readonly_cache.get(0, &statement).reads_capture);
         statement = ast::Empty {}.into();
         cache.invalidate(0);
         let facts = cache.get(0, &statement);
@@ -328,7 +353,8 @@ mod tests {
     fn bounded_cache_tags_evictions_and_invalidations_on_large_blocks() {
         let groups = FxHashMap::default();
         let captures = IndexMap::default();
-        let mut cache = Cache::with_limit(5, 4, &groups, &captures);
+        let readonly = FxHashSet::default();
+        let mut cache = Cache::with_limit(5, 4, &groups, &captures, &readonly);
         let mut statement: Statement = ast::Return::new(vec![Literal::Nil.into()]).into();
         assert_eq!(cache.statistics().slots, 4);
         assert!(cache.get(0, &statement).single_rhs_observable.is_none());
@@ -354,7 +380,8 @@ mod tests {
     fn debug_guard_detects_a_missing_invalidation() {
         let groups = FxHashMap::default();
         let captures = IndexMap::default();
-        let mut cache = Cache::new(4, &groups, &captures);
+        let readonly = FxHashSet::default();
+        let mut cache = Cache::new(4, &groups, &captures, &readonly);
         let mut statement: Statement = ast::Empty {}.into();
         cache.get(0, &statement);
         statement =

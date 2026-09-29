@@ -143,6 +143,23 @@ fn rvalue_blocks_reorder(rvalue: &ast::RValue) -> bool {
     }
 }
 
+/// Whether evaluating `rvalue` later could write a captured cell. An import
+/// path (`error`, `debug.traceback`) is fetched by GETIMPORT without running
+/// Lua code, so it cannot; any call, operator or other index might.
+fn may_write_capture_when_moved(rvalue: &ast::RValue) -> bool {
+    fn is_import_path(rvalue: &ast::RValue) -> bool {
+        match rvalue {
+            ast::RValue::Global(_) => true,
+            ast::RValue::Index(index) => {
+                matches!(index.right.as_ref(), ast::RValue::Literal(ast::Literal::String(_)))
+                    && is_import_path(&index.left)
+            }
+            _ => false,
+        }
+    }
+    !is_import_path(rvalue) && ast::effects::may_write_capture(rvalue)
+}
+
 /// Global callees of `Call`s lifted from a FASTPCALL fallback. The bytecode
 /// fetches such an importable global after evaluating the arguments, so it is
 /// not an ordering barrier for them.
@@ -426,7 +443,8 @@ impl<'a> Inliner<'a> {
             let node = schedule.nodes[node_index];
             if !schedule.visit(node, self.function.block(node).unwrap().len()) { continue; }
             let block = self.function.block_mut(node).unwrap();
-            let mut facts = facts::Cache::new(block.len(), self.local_to_group, self.upvalue_to_group);
+            let mut facts = facts::Cache::new(
+                block.len(), self.local_to_group, self.upvalue_to_group, self.readonly_capture_ids);
             let producers = ProducerIndex::new(block);
 
             // TODO: rename values_read to locals_read
@@ -452,6 +470,10 @@ impl<'a> Inliner<'a> {
                 };
                 let mut groups_written = FxHashSet::default();
                 let mut allow_side_effects = true;
+                // A candidate that may write a captured cell must not move
+                // below a stepped-over read of such a cell: `local r = f()`
+                // before `x = x + g(r)` would read `x` before `f` runs.
+                let mut crossed_capture_read = false;
                 for stat_index in (first_producer..index).rev() {
                     let mut values_read = stat_to_values_read[index]
                         .iter_mut()
@@ -489,6 +511,7 @@ impl<'a> Inliner<'a> {
                         // Close the side-effect window here, exactly as the
                         // fall-through path at the bottom of the loop does.
                         allow_side_effects &= !statement_facts.observable;
+                        crossed_capture_read |= statement_facts.reads_capture;
                         continue;
                     }
 
@@ -497,6 +520,8 @@ impl<'a> Inliner<'a> {
                     {
                         let new_rvalue_has_side_effects = statement_facts.single_rhs_observable.unwrap();
                         if (!new_rvalue_has_side_effects || allow_side_effects)
+                            && !(crossed_capture_read && new_rvalue_has_side_effects
+                                && may_write_capture_when_moved(new_rvalue))
                             && !is_service_or_require_handle(new_rvalue)
                             && !matches!(new_rvalue, ast::RValue::Closure(c)
                                 if c.function.lock().retain_for_reconstruction)
@@ -642,6 +667,7 @@ impl<'a> Inliner<'a> {
                     }
                     groups_written.extend(statement_facts.write_groups.iter().copied());
                     allow_side_effects &= !statement_facts.observable;
+                    crossed_capture_read |= statement_facts.reads_capture;
                 }
                 index += 1;
             }

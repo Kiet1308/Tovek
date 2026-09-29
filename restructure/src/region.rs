@@ -1718,6 +1718,20 @@ impl Analysis {
         // straight-line tail after the loop from being swallowed by the body.
         let pc_index = OnceCell::new();
         let block_at_pc = |pc| pc_index.get_or_init(|| function.block_start_pc_index()).get(&pc).copied();
+        // Whether the FORGLOOP body edge enters the block the compiler placed
+        // at `body_pc`. An empty body (`body_pc == step_pc`) has none. When a
+        // nested loop's back edge also targets `body_pc` (a `repeat` opening
+        // the body), the lifter splits the FORGLOOP edge with an empty,
+        // PC-less block that only forwards to it.
+        let enters_body_at = |body_entry: NodeIndex, origin: &ast::ForOrigin, node: NodeIndex| {
+            let forwarding = |block: &ast::Block| block.is_empty();
+            node == body_entry
+                || (origin.body_pc == origin.step_pc
+                    && function.block(body_entry).is_some_and(forwarding))
+                || (function.block(body_entry).is_some_and(forwarding)
+                    && function.block_pc_range(body_entry).is_none()
+                    && function.successor_blocks(body_entry).exactly_one().ok() == Some(node))
+        };
         let mut candidates = natural;
         let semantic_headers = nodes
             .iter()
@@ -1749,13 +1763,8 @@ impl Analysis {
                 // direct outer exit from the source loop's own follow block.
                 if block_at_pc(origin.step_pc)
                     .is_some_and(|node| node != header)
-                    || block_at_pc(origin.body_pc).is_some_and(|node| {
-                        node != body_entry
-                            && !(origin.body_pc == origin.step_pc
-                                && function
-                                    .block(body_entry)
-                                    .is_some_and(|block| block.is_empty()))
-                    })
+                    || block_at_pc(origin.body_pc)
+                        .is_some_and(|node| !enters_body_at(body_entry, &origin, node))
                     || block_at_pc(origin.follow_pc)
                         .is_some_and(|node| node != normal_exit)
                 {
@@ -1957,13 +1966,8 @@ impl Analysis {
             // by the older backedge-only set and swallow an outer tail.
             if block_at_pc(origin.step_pc)
                 .is_some_and(|node| node != header)
-                || block_at_pc(origin.body_pc).is_some_and(|node| {
-                    node != body_entry
-                        && !(origin.body_pc == origin.step_pc
-                            && function
-                                .block(body_entry)
-                                .is_some_and(|block| block.is_empty()))
-                })
+                || block_at_pc(origin.body_pc)
+                    .is_some_and(|node| !enters_body_at(body_entry, &origin, node))
                 || block_at_pc(origin.follow_pc)
                     .is_some_and(|node| node != normal_exit)
                 || nodes_in_loop.iter().any(|node| {
@@ -1981,7 +1985,7 @@ impl Analysis {
                 .filter(|target| !nodes_in_loop.contains(target))
                 .unique()
                 .collect_vec();
-            let join = common_postdominator(&external_targets, post_dominators)?;
+            let join = loop_exit_join(function, &external_targets, post_dominators)?;
             if nodes_in_loop.contains(&join) {
                 continue;
             }
@@ -2144,7 +2148,7 @@ impl Analysis {
                 .collect_vec();
             let join = if whole_header && external_targets.is_empty() {
                 header
-            } else if let Some(join) = common_postdominator(&external_targets, post_dominators) {
+            } else if let Some(join) = loop_exit_join(function, &external_targets, post_dominators) {
                 join
             } else {
                 continue;
@@ -2378,7 +2382,7 @@ impl Analysis {
                 .filter(|target| !nodes_in_loop.contains(target))
                 .unique()
                 .collect_vec();
-            let Some(join) = common_postdominator(&external_targets, post_dominators) else {
+            let Some(join) = loop_exit_join(function, &external_targets, post_dominators) else {
                 continue;
             };
             if nodes_in_loop.contains(&join) {
@@ -2429,6 +2433,35 @@ impl Analysis {
         }
         (by_init, by_header)
     }
+}
+
+/// Where control continues after a loop whose exits leave for `targets`.
+/// Exit-based post-dominance has no answer for a node that can reach a
+/// non-terminating region (every node of a `while true` main loop), so fall
+/// back to a local proof: the chain of single-successor blocks from a target
+/// is taken on every path from it, and the first block that every chain
+/// contains is passed through by all exits.
+fn loop_exit_join(
+    function: &Function,
+    targets: &[NodeIndex],
+    post_dominators: &PostDominators,
+) -> Option<NodeIndex> {
+    common_postdominator(targets, post_dominators).or_else(|| {
+        let forced_chain = |start: NodeIndex| {
+            let mut chain = vec![start];
+            let mut seen = FxHashSet::from_iter([start]);
+            while let Ok(next) = function.successor_blocks(*chain.last().unwrap()).exactly_one() {
+                if !seen.insert(next) {
+                    break;
+                }
+                chain.push(next);
+            }
+            (chain, seen)
+        };
+        let (first, rest) = targets.split_first()?;
+        let rest = rest.iter().map(|&target| forced_chain(target).1).collect_vec();
+        forced_chain(*first).0.into_iter().find(|node| rest.iter().all(|seen| seen.contains(node)))
+    })
 }
 
 fn common_postdominator(
@@ -3765,6 +3798,23 @@ impl<'a> Builder<'a> {
                     })
                 }))
         })
+    }
+
+    /// Leave the enclosing loop from its body: publish its exports, record
+    /// that this is an explicit break (the normal-exhaustion adapter must not
+    /// run), then `break`.
+    fn push_body_break(&self, block: &mut Block, context: &LoopContext<'_>) {
+        self.append_export(block, context.exports);
+        if let Some(flag) = &context.exhaustion_flag {
+            block.push(
+                Assign::new(
+                    vec![LValue::Local(flag.clone())],
+                    vec![RValue::Literal(Literal::Boolean(false))],
+                )
+                .into(),
+            );
+        }
+        block.push(Statement::Break(ast::Break {}).into());
     }
 
     fn append_export(&self, block: &mut Block, exports: &[(RcLocal, RcLocal)]) {
@@ -5794,17 +5844,24 @@ impl<'a> Builder<'a> {
                 .or_else(|| self.analysis.numeric_loops_by_init.get(&current))
                 .cloned()
             {
+                // A nested loop whose exit is the enclosing loop's own exit is
+                // the source `inner loop; break`: Luau threads the jump of the
+                // `break` after the inner loop, so every inner exit targets the
+                // parent's exit directly. Each exit leaves the inner loop and
+                // the following `break` leaves the parent.
+                let breaks_enclosing = context.is_some_and(|ctx| {
+                    info.join == ctx.info.join && !ctx.info.nodes.contains(&info.join)
+                });
                 if let Some(ctx) = context {
-                    // A source-level nested loop may only join back inside
-                    // its enclosing loop.  If the inferred join is outside
-                    // the enclosing region (for example, a body edge that
-                    // jumps directly to the parent's exit), emitting an
+                    // Otherwise a source-level nested loop may only join back
+                    // inside its enclosing loop.  If the inferred join is
+                    // elsewhere outside the enclosing region, emitting an
                     // inner `break` would execute only one Luau `break` and
                     // accidentally continue the parent.  Reject the shape so
                     // the semantics-preserving fallback handles the outer
                     // escape explicitly.
                     if !info.nodes.is_subset(&ctx.info.nodes)
-                        || !ctx.info.nodes.contains(&info.join)
+                        || !(ctx.info.nodes.contains(&info.join) || breaks_enclosing)
                     {
                         self.trace_unsupported("nested-loop-outside-owner", current, stop);
                         return None;
@@ -5826,6 +5883,13 @@ impl<'a> Builder<'a> {
                         next: None,
                     });
                 };
+                if let Some(ctx) = context.filter(|_| breaks_enclosing) {
+                    self.push_body_break(&mut output, ctx);
+                    return Some(PathResult {
+                        block: output,
+                        next: Some(ctx.info.join),
+                    });
+                }
                 current = next;
                 continue;
             }
@@ -5951,24 +6015,14 @@ impl<'a> Builder<'a> {
                                 Some(current),
                             )?;
                             output.extend(adapter.block.0);
-                            self.append_export(&mut output, ctx.exports);
-                            if let Some(flag) = &ctx.exhaustion_flag {
-                                // A one-successor break path bypasses
-                                // `build_transfer_arm_inner`, so mark it
-                                // explicitly before leaving the loop.  Without
-                                // this write the normal-exhaustion adapter is
-                                // emitted unconditionally and can overwrite a
-                                // body-selected result (the Lerp/GameModifiers
-                                // phi shapes).
-                                output.push(
-                                    Assign::new(
-                                        vec![LValue::Local(flag.clone())],
-                                        vec![RValue::Literal(Literal::Boolean(false))],
-                                    )
-                                    .into(),
-                                );
-                            }
-                            output.push(Statement::Break(ast::Break {}).into());
+                            // A one-successor break path bypasses
+                            // `build_transfer_arm_inner`, so it marks the
+                            // explicit break itself.  Without the flag write
+                            // the normal-exhaustion adapter is emitted
+                            // unconditionally and can overwrite a
+                            // body-selected result (the Lerp/GameModifiers
+                            // phi shapes).
+                            self.push_body_break(&mut output, ctx);
                             return Some(PathResult {
                                 block: output,
                                 next: Some(ctx.info.join),
@@ -6229,7 +6283,7 @@ impl<'a> Builder<'a> {
             // edges carry no phi transfers; edge-sensitive variants remain
             // on the certified fallback path.
             if let Some((inner, common_target, alternate_target, inner_then_is_common)) =
-                self.shared_tail_shape(then_target, else_target, ctx)
+                self.shared_tail_shape(source, then_target, else_target, ctx)
             {
                 return self.build_shared_tail_conditional(
                     source,
@@ -6781,19 +6835,7 @@ impl<'a> Builder<'a> {
         // only the header's Else edge represents implicit exhaustion.
         let adapter = self.build_exit_adapter(target, context.info.join, context, Some(source))?;
         block.extend(adapter.block.0);
-        self.append_export(&mut block, context.exports);
-        if let Some(flag) = &context.exhaustion_flag {
-            // This transfer is an explicit body-side break.  Mark it before
-            // leaving the loop so the normal-exhaustion adapter is skipped.
-            block.push(
-                Assign::new(
-                    vec![LValue::Local(flag.clone())],
-                    vec![RValue::Literal(Literal::Boolean(false))],
-                )
-                .into(),
-            );
-        }
-        block.push(Statement::Break(ast::Break {}).into());
+        self.push_body_break(&mut block, context);
         Some(PathResult {
             block,
             next: Some(context.info.join),
@@ -6806,11 +6848,22 @@ impl<'a> Builder<'a> {
     /// the alternate branch is selected by `outer and not inner`.
     fn shared_tail_shape(
         &self,
+        source: NodeIndex,
         inner_target: NodeIndex,
         common_target: NodeIndex,
         context: &LoopContext<'_>,
     ) -> Option<(If, NodeIndex, NodeIndex, bool)> {
         if inner_target == common_target || !context.info.nodes.contains(&inner_target) {
+            return None;
+        }
+        // The rewrite consumes the nested conditional node, so `source` must be
+        // its only entry. A nested loop header is also entered by its back
+        // edge; folding its test into `outer and inner` would drop the loop.
+        if self
+            .function
+            .predecessor_blocks(inner_target)
+            .any(|predecessor| predecessor != source && self.analysis.reachable.contains(&predecessor))
+        {
             return None;
         }
         let block = self.function.block(inner_target)?;
