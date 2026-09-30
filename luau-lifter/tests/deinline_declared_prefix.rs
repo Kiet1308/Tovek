@@ -8,7 +8,9 @@
 //! or math.clamp(...)`. The matcher expected `<prefix>; local r; <branch>`,
 //! and canon kept the helper's diamond: its `return (math.clamp(...))` is a
 //! one-result call, which the select fusion refused although an operand takes
-//! one value anyway (Roblox `EventsSchema` `clampDepthValue`).
+//! one value anyway (Roblox `EventsSchema` `clampDepthValue`). Where SSA also
+//! folded the value into its one use (`obj:SetAttribute("K", not n and 4 or
+//! ...)`), the call is rebuilt in place: nothing observable precedes it there.
 
 const BYTECODE: &[u8] = include_bytes!("fixtures/deinline_declared_prefix.luaubc");
 
@@ -17,4 +19,5 @@ fn declared_selects_after_a_prefix_rebuild_their_helper_call() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
     assert_eq!(source.matches("= clampDepthValue(").count(), 2, "{source}");
+    assert!(source.contains(":SetAttribute(\"ChainDepthLimit\", clampDepthValue("), "{source}");
 }

@@ -2322,9 +2322,14 @@ fn deinline_block(
             &mut last_occ,
             &mut canon_cache,
         ) {
+            // A call rebuilt inside another statement's value carries no site
+            // marker, as with the expression de-inliner: that statement may
+            // itself fold into its use later, which would strand the marker.
+            let embedded = hit.host.is_some();
             let call = Call::new(RValue::Local(hit.f_local.clone()), hit.args)
                 .reconstructed(crate::call_origins::Kind::StatementDeinline);
             let stmt = match &hit.result {
+                _ if let Some(host) = hit.host => host,
                 None => Statement::Call(call),
                 Some(r) => Statement::Assign(Assign {
                     node_origin: Default::default(),
@@ -2346,12 +2351,13 @@ fn deinline_block(
             // inserted after the loop); `Empty`s are deliberately left untouched so the
             // non-chained majority of corpus output stays byte-identical.
             let mut consume = hit.consume;
-            while i + consume < stmts.len()
+            while !embedded
+                && i + consume < stmts.len()
                 && matches!(&stmts[i + consume], Statement::Comment(c) if is_internal_marker(c))
             {
                 consume += 1;
             }
-            let mut replacement = vec![stmt, marker];
+            let mut replacement = if embedded { vec![stmt] } else { vec![stmt, marker] };
             if let Some(ret) = hit.tail_ret {
                 replacement.push(Statement::Return(Return { node_origin: Default::default(), values: vec![ret] }));
             }
@@ -2749,6 +2755,9 @@ struct Hit {
     /// Gap B (arm-return form): the consumed window ended the block with EVERY
     /// path `return RET`; the splice re-emits `return RET` after the call.
     tail_ret: Option<RValue>,
+    /// The statement that uses the value, with the call already in its place
+    /// (`match_embedded_value`); emitted instead of a result declaration.
+    host: Option<Statement>,
 }
 
 fn try_match_at(
@@ -3025,6 +3034,7 @@ fn match_void(
         args,
         result: None,
         tail_ret,
+        host: None,
     })
 }
 
@@ -3127,6 +3137,7 @@ fn match_value(
         args,
         result: Some(r),
         tail_ret: None,
+        host: None,
     })
 }
 
@@ -3162,7 +3173,149 @@ fn match_declared_value(
         && !u.callee_locals.contains(r)
         && !block_reads_local(prefix, r)
         && !tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals);
-    complete.then(|| Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, result: Some(r.clone()), tail_ret: None })
+    complete.then(|| Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, result: Some(r.clone()), tail_ret: None, host: None })
+}
+
+/// `<prefix>; S` where SSA folded the value branch into the one statement
+/// `S` that uses it: `local n = tonumber(x); obj:SetAttribute("K", not n
+/// and 4 or math.clamp(...))`. The helper's leading statements may run where
+/// the value is evaluated only when nothing observable precedes it in `S`
+/// and it is evaluated on every path (`visit_leading_values`); the prefix
+/// locals must then be read nowhere else. `S` gets the call in that place.
+fn match_embedded_value(
+    stmts: &[Statement],
+    i: usize,
+    d: usize,
+    t: &Target,
+    is_func_body_top: bool,
+    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+) -> Option<Hit> {
+    let prefix = &stmts[i..d];
+    if prefix.is_empty() || block_has_return(prefix) || (is_func_body_top && i == 0 && d + 1 == stmts.len()) {
+        return None;
+    }
+    // Only a value of the kind the pattern returns can match it.
+    let Some(Statement::Return(ret)) = t.pat.last() else { return None };
+    let [pattern_value] = ret.values.as_slice() else { return None };
+    let root = std::mem::discriminant(pattern_value);
+    let result = RcLocal::default();
+    let mut window = prefix.to_vec();
+    window.push(Assign::new(vec![result.clone().into()], vec![RValue::Literal(Literal::Nil)]).into());
+    if canon_top_len(&window, true) != t.pat.len() {
+        return None;
+    }
+    let mut host = stmts[d].clone();
+    let mut found = None;
+    visit_leading_values(&mut host, &mut |value| {
+        if std::mem::discriminant(&*value) != root {
+            return false;
+        }
+        if let Some(Statement::Assign(store)) = window.last_mut() {
+            store.right[0] = value.clone();
+        }
+        if !charge_window(t, &window) {
+            return false;
+        }
+        let Some(u) = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), &[]) else {
+            return false;
+        };
+        if u.result.as_ref() != Some(&result) || u.callee_locals.contains(&result) {
+            return false;
+        }
+        let call = Call::new(RValue::Local(t.f_local.clone()), u.args.clone())
+            .reconstructed(crate::call_origins::Kind::StatementDeinline);
+        *value = RValue::Call(call);
+        found = Some(u);
+        true
+    });
+    let u = found?;
+    let reads_callee_local = host.values_read().iter().any(|read| u.callee_locals.contains(*read));
+    if reads_callee_local || tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals) {
+        return None;
+    }
+    Some(Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, result: None, tail_ret: None, host: Some(host) })
+}
+
+/// Offers `visit` each value of `statement` that Lua evaluates on every path
+/// before anything observable happens in it, outermost first and in
+/// evaluation order, until `visit` takes one (and returns `true`). Local
+/// reads, literals and import paths are not observable; a store's address
+/// comes before the values it stores.
+fn visit_leading_values(statement: &mut Statement, visit: &mut impl FnMut(&mut RValue) -> bool) -> bool {
+    #[derive(PartialEq)]
+    enum Flow {
+        Taken,
+        Clear,
+        Blocked,
+    }
+    fn walk(value: &mut RValue, visit: &mut impl FnMut(&mut RValue) -> bool) -> Flow {
+        if visit(value) {
+            return Flow::Taken;
+        }
+        match value {
+            RValue::Literal(_) | RValue::Local(_) => Flow::Clear,
+            RValue::Global(_) => Flow::Clear,
+            RValue::Index(index) if is_import_path(&index.left) && matches!(*index.right, RValue::Literal(_)) => Flow::Clear,
+            RValue::Binary(binary) if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) => {
+                match walk(&mut binary.left, visit) {
+                    Flow::Taken => Flow::Taken,
+                    _ => Flow::Blocked,
+                }
+            }
+            RValue::IfExpression(select) => match walk(&mut select.condition, visit) {
+                Flow::Taken => Flow::Taken,
+                _ => Flow::Blocked,
+            },
+            RValue::Unary(unary) if unary.operation == UnaryOperation::Not => walk(&mut unary.value, visit),
+            RValue::Call(_) | RValue::MethodCall(_) | RValue::Select(_) | RValue::Index(_) | RValue::Binary(_) | RValue::Unary(_) => {
+                let mut flow = Flow::Clear;
+                value.visit_rvalues_mut(&mut |child| {
+                    flow = walk(child, visit);
+                    flow == Flow::Clear
+                });
+                if flow == Flow::Taken { Flow::Taken } else { Flow::Blocked }
+            }
+            _ => Flow::Blocked,
+        }
+    }
+    fn walk_all<'a>(values: impl IntoIterator<Item = &'a mut RValue>, visit: &mut impl FnMut(&mut RValue) -> bool) -> Flow {
+        for value in values {
+            match walk(value, visit) {
+                Flow::Clear => {}
+                flow => return flow,
+            }
+        }
+        Flow::Clear
+    }
+    let flow = match statement {
+        Statement::Assign(assign) if !assign.parallel => {
+            let mut addresses = Vec::new();
+            for lhs in &mut assign.left {
+                if let LValue::Index(index) = lhs {
+                    addresses.push(&mut *index.left);
+                    addresses.push(&mut *index.right);
+                }
+            }
+            match walk_all(addresses, visit) {
+                Flow::Clear => walk_all(&mut assign.right, visit),
+                flow => flow,
+            }
+        }
+        Statement::Call(call) => walk_all(std::iter::once(&mut *call.value).chain(&mut call.arguments), visit),
+        Statement::MethodCall(call) => walk_all(std::iter::once(&mut *call.value).chain(&mut call.arguments), visit),
+        Statement::Return(ret) => walk_all(&mut ret.values, visit),
+        Statement::If(branch) => walk(&mut branch.condition, visit),
+        _ => Flow::Blocked,
+    };
+    flow == Flow::Taken
+}
+
+fn is_import_path(value: &RValue) -> bool {
+    match value {
+        RValue::Global(_) => true,
+        RValue::Index(index) => matches!(*index.right, RValue::Literal(Literal::String(_))) && is_import_path(&index.left),
+        _ => false,
+    }
 }
 
 /// §8: a value-returning callee with a leading non-branch statement (its own
@@ -3195,7 +3348,8 @@ fn match_value_prefixed(
     // reconstruction. Count only non-trivia statements instead.
     let d = nth_effective_index(stmts, i, p)?;
     let Some(r) = result_decl(&stmts[d]) else {
-        return match_declared_value(stmts, i, d, t, is_func_body_top, last_occ);
+        return match_declared_value(stmts, i, d, t, is_func_body_top, last_occ)
+            .or_else(|| match_embedded_value(stmts, i, d, t, is_func_body_top, last_occ));
     };
     let kc = t.pat.len();
     let region_start = d + 1;
@@ -3270,6 +3424,7 @@ fn match_value_prefixed(
         args,
         result: Some(r),
         tail_ret: None,
+        host: None,
     })
 }
 
