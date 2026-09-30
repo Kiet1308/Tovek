@@ -596,18 +596,18 @@ fn try_rewrite_select(
     if !targets[active[0]].captures.uncaptured(&result) { return; }
     let candidate = vec![stmts[index].clone(), stmts[index + 1].clone(), crate::Return::new(vec![result.clone().into()]).into()];
     let Some(value) = arithmetic::region(&candidate) else { return; };
-    let mut hit = None;
+    let mut pick = Pick::default();
     let ordered = crate::reconstruction_search::prioritize(active, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
     for idx in ordered {
         let target = &targets[idx];
         let Some(safety) = &target.arithmetic else { continue; };
         if !safety.spend_attempt() { return; }
-        if let Some(args) = try_match(target, &value) {
-            if hit.is_some() { return; }
-            hit = Some((idx, args));
+        if let Some(found) = try_match(target, &value) {
+            pick.offer(idx, found);
+            if pick.settled() { return; }
         }
     }
-    let Some((idx, args)) = hit else { return; };
+    let Some((idx, args)) = pick.take() else { return; };
     let target = &targets[idx];
     let call = Call::new(target.f_local.clone().into(), args).reconstructed(crate::call_origins::Kind::ArithmeticDeinline);
     stmts.splice(index..index + 2, [crate::Assign { node_origin: Default::default(), left: vec![result.into()], right: vec![call.into()], prefix: true, parallel: false, compound: false}.into()]);
@@ -626,19 +626,19 @@ fn try_rewrite_region(
     let Some(value) = arithmetic::region(stmts) else { return false; };
     let mut declared = FxHashSet::default();
     crate::deinline::collect_declared_locals(stmts, &mut declared);
-    let mut hit = None;
+    let mut pick = Pick::default();
     for &idx in active {
         let target = &targets[idx];
         let Some(safety) = &target.arithmetic else { continue; };
         if current_func == Some(target.func_ptr) { continue; }
         if !safety.spend_attempt() { return false; }
         if declared.iter().any(|l| l.has_source_binding() || !target.captures.uncaptured(l)) { continue; }
-        if let Some(args) = try_match(target, &value) {
-            if hit.is_some() { return false; }
-            hit = Some((idx, args));
+        if let Some(found) = try_match(target, &value) {
+            pick.offer(idx, found);
+            if pick.settled() { return false; }
         }
     }
-    let Some((idx, args)) = hit else { return false; };
+    let Some((idx, args)) = pick.take() else { return false; };
     let target = &targets[idx];
     let call = Call::new(target.f_local.clone().into(), args)
         .reconstructed(crate::call_origins::Kind::ArithmeticDeinline);
@@ -666,7 +666,7 @@ fn try_rewrite(
     // Outermost-first: try to match the WHOLE node before descending, so the
     // largest equivalent subtree is collapsed into one call.
     if let Some(cands) = by_root.get(&std::mem::discriminant(&*rv)) {
-        let mut hit: Option<(usize, Vec<RValue>)> = None;
+        let mut pick = Pick::default();
         let mut ambiguous = false;
         let ordered = crate::reconstruction_search::prioritize(cands, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
         for &idx in &ordered {
@@ -684,16 +684,15 @@ fn try_rewrite(
                     break;
                 }
             }
-            if let Some(args) = try_match(t, rv) {
-                if hit.is_some() {
-                    ambiguous = true; // two distinct helpers match this node: refuse
+            if let Some(found) = try_match(t, rv) {
+                pick.offer(idx, found);
+                if pick.settled() {
                     break;
                 }
-                hit = Some((idx, args));
             }
         }
         if !ambiguous {
-            if let Some((idx, args)) = hit {
+            if let Some((idx, args)) = pick.take() {
                 let t = &targets[idx];
                 let call = Call::new(RValue::Local(t.f_local.clone()), args).reconstructed(
                     if t.arithmetic.is_some() { crate::call_origins::Kind::ArithmeticDeinline }
@@ -718,7 +717,7 @@ fn try_rewrite(
 
 /// Attempt to unify target `t`'s body `E` against the candidate subtree `rv` and,
 /// if it matches under all gates, return the reconstructed argument list.
-fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
+fn try_match(t: &ExprTarget, rv: &RValue) -> Option<(Vec<RValue>, Hoist)> {
     let mut b = Bindings::default();
     let matched = if t.arithmetic.is_some() {
         arithmetic::unify(&t.ctx(), &t.expr, rv, &mut b)
@@ -755,10 +754,7 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
     // Literals and non-reference-captured locals are total, identity-stable
     // snapshots. A call/metamethod in this expression may mutate a referenced
     // cell despite there being no syntactic assignment in the expression.
-    if !args.iter().all(|a| t.captures.stable(a))
-    {
-        return None;
-    }
+    let hoist = hoist(&t.expr, &t.param_order, &args, |a| t.captures.stable(a))?;
     // The complete CaptureSafety census already excludes every reference-
     // captured local. The arithmetic family's former second census visited
     // the same statement roots (including indexed LHS) and closure bodies;
@@ -773,7 +769,121 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
     if s_nodes < call_nodes + args_nodes + NET_SAVING_FLOOR {
         return None;
     }
-    Some(args)
+    Some((args, hoist))
+}
+
+/// Why a rebuilt call may evaluate its arguments eagerly, before the helper
+/// body. Ordered: a `Stable` match outranks a `FirstRead` one (see [`Pick`]).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) enum Hoist {
+    /// Every argument is `stable`: evaluating it early is unobservable.
+    Stable,
+    /// One argument is not, but its parameter is read exactly once, as the
+    /// first observable evaluation of the body: Luau evaluated that argument
+    /// into the parameter's register right before the inlined body, so the
+    /// call keeps the original order (`toSCurveSpace(math.abs(x))`, whose body
+    /// starts with `math.abs(t)`).
+    FirstRead,
+}
+
+/// How `args` may be hoisted before the helper body `expr`, or `None` when
+/// hoisting them could change what the inlined copy did.
+pub(super) fn hoist(
+    expr: &RValue,
+    params: &[RcLocal],
+    args: &[RValue],
+    stable: impl Fn(&RValue) -> bool,
+) -> Option<Hoist> {
+    let mut unstable = (0..args.len()).filter(|&i| !stable(&args[i]));
+    match (unstable.next(), unstable.next()) {
+        (None, _) => Some(Hoist::Stable),
+        (Some(only), None) => {
+            let param = &params[only];
+            (reads_of(expr, param) == 1 && first_observable(expr, param) == Some(true)).then_some(Hoist::FirstRead)
+        }
+        _ => None,
+    }
+}
+
+/// The one helper call to rebuild at a site. A match with stable arguments
+/// outranks a [`Hoist::FirstRead`] one: `multiplyHue(h, s)` over `warp(h + (s -
+/// 0.5) * 1)` when `multiplyHue`'s body is `warp`'s, inlined. Two matches of
+/// the best rank are ambiguous, and nothing is rebuilt.
+#[derive(Default)]
+pub(super) struct Pick {
+    best: Option<(usize, Vec<RValue>, Hoist)>,
+    tied: bool,
+}
+
+impl Pick {
+    pub(super) fn offer(&mut self, target: usize, (args, hoist): (Vec<RValue>, Hoist)) {
+        match &self.best {
+            Some((.., best)) if *best < hoist => {}
+            Some((.., best)) if *best == hoist => self.tied = true,
+            _ => {
+                self.best = Some((target, args, hoist));
+                self.tied = false;
+            }
+        }
+    }
+
+    /// Whether no later offer can change the outcome: a tie of stable matches.
+    pub(super) fn settled(&self) -> bool {
+        self.tied && matches!(self.best, Some((.., Hoist::Stable)))
+    }
+
+    pub(super) fn take(self) -> Option<(usize, Vec<RValue>)> {
+        let (target, args, _) = self.best.filter(|_| !self.tied)?;
+        Some((target, args))
+    }
+}
+
+fn reads_of(value: &RValue, local: &RcLocal) -> usize {
+    let mut reads = usize::from(matches!(value, RValue::Local(read) if read == local));
+    value.visit_rvalues(&mut |child| {
+        reads += reads_of(child, local);
+        true
+    });
+    reads
+}
+
+/// In Lua's evaluation order: `Some(true)` when the first observable event of
+/// `value` is reading `param`, `Some(false)` when something observable (a
+/// call, an index, an operator that may dispatch, a skippable operand) comes
+/// first, `None` when `value` does nothing observable and never reads it.
+/// Literals, local reads and import paths (fetched without running code) are
+/// not observable.
+fn first_observable(value: &RValue, param: &RcLocal) -> Option<bool> {
+    match value {
+        RValue::Literal(_) => None,
+        RValue::Local(local) => (local == param).then_some(true),
+        _ if is_import_path(value) => None,
+        RValue::Binary(binary)
+            if matches!(binary.operation, crate::BinaryOperation::And | crate::BinaryOperation::Or) =>
+        {
+            first_observable(&binary.left, param).or(Some(false))
+        }
+        RValue::IfExpression(select) => first_observable(&select.condition, param).or(Some(false)),
+        _ => {
+            let mut first = None;
+            value.visit_rvalues(&mut |child| {
+                first = first_observable(child, param);
+                first.is_none()
+            });
+            first.or(Some(false))
+        }
+    }
+}
+
+fn is_import_path(value: &RValue) -> bool {
+    match value {
+        RValue::Global(_) => true,
+        RValue::Index(index) => {
+            matches!(index.right.as_ref(), RValue::Literal(crate::Literal::String(_)))
+                && is_import_path(&index.left)
+        }
+        _ => false,
+    }
 }
 
 /// Number of RValue nodes in `rv`. Single post-order recursion via the `Traverse`
@@ -892,6 +1002,50 @@ mod tests {
 
     fn is_call_to(rv: &RValue, f: &RcLocal) -> bool {
         matches!(rv, RValue::Call(c) if matches!(c.value.as_ref(), RValue::Local(l) if l == f))
+    }
+
+    #[test]
+    fn an_argument_that_runs_code_hoists_only_into_the_first_read_of_its_parameter() {
+        let (t, u, x) = (local("t"), local("u"), local("x"));
+        let plain = |arg: &RValue| !matches!(arg, RValue::Call(_));
+        let runs_code = || call(global("f"), vec![]);
+        let pi = RValue::Index(Index::new(global("math"), string("pi")));
+        let field = RValue::Index(Index::new(lv(&x), string("y")));
+        let hoist_into = |body: RValue| hoist(&body, &[t.clone()], &[runs_code()], plain);
+
+        assert!(hoist(&bin(lv(&t), BinaryOperation::Add, lv(&u)), &[t.clone(), u.clone()], &[lv(&x), number(1.0)], plain) == Some(Hoist::Stable));
+        // `math.pi * t - x`: import paths and local reads are not observable.
+        let first = bin(bin(pi, BinaryOperation::Mul, lv(&t)), BinaryOperation::Sub, lv(&x));
+        assert!(hoist_into(first) == Some(Hoist::FirstRead));
+        // A call or an index runs before `t` is read.
+        assert!(hoist_into(bin(call(global("g"), vec![]), BinaryOperation::Add, lv(&t))).is_none());
+        assert!(hoist_into(bin(field, BinaryOperation::Add, lv(&t))).is_none());
+        // Read twice, or only on one path.
+        assert!(hoist_into(bin(lv(&t), BinaryOperation::Add, lv(&t))).is_none());
+        assert!(hoist_into(bin(lv(&x), BinaryOperation::And, lv(&t))).is_none());
+        // At most one argument may move.
+        let both = bin(lv(&t), BinaryOperation::Add, lv(&u));
+        assert!(hoist(&both, &[t.clone(), u.clone()], &[runs_code(), runs_code()], plain).is_none());
+    }
+
+    #[test]
+    fn a_match_with_stable_arguments_outranks_a_reordered_one() {
+        let args = |n: f64| vec![number(n)];
+        let mut pick = Pick::default();
+        pick.offer(0, (args(0.0), Hoist::FirstRead));
+        pick.offer(1, (args(1.0), Hoist::Stable));
+        pick.offer(2, (args(2.0), Hoist::FirstRead));
+        assert!(!pick.settled());
+        assert!(matches!(pick.take(), Some((1, _))));
+
+        let mut tied = Pick::default();
+        tied.offer(0, (args(0.0), Hoist::FirstRead));
+        tied.offer(1, (args(1.0), Hoist::FirstRead));
+        assert!(!tied.settled(), "a stable match could still win");
+        tied.offer(2, (args(2.0), Hoist::Stable));
+        tied.offer(3, (args(3.0), Hoist::Stable));
+        assert!(tied.settled());
+        assert!(tied.take().is_none());
     }
 
     #[test]

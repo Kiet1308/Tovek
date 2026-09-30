@@ -563,18 +563,18 @@ fn try_rewrite_select(
     if !targets[active[0]].captures.uncaptured(&result) { return; }
     let candidate = vec![stmts[index].clone(), stmts[index + 1].clone(), crate::Return::new(vec![result.clone().into()]).into()];
     let Some(value) = arithmetic::region(&candidate) else { return; };
-    let mut hit = None;
+    let mut pick = super::Pick::default();
     let ordered = crate::reconstruction_search::prioritize(active, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
     for idx in ordered {
         let target = &targets[idx];
         let Some(safety) = &target.arithmetic else { continue; };
         if !safety.spend_attempt() { return; }
-        if let Some(args) = try_match(target, &value) {
-            if hit.is_some() { return; }
-            hit = Some((idx, args));
+        if let Some(found) = try_match(target, &value) {
+            pick.offer(idx, found);
+            if pick.settled() { return; }
         }
     }
-    let Some((idx, args)) = hit else { return; };
+    let Some((idx, args)) = pick.take() else { return; };
     let target = &targets[idx];
     let call = Call::new(target.f_local.clone().into(), args).reconstructed(crate::call_origins::Kind::ArithmeticDeinline);
     stmts.splice(index..index + 2, [crate::Assign { node_origin: Default::default(), left: vec![result.into()], right: vec![call.into()], prefix: true, parallel: false, compound: false}.into()]);
@@ -593,19 +593,19 @@ fn try_rewrite_region(
     let Some(value) = arithmetic::region(stmts) else { return false; };
     let mut declared = FxHashSet::default();
     crate::deinline::collect_declared_locals(stmts, &mut declared);
-    let mut hit = None;
+    let mut pick = super::Pick::default();
     for &idx in active {
         let target = &targets[idx];
         let Some(safety) = &target.arithmetic else { continue; };
         if current_func == Some(target.func_ptr) { continue; }
         if !safety.spend_attempt() { return false; }
         if declared.iter().any(|l| l.has_source_binding() || !target.captures.uncaptured(l)) { continue; }
-        if let Some(args) = try_match(target, &value) {
-            if hit.is_some() { return false; }
-            hit = Some((idx, args));
+        if let Some(found) = try_match(target, &value) {
+            pick.offer(idx, found);
+            if pick.settled() { return false; }
         }
     }
-    let Some((idx, args)) = hit else { return false; };
+    let Some((idx, args)) = pick.take() else { return false; };
     let target = &targets[idx];
     let call = Call::new(target.f_local.clone().into(), args)
         .reconstructed(crate::call_origins::Kind::ArithmeticDeinline);
@@ -633,7 +633,7 @@ fn try_rewrite(
     // Outermost-first: try to match the WHOLE node before descending, so the
     // largest equivalent subtree is collapsed into one call.
     if let Some(cands) = by_root.get(&std::mem::discriminant(&*rv)) {
-        let mut hit: Option<(usize, Vec<RValue>)> = None;
+        let mut pick = super::Pick::default();
         let mut ambiguous = false;
         let ordered = crate::reconstruction_search::prioritize(cands, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
         for &idx in &ordered {
@@ -651,16 +651,15 @@ fn try_rewrite(
                     break;
                 }
             }
-            if let Some(args) = try_match(t, rv) {
-                if hit.is_some() {
-                    ambiguous = true; // two distinct helpers match this node: refuse
+            if let Some(found) = try_match(t, rv) {
+                pick.offer(idx, found);
+                if pick.settled() {
                     break;
                 }
-                hit = Some((idx, args));
             }
         }
         if !ambiguous {
-            if let Some((idx, args)) = hit {
+            if let Some((idx, args)) = pick.take() {
                 let t = &targets[idx];
                 let call = Call::new(RValue::Local(t.f_local.clone()), args).reconstructed(
                     if t.arithmetic.is_some() { crate::call_origins::Kind::ArithmeticDeinline }
@@ -684,7 +683,7 @@ fn try_rewrite(
 
 /// Attempt to unify target `t`'s body `E` against the candidate subtree `rv` and,
 /// if it matches under all gates, return the reconstructed argument list.
-fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
+fn try_match(t: &ExprTarget, rv: &RValue) -> Option<(Vec<RValue>, super::Hoist)> {
     let mut b = Bindings::default();
     let matched = if t.arithmetic.is_some() {
         arithmetic::unify(&t.ctx(), &t.expr, rv, &mut b)
@@ -721,15 +720,9 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
     // Literals and non-reference-captured locals are total, identity-stable
     // snapshots. A call/metamethod in this expression may mutate a referenced
     // cell despite there being no syntactic assignment in the expression.
-    if !args.iter().all(|a| t.captures.stable(a))
-    {
-        return None;
-    }
-    if let Some(safety) = &t.arithmetic {
-        if args.iter().any(|arg| !safety.stable(arg)) {
-            return None;
-        }
-    }
+    let hoist = super::hoist(&t.expr, &t.param_order, &args, |a| {
+        t.captures.stable(a) && t.arithmetic.as_ref().is_none_or(|safety| safety.stable(a))
+    })?;
     // Cost: the replacement must be a net node saving against the specialised
     // subtree `S` (rejects `f(bigExpr)` non-shrinks). Computed only on a real match.
     let s_nodes = node_count(rv);
@@ -738,7 +731,7 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<Vec<RValue>> {
     if s_nodes < call_nodes + args_nodes + NET_SAVING_FLOOR {
         return None;
     }
-    Some(args)
+    Some((args, hoist))
 }
 
 /// Number of RValue nodes in `rv`. Single post-order recursion via the `Traverse`
