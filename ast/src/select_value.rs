@@ -86,6 +86,24 @@ pub fn select_value(
         let condition = std::mem::replace(condition, Literal::Nil.into());
         return Some(Binary::new(condition, then_value, BinaryOperation::And).reduce());
     }
+    // The same two selects under a negated condition, as a guard lays them
+    // out: `if not x then b else x` is `x or b`, `if not x then x else b` is
+    // `x and b`.
+    if let RValue::Unary(Unary {
+        box value,
+        operation: UnaryOperation::Not,
+        ..
+    }) = &*condition
+    {
+        if *value == else_value && crate::is_total_pure(&else_value) {
+            *condition = Literal::Nil.into();
+            return Some(Binary::new(else_value, then_value, BinaryOperation::Or).reduce());
+        }
+        if *value == then_value && crate::is_total_pure(&then_value) {
+            *condition = Literal::Nil.into();
+            return Some(Binary::new(then_value, else_value, BinaryOperation::And).reduce());
+        }
+    }
     // TODO: for `v0 and v1 and v2` only the right operand v2 (and the whole
     // chain, handled above) is recognised as truthy; inner left operands are
     // intentionally not — `(a and b) and a or c` would not collapse and reads
@@ -117,17 +135,25 @@ pub fn select_value(
     } else if !else_truthy {
         std::mem::replace(condition, Literal::Nil.into()).reduce_condition()
     } else {
+        // Both arms are truthy, so either polarity is exact: take the positive
+        // one (no outer `not`, `==` rather than `~=`). The select then reads
+        // the same whichever way round its branches were laid out.
         let cond = std::mem::replace(condition, Literal::Nil.into()).reduce_condition();
-        if let RValue::Unary(Unary {
-            box value,
-            operation: UnaryOperation::Not,
-            ..
-        }) = cond
-        {
-            std::mem::swap(&mut then_value, &mut else_value);
-            value
-        } else {
-            cond
+        match cond {
+            RValue::Unary(Unary {
+                box value,
+                operation: UnaryOperation::Not,
+                ..
+            }) => {
+                std::mem::swap(&mut then_value, &mut else_value);
+                value
+            }
+            RValue::Binary(mut binary) if binary.operation == BinaryOperation::NotEqual => {
+                std::mem::swap(&mut then_value, &mut else_value);
+                binary.operation = BinaryOperation::Equal;
+                binary.into()
+            }
+            cond => cond,
         }
     };
 
@@ -139,4 +165,42 @@ pub fn select_value(
         )
         .reduce(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::select_value;
+    use crate::{Binary, BinaryOperation, Global, Literal, RValue, Unary, UnaryOperation};
+
+    fn global(name: &str) -> RValue {
+        RValue::Global(Global::from(name))
+    }
+
+    fn string(value: &str) -> RValue {
+        RValue::Literal(Literal::String(value.as_bytes().to_vec()))
+    }
+
+    #[test]
+    fn truthy_arms_take_the_positive_polarity() {
+        let equal = || Binary::new(global("a"), global("b"), BinaryOperation::Equal).into();
+        let mut not_equal: RValue = Binary::new(global("a"), global("b"), BinaryOperation::NotEqual).into();
+        let flipped = select_value(&mut not_equal, string("x"), string("y")).unwrap();
+        let mut equal: RValue = equal();
+        let straight = select_value(&mut equal, string("y"), string("x")).unwrap();
+        assert_eq!(flipped.to_string(), straight.to_string());
+        assert_eq!(straight.to_string(), "a == b and \"y\" or \"x\"");
+    }
+
+    #[test]
+    fn negated_condition_selects_read_as_and_or() {
+        let x = crate::RcLocal::new(crate::Local::new(Some("x".into())));
+        let read = || RValue::Local(x.clone());
+        let mut condition: RValue = Unary::new(read(), UnaryOperation::Not).into();
+        assert_eq!(select_value(&mut condition, Literal::Nil.into(), read()).unwrap().to_string(), "x or nil");
+        let mut condition: RValue = Unary::new(read(), UnaryOperation::Not).into();
+        assert_eq!(select_value(&mut condition, read(), string("b")).unwrap().to_string(), "x and \"b\"");
+        // A global read may run `__index`: it is not repeated or dropped.
+        let mut condition: RValue = Unary::new(global("g"), UnaryOperation::Not).into();
+        assert!(select_value(&mut condition, Literal::Nil.into(), global("g")).is_none());
+    }
 }

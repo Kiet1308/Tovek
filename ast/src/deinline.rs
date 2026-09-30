@@ -1183,10 +1183,6 @@ fn canon_top(stmts: &[Statement], tail: bool) -> Vec<Statement> {
         })
         .cloned()
         .collect();
-    // N5 (any level): a select diamond is matched in its `and`/`or` form.
-    for statement in &mut s {
-        fuse_assign_diamond(statement);
-    }
     if tail {
         // N1: drop a trailing void return at THIS (tail) level (implicit-return no-op).
         if matches!(s.last(), Some(Statement::Return(r)) if r.values.is_empty()) {
@@ -1195,10 +1191,6 @@ fn canon_top(stmts: &[Statement], tail: bool) -> Vec<Statement> {
         // N3: un-guard at THIS (tail) level — the guards' `[return]` then-blocks
         // are still intact here (we have NOT yet recursed into child blocks).
         s = unguard(s);
-        // N4: a trailing return diamond is matched as the select SSA gives
-        // the copy Luau inlined into a caller, whose value lands in a register
-        // (`if c then return a end return b` ~ `v = c and a or b`).
-        fuse_return_diamond(&mut s);
     }
     s
 }
@@ -1241,6 +1233,37 @@ fn fuse_assign_diamond(statement: &mut Statement) {
             compound: false,
         });
     }
+}
+
+/// `local u = E; return u or b` (or `u and b`) as `return E or b`: the step SSA
+/// takes after fusing a select that read `u` twice into one that reads it
+/// once, which is how the copy Luau inlined into a caller reads. `u` must be
+/// read only there, first, and not by `E`. Nested blocks only: the top-level
+/// statement count of a window is what the length gates measure.
+fn fold_select_temp(stmts: &mut Vec<Statement>) {
+    let real: Vec<usize> = (0..stmts.len()).filter(|&i| !is_match_trivia(&stmts[i])).collect();
+    let [.., decl_at, ret_at] = real[..] else { return };
+    let (Statement::Assign(decl), Statement::Return(ret)) = (&stmts[decl_at], &stmts[ret_at]) else {
+        return;
+    };
+    let ([LValue::Local(temp)], [init], [RValue::Binary(select)]) =
+        (decl.left.as_slice(), decl.right.as_slice(), ret.values.as_slice())
+    else {
+        return;
+    };
+    if !decl.prefix
+        || decl.parallel
+        || !matches!(select.operation, BinaryOperation::Or | BinaryOperation::And)
+        || !matches!(select.left.as_ref(), RValue::Local(read) if read == temp)
+        || select.right.any_local_read(&mut |read| read == temp)
+        || init.any_local_read(&mut |read| read == temp)
+        || !is_scalar_return_value(init)
+    {
+        return;
+    }
+    let folded = Binary::new(init.clone(), select.right.as_ref().clone(), select.operation).into();
+    stmts[ret_at] = Statement::Return(Return { node_origin: Default::default(), values: vec![folded] });
+    stmts.remove(decl_at);
 }
 
 /// Replace a trailing `if c then return a else return b end` (one scalar value
@@ -1286,18 +1309,38 @@ fn canon_recurse(s: Vec<Statement>, tail: bool) -> Vec<Statement> {
     // produced this owned Vec. Only the block-bearing statements are rebuilt (their
     // child blocks are re-canon'd into fresh `Block`s; the shared original block Arc
     // must not be mutated). This halves the per-leaf clone cost in the hot matcher.
-    s.into_iter()
+    let mut s: Vec<Statement> = s
+        .into_iter()
         .enumerate()
         .map(|(j, st)| canon_children_owned(st, tail && j + 1 == n))
-        .collect()
+        .collect();
+    // Select diamonds are matched in their `and`/`or` form, the one SSA gives
+    // the copy Luau inlined into a caller where the value lands in a register
+    // (`if c then return a end return b` ~ `v = c and a or b`). Post-order, so
+    // a chain of them fuses inside out as SSA does. One statement for one:
+    // `canon_top_len` still describes the result.
+    for statement in &mut s {
+        fuse_assign_diamond(statement); // N5, any level
+    }
+    if tail {
+        fuse_return_diamond(&mut s); // N4, a trailing return diamond
+    }
+    s
 }
 
 fn canon_children_owned(s: Statement, tail: bool) -> Statement {
+    let arm = |block: &Block| {
+        let mut stmts = canon_tail(&block.0, tail);
+        if tail {
+            fold_select_temp(&mut stmts);
+        }
+        stmts
+    };
     match s {
         Statement::If(f) => Statement::If(If::new(
             f.condition,
-            Block(canon_tail(&f.then_block.lock().0, tail)),
-            Block(canon_tail(&f.else_block.lock().0, tail)),
+            Block(arm(&f.then_block.lock())),
+            Block(arm(&f.else_block.lock())),
         )),
         Statement::While(w) => Statement::While(While::new(
             w.condition,
@@ -1359,6 +1402,7 @@ fn unguard_owned(mut stmts: std::vec::IntoIter<Statement>) -> Vec<Statement> {
                     None
                 }
             };
+            let open = guard.is_none() && is_open_guard(f);
             if let Some((mut early_prefix, ret_val)) = guard {
                 if !stmts.as_slice().is_empty() {
                     let Statement::If(f) = statement else { unreachable!() };
@@ -1374,11 +1418,62 @@ fn unguard_owned(mut stmts: std::vec::IntoIter<Statement>) -> Vec<Statement> {
                     )));
                     return out;
                 }
+            } else if open && !stmts.as_slice().is_empty() {
+                let folded = unguard_owned(stmts);
+                out.extend(graft(vec![statement], folded));
+                return out;
             }
         }
         out.push(statement);
     }
     out
+}
+
+/// Paths through `stmts` that fall off its end (0 when every one returns), or
+/// `None` for a leaf canon does not fold across: a multi-value return, or
+/// control that leaves the block another way.
+fn open_ends(stmts: &[Statement]) -> Option<usize> {
+    match stmts.iter().rev().find(|s| !is_match_trivia(s)) {
+        None => Some(1),
+        Some(Statement::Return(r)) => (r.values.len() <= 1).then_some(0),
+        Some(Statement::If(f)) => {
+            let then = open_ends(&f.then_block.lock().0)?;
+            let els = open_ends(&f.else_block.lock().0)?;
+            Some(then + els)
+        }
+        Some(Statement::Break(_) | Statement::Continue(_) | Statement::Goto(_) | Statement::Label(_)) => None,
+        Some(_) => Some(1),
+    }
+}
+
+/// An `if` that returns on every path but one, beyond the single guard: what
+/// follows it runs only on that path, so it belongs at that path's end
+/// (`if a then return x elseif b then return y end REST` is `if a then return
+/// x elseif b then return y else REST end`).
+fn is_open_guard(f: &If) -> bool {
+    let then = open_ends(&f.then_block.lock().0);
+    let els = open_ends(&f.else_block.lock().0);
+    matches!((then, els), (Some(a), Some(b)) if a + b == 1)
+}
+
+/// `stmts` with `rest` placed at its one open end (see `open_ends`). Blocks
+/// are shared, so a grafted `if` is rebuilt rather than changed in place.
+fn graft(mut stmts: Vec<Statement>, rest: Vec<Statement>) -> Vec<Statement> {
+    if let Some(at) = stmts.iter().rposition(|s| !is_match_trivia(s))
+        && let Statement::If(f) = &stmts[at]
+    {
+        let then = f.then_block.lock().0.clone();
+        let els = f.else_block.lock().0.clone();
+        let (then, els) = if open_ends(&then) == Some(1) {
+            (graft(then, rest), els)
+        } else {
+            (then, graft(els, rest))
+        };
+        stmts[at] = If::new(f.condition.clone(), Block(then), Block(els)).into();
+        return stmts;
+    }
+    stmts.extend(rest);
+    stmts
 }
 
 /// The foldable-guard shape `unguard` collapses: `if cond then return [X] end`
@@ -1388,10 +1483,13 @@ fn unguard_owned(mut stmts: std::vec::IntoIter<Statement>) -> Vec<Statement> {
 /// whole length against the real `canon_top`.
 fn is_foldable_guard(s: &Statement) -> bool {
     if let Statement::If(f) = s {
-        let then = f.then_block.lock();
-        let els = f.else_block.lock();
-        els.0.is_empty()
-            && matches!(then.0.last(), Some(Statement::Return(r)) if r.values.len() <= 1)
+        let guard = {
+            let then = f.then_block.lock();
+            let els = f.else_block.lock();
+            els.0.is_empty()
+                && matches!(then.0.last(), Some(Statement::Return(r)) if r.values.len() <= 1)
+        };
+        guard || is_open_guard(f)
     } else {
         false
     }
@@ -5224,6 +5322,11 @@ mod tests {
                         )));
                         return out;
                     }
+                } else if i + 1 < stmts.len() && is_open_guard(f) {
+                    let suffix: Vec<Statement> = stmts.split_off(i + 1);
+                    let folded = unguard_reference(suffix);
+                    out.extend(graft(vec![stmts[i].clone()], folded));
+                    return out;
                 }
             }
             out.push(stmts[i].clone());

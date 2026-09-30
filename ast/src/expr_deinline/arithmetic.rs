@@ -239,10 +239,17 @@ fn unify_tree(
                 let RValue::Binary(and) = &*candidate.left else {
                     return Err(());
                 };
+                // `c and y or n` is `if c then y else n` only for a truthy `y`.
                 if and.operation != BinaryOperation::And
                     || !matches!(
                         &*and.right,
-                        RValue::Literal(Literal::Number(_) | Literal::Boolean(true))
+                        RValue::Literal(
+                            Literal::Number(_)
+                                | Literal::String(_)
+                                | Literal::Vector(..)
+                                | Literal::VectorD(..)
+                                | Literal::Boolean(true)
+                        )
                     )
                 {
                     return Err(());

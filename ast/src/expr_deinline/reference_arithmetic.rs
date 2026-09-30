@@ -293,7 +293,13 @@ fn unify_tree(
                 if and.operation != BinaryOperation::And
                     || !matches!(
                         &*and.right,
-                        RValue::Literal(Literal::Number(_) | Literal::Boolean(true))
+                        RValue::Literal(
+                            Literal::Number(_)
+                                | Literal::String(_)
+                                | Literal::Vector(..)
+                                | Literal::VectorD(..)
+                                | Literal::Boolean(true)
+                        )
                     )
                 {
                     return Err(());
@@ -302,7 +308,16 @@ fn unify_tree(
             }
             _ => return Err(()),
         };
-        unify_tree(ctx, &pattern.condition, condition, bindings)?;
+        let (pattern_condition, pattern_negated) = match &*pattern.condition {
+            RValue::Unary(unary) if unary.operation == UnaryOperation::Not => (&*unary.value, true),
+            condition => (condition, false),
+        };
+        let (condition, negated) = match condition {
+            RValue::Unary(unary) if unary.operation == UnaryOperation::Not => (&*unary.value, true),
+            condition => (condition, false),
+        };
+        let (yes, no) = if pattern_negated == negated { (yes, no) } else { (no, yes) };
+        unify_tree(ctx, pattern_condition, condition, bindings)?;
         unify_tree(ctx, &pattern.then_value, yes, bindings)?;
         unify_tree(ctx, &pattern.else_value, no, bindings)
     } else {
