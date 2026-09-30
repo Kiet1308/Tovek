@@ -80,8 +80,11 @@ pub fn rebuild_ui_expression_trees(block: &mut Block) -> bool {
         chain_probe::record_round();
         let rebuilt = crate::rebuild_table_literals::rebuild_with_captured(block, &facts.captured, &facts.stable_captured);
         let inlined = inline_in_block(block, &facts);
+        // A key folded from a temp can repeat a listed one; merged, the
+        // constructor may absorb the stores that follow it.
+        let merged = inlined && crate::rebuild_table_literals::merge_repeated_keys(block);
         any_changed |= rebuilt | inlined;
-        if !rebuilt && !inlined {
+        if !rebuilt && !inlined && !merged {
             return any_changed;
         }
     }

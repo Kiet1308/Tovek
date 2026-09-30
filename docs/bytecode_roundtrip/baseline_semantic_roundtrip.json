@@ -24,7 +24,8 @@
    "first_read_statement_hoist": "De-inline fixture (2026-09-30): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
    "declared_select_helper": "De-inline fixture (2026-09-30): `steer` outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
    "declared_select_prefix": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
-   "embedded_helper_value": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output."
+   "embedded_helper_value": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
+   "template_repeated_key": "added_fixtures"
   }
  },
  "summary": {
@@ -202,6 +203,12 @@
   },
   {
    "file": "suffix_numeric",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "template_repeated_key",
    "status": "ok",
    "nonequiv": 0,
    "protos": 2

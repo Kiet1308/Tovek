@@ -29,6 +29,72 @@ pub(crate) fn rebuild_with_captured(
     rebuild_current_block(block, captured, single_write) | sunk_changed | regions_changed | drained_changed | nested_changed
 }
 
+/// Every constructor under `block` lists a literal key once. A later entry
+/// for a key already listed takes the first entry's place when that entry is
+/// a literal and nothing between them could observe the move: a DUPTABLE
+/// placeholder filled by a store whose key was still a temp when it was
+/// folded (`{ Velocity = 0, SmoothTime = smoothTime, Velocity = velocity }`).
+pub(crate) fn merge_repeated_keys(block: &mut Block) -> bool {
+    let mut changed = false;
+    for statement in &mut block.0 {
+        for value in statement.rvalues_mut() {
+            changed |= merge_repeated_keys_in_value(value);
+        }
+        changed |= match statement {
+            Statement::If(branch) => {
+                merge_repeated_keys(&mut branch.then_block.lock()) | merge_repeated_keys(&mut branch.else_block.lock())
+            }
+            Statement::While(node) => merge_repeated_keys(&mut node.block.lock()),
+            Statement::Repeat(node) => merge_repeated_keys(&mut node.block.lock()),
+            Statement::NumericFor(node) => merge_repeated_keys(&mut node.block.lock()),
+            Statement::GenericFor(node) => merge_repeated_keys(&mut node.block.lock()),
+            _ => false,
+        };
+    }
+    changed
+}
+
+fn merge_repeated_keys_in_value(value: &mut RValue) -> bool {
+    let mut changed = match value {
+        RValue::Table(table) => merge_repeated_keys_in(table),
+        RValue::Closure(closure) => return merge_repeated_keys(&mut closure.function.lock().body),
+        _ => false,
+    };
+    for child in value.rvalues_mut() {
+        changed |= merge_repeated_keys_in_value(child);
+    }
+    changed
+}
+
+fn merge_repeated_keys_in(table: &mut Table) -> bool {
+    let mut changed = false;
+    let mut later = 1;
+    while later < table.0.len() {
+        let first = match &table.0[later].0 {
+            Some(key @ RValue::Literal(_)) => table.0[..later].iter().position(|(existing, _)| existing.as_ref() == Some(key)),
+            _ => None,
+        };
+        // Moving the value ahead crosses the entries between: literals, or
+        // local reads when the value is one too (reads do not interfere).
+        let moved_reads_only = matches!(table.0[later].1, RValue::Local(_) | RValue::Literal(_));
+        let movable = first.is_some_and(|first| {
+            matches!(table.0[first].1, RValue::Literal(_))
+                && table.0[first + 1..later].iter().all(|(key, value)| {
+                    key.as_ref().is_none_or(|key| matches!(key, RValue::Literal(_)) && crate::is_total_table_key(key))
+                        && (matches!(value, RValue::Literal(_)) || (moved_reads_only && matches!(value, RValue::Local(_))))
+                })
+        });
+        if let (Some(first), true) = (first, movable) {
+            let (_, value) = table.0.remove(later);
+            table.0[first].1 = value;
+            changed = true;
+            continue;
+        }
+        later += 1;
+    }
+    changed
+}
+
 fn rebuild_nested_blocks(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>, single_write: &rustc_hash::FxHashSet<RcLocal>) -> bool {
     let mut changed = false;
     for statement in &mut block.0 {
