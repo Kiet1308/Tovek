@@ -351,6 +351,19 @@ fn is_instance_compatible_placeholder(rvalue: &RValue) -> bool {
 /// `color32`, which reads as "color thirty-two" rather than "the 3rd color". The
 /// trimmed form chains cleanly as `color`, `color2`, `color3`. `Instance` and
 /// other digit-free types are unaffected.
+/// Whether `name`, the hint of `value`, is only the type a constructor call
+/// builds (`Vector2.new(x, y)` -> `vector`), not a name it was given
+/// (`Instance.new("Part")` -> `part`).
+fn is_constructor_type_name(value: &RValue, name: &str) -> bool {
+    if let RValue::Call(call) | RValue::Select(Select::Call(call)) = value
+        && let RValue::Index(index) = &*call.value
+    {
+        constructor_type_name(&index.left).as_deref() == Some(name)
+    } else {
+        false
+    }
+}
+
 fn constructor_type_name(receiver: &RValue) -> Option<String> {
     // `CFrame` lowercases to the conventional `cframe`, not `cFrame` (matches
     // the bytecode-type hint so the two never produce a `cFrame`/`cframe2` pair).
@@ -3831,7 +3844,10 @@ impl Namer {
             },
             _ => rvalue_hint(value).map(|name| {
                 let role = rvalue_name_role(value, &name, 0);
-                Hint { name, score: 60, role }
+                // `Vector2.new(x, y)` names only its type: that is no stronger
+                // than the parameter's own type annotation (`point: Vector2`).
+                let score = if is_constructor_type_name(value, &name) { TYPE_HINT_SCORE } else { 60 };
+                Hint { name, score, role }
             }),
         }?;
         (!is_default_name(&hint.name) && hint.name != "_").then_some(hint)
@@ -3960,7 +3976,7 @@ impl Namer {
     /// 47) outranks the type-hypernym band (api name-string 43, or-default options
     /// 41 / value 40, string-method value 40); the weakest GUESS (callee 37) sits
     /// below every existing param hint so it only fills an otherwise-`p` slot.
-    fn param_dataflow_hint(&mut self, param: &RcLocal) {
+    fn param_dataflow_hint(&mut self, param: &RcLocal, declared: bool) {
         let Some(usage) = self.usage.get(&local_ptr(param)) else {
             return;
         };
@@ -4081,8 +4097,10 @@ impl Namer {
         // Honest hypernyms for a table-shaped param nothing more specific
         // describes: a record read through several named fields is `data`
         // (`state` once it is mutated), and anything a custom method is called
-        // on is an `object`. Both sit below every typed hint.
-        let table_shape = !instance_shaped
+        // on is an `object`. Both sit below every typed hint. A parameter whose
+        // declared type is not a table (`color: Color3`) is neither.
+        let table_shape = !declared
+            && !instance_shaped
             && !is_instance_typeof
             && !scalar_typeof
             && !usage.string_method_seen
@@ -4413,7 +4431,7 @@ impl Namer {
                 // Scanning for element creation is needed only for a
                 // record-like parameter; do it at most once per function.
                 let mut renders_element = None;
-                for param in &function.parameters {
+                for (index, param) in function.parameters.iter().enumerate() {
                     if self.props_param_qualifies(param)
                         && *renders_element.get_or_insert_with(|| {
                             uses_create_element(&function.body, &self.create_element_aliases)
@@ -4423,7 +4441,9 @@ impl Namer {
                     }
                     self.callback_hint(param);
                     self.usage_param_hint(param);
-                    self.param_dataflow_hint(param);
+                    // The bytecode names a type only for non-table parameters.
+                    let declared = function.parameter_name_hints.get(index).is_some_and(Option::is_some);
+                    self.param_dataflow_hint(param, declared);
                 }
                 let receiver_like = function
                     .parameters
@@ -4716,7 +4736,8 @@ impl Namer {
                 for (index, param) in function.parameters.iter().enumerate() {
                     // A bytecode type hint (`cframe`, `callback`, ...) is the
                     // weakest evidence: it fills in only when no usage-derived
-                    // hint exists for the parameter.
+                    // hint exists for the parameter. Against another type name
+                    // (a caller's `Vector2.new(...)`), the declared type wins.
                     if let Some(hint) = function
                         .parameter_name_hints
                         .get(index)
@@ -4727,11 +4748,14 @@ impl Namer {
                             evidence.record(local_ptr(param), &hint, TYPE_HINT_SCORE,
                                 "bytecode_parameter_type_fallback", std::panic::Location::caller());
                         }
-                        self.hints.entry(local_ptr(param)).or_insert(Hint {
-                            name: hint,
+                        let slot = self.hints.entry(local_ptr(param)).or_insert(Hint {
+                            name: hint.clone(),
                             score: TYPE_HINT_SCORE,
                             role: NameRole::Noun,
                         });
+                        if slot.score <= TYPE_HINT_SCORE {
+                            *slot = Hint { name: hint, score: TYPE_HINT_SCORE, role: NameRole::Noun };
+                        }
                     }
                     self.name_one(param, "p", &mut param_scope, ReusePolicy::FileUnique);
                 }
@@ -7240,6 +7264,27 @@ mod tests {
         assert_eq!(name_of(&p), "p");
     }
 
+    /// A parameter the bytecode declares `Color3` is no table record, however
+    /// many fields it reads.
+    #[test]
+    fn a_declared_userdata_parameter_is_not_a_record() {
+        let p = RcLocal::default();
+        let (r, g, b) = (RcLocal::default(), RcLocal::default(), RcLocal::default());
+        let mut function = Function::default();
+        function.parameters = vec![p.clone()];
+        function.parameter_name_hints = vec![Some("color".to_string())];
+        function.body = Block(vec![
+            declare(&r, field(&p, "R")),
+            declare(&g, field(&p, "G")),
+            declare(&b, field(&p, "B")),
+            ret(vec![boolean(true)]),
+        ]);
+        let helper = RcLocal::default();
+        let mut block = Block(vec![declare(&helper, closure_of(function)), use_local(&helper)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&p), "color");
+    }
+
     /// Without a `createElement` render the function is not a component, so a
     /// record-shaped parameter is not `props` (it gets the generic `data`).
     #[test]
@@ -8194,6 +8239,26 @@ mod tests {
         name_locals(&mut block, true);
 
         assert_eq!(name_of(&parameter), "petData");
+    }
+
+    #[test]
+    fn a_constructor_argument_does_not_rename_a_typed_parameter() {
+        // `local function move(point: Vector2) ... end; move(Vector2.new(1, 2))`
+        let parameter = RcLocal::default();
+        let mut function = Function::default();
+        function.parameters = vec![parameter.clone()];
+        function.parameter_name_hints = vec![Some("point".to_string())];
+        function.body = Block(vec![use_local(&parameter)]);
+        let binder = RcLocal::default();
+        let vector = Call::new(RValue::Index(Index::new(global("Vector2"), string("new"))), vec![number(1.0), number(2.0)]);
+        let mut block = Block(vec![
+            declare(&binder, closure_of(function)),
+            Statement::Call(Call::new(RValue::Local(binder), vec![RValue::Call(vector)])),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&parameter), "point");
     }
 
     #[test]
