@@ -33,7 +33,7 @@ use crate::{
     Select, SideEffects, Statement, Table, Traverse, Unary, UnaryOperation, Upvalue, While,
 };
 
-const DEF_MARKER: &str = " equivalent calls inferred from this helper; original call sites unknown";
+const DEF_MARKER: &str = "equivalent calls inferred from this helper; original call sites unknown";
 // Trailing (same-line) marker appended to a reconstructed call: `f(args) -- ...`.
 // No leading `^` caret (it no longer points up at a separate line above).
 const CALL_MARKER: &str = "equivalent call inferred; original call site unknown";
@@ -459,7 +459,7 @@ pub fn deinline(body: &mut Block) {
 // and ordering are preserved.
 // ===================================================================
 
-const COLLAPSE_MARKER: &str = " equivalent call inferred; original call site unknown";
+const COLLAPSE_MARKER: &str = "equivalent call inferred; original call site unknown";
 
 /// One of the comments THIS pass itself injects (a reconstructed-call/def/collapse
 /// marker). They are runtime no-ops. The fixed-point loop re-collects targets each

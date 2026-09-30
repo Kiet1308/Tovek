@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub(super) const MARKER: &str =
-    " equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown";
+    "equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown";
 pub(super) const MAX_TARGETS: usize = 32;
 const MAX_NODES: usize = 64;
 const MAX_ATTEMPTS: usize = 8192;

@@ -1121,6 +1121,26 @@ mod tests {
     }
 
     #[test]
+    fn leading_comment_takes_the_blank_line_of_the_statement_it_documents() {
+        let function = crate::Assign::new(
+            vec![crate::LValue::Local(crate::RcLocal::new(crate::Local::new(Some("helper".into()))))],
+            vec![crate::RValue::Closure(crate::Closure {
+                node_origin: Default::default(),
+                function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(crate::Function::default()))),
+                upvalues: vec![],
+            })],
+        );
+        let block = Block(vec![
+            Call::new(global("setup"), vec![]).into(),
+            crate::Comment::new("note".to_string()).into(),
+            function.into(),
+        ]);
+
+        let text = block.to_string();
+        assert!(text.starts_with("setup()\n\n-- note\n"), "{text}");
+    }
+
+    #[test]
     fn trailing_comment_as_first_statement_falls_back_to_its_own_line() {
         // Nothing precedes it, so there is no line to trail.
         let block = Block(vec![
@@ -1874,12 +1894,16 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     // Separate large statements from their neighbours with a blank line, but
-    // keep comments attached to the statement they document.
-    fn wants_blank_line(prev: &Statement, next: &Statement) -> bool {
-        if matches!(prev, Statement::Comment(_)) || matches!(next, Statement::Comment(_)) {
+    // keep comments attached to the statement they document: a leading
+    // comment takes the blank line that statement would get, and nothing
+    // separates it from the statement.
+    fn wants_blank_line(block: &Block, index: usize) -> bool {
+        let prev = &block[index - 1];
+        if matches!(prev, Statement::Comment(_)) {
             return false;
         }
-        Self::is_block_statement(prev) || Self::is_block_statement(next)
+        let next = block.0[index..].iter().find(|s| !matches!(s, Statement::Comment(_)));
+        next.is_some_and(|next| Self::is_block_statement(prev) || Self::is_block_statement(next))
     }
 
     fn format_block_no_indent(&mut self, block: &Block) -> fmt::Result {
@@ -1901,7 +1925,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
             if i != 0 {
                 writeln!(self.output)?;
-                if Self::wants_blank_line(&block[i - 1], statement) {
+                if Self::wants_blank_line(block, i) {
                     writeln!(self.output)?;
                 }
             }
