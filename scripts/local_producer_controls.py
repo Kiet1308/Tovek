@@ -7,6 +7,7 @@ import json
 import pathlib
 
 from binding_graph import Refused, attach_storage, digest, lexical_graph, parse_source, summarize
+from local_producers import PASSES
 from provenance_audit import manifest, sidecar
 
 
@@ -21,11 +22,20 @@ def main():
         metadata = sidecar(args.root, entry)
         trace = metadata.get('binding_provenance', {})
         groups = trace.get('local_producers', {}).get('passes', [])
-        group = next((g for g in groups if g['pass'] == 'branch_constructors' and g['records']), None)
+        group = next((g for g in groups if g['records']), None)
         if group is not None:
             break
     else:
-        raise ValueError('no actual constructor introduction found')
+        # No pass introduced a local in this output set: there is nothing
+        # real to corrupt. The refusals stay covered by test_local_producers.
+        result = dict(schema_version=1, rows=[], summary=dict(no_introductions=1),
+                      contract='No emitted local introduction in this output set; controls not applicable.')
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(result, indent=1) + '\n', encoding='utf-8', newline='\n')
+        print(json.dumps(result['summary']))
+        return 0
+    pass_name = group['pass']
+    foreign_role = sorted(role for other, (_, roles) in PASSES.items() if other != pass_name for role in roles)[0]
     source_path = (args.root / metadata['source_path']).resolve(strict=True)
     if not source_path.is_relative_to(args.root):
         raise ValueError('source path outside root')
@@ -36,7 +46,7 @@ def main():
     bid = group['records'][0]['binding_id']
 
     def producer(d):
-        return next(g for g in d['binding_provenance']['local_producers']['passes'] if g['pass'] == 'branch_constructors')
+        return next(g for g in d['binding_provenance']['local_producers']['passes'] if g['pass'] == pass_name)
     def final(d):
         return next(r for r in d['binding_provenance']['final_bindings'] if r['binding_id'] == bid)
     def copied_source(d):
@@ -49,8 +59,8 @@ def main():
         g['records'].append(copy.deepcopy(g['records'][0]))
         g['introduced_locals'] += 1
         d['binding_provenance']['local_producers']['recorded_introductions'] += 1
-        d['branch_constructors']['introduced_locals'] += 1
-        d['branch_constructors']['introduced_bindings']['records'].append(copy.deepcopy(g['records'][0]))
+        d[pass_name]['introduced_locals'] += 1
+        d[pass_name]['introduced_bindings']['records'].append(copy.deepcopy(g['records'][0]))
     def missing_token(d):
         trace = d['binding_provenance']
         tokens = trace['output_map']['bindings']
@@ -63,8 +73,8 @@ def main():
         ('copied_debug_identity', copied_source), ('copied_input_ancestry', copied_ancestry),
         ('wrong_record_pointer', lambda d: final(d)['emitter_introduction'].update(record=9999)),
         ('duplicate_introduction', duplicate),
-        ('wrong_pass_role', lambda d: producer(d)['records'][0].update(role='evaluation_snapshot')),
-        ('missing_pass_report', lambda d: d.pop('branch_constructors')),
+        ('wrong_pass_role', lambda d: producer(d)['records'][0].update(role=foreign_role)),
+        ('missing_pass_report', lambda d: d.pop(pass_name)),
         ('missing_lexical_use_token', missing_token),
     ]
     for name, mutate in mutations:

@@ -1,5 +1,10 @@
 //! Rebuild a private constructor across a single-property assignment diamond.
 //! The selected value stays in explicit branch statements, evaluated once.
+//!
+//! Not run by the pipeline (2026-10-01): it changed no file of the Roblox
+//! corpus, and on the V2.1 benchmark every program it touched read further
+//! from its source (`branch_ui` AST -0.14): the source keeps the branch's
+//! field stores, while this adds a selected local and moves the table.
 use std::collections::BTreeMap;
 
 use rustc_hash::FxHashSet;

@@ -891,23 +891,7 @@ fn decompile_bytecode_internal(
             }
             // The final naming graph must not keep RcLocal references alive
             // during earlier cleanup (some passes inspect reference counts).
-            // Rebuild private property diamonds after expression cleanup, so
-            // later inlining cannot erase their ordered initializer snapshots.
             let mut local_producers = Vec::new();
-            let branch_constructors = if chunk.version == 9 {
-                ptime!(S_BRANCH_CONSTRUCTORS);
-                let report = ast::branch_constructors::rebuild_branch_constructors(&mut body);
-                if options.emit_binding_provenance {
-                    local_producers.push(ast::local_producers::Pass {
-                        pass: "branch_constructors", rewrite_model: report.model,
-                        introduced_locals: report.introduced_locals, ledger: report.introduced_bindings.clone(),
-                    });
-                }
-                ast::telemetry::count("constructor_candidates", report.candidate_regions as u64);
-                ast::telemetry::count("constructor_rebuilt", report.rebuilt_regions as u64);
-                ast::telemetry::count("constructor_refused", report.refused_regions.values().sum::<usize>() as u64);
-                emit_upvalue_analysis.then(|| serde_json::to_value(report).expect("finite constructor report"))
-            } else { None };
             // Lower remaining scalar selects at their evaluation point. Only
             // literal `not` break guards are introduced; comparisons are never
             // complemented. No expression cleanup may erase these snapshots.
@@ -977,7 +961,6 @@ fn decompile_bytecode_internal(
                 analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
                 analysis.capture_effects = Some(capture_effects.report());
                 analysis.conditional_lowering = conditional_lowering;
-                analysis.branch_constructors = branch_constructors;
                 if options.emit_binding_provenance {
                     analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map, local_producers, call_origins.take_report()));
                 }
