@@ -14,6 +14,6 @@ const BYTECODE: &[u8] = include_bytes!("fixtures/branch_constructor_initialized.
 fn an_initialized_property_keeps_its_branch_stores() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
-    assert_eq!(source.matches("	Value = ").count(), 1, "{source}");
+    assert_eq!(source.matches("\tValue = ").count(), 1, "{source}");
     assert_eq!(source.matches(".Value = ").count(), 2, "{source}");
 }
