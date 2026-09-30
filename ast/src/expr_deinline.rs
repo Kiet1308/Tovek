@@ -769,7 +769,7 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<(Vec<RValue>, Hoist)> {
     if s_nodes < call_nodes + args_nodes + NET_SAVING_FLOOR {
         return None;
     }
-    Some((args, hoist))
+    Some((args.into_iter().map(crate::deinline::untruncated).collect(), hoist))
 }
 
 /// Why a rebuilt call may evaluate its arguments eagerly, before the helper
@@ -799,7 +799,8 @@ pub(super) fn hoist(
         (None, _) => Some(Hoist::Stable),
         (Some(only), None) => {
             let param = &params[only];
-            (reads_of(expr, param) == 1 && first_observable(expr, param) == Some(true)).then_some(Hoist::FirstRead)
+            let first = crate::evaluation_order::reads_first(expr, param) == Some(true);
+            (first && reads_of(expr, param) == 1).then_some(Hoist::FirstRead)
         }
         _ => None,
     }
@@ -845,45 +846,6 @@ fn reads_of(value: &RValue, local: &RcLocal) -> usize {
         true
     });
     reads
-}
-
-/// In Lua's evaluation order: `Some(true)` when the first observable event of
-/// `value` is reading `param`, `Some(false)` when something observable (a
-/// call, an index, an operator that may dispatch, a skippable operand) comes
-/// first, `None` when `value` does nothing observable and never reads it.
-/// Literals, local reads and import paths (fetched without running code) are
-/// not observable.
-fn first_observable(value: &RValue, param: &RcLocal) -> Option<bool> {
-    match value {
-        RValue::Literal(_) => None,
-        RValue::Local(local) => (local == param).then_some(true),
-        _ if is_import_path(value) => None,
-        RValue::Binary(binary)
-            if matches!(binary.operation, crate::BinaryOperation::And | crate::BinaryOperation::Or) =>
-        {
-            first_observable(&binary.left, param).or(Some(false))
-        }
-        RValue::IfExpression(select) => first_observable(&select.condition, param).or(Some(false)),
-        _ => {
-            let mut first = None;
-            value.visit_rvalues(&mut |child| {
-                first = first_observable(child, param);
-                first.is_none()
-            });
-            first.or(Some(false))
-        }
-    }
-}
-
-fn is_import_path(value: &RValue) -> bool {
-    match value {
-        RValue::Global(_) => true,
-        RValue::Index(index) => {
-            matches!(index.right.as_ref(), RValue::Literal(crate::Literal::String(_)))
-                && is_import_path(&index.left)
-        }
-        _ => false,
-    }
 }
 
 /// Number of RValue nodes in `rv`. Single post-order recursion via the `Traverse`

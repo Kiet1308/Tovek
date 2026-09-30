@@ -3,7 +3,8 @@
 -- keeps the order the inlined copy had. `late` reads its parameter after a
 -- call, and its sites must keep that order too.
 local log = {}
-local function trace(tag, value)
+local T = {}
+function T.trace(tag, value)
 	table.insert(log, tag)
 	return value
 end
@@ -26,13 +27,13 @@ local function scale(distance, base)
 end
 
 local function late(t)
-	return trace("body", 1) + t
+	return T.trace("body", 1) + t
 end
 
-print(toCurve(math.abs(trace("abs", -0.25))))
-print(shift(trace("h", 0.75), 0.9), warp(trace("w", 0.3) + 0.9))
-print(scale(trace("distance", 55), size))
+print(toCurve(math.abs(T.trace("abs", -0.25))))
+print(shift(T.trace("h", 0.75), 0.9), warp(T.trace("w", 0.3) + 0.9))
+print(scale(T.trace("distance", 55), size))
 size = 4
 print(scale(40, size))
-print(late(trace("arg", 4)))
+print(late(T.trace("arg", 4)))
 print(table.concat(log, ","))

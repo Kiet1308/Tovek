@@ -152,6 +152,79 @@ pub fn statement(statement: &Statement, capture: &impl Fn(&RcLocal) -> bool) -> 
     out
 }
 
+/// In Lua's evaluation order: `Some(true)` when the first observable event of
+/// `value` is reading `local`, `Some(false)` when something observable (a
+/// call, an index, an operator that may dispatch, a skippable operand) comes
+/// first, `None` when `value` does nothing observable and never reads it.
+/// Literals, local reads and import paths are not observable: Luau resolves an
+/// import (`GETIMPORT`) when the script loads, which FASTCALL argument folding
+/// relies on too. Unlike the event order above, this answers one question
+/// cheaply: may a value computed just before `value` move into that read?
+pub(crate) fn reads_first(value: &RValue, local: &RcLocal) -> Option<bool> {
+    match value {
+        RValue::Literal(_) => None,
+        RValue::Local(read) => (read == local).then_some(true),
+        _ if is_import_path(value) => None,
+        RValue::Binary(binary) if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) => {
+            reads_first(&binary.left, local).or(Some(false))
+        }
+        RValue::IfExpression(select) => reads_first(&select.condition, local).or(Some(false)),
+        _ => {
+            let mut first = None;
+            value.visit_rvalues(&mut |child| {
+                first = reads_first(child, local);
+                first.is_none()
+            });
+            first.or(Some(false))
+        }
+    }
+}
+
+/// [`reads_first`] over a block: a statement that only binds locals to
+/// unobservable values is passed over, any other statement decides.
+pub(crate) fn block_reads_first(stmts: &[Statement], local: &RcLocal) -> bool {
+    fn first_of<'a>(values: impl IntoIterator<Item = &'a RValue>, local: &RcLocal) -> Option<bool> {
+        values.into_iter().find_map(|value| reads_first(value, local))
+    }
+    for statement in stmts {
+        let first = match statement {
+            // Store addresses, then values, then the stores (see `statement`).
+            Statement::Assign(assign) => {
+                let addresses = assign.left.iter().flat_map(|lhs| match lhs {
+                    LValue::Index(index) => [Some(&*index.left), Some(&*index.right)],
+                    _ => [None, None],
+                });
+                let first = first_of(addresses.flatten().chain(&assign.right), local);
+                // A store into a table or a global can run `__newindex`.
+                let stores_observably = assign.left.iter().any(|lhs| !matches!(lhs, LValue::Local(_)));
+                if stores_observably { first.or(Some(false)) } else { first }
+            }
+            Statement::Call(call) => first_of(std::iter::once(&*call.value).chain(&call.arguments), local).or(Some(false)),
+            Statement::MethodCall(call) => {
+                first_of(std::iter::once(&*call.value).chain(&call.arguments), local).or(Some(false))
+            }
+            Statement::If(branch) => reads_first(&branch.condition, local).or(Some(false)),
+            Statement::Return(ret) => first_of(&ret.values, local).or(Some(false)),
+            Statement::Empty(_) | Statement::Comment(_) => None,
+            _ => Some(false),
+        };
+        if let Some(found) = first {
+            return found;
+        }
+    }
+    false
+}
+
+fn is_import_path(value: &RValue) -> bool {
+    match value {
+        RValue::Global(_) => true,
+        RValue::Index(index) => {
+            matches!(index.right.as_ref(), RValue::Literal(crate::Literal::String(_))) && is_import_path(&index.left)
+        }
+        _ => false,
+    }
+}
+
 /// Can an earlier scalar initializer occupy this local's evaluation position?
 /// The caller separately proves one use, scope, intervening statements and arity.
 pub fn can_sink(statement_: &Statement, local: &RcLocal, replacement: &RValue, capture: &impl Fn(&RcLocal) -> bool) -> bool {
@@ -248,6 +321,25 @@ mod tests {
         assert!(!can_sink(&method, &value, &field(&object), &|l| l == &object));
         let ret = Return::new(vec![Literal::Number(std::f64::consts::PI).into(), value.clone().into()]).into();
         assert!(!can_sink(&ret, &value, &field(&object), &|_| false));
+    }
+
+    #[test]
+    fn a_block_reads_first_through_local_bindings_and_store_addresses() {
+        let (param, object, other) = (local("param"), local("object"), local("other"));
+        let call = |args: Vec<RValue>| -> RValue { Call::new(crate::Global(b"f".to_vec()).into(), args).into() };
+        let store = |base: RValue, value: RValue| -> Statement {
+            Assign::new(vec![Index::new(base, Literal::String(b"key".to_vec()).into()).into()], vec![value]).into()
+        };
+        let bind = |value: RValue| -> Statement { Assign::new(vec![other.clone().into()], vec![value]).into() };
+        // `local other = 1; object.key = param`: the address is only a local.
+        assert!(block_reads_first(&[bind(Literal::Number(1.0).into()), store(object.clone().into(), param.clone().into())], &param));
+        // `object.field.key = param`: looking up the address can run code.
+        assert!(!block_reads_first(&[store(field(&object), param.clone().into())], &param));
+        // `f(); return param` and `local other = f(param)`.
+        assert!(!block_reads_first(&[Statement::Call(Call::new(crate::Global(b"f".to_vec()).into(), vec![])), Return::new(vec![param.clone().into()]).into()], &param));
+        assert!(block_reads_first(&[bind(call(vec![param.clone().into()]))], &param));
+        // A value that never reads it decides nothing, a store does.
+        assert!(!block_reads_first(&[store(object.clone().into(), other.clone().into()), Return::new(vec![param.clone().into()]).into()], &param));
     }
 
     #[test]

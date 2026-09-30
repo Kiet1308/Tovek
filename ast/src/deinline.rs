@@ -246,6 +246,11 @@ struct Target {
     /// `body_unsafe`). Empty for the overwhelmingly common all-params-read helper, so
     /// this changes nothing for those.
     unread: FxHashSet<RcLocal>,
+    /// Parameters read exactly once, as the body's first observable step
+    /// (`evaluation_order::block_reads_first`). Luau evaluated such an argument
+    /// right before the inlined body, so one argument that runs code may still
+    /// move back into the call (`SCurveTranform(toSCurveSpace(x))`).
+    first_reads: Vec<RcLocal>,
     /// At least one branch condition reads a parameter.  Only such targets can
     /// change statement shape after constant argument propagation, so this is a
     /// cold precomputed gate for the Tier-B partial-evaluation fallback.
@@ -3490,12 +3495,19 @@ fn finish_unified(
     collect_written(cwin, &mut region_writes);
     // Written-parameter copies may have effects. Their original order must
     // match parameter order, and no argument may refer to a copy we remove.
+    // One other argument may run code when the body reads its parameter first
+    // (`Target::first_reads`): it ran right before the inlined body, after
+    // every copy, so no written parameter may follow it.
     let mut prefix_index = 0;
+    let mut moved = false;
     for (idx, a) in args.iter().enumerate() {
         if a.values_read().iter().any(|read| prefix.iter().any(|(l, _)| l == *read)) {
             return None;
         }
         if t.written_params.contains(&t.param_order[idx]) {
+            if moved {
+                return None;
+            }
             let bound = b.locals.get(&t.param_order[idx])?;
             if prefix.get(prefix_index).map(|(l, _)| l) != Some(bound) { return None; }
             prefix_index += 1;
@@ -3510,7 +3522,10 @@ fn finish_unified(
             continue;
         }
         if !t.captures.stable(a) {
-            return None;
+            if moved || !t.first_reads.contains(&t.param_order[idx]) {
+                return None;
+            }
+            moved = true;
         }
         for r in a.values_read() {
             if region_writes.contains(r) {
@@ -3518,21 +3533,24 @@ fn finish_unified(
             }
         }
     }
-    // Each prefix declaration adjusted to one result. Keep that adjustment
-    // when its initializer becomes the last argument of the reconstructed call.
-    for arg in &mut args {
-        *arg = match arg.clone() {
-            RValue::Call(call) => RValue::Select(crate::Select::Call(call)),
-            RValue::MethodCall(call) => RValue::Select(crate::Select::MethodCall(call)),
-            RValue::VarArg(vararg) => RValue::Select(crate::Select::VarArg(vararg)),
-            value => value,
-        };
-    }
     Some(Unified {
-        args,
+        args: args.into_iter().map(untruncated).collect(),
         result: b.result,
         callee_locals: b.locals.values().cloned().collect(),
     })
+}
+
+/// `value` as an argument of a rebuilt helper call. Every target is
+/// non-variadic, so the results a trailing call returns past its first fill no
+/// parameter the body reads: `helper(f())` needs no `(f())` truncation, whether
+/// the site or a written parameter's copy adjusted the call to one result.
+pub(crate) fn untruncated(value: RValue) -> RValue {
+    match value {
+        RValue::Select(Select::Call(call)) => RValue::Call(call),
+        RValue::Select(Select::MethodCall(call)) => RValue::MethodCall(call),
+        RValue::Select(Select::VarArg(vararg)) => RValue::VarArg(vararg),
+        value => value,
+    }
 }
 
 /// Exact Tier-A match first; when a parameter controls a branch, fall back to a
@@ -4399,6 +4417,16 @@ fn collect_targets(
             .cloned()
             .collect();
         let specializable = branch_conditions_read_any(&pat, &params);
+        let first_reads = g
+            .parameters
+            .iter()
+            .filter(|p| {
+                params.contains(*p)
+                    && crate::evaluation_order::block_reads_first(&pat, p)
+                    && count_local_reads(&pat, p) == 1
+            })
+            .cloned()
+            .collect();
         let mut locals: FxHashSet<RcLocal> = FxHashSet::default();
         collect_declared_locals(&pat, &mut locals);
         for p in &params {
@@ -4503,6 +4531,7 @@ fn collect_targets(
             param_order,
             written_params,
             unread,
+            first_reads,
             specializable,
             cps_loop_return,
             captures: captures.clone(),
@@ -5404,6 +5433,7 @@ mod tests {
             param_order: Vec::new(),
             written_params: Vec::new(),
             unread: FxHashSet::default(),
+            first_reads: Vec::new(),
             specializable: false,
             cps_loop_return: false,
             captures: Default::default(),
@@ -5428,7 +5458,7 @@ mod tests {
     }
 
     #[test]
-    fn written_argument_copies_keep_order_dependencies_and_scalar_arity() {
+    fn written_argument_copies_keep_order_dependencies_without_truncation() {
         let p = local("p"); let q = local("q"); let a = local("a"); let b = local("b");
         let mut target = void_target(vec![print_x()], [p.clone(), q.clone()].into_iter().collect());
         target.param_order = vec![p.clone(), q.clone()];
@@ -5438,7 +5468,8 @@ mod tests {
         let last: RValue = Call::new(global("last"), vec![]).into();
         let prefix = vec![(a.clone(), first.clone()), (b.clone(), last.clone())];
         let hit = finish_unified(&target, &[], bindings.clone(), &prefix).unwrap();
-        assert!(hit.args.iter().all(|v| matches!(v, RValue::Select(crate::Select::Call(_)))));
+        // A non-variadic helper drops a trailing call's extra results itself.
+        assert!(hit.args.iter().all(|v| matches!(v, RValue::Call(_))));
         assert!(finish_unified(&target, &[], bindings.clone(), &[(b.clone(), last), (a.clone(), first.clone())]).is_none());
         assert!(finish_unified(&target, &[], bindings, &[(a.clone(), first), (b, a.into())]).is_none());
     }
@@ -5578,6 +5609,7 @@ mod tests {
             param_order: vec![event, key],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
+            first_reads: Vec::new(),
             specializable: true,
             cps_loop_return: false,
             captures: Default::default(),
@@ -5650,6 +5682,7 @@ mod tests {
             param_order: vec![flag, value],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
+            first_reads: Vec::new(),
             specializable: true,
             cps_loop_return: false,
             captures: Default::default(),
@@ -5712,6 +5745,7 @@ mod tests {
             param_order: vec![parameter],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
+            first_reads: Vec::new(),
             specializable: false,
             cps_loop_return: false,
             captures: Default::default(),
@@ -5789,6 +5823,7 @@ mod tests {
             param_order: vec![frame],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
+            first_reads: Vec::new(),
             specializable: false,
             cps_loop_return: true,
             captures: Default::default(),
@@ -6129,6 +6164,7 @@ mod tests {
             param_order: vec![p.clone()],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
+            first_reads: Vec::new(),
             specializable: false,
             cps_loop_return: false,
             captures: Default::default(),
@@ -6214,6 +6250,7 @@ mod tests {
             param_order,
             written_params: Vec::new(),
             unread: unread_set,
+            first_reads: Vec::new(),
             specializable: false,
             cps_loop_return: false,
             captures: Default::default(),
@@ -6361,6 +6398,7 @@ mod tests {
             param_order: Vec::new(),
             written_params: Vec::new(),
             unread: FxHashSet::default(),
+            first_reads: Vec::new(),
             specializable: false,
             cps_loop_return: false,
             captures: Default::default(),
@@ -6403,6 +6441,7 @@ mod tests {
             param_order: Vec::new(),
             written_params: Vec::new(),
             unread: FxHashSet::default(),
+            first_reads: Vec::new(),
             specializable: false,
             cps_loop_return: false,
             captures: Default::default(),
@@ -7510,6 +7549,7 @@ mod tests {
             param_order: vec![p.clone(), v.clone()],
             written_params: vec![v.clone()],
             unread: FxHashSet::default(),
+            first_reads: Vec::new(),
             specializable: false,
             cps_loop_return: false,
             captures: Default::default(),

@@ -20,7 +20,8 @@
    "captured_handle_from_merge": "Regression fixture for a real-dump captured cell split (2026-09-29); baselined from the fixing commit output.",
    "fastcall_argument_order": "Argument order fixture for FASTCALL callee folding (2026-09-29); baselined from the introducing commit output.",
    "generic_for_iterates_local_call": "added_fixtures",
-   "first_read_argument_hoist": "De-inline fixture (2026-09-30): main outlines four rebuilt helper calls, so it differs by construction; baselined from the introducing commit output."
+   "first_read_argument_hoist": "De-inline fixture (2026-09-30): main outlines the rebuilt helper calls, so it differs by construction; `late` differs because `function T.trace` folds into the table constructor, which -O2 then inlines. Baselined from the introducing commit output.",
+   "first_read_statement_hoist": "De-inline fixture (2026-09-30): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -102,6 +103,12 @@
   },
   {
    "file": "first_read_argument_hoist",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 7
+  },
+  {
+   "file": "first_read_statement_hoist",
    "status": "ok",
    "nonequiv": 1,
    "protos": 7

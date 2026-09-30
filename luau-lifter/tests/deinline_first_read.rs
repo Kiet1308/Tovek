@@ -17,7 +17,7 @@ const BYTECODE: &[u8] = include_bytes!("fixtures/deinline_first_read.luaubc");
 fn a_first_read_argument_rebuilds_its_call() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
-    assert!(source.contains("= toCurveSpace((math.abs("), "{source}");
+    assert!(source.contains("= toCurveSpace(math.abs("), "{source}");
     assert_eq!(source.matches("= shiftHue(").count(), 1, "{source}");
     assert_eq!(source.matches("= warp(").count(), 1, "{source}");
     assert_eq!(source.matches("= trailScale(").count(), 1, "{source}");

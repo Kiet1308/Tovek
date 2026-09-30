@@ -731,7 +731,7 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<(Vec<RValue>, super::Hoist)>
     if s_nodes < call_nodes + args_nodes + NET_SAVING_FLOOR {
         return None;
     }
-    Some((args, hoist))
+    Some((args.into_iter().map(crate::deinline::untruncated).collect(), hoist))
 }
 
 /// Number of RValue nodes in `rv`. Single post-order recursion via the `Traverse`
