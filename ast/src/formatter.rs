@@ -1109,6 +1109,22 @@ mod tests {
     }
 
     #[test]
+    fn a_block_after_a_trailing_comment_keeps_its_blank_line() {
+        let branch = crate::If::new(global("ready"), Block(vec![Call::new(global("go"), vec![]).into()]), Block::default());
+        let block = Block(vec![
+            Call::new(global("load"), vec![]).into(),
+            crate::Comment::trailing("equivalent call inferred".to_string()).into(),
+            branch.into(),
+        ]);
+
+        assert_eq!(block.to_string(), "load() -- equivalent call inferred
+
+if ready then
+	go()
+end");
+    }
+
+    #[test]
     fn leading_comment_keeps_its_own_line() {
         // A default (non-trailing) comment introduces the next statement on its
         // own line, unchanged by the trailing-comment path.
@@ -1898,7 +1914,12 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     // comment takes the blank line that statement would get, and nothing
     // separates it from the statement.
     fn wants_blank_line(block: &Block, index: usize) -> bool {
-        let prev = &block[index - 1];
+        // A trailing comment sits on the line of the statement before it.
+        let mut at = index - 1;
+        while at > 0 && matches!(&block[at], Statement::Comment(comment) if comment.trailing) {
+            at -= 1;
+        }
+        let prev = &block[at];
         if matches!(prev, Statement::Comment(_)) {
             return false;
         }
