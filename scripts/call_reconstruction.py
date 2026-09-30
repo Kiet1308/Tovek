@@ -8,12 +8,14 @@ MODEL = 'committed-call-reconstruction-events-v2'
 
 def compact_annotation(text):
     labels = {
+        'equivalent calls inferred from this helper; original call sites unknown': 'inferred helper',
         ' equivalent calls inferred from this helper; original call sites unknown': 'inferred helper',
         'equivalent call inferred; original call site unknown': 'inferred call',
         ' equivalent call inferred; original call site unknown': 'inferred call',
         ' [-O2 INLINED, UNHOOKABLE] reconstructed definition;': 'inferred helper',
         'inlined by Luau -O2 (UNHOOKABLE)': 'inferred call',
         ' [-O2 INLINED, UNHOOKABLE] reconstructed call': 'inferred call',
+        'equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown': 'inferred arithmetic helper',
         ' equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown': 'inferred arithmetic helper',
         'equivalent fixed-count loop synthesized; original loop unknown': 'synthesized arithmetic loop',
     }

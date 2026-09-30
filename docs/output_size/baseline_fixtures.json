@@ -1,32 +1,32 @@
 {
   "files": {
     "residual/ReplicatedStorage/Cmdr/Server commands/Admin/teleportServer.luau": {
-      "bytes": 577,
+      "bytes": 570,
       "lines": 21
     },
     "residual/ReplicatedStorage/FusionPackage/Components/Base/Container.luau": {
-      "bytes": 1532,
-      "lines": 73
+      "bytes": 1515,
+      "lines": 71
     },
     "residual/ReplicatedStorage/Part_Icles/Emit.luau": {
-      "bytes": 26584,
-      "lines": 869
+      "bytes": 27192,
+      "lines": 923
     },
     "residual/ReplicatedStorage/Shared/Information/Abilities.luau": {
-      "bytes": 1991,
-      "lines": 104
+      "bytes": 1877,
+      "lines": 92
     },
     "residual/ReplicatedStorage/Shared/TimeManager/MeshEmitter/init.luau": {
-      "bytes": 20749,
-      "lines": 699
+      "bytes": 21007,
+      "lines": 703
     },
     "residual/StarterPlayer/StarterCharacterScripts/Animate.client.luau": {
-      "bytes": 12145,
-      "lines": 646
+      "bytes": 12085,
+      "lines": 641
     },
     "residual/StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.luau": {
-      "bytes": 35216,
-      "lines": 1481
+      "bytes": 33954,
+      "lines": 1398
     },
     "semantic/alias_iterators__O0.luau": {
       "bytes": 515,
@@ -40,17 +40,53 @@
       "bytes": 515,
       "lines": 40
     },
+    "semantic/builtin_alias_across_blocks__O0.luau": {
+      "bytes": 291,
+      "lines": 26
+    },
+    "semantic/builtin_alias_across_blocks__O1.luau": {
+      "bytes": 291,
+      "lines": 26
+    },
+    "semantic/builtin_alias_across_blocks__O2.luau": {
+      "bytes": 291,
+      "lines": 26
+    },
+    "semantic/call_before_capture_read__O0.luau": {
+      "bytes": 420,
+      "lines": 33
+    },
+    "semantic/call_before_capture_read__O1.luau": {
+      "bytes": 433,
+      "lines": 36
+    },
+    "semantic/call_before_capture_read__O2.luau": {
+      "bytes": 519,
+      "lines": 41
+    },
     "semantic/captured_break_continue__O0.luau": {
-      "bytes": 591,
-      "lines": 51
+      "bytes": 616,
+      "lines": 54
     },
     "semantic/captured_break_continue__O1.luau": {
-      "bytes": 591,
-      "lines": 51
+      "bytes": 616,
+      "lines": 54
     },
     "semantic/captured_break_continue__O2.luau": {
-      "bytes": 591,
-      "lines": 51
+      "bytes": 616,
+      "lines": 54
+    },
+    "semantic/captured_cell_block_param_rename__O0.luau": {
+      "bytes": 1497,
+      "lines": 99
+    },
+    "semantic/captured_cell_block_param_rename__O1.luau": {
+      "bytes": 1310,
+      "lines": 87
+    },
+    "semantic/captured_cell_block_param_rename__O2.luau": {
+      "bytes": 1338,
+      "lines": 88
     },
     "semantic/captured_cell_iterator__O0.luau": {
       "bytes": 403,
@@ -64,17 +100,41 @@
       "bytes": 413,
       "lines": 31
     },
+    "semantic/captured_connection_after_branch__O0.luau": {
+      "bytes": 664,
+      "lines": 48
+    },
+    "semantic/captured_connection_after_branch__O1.luau": {
+      "bytes": 664,
+      "lines": 48
+    },
+    "semantic/captured_connection_after_branch__O2.luau": {
+      "bytes": 925,
+      "lines": 67
+    },
+    "semantic/captured_handle_from_merge__O0.luau": {
+      "bytes": 699,
+      "lines": 49
+    },
+    "semantic/captured_handle_from_merge__O1.luau": {
+      "bytes": 699,
+      "lines": 49
+    },
+    "semantic/captured_handle_from_merge__O2.luau": {
+      "bytes": 954,
+      "lines": 64
+    },
     "semantic/captured_result__O0.luau": {
-      "bytes": 620,
-      "lines": 45
+      "bytes": 683,
+      "lines": 51
     },
     "semantic/captured_result__O1.luau": {
-      "bytes": 620,
-      "lines": 45
+      "bytes": 683,
+      "lines": 51
     },
     "semantic/captured_result__O2.luau": {
-      "bytes": 624,
-      "lines": 45
+      "bytes": 687,
+      "lines": 51
     },
     "semantic/dead_const_tables__O0.luau": {
       "bytes": 296,
@@ -88,117 +148,273 @@
       "bytes": 296,
       "lines": 20
     },
-    "semantic/generic_break_found__O0.luau": {
-      "bytes": 577,
-      "lines": 51
+    "semantic/declared_select_helper__O0.luau": {
+      "bytes": 476,
+      "lines": 46
     },
-    "semantic/generic_break_found__O1.luau": {
-      "bytes": 577,
-      "lines": 51
+    "semantic/declared_select_helper__O1.luau": {
+      "bytes": 463,
+      "lines": 45
     },
-    "semantic/generic_break_found__O2.luau": {
-      "bytes": 577,
-      "lines": 51
+    "semantic/declared_select_helper__O2.luau": {
+      "bytes": 706,
+      "lines": 46
     },
-    "semantic/iter_metamethod_order__O0.luau": {
-      "bytes": 458,
-      "lines": 33
+    "semantic/declared_select_prefix__O0.luau": {
+      "bytes": 366,
+      "lines": 26
     },
-    "semantic/iter_metamethod_order__O1.luau": {
-      "bytes": 458,
-      "lines": 33
+    "semantic/declared_select_prefix__O1.luau": {
+      "bytes": 366,
+      "lines": 26
     },
-    "semantic/iter_metamethod_order__O2.luau": {
-      "bytes": 434,
+    "semantic/declared_select_prefix__O2.luau": {
+      "bytes": 611,
+      "lines": 27
+    },
+    "semantic/embedded_helper_value__O0.luau": {
+      "bytes": 463,
       "lines": 30
     },
-    "semantic/loop_result_exports__O0.luau": {
-      "bytes": 1438,
-      "lines": 106
+    "semantic/embedded_helper_value__O1.luau": {
+      "bytes": 463,
+      "lines": 30
     },
-    "semantic/loop_result_exports__O1.luau": {
-      "bytes": 1438,
-      "lines": 106
+    "semantic/embedded_helper_value__O2.luau": {
+      "bytes": 624,
+      "lines": 33
     },
-    "semantic/loop_result_exports__O2.luau": {
-      "bytes": 2127,
-      "lines": 184
+    "semantic/fastcall_argument_order__O0.luau": {
+      "bytes": 323,
+      "lines": 13
     },
-    "semantic/loop_shapes__O0.luau": {
-      "bytes": 3135,
-      "lines": 246
+    "semantic/fastcall_argument_order__O1.luau": {
+      "bytes": 323,
+      "lines": 13
     },
-    "semantic/loop_shapes__O1.luau": {
-      "bytes": 3157,
-      "lines": 247
-    },
-    "semantic/loop_shapes__O2.luau": {
-      "bytes": 4266,
-      "lines": 324
-    },
-    "semantic/nested_exports__O0.luau": {
-      "bytes": 614,
-      "lines": 45
-    },
-    "semantic/nested_exports__O1.luau": {
-      "bytes": 614,
-      "lines": 45
-    },
-    "semantic/nested_exports__O2.luau": {
-      "bytes": 614,
-      "lines": 45
-    },
-    "semantic/parallel_copy_cycle__O0.luau": {
-      "bytes": 344,
-      "lines": 28
-    },
-    "semantic/parallel_copy_cycle__O1.luau": {
-      "bytes": 344,
-      "lines": 28
-    },
-    "semantic/parallel_copy_cycle__O2.luau": {
-      "bytes": 296,
+    "semantic/fastcall_argument_order__O2.luau": {
+      "bytes": 457,
       "lines": 20
     },
-    "semantic/suffix_numeric__O0.luau": {
-      "bytes": 514,
+    "semantic/first_read_argument_hoist__O0.luau": {
+      "bytes": 680,
+      "lines": 34
+    },
+    "semantic/first_read_argument_hoist__O1.luau": {
+      "bytes": 674,
+      "lines": 34
+    },
+    "semantic/first_read_argument_hoist__O2.luau": {
+      "bytes": 962,
       "lines": 39
+    },
+    "semantic/first_read_statement_hoist__O0.luau": {
+      "bytes": 805,
+      "lines": 53
+    },
+    "semantic/first_read_statement_hoist__O1.luau": {
+      "bytes": 805,
+      "lines": 53
+    },
+    "semantic/first_read_statement_hoist__O2.luau": {
+      "bytes": 1424,
+      "lines": 64
+    },
+    "semantic/generic_break_found__O0.luau": {
+      "bytes": 502,
+      "lines": 46
+    },
+    "semantic/generic_break_found__O1.luau": {
+      "bytes": 502,
+      "lines": 46
+    },
+    "semantic/generic_break_found__O2.luau": {
+      "bytes": 502,
+      "lines": 46
+    },
+    "semantic/generic_for_iterates_local_call__O0.luau": {
+      "bytes": 334,
+      "lines": 29
+    },
+    "semantic/generic_for_iterates_local_call__O1.luau": {
+      "bytes": 334,
+      "lines": 29
+    },
+    "semantic/generic_for_iterates_local_call__O2.luau": {
+      "bytes": 311,
+      "lines": 28
+    },
+    "semantic/inner_loop_continues_outer__O0.luau": {
+      "bytes": 460,
+      "lines": 38
+    },
+    "semantic/inner_loop_continues_outer__O1.luau": {
+      "bytes": 460,
+      "lines": 38
+    },
+    "semantic/inner_loop_continues_outer__O2.luau": {
+      "bytes": 647,
+      "lines": 54
+    },
+    "semantic/iter_metamethod_order__O0.luau": {
+      "bytes": 472,
+      "lines": 36
+    },
+    "semantic/iter_metamethod_order__O1.luau": {
+      "bytes": 472,
+      "lines": 36
+    },
+    "semantic/iter_metamethod_order__O2.luau": {
+      "bytes": 448,
+      "lines": 33
+    },
+    "semantic/loop_result_exports__O0.luau": {
+      "bytes": 1369,
+      "lines": 96
+    },
+    "semantic/loop_result_exports__O1.luau": {
+      "bytes": 1369,
+      "lines": 96
+    },
+    "semantic/loop_result_exports__O2.luau": {
+      "bytes": 1746,
+      "lines": 144
+    },
+    "semantic/loop_shapes__O0.luau": {
+      "bytes": 3159,
+      "lines": 249
+    },
+    "semantic/loop_shapes__O1.luau": {
+      "bytes": 3152,
+      "lines": 249
+    },
+    "semantic/loop_shapes__O2.luau": {
+      "bytes": 3966,
+      "lines": 304
+    },
+    "semantic/nested_exports__O0.luau": {
+      "bytes": 491,
+      "lines": 37
+    },
+    "semantic/nested_exports__O1.luau": {
+      "bytes": 491,
+      "lines": 37
+    },
+    "semantic/nested_exports__O2.luau": {
+      "bytes": 491,
+      "lines": 37
+    },
+    "semantic/nested_loop_exits_parent__O0.luau": {
+      "bytes": 448,
+      "lines": 44
+    },
+    "semantic/nested_loop_exits_parent__O1.luau": {
+      "bytes": 416,
+      "lines": 40
+    },
+    "semantic/nested_loop_exits_parent__O2.luau": {
+      "bytes": 387,
+      "lines": 36
+    },
+    "semantic/parallel_copy_cycle__O0.luau": {
+      "bytes": 364,
+      "lines": 31
+    },
+    "semantic/parallel_copy_cycle__O1.luau": {
+      "bytes": 364,
+      "lines": 31
+    },
+    "semantic/parallel_copy_cycle__O2.luau": {
+      "bytes": 325,
+      "lines": 25
+    },
+    "semantic/report_nested_numeric_accumulate__O0.luau": {
+      "bytes": 200,
+      "lines": 18
+    },
+    "semantic/report_nested_numeric_accumulate__O1.luau": {
+      "bytes": 200,
+      "lines": 18
+    },
+    "semantic/report_nested_numeric_accumulate__O2.luau": {
+      "bytes": 180,
+      "lines": 12
+    },
+    "semantic/report_repeat_break_in_numeric_for__O0.luau": {
+      "bytes": 501,
+      "lines": 43
+    },
+    "semantic/report_repeat_break_in_numeric_for__O1.luau": {
+      "bytes": 514,
+      "lines": 46
+    },
+    "semantic/report_repeat_break_in_numeric_for__O2.luau": {
+      "bytes": 447,
+      "lines": 35
+    },
+    "semantic/suffix_numeric__O0.luau": {
+      "bytes": 496,
+      "lines": 37
     },
     "semantic/suffix_numeric__O1.luau": {
-      "bytes": 514,
-      "lines": 39
+      "bytes": 496,
+      "lines": 37
     },
     "semantic/suffix_numeric__O2.luau": {
-      "bytes": 502,
-      "lines": 39
+      "bytes": 483,
+      "lines": 37
+    },
+    "semantic/template_repeated_key__O0.luau": {
+      "bytes": 545,
+      "lines": 35
+    },
+    "semantic/template_repeated_key__O1.luau": {
+      "bytes": 580,
+      "lines": 35
+    },
+    "semantic/template_repeated_key__O2.luau": {
+      "bytes": 732,
+      "lines": 47
     },
     "semantic/typed_params__O0.luau": {
-      "bytes": 463,
-      "lines": 25
+      "bytes": 483,
+      "lines": 29
     },
     "semantic/typed_params__O1.luau": {
-      "bytes": 463,
-      "lines": 25
+      "bytes": 469,
+      "lines": 28
     },
     "semantic/typed_params__O2.luau": {
       "bytes": 533,
       "lines": 26
     },
     "semantic/ui_setlist_order__O0.luau": {
-      "bytes": 2079,
-      "lines": 110
+      "bytes": 2142,
+      "lines": 121
     },
     "semantic/ui_setlist_order__O1.luau": {
-      "bytes": 2195,
-      "lines": 157
+      "bytes": 2255,
+      "lines": 168
     },
     "semantic/ui_setlist_order__O2.luau": {
-      "bytes": 3018,
-      "lines": 203
+      "bytes": 2997,
+      "lines": 194
+    },
+    "semantic/while_header_opens_for__O0.luau": {
+      "bytes": 587,
+      "lines": 43
+    },
+    "semantic/while_header_opens_for__O1.luau": {
+      "bytes": 587,
+      "lines": 43
+    },
+    "semantic/while_header_opens_for__O2.luau": {
+      "bytes": 587,
+      "lines": 43
     },
     "semantic/zero_trip_suffix__O0.luau": {
-      "bytes": 548,
-      "lines": 43
+      "bytes": 466,
+      "lines": 36
     },
     "semantic/zero_trip_suffix__O1.luau": {
       "bytes": 454,

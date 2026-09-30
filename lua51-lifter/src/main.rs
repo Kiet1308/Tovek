@@ -13,10 +13,9 @@ use cfg::ssa::{
     self,
     structuring::{structure_conditionals, structure_jumps, structure_method_calls},
 };
-use indexmap::IndexMap;
+use ast::FxIndexMap as IndexMap;
 use lifter::Lifter;
 use parking_lot::Mutex;
-use petgraph::algo::dominators::simple_fast;
 use rayon::prelude::*;
 use rustc_hash::FxHashMap;
 use std::{
@@ -119,7 +118,7 @@ fn decompile(prototype: &lua51_deserializer::Function<'_>, parallel: bool) -> an
                 changed = false;
 
                 let dominators = dominator_cache.get_or_insert_with(||
-                    simple_fast(function.graph(), function.entry().unwrap()));
+                    cfg::dominators::Dominators::new(function.graph(), function.entry().unwrap()));
                 let topology_changed = structure_jumps(&mut function, dominators);
                 changed |= topology_changed;
 
