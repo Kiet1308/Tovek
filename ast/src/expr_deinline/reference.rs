@@ -577,7 +577,10 @@ fn try_rewrite_select(
     let Some((idx, args)) = pick.take() else { return; };
     let target = &targets[idx];
     let call = Call::new(target.f_local.clone().into(), args).reconstructed(crate::call_origins::Kind::ArithmeticDeinline);
-    stmts.splice(index..index + 2, [crate::Assign { node_origin: Default::default(), left: vec![result.into()], right: vec![call.into()], prefix: true, parallel: false, compound: false}.into()]);
+    // One result, declared the way the lifter declares any `local r = f()`, so
+    // later temp inlining can place it where the value is used.
+    let value = RValue::Select(crate::Select::Call(call));
+    stmts.splice(index..index + 2, [crate::Assign { node_origin: Default::default(), left: vec![result.into()], right: vec![value], prefix: true, parallel: false, compound: false}.into()]);
     converted.insert(target.f_local.clone());
 }
 
