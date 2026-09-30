@@ -35,9 +35,13 @@ fn is_truthy(value: RValue) -> Option<bool> {
 /// out (left as `nil`); on failure it is untouched.
 pub fn select_value(
     condition: &mut RValue,
-    mut then_value: RValue,
-    mut else_value: RValue,
+    then_value: RValue,
+    else_value: RValue,
 ) -> Option<RValue> {
+    // An operand takes one value, so a one-result call arm (`return (f())`)
+    // reads as the plain call a caller's copy of the same select holds.
+    let mut then_value = crate::untruncated(then_value);
+    let mut else_value = crate::untruncated(else_value);
     if let RValue::Literal(Literal::Boolean(then_bool)) = then_value
         && let RValue::Literal(Literal::Boolean(else_bool)) = else_value
         && then_bool != else_bool

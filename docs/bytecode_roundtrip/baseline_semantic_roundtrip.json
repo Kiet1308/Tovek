@@ -22,7 +22,8 @@
    "generic_for_iterates_local_call": "added_fixtures",
    "first_read_argument_hoist": "De-inline fixture (2026-09-30): main outlines the rebuilt helper calls, so it differs by construction; `late` differs because `function T.trace` folds into the table constructor, which -O2 then inlines. Baselined from the introducing commit output.",
    "first_read_statement_hoist": "De-inline fixture (2026-09-30): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
-   "declared_select_helper": "De-inline fixture (2026-09-30): `steer` outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output."
+   "declared_select_helper": "De-inline fixture (2026-09-30): `steer` outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
+   "declared_select_prefix": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -89,6 +90,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 5
+  },
+  {
+   "file": "declared_select_prefix",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
   },
   {
    "file": "declared_select_helper",

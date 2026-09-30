@@ -772,7 +772,7 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<(Vec<RValue>, Hoist)> {
     if s_nodes < call_nodes + args_nodes + NET_SAVING_FLOOR {
         return None;
     }
-    Some((args.into_iter().map(crate::deinline::untruncated).collect(), hoist))
+    Some((args.into_iter().map(crate::untruncated).collect(), hoist))
 }
 
 /// Why a rebuilt call may evaluate its arguments eagerly, before the helper

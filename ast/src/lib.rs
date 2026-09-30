@@ -153,6 +153,18 @@ pub enum Select {
     MethodCall(MethodCall),
 }
 
+/// `value` without a `Select`'s one-result adjustment, for a place that
+/// takes one value anyway (an operand) or passes it to a callee that drops
+/// the rest (a non-variadic helper's last argument).
+pub(crate) fn untruncated(value: RValue) -> RValue {
+    match value {
+        RValue::Select(Select::Call(call)) => RValue::Call(call),
+        RValue::Select(Select::MethodCall(call)) => RValue::MethodCall(call),
+        RValue::Select(Select::VarArg(vararg)) => RValue::VarArg(vararg),
+        value => value,
+    }
+}
+
 impl fmt::Display for Select {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

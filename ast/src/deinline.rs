@@ -1275,11 +1275,14 @@ fn fold_select_temp(stmts: &mut Vec<Statement>) {
 /// each) with `return <select_value(c, a, b)>`. One statement for one, so the
 /// canonical length is unchanged.
 fn fuse_return_diamond(stmts: &mut [Statement]) {
+    // One value each: a scalar, or a call adjusted to one result
+    // (`return (f())`), which the select reads as an operand.
     fn single_value(block: &Block) -> Option<RValue> {
         let mut real = block.0.iter().filter(|s| !matches!(s, Statement::Empty(_)));
         match (real.next(), real.next()) {
             (Some(Statement::Return(r)), None)
-                if r.values.len() == 1 && is_scalar_return_value(&r.values[0]) =>
+                if r.values.len() == 1
+                    && (is_scalar_return_value(&r.values[0]) || matches!(r.values[0], RValue::Select(_))) =>
             {
                 Some(r.values[0].clone())
             }
@@ -3038,7 +3041,7 @@ fn match_value(
     canon_cache: &mut CanonCache,
 ) -> Option<Hit> {
     let Some(r) = result_decl(&stmts[i]) else {
-        return match_declared_value(stmts, i, t, is_func_body_top, last_occ);
+        return match_declared_value(stmts, i, i, t, is_func_body_top, last_occ);
     };
     let kc = t.pat.len();
     let body_start = i + 1;
@@ -3127,34 +3130,39 @@ fn match_value(
     })
 }
 
-/// `local RESULT = E`: SSA already fused the inlined region into the RESULT
-/// declaration (`c and K or B`), so it is the whole region of a helper whose
-/// canonical body is one `return X` (canon fuses its return diamonds the same
-/// way). It unifies as `local RESULT; RESULT = E`, under `match_value`'s gates.
+/// `local RESULT = E` at `d`: SSA already fused the value branch into the
+/// RESULT declaration (`c and K or B`), and canon fuses the helper's return
+/// diamonds the same way. `stmts[i..d]` are the callee's leading statements
+/// (`AtPrefix`, none for `AtResultDecl`). The window unifies as `<prefix>;
+/// local RESULT; RESULT = E`, under the gates of the two value matchers.
 fn match_declared_value(
     stmts: &[Statement],
     i: usize,
+    d: usize,
     t: &Target,
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
-    let Statement::Assign(decl) = &stmts[i] else { return None };
-    if t.pat.len() != 1 || !decl.prefix || decl.parallel || decl.left.len() != 1 || decl.right.len() != 1 {
+    let Statement::Assign(decl) = &stmts[d] else { return None };
+    if !decl.prefix || decl.parallel || decl.left.len() != 1 || decl.right.len() != 1 {
         return None;
     }
     let LValue::Local(r) = &decl.left[0] else { return None };
-    if is_func_body_top && i == 0 && stmts.len() == 1 {
+    if is_func_body_top && i == 0 && d + 1 == stmts.len() {
         return None;
     }
-    let store = [Statement::Assign(Assign { prefix: false, ..decl.clone() })];
-    if !charge_window(t, &store) {
+    let prefix = &stmts[i..d];
+    let mut window = prefix.to_vec();
+    window.push(Statement::Assign(Assign { prefix: false, ..decl.clone() }));
+    if canon_top_len(&window, true) != t.pat.len() || block_has_return(prefix) || !charge_window(t, &window) {
         return None;
     }
-    let u = try_unify_site_any(t, &canon_recurse(canon_top(&store, true), true), &[])?;
+    let u = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), &[])?;
     let complete = u.result.as_ref() == Some(r)
         && !u.callee_locals.contains(r)
-        && !tail_has_live(last_occ, stmts, i, i + 1, &u.callee_locals);
-    complete.then(|| Hit { f_local: t.f_local.clone(), consume: 1, args: u.args, result: Some(r.clone()), tail_ret: None })
+        && !block_reads_local(prefix, r)
+        && !tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals);
+    complete.then(|| Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, result: Some(r.clone()), tail_ret: None })
 }
 
 /// §8: a value-returning callee with a leading non-branch statement (its own
@@ -3186,7 +3194,9 @@ fn match_value_prefixed(
     // decl, making `result_decl` bail and silently killing chained AtPrefix
     // reconstruction. Count only non-trivia statements instead.
     let d = nth_effective_index(stmts, i, p)?;
-    let r = result_decl(&stmts[d])?;
+    let Some(r) = result_decl(&stmts[d]) else {
+        return match_declared_value(stmts, i, d, t, is_func_body_top, last_occ);
+    };
     let kc = t.pat.len();
     let region_start = d + 1;
     // F2: effective-count ceiling (interposed trivia don't consume the budget).
@@ -3566,23 +3576,13 @@ fn finish_unified(
         }
     }
     Some(Unified {
-        args: args.into_iter().map(untruncated).collect(),
+        // Every target is non-variadic, so a trailing call's extra results
+        // fill no parameter the body reads: `helper(f())` needs no `(f())`,
+        // whether the site or a written parameter's copy adjusted it.
+        args: args.into_iter().map(crate::untruncated).collect(),
         result: b.result,
         callee_locals: b.locals.values().cloned().collect(),
     })
-}
-
-/// `value` as an argument of a rebuilt helper call. Every target is
-/// non-variadic, so the results a trailing call returns past its first fill no
-/// parameter the body reads: `helper(f())` needs no `(f())` truncation, whether
-/// the site or a written parameter's copy adjusted the call to one result.
-pub(crate) fn untruncated(value: RValue) -> RValue {
-    match value {
-        RValue::Select(Select::Call(call)) => RValue::Call(call),
-        RValue::Select(Select::MethodCall(call)) => RValue::MethodCall(call),
-        RValue::Select(Select::VarArg(vararg)) => RValue::VarArg(vararg),
-        value => value,
-    }
 }
 
 /// Exact Tier-A match first; when a parameter controls a branch, fall back to a
