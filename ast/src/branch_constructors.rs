@@ -168,6 +168,12 @@ impl State {
         if table.0.iter().any(|(key, _)| !key.as_ref().is_none_or(total_literal_key)) {
             return Err("initializer_key");
         }
+        // The constructor already sets the property the branches overwrite:
+        // the source assigned it there, and moving the choice into the
+        // constructor would repeat the key (`{ Value = a, ..., Value = v1 }`).
+        if table.0.iter().any(|(existing, _)| existing.as_ref() == Some(key)) {
+            return Err("initialized_property");
+        }
         if assign.right[0].values_read().iter().any(|read| *read == &object) {
             return Err("table_observed_in_initializer");
         }
