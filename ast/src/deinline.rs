@@ -3037,7 +3037,9 @@ fn match_value(
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
     canon_cache: &mut CanonCache,
 ) -> Option<Hit> {
-    let r = result_decl(&stmts[i])?;
+    let Some(r) = result_decl(&stmts[i]) else {
+        return match_declared_value(stmts, i, t, is_func_body_top, last_occ);
+    };
     let kc = t.pat.len();
     let body_start = i + 1;
     // F2: effective-count ceiling (interposed trivia don't consume the budget).
@@ -3123,6 +3125,36 @@ fn match_value(
         result: Some(r),
         tail_ret: None,
     })
+}
+
+/// `local RESULT = E`: SSA already fused the inlined region into the RESULT
+/// declaration (`c and K or B`), so it is the whole region of a helper whose
+/// canonical body is one `return X` (canon fuses its return diamonds the same
+/// way). It unifies as `local RESULT; RESULT = E`, under `match_value`'s gates.
+fn match_declared_value(
+    stmts: &[Statement],
+    i: usize,
+    t: &Target,
+    is_func_body_top: bool,
+    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+) -> Option<Hit> {
+    let Statement::Assign(decl) = &stmts[i] else { return None };
+    if t.pat.len() != 1 || !decl.prefix || decl.parallel || decl.left.len() != 1 || decl.right.len() != 1 {
+        return None;
+    }
+    let LValue::Local(r) = &decl.left[0] else { return None };
+    if is_func_body_top && i == 0 && stmts.len() == 1 {
+        return None;
+    }
+    let store = [Statement::Assign(Assign { prefix: false, ..decl.clone() })];
+    if !charge_window(t, &store) {
+        return None;
+    }
+    let u = try_unify_site_any(t, &canon_recurse(canon_top(&store, true), true), &[])?;
+    let complete = u.result.as_ref() == Some(r)
+        && !u.callee_locals.contains(r)
+        && !tail_has_live(last_occ, stmts, i, i + 1, &u.callee_locals);
+    complete.then(|| Hit { f_local: t.f_local.clone(), consume: 1, args: u.args, result: Some(r.clone()), tail_ret: None })
 }
 
 /// §8: a value-returning callee with a leading non-branch statement (its own
