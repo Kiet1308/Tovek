@@ -19,6 +19,9 @@ pub struct Call {
     /// read after its arguments. Not part of equality; rebuilt calls start
     /// without it.
     pub callee_after_arguments: bool,
+    /// Rebuilt by a de-inliner from a copy Luau inlined: the uses that named
+    /// its arguments now sit in the callee. Not part of equality.
+    pub rebuilt: bool,
 }
 
 impl PartialEq for Call {
@@ -41,10 +44,12 @@ impl Call {
             arguments,
             reconstruction_event: 0,
             callee_after_arguments: false,
+            rebuilt: false,
         }
     }
 
     pub(crate) fn reconstructed(mut self, producer: crate::call_origins::Kind) -> Self {
+        self.rebuilt = true;
         if crate::call_origins::enabled() {
             self.node_origin = crate::node_origins::Origin::synthesized(match producer {
             crate::call_origins::Kind::StatementDeinline => "statement_deinline",

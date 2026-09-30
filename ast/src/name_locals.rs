@@ -47,6 +47,9 @@ struct Hint {
 /// Score of a name derived only from the parameter's bytecode type.
 const TYPE_HINT_SCORE: u8 = 20;
 
+/// Score of a name a local takes from the parameter it is passed to.
+const ARGUMENT_HINT_SCORE: u8 = 30;
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct NameLocalOptions {
     pub dont_reuse_var: bool,
@@ -3857,13 +3860,13 @@ impl Namer {
     /// (`render(petData)` / `render(record.PetData)` -> `petData`). Definitions
     /// come from the immutable preparation; call sites are read after hints are
     /// complete. Any unknown or disagreeing site invalidates that slot.
-    fn interprocedural_param_hints(&mut self, block: &Block, definitions: FunctionDefinitions) {
+    fn interprocedural_param_hints(&mut self, block: &Block, definitions: &FunctionDefinitions) {
         if definitions.is_empty() {
             return;
         }
 
         let mut consensus = FxHashMap::<usize, ParamConsensus>::default();
-        collect_local_function_calls(block, &definitions, self, &mut consensus);
+        collect_local_function_calls(block, definitions, self, &mut consensus);
         let mut hints = Vec::new();
         for (binder, state) in consensus {
             if state.calls == 0 {
@@ -3880,11 +3883,53 @@ impl Namer {
                 }
             }
         }
-        // Definitions were collected while syntax was unchanged and contain
-        // only numeric identities. No analysis owner reaches unused detection.
-        drop(definitions);
         for (parameter, hint) in hints {
             self.apply_callsite_hint(parameter, hint);
+        }
+    }
+
+    /// Name a parameter passed to a rebuilt helper call after the parameter it
+    /// fills: `_texProp(p2)` of `local function _texProp(instance)` names `p2`
+    /// `instance`. The inlined copy's uses of `p2` named it, and rebuilding
+    /// the call moved them into the helper, whose parameter kept that name.
+    /// Weaker than any evidence about `p2` itself: it names only a local that
+    /// is never assigned (a parameter or loop variable, with no value of its
+    /// own to be named after) and has no hint, when every such use agrees.
+    fn argument_hints_from_parameters(&mut self, block: &Block, definitions: &FunctionDefinitions) {
+        if definitions.is_empty() {
+            return;
+        }
+        // Numeric identities only: no `RcLocal` clone may outlive this pass.
+        let mut arguments = FxHashMap::<usize, Option<(u64, Hint)>>::default();
+        visit_local_function_calls(block, definitions, &mut |call, _, parameters| {
+            if !call.rebuilt {
+                return;
+            }
+            for (argument, parameter) in call.arguments.iter().zip(parameters) {
+                let RValue::Local(local) = argument else { continue };
+                let ptr = local_ptr(local);
+                let Some(hint) = self.hints.get(&parameter.ptr).filter(|hint| hint.score > TYPE_HINT_SCORE) else {
+                    continue;
+                };
+                if self.hints.contains_key(&ptr)
+                    || self.counts.get(&ptr).is_some_and(|usage| usage.writes > 0)
+                    || current_name(local).is_some_and(|name| !is_default_name(&name))
+                {
+                    continue;
+                }
+                match arguments.entry(ptr).or_insert_with(|| Some((local.stable_id(), hint.clone()))) {
+                    Some((_, agreed)) if agreed.name == hint.name && agreed.role == hint.role => {}
+                    slot => *slot = None,
+                }
+            }
+        });
+        let mut arguments: Vec<_> = arguments.into_iter().filter_map(|(ptr, hint)| Some((ptr, hint?))).collect();
+        arguments.sort_unstable_by_key(|&(_, (stable_id, _))| stable_id);
+        for (ptr, (stable_id, hint)) in arguments {
+            if let Some(evidence) = &mut self.evidence {
+                evidence.register(ptr, stable_id);
+            }
+            self.set_hint_ptr_with_role(ptr, hint.name, ARGUMENT_HINT_SCORE.min(hint.score), hint.role);
         }
     }
 
@@ -4799,26 +4844,20 @@ impl Namer {
     }
 }
 
-fn record_local_function_call<P>(
+fn record_local_function_call(
     call: &Call,
-    definitions: &FxHashMap<usize, Vec<P>>,
+    ptr: usize,
+    parameters: usize,
     namer: &Namer,
     consensus: &mut FxHashMap<usize, ParamConsensus>,
 ) {
-    let RValue::Local(binder) = &*call.value else {
-        return;
-    };
-    let ptr = local_ptr(binder);
-    let Some(parameters) = definitions.get(&ptr) else {
-        return;
-    };
     let state = consensus.entry(ptr).or_insert_with(|| ParamConsensus {
         calls: 0,
-        names: vec![None; parameters.len()],
-        valid: vec![true; parameters.len()],
+        names: vec![None; parameters],
+        valid: vec![true; parameters],
     });
     state.calls += 1;
-    for index in 0..parameters.len() {
+    for index in 0..parameters {
         let Some(name) = call
             .arguments
             .get(index)
@@ -4841,69 +4880,67 @@ fn collect_local_function_calls<P>(
     namer: &Namer,
     consensus: &mut FxHashMap<usize, ParamConsensus>,
 ) {
+    visit_local_function_calls(block, definitions, &mut |call, binder, parameters| {
+        record_local_function_call(call, binder, parameters.len(), namer, consensus);
+    });
+}
+
+/// Every call `f(...)` of a local function in `definitions`, in `block` and
+/// the closures inside it, with the callee's binder and parameters.
+fn visit_local_function_calls<P>(
+    block: &Block,
+    definitions: &FxHashMap<usize, Vec<P>>,
+    visit: &mut impl FnMut(&Call, usize, &[P]),
+) {
     for statement in &block.0 {
         if let Statement::Call(call) = statement {
-            record_local_function_call(call, definitions, namer, consensus);
+            visit_local_function_call(call, definitions, visit);
         }
         crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
-            collect_calls_in_rvalue(value, definitions, namer, consensus);
+            visit_calls_in_rvalue(value, definitions, visit);
             true
         });
         match statement {
             Statement::If(node) => {
-                collect_local_function_calls(
-                    &node.then_block.lock(),
-                    definitions,
-                    namer,
-                    consensus,
-                );
-                collect_local_function_calls(
-                    &node.else_block.lock(),
-                    definitions,
-                    namer,
-                    consensus,
-                );
+                visit_local_function_calls(&node.then_block.lock(), definitions, visit);
+                visit_local_function_calls(&node.else_block.lock(), definitions, visit);
             }
-            Statement::While(node) => {
-                collect_local_function_calls(&node.block.lock(), definitions, namer, consensus)
-            }
-            Statement::Repeat(node) => {
-                collect_local_function_calls(&node.block.lock(), definitions, namer, consensus)
-            }
-            Statement::NumericFor(node) => {
-                collect_local_function_calls(&node.block.lock(), definitions, namer, consensus)
-            }
-            Statement::GenericFor(node) => {
-                collect_local_function_calls(&node.block.lock(), definitions, namer, consensus)
-            }
+            Statement::While(node) => visit_local_function_calls(&node.block.lock(), definitions, visit),
+            Statement::Repeat(node) => visit_local_function_calls(&node.block.lock(), definitions, visit),
+            Statement::NumericFor(node) => visit_local_function_calls(&node.block.lock(), definitions, visit),
+            Statement::GenericFor(node) => visit_local_function_calls(&node.block.lock(), definitions, visit),
             _ => {}
         }
     }
 }
 
-fn collect_calls_in_rvalue<P>(
+fn visit_local_function_call<P>(
+    call: &Call,
+    definitions: &FxHashMap<usize, Vec<P>>,
+    visit: &mut impl FnMut(&Call, usize, &[P]),
+) {
+    if let RValue::Local(binder) = &*call.value
+        && let Some(parameters) = definitions.get(&local_ptr(binder))
+    {
+        visit(call, local_ptr(binder), parameters);
+    }
+}
+
+fn visit_calls_in_rvalue<P>(
     value: &RValue,
     definitions: &FxHashMap<usize, Vec<P>>,
-    namer: &Namer,
-    consensus: &mut FxHashMap<usize, ParamConsensus>,
+    visit: &mut impl FnMut(&Call, usize, &[P]),
 ) {
     match value {
-        RValue::Call(call) | RValue::Select(Select::Call(call)) => {
-            record_local_function_call(call, definitions, namer, consensus)
-        }
+        RValue::Call(call) | RValue::Select(Select::Call(call)) => visit_local_function_call(call, definitions, visit),
         RValue::Closure(closure) => {
-            collect_local_function_calls(
-                &closure.function.lock().body,
-                definitions,
-                namer,
-                consensus,
-            );
+            visit_local_function_calls(&closure.function.lock().body, definitions, visit);
             return;
         }
         _ => {}
     }
     value.visit_rvalues(&mut |child| {
-        collect_calls_in_rvalue(child, definitions, namer, consensus);
+        visit_calls_in_rvalue(child, definitions, visit);
         true
     });
 }
@@ -5163,12 +5200,19 @@ fn name_locals_impl<const REFERENCE: bool>(
     };
     namer.collect(block, true);
     namer.usage_based_hints();
+    // A parameter named after the helper it is passed to can in turn name the
+    // parameters it is passed to (`_writeFrame(instance, ...)`).
+    namer.evidence_rule = "parameter_of_argument";
+    namer.argument_hints_from_parameters(block, &definitions);
     namer.evidence_rule = "resolved_call_consensus";
     #[cfg(test)]
     if REFERENCE { reference::interprocedural_param_hints(&mut namer, block); }
-    else { namer.interprocedural_param_hints(block, definitions); }
+    else { namer.interprocedural_param_hints(block, &definitions); }
     #[cfg(not(test))]
-    namer.interprocedural_param_hints(block, definitions);
+    namer.interprocedural_param_hints(block, &definitions);
+    // Definitions were collected while syntax was unchanged and contain only
+    // numeric identities. No analysis owner reaches unused detection.
+    drop(definitions);
     namer.evidence_rule = "declaration_and_type_hint";
     namer.apply(block);
     if rename {
@@ -8259,6 +8303,35 @@ mod tests {
         name_locals(&mut block, true);
 
         assert_eq!(name_of(&parameter), "point");
+    }
+
+    #[test]
+    fn a_parameter_passed_to_a_rebuilt_call_takes_the_helper_parameter_name() {
+        // `local function texProp(decal) return decal:IsA("Decal") end`
+        // `local function run(p) texProp(p) end`, where `texProp(p)` was rebuilt.
+        for rebuilt in [true, false] {
+            let helper_parameter = RcLocal::default();
+            let mut helper = Function::default();
+            helper.parameters = vec![helper_parameter.clone()];
+            helper.body = Block(vec![ret(vec![method_call(RValue::Local(helper_parameter), "IsA", vec![string("Decal")])])]);
+            let (texture, run, parameter) = (RcLocal::default(), RcLocal::default(), RcLocal::default());
+            let mut call = Call::new(RValue::Local(texture.clone()), vec![RValue::Local(parameter.clone())]);
+            if rebuilt {
+                call = call.reconstructed(crate::call_origins::Kind::StatementDeinline);
+            }
+            let mut caller = Function::default();
+            caller.parameters = vec![parameter.clone()];
+            caller.body = Block(vec![Statement::Call(call)]);
+            let mut block = Block(vec![
+                declare(&texture, closure_of(helper)),
+                declare(&run, closure_of(caller)),
+                use_local(&run),
+            ]);
+
+            name_locals(&mut block, true);
+
+            assert_eq!(name_of(&parameter), if rebuilt { "decal" } else { "p" });
+        }
     }
 
     #[test]
