@@ -134,13 +134,41 @@ fn strip_tail(block: &mut Block, may_empty: bool) {
             return;
         }
         block.0.remove(pos);
-        if let Some(pos) = block.0.iter().rposition(|s| !matches!(s, Statement::Empty(_)))
-            && let Statement::If(r#if) = &block.0[pos]
-        {
-            strip_if_arms(r#if);
-        }
-    } else if let Statement::If(r#if) = &block.0[pos] {
+    }
+    merge_tail_guards(block);
+    if let Some(pos) = block.0.iter().rposition(|s| !matches!(s, Statement::Empty(_)))
+        && let Statement::If(r#if) = &block.0[pos]
+    {
         strip_if_arms(r#if);
+    }
+}
+
+/// In tail position, `if c then A return end` followed only by an `if` is
+/// that `if` as the guard's `elseif`: the return merely skipped it
+/// (`if c then A elseif d then B end`). A value return stays a guard, and so
+/// does a guard with no other statement.
+fn merge_tail_guards(block: &mut Block) {
+    loop {
+        let real: Vec<usize> = (0..block.0.len())
+            .filter(|&i| !matches!(block.0[i], Statement::Empty(_)))
+            .collect();
+        let [.., guard_at, tail_at] = real[..] else { return };
+        if !matches!(block.0[tail_at], Statement::If(_)) {
+            return;
+        }
+        let Statement::If(guard) = &block.0[guard_at] else { return };
+        if !guard.else_block.lock().0.is_empty() {
+            return;
+        }
+        let then = guard.then_block.lock().0.clone();
+        let mut body = then.iter().filter(|s| !matches!(s, Statement::Empty(_)));
+        let (Some(_), Some(Statement::Return(r))) = (body.next(), body.last()) else { return };
+        if !r.values.is_empty() {
+            return;
+        }
+        let condition = guard.condition.clone();
+        let tail = block.0.remove(tail_at);
+        block.0[guard_at] = crate::If::new(condition, Block(then), Block(vec![tail])).into();
     }
 }
 
@@ -236,6 +264,38 @@ mod tests {
             f.lock().body.to_string(),
             "if c then\n\ta()\nelseif d then\n\treturn\nelse\n\tb()\nend"
         );
+    }
+
+    #[test]
+    fn tail_guards_before_a_final_if_become_an_elseif_chain() {
+        // `if a then x() return end if b then y() return end if c then z() end`
+        let guard = |name: &str, action: &str| {
+            If::new(global(name), Block(vec![call(action), void_return()]), Block::default()).into()
+        };
+        let last = If::new(global("c"), Block(vec![call("z")]), Block::default());
+        let f = function(vec![guard("a", "x"), guard("b", "y"), last.into()]);
+        let mut block = Block(vec![Call::new(global("use"), vec![closure(&f)]).into()]);
+
+        cleanup_redundant_returns(&mut block);
+
+        assert_eq!(
+            f.lock().body.to_string(),
+            "if a then\n\tx()\nelseif b then\n\ty()\nelseif c then\n\tz()\nend"
+        );
+    }
+
+    #[test]
+    fn keeps_guards_that_return_a_value_or_do_nothing_else() {
+        let value_guard = If::new(global("a"), Block(vec![call("x"), Return::new(vec![string("v")]).into()]), Block::default());
+        let bare_guard = If::new(global("b"), Block(vec![void_return()]), Block::default());
+        let last = If::new(global("c"), Block(vec![call("z")]), Block::default());
+        let f = function(vec![value_guard.into(), bare_guard.into(), last.into()]);
+        let mut block = Block(vec![Call::new(global("use"), vec![closure(&f)]).into()]);
+        let before = f.lock().body.to_string();
+
+        cleanup_redundant_returns(&mut block);
+
+        assert_eq!(f.lock().body.to_string(), before);
     }
 
     #[test]
