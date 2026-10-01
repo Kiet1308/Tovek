@@ -40,7 +40,8 @@
    "capture_written_after_yield": "Motion fixture (2026-10-01): a cell written after a yield keeps its snapshot; the selects and coroutine restructuring differ; baselined from the introducing commit output.",
    "parameter_hole_multret": "Review fixture (2026-10-01): a call spread into a parameter position is not the helper call; baselined from the fixing commit output.",
    "rewritten_helper_arity": "Review fixture (2026-10-01): only a helper proven single-valued collapses into return; baselined from the fixing commit output.",
-   "compound_local_base": "Compound fixture (2026-10-01): a local snapshot folds into the op= base only as an upvalue or an uncaptured local; a rebound local keeps it; baselined from the fixing commit output."
+   "compound_local_base": "Compound fixture (2026-10-01): a local snapshot folds into the op= base only as an upvalue or an uncaptured local; a rebound local keeps it; baselined from the fixing commit output.",
+   "tuple_store_targets": "Tuple fixture (2026-10-01): stores right after a multi-result call fold into one multiple assignment; a plain swap and re-read results stay; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -311,6 +312,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 2
+  },
+  {
+   "file": "tuple_store_targets",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 7
   },
   {
    "file": "typed_params",

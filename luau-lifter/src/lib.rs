@@ -722,6 +722,8 @@ fn decompile_bytecode_internal(
                 ptime!(S_REROLL_ARITHMETIC);
                 ast::reroll_arithmetic::reroll_arithmetic(&mut body);
             }
+            // `x, y = f()` before naming sees the call's results land in `x, y`.
+            ast::fold_tuple_copies::fold_tuple_copies(&mut body);
             let legacy_naming = {
                 ptime!(S_NAME_LOCALS);
                 name_locals_with_evidence(

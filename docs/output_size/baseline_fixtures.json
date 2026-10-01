@@ -544,6 +544,18 @@
       "bytes": 732,
       "lines": 47
     },
+    "semantic/tuple_store_targets__O0.luau": {
+      "bytes": 753,
+      "lines": 59
+    },
+    "semantic/tuple_store_targets__O1.luau": {
+      "bytes": 753,
+      "lines": 59
+    },
+    "semantic/tuple_store_targets__O2.luau": {
+      "bytes": 1074,
+      "lines": 67
+    },
     "semantic/typed_params__O0.luau": {
       "bytes": 483,
       "lines": 29
