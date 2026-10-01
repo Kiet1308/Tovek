@@ -40,6 +40,18 @@
       "bytes": 515,
       "lines": 40
     },
+    "semantic/branch_tuple_helper__O0.luau": {
+      "bytes": 795,
+      "lines": 52
+    },
+    "semantic/branch_tuple_helper__O1.luau": {
+      "bytes": 795,
+      "lines": 52
+    },
+    "semantic/branch_tuple_helper__O2.luau": {
+      "bytes": 1463,
+      "lines": 72
+    },
     "semantic/builtin_alias_across_blocks__O0.luau": {
       "bytes": 291,
       "lines": 26

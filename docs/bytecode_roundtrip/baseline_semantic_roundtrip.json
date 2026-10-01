@@ -43,7 +43,8 @@
    "compound_local_base": "Compound fixture (2026-10-01): a local snapshot folds into the op= base only as an upvalue or an uncaptured local; a rebound local keeps it; baselined from the fixing commit output.",
    "tuple_store_targets": "Tuple fixture (2026-10-01): stores right after a multi-result call fold into one multiple assignment; a plain swap and re-read results stay; baselined from the introducing commit output.",
    "repeated_select_operand": "Select fixture (2026-10-01): a repeated pure last operand of and/or folds; an __index read stays; baselined from the introducing commit output.",
-   "nested_capture_argument": "Capture fixture (2026-10-01): a once-written local re-captured through a parent's upvalue is a stable argument; a rebound one is not; argument copies fold into early expression rebuilds; baselined from the fixing commit output."
+   "nested_capture_argument": "Capture fixture (2026-10-01): a once-written local re-captured through a parent's upvalue is a stable argument; a rebound one is not; argument copies fold into early expression rebuilds; baselined from the fixing commit output.",
+   "branch_tuple_helper": "Tuple fixture (2026-10-01): a helper returning two values through branches rebuilds into its result locals (shared result register); a copy storing into its argument register stays; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -62,6 +63,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 2
+  },
+  {
+   "file": "branch_tuple_helper",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 6
   },
   {
    "file": "builtin_alias_across_blocks",

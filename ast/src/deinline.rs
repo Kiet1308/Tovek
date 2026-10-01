@@ -4932,8 +4932,8 @@ fn any_structural_target(body: &Block) -> bool {
             return;
         }
         let (body, _) = pattern_body(&g.body.0, &g.parameters);
-        let Some((kind, falls_off)) = classify_returns(body) else { return; };
-        let pattern = if falls_off { canon(&returning_nil(body)) } else { canon(body) };
+        let Some((kind, falls_off)) = classify_returns(&body) else { return; };
+        let pattern = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
         if pattern.is_empty() || anchor_score(&pattern, &g.parameters) < 2 {
             return;
         }
@@ -4947,9 +4947,183 @@ fn any_structural_target(body: &Block) -> bool {
 }
 
 /// The part of a helper's body its sites repeat, and the locals it returns
-/// in place of a call's results ([`local_tuple_return`]; usually none).
-fn pattern_body<'a>(body: &'a [Statement], parameters: &[RcLocal]) -> (&'a [Statement], Vec<RcLocal>) {
-    local_tuple_return(body, parameters).unwrap_or((body, Vec::new()))
+/// in place of a call's results ([`local_tuple_return`],
+/// [`branch_tuple_return`]; usually none).
+fn pattern_body<'a>(body: &'a [Statement], parameters: &[RcLocal]) -> (std::borrow::Cow<'a, [Statement]>, Vec<RcLocal>) {
+    if let Some((rest, returned)) = local_tuple_return(body, parameters) {
+        return (std::borrow::Cow::Borrowed(rest), returned);
+    }
+    if let Some((lowered, returned)) = branch_tuple_return(body, parameters) {
+        return (std::borrow::Cow::Owned(lowered), returned);
+    }
+    (std::borrow::Cow::Borrowed(body), Vec::new())
+}
+
+/// A helper returning the same number (two or more) of values on every path,
+/// through branches: `local i = find(s, " "); if i then return sub(s, 1, i -
+/// 1), i end; return s, 1`. Luau inlines `local name, at = split(s)` as the
+/// body with each `return` storing into the caller's locals, and a local the
+/// body returns sharing the register of its result: `local i = find(s, " ");
+/// local name; if i then name = sub(s, 1, i - 1) else name = s; i = 1 end`.
+/// Returns that body, the stores in place of the returns, and the locals
+/// standing for the results in order. A result is the body's own top-level
+/// local when it is the only local returned in that position, no later
+/// result reads it and no closure captures it; otherwise a fresh local
+/// declared before its first store.
+fn branch_tuple_return(body: &[Statement], parameters: &[RcLocal]) -> Option<(Vec<Statement>, Vec<RcLocal>)> {
+    if !block_has_return(body) {
+        return None;
+    }
+    let tree = unguard_returns(body)?;
+    let mut leaves: Vec<Vec<RValue>> = Vec::new();
+    collect_return_leaves(&tree, &mut leaves);
+    let arity = leaves.first()?.len();
+    // A call before the last value is cut to one result, as its store is; the
+    // last value must be one value already.
+    let fixed = |leaf: &Vec<RValue>| {
+        let (last, rest) = leaf.split_last().unwrap();
+        rest.iter().all(is_truncatable_return_value)
+            && (is_scalar_return_value(last) || matches!(last, RValue::Select(Select::Call(_) | Select::MethodCall(_))))
+    };
+    if leaves.len() < 2 || arity < 2 || leaves.iter().any(|leaf| leaf.len() != arity || !fixed(leaf)) {
+        return None;
+    }
+    let declared: Vec<RcLocal> = body
+        .iter()
+        .filter_map(|statement| match statement {
+            Statement::Assign(assign) if assign.prefix => Some(assign.left.iter().filter_map(LValue::as_local).cloned()),
+            _ => None,
+        })
+        .flatten()
+        .filter(|local| !parameters.contains(local))
+        .collect();
+    let mut results: Vec<RcLocal> = Vec::with_capacity(arity);
+    let mut fresh: Vec<RcLocal> = Vec::new();
+    for slot in 0..arity {
+        let mut own: Option<&RcLocal> = None;
+        let mut unique = true;
+        for leaf in &leaves {
+            if let RValue::Local(local) = &leaf[slot]
+                && declared.contains(local)
+            {
+                match own {
+                    None => own = Some(local),
+                    Some(other) if other != local => unique = false,
+                    _ => {}
+                }
+            }
+        }
+        let shared = own.filter(|local| {
+            unique
+                && !results.contains(local)
+                && !closures_capture_any(body, std::slice::from_ref(local))
+                // The stores run in result order: a later result may not
+                // read the local the store for this one overwrites.
+                && leaves.iter().all(|leaf| {
+                    leaf[slot + 1..].iter().all(|value| !value.values_read().iter().any(|read| *read == *local))
+                })
+        });
+        match shared {
+            Some(local) => results.push(local.clone()),
+            None => {
+                let result = RcLocal::default();
+                fresh.push(result.clone());
+                results.push(result);
+            }
+        }
+    }
+    let mut lowered = store_returns(&tree, &results);
+    for result in fresh {
+        let first_store = lowered.iter().position(|statement| {
+            let mut written = FxHashSet::default();
+            collect_written(std::slice::from_ref(statement), &mut written);
+            written.contains(&result)
+        })?;
+        let mut declaration = Assign::new(vec![LValue::Local(result)], Vec::new());
+        declaration.prefix = true;
+        lowered.insert(first_store, declaration.into());
+    }
+    Some((lowered, results))
+}
+
+/// `stmts` with every `return` last in its block: a guard `if c then ...
+/// return x end; rest` takes `rest` as its `else`. Refuses a `return` inside
+/// a loop, a void `return` and a path that runs off the end.
+fn unguard_returns(stmts: &[Statement]) -> Option<Vec<Statement>> {
+    let mut out = Vec::with_capacity(stmts.len());
+    for (index, statement) in stmts.iter().enumerate() {
+        let rest = &stmts[index + 1..];
+        let rest_is_empty = rest.iter().all(is_match_trivia);
+        match statement {
+            Statement::Return(ret) if ret.values.is_empty() => return None,
+            Statement::Return(_) => {
+                out.push(statement.clone());
+                return rest_is_empty.then_some(out);
+            }
+            Statement::If(f) if statement_has_return(statement) => {
+                let then_block = unguard_returns(&f.then_block.lock().0)?;
+                let else_stmts = f.else_block.lock().0.clone();
+                let else_block = if else_stmts.iter().all(is_match_trivia) && !rest_is_empty {
+                    // `if c then ... return x end; rest`
+                    unguard_returns(rest)?
+                } else if rest_is_empty {
+                    unguard_returns(&else_stmts)?
+                } else {
+                    return None;
+                };
+                out.push(If::new(f.condition.clone(), Block(then_block), Block(else_block)).into());
+                return Some(out);
+            }
+            _ if statement_has_return(statement) => return None,
+            _ => out.push(statement.clone()),
+        }
+    }
+    None
+}
+
+fn statement_has_return(statement: &Statement) -> bool {
+    block_has_return(std::slice::from_ref(statement))
+}
+
+/// The values of every `return` of a tree from [`unguard_returns`].
+fn collect_return_leaves(stmts: &[Statement], out: &mut Vec<Vec<RValue>>) {
+    for statement in stmts {
+        match statement {
+            Statement::Return(ret) => out.push(ret.values.clone()),
+            Statement::If(f) => {
+                collect_return_leaves(&f.then_block.lock().0, out);
+                collect_return_leaves(&f.else_block.lock().0, out);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// A tree from [`unguard_returns`] with each `return v1, v2, ...` storing
+/// `results[k] = vk` instead; a result returning itself needs no store.
+fn store_returns(stmts: &[Statement], results: &[RcLocal]) -> Vec<Statement> {
+    let mut out = Vec::with_capacity(stmts.len() + results.len());
+    for statement in stmts {
+        match statement {
+            Statement::Return(ret) => {
+                for (result, value) in results.iter().zip(&ret.values) {
+                    if !matches!(value, RValue::Local(local) if local == result) {
+                        out.push(Assign::new(vec![LValue::Local(result.clone())], vec![value.clone()]).into());
+                    }
+                }
+            }
+            Statement::If(f) => out.push(
+                If::new(
+                    f.condition.clone(),
+                    Block(store_returns(&f.then_block.lock().0, results)),
+                    Block(store_returns(&f.else_block.lock().0, results)),
+                )
+                .into(),
+            ),
+            _ => out.push(statement.clone()),
+        }
+    }
+    out
 }
 
 fn collect_targets(
@@ -5009,7 +5183,7 @@ fn collect_targets(
             continue;
         }
         let (body, returns) = pattern_body(&g.body.0, &g.parameters);
-        let (kind, falls_off) = match classify_returns(body) {
+        let (kind, falls_off) = match classify_returns(&body) {
             Some(classified) => classified,
             None => {
                 // multi-return / mixed / bare-vararg leaf / non-terminal value return
@@ -5025,7 +5199,7 @@ fn collect_targets(
             deinline_reject!(RejectReason::ShapeBudget, g.name.as_deref().unwrap_or("<anon>"));
             continue;
         }
-        let pat = if falls_off { canon(&returning_nil(body)) } else { canon(body) };
+        let pat = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
         if pat.is_empty() {
             deinline_reject!(
                 RejectReason::EmptyPattern,
@@ -5146,7 +5320,7 @@ fn collect_targets(
             .collect();
         let func_ptr = Arc::as_ptr(&func);
         let pat_raw_len = body.len();
-        let pat_spine_len = tail_spine_len(body);
+        let pat_spine_len = tail_spine_len(&body);
         let param_order = g.parameters.clone();
         let pat0_kind = std::mem::discriminant(&pat[0]);
         // §8 + P6: a Value target whose canon'd body is `<K leading non-branch
@@ -6454,6 +6628,87 @@ mod tests {
         ]);
         deinline(&mut block);
         assert!(block.to_string().contains("if helper() then"), "{block}");
+    }
+
+    /// `local at = find(value); if at then return sub(value, at), at end;
+    /// return value, 1` stores into the caller's locals, `at` sharing the
+    /// second result's register; the rebuilt call declares both.
+    #[test]
+    fn a_tuple_returned_through_branches_rebuilds_into_its_results() {
+        let (value, at) = (local("value"), local("at"));
+        let ret = |values: Vec<RValue>| Statement::Return(Return::new(values));
+        let find = |of: &RcLocal| RValue::Call(global_call("find", vec![local_value(of)]));
+        let sub = |of: &RcLocal, at: &RcLocal| RValue::Call(global_call("sub", vec![local_value(of), local_value(at)]));
+        let body = vec![
+            assign_local(&at, find(&value), true),
+            Statement::If(If::new(local_value(&at), Block(vec![ret(vec![sub(&value, &at), local_value(&at)])]), Block::default())),
+            ret(vec![local_value(&value), number(1.0)]),
+        ];
+        let (lowered, results) = branch_tuple_return(&body, &[value.clone()]).expect("branch tuple");
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[1], at, "the returned local is the second result");
+        assert_eq!(
+            Block(lowered).to_string().replace(&results[0].to_string(), "name"),
+            "local at = find(value)\nlocal name\n\nif at then\n\tname = sub(value, at)\nelse\n\tname = value\n\tat = 1\nend"
+        );
+
+        // The site Luau inlines for `local name, position = split(text)`,
+        // with `name` and `position` read afterwards.
+        let helper = local("split");
+        let (text, name, position) = (local("text"), local("name"), local("position"));
+        let mut empty = Assign::new(vec![LValue::Local(name.clone())], Vec::new());
+        empty.prefix = true;
+        let mut block = Block(vec![
+            helper_decl(&helper, body.clone()),
+            assign_local(&position, find(&text), true),
+            empty.into(),
+            Statement::If(If::new(
+                local_value(&position),
+                Block(vec![assign_local(&name, sub(&text, &position), false)]),
+                Block(vec![assign_local(&name, local_value(&text), false), assign_local(&position, number(1.0), false)]),
+            )),
+            Statement::Call(global_call("print", vec![local_value(&name), local_value(&position)])),
+        ]);
+        // The helper's parameter is `value`.
+        if let Statement::Assign(declaration) = &block.0[0]
+            && let RValue::Closure(closure) = &declaration.right[0]
+        {
+            closure.function.lock().parameters = vec![value.clone()];
+        }
+        deinline(&mut block);
+        assert!(block.to_string().contains("local name, position = split(text)"), "{block}");
+
+        // A later result reading the local keeps it apart from the results:
+        // its store would overwrite what the later value reads.
+        let later = vec![
+            assign_local(&at, find(&value), true),
+            Statement::If(If::new(
+                local_value(&at),
+                Block(vec![ret(vec![local_value(&at), RValue::Binary(Binary::new(local_value(&at), number(1.0), BinaryOperation::Add))])]),
+                Block::default(),
+            )),
+            ret(vec![number(0.0), local_value(&value)]),
+        ];
+        let (_, results) = branch_tuple_return(&later, &[value.clone()]).expect("branch tuple");
+        assert_ne!(results[0], at);
+
+        // Every path must return the same number of values.
+        let refused = |body: Vec<Statement>| branch_tuple_return(&body, &[value.clone()]).is_none();
+        assert!(refused(vec![
+            Statement::If(If::new(local_value(&at), Block(vec![ret(vec![number(1.0), number(2.0)])]), Block::default())),
+            ret(vec![number(1.0)]),
+        ]));
+        // A path running off the end returns nothing.
+        assert!(refused(vec![Statement::If(If::new(
+            local_value(&at),
+            Block(vec![ret(vec![number(1.0), number(2.0)])]),
+            Block::default(),
+        ))]));
+        // The last value of a call spreads.
+        assert!(refused(vec![
+            Statement::If(If::new(local_value(&at), Block(vec![ret(vec![number(1.0), find(&value)])]), Block::default())),
+            ret(vec![number(1.0), number(2.0)]),
+        ]));
     }
 
     #[test]
