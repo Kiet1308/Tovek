@@ -1,6 +1,10 @@
 //! Vector constants must not look up a mutable environment every time a
 //! function runs. Source has no vector literal token, so capture the standard
-//! runtime constructor once, before executing the recovered chunk.
+//! runtime constructor once, before executing the recovered chunk. A chunk with
+//! no local/register headroom left calls `vector.create` inline instead, where
+//! Luau resolves that path once at load time (the script never assigns
+//! `vector` and keeps its environment): it then folds the call back into the
+//! constant.
 use rustc_hash::FxHashMap;
 
 use crate::{
@@ -26,14 +30,17 @@ pub fn materialize_vectors(
     else {
         return Ok(None);
     };
-    if crate::lower_conditionals::local_rewrite_frame_with_bound(body, &[], 0, register_bound)
-        .headroom
-        == 0
-    {
+    let has_headroom =
+        crate::lower_conditionals::local_rewrite_frame_with_bound(body, &[], 0, register_bound)
+            .headroom
+            != 0;
+    if !has_headroom && !crate::deinline_safety::CaptureSafety::new(body).constant_import(&vector_create()) {
         return Err("no local/register headroom for the vector constructor binding");
     }
-    let name = crate::rehoist_constants::unique_name("createVector", &mut inventory.reserved);
-    let constructor = RcLocal::new(Local::new(Some(name)));
+    let constructor = has_headroom.then(|| {
+        let name = crate::rehoist_constants::unique_name("createVector", &mut inventory.reserved);
+        RcLocal::new(Local::new(Some(name)))
+    });
     let mut context = Context {
         constructor,
         functions: FxHashMap::default(),
@@ -41,23 +48,22 @@ pub fn materialize_vectors(
     if !context.block(body) {
         return Ok(None);
     }
+    let Some(constructor) = context.constructor else {
+        return Ok(Some(crate::local_producers::Pass {
+            pass: "materialize_vectors",
+            rewrite_model: "inline_constructor_v1",
+            introduced_locals: 0,
+            ledger: Default::default(),
+        }));
+    };
     let mut declaration = Assign::new(
-        vec![context.constructor.clone().into()],
-        vec![
-            Index::new(
-                Global(b"vector".to_vec()).into(),
-                Literal::String(b"create".to_vec()).into(),
-            )
-            .into(),
-        ],
+        vec![constructor.clone().into()],
+        vec![vector_create()],
     );
     declaration.prefix = true;
     body.0.insert(0, declaration.into());
     let mut ledger = crate::local_producers::Ledger::default();
-    ledger.record(
-        &context.constructor,
-        crate::local_producers::Role::VectorConstructor,
-    );
+    ledger.record(&constructor, crate::local_producers::Role::VectorConstructor);
     Ok(Some(crate::local_producers::Pass {
         pass: "materialize_vectors",
         rewrite_model: "entry_constructor_snapshot_v1",
@@ -133,10 +139,48 @@ mod tests {
         assert!(text.contains("createVector_2(0.1, -0, 1)"), "{text}");
         assert!(text.contains("global = createVector"), "{text}");
     }
+
+    /// 200 top-level locals (Luau's limit), then `return VECTOR`.
+    fn full_frame(mut prefix: Vec<Statement>) -> Block {
+        for i in 0..200 {
+            let mut declaration = Assign::new(
+                vec![RcLocal::new(Local::new(Some(format!("v{i}")))).into()],
+                vec![Literal::Number(i as f64).into()],
+            );
+            declaration.prefix = true;
+            prefix.push(declaration.into());
+        }
+        prefix.push(crate::Return::new(vec![Literal::Vector(0.1, -0.0, 1.0).into()]).into());
+        Block(prefix)
+    }
+
+    #[test]
+    fn without_headroom_a_load_time_constructor_is_called_in_place() {
+        let mut body = full_frame(Vec::new());
+        let report = materialize_vectors(&mut body).unwrap().unwrap();
+        assert_eq!(report.introduced_locals, 0);
+        let text = body.to_string();
+        assert!(text.contains("return vector.create(0.1, -0, 1)"), "{text}");
+        assert!(!text.contains("createVector"), "{text}");
+
+        // The script replaces `vector`: no source spelling is exact.
+        let assignment = Assign::new(vec![crate::LValue::Global(Global(b"vector".to_vec()))], vec![Literal::Nil.into()]);
+        let mut body = full_frame(vec![assignment.into()]);
+        assert!(materialize_vectors(&mut body).is_err());
+    }
+}
+
+fn vector_create() -> RValue {
+    Index::new(
+        Global(b"vector".to_vec()).into(),
+        Literal::String(b"create".to_vec()).into(),
+    )
+    .into()
 }
 
 struct Context {
-    constructor: RcLocal,
+    /// `None` when the chunk has no headroom for the shared binding.
+    constructor: Option<RcLocal>,
     functions: FxHashMap<usize, bool>,
 }
 
@@ -152,7 +196,9 @@ impl Context {
         };
         if let Some(components) = components {
             *value = Call::new(
-                self.constructor.clone().into(),
+                self.constructor
+                    .as_ref()
+                    .map_or_else(vector_create, |local| local.clone().into()),
                 components
                     .into_iter()
                     .map(|n| Literal::Number(n).into())
@@ -171,10 +217,8 @@ impl Context {
                 self.functions.insert(id, used);
                 used
             };
-            if used {
-                closure
-                    .upvalues
-                    .push(Upvalue::Copy(self.constructor.clone()));
+            if let (true, Some(constructor)) = (used, &self.constructor) {
+                closure.upvalues.push(Upvalue::Copy(constructor.clone()));
             }
             return used;
         }
