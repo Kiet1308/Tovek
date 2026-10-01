@@ -149,6 +149,35 @@ pub(crate) fn param_name_from_field_key(key: &str) -> Option<String> {
     Some(name)
 }
 
+/// The one string literal among `arguments`, if exactly one.
+fn single_string_key(arguments: &[RValue]) -> Option<&str> {
+    let mut keys = arguments.iter().filter_map(string_literal);
+    let key = keys.next()?;
+    keys.next().is_none().then_some(key)
+}
+
+/// A string key read as a name: `"EmitDelay"` -> `emitDelay`,
+/// `"Transparency_Duration"` -> `transparencyDuration`. Keys that name nothing
+/// (`"Value"`) or are not identifiers (`"rbxassetid://1"`) give none.
+fn key_name(key: &str) -> Option<String> {
+    if !key.starts_with(|c: char| c.is_ascii_alphabetic())
+        || !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
+        return None;
+    }
+    let screaming = key.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_');
+    let joined: String = if screaming {
+        key.to_string()
+    } else {
+        key.split('_')
+            .filter(|part| !part.is_empty())
+            .enumerate()
+            .map(|(index, part)| if index == 0 { part.to_string() } else { capitalize_first(part) })
+            .collect()
+    };
+    param_name_from_field_key(&joined)
+}
+
 /// A name derived from a "base" expression, e.g. the `Instance` in `Instance.new`
 /// or the global in `require(...)`.
 fn base_name_of(rvalue: &RValue) -> Option<String> {
@@ -258,6 +287,13 @@ fn call_hint_of(callee: &RValue, arguments: &[RValue]) -> Option<String> {
             (Some("buffer"), "create") => return Some("buf".to_string()),
             // Fusion scoping helpers always yield a scope.
             (_, "scoped" | "innerScope" | "deriveScope") => return Some("scope".to_string()),
+            // A keyed getter reads the value stored under its key
+            // (`config.get(instance, "EmitDelay", 0)` -> `emitDelay`).
+            (Some(_), "get" | "Get") => {
+                if let Some(name) = single_string_key(arguments).and_then(key_name) {
+                    return Some(name);
+                }
+            }
             _ => {}
         }
         // A transform verb names its product (`utils.merge(a, b)` -> `merged`,
@@ -545,6 +581,13 @@ fn method_call_hint(method_call: &MethodCall) -> Option<String> {
         // generic `result` minted by the pcall-tuple / loop-fill hints.
         "Raycast" => return Some("raycastResult".to_string()),
         _ => {}
+    }
+    // A keyed getter reads the value stored under its key
+    // (`cache:Get("Coins")` -> `coins`).
+    if matches!(method, "Get" | "get")
+        && let Some(name) = single_string_key(&method_call.arguments).and_then(key_name)
+    {
+        return Some(name);
     }
     // Getter-style methods: obj:GetChildren() -> "children", obj:GetMouse() -> "mouse"
     if let Some(rest) = method.strip_prefix("Get")
@@ -10516,6 +10559,28 @@ mod tests {
         assert_eq!(name_of(&data), "data");
         assert_eq!(name_of(&state), "state");
         assert_eq!(name_of(&object), "object");
+    }
+
+    /// A keyed getter names its result after the key; a key that names
+    /// nothing does not.
+    #[test]
+    fn a_keyed_getter_names_the_value_under_its_key() {
+        let (config, delay, coins, plain) = (RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default());
+        let get = |key: &str| RValue::Call(Call::new(
+            RValue::Index(Index::new(RValue::Local(config.clone()), string("get"))),
+            vec![global("ref"), string(key), number(0.0)],
+        ));
+        let mut block = Block(vec![
+            declare(&config, RValue::Call(Call::new(global("require"), vec![global("Config")]))),
+            declare(&delay, get("Transparency_Duration")),
+            declare(&coins, method_call(global("ClientStatCache"), "Get", vec![string("Coins")])),
+            declare(&plain, get("Value")),
+            Statement::Call(Call::new(global("print"), vec![RValue::Local(delay.clone()), RValue::Local(coins.clone()), RValue::Local(plain.clone())])),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&delay), "transparencyDuration");
+        assert_eq!(name_of(&coins), "coins");
+        assert_ne!(name_of(&plain), "value");
     }
 
     /// A call through a single-write local alias of a library member names
