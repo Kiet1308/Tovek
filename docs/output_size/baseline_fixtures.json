@@ -472,6 +472,18 @@
       "bytes": 2997,
       "lines": 194
     },
+    "semantic/untruncated_arguments__O0.luau": {
+      "bytes": 510,
+      "lines": 30
+    },
+    "semantic/untruncated_arguments__O1.luau": {
+      "bytes": 497,
+      "lines": 29
+    },
+    "semantic/untruncated_arguments__O2.luau": {
+      "bytes": 574,
+      "lines": 30
+    },
     "semantic/while_header_opens_for__O0.luau": {
       "bytes": 587,
       "lines": 43

@@ -16,7 +16,7 @@ const BYTECODE: &[u8] = include_bytes!("fixtures/deinline_guard_select.luaubc");
 fn guard_return_helpers_match_their_inlined_selects() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
-    assert!(source.contains("computeThrottle((math.min(1,"), "{source}");
+    assert!(source.contains("computeThrottle(math.min(1,"), "{source}");
     assert!(!source.contains("and 0 or 0.5"), "{source}");
     assert_eq!(source.matches(".. formatBool(").count(), 2, "{source}");
     assert!(!source.contains("\"-\" or"), "{source}");

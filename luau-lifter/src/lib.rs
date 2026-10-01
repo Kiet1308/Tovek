@@ -931,6 +931,7 @@ fn decompile_bytecode_internal(
             }
             ast::forward_declarations::bare_forward_declarations(&mut body);
             ast::compound_bases::fold_compound_bases(&mut body);
+            ast::untruncate_arguments::untruncate_arguments(&mut body);
             drop(late_timer);
             // No expression/condition mutation is permitted after this point.
             let name_inference = {

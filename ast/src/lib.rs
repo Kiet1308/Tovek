@@ -94,6 +94,7 @@ mod table;
 mod traverse;
 pub mod type_system;
 mod unary;
+pub mod untruncate_arguments;
 mod vararg;
 mod r#while;
 
