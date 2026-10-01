@@ -135,6 +135,18 @@ fn generated(name: &str) -> bool {
     matches!(chars.next(), Some('p' | 'v')) && chars.all(|c| c.is_ascii_digit())
 }
 
+/// A local named only after the Fusion constructor that made it (`computed`
+/// for `scope:Computed(..)`, `value` for `scope:Value(..)`): strong role
+/// evidence, such as the property it is bound to, names it better.
+fn weak(node: &Node) -> bool {
+    node.kind == "local" && matches!(node.before.trim_end_matches(|c: char| c.is_ascii_digit()), "computed" | "value")
+}
+
+/// The lowest priority that renames `node`'s current name.
+fn rename_floor(node: &Node) -> u8 {
+    if weak(node) { 80 } else { 40 }
+}
+
 fn useful(name: &str) -> bool {
     name.len() <= 64
         && crate::valid_source_name(name)
@@ -933,10 +945,10 @@ impl Graph {
             // `currentAnchorPoint`).
             for (value, state) in std::mem::take(&mut self.state_reads) {
                 let Some(node) = self.nodes.get(&state) else { continue; };
-                let name = if generated(&node.before) {
-                    self.best(state).map(|(name, _)| name)
-                } else {
-                    Some(node.before.clone())
+                let name = match self.best(state) {
+                    Some((name, priority)) if (generated(&node.before) || weak(node)) && priority >= rename_floor(node) => Some(name),
+                    _ if generated(&node.before) => None,
+                    _ => Some(node.before.clone()),
                 };
                 if self.immutable(value)
                     && let Some(name) = name.as_deref().and_then(crate::name_locals::state_value_name)
@@ -993,13 +1005,14 @@ impl Graph {
                 "unknown_owner"
             } else if node.overflow {
                 "candidate_budget_exhausted"
-            } else if !(generated(&node.before) || generic_parameter || module_key) {
+            } else if !(generated(&node.before) || generic_parameter || module_key || weak(node)) {
                 "kept_existing_role"
             } else {
+                let floor = rename_floor(node);
                 let best = node
                     .candidates
                     .iter()
-                    .filter(|c| c.priority >= 40 && (c.reason != "retained_arithmetic_snapshot" || node.writes == 1))
+                    .filter(|c| c.priority >= floor && (c.reason != "retained_arithmetic_snapshot" || node.writes == 1))
                     .map(|c| c.priority)
                     .max();
                 let names: BTreeSet<_> = node
@@ -1407,6 +1420,25 @@ mod tests {
         assert_eq!(modules.to_string(), "modules");
         assert_eq!(defaults.to_string(), "defaults");
         assert_eq!(merged.to_string(), "v4");
+    }
+
+    #[test]
+    fn a_constructor_noun_yields_only_to_strong_role_evidence() {
+        let computed = |name: &str| local(name);
+        let (bound, read, unbound, reader) = (computed("computed"), computed("v2"), computed("computed2"), local("use"));
+        let construct = || -> RValue { Call::new(global("Computed"), vec![]).into() };
+        let block = function(vec![reader.clone()], vec![
+            declare(&bound, construct()),
+            declare(&unbound, construct()),
+            declare(&read, Call::new(reader.clone().into(), vec![bound.clone().into()]).into()),
+            Call::new(global("print"), vec![read.clone().into(), unbound.clone().into()]).into(),
+            Return::new(vec![Table::new(vec![(Some(text("Text")), bound.clone().into())]).into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(bound.to_string(), "text");
+        assert_eq!(read.to_string(), "currentText");
+        // A state read of it is no reason to rename the state itself.
+        assert_eq!(unbound.to_string(), "computed2");
     }
 
     #[test]
