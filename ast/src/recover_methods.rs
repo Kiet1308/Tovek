@@ -46,6 +46,12 @@
 //!     `<expr>:method(`, UNLESS the same name also appears as a static dot-call
 //!     `Prefix.method(arg, ..)` (shaves the `Create`-vs-`TweenService:Create`
 //!     collision).
+//!
+//! A closure field of a table constructor (`return { m = function(p0) ... }`,
+//! which the module is still written as when this runs) is a method of that
+//! table, its other closure fields the siblings. Props and handler tables also
+//! hold closures under string keys, so there only the strong signals count:
+//! `sibling_a` and `d`.
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -246,11 +252,15 @@ fn convert_statement(statement: &mut Statement, scan: &ScriptScan) {
                 .map(|(prefix, method)| (prefix.clone(), method.to_string()));
             if let Some((prefix, method)) = target {
                 if let RValue::Closure(closure) = &assign.right[0] {
-                    try_convert_method(&prefix, &method, closure, scan);
+                    try_convert_method(Owner::Prefix(&prefix), &method, closure, scan);
                 }
             }
         }
     }
+    statement.visit_rvalues(&mut |value| {
+        convert_table_methods(value, scan);
+        true
+    });
 
     // Recurse into nested closure bodies (method defs / receivers can live
     // inside other functions).
@@ -264,9 +274,41 @@ fn convert_statement(statement: &mut Statement, scan: &ScriptScan) {
     for_each_child_block_mut(statement, |child| convert_block(child, scan));
 }
 
+/// What a method is defined on: `Prefix.method = function` or a closure field
+/// of a table constructor, given the names of its closure fields.
+enum Owner<'a> {
+    Prefix(&'a RValue),
+    Fields(&'a FxHashSet<&'a str>),
+}
+
+/// Methods written as closure fields of the table constructors in `value`
+/// (closure bodies are converted as statements of their own).
+fn convert_table_methods(value: &RValue, scan: &ScriptScan) {
+    fn field_method<'a>(key: &'a Option<RValue>, value: &RValue) -> Option<&'a str> {
+        match (key, value) {
+            (Some(RValue::Literal(Literal::String(name))), RValue::Closure(_)) if is_valid_name(name) => {
+                std::str::from_utf8(name).ok()
+            }
+            _ => None,
+        }
+    }
+    if let RValue::Table(table) = value {
+        let siblings: FxHashSet<&str> = table.0.iter().filter_map(|(key, value)| field_method(key, value)).collect();
+        for (key, value) in &table.0 {
+            if let (Some(method), RValue::Closure(closure)) = (field_method(key, value), value) {
+                try_convert_method(Owner::Fields(&siblings), method, closure, scan);
+            }
+        }
+    }
+    value.visit_rvalues(&mut |child| {
+        convert_table_methods(child, scan);
+        true
+    });
+}
+
 /// Evaluate the AND-gate for one method definition and, if it passes, rename
 /// param[0] to `self`.
-fn try_convert_method(prefix: &RValue, method: &str, closure: &crate::Closure, scan: &ScriptScan) {
+fn try_convert_method(owner: Owner, method: &str, closure: &crate::Closure, scan: &ScriptScan) {
     let function = closure.function.lock();
     let Some(p0) = function.parameters.first() else {
         return;
@@ -304,13 +346,14 @@ fn try_convert_method(prefix: &RValue, method: &str, closure: &crate::Closure, s
 
     // ---- receiver signals (>= 1) ----
     let mut signals = ReceiverSignals::default();
-    gather_receiver_signals(&function.body, prefix, p0_key, scan, &mut signals);
+    gather_receiver_signals(&function.body, &owner, p0_key, scan, &mut signals);
 
     // signal d: method called colon-style anywhere, unless also a static dot-call.
     let signal_d =
         scan.colon_call_methods.contains(method) && !scan.static_dot_call_methods.contains(method);
 
-    if !(signals.sibling_a || signals.assign_lhs_index || signals.underscore_field || signal_d) {
+    let field_signals = matches!(owner, Owner::Prefix(_)) && (signals.assign_lhs_index || signals.underscore_field);
+    if !(signals.sibling_a || field_signals || signal_d) {
         return;
     }
 
@@ -332,7 +375,7 @@ struct ReceiverSignals {
 /// receiver counts).
 fn gather_receiver_signals(
     block: &Block,
-    self_prefix: &RValue,
+    owner: &Owner,
     p0_key: usize,
     scan: &ScriptScan,
     out: &mut ReceiverSignals,
@@ -349,31 +392,34 @@ fn gather_receiver_signals(
                             out.underscore_field = true;
                         }
                     }
+                    // A store's address is read too (`p0:remote(name).OnInvoke = f`).
+                    gather_signals_in_rvalue(&index.left, owner, p0_key, scan, out);
+                    gather_signals_in_rvalue(&index.right, owner, p0_key, scan, out);
                 }
             }
         }
 
         // Statement-position method call: `p0:X(...)`.
         if let Statement::MethodCall(method_call) = statement {
-            check_sibling_call(method_call, self_prefix, p0_key, scan, out);
+            check_sibling_call(method_call, owner, p0_key, scan, out);
         }
 
         // Expression-position signals (reads of `p0._x`, `p0:X(...)`, nested
         // closures capturing p0, etc.).
         statement.visit_rvalues(&mut |rvalue| {
-            gather_signals_in_rvalue(rvalue, self_prefix, p0_key, scan, out);
+            gather_signals_in_rvalue(rvalue, owner, p0_key, scan, out);
             true
         });
 
         for_each_child_block(statement, |child| {
-            gather_receiver_signals(child, self_prefix, p0_key, scan, out)
+            gather_receiver_signals(child, owner, p0_key, scan, out)
         });
     }
 }
 
 fn gather_signals_in_rvalue(
     rvalue: &RValue,
-    self_prefix: &RValue,
+    owner: &Owner,
     p0_key: usize,
     scan: &ScriptScan,
     out: &mut ReceiverSignals,
@@ -387,13 +433,13 @@ fn gather_signals_in_rvalue(
         }
         // signal a: `p0:X(...)` where X is a sibling method.
         RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call)) => {
-            check_sibling_call(method_call, self_prefix, p0_key, scan, out);
+            check_sibling_call(method_call, owner, p0_key, scan, out);
         }
         // Descend into nested closures (capture of the receiver counts).
         RValue::Closure(closure) => {
             gather_receiver_signals(
                 &closure.function.lock().body,
-                self_prefix,
+                owner,
                 p0_key,
                 scan,
                 out,
@@ -403,7 +449,7 @@ fn gather_signals_in_rvalue(
     }
 
     rvalue.visit_rvalues(&mut |child| {
-        gather_signals_in_rvalue(child, self_prefix, p0_key, scan, out);
+        gather_signals_in_rvalue(child, owner, p0_key, scan, out);
         true
     });
 }
@@ -412,17 +458,19 @@ fn gather_signals_in_rvalue(
 /// SAME prefix as the current method (a genuine `self:otherMethod()` self-call).
 fn check_sibling_call(
     method_call: &crate::MethodCall,
-    self_prefix: &RValue,
+    owner: &Owner,
     p0_key: usize,
     scan: &ScriptScan,
     out: &mut ReceiverSignals,
 ) {
-    if rvalue_is_local(&method_call.value, p0_key)
-        && scan
+    let sibling = match owner {
+        Owner::Prefix(prefix) => scan
             .sibling_defs
             .get(&method_call.method)
-            .is_some_and(|prefixes| prefixes.iter().any(|p| p == self_prefix))
-    {
+            .is_some_and(|prefixes| prefixes.iter().any(|p| p == *prefix)),
+        Owner::Fields(fields) => fields.contains(method_call.method.as_str()),
+    };
+    if sibling && rvalue_is_local(&method_call.value, p0_key) {
         out.sibling_a = true;
     }
 }
@@ -654,7 +702,57 @@ mod tests {
         name
     }
 
+    fn closure(parameters: Vec<RcLocal>, body: Block) -> RValue {
+        RValue::Closure(Closure {
+            node_origin: Default::default(),
+            function: ByAddress(Arc::new(Mutex::new(Function { parameters, body, ..Default::default() }))),
+            upvalues: Vec::new(),
+        })
+    }
+
+    fn first_param(value: &RValue) -> Option<String> {
+        let RValue::Closure(closure) = value else { panic!("expected closure") };
+        let name = closure.function.lock().parameters[0].0 .0.lock().0.clone();
+        name
+    }
+
     // --- conversions ---
+
+    #[test]
+    fn converts_table_constructor_fields_by_strong_signals_only() {
+        // return { Remote = function(p) end, Connect = function(p) p:Remote() end,
+        //          Changed = function(p) p.Value = 1 end }
+        let (remote, connect, changed) = (local("p"), local("p"), local("p"));
+        let store = Assign::new(vec![LValue::Index(Index::new(local_value(&changed), string("Value")))], vec![number(1.0)]);
+        let table = RValue::Table(crate::Table::new(vec![
+            (Some(string("Remote")), closure(vec![remote], Block::default())),
+            (Some(string("Connect")), closure(vec![connect.clone()], Block(vec![method_call_stmt(local_value(&connect), "Remote", vec![])]))),
+            (Some(string("Changed")), closure(vec![changed], Block(vec![store.into()]))),
+        ]));
+        let mut block = Block(vec![Return::new(vec![table]).into()]);
+        recover_methods(&mut block);
+        let Statement::Return(ret) = &block.0[0] else { unreachable!() };
+        let RValue::Table(table) = &ret.values[0] else { unreachable!() };
+        // `Remote` is called with `:` (signal d), `Connect` calls a sibling;
+        // a field store alone does not make a props callback a method.
+        let names: Vec<_> = table.0.iter().map(|(_, value)| first_param(value)).collect();
+        assert_eq!(names, vec![Some("self".into()), Some("self".into()), Some("p".into())]);
+    }
+
+    #[test]
+    fn a_sibling_call_in_a_store_address_is_a_receiver_signal() {
+        // function T.Handle(p, f) p:Remote().OnInvoke = f end ; function T.Remote(p) end
+        let t = global("T");
+        let (p, f, p2) = (local("p"), local("f"), local("p"));
+        let address = RValue::MethodCall(MethodCall::new(local_value(&p), "Remote".to_string(), vec![]));
+        let store = Assign::new(vec![LValue::Index(Index::new(address, string("OnInvoke")))], vec![local_value(&f)]);
+        let mut block = Block(vec![
+            method_assignment(t.clone(), "Handle", vec![p, f], Block(vec![store.into()])),
+            method_assignment(t, "Remote", vec![p2], Block::default()),
+        ]);
+        recover_methods(&mut block);
+        assert_eq!(first_param_name(&block, 0).as_deref(), Some("self"));
+    }
 
     #[test]
     fn converts_when_sibling_self_call() {
