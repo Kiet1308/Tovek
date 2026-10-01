@@ -149,6 +149,28 @@ pub(crate) fn param_name_from_field_key(key: &str) -> Option<String> {
     Some(name)
 }
 
+/// A stored signal connection, named after its event when the signal is one
+/// (`part.Touched:Connect(..)` -> `touchedConnection`,
+/// `humanoid:GetPropertyChangedSignal("Health"):Connect(..)` ->
+/// `healthChangedConnection`).
+fn connection_name(signal: &RValue) -> String {
+    let event = match signal {
+        RValue::Index(index) => index_key(index).map(str::to_string),
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call))
+            if matches!(call.method.as_str(), "GetPropertyChangedSignal" | "GetAttributeChangedSignal") =>
+        {
+            single_string_key(&call.arguments).map(|key| format!("{key}Changed"))
+        }
+        _ => None,
+    };
+    event
+        .filter(|event| {
+            event.starts_with(|c: char| c.is_ascii_alphabetic()) && event.chars().all(|c| c.is_ascii_alphanumeric())
+        })
+        .and_then(|event| sanitize(&format!("{}Connection", lower_first(&event))))
+        .unwrap_or_else(|| "connection".to_string())
+}
+
 /// The one string literal among `arguments`, if exactly one.
 fn single_string_key(arguments: &[RValue]) -> Option<&str> {
     let mut keys = arguments.iter().filter_map(string_literal);
@@ -571,7 +593,7 @@ fn method_call_hint(method_call: &MethodCall) -> Option<String> {
     // cloned instance as `clone`. (Distinct from the existing event-callback
     // PARAM naming, which names the closure's arguments, not this result local.)
     match method {
-        "Connect" | "Once" | "ConnectParallel" => return Some("connection".to_string()),
+        "Connect" | "Once" | "ConnectParallel" | "connect" => return Some(connection_name(&method_call.value)),
         "LoadAnimation" => return Some("track".to_string()),
         "Clone" => return Some("clone".to_string()),
         // A `:Raycast(...)` result is a `RaycastResult` regardless of the receiver
@@ -2039,7 +2061,7 @@ fn note_callback_name(local: &RcLocal, name: String, usage: &mut FxHashMap<usize
 fn is_connection_value(value: &RValue) -> bool {
     match value {
         RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
-            matches!(call.method.as_str(), "Connect" | "Once" | "ConnectParallel")
+            matches!(call.method.as_str(), "Connect" | "Once" | "ConnectParallel" | "connect")
         }
         RValue::Table(table) if !table.0.is_empty() => {
             table.0.iter().all(|(_, value)| is_connection_value(value))
@@ -10559,6 +10581,27 @@ mod tests {
         assert_eq!(name_of(&data), "data");
         assert_eq!(name_of(&state), "state");
         assert_eq!(name_of(&object), "object");
+    }
+
+    /// A stored connection is named after its event, including the
+    /// deprecated lowercase `:connect`; an anonymous signal's stays
+    /// `connection`.
+    #[test]
+    fn a_connection_is_named_after_its_event() {
+        let (touched, health, moved, plain) = (RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default());
+        let changed = method_call(global("humanoid"), "GetPropertyChangedSignal", vec![string("Health")]);
+        let mut block = Block(vec![
+            declare(&touched, method_call(RValue::Index(Index::new(global("part"), string("Touched"))), "Connect", vec![global("f")])),
+            declare(&health, method_call(changed, "Connect", vec![global("f")])),
+            declare(&moved, method_call(RValue::Index(Index::new(global("UserInputService"), string("TouchMoved"))), "connect", vec![global("f")])),
+            declare(&plain, method_call(global("signal"), "Connect", vec![global("f")])),
+            Statement::Call(Call::new(global("print"), [&touched, &health, &moved, &plain].map(|l| RValue::Local(l.clone())).to_vec())),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&touched), "touchedConnection");
+        assert_eq!(name_of(&health), "healthChangedConnection");
+        assert_eq!(name_of(&moved), "touchMovedConnection");
+        assert_eq!(name_of(&plain), "connection");
     }
 
     /// A keyed getter names its result after the key; a key that names
