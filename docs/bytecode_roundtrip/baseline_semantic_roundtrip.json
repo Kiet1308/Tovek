@@ -35,7 +35,9 @@
    "untruncated_arguments": "Output fixture (2026-10-01): one-result parentheses dropped only where the callee drops extra values; baselined from the introducing commit output.",
    "returned_parameter_helper": "De-inline fixture (2026-10-01): a helper handing back its argument rebuilds with one result; baselined from the introducing commit output.",
    "loop_return_flag": "De-inline fixture (2026-10-01): a loop return lowered to a flag and break rebuilds as the call; baselined from the introducing commit output.",
-   "import_callee_alias": "Output fixture (2026-10-01): a constant import callee is named in place of its alias; baselined from the introducing commit output."
+   "import_callee_alias": "Output fixture (2026-10-01): a constant import callee is named in place of its alias; baselined from the introducing commit output.",
+   "callback_written_capture": "Motion fixture (2026-10-01): a temp reading a captured local folds only when no write follows its capture; baselined from the introducing commit output.",
+   "capture_written_after_yield": "Motion fixture (2026-10-01): a cell written after a yield keeps its snapshot; the selects and coroutine restructuring differ; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -62,10 +64,22 @@
    "protos": 2
   },
   {
+   "file": "callback_written_capture",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 4
+  },
+  {
    "file": "call_before_capture_read",
    "status": "ok",
    "nonequiv": 0,
    "protos": 6
+  },
+  {
+   "file": "capture_written_after_yield",
+   "status": "ok",
+   "nonequiv": 4,
+   "protos": 5
   },
   {
    "file": "captured_break_continue",

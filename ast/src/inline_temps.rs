@@ -24,18 +24,29 @@ pub(crate) struct Usage {
 
 struct MotionFacts {
     captured: FxHashSet<RcLocal>,
+    /// Captured locals written only by their declaration (or a recursive
+    /// function's installation): the same value at every read.
     stable_captured: FxHashSet<RcLocal>,
+    /// Captured locals no write reaches once a closure captures them
+    /// (`settled_before_capture`): a call cannot change them, not even by
+    /// resuming a suspended coroutine of the declaring function.
+    callback_stable: FxHashSet<RcLocal>,
     numbers: FxHashSet<RcLocal>,
     rebuild_call_chains: bool,
 }
 
 impl MotionFacts {
+    /// A captured cell written after its capture: any call may change it.
+    fn callback_may_write(&self, local: &RcLocal) -> bool {
+        self.captured.contains(local) && !self.callback_stable.contains(local)
+    }
+
     fn total_numeric(&self, value: &RValue) -> bool {
         self.rebuild_call_chains && crate::numeric_facts::total(value, &self.numbers)
     }
 
     fn candidate_effects(&self, value: &RValue) -> crate::effects::Summary {
-        let capture = |local: &RcLocal| self.captured.contains(local) && !self.stable_captured.contains(local);
+        let capture = |local: &RcLocal| self.callback_may_write(local);
         if self.total_numeric(value) {
             crate::effects::Summary {
                 effects: if value.any_local_read(&mut |local| capture(local)) { crate::effects::Effects::CAPTURE_READ }
@@ -90,18 +101,124 @@ pub fn rebuild_ui_expression_trees(block: &mut Block) -> bool {
     }
 }
 
+/// Captured locals of `stmts` (and `parameters`, declared before them) whose
+/// every write precedes the first statement capturing them: `local scope; if
+/// c then scope = a else scope = b end; local function f() ... scope ... end`.
+/// Once captured such a cell never changes, so no call can change it, not
+/// even one resuming the declaring function suspended in a coroutine. The
+/// capturing statement itself may only install a closure (`f = function`).
+/// Needs a function tree without `goto`, which could repeat an earlier write.
+fn settled_before_capture(
+    stmts: &[Statement],
+    parameters: &[RcLocal],
+    captured: &FxHashSet<RcLocal>,
+    out: &mut FxHashSet<RcLocal>,
+) {
+    // One pass: where each local is first captured and last written.
+    let mut first_capture: FxHashMap<RcLocal, usize> = FxHashMap::default();
+    let mut last_write: FxHashMap<RcLocal, usize> = FxHashMap::default();
+    let mut written = FxHashSet::default();
+    for (index, statement) in stmts.iter().enumerate() {
+        statement_captures(statement, &mut |local| {
+            if captured.contains(local) {
+                first_capture.entry(local.clone()).or_insert(index);
+            }
+        });
+        crate::deinline::collect_written(std::slice::from_ref(statement), &mut written);
+        for local in written.drain() {
+            last_write.insert(local, index);
+        }
+    }
+    let settled = |local: &RcLocal| {
+        let Some(&capture) = first_capture.get(local) else { return false };
+        match last_write.get(local) {
+            None => true,
+            Some(&write) if write < capture => true,
+            // The capturing statement may only install the closure, which
+            // itself must not write the local (`recurse = function ... f(function(v)
+            // recurse = v end) ... end`).
+            Some(&write) => write == capture && matches!(&stmts[capture], Statement::Assign(assign)
+                if matches!(assign.left.as_slice(), [LValue::Local(target)] if target == local)
+                    && matches!(assign.right.as_slice(), [RValue::Closure(closure)] if {
+                        let mut inner = FxHashSet::default();
+                        crate::deinline::collect_written(&closure.function.lock().body.0, &mut inner);
+                        !inner.contains(local)
+                    })),
+        }
+    };
+    let declared = stmts.iter().filter_map(|statement| match statement {
+        Statement::Assign(assign) if assign.prefix => Some(assign.left.iter()),
+        _ => None,
+    });
+    for local in parameters.iter().chain(declared.flatten().filter_map(LValue::as_local)) {
+        if captured.contains(local) && settled(local) {
+            out.insert(local.clone());
+        }
+    }
+    for statement in stmts {
+        collect_closures_in_statement(statement, &mut |closure| {
+            let function = closure.function.lock();
+            settled_before_capture(&function.body.0, &function.parameters, captured, out);
+        });
+        match statement {
+            Statement::If(node) => {
+                settled_before_capture(&node.then_block.lock().0, &[], captured, out);
+                settled_before_capture(&node.else_block.lock().0, &[], captured, out);
+            }
+            Statement::While(node) => settled_before_capture(&node.block.lock().0, &[], captured, out),
+            Statement::Repeat(node) => settled_before_capture(&node.block.lock().0, &[], captured, out),
+            Statement::NumericFor(node) => settled_before_capture(&node.block.lock().0, &[], captured, out),
+            Statement::GenericFor(node) => settled_before_capture(&node.block.lock().0, &[], captured, out),
+            _ => {}
+        }
+    }
+}
+
+/// The locals closures created by `statement` capture, at any depth of its
+/// blocks (a nested closure captures through its parent).
+fn statement_captures(statement: &Statement, visit: &mut impl FnMut(&RcLocal)) {
+    collect_closures_in_statement(statement, &mut |closure| {
+        for upvalue in &closure.upvalues {
+            let (crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local)) = upvalue;
+            visit(local);
+        }
+    });
+    let mut nested = |block: &Block| block.0.iter().for_each(|statement| statement_captures(statement, visit));
+    match statement {
+        Statement::If(node) => {
+            nested(&node.then_block.lock());
+            nested(&node.else_block.lock());
+        }
+        Statement::While(node) => nested(&node.block.lock()),
+        Statement::Repeat(node) => nested(&node.block.lock()),
+        Statement::NumericFor(node) => nested(&node.block.lock()),
+        Statement::GenericFor(node) => nested(&node.block.lock()),
+        _ => {}
+    }
+}
+
 fn collect_motion_facts(block: &Block, rebuild_call_chains: bool) -> MotionFacts {
     let usage = collect_usage(block);
-    let captured = usage
+    let captured: FxHashSet<RcLocal> = usage
         .iter()
         .filter(|(_, usage)| usage.captured)
         .map(|(local, _)| local.clone())
         .collect();
     let mut stable_captured = FxHashSet::default();
     collect_stable_declared_locals(block, &usage, &mut stable_captured, false);
+    let mut callback_stable = stable_captured.clone();
+    // Only declarative UI rebuilding moves calls past captured reads often
+    // enough to pay for the census.
+    if rebuild_call_chains
+        && captured.iter().any(|local| !stable_captured.contains(local))
+        && !crate::simplify_gotos::function_tree_has_goto_or_label(block)
+    {
+        settled_before_capture(&block.0, &[], &captured, &mut callback_stable);
+    }
     MotionFacts {
         captured,
         stable_captured,
+        callback_stable,
         numbers: if rebuild_call_chains { crate::numeric_facts::collect(block, &usage) }
             else { FxHashSet::default() },
         rebuild_call_chains,
@@ -494,6 +611,10 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
     // names and recorded source bindings remain declarations.
     let ordered_operator = facts.rebuild_call_chains && generated
         && matches!(&replacement, RValue::Binary(_) | RValue::Unary(_));
+    // A generated table built for one place (`scope:PrimaryButton({ ...,
+    // [OnEvent("Activated")] = fn })`) may hold calls of its own; it folds
+    // under the same motion and evaluation-position proofs as a call.
+    let ordered_table = facts.rebuild_call_chains && generated && matches!(&replacement, RValue::Table(_));
     // A sole-use import forwarded into a named table field gains no
     // readable role from an extra alias: the destination already names it.
     // This only admits a candidate; the ordinary source-binding, capture,
@@ -508,7 +629,8 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
         crate::telemetry::count("inline_refused_source_binding", 1);
         return false;
     }
-    if !call_callee && !ordered_alias && !ordered_operator && !import_field_store && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
+    if !call_callee && !ordered_alias && !ordered_operator && !ordered_table && !import_field_store
+        && ((!generated && !named_table && !named_function) || !is_movable_single_value(&replacement))
     {
         crate::telemetry::count("inline_refused_expression_role", 1);
         return false;
@@ -524,7 +646,7 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
         return false;
     }
     if !crate::evaluation_order::can_sink_with_summary(&block.0[use_index], &local, &replacement, &|l| {
-        facts.captured.contains(l) && !facts.stable_captured.contains(l)
+        facts.callback_may_write(l)
     }, facts.candidate_effects(&replacement)) {
         crate::telemetry::count("inline_refused_evaluation_position", 1);
         return false;
@@ -1351,7 +1473,7 @@ fn can_replace_after_prior_effects(
 fn reads_motion_sensitive_capture(rvalue: &RValue, facts: &MotionFacts) -> bool {
     rvalue.any_local_read(&mut |local| {
         facts.captured.contains(local)
-            && !(facts.rebuild_call_chains && facts.stable_captured.contains(local))
+            && !(facts.rebuild_call_chains && facts.callback_stable.contains(local))
     })
 }
 
@@ -1365,7 +1487,7 @@ fn contains_global(rvalue: &RValue) -> bool {
 fn rvalue_evaluation_order_barrier(rvalue: &RValue, facts: &MotionFacts) -> bool {
     (!facts.total_numeric(rvalue) && crate::is_observable(rvalue))
         || contains_global(rvalue)
-        || rvalue.any_local_read(&mut |local| facts.captured.contains(local) && !facts.stable_captured.contains(local))
+        || rvalue.any_local_read(&mut |local| facts.callback_may_write(local))
 }
 
 fn lvalue_evaluation_order_barrier(lvalue: &LValue, facts: &MotionFacts) -> bool {
@@ -1382,7 +1504,7 @@ fn lvalue_evaluation_order_barrier(lvalue: &LValue, facts: &MotionFacts) -> bool
 fn index_component_order_barrier(value: &RValue, facts: &MotionFacts) -> bool {
     match value {
         RValue::Local(local) => {
-            facts.captured.contains(local) && !facts.stable_captured.contains(local)
+            facts.callback_may_write(local)
         }
         RValue::Literal(_) => false,
         // The outer LValue index stores after the RHS, but an index inside
@@ -1697,7 +1819,7 @@ mod tests {
         let captured = Default::default();
         let stable_captured = Default::default();
         let numbers = crate::numeric_facts::collect(&actual, &usage);
-        let facts = super::MotionFacts { captured, stable_captured, numbers, rebuild_call_chains: false };
+        let facts = super::MotionFacts { captured, stable_captured, callback_stable: Default::default(), numbers, rebuild_call_chains: false };
         while super::inline_once_full_rescan(&mut expected, &facts) {}
         super::inline_current_block(&mut actual, &facts);
         assert_eq!(actual, expected);
@@ -1841,7 +1963,7 @@ mod tests {
                 let candidate = &block.0[1].as_assign().unwrap().right[0];
                 assert!(!super::can_replace_after_prior_effects(candidate, true, &facts));
                 assert!(crate::evaluation_order::can_sink_with_summary(&block.0[2], &helper,
-                    candidate, &|l| facts.captured.contains(l) && !facts.stable_captured.contains(l),
+                    candidate, &|l| facts.callback_may_write(l),
                     facts.candidate_effects(candidate)));
             }
             let changed = super::rebuild_ui_expression_trees(&mut block);
@@ -2132,7 +2254,9 @@ mod tests {
             let facts = super::collect_motion_facts(&block, false);
             assert_eq!(facts.stable_captured.contains(&helper), barrier == 0);
             super::rebuild_ui_expression_trees(&mut block);
-            assert_eq!(function.lock().body.to_string().contains("local v9"), barrier != 0);
+            // A call between the nil declaration and the installation cannot
+            // reach the cell, which nothing captures yet (`settled_before_capture`).
+            assert_eq!(function.lock().body.to_string().contains("local v9"), !matches!(barrier, 0 | 1));
         }
     }
 

@@ -64,6 +64,30 @@
       "bytes": 519,
       "lines": 41
     },
+    "semantic/callback_written_capture__O0.luau": {
+      "bytes": 276,
+      "lines": 23
+    },
+    "semantic/callback_written_capture__O1.luau": {
+      "bytes": 276,
+      "lines": 23
+    },
+    "semantic/callback_written_capture__O2.luau": {
+      "bytes": 280,
+      "lines": 24
+    },
+    "semantic/capture_written_after_yield__O0.luau": {
+      "bytes": 403,
+      "lines": 28
+    },
+    "semantic/capture_written_after_yield__O1.luau": {
+      "bytes": 403,
+      "lines": 28
+    },
+    "semantic/capture_written_after_yield__O2.luau": {
+      "bytes": 448,
+      "lines": 34
+    },
     "semantic/captured_break_continue__O0.luau": {
       "bytes": 616,
       "lines": 54
