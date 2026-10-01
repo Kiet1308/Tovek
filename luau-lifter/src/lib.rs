@@ -762,6 +762,13 @@ fn decompile_bytecode_internal(
                     ast::conditional_expressions::reconstruct_short_circuit_expressions(&mut body);
                 }
             }
+            // Expression helpers whose sites are already whole: rebuilt here,
+            // the copies Luau made of their arguments fold into the call below
+            // like any other argument temp. The later run takes the rest.
+            {
+                ptime!(S_EXPR_DEINLINE);
+                ast::expr_deinline::expr_deinline(&mut body);
+            }
             // Rebuild declarative table trees from the leaves upward. Inlining a
             // child table can make a parent's formerly-separated field writes
             // contiguous, so the two monotone passes share capture facts and a

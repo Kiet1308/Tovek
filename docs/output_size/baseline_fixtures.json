@@ -412,6 +412,18 @@
       "bytes": 3966,
       "lines": 304
     },
+    "semantic/nested_capture_argument__O0.luau": {
+      "bytes": 814,
+      "lines": 49
+    },
+    "semantic/nested_capture_argument__O1.luau": {
+      "bytes": 814,
+      "lines": 49
+    },
+    "semantic/nested_capture_argument__O2.luau": {
+      "bytes": 1641,
+      "lines": 79
+    },
     "semantic/nested_exports__O0.luau": {
       "bytes": 491,
       "lines": 37

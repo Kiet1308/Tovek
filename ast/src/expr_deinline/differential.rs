@@ -243,9 +243,17 @@ fn complete_shared_capture_proof_implies_legacy_arithmetic_gate() {
         let common = crate::deinline_safety::CaptureSafety::new(&fixture.block);
         assert!(common.complete());
         let legacy = reference::arithmetic::Safety::new(&fixture.block);
+        // The legacy gate refused every reference capture. A cell written
+        // only by its declaration never changes, so the shared proof admits
+        // the ones never assigned again.
+        let rebound: Vec<u64> = fixture.block.0.iter().filter_map(|statement| match statement {
+            Statement::Assign(assign) if !assign.prefix => Some(assign.left.iter().filter_map(|left| left.as_local().map(RcLocal::stable_id))),
+            _ => None,
+        }).flatten().collect();
         for local in &fixture.locals {
             let value = RValue::Local(local.clone());
-            assert_eq!(common.stable(&value), legacy.stable(&value), "local capture set seed {seed}");
+            assert_eq!(common.stable(&value), legacy.stable(&value) || !rebound.contains(&local.stable_id()),
+                "local capture set seed {seed}");
         }
         for value in [Literal::Nil, Literal::Boolean(false), Literal::String(vec![0, 255]),
             Literal::Number(-0.0), Literal::Number(f64::NAN), Literal::Number(f64::INFINITY),
@@ -339,7 +347,8 @@ fn capture_implication_preserves_all_shallow_statement_domains() {
             }.into(),
             _ => If::new(global("condition"), Block::default(), Block(vec![Return::new(vec![captured_value()]).into()])).into(),
         };
-        let block = Block(vec![statement]);
+        // Rebound, so a reference capture anywhere makes it unstable.
+        let block = Block(vec![Assign::new(vec![captured.clone().into()], vec![number(0.0)]).into(), statement]);
         let common = crate::deinline_safety::CaptureSafety::new(&block);
         let legacy = reference::arithmetic::Safety::new(&block);
         assert!(common.complete());

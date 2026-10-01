@@ -6,6 +6,8 @@ use crate::{Block, LValue, Literal, RValue, Statement, Traverse, Upvalue};
 #[derive(Default)]
 pub(crate) struct CaptureSafety {
     references: FxHashSet<u64>,
+    /// Locals assigned after their declaration, anywhere in the module.
+    rebound: FxHashSet<u64>,
     captured: FxHashSet<u64>,
     /// Globals the module assigns somewhere.
     written_globals: FxHashSet<Vec<u8>>,
@@ -59,7 +61,15 @@ impl CaptureSafety {
             RValue::Literal(crate::Literal::Nil | crate::Literal::Boolean(_) | crate::Literal::String(_)) => true,
             RValue::Literal(crate::Literal::Number(n)) => n.is_finite()
                 && n.abs().to_bits() != std::f64::consts::PI.to_bits(),
-            RValue::Local(local) => !self.exhausted && !self.references.contains(&local.stable_id()),
+            // A cell shared by reference changes only through an assignment
+            // after its declaration. One a nested closure re-captures from
+            // its parent (`LCT_UPVAL`) is a reference to a cell that, written
+            // once, never changes: each activation and loop iteration
+            // declares a fresh one.
+            RValue::Local(local) => {
+                !self.exhausted
+                    && !(self.references.contains(&local.stable_id()) && self.rebound.contains(&local.stable_id()))
+            }
             _ => false,
         }
     }
@@ -86,8 +96,14 @@ impl CaptureSafety {
             if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
             if let Statement::Assign(assign) = statement {
                 for left in &assign.left {
-                    if let LValue::Global(global) = left {
-                        self.written_globals.insert(global.0.clone());
+                    match left {
+                        LValue::Global(global) => {
+                            self.written_globals.insert(global.0.clone());
+                        }
+                        LValue::Local(local) if !assign.prefix => {
+                            self.rebound.insert(local.stable_id());
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -193,5 +209,32 @@ mod tests {
         assert!(!budget.spend(0));
         let huge = Block(vec![crate::Return::new(vec![crate::Literal::String(vec![0; 8 * 1024 * 1024 + 1]).into()]).into()]);
         assert!(!CaptureSafety::new(&huge).complete());
+    }
+
+    /// A reference capture changes a cell only if something assigns it after
+    /// its declaration; a nested closure's re-capture of a parent upvalue is
+    /// such a reference to a cell written once.
+    #[test]
+    fn a_reference_capture_of_a_once_written_cell_is_stable() {
+        let (once, rebound) = (crate::RcLocal::default(), crate::RcLocal::default());
+        let reader = triomphe::Arc::new(parking_lot::Mutex::new(crate::Function::default()));
+        let capture = crate::Closure {
+            node_origin: Default::default(),
+            function: by_address::ByAddress(reader),
+            upvalues: vec![Upvalue::Ref(once.clone()), Upvalue::Ref(rebound.clone())],
+        };
+        let mut declare_once = crate::Assign::new(vec![once.clone().into()], vec![crate::Literal::Number(1.0).into()]);
+        declare_once.prefix = true;
+        let mut declare_rebound = crate::Assign::new(vec![rebound.clone().into()], vec![crate::Literal::Number(1.0).into()]);
+        declare_rebound.prefix = true;
+        let block = Block(vec![
+            declare_once.into(),
+            declare_rebound.into(),
+            crate::Call::new(RValue::Global(crate::Global::from("keep")), vec![capture.into()]).into(),
+            crate::Assign::new(vec![rebound.clone().into()], vec![crate::Literal::Number(2.0).into()]).into(),
+        ]);
+        let safety = CaptureSafety::new(&block);
+        assert!(safety.stable(&RValue::Local(once)));
+        assert!(!safety.stable(&RValue::Local(rebound)));
     }
 }
