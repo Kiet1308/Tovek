@@ -131,6 +131,14 @@ impl SideEffects for Binary {
     }
 }
 
+/// `(p and x) and x` is `p and x` for a pure `x`, and likewise for `or`: once
+/// the first `x` runs, the second repeats its value.
+fn repeats_last_operand(left: &RValue, right: &RValue, operation: BinaryOperation) -> bool {
+    matches!(operation, BinaryOperation::And | BinaryOperation::Or)
+        && matches!(left, RValue::Binary(inner) if inner.operation == operation && *inner.right == *right)
+        && crate::is_total_pure(right)
+}
+
 impl<'a: 'b, 'b> Reduce for Binary {
     fn reduce(self) -> RValue {
         // TODO: true == true, true == false, etc.
@@ -225,6 +233,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
             ) => RValue::Literal(Literal::String(
                 left.into_iter().chain(right.into_iter()).collect(),
             )),
+            (left, right, operation) if repeats_last_operand(&left, &right, operation) => left,
             (left, right, operation) => {
                 *left_box = left;
                 *right_box = right;
@@ -323,6 +332,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
             ) => RValue::Literal(Literal::String(
                 left.into_iter().chain(right.into_iter()).collect(),
             )),
+            (left, right, operation) if repeats_last_operand(&left, &right, operation) => left,
             (left, right, operation) => {
                 *left_box = left;
                 *right_box = right;
@@ -450,6 +460,17 @@ mod tests {
 
         let kept = Binary::new(global("foo"), global("foo"), BinaryOperation::Or).reduce();
         assert!(is_binary(&kept, BinaryOperation::Or));
+    }
+
+    #[test]
+    fn a_repeated_last_operand_folds_only_when_pure() {
+        let (p, x) = (RcLocal::default(), RcLocal::default());
+        let and = |l: RValue, r: RValue| -> RValue { Binary::new(l, r, BinaryOperation::And).into() };
+        let doubled = Binary::new(and(RValue::Local(p.clone()), RValue::Local(x.clone())), RValue::Local(x.clone()), BinaryOperation::And);
+        assert_eq!(doubled.clone().reduce(), and(RValue::Local(p.clone()), RValue::Local(x.clone())));
+        assert_eq!(doubled.reduce_condition(), and(RValue::Local(p.clone()), RValue::Local(x.clone())));
+        let read = Binary::new(and(RValue::Local(p.clone()), global("x")), global("x"), BinaryOperation::And).reduce();
+        assert!(matches!(&read, RValue::Binary(outer) if is_binary(&outer.left, BinaryOperation::And)));
     }
 
     // P2 (reduce_condition): `X and false` -> false and `X or true` -> true drop the

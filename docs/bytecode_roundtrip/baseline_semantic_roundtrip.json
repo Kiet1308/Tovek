@@ -41,7 +41,8 @@
    "parameter_hole_multret": "Review fixture (2026-10-01): a call spread into a parameter position is not the helper call; baselined from the fixing commit output.",
    "rewritten_helper_arity": "Review fixture (2026-10-01): only a helper proven single-valued collapses into return; baselined from the fixing commit output.",
    "compound_local_base": "Compound fixture (2026-10-01): a local snapshot folds into the op= base only as an upvalue or an uncaptured local; a rebound local keeps it; baselined from the fixing commit output.",
-   "tuple_store_targets": "Tuple fixture (2026-10-01): stores right after a multi-result call fold into one multiple assignment; a plain swap and re-read results stay; baselined from the introducing commit output."
+   "tuple_store_targets": "Tuple fixture (2026-10-01): stores right after a multi-result call fold into one multiple assignment; a plain swap and re-read results stay; baselined from the introducing commit output.",
+   "repeated_select_operand": "Select fixture (2026-10-01): a repeated pure last operand of and/or folds; an __index read stays; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -276,6 +277,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 5
+  },
+  {
+   "file": "repeated_select_operand",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 4
   },
   {
    "file": "report_nested_numeric_accumulate",

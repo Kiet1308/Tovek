@@ -472,6 +472,18 @@
       "bytes": 677,
       "lines": 22
     },
+    "semantic/repeated_select_operand__O0.luau": {
+      "bytes": 427,
+      "lines": 22
+    },
+    "semantic/repeated_select_operand__O1.luau": {
+      "bytes": 427,
+      "lines": 22
+    },
+    "semantic/repeated_select_operand__O2.luau": {
+      "bytes": 359,
+      "lines": 22
+    },
     "semantic/report_nested_numeric_accumulate__O0.luau": {
       "bytes": 200,
       "lines": 18
