@@ -3109,6 +3109,21 @@ fn match_void(
                 }
             }
         }
+        // Attempt 4 — a loop return inlined where code follows it: the
+        // structurer lowers it to a flag and a `break` (`unflag_loop_exits`).
+        if t.cps_loop_return
+            && let Some((unflagged, flags)) = unflag_loop_exits(raw)
+            && canon_top_len(&unflagged, true) == kc
+            && charge_window(t, &unflagged)
+        {
+            let folded = canon_recurse(canon_top(&unflagged, true), true);
+            if let Some(u) = try_unify_site_any(t, &folded, &prefix) {
+                let mut dead = |set: &FxHashSet<RcLocal>| !tail_has_live(last_occ, stmts, i, start + w, set);
+                if dead(&u.callee_locals) && dead(&flags) {
+                    record_site(&mut site, &mut ambiguous, w, &u, None);
+                }
+            }
+        }
         // Attempt 2 (Gap B) — void callee inlined at a value-returning caller's
         // tail, its void early-returns lowered to the caller's tail `return RET`.
         // (A helper returning its locals has no early return.)
@@ -4639,6 +4654,152 @@ fn branch_conditions_read_any(stmts: &[Statement], params: &FxHashSet<RcLocal>) 
     })
 }
 
+/// A helper's `return` from inside a loop, inlined where code follows the
+/// call, becomes a flag and a `break`: `local ok = true; for … do if c then
+/// ok = false; break end end; if ok then REST end`. Gives back the helper's
+/// `for … do if c then return end end; REST` where that ends `window` (or
+/// an arm of its last `if`, at any depth): a `return` skips everything after
+/// it, the flag only REST. Every `break` of that loop must clear the flag,
+/// which nothing else reads or writes. Also returns the flags, which the
+/// rebuilt call no longer declares.
+fn unflag_loop_exits(window: &[Statement]) -> Option<(Vec<Statement>, FxHashSet<RcLocal>)> {
+    let mut flags = FxHashSet::default();
+    let block = unflag_block(window, &mut flags)?;
+    Some((block, flags))
+}
+
+fn unflag_block(block: &[Statement], flags: &mut FxHashSet<RcLocal>) -> Option<Vec<Statement>> {
+    let real: Vec<usize> = (0..block.len()).filter(|&k| !is_match_trivia(&block[k])).collect();
+    if let [.., declaration, looped, guarded] = real[..]
+        && let Statement::Assign(assign) = &block[declaration]
+        && assign.prefix
+        && let ([LValue::Local(flag)], [RValue::Literal(Literal::Boolean(true))]) =
+            (assign.left.as_slice(), assign.right.as_slice())
+        && let Statement::If(guard) = &block[guarded]
+        && matches!(&guard.condition, RValue::Local(read) if read == flag)
+        && guard.else_block.lock().0.is_empty()
+        && count_local_reads(&guard.then_block.lock().0, flag) == 0
+        && !block_writes_local(&guard.then_block.lock().0, flag)
+        && let Some(exits) = return_from_loop(&block[looped], flag)
+    {
+        flags.insert(flag.clone());
+        let mut out: Vec<Statement> = block[..declaration].to_vec();
+        out.extend(block[declaration + 1..looped].iter().cloned());
+        out.push(exits);
+        out.extend(guard.then_block.lock().0.iter().cloned());
+        return Some(out);
+    }
+    let &last = real.last()?;
+    let Statement::If(branch) = &block[last] else { return None };
+    let then_block = unflag_block(&branch.then_block.lock().0, flags);
+    let else_block = unflag_block(&branch.else_block.lock().0, flags);
+    if then_block.is_none() && else_block.is_none() {
+        return None;
+    }
+    let rebuilt = If::new(
+        branch.condition.clone(),
+        Block(then_block.unwrap_or_else(|| branch.then_block.lock().0.clone())),
+        Block(else_block.unwrap_or_else(|| branch.else_block.lock().0.clone())),
+    );
+    let mut out = block.to_vec();
+    out[last] = rebuilt.into();
+    Some(out)
+}
+
+/// `looped` with each `flag = false; break` of its own turned into `return`,
+/// when those are its only `break`s and its only uses of `flag`.
+fn return_from_loop(looped: &Statement, flag: &RcLocal) -> Option<Statement> {
+    fn exits(stmts: &[Statement], flag: &RcLocal, replaced: &mut usize) -> Option<Vec<Statement>> {
+        let mut out = Vec::with_capacity(stmts.len());
+        let mut k = 0;
+        while k < stmts.len() {
+            let statement = &stmts[k];
+            let clears_flag = matches!(statement, Statement::Assign(assign)
+                if !assign.prefix
+                    && matches!(assign.left.as_slice(), [LValue::Local(written)] if written == flag)
+                    && matches!(assign.right.as_slice(), [RValue::Literal(Literal::Boolean(false))]));
+            if clears_flag {
+                let next = (k + 1..stmts.len()).find(|&n| !is_match_trivia(&stmts[n]))?;
+                if !matches!(stmts[next], Statement::Break(_)) {
+                    return None;
+                }
+                out.push(Return::new(Vec::new()).into());
+                *replaced += 1;
+                k = next + 1;
+                continue;
+            }
+            match statement {
+                Statement::Break(_) => return None,
+                Statement::If(branch) => {
+                    if reads_local(&branch.condition, flag) {
+                        return None;
+                    }
+                    let then_block = exits(&branch.then_block.lock().0, flag, replaced)?;
+                    let else_block = exits(&branch.else_block.lock().0, flag, replaced)?;
+                    out.push(If::new(branch.condition.clone(), Block(then_block), Block(else_block)).into());
+                }
+                // A nested loop's `break`s are its own; it may not touch the flag.
+                other => {
+                    let single = std::slice::from_ref(other);
+                    if count_local_reads(single, flag) > 0 || block_writes_local(single, flag) {
+                        return None;
+                    }
+                    out.push(other.clone());
+                }
+            }
+            k += 1;
+        }
+        Some(out)
+    }
+    let mut replaced = 0;
+    let rebuilt: Statement = match looped {
+        Statement::GenericFor(node) => {
+            if node.right.iter().any(|value| reads_local(value, flag)) {
+                return None;
+            }
+            let body = exits(&node.block.lock().0, flag, &mut replaced)?;
+            Statement::GenericFor(GenericFor {
+                res_locals: node.res_locals.clone(),
+                right: node.right.clone(),
+                block: Arc::new(Mutex::new(Block(body))),
+                origin: node.origin.clone(),
+            })
+        }
+        Statement::NumericFor(node) => {
+            if [&node.initial, &node.limit, &node.step].into_iter().any(|value| reads_local(value, flag)) {
+                return None;
+            }
+            let body = exits(&node.block.lock().0, flag, &mut replaced)?;
+            Statement::NumericFor(Box::new(NumericFor {
+                block: Arc::new(Mutex::new(Block(body))),
+                initial: node.initial.clone(),
+                limit: node.limit.clone(),
+                step: node.step.clone(),
+                counter: node.counter.clone(),
+            }))
+        }
+        Statement::While(node) => {
+            if reads_local(&node.condition, flag) {
+                return None;
+            }
+            let body = exits(&node.block.lock().0, flag, &mut replaced)?;
+            While::new(node.condition.clone(), Block(body)).into()
+        }
+        _ => return None,
+    };
+    (replaced > 0).then_some(rebuilt)
+}
+
+fn reads_local(value: &RValue, local: &RcLocal) -> bool {
+    count_local_reads(&[Statement::Return(Return::new(vec![value.clone()]))], local) > 0
+}
+
+fn block_writes_local(stmts: &[Statement], local: &RcLocal) -> bool {
+    let mut written = FxHashSet::default();
+    collect_written(stmts, &mut written);
+    written.contains(local)
+}
+
 fn is_void_return_guard(statement: &Statement) -> bool {
     let Statement::If(node) = statement else {
         return false;
@@ -6094,6 +6255,50 @@ mod tests {
 
     fn global_call(name: &str, arguments: Vec<RValue>) -> Call {
         Call::new(global(name), arguments)
+    }
+
+    #[test]
+    fn a_flagged_loop_exit_is_the_helpers_return_only_at_the_end() {
+        // local ok = true
+        // while c do if d then ok = false; break end end
+        // if ok then print("x") end
+        let ok = local("ok");
+        let exit = |flag: &RcLocal, tail: Vec<Statement>| {
+            let mut body = vec![Statement::If(If::new(
+                global("d"),
+                Block(vec![
+                    assign_local(flag, boolean(false), false),
+                    Statement::Break(Break {}),
+                ]),
+                Block::default(),
+            ))];
+            body.extend(tail);
+            vec![
+                assign_local(flag, boolean(true), true),
+                Statement::While(While::new(global("c"), Block(body))),
+                Statement::If(If::new(local_value(flag), Block(vec![print_x()]), Block::default())),
+            ]
+        };
+        let (unflagged, flags) = unflag_loop_exits(&exit(&ok, Vec::new())).expect("flag lowered");
+        assert!(flags.contains(&ok));
+        assert_eq!(
+            Block(unflagged).to_string(),
+            "while c do\n\tif d then\n\t\treturn\n\tend\nend\n\nprint(\"x\")"
+        );
+
+        // Something after the flagged `if` runs even when the flag is cleared.
+        let mut followed = exit(&ok, Vec::new());
+        followed.push(print_x());
+        assert!(unflag_loop_exits(&followed).is_none());
+        // A `break` that keeps the flag reaches REST, which a `return` skips.
+        let plain_break = exit(&ok, vec![Statement::Break(Break {})]);
+        assert!(unflag_loop_exits(&plain_break).is_none());
+        // REST reads the flag.
+        let reads = exit(&ok, Vec::new());
+        if let Statement::If(guard) = &reads[2] {
+            guard.then_block.lock().0.push(Statement::Call(Call::new(global("print"), vec![local_value(&ok)])));
+        }
+        assert!(unflag_loop_exits(&reads).is_none());
     }
 
     #[test]

@@ -340,6 +340,18 @@
       "bytes": 1746,
       "lines": 144
     },
+    "semantic/loop_return_flag__O0.luau": {
+      "bytes": 663,
+      "lines": 57
+    },
+    "semantic/loop_return_flag__O1.luau": {
+      "bytes": 663,
+      "lines": 57
+    },
+    "semantic/loop_return_flag__O2.luau": {
+      "bytes": 1331,
+      "lines": 91
+    },
     "semantic/loop_shapes__O0.luau": {
       "bytes": 3159,
       "lines": 249

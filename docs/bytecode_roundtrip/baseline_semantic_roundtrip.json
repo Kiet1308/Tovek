@@ -33,7 +33,8 @@
    "embedded_prefix_order": "Review fixture (2026-10-01): the callee read before the value keeps the helper inline; baselined from the fixing commit output.",
    "dynamic_environment": "Review fixture (2026-10-01): no call is inferred in a module that reads setfenv; baselined from the fixing commit output.",
    "untruncated_arguments": "Output fixture (2026-10-01): one-result parentheses dropped only where the callee drops extra values; baselined from the introducing commit output.",
-   "returned_parameter_helper": "De-inline fixture (2026-10-01): a helper handing back its argument rebuilds with one result; baselined from the introducing commit output."
+   "returned_parameter_helper": "De-inline fixture (2026-10-01): a helper handing back its argument rebuilds with one result; baselined from the introducing commit output.",
+   "loop_return_flag": "De-inline fixture (2026-10-01): a loop return lowered to a flag and break rebuilds as the call; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -202,6 +203,12 @@
    "status": "ok",
    "nonequiv": 3,
    "protos": 9
+  },
+  {
+   "file": "loop_return_flag",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
   },
   {
    "file": "loop_shapes",
