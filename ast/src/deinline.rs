@@ -856,7 +856,7 @@ fn body_has_call_return(stmts: &[Statement]) -> bool {
     })
 }
 
-fn count_local_reads(stmts: &[Statement], v: &RcLocal) -> usize {
+pub(crate) fn count_local_reads(stmts: &[Statement], v: &RcLocal) -> usize {
     stmts
         .iter()
         .map(|s| {

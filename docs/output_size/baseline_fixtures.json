@@ -292,6 +292,18 @@
       "bytes": 311,
       "lines": 28
     },
+    "semantic/import_callee_alias__O0.luau": {
+      "bytes": 323,
+      "lines": 17
+    },
+    "semantic/import_callee_alias__O1.luau": {
+      "bytes": 323,
+      "lines": 17
+    },
+    "semantic/import_callee_alias__O2.luau": {
+      "bytes": 524,
+      "lines": 25
+    },
     "semantic/inner_loop_continues_outer__O0.luau": {
       "bytes": 460,
       "lines": 38
