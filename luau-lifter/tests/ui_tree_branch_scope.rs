@@ -18,5 +18,5 @@ fn a_tree_rebuilds_around_a_scope_settled_before_its_capture() {
         .expect("fixture decompiles");
     assert!(source.contains(":New(\"Frame\")({"), "{source}");
     let children = source.find("[children] = { ").expect("children field");
-    assert!(source[children..].trim_start_matches("[children] = { ").starts_with("scope2:New(\"UIScale\")"), "{source}");
+    assert!(source[children..].trim_start_matches("[children] = { ").starts_with("scope:New(\"UIScale\")"), "{source}");
 }

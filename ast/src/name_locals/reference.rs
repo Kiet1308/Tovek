@@ -92,7 +92,7 @@ impl NamingPreparation {
     }
 }
 
-fn collect_field_aliases(block: &Block, aliases: &mut FxHashMap<usize, String>) {
+fn collect_field_aliases(block: &Block, aliases: &mut FxHashMap<usize, String>, callees: &mut FxHashMap<usize, RValue>) {
     preparation_tests::REFERENCE_STATEMENTS.with(|count| count.set(count.get() + block.len()));
     for statement in &block.0 {
         if let Statement::Assign(assign) = statement
@@ -105,6 +105,11 @@ fn collect_field_aliases(block: &Block, aliases: &mut FxHashMap<usize, String>) 
                 {
                     aliases.insert(local_ptr(local), key.to_string());
                 }
+                if let LValue::Local(local) = lvalue
+                    && let Some(callee) = super::alias_callee(rvalue)
+                {
+                    callees.insert(local_ptr(local), callee);
+                }
             }
         }
         let mut functions = Vec::new();
@@ -112,17 +117,17 @@ fn collect_field_aliases(block: &Block, aliases: &mut FxHashMap<usize, String>) 
             functions.push(closure.function.clone());
         });
         for function in functions {
-            collect_field_aliases(&function.lock().body, aliases);
+            collect_field_aliases(&function.lock().body, aliases, callees);
         }
         match statement {
             Statement::If(node) => {
-                collect_field_aliases(&node.then_block.lock(), aliases);
-                collect_field_aliases(&node.else_block.lock(), aliases);
+                collect_field_aliases(&node.then_block.lock(), aliases, callees);
+                collect_field_aliases(&node.else_block.lock(), aliases, callees);
             }
-            Statement::While(node) => collect_field_aliases(&node.block.lock(), aliases),
-            Statement::Repeat(node) => collect_field_aliases(&node.block.lock(), aliases),
-            Statement::NumericFor(node) => collect_field_aliases(&node.block.lock(), aliases),
-            Statement::GenericFor(node) => collect_field_aliases(&node.block.lock(), aliases),
+            Statement::While(node) => collect_field_aliases(&node.block.lock(), aliases, callees),
+            Statement::Repeat(node) => collect_field_aliases(&node.block.lock(), aliases, callees),
+            Statement::NumericFor(node) => collect_field_aliases(&node.block.lock(), aliases, callees),
+            Statement::GenericFor(node) => collect_field_aliases(&node.block.lock(), aliases, callees),
             _ => {}
         }
     }
@@ -132,13 +137,15 @@ pub(super) fn gather_usage(
     block: &mut Block,
     in_loop: bool,
     aliases: &FxHashSet<usize>,
+    callee_aliases: &FxHashMap<usize, RValue>,
     usage: &mut FxHashMap<usize, LocalUsage>,
 ) {
     let mut field_aliases = FxHashMap::default();
-    collect_field_aliases(block, &mut field_aliases);
+    collect_field_aliases(block, &mut field_aliases, &mut FxHashMap::default());
     let mut context = UsageContext {
         aliases,
         field_aliases: &field_aliases,
+        callee_aliases,
         counters: Vec::new(),
     };
     gather_usage_in(block, in_loop, &mut context, usage);
@@ -150,6 +157,7 @@ pub(super) fn gather_usage(
 struct UsageContext<'a> {
     aliases: &'a FxHashSet<usize>,
     field_aliases: &'a FxHashMap<usize, String>,
+    callee_aliases: &'a FxHashMap<usize, RValue>,
     counters: Vec<usize>,
 }
 
@@ -214,7 +222,7 @@ fn gather_usage_in(
                 }
                 Either::Right(RValue::Call(call))
                 | Either::Right(RValue::Select(Select::Call(call))) => {
-                    note_call_usage(call, in_loop, aliases, usage)
+                    note_call_usage(call, in_loop, aliases, context.callee_aliases, usage)
                 }
                 Either::Right(RValue::Table(table)) => {
                     for (key, val) in &table.0 {
@@ -241,7 +249,7 @@ fn gather_usage_in(
         });
 
         match &*statement {
-            Statement::Call(call) => note_call_usage(call, in_loop, aliases, usage),
+            Statement::Call(call) => note_call_usage(call, in_loop, aliases, context.callee_aliases, usage),
             Statement::MethodCall(method_call) => note_method_usage(method_call, usage),
             Statement::Assign(assign) => {
                 for (lvalue, rvalue) in assign.left.iter().zip(assign.right.iter()) {
@@ -428,7 +436,8 @@ fn collect_definitions_in_rvalue(
 pub(super) fn prepare(block: &Block, collect_evidence: bool) -> super::NamingPreparation {
     let old = NamingPreparation::collect(block);
     let mut field_aliases = FxHashMap::default();
-    collect_field_aliases(block, &mut field_aliases);
+    let mut callee_aliases = FxHashMap::default();
+    collect_field_aliases(block, &mut field_aliases, &mut callee_aliases);
     let mut identities = collect_evidence.then(FxHashMap::default);
     let counts = collect_usage(block).into_iter().map(|(local, usage)| {
         if let Some(identities) = &mut identities { identities.insert(local_ptr(&local), local.stable_id()); }
@@ -443,7 +452,8 @@ pub(super) fn prepare(block: &Block, collect_evidence: bool) -> super::NamingPre
     }).collect();
     super::NamingPreparation { create_element_aliases: old.create_element_aliases,
         collapse_candidates: old.collapse_candidates, class_signal_locals: old.class_signal_locals,
-        field_aliases, counts, identities, definitions, invalid_definitions: FxHashSet::default() }
+        field_aliases, callee_aliases, counts, identities, definitions,
+        invalid_definitions: FxHashSet::default() }
 }
 
 pub(super) fn interprocedural_param_hints(namer: &mut Namer, block: &Block) {

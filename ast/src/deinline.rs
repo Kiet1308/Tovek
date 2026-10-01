@@ -895,21 +895,6 @@ fn returns_exactly_one(body: &[Statement]) -> bool {
     one_value_returns(body) && always_returns(body)
 }
 
-fn body_has_call_return(stmts: &[Statement]) -> bool {
-    stmts.iter().any(|s| match s {
-        Statement::Return(r) => r.values.len() == 1 && !is_scalar_return_value(&r.values[0]),
-        Statement::If(f) => {
-            body_has_call_return(&f.then_block.lock().0)
-                || body_has_call_return(&f.else_block.lock().0)
-        }
-        Statement::While(w) => body_has_call_return(&w.block.lock().0),
-        Statement::Repeat(r) => body_has_call_return(&r.block.lock().0),
-        Statement::NumericFor(nf) => body_has_call_return(&nf.block.lock().0),
-        Statement::GenericFor(gf) => body_has_call_return(&gf.block.lock().0),
-        _ => false,
-    })
-}
-
 pub(crate) fn count_local_reads(stmts: &[Statement], v: &RcLocal) -> usize {
     stmts
         .iter()

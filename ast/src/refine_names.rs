@@ -115,6 +115,12 @@ struct Graph {
     reads: Vec<(u64, String)>,
     joins: Vec<(u64, u64, u64)>,
     calls: Vec<(Option<u64>, Vec<Option<u64>>)>,
+    /// `local value = use(state)`: (value, state).
+    state_reads: Vec<(u64, u64)>,
+    /// Locals declared as a table constructor.
+    tables: BTreeSet<u64>,
+    /// The locals `merge(table, props)` calls start from.
+    merge_bases: Vec<u64>,
     report: Report,
 }
 
@@ -167,6 +173,32 @@ fn type_call_role(value: &RValue) -> Option<String> {
     let RValue::Local(callee) = as_call(value)?.value.as_ref() else { return None; };
     let name = callee.0.lock().0.clone()?;
     crate::name_locals::type_call_name(&name)
+}
+
+/// `Utils.merge` or a local `merge`: a call merging tables into a new one.
+fn is_merge(callee: &RValue) -> bool {
+    match callee {
+        RValue::Index(index) => matches!(string(&index.right), Some("merge" | "Merge")),
+        RValue::Local(local) => local.0.lock().0.as_deref() == Some("merge"),
+        _ => false,
+    }
+}
+
+/// The state a Fusion read `use(state)` (or `use(state) or default`) reads.
+fn state_read_source(value: &RValue) -> Option<u64> {
+    let value = match value {
+        RValue::Binary(binary) if binary.operation == crate::BinaryOperation::Or => &*binary.left,
+        value => value,
+    };
+    let call = as_call(value)?;
+    let [RValue::Local(state)] = call.arguments.as_slice() else { return None; };
+    let reader = match call.value.as_ref() {
+        RValue::Local(callee) => callee.0.lock().0.clone()?,
+        RValue::Global(global) => String::from_utf8_lossy(&global.0).into_owned(),
+        RValue::Index(index) => string(&index.right)?.to_owned(),
+        _ => return None,
+    };
+    crate::name_locals::is_state_reader(&reader).then(|| state.stable_id())
 }
 
 fn local_id(value: &RValue) -> Option<u64> {
@@ -290,6 +322,7 @@ impl Graph {
             options, nodes: BTreeMap::new(), order: Vec::new(), scopes: vec![None],
             globals: BTreeSet::new(), copies: Vec::new(), functions: BTreeMap::new(),
             results: Vec::new(), reads: Vec::new(), joins: Vec::new(), calls: Vec::new(),
+            state_reads: Vec::new(), tables: BTreeSet::new(), merge_bases: Vec::new(),
             report: Report::default(),
         }
     }
@@ -434,6 +467,12 @@ impl Graph {
     }
 
     fn call(&mut self, call: &Call) {
+        if call.arguments.len() >= 2
+            && let RValue::Local(base) = &call.arguments[0]
+            && is_merge(&call.value)
+        {
+            self.merge_bases.push(base.stable_id());
+        }
         self.calls.push((
             local_id(&call.value),
             call.arguments.iter().map(local_id).collect(),
@@ -604,6 +643,24 @@ impl Graph {
                                         from_binding: None,
                                     });
                                 }
+                                if assign.prefix && let RValue::Table(_) = right {
+                                    self.tables.insert(local.stable_id());
+                                }
+                                if assign.prefix && assign.left.len() == 1
+                                    && let RValue::Table(table) = right
+                                    && let Some(name) = crate::name_locals::module_table_hint(table)
+                                {
+                                    self.candidate(local.stable_id(), Candidate {
+                                        name, priority: 45, reason: "module_table",
+                                        witness: report_witness(self.options.emit_report, || "table of required modules; role only".into()),
+                                        from_binding: None,
+                                    });
+                                }
+                                if assign.prefix && assign.left.len() == 1
+                                    && let Some(state) = state_read_source(right)
+                                {
+                                    self.state_reads.push((local.stable_id(), state));
+                                }
                                 if assign.prefix && assign.left.len() == 1
                                     && let Some(name) = type_call_role(right)
                                 {
@@ -717,6 +774,15 @@ impl Graph {
             node.kind == "local" && node.writes == 1 && node.scope.is_some() && !node.ambiguous_owner)
     }
 
+    /// The one name the best useful candidates of `id` agree on, if they rank
+    /// at 40 or above.
+    fn best(&self, id: u64) -> Option<(String, u8)> {
+        let candidates = &self.nodes[&id].candidates;
+        let priority = candidates.iter().filter(|c| useful(&c.name)).map(|c| c.priority).max()?;
+        let names: BTreeSet<_> = candidates.iter().filter(|c| c.priority == priority).map(|c| &c.name).collect();
+        (priority >= 40 && names.len() == 1).then(|| ((*names.first().unwrap()).clone(), priority))
+    }
+
     fn propagate<const INCREMENTAL: bool>(&mut self) {
         let mut edges = Vec::new();
         for &(left, right) in &self.copies {
@@ -804,13 +870,7 @@ impl Graph {
             for &(dest, a, b) in &joins {
                 if INCREMENTAL && self.nodes[&a].changed_round < round
                     && self.nodes[&b].changed_round < round { continue; }
-                let best = |id| {
-                    let candidates = &self.nodes[&id].candidates;
-                    let priority = candidates.iter().filter(|c| useful(&c.name)).map(|c| c.priority).max()?;
-                    let names: BTreeSet<_> = candidates.iter().filter(|c| c.priority == priority).map(|c| &c.name).collect();
-                    (priority >= 40 && names.len() == 1).then(|| ((*names.first().unwrap()).clone(), priority))
-                };
-                if let (Some((name, x)), Some((other, y))) = (best(a), best(b)) {
+                if let (Some((name, x)), Some((other, y))) = (self.best(a), self.best(b)) {
                     if name == other {
                         pending.push((dest, Candidate { name, priority: x.min(y).min(66) - 1,
                             reason: "private_diamond_role_consensus",
@@ -868,6 +928,37 @@ impl Graph {
                 }
             }
             self.propagate::<true>();
+            // A read of a state's current value is named after the state, once
+            // the state's own name is settled (`use(anchorPoint)` ->
+            // `currentAnchorPoint`).
+            for (value, state) in std::mem::take(&mut self.state_reads) {
+                let Some(node) = self.nodes.get(&state) else { continue; };
+                let name = if generated(&node.before) {
+                    self.best(state).map(|(name, _)| name)
+                } else {
+                    Some(node.before.clone())
+                };
+                if self.immutable(value)
+                    && let Some(name) = name.as_deref().and_then(crate::name_locals::state_value_name)
+                {
+                    self.candidate(value, Candidate {
+                        name, priority: 40, reason: "state_current_value",
+                        witness: report_witness(self.options.emit_report, || "single read of a named state; role only".into()),
+                        from_binding: Some(state),
+                    });
+                }
+            }
+            // The table `merge(table, props)` starts from holds the defaults
+            // the props override.
+            for table in std::mem::take(&mut self.merge_bases) {
+                if self.tables.contains(&table) && self.immutable(table) {
+                    self.candidate(table, Candidate {
+                        name: "defaults".into(), priority: 42, reason: "merge_defaults",
+                        witness: report_witness(self.options.emit_report, || "table constructor merged with overrides; role only".into()),
+                        from_binding: None,
+                    });
+                }
+            }
         }
         let mut statuses = BTreeMap::new();
         let mut proposals = BTreeMap::new();
@@ -1284,6 +1375,65 @@ mod tests {
                 ..Default::default()
             },
         )
+    }
+
+    #[test]
+    fn module_and_defaults_tables_are_named_by_contents_and_use() {
+        let require = |path: &[&str]| -> RValue {
+            let mut node = global("package");
+            for key in path {
+                node = Index::new(node, text(key)).into();
+            }
+            Call::new(global("require"), vec![node]).into()
+        };
+        let (components, modules, defaults, merged, merged_again, props) =
+            (local("v1"), local("v2"), local("v3"), local("v4"), local("v5"), local("p"));
+        let block = function(vec![props.clone()], vec![
+            declare(&components, Table::new(vec![
+                (Some(text("Stroke")), require(&["Components", "Base", "Stroke"])),
+                (Some(text("Shine")), require(&["Components", "Effects", "Shine"])),
+            ]).into()),
+            declare(&modules, Table::new(vec![(Some(text("Util")), require(&["Util"]))]).into()),
+            declare(&defaults, Table::new(vec![(Some(text("Size")), global("size"))]).into()),
+            declare(&merged, Call::new(Index::new(global("Utils"), text("merge")).into(),
+                vec![defaults.clone().into(), props.clone().into()]).into()),
+            // Merging onto a call's result names nothing.
+            declare(&merged_again, Call::new(Index::new(global("Utils"), text("merge")).into(),
+                vec![merged.clone().into(), props.clone().into()]).into()),
+            Call::new(global("print"), vec![components.clone().into(), modules.clone().into(), merged_again.clone().into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(components.to_string(), "components");
+        assert_eq!(modules.to_string(), "modules");
+        assert_eq!(defaults.to_string(), "defaults");
+        assert_eq!(merged.to_string(), "v4");
+    }
+
+    #[test]
+    fn a_state_read_is_named_after_the_settled_state() {
+        let (reader, state, value, written) = (local("use"), local("v1"), local("v2"), local("v3"));
+        let read = |default: Option<RValue>| {
+            let call: RValue = Call::new(reader.clone().into(), vec![state.clone().into()]).into();
+            match default {
+                Some(default) => crate::Binary::new(call, default, crate::BinaryOperation::Or).into(),
+                None => call,
+            }
+        };
+        let block = function(vec![reader.clone()], vec![
+            declare(&state, Call::new(global("Value"), vec![]).into()),
+            declare(&value, read(Some(global("fallback")))),
+            declare(&written, read(None)),
+            Assign::new(vec![written.clone().into()], vec![global("other")]).into(),
+            Call::new(global("print"), vec![value.clone().into(), written.clone().into()]).into(),
+            record("AnchorPoint", &state),
+        ]);
+        let report = run(&block);
+        assert_eq!(state.to_string(), "anchorPoint");
+        assert_eq!(value.to_string(), "currentAnchorPoint");
+        // A local written again holds more than the state's value.
+        assert_eq!(written.to_string(), "v3");
+        let candidates = &report.bindings.iter().find(|b| b.id == value.stable_id()).unwrap().candidates;
+        assert!(candidates.iter().any(|c| c.reason == "state_current_value" && c.from_binding == Some(state.stable_id())));
     }
 
     #[test]

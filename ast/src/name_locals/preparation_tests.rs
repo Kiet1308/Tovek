@@ -35,6 +35,7 @@ fn compare_preparation(actual: &NamingPreparation, expected: &NamingPreparation)
     assert_eq!(actual.collapse_candidates, expected.collapse_candidates);
     assert_eq!(actual.class_signal_locals, expected.class_signal_locals);
     assert_eq!(actual.field_aliases, expected.field_aliases);
+    assert_eq!(actual.callee_aliases, expected.callee_aliases);
     assert_eq!(counts(actual), counts(expected));
     assert_eq!(actual.identities, expected.identities);
     assert_eq!(actual.definitions, expected.definitions);
@@ -223,9 +224,9 @@ fn fused_facts_and_usage_match_independent_censuses_without_owners() {
         compare_preparation(&actual, &expected);
         assert_eq!(fixture.owners(), owners);
         let mut actual_usage = FxHashMap::default();
-        gather_usage(&mut fixture.block, false, &actual.create_element_aliases, &actual.field_aliases, &mut actual_usage);
+        gather_usage(&mut fixture.block, false, &actual.create_element_aliases, &actual.field_aliases, &actual.callee_aliases, &mut actual_usage);
         let mut expected_usage = FxHashMap::default();
-        reference::gather_usage(&mut fixture.block, false, &expected.create_element_aliases, &mut expected_usage);
+        reference::gather_usage(&mut fixture.block, false, &expected.create_element_aliases, &expected.callee_aliases, &mut expected_usage);
         assert_eq!(actual_usage, expected_usage, "usage seed {seed}");
         assert_eq!(fixture.owners(), owners);
     }
@@ -316,8 +317,8 @@ fn fused_naming_removes_whole_tree_discovery_and_second_usage_expression_walk() 
         assert_eq!(REFERENCE_EXPRESSIONS.with(|count| count.get()), 2 * FUSED_EXPRESSIONS.with(|count| count.get()),
             "lower bound: two old counted expression scans versus one fused scan");
         let (mut actual_usage, mut expected_usage) = (FxHashMap::default(), FxHashMap::default());
-        gather_usage(&mut block, false, &actual.create_element_aliases, &actual.field_aliases, &mut actual_usage);
-        reference::gather_usage(&mut block, false, &expected.create_element_aliases, &mut expected_usage);
+        gather_usage(&mut block, false, &actual.create_element_aliases, &actual.field_aliases, &actual.callee_aliases, &mut actual_usage);
+        reference::gather_usage(&mut block, false, &expected.create_element_aliases, &expected.callee_aliases, &mut expected_usage);
         assert_eq!(actual_usage, expected_usage);
         assert_eq!(REFERENCE_USAGE_VALUES.with(|count| count.get()), 2 * FUSED_USAGE_VALUES.with(|count| count.get()));
     }

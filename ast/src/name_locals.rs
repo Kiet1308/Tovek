@@ -6,7 +6,7 @@ use triomphe::Arc;
 
 use crate::{
     inline_temps::{collect_closures_in_statement, is_movable_single_value, Usage},
-    Binary, BinaryOperation, Block, Call, Index, LValue, Literal, Local, LocalRw, MethodCall,
+    Binary, BinaryOperation, Block, Call, Global, Index, LValue, Literal, Local, LocalRw, MethodCall,
     RValue, RcLocal, Select, Statement, Table, Traverse, UnaryOperation,
 };
 
@@ -195,21 +195,27 @@ fn index_hint(index: &Index) -> Option<String> {
 }
 
 fn call_hint(call: &Call) -> Option<String> {
+    call_hint_of(&call.value, &call.arguments)
+}
+
+/// `call_hint` for a call of `callee`, which may stand in for the local alias
+/// actually called (`Namer::aliased_call_hint`).
+fn call_hint_of(callee: &RValue, arguments: &[RValue]) -> Option<String> {
     // require(script.Foo) -> "Foo"; require(script.Parent) -> "parentModule"
     // (the value is a module, not the parent Instance); require(<local>) ->
     // "module" (the path carries no name, the value is still a module).
-    if let RValue::Global(global) = &*call.value
+    if let RValue::Global(global) = callee
         && global.0.as_slice() == b"require"
-        && call.arguments.len() == 1
+        && arguments.len() == 1
     {
-        return match module_name_of(&call.arguments[0]) {
+        return match module_name_of(&arguments[0]) {
             Some(name) if name.eq_ignore_ascii_case("parent") => Some("parentModule".to_string()),
             Some(name) => Some(name),
             None => Some("module".to_string()),
         };
     }
     // A curried class factory (`scope:New("Frame") { ... }`) is still the class.
-    if let RValue::MethodCall(inner) = &*call.value
+    if let RValue::MethodCall(inner) = callee
         && inner.method == "New"
         && let Some(RValue::Literal(Literal::String(arg))) = inner.arguments.first()
     {
@@ -217,14 +223,14 @@ fn call_hint(call: &Call) -> Option<String> {
     }
     // Fusion's `peek` is usually bound to a local (`local peek = Fusion.peek`);
     // it reads a state as transparently as the global does below.
-    if let RValue::Local(callee) = &*call.value
-        && call.arguments.len() == 1
-        && callee.0 .0.lock().0.as_deref() == Some("peek")
+    if let RValue::Local(local) = callee
+        && arguments.len() == 1
+        && local.0 .0.lock().0.as_deref() == Some("peek")
     {
-        return rvalue_hint(&call.arguments[0]);
+        return rvalue_hint(&arguments[0]);
     }
-    if let Some((namespace, member)) = static_callee(call) {
-        let argument_count = call.arguments.len();
+    if let Some((namespace, member)) = static_callee_of(callee) {
+        let argument_count = arguments.len();
         // A single-argument numeric/string/state transform is transparent for
         // naming: `math.floor(x.Y)` is still `y`, `peek(state.Key)` is `key`.
         if argument_count == 1
@@ -235,7 +241,7 @@ fn call_hint(call: &Call) -> Option<String> {
                     | (Some("string"), "lower" | "upper")
                     | (Some("table"), "freeze")
             )
-            && let Some(name) = rvalue_hint(&call.arguments[0])
+            && let Some(name) = rvalue_hint(&arguments[0])
         {
             return Some(name);
         }
@@ -271,11 +277,11 @@ fn call_hint(call: &Call) -> Option<String> {
     // OWN RHS is a Call (this `tonumber(..)`), which is non-movable, so naming the
     // result is sound regardless of what the inner hint resolves to (it may be a
     // field/method name, or a Global name for `tonumber(SomeGlobal)`).
-    if let RValue::Global(global) = &*call.value
+    if let RValue::Global(global) = callee
         && matches!(global.0.as_slice(), b"tonumber" | b"tostring")
-        && call.arguments.len() == 1
+        && arguments.len() == 1
     {
-        return rvalue_hint(&call.arguments[0]);
+        return rvalue_hint(&arguments[0]);
     }
     // A bare time read is an instantaneous sample. The whole-tree usage pass
     // upgrades it to `lastTime` when it is later used as the subtraction base in
@@ -284,8 +290,8 @@ fn call_hint(call: &Call) -> Option<String> {
     // The offset form (`os.clock() + delay`) is a `Binary` RHS that never reaches
     // `call_hint`, so it correctly stays unnamed (source names those
     // `deadline`/`elapsed`).
-    if call.arguments.is_empty() {
-        let is_time = match &*call.value {
+    if arguments.is_empty() {
+        let is_time = match callee {
             RValue::Global(g) => g.0.as_slice() == b"tick",
             RValue::Index(index) => {
                 global_name(&index.left) == Some("os")
@@ -299,12 +305,12 @@ fn call_hint(call: &Call) -> Option<String> {
     }
     // Constructor-style calls read as their type:
     //   Instance.new("Part") -> "part" ; Color3.new(...) / Color3.fromRGB(...) -> "color"
-    if let RValue::Index(index) = &*call.value
+    if let RValue::Index(index) = callee
         && let RValue::Literal(Literal::String(method)) = &*index.right
     {
         let method = method.as_slice();
         if method == b"new" {
-            if let Some(RValue::Literal(Literal::String(arg))) = call.arguments.first()
+            if let Some(RValue::Literal(Literal::String(arg))) = arguments.first()
                 && let Some(name) = std::str::from_utf8(arg).ok().and_then(sanitize)
             {
                 return Some(name);
@@ -795,8 +801,55 @@ const METHOD_NOUN_SCORE: u8 = 24;
 /// `(Some("math"), "floor")` for a library function on a global namespace,
 /// `(Some(""), "merge")` for a member of a non-global table (`utils.merge`).
 /// A local or computed callee yields `None`.
+/// Fusion's `use`/`peek`, spelled `use2`, `peek3`, ... in a nested scope.
+pub(crate) fn is_state_reader(name: &str) -> bool {
+    matches!(name.trim_end_matches(|c: char| c.is_ascii_digit()), "use" | "peek")
+}
+
+/// The value read from a state object named `state`: `textState` -> `text`,
+/// `deviceScale` -> `currentDeviceScale`. A generic state name (`value`,
+/// `computed`) says nothing about its value.
+pub(crate) fn state_value_name(state: &str) -> Option<String> {
+    let base = state.trim_end_matches(|c: char| c.is_ascii_digit());
+    if is_default_name(state)
+        || is_generic_semantic_name(base)
+        || matches!(base, "computed" | "fallback" | "output" | "object" | "child" | "length" | "update" | "state" | "scope")
+    {
+        return None;
+    }
+    match base.strip_suffix("State") {
+        Some(stem) if !stem.is_empty() => sanitize(stem),
+        _ => sanitize(&format!("current{}", capitalize_first(base))),
+    }
+}
+
+/// The callee a `local floor = math.floor` / `local innerScope =
+/// Fusion.innerScope` / `local require = require` declaration binds, rebuilt
+/// so a call through the alias reads as a call of the member itself. A local
+/// namespace reads as an unknown one, as in `static_callee`.
+fn alias_callee(value: &RValue) -> Option<RValue> {
+    match value {
+        RValue::Global(global) => Some(RValue::Global(Global::new(global.0.clone()))),
+        RValue::Index(index) => {
+            let key = index_key(index)?;
+            let namespace = match &*index.left {
+                RValue::Global(namespace) => namespace.0.clone(),
+                RValue::Local(_) => Vec::new(),
+                _ => return None,
+            };
+            let key = RValue::Literal(Literal::String(key.as_bytes().to_vec()));
+            Some(RValue::Index(Index::new(RValue::Global(Global::new(namespace)), key)))
+        }
+        _ => None,
+    }
+}
+
 fn static_callee(call: &Call) -> Option<(Option<&str>, &str)> {
-    match &*call.value {
+    static_callee_of(&call.value)
+}
+
+fn static_callee_of(callee: &RValue) -> Option<(Option<&str>, &str)> {
+    match callee {
         RValue::Global(global) => std::str::from_utf8(&global.0).ok().map(|name| (None, name)),
         RValue::Index(index) => {
             let member = index_key(index)?;
@@ -1227,6 +1280,54 @@ fn table_collection_hint(table: &Table) -> Option<String> {
     }
 
     None
+}
+
+/// A table of required modules (`{ Stroke = require(package.Components.Base.
+/// Stroke), ... }`) is named after the deepest plural folder they all live in
+/// (`components`), or `modules`.
+pub(crate) fn module_table_hint(table: &Table) -> Option<String> {
+    let mut common: Option<Vec<&str>> = None;
+    for (_, value) in &table.0 {
+        let (RValue::Call(call) | RValue::Select(Select::Call(call))) = value else {
+            return None;
+        };
+        let (RValue::Global(callee), [path]) = (call.value.as_ref(), call.arguments.as_slice()) else {
+            return None;
+        };
+        if callee.0 != b"require" {
+            return None;
+        }
+        // The folders above the module, outermost first.
+        let mut folders = Vec::new();
+        let mut node = path;
+        while let RValue::Index(index) = node {
+            match index_key(index) {
+                Some(key) => folders.push(key),
+                None => folders.clear(),
+            }
+            node = &index.left;
+        }
+        folders.reverse();
+        folders.pop();
+        common = Some(match common {
+            None => folders,
+            Some(mut prefix) => {
+                let shared = prefix.iter().zip(&folders).take_while(|(a, b)| a == b).count();
+                prefix.truncate(shared);
+                prefix
+            }
+        });
+    }
+    let plural = |folder: &&str| {
+        folder.len() > 3
+            && folder.ends_with('s')
+            && !folder.ends_with("ss")
+            && folder.chars().all(|c| c.is_ascii_alphabetic())
+    };
+    match common?.into_iter().rev().find(plural) {
+        Some(folder) => sanitize(&lower_first(folder)),
+        None => Some("modules".to_string()),
+    }
 }
 
 fn strip_script_suffixes(mut name: &str) -> &str {
@@ -2079,6 +2180,7 @@ fn note_call_usage(
     call: &Call,
     in_loop: bool,
     aliases: &FxHashSet<usize>,
+    callee_aliases: &FxHashMap<usize, RValue>,
     usage: &mut FxHashMap<usize, LocalUsage>,
 ) {
     if static_callee(call) == Some((Some("string"), "rep"))
@@ -2160,12 +2262,19 @@ fn note_call_usage(
             usage.entry(local_ptr(local)).or_default().string_method_seen = true;
         }
     }
-    // Fusion scope plumbing (`innerScope(scope, ...)`, `doCleanup(scope)`) and
-    // state reads (`peek(state)`), whether called bare or through the library
-    // table (`Fusion.peek(state)`).
-    if let Some(member) = callable_static_name(&call.value) {
+    // Fusion scope plumbing (`innerScope(outerScope, ...)`, `doCleanup(scope)`)
+    // and state reads (`peek(state)`), whether called bare, through the
+    // library table (`Fusion.peek(state)`) or through a local alias of it.
+    let member = callable_static_name(&call.value).or_else(|| match &*call.value {
+        RValue::Local(local) => callee_aliases.get(&local_ptr(local)).and_then(callable_static_name),
+        _ => None,
+    });
+    if let Some(member) = member {
         let slot = match member {
-            "innerScope" | "deriveScope" | "doCleanup" => Some("scope"),
+            // Fusion's docs name the scope an inner scope is made from
+            // `outerScope`; the inner one is the `scope`.
+            "innerScope" => Some("outerScope"),
+            "deriveScope" | "doCleanup" => Some("scope"),
             "peek" => Some("state"),
             _ => None,
         };
@@ -2591,11 +2700,13 @@ fn gather_usage(
     in_loop: bool,
     aliases: &FxHashSet<usize>,
     field_aliases: &FxHashMap<usize, String>,
+    callee_aliases: &FxHashMap<usize, RValue>,
     usage: &mut FxHashMap<usize, LocalUsage>,
 ) {
     let mut context = UsageContext {
         aliases,
         field_aliases,
+        callee_aliases,
         counters: Vec::new(),
     };
     gather_usage_in(block, in_loop, &mut context, usage);
@@ -2607,6 +2718,8 @@ fn gather_usage(
 struct UsageContext<'a> {
     aliases: &'a FxHashSet<usize>,
     field_aliases: &'a FxHashMap<usize, String>,
+    /// What the single-write `local floor = math.floor` aliases call.
+    callee_aliases: &'a FxHashMap<usize, RValue>,
     counters: Vec<usize>,
 }
 
@@ -2675,7 +2788,7 @@ fn gather_usage_in(
                 }
                 Either::Right(RValue::Call(call))
                 | Either::Right(RValue::Select(Select::Call(call))) => {
-                    note_call_usage(call, in_loop, aliases, usage)
+                    note_call_usage(call, in_loop, aliases, context.callee_aliases, usage)
                 }
                 Either::Right(RValue::Table(table)) => {
                     for (key, val) in &table.0 {
@@ -2702,7 +2815,7 @@ fn gather_usage_in(
         });
 
         match &*statement {
-            Statement::Call(call) => note_call_usage(call, in_loop, aliases, usage),
+            Statement::Call(call) => note_call_usage(call, in_loop, aliases, context.callee_aliases, usage),
             Statement::MethodCall(method_call) => note_method_usage(method_call, usage),
             Statement::Assign(assign) => {
                 for (lvalue, rvalue) in assign.left.iter().zip(assign.right.iter()) {
@@ -2919,6 +3032,7 @@ struct NamingPreparation {
     collapse_candidates: FxHashSet<usize>,
     class_signal_locals: FxHashSet<usize>,
     field_aliases: FxHashMap<usize, String>,
+    callee_aliases: FxHashMap<usize, RValue>,
     counts: FxHashMap<usize, Usage>,
     identities: Option<FxHashMap<usize, u64>>,
     definitions: FunctionDefinitions,
@@ -3014,6 +3128,9 @@ impl NamingPreparation {
                 if domains.definitions { self.definitions(assign); }
                 if assign.prefix {
                     for (left, right) in assign.left.iter().zip(&assign.right) {
+                        if domains.usage && let LValue::Local(local) = left && let Some(callee) = alias_callee(right) {
+                            self.callee_aliases.insert(local_ptr(local), callee);
+                        }
                         if let LValue::Local(local) = left && let RValue::Index(index) = right {
                             if domains.usage && let Some(key) = index_key(index) {
                                 self.field_aliases.insert(local_ptr(local), key.to_string());
@@ -3139,6 +3256,8 @@ struct Namer {
     usage: FxHashMap<usize, LocalUsage>,
     /// Locals aliased to `*.createElement` (see `collect_create_element_aliases`).
     create_element_aliases: FxHashSet<usize>,
+    /// What the single-write `local floor = math.floor` aliases call.
+    callee_aliases: FxHashMap<usize, RValue>,
     /// Read/write/capture counts, preserving the exact selectors and occurrence
     /// semantics of `inline_temps::collect_usage`, so `is_collapse_candidate`
     /// agrees bit-for-bit with the gate the elimination passes apply. Keyed by `local_ptr` (the
@@ -3539,10 +3658,13 @@ impl Namer {
             // `scope:ForPairs(...)`, `scope:New("Frame")`) is universally named
             // `scope` in source. The distinctive members are required; a bare
             // `:Value(...)`/`:New(x)` is too generic on its own.
-            "Computed" | "ForPairs" | "ForValues" | "ForKeys" | "Observer" | "innerScope"
+            "Computed" | "ForPairs" | "ForValues" | "ForKeys" | "Observer"
             | "deriveScope" | "Hydrate" | "Spring" | "Tween" => {
                 self.set_hint_str(local, "scope", 50)
             }
+            // `outerScope:innerScope(...)` makes the `scope` (Fusion's docs),
+            // which outranks the receiver's own constructor calls.
+            "innerScope" => self.set_hint_str(local, "outerScope", 51),
             "New" if method_call.arguments.first().and_then(string_literal).is_some() => {
                 self.set_hint_str(local, "scope", 50)
             }
@@ -3644,6 +3766,18 @@ impl Namer {
         sanitize(strip_verb_prefix(&name)?)
     }
 
+    /// A call through a local alias of a library member (`local innerScope =
+    /// Fusion.innerScope`) names its result as a call of the member does.
+    fn aliased_call_hint(&self, rvalue: &RValue) -> Option<String> {
+        let (RValue::Call(call) | RValue::Select(Select::Call(call))) = rvalue else {
+            return None;
+        };
+        let RValue::Local(local) = &*call.value else {
+            return None;
+        };
+        call_hint_of(self.callee_aliases.get(&local_ptr(local))?, &call.arguments)
+    }
+
     /// Fusion's `use(state)` and `peek(state)` read a state object's current
     /// value, which reads as the field the state came from (`use(props.Size)`
     /// -> `size`), also behind a default (`use(stats.Level) or 1`).
@@ -3664,10 +3798,8 @@ impl Namer {
         sanitize(index_key(index)?)
     }
 
-    /// `use`/`peek` of a nested scope are spelled `use2`, `peek3`, ...
     fn reads_state(&self, call: &Call) -> bool {
-        self.callable_name(&call.value)
-            .is_some_and(|name| matches!(name.trim_end_matches(|c: char| c.is_ascii_digit()), "use" | "peek"))
+        self.callable_name(&call.value).is_some_and(|name| is_state_reader(&name))
     }
 
     /// The value read from a named state object: `use(textState)` -> `text`,
@@ -3687,18 +3819,7 @@ impl Namer {
         if !self.reads_state(call) {
             return None;
         }
-        let name = self.local_known_name(state)?;
-        let base = name.trim_end_matches(|c: char| c.is_ascii_digit());
-        if is_default_name(&name)
-            || is_generic_semantic_name(base)
-            || matches!(base, "computed" | "fallback" | "output" | "object" | "child" | "length" | "update" | "state" | "scope")
-        {
-            return None;
-        }
-        match base.strip_suffix("State") {
-            Some(stem) if !stem.is_empty() => sanitize(stem),
-            _ => sanitize(&format!("current{}", capitalize_first(base))),
-        }
+        state_value_name(&self.local_known_name(state)?)
     }
 
     /// A stored `TweenService:Create(...)` result reads as `tween` (the near-
@@ -4704,7 +4825,7 @@ impl Namer {
                                     if !is_instance_compatible_placeholder(rvalue) {
                                         self.instance_assignment_conflicts.insert(local_ptr(local));
                                     }
-                                    if let Some(hint) = rvalue_hint(rvalue) {
+                                    if let Some(hint) = rvalue_hint(rvalue).or_else(|| self.aliased_call_hint(rvalue)) {
                                         let role = rvalue_name_role(rvalue, &hint, 0);
                                         if let Some(evidence) = &mut self.evidence {
                                             evidence.register(local_ptr(local), local.stable_id());
@@ -5262,13 +5383,15 @@ fn name_locals_impl<const REFERENCE: bool>(
     #[cfg(not(test))]
     let preparation = NamingPreparation::for_naming(block, collect_evidence);
     let NamingPreparation { create_element_aliases, collapse_candidates, class_signal_locals,
-        field_aliases, counts, identities, definitions, invalid_definitions: _ } = preparation;
+        field_aliases, mut callee_aliases, counts, identities, definitions, invalid_definitions: _ } = preparation;
+    // An alias written again may call anything.
+    callee_aliases.retain(|ptr, _| counts.get(ptr).is_some_and(|usage| usage.writes == 1));
     let mut usage = FxHashMap::default();
     #[cfg(test)]
-    if REFERENCE { reference::gather_usage(block, false, &create_element_aliases, &mut usage); }
-    else { gather_usage(block, false, &create_element_aliases, &field_aliases, &mut usage); }
+    if REFERENCE { reference::gather_usage(block, false, &create_element_aliases, &callee_aliases, &mut usage); }
+    else { gather_usage(block, false, &create_element_aliases, &field_aliases, &callee_aliases, &mut usage); }
     #[cfg(not(test))]
-    gather_usage(block, false, &create_element_aliases, &field_aliases, &mut usage);
+    gather_usage(block, false, &create_element_aliases, &field_aliases, &callee_aliases, &mut usage);
     if let (Some(evidence), Some(identities)) = (&mut evidence, identities) {
         for (ptr, id) in identities { evidence.register(ptr, id); }
     }
@@ -5311,6 +5434,7 @@ fn name_locals_impl<const REFERENCE: bool>(
         closure_locals: FxHashSet::default(),
         usage,
         create_element_aliases,
+        callee_aliases,
         counts,
         movable_temp_locals: FxHashSet::default(),
         receiver_like_depth: 0,
@@ -10394,7 +10518,34 @@ mod tests {
         assert_eq!(name_of(&object), "object");
     }
 
-    /// API-slot params: `innerScope(p)` -> `scope`, `peek(p)` -> `state`,
+    /// A call through a single-write local alias of a library member names
+    /// its result and arguments as a call of the member does:
+    /// `local innerScope = Fusion.innerScope` makes `scope` from `outerScope`,
+    /// `local floor = math.floor` is as transparent as `math.floor`.
+    #[test]
+    fn a_call_through_a_member_alias_names_like_the_member() {
+        let (fusion, alias, floor, outer, scope, size) =
+            (RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default());
+        let mut function = Function::default();
+        function.parameters = vec![outer.clone()];
+        function.body = Block(vec![
+            declare(&scope, RValue::Call(Call::new(RValue::Local(alias.clone()), vec![RValue::Local(outer.clone()), RValue::Local(fusion.clone())]))),
+            declare(&size, RValue::Call(Call::new(RValue::Local(floor.clone()), vec![field(&scope, "Size")]))),
+            Statement::Call(Call::new(global("print"), vec![RValue::Local(scope.clone()), RValue::Local(size.clone())])),
+        ]);
+        let f = RcLocal::default();
+        let mut block = Block(vec![
+            declare(&fusion, RValue::Call(Call::new(global("require"), vec![global("FusionModule")]))),
+            declare(&alias, RValue::Index(Index::new(RValue::Local(fusion.clone()), string("innerScope")))),
+            declare(&floor, RValue::Index(Index::new(global("math"), string("floor")))),
+            declare(&f, closure_of(function)),
+            use_local(&f),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!((name_of(&outer), name_of(&scope), name_of(&size)), ("outerScope".into(), "scope".into(), "size".into()));
+    }
+
+    /// API-slot params: `innerScope(p)` -> `outerScope`, `peek(p)` -> `state`,
     /// `buffer.writeu8(b, o, v)` -> `buffer`/`offset`/`value`, a statement-level
     /// `p:RegisterType(..)` -> `registry`, `p:Add(function ..)` -> `maid`,
     /// `p:LoadAnimation(a)` -> `animator`, `p:IsA` against unrelated classes ->
@@ -10473,7 +10624,7 @@ mod tests {
             use_local(&f),
         ]);
         name_locals(&mut block, true);
-        assert_eq!(name_of(&scope), "scope");
+        assert_eq!(name_of(&scope), "outerScope");
         assert_eq!(name_of(&state), "state");
         assert_eq!(name_of(&buf), "buf");
         assert_eq!(name_of(&off), "offset");
