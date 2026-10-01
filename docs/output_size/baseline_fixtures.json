@@ -160,6 +160,18 @@
       "bytes": 687,
       "lines": 51
     },
+    "semantic/compound_local_base__O0.luau": {
+      "bytes": 444,
+      "lines": 36
+    },
+    "semantic/compound_local_base__O1.luau": {
+      "bytes": 410,
+      "lines": 34
+    },
+    "semantic/compound_local_base__O2.luau": {
+      "bytes": 485,
+      "lines": 35
+    },
     "semantic/cps_copy_without_return__O0.luau": {
       "bytes": 268,
       "lines": 26
