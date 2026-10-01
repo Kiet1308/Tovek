@@ -339,10 +339,14 @@ pub fn deinline(body: &mut Block) {
     // Every rewrite needs a target; the module-wide censuses below are only
     // worth building when some helper passes the per-declaration gates.
     if !any_structural_target(body) {
+        crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
     let captures = crate::deinline_safety::CaptureSafety::new(body);
-    if !captures.complete() || captures.dynamic_environment() { return; }
+    if !captures.complete() || captures.dynamic_environment() {
+        crate::telemetry::count("skipped_without_targets", 1);
+        return;
+    }
     // The entry budget census describes the unchanged first iteration too.
     // Later iterations rebuild it after rewriting; no mutable-tree facts are
     // retained across a revision, and this summary owns only numeric IDs.

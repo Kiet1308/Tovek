@@ -84,7 +84,9 @@ def validate(profile, expected_scripts):
         errors.append('missing script context')
     for script, passes in by_script.items():
         # This harness is for successfully decompiled fixture/corpus chunks.
-        required = AST_PHASES | {'DECOMPILE', 'D_COLLECT_TARGETS', 'D_WRITE_CENSUS'}
+        # De-inline skips its censuses (and their phases) where no helper can
+        # be a target; it counts each skip.
+        required = AST_PHASES | {'DECOMPILE'}
         if not required <= passes.keys():
             errors.append('missing required phases: ' + script)
             continue
@@ -94,9 +96,12 @@ def validate(profile, expected_scripts):
             errors.append('factoring/deinline iteration mismatch')
         if passes['DECOMPILE']['counters'].get('deinline_factor_iterations') != passes['S_DEINLINE']['calls']:
             errors.append('outer fixed-point counter context mismatch')
-        if passes['D_WRITE_CENSUS']['calls'] != passes['S_DEINLINE']['calls']:
+        skipped = passes['S_DEINLINE']['counters'].get('skipped_without_targets', 0)
+        census = passes.get('D_WRITE_CENSUS', {}).get('calls', 0)
+        if census + skipped != passes['S_DEINLINE']['calls']:
             errors.append('write census invocation count changed')
-        if passes['D_COLLECT_TARGETS']['calls'] != passes['S_DEINLINE']['counters'].get('iterations'):
+        collected = passes.get('D_COLLECT_TARGETS', {}).get('calls', 0)
+        if collected != passes['S_DEINLINE']['counters'].get('iterations', 0):
             errors.append('target-collection iteration count changed')
     return sorted(set(errors))
 

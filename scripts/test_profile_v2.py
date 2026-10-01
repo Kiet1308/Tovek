@@ -20,6 +20,17 @@ class ProfileChecks(unittest.TestCase):
     def test_complete_profile(self):
         self.assertEqual(validate(valid_profile(), {'input.lua'}), [])
 
+    def test_a_skipped_deinline_needs_no_census_phases(self):
+        profile = valid_profile()
+        profile['rows'] = [r for r in profile['rows'] if r['pass'] not in ('D_COLLECT_TARGETS', 'D_WRITE_CENSUS')]
+        profile['rows_count'] = len(profile['rows'])
+        deinline = next(r for r in profile['rows'] if r['pass'] == 'S_DEINLINE')
+        deinline['counters'] = {'skipped_without_targets': 1}
+        self.assertEqual(validate(profile, {'input.lua'}), [])
+        # Without the skip counter, the missing census is a real gap.
+        deinline['counters'] = {}
+        self.assertIn('write census invocation count changed', validate(profile, {'input.lua'}))
+
     def test_counter_total_and_iteration_mismatches(self):
         for pass_name, counter in [('D_COLLECT_TARGETS', 'candidate_binders'), ('S_DEINLINE', 'iterations')]:
             profile = valid_profile()
