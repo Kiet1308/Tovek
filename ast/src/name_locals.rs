@@ -3626,6 +3626,26 @@ impl Namer {
         sanitize(strip_verb_prefix(&name)?)
     }
 
+    /// Fusion's `use(state)` and `peek(state)` read a state object's current
+    /// value, which reads as the field the state came from (`use(props.Size)`
+    /// -> `size`), also behind a default (`use(stats.Level) or 1`).
+    fn state_read_hint(&self, rvalue: &RValue) -> Option<String> {
+        let value = match rvalue {
+            RValue::Binary(binary) if binary.operation == BinaryOperation::Or => &*binary.left,
+            value => value,
+        };
+        let (RValue::Call(call) | RValue::Select(Select::Call(call))) = value else {
+            return None;
+        };
+        let [RValue::Index(index)] = call.arguments.as_slice() else {
+            return None;
+        };
+        if !matches!(self.callable_name(&call.value).as_deref(), Some("use" | "peek")) {
+            return None;
+        }
+        sanitize(index_key(index)?)
+    }
+
     /// A stored `TweenService:Create(...)` result reads as `tween` (the near-
     /// universal source name). Gated on the receiver actually being TweenService —
     /// `method == "Create"` alone is ambiguous (a custom class can define a
@@ -4270,6 +4290,37 @@ impl Namer {
         }
     }
 
+    /// Fusion's state builders call their callback with `use` and `scope`
+    /// (`scope:Computed(function(use, scope) ... end)`; `ForPairs`, `ForKeys`
+    /// and `ForValues` after their input, followed by the key/value). Only
+    /// when the first parameter is used the way `use` is: called, nothing else.
+    fn fusion_callback_hint(&mut self, method_call: &MethodCall) {
+        let (position, entry): (usize, &[&'static str]) = match method_call.method.as_str() {
+            "Computed" => (0, &[]),
+            "ForPairs" => (1, &["key", "value"]),
+            "ForKeys" => (1, &["key"]),
+            "ForValues" => (1, &["value"]),
+            _ => return,
+        };
+        let Some(RValue::Closure(closure)) = method_call.arguments.get(position) else {
+            return;
+        };
+        let function = closure.function.lock();
+        let Some(first) = function.parameters.first() else {
+            return;
+        };
+        let called_only = self.usage.get(&local_ptr(first)).is_none_or(|usage| {
+            usage.string_fields_read.is_empty() && !usage.dynamic_indexed && !usage.iterated && !usage.field_written
+        });
+        if !called_only {
+            return;
+        }
+        let names = ["use", "scope"].into_iter().map(|name| (name, 46)).chain(entry.iter().map(|&name| (name, 38)));
+        for (param, (name, score)) in function.parameters.iter().zip(names) {
+            self.set_hint_str(param, name, score);
+        }
+    }
+
     /// Name the two parameters of a `table.sort` comparator `a`/`b`, matching the
     /// near-universal source convention for sort predicates.
     fn comparator_hint(&mut self, call: &Call) {
@@ -4457,6 +4508,7 @@ impl Namer {
                         // an argument of another call); bare-statement connects are
                         // handled in the statement match below.
                         self.event_callback_hint(method_call);
+                        self.fusion_callback_hint(method_call);
                     }
                     Either::Right(RValue::Call(call))
                     | Either::Right(RValue::Select(Select::Call(call))) => {
@@ -4467,6 +4519,11 @@ impl Namer {
                 None
             });
             self.reserved.extend(globals);
+            // A bare builder statement names `use` before its callback's body
+            // is visited, as an expression-position one already is.
+            if let Statement::MethodCall(method_call) = &*statement {
+                self.fusion_callback_hint(method_call);
+            }
             for function in functions {
                 let mut function = function.lock();
                 // Parameter heuristics need the whole function: a component (one
@@ -4649,6 +4706,10 @@ impl Namer {
                                 // (`method_call_hint` returns nothing for `:Create`).
                                 if let Some(name) = self.tween_create_hint(rvalue) {
                                     self.set_hint(local, name, 60);
+                                }
+                                // `use(props.Size)` -> `size`.
+                                if let Some(name) = self.state_read_hint(rvalue) {
+                                    self.set_hint(local, name, 56);
                                 }
                             }
                             if assign.prefix
@@ -8332,6 +8393,55 @@ mod tests {
 
             assert_eq!(name_of(&parameter), if rebuilt { "decal" } else { "p" });
         }
+    }
+
+    /// `scope:Computed(function(use, scope) local size = use(props.Size) ... end)`
+    #[test]
+    fn fusion_builders_name_use_scope_and_state_reads() {
+        let (scope, props) = (RcLocal::default(), RcLocal::default());
+        let (use_, inner_scope, size) = (RcLocal::default(), RcLocal::default(), RcLocal::default());
+        let mut computed = Function::default();
+        computed.parameters = vec![use_.clone(), inner_scope.clone()];
+        computed.body = Block(vec![
+            declare(&size, call(RValue::Local(use_.clone()), vec![field(&props, "Size")])),
+            use_local(&inner_scope),
+            ret(vec![RValue::Local(size.clone())]),
+        ]);
+        let (key, value, for_use) = (RcLocal::default(), RcLocal::default(), RcLocal::default());
+        let mut pairs = Function::default();
+        pairs.parameters = vec![for_use.clone(), RcLocal::default(), key.clone(), value.clone()];
+        pairs.body = Block(vec![
+            Statement::Call(Call::new(RValue::Local(for_use.clone()), vec![RValue::Local(key.clone())])),
+            use_local(&value),
+        ]);
+        let mut block = Block(vec![
+            declare(&props, RValue::Table(crate::Table::new(vec![]))),
+            Statement::MethodCall(MethodCall::new(RValue::Local(scope.clone()), "Computed".into(), vec![closure_of(computed)])),
+            Statement::MethodCall(MethodCall::new(RValue::Local(scope), "ForPairs".into(), vec![RValue::Local(props), closure_of(pairs)])),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!((name_of(&use_), name_of(&inner_scope), name_of(&size)), ("use".into(), "scope".into(), "size".into()));
+        assert_eq!((name_of(&for_use), name_of(&key), name_of(&value)), ("use".into(), "key".into(), "value".into()));
+    }
+
+    /// A first parameter that is indexed is no `use`.
+    #[test]
+    fn fusion_builder_refuses_an_indexed_first_parameter() {
+        let p = RcLocal::default();
+        let mut computed = Function::default();
+        computed.parameters = vec![p.clone()];
+        computed.body = Block(vec![ret(vec![field(&p, "Value")])]);
+        let mut block = Block(vec![Statement::MethodCall(MethodCall::new(
+            global("scope"),
+            "Computed".into(),
+            vec![closure_of(computed)],
+        ))]);
+
+        name_locals(&mut block, true);
+
+        assert_ne!(name_of(&p), "use");
     }
 
     #[test]
