@@ -3658,10 +3658,47 @@ impl Namer {
         let [RValue::Index(index)] = call.arguments.as_slice() else {
             return None;
         };
-        if !matches!(self.callable_name(&call.value).as_deref(), Some("use" | "peek")) {
+        if !self.reads_state(call) {
             return None;
         }
         sanitize(index_key(index)?)
+    }
+
+    /// `use`/`peek` of a nested scope are spelled `use2`, `peek3`, ...
+    fn reads_state(&self, call: &Call) -> bool {
+        self.callable_name(&call.value)
+            .is_some_and(|name| matches!(name.trim_end_matches(|c: char| c.is_ascii_digit()), "use" | "peek"))
+    }
+
+    /// The value read from a named state object: `use(textState)` -> `text`,
+    /// `use(deviceScale)` -> `currentDeviceScale`. A generic state name
+    /// (`value`, `computed`) says nothing about its value.
+    fn state_value_hint(&self, rvalue: &RValue) -> Option<String> {
+        let value = match rvalue {
+            RValue::Binary(binary) if binary.operation == BinaryOperation::Or => &*binary.left,
+            value => value,
+        };
+        let (RValue::Call(call) | RValue::Select(Select::Call(call))) = value else {
+            return None;
+        };
+        let [RValue::Local(state)] = call.arguments.as_slice() else {
+            return None;
+        };
+        if !self.reads_state(call) {
+            return None;
+        }
+        let name = self.local_known_name(state)?;
+        let base = name.trim_end_matches(|c: char| c.is_ascii_digit());
+        if is_default_name(&name)
+            || is_generic_semantic_name(base)
+            || matches!(base, "computed" | "fallback" | "output" | "object" | "child" | "length" | "update" | "state" | "scope")
+        {
+            return None;
+        }
+        match base.strip_suffix("State") {
+            Some(stem) if !stem.is_empty() => sanitize(stem),
+            _ => sanitize(&format!("current{}", capitalize_first(base))),
+        }
     }
 
     /// A stored `TweenService:Create(...)` result reads as `tween` (the near-
@@ -4728,6 +4765,10 @@ impl Namer {
                                 // `use(props.Size)` -> `size`.
                                 if let Some(name) = self.state_read_hint(rvalue) {
                                     self.set_hint(local, name, 56);
+                                }
+                                // `use(deviceScale)` -> `currentDeviceScale`.
+                                if let Some(name) = self.state_value_hint(rvalue) {
+                                    self.set_hint(local, name, 40);
                                 }
                             }
                             if assign.prefix
@@ -8453,6 +8494,28 @@ mod tests {
 
         assert_eq!((name_of(&use_), name_of(&inner_scope), name_of(&size)), ("use".into(), "scope".into(), "size".into()));
         assert_eq!((name_of(&for_use), name_of(&key), name_of(&value)), ("use".into(), "key".into(), "value".into()));
+    }
+
+    /// A value read from a named state reads as that state's current value;
+    /// a `...State` suffix names the value itself, a generic state nothing.
+    #[test]
+    fn a_state_read_names_the_states_current_value() {
+        let named = |name: &str| RcLocal::new(crate::Local::new(Some(name.to_string())));
+        let use_ = named("use");
+        let (scale, text_state, value) = (named("deviceScale"), named("textState"), named("value"));
+        let reads: Vec<RcLocal> = (0..3).map(|_| RcLocal::default()).collect();
+        let mut block = Block(vec![
+            declare(&reads[0], call(RValue::Local(use_.clone()), vec![RValue::Local(scale)])),
+            declare(&reads[1], call(RValue::Local(use_.clone()), vec![RValue::Local(text_state)])),
+            declare(&reads[2], call(RValue::Local(use_), vec![RValue::Local(value)])),
+        ]);
+        block.0.extend(reads.iter().map(use_local));
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&reads[0]), "currentDeviceScale");
+        assert_eq!(name_of(&reads[1]), "text");
+        assert!(name_of(&reads[2]).starts_with('v'), "{}", name_of(&reads[2]));
     }
 
     /// A first parameter that is indexed is no `use`.
