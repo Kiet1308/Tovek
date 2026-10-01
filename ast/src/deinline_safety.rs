@@ -1,12 +1,16 @@
 //! Argument snapshots for call reconstruction. Local spelling and type hints
 //! cannot prove that a cell stays unchanged during a reconstructed helper body.
 use rustc_hash::FxHashSet;
-use crate::{Block, RValue, Statement, Traverse, Upvalue};
+use crate::{Block, LValue, Literal, RValue, Statement, Traverse, Upvalue};
 
 #[derive(Default)]
 pub(crate) struct CaptureSafety {
     references: FxHashSet<u64>,
     captured: FxHashSet<u64>,
+    /// Globals the module assigns somewhere.
+    written_globals: FxHashSet<Vec<u8>>,
+    /// The module reads `getfenv` or `setfenv`.
+    dynamic_environment: bool,
     visited: FxHashSet<usize>,
     nodes: usize,
     literal_bytes: usize,
@@ -26,6 +30,28 @@ impl CaptureSafety {
     }
 
     pub(crate) fn complete(&self) -> bool { !self.exhausted }
+
+    /// A module that reads `getfenv`/`setfenv` can give a function its own
+    /// globals, so the same code in a helper and in its caller may mean
+    /// different things. Luau neither inlines nor imports in such a module.
+    pub(crate) fn dynamic_environment(&self) -> bool { self.exhausted || self.dynamic_environment }
+
+    /// A global path (`math.clamp`, `workspace`) Luau resolves once, when the
+    /// script loads: up to three names, the first never assigned in the
+    /// module, in a module with a fixed environment. No code the script runs
+    /// later can change what it reads.
+    pub(crate) fn constant_import(&self, value: &RValue) -> bool {
+        fn root(value: &RValue, depth: usize) -> Option<&[u8]> {
+            match value {
+                RValue::Global(global) => Some(&global.0),
+                RValue::Index(index) if depth < 2 && matches!(*index.right, RValue::Literal(Literal::String(_))) => {
+                    root(&index.left, depth + 1)
+                }
+                _ => None,
+            }
+        }
+        !self.dynamic_environment() && root(value, 0).is_some_and(|name| !self.written_globals.contains(name))
+    }
     pub(crate) fn nodes(&self) -> usize { self.nodes }
 
     pub(crate) fn stable(&self, value: &RValue) -> bool {
@@ -58,6 +84,13 @@ impl CaptureSafety {
                 _ => 0,
             };
             if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
+            if let Statement::Assign(assign) = statement {
+                for left in &assign.left {
+                    if let LValue::Global(global) = left {
+                        self.written_globals.insert(global.0.clone());
+                    }
+                }
+            }
             match statement {
                 Statement::If(s) => {
                     self.block(&s.then_block.lock().0, depth + 1);
@@ -88,6 +121,11 @@ impl CaptureSafety {
             _ => 0,
         };
         if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
+        if let RValue::Global(global) = value
+            && matches!(global.0.as_slice(), b"getfenv" | b"setfenv")
+        {
+            self.dynamic_environment = true;
+        }
         if let RValue::Literal(crate::Literal::String(bytes)) = value {
             self.literal_bytes = self.literal_bytes.saturating_add(bytes.len());
             if self.literal_bytes > 8 * 1024 * 1024 { self.exhausted = true; return; }

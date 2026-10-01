@@ -136,6 +136,18 @@
       "bytes": 687,
       "lines": 51
     },
+    "semantic/cps_copy_without_return__O0.luau": {
+      "bytes": 268,
+      "lines": 26
+    },
+    "semantic/cps_copy_without_return__O1.luau": {
+      "bytes": 268,
+      "lines": 26
+    },
+    "semantic/cps_copy_without_return__O2.luau": {
+      "bytes": 525,
+      "lines": 28
+    },
     "semantic/dead_const_tables__O0.luau": {
       "bytes": 296,
       "lines": 20
@@ -172,6 +184,18 @@
       "bytes": 611,
       "lines": 27
     },
+    "semantic/dynamic_environment__O0.luau": {
+      "bytes": 161,
+      "lines": 12
+    },
+    "semantic/dynamic_environment__O1.luau": {
+      "bytes": 161,
+      "lines": 12
+    },
+    "semantic/dynamic_environment__O2.luau": {
+      "bytes": 161,
+      "lines": 12
+    },
     "semantic/embedded_helper_value__O0.luau": {
       "bytes": 463,
       "lines": 30
@@ -183,6 +207,18 @@
     "semantic/embedded_helper_value__O2.luau": {
       "bytes": 624,
       "lines": 33
+    },
+    "semantic/embedded_prefix_order__O0.luau": {
+      "bytes": 272,
+      "lines": 27
+    },
+    "semantic/embedded_prefix_order__O1.luau": {
+      "bytes": 272,
+      "lines": 27
+    },
+    "semantic/embedded_prefix_order__O2.luau": {
+      "bytes": 403,
+      "lines": 28
     },
     "semantic/fall_off_helper_arity__O0.luau": {
       "bytes": 511,

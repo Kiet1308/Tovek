@@ -10,7 +10,8 @@
 //! one-result call, which the select fusion refused although an operand takes
 //! one value anyway (Roblox `EventsSchema` `clampDepthValue`). Where SSA also
 //! folded the value into its one use (`obj:SetAttribute("K", not n and 4 or
-//! ...)`), the call is rebuilt in place: nothing observable precedes it there.
+//! ...)`), the call is rebuilt in place: only local reads and the method
+//! lookup precede it there, which `tonumber` cannot change.
 
 const BYTECODE: &[u8] = include_bytes!("fixtures/deinline_declared_prefix.luaubc");
 

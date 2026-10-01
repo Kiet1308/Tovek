@@ -143,7 +143,9 @@ fn run(body: &mut Block, arithmetic_only: bool) {
         targets.retain(|t| t.arithmetic.is_some());
         for target in &mut targets { target.protect_definition = true; }
     }
-    if targets.is_empty() {
+    // Luau neither inlines nor imports where a function may get its own
+    // globals (`CaptureSafety::dynamic_environment`).
+    if targets.is_empty() || crate::deinline_safety::CaptureSafety::new(body).dynamic_environment() {
         return;
     }
     // f_local -> target index, so we recognise each helper's declaration during

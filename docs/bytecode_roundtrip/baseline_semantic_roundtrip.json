@@ -28,7 +28,10 @@
    "template_repeated_key": "added_fixtures",
    "fall_off_helper_arity": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
    "local_tuple_helper": "De-inline fixture (2026-10-01): run outlines the rebuilt `makeTrack` calls, so it and the -O2 copies differ by construction; baselined from the introducing commit output.",
-   "outer_local_helpers": "De-inline fixture (2026-10-01): run outlines the rebuilt `emit`/`purchase` calls, so it differs by construction; baselined from the introducing commit output."
+   "outer_local_helpers": "De-inline fixture (2026-10-01): run outlines the rebuilt `emit`/`purchase` calls, so it differs by construction; baselined from the introducing commit output.",
+   "cps_copy_without_return": "Review fixture (2026-10-01): a loop copy without `return` stays inline; the -O2 loop unrolling differs as in loop_shapes; baselined from the fixing commit output.",
+   "embedded_prefix_order": "Review fixture (2026-10-01): the callee read before the value keeps the helper inline; baselined from the fixing commit output.",
+   "dynamic_environment": "Review fixture (2026-10-01): no call is inferred in a module that reads setfenv; baselined from the fixing commit output."
   }
  },
  "summary": {
@@ -109,9 +112,21 @@
    "protos": 3
   },
   {
+   "file": "cps_copy_without_return",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 3
+  },
+  {
    "file": "dead_const_tables",
    "status": "ok",
    "nonequiv": 1,
+   "protos": 3
+  },
+  {
+   "file": "dynamic_environment",
+   "status": "ok",
+   "nonequiv": 0,
    "protos": 3
   },
   {
@@ -119,6 +134,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 4
+  },
+  {
+   "file": "embedded_prefix_order",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 6
   },
   {
    "file": "fall_off_helper_arity",
