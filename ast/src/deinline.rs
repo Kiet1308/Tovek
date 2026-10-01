@@ -2897,31 +2897,43 @@ fn try_match_at(
             }
         })
     };
+    // Where several helpers match, the one covering the most statements wins:
+    // each rebuild is exact, and a shorter one would leave the rest pasted
+    // (`cancel()` matches only the first statement of `purchase(nil)`). Two
+    // that cover the same statements are ambiguous: refuse.
+    fn offer(found: &mut Option<Hit>, tied: &mut Vec<RcLocal>, hit: Hit) {
+        match found {
+            Some(best) if best.consume > hit.consume => {}
+            Some(best) if best.consume == hit.consume => tied.push(hit.f_local),
+            _ => {
+                tied.clear();
+                *found = Some(hit);
+            }
+        }
+    }
     let mut found: Option<Hit> = None;
+    let mut tied: Vec<RcLocal> = Vec::new();
     for &ti in ordered {
         let Ok(hit) = attempt(ti) else { return None };
         if let Some(h) = hit {
-            if let Some(first) = found {
-                // two different functions match here: refuse
-                contested.extend([first.f_local, h.f_local]);
-                return None;
-            }
-            found = Some(h);
+            offer(&mut found, &mut tied, h);
         }
     }
     // A target outside this iteration's focus cannot match anew, but where a
-    // focused one matches, it may still make the site ambiguous.
-    if let Some(first) = &found {
+    // focused one matches, it may still cover more or make the site ambiguous.
+    if found.is_some() {
         for &ti in rivals {
             match attempt(ti) {
                 Ok(None) => {}
-                Ok(Some(rival)) => {
-                    contested.extend([first.f_local.clone(), rival.f_local]);
-                    return None;
-                }
+                Ok(Some(rival)) => offer(&mut found, &mut tied, rival),
                 Err(()) => return None,
             }
         }
+    }
+    if !tied.is_empty() {
+        contested.extend(tied);
+        contested.extend(found.map(|best| best.f_local));
+        return None;
     }
     // A width or target skipped for fuel may have been a competing match.
     if ordered.iter().chain(rivals).next().is_some_and(|&ti| targets[ti].search.exhausted()) {
@@ -4488,7 +4500,7 @@ fn any_structural_target(body: &Block) -> bool {
         let (body, _) = pattern_body(&g.body.0);
         let Some((kind, falls_off)) = classify_returns(body) else { return; };
         let pattern = if falls_off { canon(&returning_nil(body)) } else { canon(body) };
-        if pattern.is_empty() || anchors_in_block(&pattern) < 2 {
+        if pattern.is_empty() || anchor_score(&pattern, &g.parameters) < 2 {
             return;
         }
         found = match kind {
@@ -4613,7 +4625,7 @@ fn collect_targets(
             }
         }
         if crate::env_flag!("DEINLINE_ANCHOR_TRACE") {
-            let a = anchors_in_block(&pat);
+            let a = anchor_score(&pat, &g.parameters);
             let nc: usize = pat.iter().map(crate::deinline::dbg_stmt_node_count).sum();
             let nm = g.name.as_deref().unwrap_or("<none>");
             eprintln!(
@@ -4630,7 +4642,7 @@ fn collect_targets(
                 cps_loop_return,
             );
         }
-        if anchors_in_block(&pat) < 2 {
+        if anchor_score(&pat, &g.parameters) < 2 {
             deinline_reject!(
                 RejectReason::LowAnchorScore,
                 g.name.as_deref().unwrap_or("<anon>")
@@ -5320,6 +5332,21 @@ fn collect_written_in_closures(rv: &RValue, out: &mut FxHashSet<RcLocal>) {
         }
         _ => {}
     }
+}
+
+/// How specific a helper's pattern is: its fixed names
+/// ([`anchors_in_block`]) and the outer locals it uses. An outer local
+/// (`particles` in `if p then particles:AbsoluteEmit(p) end`) unifies only
+/// with itself, like a global; a parameter or a local of the body binds to
+/// anything.
+fn anchor_score(pattern: &[Statement], parameters: &[RcLocal]) -> usize {
+    let mut used = FxHashSet::default();
+    collect_reads(pattern, &mut used);
+    collect_written(pattern, &mut used);
+    let mut own = FxHashSet::default();
+    collect_declared_locals(pattern, &mut own);
+    let outer = used.iter().filter(|l| !own.contains(*l) && !parameters.contains(l)).count();
+    anchors_in_block(pattern) + outer
 }
 
 fn anchors_in_block(stmts: &[Statement]) -> usize {

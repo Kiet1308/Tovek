@@ -340,6 +340,18 @@
       "bytes": 387,
       "lines": 36
     },
+    "semantic/outer_local_helpers__O0.luau": {
+      "bytes": 774,
+      "lines": 54
+    },
+    "semantic/outer_local_helpers__O1.luau": {
+      "bytes": 774,
+      "lines": 54
+    },
+    "semantic/outer_local_helpers__O2.luau": {
+      "bytes": 1270,
+      "lines": 56
+    },
     "semantic/parallel_copy_cycle__O0.luau": {
       "bytes": 364,
       "lines": 31

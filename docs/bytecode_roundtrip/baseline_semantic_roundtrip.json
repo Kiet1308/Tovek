@@ -27,7 +27,8 @@
    "embedded_helper_value": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
    "template_repeated_key": "added_fixtures",
    "fall_off_helper_arity": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
-   "local_tuple_helper": "De-inline fixture (2026-10-01): run outlines the rebuilt `makeTrack` calls, so it and the -O2 copies differ by construction; baselined from the introducing commit output."
+   "local_tuple_helper": "De-inline fixture (2026-10-01): run outlines the rebuilt `makeTrack` calls, so it and the -O2 copies differ by construction; baselined from the introducing commit output.",
+   "outer_local_helpers": "De-inline fixture (2026-10-01): run outlines the rebuilt `emit`/`purchase` calls, so it differs by construction; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -196,6 +197,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 1
+  },
+  {
+   "file": "outer_local_helpers",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 8
   },
   {
    "file": "parallel_copy_cycle",
