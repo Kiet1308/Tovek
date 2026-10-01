@@ -15,6 +15,14 @@
 //! call runs once, then every target takes its value, with nothing in between.
 //! Folding first lets naming see the call's results land in the targets
 //! (`success, result = pcall(load)`).
+//!
+//! A swap `a, b = b, a` is split the same way, through one temporary:
+//!
+//! ```lua
+//! local v3 = left                       -->  left, right = right, left
+//! left = right
+//! right = v3
+//! ```
 
 use rustc_hash::FxHashMap;
 
@@ -30,6 +38,7 @@ pub fn fold_tuple_copies(block: &mut Block) {
 
 fn has_shape(block: &Block) -> bool {
     block.0.windows(2).any(|pair| tuple_temporaries(&pair[0]).is_some_and(|temporaries| copied_from(&pair[1], &temporaries).is_some()))
+        || block.0.windows(3).any(|triple| swap_shape(triple).is_some())
         || block.0.iter().any(|statement| {
             let mut found = false;
             crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
@@ -74,9 +83,37 @@ fn fold_block(block: &mut Block, usage: &FxHashMap<RcLocal, Usage>) {
             let Statement::Assign(assign) = &mut block.0[index] else { unreachable!() };
             assign.left = targets.into_iter().map(LValue::Local).collect();
             assign.prefix = false;
+        } else if let Some((temporary, first, second)) = block.0.get(index..index + 3).and_then(swap_shape)
+            && !temporary.has_source_binding()
+            && !temporary.preserve_binding()
+            && usage.get(temporary).is_some_and(|usage| usage.reads == 1 && usage.writes == 1 && !usage.captured)
+        {
+            let (first, second) = (first.clone(), second.clone());
+            block.0.drain(index + 1..index + 3);
+            let Statement::Assign(assign) = &mut block.0[index] else { unreachable!() };
+            assign.left = vec![LValue::Local(first.clone()), LValue::Local(second.clone())];
+            assign.right = vec![RValue::Local(second), RValue::Local(first)];
+            assign.prefix = false;
         }
         index += 1;
     }
+}
+
+/// `local t = a; a = b; b = t` for distinct locals: (t, a, b).
+fn swap_shape(statements: &[Statement]) -> Option<(&RcLocal, &RcLocal, &RcLocal)> {
+    let [Statement::Assign(save), Statement::Assign(shift), Statement::Assign(restore)] = statements else {
+        return None;
+    };
+    fn copy(assign: &crate::Assign) -> Option<(&RcLocal, &RcLocal)> {
+        match (assign.left.as_slice(), assign.right.as_slice()) {
+            ([LValue::Local(target)], [RValue::Local(source)]) if !assign.parallel => Some((target, source)),
+            _ => None,
+        }
+    }
+    let ((temporary, first), (shifted, second), (restored, saved)) = (copy(save)?, copy(shift)?, copy(restore)?);
+    let distinct = first != second && temporary != first && temporary != second;
+    (save.prefix && !shift.prefix && !restore.prefix && distinct && shifted == first && restored == second && saved == temporary)
+        .then_some((temporary, first, second))
 }
 
 /// The locals `local t1, t2, ... = <call or ...>` declares, if it is that.
@@ -152,6 +189,17 @@ mod tests {
         let mut block = Block(vec![declare(&[&first, &second]), copy(&store, &second), copy(&ready, &first)]);
         fold_tuple_copies(&mut block);
         assert_eq!(block.to_string(), "ready, store = pcall(load)");
+    }
+
+    #[test]
+    fn a_swap_through_a_temporary_becomes_one_assignment() {
+        let (left, right) = (RcLocal::new(Local::new(Some("left".into()))), RcLocal::new(Local::new(Some("right".into()))));
+        let temporary = RcLocal::new(Local::new(None));
+        let mut save = Assign::new(vec![LValue::Local(temporary.clone())], vec![RValue::Local(left.clone())]);
+        save.prefix = true;
+        let mut block = Block(vec![save.into(), copy(&left, &right), copy(&right, &temporary)]);
+        fold_tuple_copies(&mut block);
+        assert_eq!(block.to_string(), "left, right = right, left");
     }
 
     #[test]

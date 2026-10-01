@@ -1,7 +1,7 @@
 -- `x, y = f()` into upvalues compiles to a call into fresh registers and one
 -- store per target. Printed back as one multiple assignment, the call still
--- runs once and every target takes its own result; a swap of plain values
--- and a result read again stay as they are.
+-- runs once and every target takes its own result. A swap goes through one
+-- temporary the same way and folds back to `a, b = b, a`.
 local ready, store
 local calls = 0
 local function load()
