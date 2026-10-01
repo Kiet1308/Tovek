@@ -264,6 +264,12 @@ struct Target {
     /// lowered by inlining into a loop guard plus a cloned caller continuation;
     /// the CPS matcher verifies that continuation before refolding it.
     cps_loop_return: bool,
+    /// The helper's own locals that its body ends by returning
+    /// ([`local_tuple_return`]). Its pattern is the body before that return,
+    /// matched as a void region whose site declares the caller's locals in
+    /// their place; rebuilt as `local set, key = f(args)`. Empty for every
+    /// other target.
+    returns: Vec<RcLocal>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
 }
@@ -2345,12 +2351,12 @@ fn deinline_block(
             let embedded = hit.host.is_some();
             let call = Call::new(RValue::Local(hit.f_local.clone()), hit.args)
                 .reconstructed(crate::call_origins::Kind::StatementDeinline);
-            let stmt = match &hit.result {
-                _ if let Some(host) = hit.host => host,
-                None => Statement::Call(call),
-                Some(r) => Statement::Assign(Assign {
+            let stmt = match hit.host {
+                Some(host) => host,
+                None if hit.results.is_empty() => Statement::Call(call),
+                None => Statement::Assign(Assign {
                     node_origin: Default::default(),
-                    left: vec![LValue::Local(r.clone())],
+                    left: hit.results.into_iter().map(LValue::Local).collect(),
                     right: vec![RValue::Call(call)],
                     prefix: true,
                     parallel: false,
@@ -2552,24 +2558,26 @@ fn recurse_into_closures(
 
 /// A matched site: window width, call arguments, and (Gap B arm-return form)
 /// the tail return value to re-emit after the call.
-type Site = (usize, Vec<RValue>, Option<RValue>);
+/// A matched width, its arguments, the re-emitted tail return and the
+/// call's result locals.
+type Site = (usize, Vec<RValue>, Option<RValue>, Vec<RcLocal>);
 
 fn record_site(
     site: &mut Option<Site>,
     ambiguous: &mut bool,
     w: usize,
-    args: &[RValue],
+    u: &Unified,
     tail_ret: Option<&RValue>,
 ) {
     match site {
-        None => *site = Some((w, args.to_vec(), tail_ret.cloned())),
-        Some((_, prev, prev_ret)) => {
+        None => *site = Some((w, u.args.clone(), tail_ret.cloned(), u.returned.clone())),
+        Some((_, prev, prev_ret, prev_results)) => {
             let same_ret = match (prev_ret.as_ref(), tail_ret) {
                 (None, None) => true,
                 (Some(a), Some(b)) => rvalue_exact_eq(a, b),
                 _ => false,
             };
-            if !args_vec_eq(prev, args) || !same_ret {
+            if !args_vec_eq(prev, &u.args) || !same_ret || *prev_results != u.returned {
                 *ambiguous = true;
             }
         }
@@ -2768,7 +2776,8 @@ struct Hit {
     f_local: RcLocal,
     consume: usize, // statements to replace, starting at i
     args: Vec<RValue>,
-    result: Option<RcLocal>, // Some -> emit `local result = f(args)`; None -> `f(args)`
+    /// The locals the call declares: none emits `f(args)`, else `local results = f(args)`.
+    results: Vec<RcLocal>,
     /// Gap B (arm-return form): the consumed window ended the block with EVERY
     /// path `return RET`; the splice re-emits `return RET` after the call.
     tail_ret: Option<RValue>,
@@ -2993,7 +3002,7 @@ fn match_void(
                     // every callee-temp must be dead after the consumed window, else
                     // a later use would reference a now-removed declaration.
                     if !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals) {
-                        record_site(&mut site, &mut ambiguous, w, &u.args, None);
+                        record_site(&mut site, &mut ambiguous, w, &u, None);
                     }
                 }
             }
@@ -3006,21 +3015,24 @@ fn match_void(
                 if let Some(u) = try_unify_cps_site(t, &plain, &continuation, &prefix) {
                     let live = tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals);
                     if !live {
-                        record_site(&mut site, &mut ambiguous, w, &u.args, None);
+                        record_site(&mut site, &mut ambiguous, w, &u, None);
                     }
                 }
             }
         }
         // Attempt 2 (Gap B) — void callee inlined at a value-returning caller's
         // tail, its void early-returns lowered to the caller's tail `return RET`.
-        if let Some(ret) = value_tail_ret(stmts, start, w, is_func_tail) {
+        // (A helper returning its locals has no early return.)
+        if t.returns.is_empty()
+            && let Some(ret) = value_tail_ret(stmts, start, w, is_func_tail)
+        {
             let rewritten = rewrite_return_to_void(raw, &ret);
             if canon_top_len(&rewritten, true) == kc {
                 charge_window(t, &rewritten);
                 let folded = canon_recurse(canon_top(&rewritten, true), true);
                 if let Some(u) = try_unify_site_any(t, &folded, &prefix) {
                     if !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals) {
-                        record_site(&mut site, &mut ambiguous, w, &u.args, None);
+                        record_site(&mut site, &mut ambiguous, w, &u, None);
                     }
                 }
             }
@@ -3028,14 +3040,16 @@ fn match_void(
         // Attempt 3 (Gap B, arm-return form) — same lowering, but the caller's
         // tail `return RET` was cloned into every arm of the window's final `if`
         // and nothing follows the window. Re-emit `return RET` after the call.
-        if let Some(ret) = arm_tail_ret(stmts, start, w, is_func_tail) {
+        if t.returns.is_empty()
+            && let Some(ret) = arm_tail_ret(stmts, start, w, is_func_tail)
+        {
             let rewritten = rewrite_return_to_void(raw, &ret);
             if canon_top_len(&rewritten, true) == kc {
                 charge_window(t, &rewritten);
                 let folded = canon_recurse(canon_top(&rewritten, true), true);
                 if let Some(u) = try_unify_site_any(t, &folded, &prefix) {
                     if !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals) {
-                        record_site(&mut site, &mut ambiguous, w, &u.args, Some(&ret));
+                        record_site(&mut site, &mut ambiguous, w, &u, Some(&ret));
                     }
                 }
             }
@@ -3044,12 +3058,12 @@ fn match_void(
     if ambiguous {
         return None;
     }
-    let (w, args, tail_ret) = site?;
+    let (w, args, tail_ret, results) = site?;
     Some(Hit {
         f_local: t.f_local.clone(),
         consume: (start - i) + w,
         args,
-        result: None,
+        results,
         tail_ret,
         host: None,
     })
@@ -3139,7 +3153,7 @@ fn match_value(
                     && !block_reads_local(region_eff, &r)
                     && !tail_has_live(last_occ, stmts, i, body_start + w, &u.callee_locals)
                 {
-                    record_site(&mut site, &mut ambiguous, w, &u.args, None);
+                    record_site(&mut site, &mut ambiguous, w, &u, None);
                 }
             }
         }
@@ -3147,12 +3161,12 @@ fn match_value(
     if ambiguous {
         return None;
     }
-    let (w, args, _) = site?;
+    let (w, args, _, _) = site?;
     Some(Hit {
         f_local: t.f_local.clone(),
         consume: 1 + w,
         args,
-        result: Some(r),
+        results: vec![r],
         tail_ret: None,
         host: None,
     })
@@ -3190,7 +3204,7 @@ fn match_declared_value(
         && !u.callee_locals.contains(r)
         && !block_reads_local(prefix, r)
         && !tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals);
-    complete.then(|| Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, result: Some(r.clone()), tail_ret: None, host: None })
+    complete.then(|| Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, results: vec![r.clone()], tail_ret: None, host: None })
 }
 
 /// `<prefix>; S` where SSA folded the value branch into the one statement
@@ -3250,7 +3264,7 @@ fn match_embedded_value(
     if reads_callee_local || tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals) {
         return None;
     }
-    Some(Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, result: None, tail_ret: None, host: Some(host) })
+    Some(Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, results: Vec::new(), tail_ret: None, host: Some(host) })
 }
 
 /// Offers `visit` each value of `statement` that Lua evaluates on every path
@@ -3424,14 +3438,14 @@ fn match_value_prefixed(
                 && !block_reads_local(region, &r)
                 && !tail_has_live(last_occ, stmts, i, region_start + w, &u.callee_locals)
             {
-                record_site(&mut site, &mut ambiguous, w, &u.args, None);
+                record_site(&mut site, &mut ambiguous, w, &u, None);
             }
         }
     }
     if ambiguous {
         return None;
     }
-    let (w, args, _) = site?;
+    let (w, args, _, _) = site?;
     Some(Hit {
         f_local: t.f_local.clone(),
         // Absolute span from i: prefix + any interposed trivia + the RESULT decl
@@ -3439,7 +3453,7 @@ fn match_value_prefixed(
         // so the splice removes the interposed marker along with the window.
         consume: (d - i) + 1 + w,
         args,
-        result: Some(r),
+        results: vec![r],
         tail_ret: None,
         host: None,
     })
@@ -3619,6 +3633,9 @@ struct Unified {
     /// the region's internal temps. They cease to exist once the region becomes a
     /// call, so the site is only valid if none is live afterwards.
     callee_locals: FxHashSet<RcLocal>,
+    /// The caller locals the helper's returned locals (`Target::returns`)
+    /// mapped onto, in return order: the call's results.
+    returned: Vec<RcLocal>,
 }
 
 /// The leading `local L = ARG` copies a written-param site starts with (see
@@ -3747,13 +3764,21 @@ fn finish_unified(
             }
         }
     }
+    // Each returned local is declared by the pattern, so the site's matching
+    // declaration bound it. The caller's local outlives the region.
+    let returned = t.returns.iter().map(|l| b.locals.get(l).cloned()).collect::<Option<Vec<_>>>()?;
+    let mut callee_locals: FxHashSet<RcLocal> = b.locals.into_values().collect();
+    for l in &returned {
+        callee_locals.remove(l);
+    }
     Some(Unified {
         // Every target is non-variadic, so a trailing call's extra results
         // fill no parameter the body reads: `helper(f())` needs no `(f())`,
         // whether the site or a written parameter's copy adjusted it.
         args: args.into_iter().map(crate::untruncated).collect(),
         result: b.result,
-        callee_locals: b.locals.values().cloned().collect(),
+        callee_locals,
+        returned,
     })
 }
 
@@ -4460,8 +4485,9 @@ fn any_structural_target(body: &Block) -> bool {
         if g.is_variadic || body_unsafe(&g.body.0) {
             return;
         }
-        let Some((kind, falls_off)) = classify_returns(&g.body.0) else { return; };
-        let pattern = if falls_off { canon(&returning_nil(&g.body.0)) } else { canon(&g.body.0) };
+        let (body, _) = pattern_body(&g.body.0);
+        let Some((kind, falls_off)) = classify_returns(body) else { return; };
+        let pattern = if falls_off { canon(&returning_nil(body)) } else { canon(body) };
         if pattern.is_empty() || anchors_in_block(&pattern) < 2 {
             return;
         }
@@ -4472,6 +4498,12 @@ fn any_structural_target(body: &Block) -> bool {
         };
     });
     found
+}
+
+/// The part of a helper's body its sites repeat, and the locals it returns
+/// in place of a call's results ([`local_tuple_return`]; usually none).
+fn pattern_body(body: &[Statement]) -> (&[Statement], Vec<RcLocal>) {
+    local_tuple_return(body).unwrap_or((body, Vec::new()))
 }
 
 fn collect_targets(
@@ -4530,7 +4562,8 @@ fn collect_targets(
             );
             continue;
         }
-        let (kind, falls_off) = match classify_returns(&g.body.0) {
+        let (body, returns) = pattern_body(&g.body.0);
+        let (kind, falls_off) = match classify_returns(body) {
             Some(classified) => classified,
             None => {
                 // multi-return / mixed / bare-vararg leaf / non-terminal value return
@@ -4546,7 +4579,7 @@ fn collect_targets(
             deinline_reject!(RejectReason::ShapeBudget, g.name.as_deref().unwrap_or("<anon>"));
             continue;
         }
-        let pat = if falls_off { canon(&returning_nil(&g.body.0)) } else { canon(&g.body.0) };
+        let pat = if falls_off { canon(&returning_nil(body)) } else { canon(body) };
         if pat.is_empty() {
             deinline_reject!(
                 RejectReason::EmptyPattern,
@@ -4662,8 +4695,8 @@ fn collect_targets(
             .cloned()
             .collect();
         let func_ptr = Arc::as_ptr(&func);
-        let pat_raw_len = g.body.0.len();
-        let pat_spine_len = tail_spine_len(&g.body.0);
+        let pat_raw_len = body.len();
+        let pat_spine_len = tail_spine_len(body);
         let param_order = g.parameters.clone();
         let pat0_kind = std::mem::discriminant(&pat[0]);
         // §8 + P6: a Value target whose canon'd body is `<K leading non-branch
@@ -4739,6 +4772,7 @@ fn collect_targets(
             specializable,
             falls_off,
             cps_loop_return,
+            returns,
             captures: captures.clone(),
             search: Default::default(),
         });
@@ -4765,6 +4799,84 @@ fn classify_returns(body: &[Statement]) -> Option<(TKind, bool)> {
         return Some((TKind::Value, false));
     }
     value_leaf_shape(&canon(&returning_nil(body))).then_some((TKind::Value, true))
+}
+
+/// A helper that builds several values in its own locals and returns them:
+/// `local total = 0; local function set(...) ... end; local function
+/// key(...) ... end; return set, key`. Luau inlines `local set, key =
+/// makeTrack(x)` as the body alone, the caller's locals taking the place of
+/// the returned ones. Returns the body before the `return` and the returned
+/// locals, when that is exactly what a site can show:
+/// * two or more distinct locals, each declared by a top-level statement
+///   (a single value is a [`TKind::Value`] target);
+/// * no other `return`, so every call reaches this one;
+/// * no closure of the body captures them. A captured one is shared with
+///   the caller's code at the site, but a snapshot after a call, so a
+///   later write to it would be seen differently.
+fn local_tuple_return(body: &[Statement]) -> Option<(&[Statement], Vec<RcLocal>)> {
+    let (Statement::Return(ret), rest) = body.split_last()? else {
+        return None;
+    };
+    if ret.values.len() < 2 || block_has_return(rest) {
+        return None;
+    }
+    let mut returned: Vec<RcLocal> = Vec::with_capacity(ret.values.len());
+    for value in &ret.values {
+        let RValue::Local(local) = value else { return None };
+        if returned.contains(local) {
+            return None;
+        }
+        returned.push(local.clone());
+    }
+    let declared = |local: &RcLocal| {
+        rest.iter().any(|statement| {
+            matches!(statement, Statement::Assign(a)
+                if a.prefix && a.left.iter().any(|l| matches!(l, LValue::Local(x) if x == local)))
+        })
+    };
+    if !returned.iter().all(declared) || closures_capture_any(rest, &returned) {
+        return None;
+    }
+    Some((rest, returned))
+}
+
+/// Whether a closure created by `stmts` captures one of `locals`. A closure
+/// nested in another reaches an outer local only through its parent's
+/// captures, so closure bodies are not entered.
+fn closures_capture_any(stmts: &[Statement], locals: &[RcLocal]) -> bool {
+    fn in_value(value: &RValue, locals: &[RcLocal]) -> bool {
+        if let RValue::Closure(closure) = value {
+            return closure.upvalues.iter().any(|upvalue| {
+                let (Upvalue::Copy(captured) | Upvalue::Ref(captured)) = upvalue;
+                locals.contains(captured)
+            });
+        }
+        let mut found = false;
+        value.visit_rvalues(&mut |child| {
+            found = in_value(child, locals);
+            !found
+        });
+        found
+    }
+    stmts.iter().any(|statement| {
+        let mut found = false;
+        visit_stmt_rvalues(statement, &mut |value| {
+            found = in_value(value, locals);
+            !found
+        });
+        found
+            || match statement {
+                Statement::If(f) => {
+                    closures_capture_any(&f.then_block.lock().0, locals)
+                        || closures_capture_any(&f.else_block.lock().0, locals)
+                }
+                Statement::While(w) => closures_capture_any(&w.block.lock().0, locals),
+                Statement::Repeat(r) => closures_capture_any(&r.block.lock().0, locals),
+                Statement::NumericFor(nf) => closures_capture_any(&nf.block.lock().0, locals),
+                Statement::GenericFor(gf) => closures_capture_any(&gf.block.lock().0, locals),
+                _ => false,
+            }
+    })
 }
 
 /// `body` with every exit that returns nothing returning `nil`: a void
@@ -5382,6 +5494,9 @@ fn anchors_in_lvalue(l: &LValue, n: &mut usize) {
 pub(crate) fn anchors_in_rvalue(rv: &RValue, n: &mut usize) {
     match rv {
         RValue::Global(_) | RValue::Literal(Literal::String(_)) => *n += 1,
+        // A closure of a known prototype matches only another instance of
+        // that prototype (`unify_closure`): as specific as any pattern gets.
+        RValue::Closure(c) if c.function.0.lock().bytecode_proto_id.is_some() => *n += 2,
         RValue::Index(i) => {
             anchors_in_rvalue(&i.left, n);
             anchors_in_rvalue(&i.right, n);
@@ -5690,6 +5805,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -5726,6 +5842,52 @@ mod tests {
         assert!(hit.args.iter().all(|v| matches!(v, RValue::Call(_))));
         assert!(finish_unified(&target, &[], bindings.clone(), &[(b.clone(), last), (a.clone(), first.clone())]).is_none());
         assert!(finish_unified(&target, &[], bindings, &[(a.clone(), first), (b, a.into())]).is_none());
+    }
+
+    #[test]
+    fn a_helper_returning_its_own_locals_matches_its_body() {
+        // `local a = 1; local b = {}; return a, b`
+        let (a, b) = (local("a"), local("b"));
+        let body = vec![
+            assign_local(&a, number(1.0), true),
+            assign_local(&b, RValue::Table(Table::default()), true),
+            Statement::Return(Return::new(vec![local_value(&a), local_value(&b)])),
+        ];
+        let (rest, returned) = local_tuple_return(&body).expect("local tuple");
+        assert_eq!(rest.len(), 2);
+        assert_eq!(returned, vec![a.clone(), b.clone()]);
+
+        let refused = |body: Vec<Statement>| local_tuple_return(&body).is_none();
+        let ret = |values: Vec<RValue>| Statement::Return(Return::new(values));
+        // One value is a value target; a non-local is not the caller's local.
+        assert!(refused(vec![assign_local(&a, number(1.0), true), ret(vec![local_value(&a)])]));
+        assert!(refused(vec![assign_local(&a, number(1.0), true), ret(vec![local_value(&a), number(2.0)])]));
+        // A parameter, or the same local twice, is not one declaration each.
+        assert!(refused(vec![assign_local(&a, number(1.0), true), ret(vec![local_value(&a), local_value(&b)])]));
+        assert!(refused(vec![assign_local(&a, number(1.0), true), ret(vec![local_value(&a), local_value(&a)])]));
+        // Another return means a call may not reach this one.
+        let early = Statement::If(If::new(
+            local_value(&local("c")),
+            Block(vec![Statement::Return(Return::new(vec![]))]),
+            Block::default(),
+        ));
+        assert!(refused(vec![
+            early,
+            assign_local(&a, number(1.0), true),
+            assign_local(&b, number(2.0), true),
+            ret(vec![local_value(&a), local_value(&b)]),
+        ]));
+        // A closure capturing `a` would share it with the caller's code.
+        let capturing = RValue::Closure(Closure {
+            node_origin: Default::default(),
+            function: ByAddress(Arc::new(Mutex::new(Function::default()))),
+            upvalues: vec![Upvalue::Ref(a.clone())],
+        });
+        assert!(refused(vec![
+            assign_local(&a, number(1.0), true),
+            assign_local(&b, capturing, true),
+            ret(vec![local_value(&b), local_value(&a)]),
+        ]));
     }
 
     #[test]
@@ -5886,6 +6048,7 @@ mod tests {
             specializable: true,
             falls_off: false,
             cps_loop_return: false,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -5960,6 +6123,7 @@ mod tests {
             specializable: true,
             falls_off: false,
             cps_loop_return: false,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -6024,6 +6188,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -6103,6 +6268,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: true,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -6445,6 +6611,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -6532,6 +6699,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -6681,6 +6849,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -6725,6 +6894,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -6826,7 +6996,7 @@ mod tests {
         let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
             .expect("isAfkEnabled prefix + guard-polarity flip should match");
         assert_eq!(hit.consume, 3, "consume prefix + decl + value branch");
-        assert_eq!(hit.result, Some(v2));
+        assert_eq!(hit.results, vec![v2]);
         assert!(hit.args.is_empty(), "isAfkEnabled has no parameters");
     }
 
@@ -6862,7 +7032,7 @@ mod tests {
         let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
             .expect("if/else value prefix should match without a flip");
         assert_eq!(hit.consume, 3);
-        assert_eq!(hit.result, Some(v));
+        assert_eq!(hit.results, vec![v]);
     }
 
     /// F10a hardening: a value-return result-write leaf carrying `prefix = true` (a
@@ -6944,7 +7114,7 @@ mod tests {
         // span = prefix(0) + marker(1) + decl(2) + region-if(3): removes 4 stmts,
         // leaving the trailing print.
         assert_eq!(hit.consume, 4);
-        assert_eq!(hit.result, Some(v));
+        assert_eq!(hit.results, vec![v]);
     }
 
     /// P6: a Value helper with TWO leading non-branch prefix statements (K==2)
@@ -6995,7 +7165,7 @@ mod tests {
             .expect("K==2 value prefix should match");
         // span = prefix a2(0) + prefix b2(1) + RESULT decl(2) + value-if(3).
         assert_eq!(hit.consume, 4);
-        assert_eq!(hit.result, Some(v));
+        assert_eq!(hit.results, vec![v]);
     }
 
     /// P9: a guard whose condition is RELATIONAL (`<`) IS now polarity-flipped.
@@ -7037,7 +7207,7 @@ mod tests {
         let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
             .expect("relational guard condition IS polarity-flipped under P9");
         assert_eq!(hit.consume, 3); // prefix k2(0) + RESULT decl(1) + value-if(2)
-        assert_eq!(hit.result, Some(v));
+        assert_eq!(hit.results, vec![v]);
     }
 
     /// Red-team: the polarity flip lines the diamond up correctly, but a leaf value
@@ -7834,6 +8004,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
         };

@@ -810,6 +810,24 @@ fn static_callee(call: &Call) -> Option<(Option<&str>, &str)> {
     }
 }
 
+/// What a function named like a type builds: `FrameClock` -> `frameClock`.
+/// A leading verb or a trailing `New`/`Of` is dropped as for a camelCase
+/// callee (`GetState` -> `state`, `PropertyOf` -> `property`). Only a
+/// PascalCase name with a lowercase letter, so `PI`-style constants say
+/// nothing.
+pub(crate) fn type_call_name(callee: &str) -> Option<String> {
+    if !callee.starts_with(|c: char| c.is_ascii_uppercase()) || !callee.contains(|c: char| c.is_ascii_lowercase()) {
+        return None;
+    }
+    let lowered = lower_first(callee);
+    let noun = strip_verb_prefix(&lowered).or_else(|| strip_predicate_prefix(&lowered)).unwrap_or(&lowered);
+    let noun = ["New", "Of"]
+        .iter()
+        .find_map(|suffix| noun.strip_suffix(suffix).filter(|rest| rest.len() > 1))
+        .unwrap_or(noun);
+    sanitize(noun)
+}
+
 /// Lowercase-first copy of an identifier (`NextNumber` -> `nextNumber`).
 fn lower_first(name: &str) -> String {
     let mut chars = name.chars();
@@ -5291,6 +5309,17 @@ mod preparation_tests;
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_function_named_like_a_type_names_what_it_builds() {
+        use super::type_call_name;
+        assert_eq!(type_call_name("FrameClock").as_deref(), Some("frameClock"));
+        assert_eq!(type_call_name("GetState").as_deref(), Some("state"));
+        assert_eq!(type_call_name("PropertyOf").as_deref(), Some("property"));
+        assert_eq!(type_call_name("ReplicaNew").as_deref(), Some("replica"));
+        assert_eq!(type_call_name("PI"), None);
+        assert_eq!(type_call_name("frameClock"), None);
+    }
+
     #[test]
     fn suffix_release_restores_all_numeric_base_splits() {
         let mut cursors: rustc_hash::FxHashMap<String, usize> =

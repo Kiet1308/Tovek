@@ -162,6 +162,13 @@ fn field_role(key: &str) -> Option<String> {
     crate::name_locals::param_name_from_field_key(key)
 }
 
+/// `FrameClock()` builds a `frameClock` (`name_locals::type_call_name`).
+fn type_call_role(value: &RValue) -> Option<String> {
+    let RValue::Local(callee) = as_call(value)?.value.as_ref() else { return None; };
+    let name = callee.0.lock().0.clone()?;
+    crate::name_locals::type_call_name(&name)
+}
+
 fn local_id(value: &RValue) -> Option<u64> {
     value.as_local().map(RcLocal::stable_id)
 }
@@ -594,6 +601,15 @@ impl Graph {
                                     self.candidate(local.stable_id(), Candidate {
                                         name, priority: 40, reason: "retained_arithmetic_snapshot",
                                         witness: report_witness(self.options.emit_report, || "final expression shape; naming context only, not a numeric or motion proof".into()),
+                                        from_binding: None,
+                                    });
+                                }
+                                if assign.prefix && assign.left.len() == 1
+                                    && let Some(name) = type_call_role(right)
+                                {
+                                    self.candidate(local.stable_id(), Candidate {
+                                        name, priority: 41, reason: "type_named_call",
+                                        witness: report_witness(self.options.emit_report, || "call to a local function named like a type; role only".into()),
                                         from_binding: None,
                                     });
                                 }

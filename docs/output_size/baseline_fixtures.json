@@ -184,6 +184,18 @@
       "bytes": 624,
       "lines": 33
     },
+    "semantic/fall_off_helper_arity__O0.luau": {
+      "bytes": 511,
+      "lines": 37
+    },
+    "semantic/fall_off_helper_arity__O1.luau": {
+      "bytes": 511,
+      "lines": 37
+    },
+    "semantic/fall_off_helper_arity__O2.luau": {
+      "bytes": 1070,
+      "lines": 62
+    },
     "semantic/fastcall_argument_order__O0.luau": {
       "bytes": 323,
       "lines": 13
@@ -267,6 +279,18 @@
     "semantic/iter_metamethod_order__O2.luau": {
       "bytes": 448,
       "lines": 33
+    },
+    "semantic/local_tuple_helper__O0.luau": {
+      "bytes": 1338,
+      "lines": 94
+    },
+    "semantic/local_tuple_helper__O1.luau": {
+      "bytes": 1386,
+      "lines": 100
+    },
+    "semantic/local_tuple_helper__O2.luau": {
+      "bytes": 2008,
+      "lines": 140
     },
     "semantic/loop_result_exports__O0.luau": {
       "bytes": 1369,
