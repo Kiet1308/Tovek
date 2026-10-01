@@ -255,6 +255,11 @@ struct Target {
     /// change statement shape after constant argument propagation, so this is a
     /// cold precomputed gate for the Tier-B partial-evaluation fallback.
     specializable: bool,
+    /// A Value target with a path that falls off the end of the body instead
+    /// of returning one value (`if c then return x end`). Exact only where the
+    /// result is one nil-initialized local (`local r; if c then r = x end`):
+    /// a call that falls off returns nothing, which `r` reads as nil.
+    falls_off: bool,
     /// The pattern retains a void `return` inside a loop.  Such a return is
     /// lowered by inlining into a loop guard plus a cloned caller continuation;
     /// the CPS matcher verifies that continuation before refolding it.
@@ -437,8 +442,14 @@ pub fn deinline(body: &mut Block) {
         // call-return leaf). `collapse_value_results` must not spread these into a
         // multi-value context (see `collapse_use` / `body_has_call_return`).
         let mut multivalue: FxHashSet<RcLocal> = FxHashSet::default();
+        // A helper that may return nothing (`Target::falls_off`) is not one
+        // value either.
         each_closure_decl(&body.0, &mut |l, fa| {
-            if converted.contains(l) && body_has_call_return(&fa.lock().body.0) {
+            let function = fa.lock();
+            if converted.contains(l)
+                && (body_has_call_return(&function.body.0)
+                    || matches!(classify_returns(&function.body.0), Some((_, true))))
+            {
                 multivalue.insert(l.clone());
             }
         });
@@ -1767,7 +1778,13 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
                 Some(_) => return Err(()), // two different result locals
                 None => b.result = Some(r.clone()),
             }
-            unify_rvalue(&ctx, &pr.values[0], &ca.right[0], b)
+            // The single-local store takes one value: a call leaf (P7-A) is
+            // the call the store adjusts to one result.
+            match (&pr.values[0], &ca.right[0]) {
+                (RValue::Call(x), RValue::Select(Select::Call(y))) => unify_call(&ctx, x, y, b),
+                (RValue::MethodCall(x), RValue::Select(Select::MethodCall(y))) => unify_method(&ctx, x, y, b),
+                (pattern, site) => unify_rvalue(&ctx, pattern, site, b),
+            }
         }
         (Statement::Break(_), Statement::Break(_)) => Ok(()),
         (Statement::Continue(_), Statement::Continue(_)) => Ok(()),
@@ -3191,7 +3208,7 @@ fn match_embedded_value(
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
     let prefix = &stmts[i..d];
-    if prefix.is_empty() || block_has_return(prefix) || (is_func_body_top && i == 0 && d + 1 == stmts.len()) {
+    if t.falls_off || prefix.is_empty() || block_has_return(prefix) || (is_func_body_top && i == 0 && d + 1 == stmts.len()) {
         return None;
     }
     // Only a value of the kind the pattern returns can match it.
@@ -4443,8 +4460,8 @@ fn any_structural_target(body: &Block) -> bool {
         if g.is_variadic || body_unsafe(&g.body.0) {
             return;
         }
-        let Some(kind) = classify_returns(&g.body.0) else { return; };
-        let pattern = canon(&g.body.0);
+        let Some((kind, falls_off)) = classify_returns(&g.body.0) else { return; };
+        let pattern = if falls_off { canon(&returning_nil(&g.body.0)) } else { canon(&g.body.0) };
         if pattern.is_empty() || anchors_in_block(&pattern) < 2 {
             return;
         }
@@ -4513,8 +4530,8 @@ fn collect_targets(
             );
             continue;
         }
-        let kind = match classify_returns(&g.body.0) {
-            Some(k) => k,
+        let (kind, falls_off) = match classify_returns(&g.body.0) {
+            Some(classified) => classified,
             None => {
                 // multi-return / mixed / bare-vararg leaf / non-terminal value return
                 deinline_reject!(
@@ -4529,7 +4546,7 @@ fn collect_targets(
             deinline_reject!(RejectReason::ShapeBudget, g.name.as_deref().unwrap_or("<anon>"));
             continue;
         }
-        let pat = canon(&g.body.0);
+        let pat = if falls_off { canon(&returning_nil(&g.body.0)) } else { canon(&g.body.0) };
         if pat.is_empty() {
             deinline_reject!(
                 RejectReason::EmptyPattern,
@@ -4720,6 +4737,7 @@ fn collect_targets(
             unread,
             first_reads,
             specializable,
+            falls_off,
             cps_loop_return,
             captures: captures.clone(),
             search: Default::default(),
@@ -4732,20 +4750,68 @@ fn collect_targets(
 /// value on every path), or refuse (`None`) for multi-return, mixed void/value,
 /// a non-scalar value (call/method/vararg/select — arity unprovable), or a body
 /// whose value returns are not all terminal leaves after canonicalization.
-fn classify_returns(body: &[Statement]) -> Option<TKind> {
+/// With the flag `Target::falls_off`: a value function that may also return
+/// nothing is matched as [`returning_nil`] of its body.
+fn classify_returns(body: &[Statement]) -> Option<(TKind, bool)> {
     let mut has_void = false;
     let mut has_value = false;
     if returns_bad(body, &mut has_void, &mut has_value) {
         return None;
     }
-    if has_value {
-        if has_void || !value_leaf_shape(&canon(body)) {
-            return None;
-        }
-        Some(TKind::Value)
-    } else {
-        Some(TKind::Void)
+    if !has_value {
+        return Some((TKind::Void, false));
     }
+    if !has_void && value_leaf_shape(&canon(body)) {
+        return Some((TKind::Value, false));
+    }
+    value_leaf_shape(&canon(&returning_nil(body))).then_some((TKind::Value, true))
+}
+
+/// `body` with every exit that returns nothing returning `nil`: a void
+/// `return`, and the end of the body where it can be reached. This is the
+/// copy Luau inlines for a single result, which stores `nil` on those paths
+/// (`if c then r = x else r = nil end` for `if c then return x end`).
+fn returning_nil(body: &[Statement]) -> Vec<Statement> {
+    fn fill(stmts: &[Statement]) -> Vec<Statement> {
+        let mut out: Vec<Statement> = stmts.iter().map(fill_statement).collect();
+        if !matches!(out.last(), Some(Statement::Return(_))) && !ends_in_if_returning(&out) {
+            out.push(Return::new(vec![RValue::Literal(Literal::Nil)]).into());
+        }
+        out
+    }
+    fn ends_in_if_returning(stmts: &[Statement]) -> bool {
+        // An `if` at the end was filled arm by arm; both arms now return.
+        matches!(stmts.last(), Some(Statement::If(f))
+            if matches!(f.then_block.lock().0.last(), Some(Statement::Return(_)))
+                && matches!(f.else_block.lock().0.last(), Some(Statement::Return(_))))
+    }
+    fn fill_statement(statement: &Statement) -> Statement {
+        match statement {
+            Statement::Return(r) if r.values.is_empty() => Return::new(vec![RValue::Literal(Literal::Nil)]).into(),
+            Statement::If(f) => If::new(
+                f.condition.clone(),
+                Block(fill_nested(&f.then_block.lock().0)),
+                Block(fill_nested(&f.else_block.lock().0)),
+            )
+            .into(),
+            other => other.clone(),
+        }
+    }
+    // Inside an `if` arm, the end falls through to what follows the `if`:
+    // only void returns change there. The body's last `if` is filled whole.
+    fn fill_nested(stmts: &[Statement]) -> Vec<Statement> {
+        stmts.iter().map(fill_statement).collect()
+    }
+    let mut out = fill_nested(body);
+    match out.last_mut() {
+        Some(Statement::If(f)) => {
+            let filled = If::new(f.condition.clone(), Block(fill(&f.then_block.lock().0)), Block(fill(&f.else_block.lock().0)));
+            *out.last_mut().unwrap() = filled.into();
+        }
+        Some(Statement::Return(_)) => {}
+        _ => out.push(Return::new(vec![RValue::Literal(Literal::Nil)]).into()),
+    }
+    out
 }
 
 fn returns_bad(stmts: &[Statement], has_void: &mut bool, has_value: &mut bool) -> bool {
@@ -5622,6 +5688,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             specializable: false,
+            falls_off: false,
             cps_loop_return: false,
             captures: Default::default(),
             search: Default::default(),
@@ -5662,6 +5729,25 @@ mod tests {
     }
 
     #[test]
+    fn a_value_helper_that_falls_off_returns_nil_there() {
+        // `if c then return "a" end` and `if c then return "a" else return end`
+        let c = local("c");
+        let falls = vec![Statement::If(If::new(local_value(&c), Block(vec![return_one(string("a"))]), Block::default()))];
+        let void = vec![Statement::If(If::new(
+            local_value(&c),
+            Block(vec![return_one(string("a"))]),
+            Block(vec![Statement::Return(Return::new(vec![]))]),
+        ))];
+        for body in [falls, void] {
+            assert!(matches!(classify_returns(&body), Some((TKind::Value, true))));
+            assert_eq!(
+                Block(returning_nil(&body)).to_string(),
+                "if c then\n\treturn \"a\"\nelse\n\treturn nil\nend"
+            );
+        }
+    }
+
+    #[test]
     fn value_return_inside_loop_is_not_a_terminal_leaf() {
         let cond = local("cond");
         let pred = local("pred");
@@ -5699,7 +5785,7 @@ mod tests {
 
         let pat = canon(&body);
         assert!(value_leaf_shape(&pat));
-        assert!(matches!(classify_returns(&body), Some(TKind::Value)));
+        assert!(matches!(classify_returns(&body), Some((TKind::Value, false))));
     }
 
     #[test]
@@ -5798,6 +5884,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             specializable: true,
+            falls_off: false,
             cps_loop_return: false,
             captures: Default::default(),
             search: Default::default(),
@@ -5871,6 +5958,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             specializable: true,
+            falls_off: false,
             cps_loop_return: false,
             captures: Default::default(),
             search: Default::default(),
@@ -5934,6 +6022,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             specializable: false,
+            falls_off: false,
             cps_loop_return: false,
             captures: Default::default(),
             search: Default::default(),
@@ -6012,6 +6101,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             specializable: false,
+            falls_off: false,
             cps_loop_return: true,
             captures: Default::default(),
             search: Default::default(),
@@ -6217,7 +6307,7 @@ mod tests {
         ))];
         let pat = canon(&body);
         assert!(value_leaf_shape(&pat), "call leaf must be admissible");
-        assert!(matches!(classify_returns(&body), Some(TKind::Value)));
+        assert!(matches!(classify_returns(&body), Some((TKind::Value, false))));
     }
 
     /// P7-A boundary: a bare `...` (vararg) leaf is STILL refused — its multi-value
@@ -6353,6 +6443,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             specializable: false,
+            falls_off: false,
             cps_loop_return: false,
             captures: Default::default(),
             search: Default::default(),
@@ -6439,6 +6530,7 @@ mod tests {
             unread: unread_set,
             first_reads: Vec::new(),
             specializable: false,
+            falls_off: false,
             cps_loop_return: false,
             captures: Default::default(),
             search: Default::default(),
@@ -6587,6 +6679,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             specializable: false,
+            falls_off: false,
             cps_loop_return: false,
             captures: Default::default(),
             search: Default::default(),
@@ -6630,6 +6723,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             specializable: false,
+            falls_off: false,
             cps_loop_return: false,
             captures: Default::default(),
             search: Default::default(),
@@ -7738,6 +7832,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             specializable: false,
+            falls_off: false,
             cps_loop_return: false,
             captures: Default::default(),
             search: Default::default(),
