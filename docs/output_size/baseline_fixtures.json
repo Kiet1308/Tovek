@@ -448,6 +448,18 @@
       "bytes": 325,
       "lines": 25
     },
+    "semantic/parameter_hole_multret__O0.luau": {
+      "bytes": 483,
+      "lines": 21
+    },
+    "semantic/parameter_hole_multret__O1.luau": {
+      "bytes": 483,
+      "lines": 21
+    },
+    "semantic/parameter_hole_multret__O2.luau": {
+      "bytes": 677,
+      "lines": 22
+    },
     "semantic/report_nested_numeric_accumulate__O0.luau": {
       "bytes": 200,
       "lines": 18
@@ -483,6 +495,18 @@
     "semantic/returned_parameter_helper__O2.luau": {
       "bytes": 765,
       "lines": 38
+    },
+    "semantic/rewritten_helper_arity__O0.luau": {
+      "bytes": 255,
+      "lines": 18
+    },
+    "semantic/rewritten_helper_arity__O1.luau": {
+      "bytes": 255,
+      "lines": 18
+    },
+    "semantic/rewritten_helper_arity__O2.luau": {
+      "bytes": 288,
+      "lines": 18
     },
     "semantic/suffix_numeric__O0.luau": {
       "bytes": 496,
