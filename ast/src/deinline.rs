@@ -2918,8 +2918,11 @@ fn try_match_at(
         // `canon` preserves). NOT to `AtResultDecl` Value targets — their `pat[0]`
         // may be a leaf `return X` unified against an `Assign`, so the variant
         // check would be unsound there.
-        let use_disc = t.kind == TKind::Void
-            || (t.kind == TKind::Value && t.value_anchor == ValueAnchor::AtPrefix);
+        // A constant argument can remove a leading `if` of a specializable
+        // pattern (Tier B), leaving any statement first at the site.
+        let head_may_vanish = t.specializable && matches!(t.pat[0], Statement::If(_));
+        let use_disc = !head_may_vanish
+            && (t.kind == TKind::Void || (t.kind == TKind::Value && t.value_anchor == ValueAnchor::AtPrefix));
         // Canon may fuse a site's select `if` into the assignment a pattern
         // starts with (N5).
         let fused_head = anchor_is_if && t.pat0_kind == assign_kind;
@@ -4318,6 +4321,12 @@ fn try_unify_specialized_site(t: &Target, cwin: &[Statement], prefix: &Prefix) -
 fn seed_unify_block(t: &Target, pattern: &[Statement], candidate: &[Statement], b: &mut Bindings) {
     for (left, right) in pattern.iter().zip(candidate) {
         seed_unify_stmt(t, left, right, b);
+    }
+    // A removed leading branch shifts the rest: align from the end too.
+    if pattern.len() != candidate.len() {
+        for (left, right) in pattern.iter().rev().zip(candidate.iter().rev()) {
+            seed_unify_stmt(t, left, right, b);
+        }
     }
 }
 
