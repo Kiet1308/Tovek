@@ -424,6 +424,18 @@
       "bytes": 447,
       "lines": 35
     },
+    "semantic/returned_parameter_helper__O0.luau": {
+      "bytes": 493,
+      "lines": 35
+    },
+    "semantic/returned_parameter_helper__O1.luau": {
+      "bytes": 493,
+      "lines": 35
+    },
+    "semantic/returned_parameter_helper__O2.luau": {
+      "bytes": 765,
+      "lines": 38
+    },
     "semantic/suffix_numeric__O0.luau": {
       "bytes": 496,
       "lines": 37

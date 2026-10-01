@@ -4681,7 +4681,7 @@ fn any_structural_target(body: &Block) -> bool {
         if g.is_variadic || body_unsafe(&g.body.0) {
             return;
         }
-        let (body, _) = pattern_body(&g.body.0);
+        let (body, _) = pattern_body(&g.body.0, &g.parameters);
         let Some((kind, falls_off)) = classify_returns(body) else { return; };
         let pattern = if falls_off { canon(&returning_nil(body)) } else { canon(body) };
         if pattern.is_empty() || anchor_score(&pattern, &g.parameters) < 2 {
@@ -4698,8 +4698,8 @@ fn any_structural_target(body: &Block) -> bool {
 
 /// The part of a helper's body its sites repeat, and the locals it returns
 /// in place of a call's results ([`local_tuple_return`]; usually none).
-fn pattern_body(body: &[Statement]) -> (&[Statement], Vec<RcLocal>) {
-    local_tuple_return(body).unwrap_or((body, Vec::new()))
+fn pattern_body<'a>(body: &'a [Statement], parameters: &[RcLocal]) -> (&'a [Statement], Vec<RcLocal>) {
+    local_tuple_return(body, parameters).unwrap_or((body, Vec::new()))
 }
 
 fn collect_targets(
@@ -4758,7 +4758,7 @@ fn collect_targets(
             );
             continue;
         }
-        let (body, returns) = pattern_body(&g.body.0);
+        let (body, returns) = pattern_body(&g.body.0, &g.parameters);
         let (kind, falls_off) = match classify_returns(body) {
             Some(classified) => classified,
             None => {
@@ -5007,13 +5007,15 @@ fn classify_returns(body: &[Statement]) -> Option<(TKind, bool)> {
 /// makeTrack(x)` as the body alone, the caller's locals taking the place of
 /// the returned ones. Returns the body before the `return` and the returned
 /// locals, when that is exactly what a site can show:
-/// * two or more distinct locals, each declared by a top-level statement
-///   (a single value is a [`TKind::Value`] target);
+/// * two or more values: distinct locals, each declared by a top-level
+///   statement (a single value is a [`TKind::Value`] target), then any
+///   parameters the body never writes, which hand back the arguments
+///   (`return names, list` -> `local names = toNames(children)`);
 /// * no other `return`, so every call reaches this one;
-/// * no closure of the body captures them. A captured one is shared with
-///   the caller's code at the site, but a snapshot after a call, so a
+/// * no closure of the body captures the locals. A captured one is shared
+///   with the caller's code at the site, but a snapshot after a call, so a
 ///   later write to it would be seen differently.
-fn local_tuple_return(body: &[Statement]) -> Option<(&[Statement], Vec<RcLocal>)> {
+fn local_tuple_return<'a>(body: &'a [Statement], parameters: &[RcLocal]) -> Option<(&'a [Statement], Vec<RcLocal>)> {
     let (Statement::Return(ret), rest) = body.split_last()? else {
         return None;
     };
@@ -5021,12 +5023,29 @@ fn local_tuple_return(body: &[Statement]) -> Option<(&[Statement], Vec<RcLocal>)
         return None;
     }
     let mut returned: Vec<RcLocal> = Vec::with_capacity(ret.values.len());
+    let mut written: Option<FxHashSet<RcLocal>> = None;
     for value in &ret.values {
         let RValue::Local(local) = value else { return None };
-        if returned.contains(local) {
+        if parameters.contains(local) {
+            // The caller passed it, so its value is already the caller's.
+            let written = written.get_or_insert_with(|| {
+                let mut written = FxHashSet::default();
+                collect_written(rest, &mut written);
+                written
+            });
+            if written.contains(local) {
+                return None;
+            }
+            continue;
+        }
+        // Locals first: one after a parameter would need a placeholder.
+        if written.is_some() || returned.contains(local) {
             return None;
         }
         returned.push(local.clone());
+    }
+    if returned.is_empty() {
+        return None;
     }
     let declared = |local: &RcLocal| {
         rest.iter().any(|statement| {
@@ -6152,11 +6171,11 @@ mod tests {
             assign_local(&b, RValue::Table(Table::default()), true),
             Statement::Return(Return::new(vec![local_value(&a), local_value(&b)])),
         ];
-        let (rest, returned) = local_tuple_return(&body).expect("local tuple");
+        let (rest, returned) = local_tuple_return(&body, &[]).expect("local tuple");
         assert_eq!(rest.len(), 2);
         assert_eq!(returned, vec![a.clone(), b.clone()]);
 
-        let refused = |body: Vec<Statement>| local_tuple_return(&body).is_none();
+        let refused = |body: Vec<Statement>| local_tuple_return(&body, &[]).is_none();
         let ret = |values: Vec<RValue>| Statement::Return(Return::new(values));
         // One value is a value target; a non-local is not the caller's local.
         assert!(refused(vec![assign_local(&a, number(1.0), true), ret(vec![local_value(&a)])]));

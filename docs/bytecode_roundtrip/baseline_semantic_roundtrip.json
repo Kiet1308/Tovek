@@ -32,7 +32,8 @@
    "cps_copy_without_return": "Review fixture (2026-10-01): a loop copy without `return` stays inline; the -O2 loop unrolling differs as in loop_shapes; baselined from the fixing commit output.",
    "embedded_prefix_order": "Review fixture (2026-10-01): the callee read before the value keeps the helper inline; baselined from the fixing commit output.",
    "dynamic_environment": "Review fixture (2026-10-01): no call is inferred in a module that reads setfenv; baselined from the fixing commit output.",
-   "untruncated_arguments": "Output fixture (2026-10-01): one-result parentheses dropped only where the callee drops extra values; baselined from the introducing commit output."
+   "untruncated_arguments": "Output fixture (2026-10-01): one-result parentheses dropped only where the callee drops extra values; baselined from the introducing commit output.",
+   "returned_parameter_helper": "De-inline fixture (2026-10-01): a helper handing back its argument rebuilds with one result; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -243,6 +244,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 3
+  },
+  {
+   "file": "returned_parameter_helper",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
   },
   {
    "file": "suffix_numeric",
