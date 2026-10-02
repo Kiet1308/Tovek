@@ -140,6 +140,28 @@ main { padding: 0 var(--g); }
 .cover--v21 .title small { font: 600 10px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; opacity: .85; }
 .cover--v21 .title span { font: 480 clamp(40px, 5vw, 64px)/1 "Source Serif 4", Georgia, serif; letter-spacing: -.02em; transform: translateY(-14%); }
 
+/* V2.5 cover: the release page's deep-blue card and frosted numeral */
+.cover--v25 .cover-inner {
+  background:
+    radial-gradient(60% 70% at 85% 0%, rgba(190, 230, 255, .6), transparent 70%),
+    radial-gradient(70% 80% at 0% 110%, rgba(0, 6, 30, .8), transparent 70%),
+    linear-gradient(35deg, #020f3a 0%, #0b3aa8 38%, #1f6fe5 64%, #8fd0ff 100%);
+}
+.cover--v25 .digits {
+  position: absolute; right: 5%; bottom: -6%;
+  font: 500 clamp(150px, 19vw, 260px)/1 "Google Sans", system-ui, sans-serif; letter-spacing: -.04em;
+  color: rgba(244, 250, 255, .92); filter: blur(1.5px);
+  text-shadow: 0 0 40px rgba(200, 230, 255, .7);
+}
+.cover--v25 .title {
+  position: absolute; left: 8%; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 12px; color: #fff;
+  font: 500 clamp(26px, 3vw, 38px)/1 "Google Sans", system-ui, sans-serif; letter-spacing: -.02em;
+  text-shadow: 0 2px 24px rgba(0, 20, 80, .35);
+}
+.cover--v25 .gem { width: 1.25em; height: 1.25em; border-radius: .34em; display: grid; place-items: center; background: linear-gradient(135deg, #9ad3ff, #fff 50%, #6fb2ff); }
+.cover--v25 .gem svg { width: 45%; height: 48%; fill: #0b3aa8; }
+
 /* V2 cover: the release page's star field and glowing numeral */
 .cover--v2 .cover-inner { background: #020507 url("stars.svg") center / cover; }
 .cover--v2 .cover-inner::before {

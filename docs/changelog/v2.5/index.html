@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tovek V2.5: our next era of faithful decompilation</title>
+  <meta name="description" content="Tovek V2.5 fixes hundreds of ways decompiled Luau could quietly go wrong, rebuilds 2.5× as many inlined helpers, and writes code that reads closer to what people write.">
+  <meta name="theme-color" content="#e4f3ff">
+  <meta property="og:title" content="Tovek V2.5: our next era of faithful decompilation">
+  <meta property="og:description" content="More correct, more readable, and far better at putting inlined helpers back.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://kiet1308.github.io/Tovek/changelog/v2.5/">
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400..700&family=Google+Sans+Code:wght@400;500&display=swap">
+  <link rel="stylesheet" href="v25.css?v=1">
+  <script>document.documentElement.classList.add('js')</script>
+  <script src="v25.js?v=1" defer></script>
+</head>
+<body>
+<a class="skip" href="#article">Skip to article</a>
+
+<header class="top">
+  <a class="wordmark" href="../../index.html" aria-label="Tovek home"><span class="mark"><svg viewBox="0 0 28 30" aria-hidden="true"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg></span>Tovek <span>Release notes</span></a>
+  <nav aria-label="Main">
+    <a href="../../index.html">Overview</a>
+    <a href="../../changelog.html" aria-current="true">Changelog</a>
+    <a href="https://github.com/Kiet1308/Tovek">GitHub</a>
+    <a href="https://discord.gg/phY6VUDSF7">Discord</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="icon-btn" href="https://github.com/Kiet1308/Tovek" aria-label="Source on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg></a>
+  <a class="pill-btn" href="#available">Download V2.5</a>
+</header>
+
+<main id="article">
+  <section class="head">
+    <div class="head-inner">
+      <ol class="crumbs" aria-label="Breadcrumb">
+        <li><a href="../../index.html">Home</a></li>
+        <li><a href="../../changelog.html">Changelog</a></li>
+        <li><a href="./" aria-current="page">Tovek V2.5</a></li>
+      </ol>
+      <h1>Tovek V2.5: our next era of faithful decompilation</h1>
+      <div class="head-meta">
+        <p class="when"><time datetime="2026-10-02">Oct 2, 2026</time><br>8 min read</p>
+        <p class="lede">Tovek V2.5 fixes hundreds of ways decompiled Luau could quietly go wrong, rebuilds 2.5× as many inlined helpers, and writes code that reads closer to what people actually write.</p>
+      </div>
+      <div class="byline">
+        <div><b>Kiet1308</b><span>Creator and maintainer of Tovek</span></div>
+        <button class="share" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11A2.99 2.99 0 1 0 15 5c0 .24.04.47.09.7L8.04 9.81A3 3 0 1 0 6 15c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65A2.92 2.92 0 1 0 18 16.08Z"/></svg>Share</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="hero-card" aria-hidden="true">
+    <canvas></canvas>
+    <div class="hero-logo"><svg class="gem" viewBox="0 0 64 64"><defs><linearGradient id="gem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ad3ff"/><stop offset=".5" stop-color="#ffffff"/><stop offset="1" stop-color="#6fb2ff"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="16" fill="url(#gem)"/><path d="M16 15h32v8H36v26h-8V23H16z" fill="#0b3aa8"/></svg>Tovek V2.5</div>
+  </div>
+
+  <div class="layout">
+    <aside class="toc" data-open="true" aria-label="In this article">
+      <div class="toc-inner">
+        <button class="toc-toggle" type="button">In this article <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.4 15.4 12 10.8l4.6 4.6L18 14l-6-6-6 6z"/></svg></button>
+        <ol>
+          <li><a href="#real-games">Getting it right in real games</a></li>
+          <li><a href="#fuzzing">Fuzzing for unreported bugs</a></li>
+          <li><a href="#deinlining">De-inlining, done properly</a></li>
+          <li><a href="#measured">How V2.5 measures up</a></li>
+          <li><a href="#readable">Code that reads like it was written</a></li>
+          <li><a href="#faster">Faster, on more machines</a></li>
+          <li><a href="#available">Available today</a></li>
+        </ol>
+      </div>
+    </aside>
+
+    <div class="summary" data-accordion data-open="false">
+      <button type="button" aria-expanded="false"><svg class="lead" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg>Read a short summary<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button>
+      <div class="summary-body"><div><ul>
+        <li>On 2,700 freshly generated programs, V2.1.1 produced code that behaved differently 198 times. V2.5 got every one of them right.</li>
+        <li>Across four real Roblox games, 2.5× as many inlined helpers come back as calls.</li>
+        <li>36% fewer anonymous locals: names now follow events, state and modules.</li>
+        <li>Faster at every thread count we measured, with new native builds for ARM64 Linux and Apple silicon Macs.</li>
+      </ul></div></div>
+    </div>
+
+    <div class="text">
+      <p>Today we’re releasing Tovek V2.5, the most accurate decompiler we have built. It brings together more than a hundred changes since V2.1, and almost all of them answer the same two questions: does the code Tovek writes do exactly what the original did, and does it read like something a person wrote?</p>
+      <p>V2.5 is available now for Windows and Linux, and for the first time as native builds for ARM64 Linux and Macs with Apple silicon. Like every Tovek release it runs entirely on your machine, with deterministic rules and no AI models.</p>
+
+      <h2 id="real-games">Getting it right in real games</h2>
+      <p>Test suites only go so far. For V2.5 we decompiled whole Roblox games from real dumps, 9,987 scripts in all, and fixed every place where the result failed to come out or behaved differently from the original. Each of those fixes is now a permanent test.</p>
+      <ul class="spaced">
+        <li><b>Loops that leave their parent.</b> A <code>break</code> straight after an inner loop, or an inner loop that continues the outer one, used to stop Tovek from structuring the whole function. These now come out as the loops that were written.</li>
+        <li><b>Variables shared with closures.</b> A value captured by a callback keeps its identity through swaps, copies and loops. V2.5 no longer folds a snapshot into the live variable, or loses a write made inside a loop.</li>
+        <li><b>The order things happen in.</b> A call that can change a captured variable stays ahead of the code that reads it, table stores read their address at the moment Luau does, and library lookups that can raise an error keep their timing.</li>
+        <li><b>Scripts at Luau’s 200-local limit.</b> Very large scripts keep their temporary values apart, so the output still compiles.</li>
+        <li><b>Values that only look the same.</b> <code>-0</code> and <code>0</code>, empty slots in multiple returns, and the exact number of values a call passes on are all preserved.</li>
+      </ul>
+      <p>V2.5 adds 87 new edge cases to the suite every release has to pass. V2.1.1 fails 27 of them (53 of 306 runs across three optimisation levels); V2.5 passes every one. In the four games we measured, 7 scripts or functions failed to decompile with V2.1.1; with V2.5, none.</p>
+
+      <h2 id="fuzzing">Fuzzing for the bugs nobody reported</h2>
+      <p>The bugs that matter most are the ones nobody notices: output that compiles, looks reasonable, and does something slightly different. To find them we generate random Luau programs that lean on the hardest parts of the language, compile each one at three optimisation levels, decompile it, and run the original and the decompiled program side by side.</p>
+      <p>On 2,700 fresh runs, from seeds never used while developing V2.5, V2.1.1 wrote a program that behaved differently 198 times, and V2 did so 212 times. V2.5 wrote none.</p>
+    </div>
+
+    <figure class="charts" data-in>
+      <h3 class="chart-title">Semantic fuzzing</h3>
+      <p class="chart-sub">Outcome of 2,700 decompiled programs, run beside the original • <b>Lower is better</b></p>
+      <div class="chart-key"><span><i style="background:#c5221f"></i>Behaves differently</span><span><i style="background:#f6aea9"></i>No output</span></div>
+      <svg class="chart-svg" data-chart="fuzz" role="img" aria-label="Wrong or missing outputs out of 2,700 runs: V2 212, V2.1.1 198, V2.5 0."></svg>
+      <p class="chart-note">Programs from three generators that stress captures, multiple returns and evaluation order; -O0, -O1 and -O2; pinned Luau compiler and VM.</p>
+    </figure>
+
+    <div class="text">
+      <h2 id="deinlining">De-inlining, done properly</h2>
+      <p>With <code>-O2</code>, Luau copies small local functions straight into the code that calls them. The call disappears and the helper’s body turns up again and again, in places nobody wrote it. Tovek has always tried to put those calls back. V2.5 is the first version that recognises most of the shapes the compiler actually leaves behind:</p>
+      <ul class="spaced">
+        <li><b>Helpers that hand back a value.</b> Results that come from the helper’s own locals, its parameters, another call, or several values returned from different branches.</li>
+        <li><b>Helpers with a loop.</b> When a helper returns from inside a loop, its inlined copy turns that return into a flag and a <code>break</code>. V2.5 maps it back.</li>
+        <li><b>Copies the compiler trimmed.</b> A copy specialised for its arguments can lose the helper’s opening branch. It still matches.</li>
+        <li><b>Arguments that run code.</b> An argument that Luau evaluates as the helper’s first step moves back into the call, at exactly the point where it ran.</li>
+        <li><b>The right helper, every time.</b> Outer locals anchor a match, and when more than one helper could fit, the longest match wins.</li>
+      </ul>
+      <p>Every rebuilt call is still checked against the helper’s body, the variables it captures, and the number of values it returns. When Tovek can’t prove a call is equivalent, it leaves the code exactly as it was. Across the four games, V2.5 rebuilds 4,113 helper calls, against 1,630 for V2.1.1.</p>
+    </div>
+
+    <figure class="compare" data-tabs data-in>
+      <div class="compare-tabs" role="tablist" aria-label="Before and after"><button type="button" role="tab">A game loop</button><button type="button" role="tab">A captured update</button><button type="button" role="tab">A helper put back</button></div>
+      <div class="compare-panel" role="tabpanel">
+        <div class="code-src"><b>Original Luau</b><pre>local Players = game:GetService(&quot;Players&quot;)
+
+local function runRounds(arena)
+  while true do
+    if #Players:GetPlayers() &gt;= 2 then
+      while true do
+        if arena:GetAttribute(&quot;Alive&quot;) &lt;= 1 then
+          arena:SetAttribute(&quot;Status&quot;, &quot;Round over&quot;)
+          break
+        end
+        for _, zone in arena.Zones:GetChildren() do
+          zone.Size *= 0.95
+        end
+        if arena:GetAttribute(&quot;TimeLeft&quot;) &lt;= 0 then
+          break
+        end
+        task.wait(1)
+      end
+    end
+    task.wait(5)
+  end
+end
+
+return runRounds</pre></div>
+        <div class="compare-grid">
+          <div class="code-card"><h4>Tovek V2.1.1<span class="tag">Fails</span></h4><p class="err">control-flow structuring failed: residual goto/label would be invalid Luau</p></div>
+          <div class="code-card now"><h4>Tovek V2.5<span class="tag">Decompiled</span></h4><pre>local Players = game:GetService(&quot;Players&quot;)
+
+local function runRounds(instance)
+<span class="hi">  while true do</span>
+    if #Players:GetPlayers() &gt;= 2 then
+<span class="hi">      while true do</span>
+        if instance:GetAttribute(&quot;Alive&quot;) &lt;= 1 then
+          instance:SetAttribute(&quot;Status&quot;, &quot;Round over&quot;)
+          break
+        end
+
+        for _, child in instance.Zones:GetChildren() do
+          child.Size *= 0.95
+        end
+
+        if instance:GetAttribute(&quot;TimeLeft&quot;) &lt;= 0 then
+          break
+        else
+          task.wait(1)
+        end
+      end
+    end
+
+    task.wait(5)
+  end
+end
+
+return runRounds</pre></div>
+        </div>
+        <p class="compare-cap">A round loop inside a <code>while true</code> main loop, compiled with -O1. V2.1.1 gave up on the whole script; V2.5 rebuilds both loops.</p>
+      </div>
+      <div class="compare-panel" role="tabpanel" hidden>
+        <div class="code-src"><b>Original Luau</b><pre>local coins = 0
+
+function giveCoins(amount)
+  coins += amount
+  return amount &gt;= 100
+end
+
+local function reward(amount)
+  local big = giveCoins(amount)
+  coins += big and 50 or 0
+  return coins
+end
+
+print(reward(100))</pre></div>
+        <div class="compare-grid">
+          <div class="code-card"><h4>Tovek V2.1.1<span class="tag">Prints 50</span></h4><pre>local total = 0
+
+function giveCoins(p)
+  total += p
+  return p &gt;= 100
+end
+
+local function reward(p)
+<span class="lo">  total += giveCoins(p) and 50 or 0</span>
+  return total
+end
+
+print(reward(100))</pre></div>
+          <div class="code-card now"><h4>Tovek V2.5<span class="tag">Prints 150</span></h4><pre>local total = 0
+
+function giveCoins(p)
+  total += p
+  return p &gt;= 100
+end
+
+local function reward(p)
+<span class="hi">  local v = giveCoins(p)</span>
+<span class="hi">  total += v and 50 or 0</span>
+  return total
+end
+
+print(reward(100))</pre></div>
+        </div>
+        <p class="compare-cap"><code>giveCoins</code> changes <code>coins</code> before it returns. V2.1.1 read <code>total</code> first and printed 50; V2.5 keeps the call first and prints 150, like the original.</p>
+      </div>
+      <div class="compare-panel" role="tabpanel" hidden>
+        <div class="code-src"><b>Original Luau</b><pre>local function loadTrack(animator, id, looped)
+  local animation = Instance.new(&quot;Animation&quot;)
+  animation.AnimationId = id
+  local track = animator:LoadAnimation(animation)
+  track.Looped = looped
+  return track
+end
+
+local function setup(character)
+  local animator = character:WaitForChild(&quot;Humanoid&quot;):WaitForChild(&quot;Animator&quot;)
+  local idle = loadTrack(animator, &quot;rbxassetid://507766666&quot;, true)
+  local swing = loadTrack(animator, &quot;rbxassetid://522635514&quot;, false)
+  idle:Play()
+  return idle, swing
+end
+
+return setup</pre></div>
+        <div class="compare-grid">
+          <div class="code-card"><h4>Tovek V2.1.1<span class="tag">Pasted twice</span></h4><pre>local function loadTrack(animator, animationId, looped)
+<span class="lo">  local animation = Instance.new(&quot;Animation&quot;)</span>
+  animation.AnimationId = animationId
+  local track = animator:LoadAnimation(animation)
+  track.Looped = looped
+  return track
+end
+
+local function setup(instance)
+  local animator = instance:WaitForChild(&quot;Humanoid&quot;):WaitForChild(&quot;Animator&quot;)
+<span class="lo">  local animation = Instance.new(&quot;Animation&quot;)</span>
+  animation.AnimationId = &quot;rbxassetid://507766666&quot;
+  local track = animator:LoadAnimation(animation)
+  track.Looped = true
+<span class="lo">  local animation2 = Instance.new(&quot;Animation&quot;)</span>
+  animation2.AnimationId = &quot;rbxassetid://522635514&quot;
+  local track2 = animator:LoadAnimation(animation2)
+  track2.Looped = false
+  track:Play()
+  return track, track2
+end
+
+return setup</pre></div>
+          <div class="code-card now"><h4>Tovek V2.5<span class="tag">Two calls</span></h4><pre>-- equivalent calls inferred from this helper; original call sites unknown
+<span class="hi">local function loadTrack(animator, animationId, looped)</span>
+  local animation = Instance.new(&quot;Animation&quot;)
+  animation.AnimationId = animationId
+  local track = animator:LoadAnimation(animation)
+  track.Looped = looped
+  return track
+end
+
+local function setup(instance)
+  local animator = instance:WaitForChild(&quot;Humanoid&quot;):WaitForChild(&quot;Animator&quot;)
+<span class="hi">  local v = loadTrack(animator, &quot;rbxassetid://507766666&quot;, true) -- equivalent call inferred; original call site unknown</span>
+<span class="hi">  local v2 = loadTrack(animator, &quot;rbxassetid://522635514&quot;, false) -- equivalent call inferred; original call site unknown</span>
+  v:Play()
+  return v, v2
+end
+
+return setup</pre></div>
+        </div>
+        <p class="compare-cap">At -O2 Luau pastes <code>loadTrack</code> into <code>setup</code> twice. V2.5 recognises both copies, including the helper’s own returned local, and writes the calls.</p>
+      </div>
+    </figure>
+
+    <div class="text">
+      <h2 id="measured">How V2.5 measures up</h2>
+      <p>We measured V2.5 against the two previous releases on the same inputs: a 3,978-script game from a live Roblox experience, three more real game dumps, the public libraries and generated programs from our standing benchmark, and the suites every release must pass. Where a lua.expert result is shown, it comes from the same frozen benchmark plan.</p>
+    </div>
+
+    <figure class="bench" data-in>
+      <div class="bench-scroll" tabindex="0" role="region" aria-label="Benchmark table">
+        <table class="bt">
+          <thead><tr><th scope="col" class="cat"><span class="sr-only">Category</span></th><th scope="col" class="bench-col">Benchmark</th><th scope="col" class="hl">Tovek<br>V2.5</th><th scope="col">Tovek<br>V2.1.1</th><th scope="col">Tovek<br>V2</th><th scope="col">lua.expert</th></tr></thead>
+          <tbody>
+            <tr class="cont"><th scope="row" class="cat" rowspan="6">Correctness</th><td class="name">Semantic fuzzing<small>wrong or missing, 2,700 runs</small></td><td class="v hl">0</td><td class="v">198</td><td class="v">212</td><td class="v na">—</td></tr>
+            <tr class="cont"><td class="name">Edge cases from reports<small>306 runs</small></td><td class="v hl">306 / 306</td><td class="v">253 / 306</td><td class="v na">—</td><td class="v na">—</td></tr>
+            <tr class="cont"><td class="name">Deep-review suite<small>behaviour checks</small></td><td class="v hl">199 / 199</td><td class="v">199 / 199</td><td class="v">80 / 199</td><td class="v na">—</td></tr>
+            <tr class="cont"><td class="name">Regression programs<small>v9, 369 profiles</small></td><td class="v hl">369</td><td class="v">369</td><td class="v">369</td><td class="v">232</td></tr>
+            <tr class="cont"><td class="name">Generated programs<small>v9, 192 profiles</small></td><td class="v hl">192</td><td class="v">192</td><td class="v">192</td><td class="v">160</td></tr>
+            <tr><td class="name">Runtime profiles<small>bytecode v14</small></td><td class="v hl">264 / 264</td><td class="v">264 / 264</td><td class="v">Can’t read</td><td class="v na">—</td></tr>
+            <tr><th scope="row" class="cat" rowspan="1">Real games</th><td class="name">Decompile failures<small>4 games, 9,987 scripts</small></td><td class="v hl">0</td><td class="v">7</td><td class="v">8</td><td class="v na">—</td></tr>
+            <tr><th scope="row" class="cat" rowspan="1">De-inlining</th><td class="name">Rebuilt helper calls<small>4 games</small></td><td class="v hl">4,113</td><td class="v">1,630</td><td class="v">1,630</td><td class="v na">—</td></tr>
+            <tr class="cont"><th scope="row" class="cat" rowspan="4">Readability</th><td class="name">Anonymous locals<small>4 games</small></td><td class="v hl">37,060</td><td class="v">57,700</td><td class="v">57,236</td><td class="v na">—</td></tr>
+            <tr class="cont"><td class="name">Anonymous parameters<small>4 games</small></td><td class="v hl">19,186</td><td class="v">22,767</td><td class="v">22,765</td><td class="v na">—</td></tr>
+            <tr class="cont"><td class="name">Source structure<small>public libraries</small></td><td class="v hl">0.887</td><td class="v">0.861</td><td class="v">0.866</td><td class="v">0.812</td></tr>
+            <tr><td class="name">Source structure<small>generated programs</small></td><td class="v hl">0.636</td><td class="v">0.597</td><td class="v">0.597</td><td class="v alt">0.746</td></tr>
+            <tr class="cont"><th scope="row" class="cat" rowspan="2">Speed</th><td class="name">Full game, 1 thread<small>3,978 scripts</small></td><td class="v hl">11.5 s</td><td class="v">14.1 s</td><td class="v">26.8 s</td><td class="v na">—</td></tr>
+            <tr><td class="name">Full game, 24 threads<small>3,978 scripts</small></td><td class="v hl">0.96 s</td><td class="v">1.03 s</td><td class="v">1.79 s</td><td class="v na">—</td></tr>
+            <tr><th scope="row" class="cat" rowspan="1">Platforms</th><td class="name">Native builds<small>Windows, Linux, ARM64</small></td><td class="v hl">4</td><td class="v">2</td><td class="v">2</td><td class="v na">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="bench-note">Methodology: see “More information” below. Timings are medians of alternating runs on one Windows laptop under normal desktop load; lua.expert outputs were collected from its public API on September 19, 2026.</p>
+    </figure>
+
+    <figure class="charts" data-carousel data-in tabindex="0" aria-roledescription="carousel" aria-label="V2.5 benchmark charts">
+      <div class="slides"><div class="track">
+        <div class="slide" role="group" aria-label="1 of 4">
+          <h3 class="chart-title">Recovered helper calls</h3>
+          <p class="chart-sub">Inlined helpers rebuilt as calls, four real games • <b>Higher is better</b></p>
+          <svg class="chart-svg" data-chart="markers" role="img" aria-label="Rebuilt helper calls: V2 1,630, V2.1.1 1,630, V2.5 4,113."></svg>
+        </div>
+        <div class="slide" role="group" aria-label="2 of 4">
+          <h3 class="chart-title">Anonymous locals</h3>
+          <p class="chart-sub">Declarations that bind only generated names, four real games • <b>Lower is better</b></p>
+          <svg class="chart-svg" data-chart="anon" role="img" aria-label="Anonymous locals: V2 57,236, V2.1.1 57,700, V2.5 37,060."></svg>
+        </div>
+        <div class="slide" role="group" aria-label="3 of 4">
+          <h3 class="chart-title">Full-game decompilation</h3>
+          <p class="chart-sub">Scripts per second for the 3,978-script game, one thread • <b>Higher is better</b></p>
+          <svg class="chart-svg" data-chart="speed1" role="img" aria-label="Scripts per second on one thread: V2 148, V2.1.1 282, V2.5 345."></svg>
+        </div>
+        <div class="slide" role="group" aria-label="4 of 4">
+          <h3 class="chart-title">Rebuilt calls by game</h3>
+          <p class="chart-sub">Helper calls recovered in each of the four games • <b>Higher is better</b></p>
+          <div class="chart-key"><span><i style="background:#b2bbc5"></i>V2</span><span><i style="background:#9dd2ff"></i>V2.1.1</span><span><i style="background:#3c90ff"></i>V2.5</span></div>
+          <svg class="chart-svg" data-chart="markersByGame" role="img" aria-label="Rebuilt helper calls in each game for V2, V2.1.1 and V2.5."></svg>
+        </div>
+      </div></div>
+      <div class="carousel-nav"><button type="button" data-prev aria-label="Previous chart"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg></button><button type="button" data-next aria-label="Next chart"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg></button><span class="progress"><span></span></span></div>
+    </figure>
+
+    <div class="text">
+      <h2 id="readable">Code that reads like it was written</h2>
+      <p>Being exact is only half of the job. V2.5 also takes a long step toward code you would happily keep open in an editor:</p>
+      <ul class="spaced">
+        <li><b>Names that come from context.</b> A connection is named after its event (<code>touchedConnection</code>), Fusion builders take <code>scope</code> and <code>use</code>, reading a state value gives <code>currentHealth</code>, a getter keyed by name returns what the key says, and a table of required modules becomes <code>components</code>.</li>
+        <li><b>Fewer temporaries.</b> Stores after a call that returns several values become one assignment, a swap through a temporary folds back to <code>a, b = b, a</code>, and <code>+=</code> now works on globals and on table fields reached through a local.</li>
+        <li><b>Cleaner control flow.</b> A trailing guard becomes an <code>elseif</code>, a return shared by several branches is written once, an empty <code>then</code> becomes a negated condition, and two separate returns stay two returns instead of being fused into <code>and</code>/<code>or</code>.</li>
+        <li><b>Your choice of spelling.</b> <code>--style compact</code> writes simple choices as if-expressions, and <code>--assume-standard-libraries</code> brings back <code>math.pi</code>, <code>Vector3.new</code> and friends when you know the script runs in a standard environment.</li>
+      </ul>
+      <p>Across the four games, anonymous <code>local</code> declarations fall by 36% compared with V2.1.1, and generated parameter names by 16%. On the public libraries in our benchmark, the shape of the decompiled code is closer to the original source than any Tovek before it: a similarity of 0.887, up from 0.861 (lua.expert: 0.812).</p>
+    </div>
+
+    <figure class="charts" data-in>
+      <div class="twin">
+        <div>
+          <h4>Edge cases from real reports</h4>
+          <p class="chart-sub">87 cases added in V2.5, each run at -O0, -O1, -O2 • <b>Higher is better</b></p>
+          <svg class="chart-svg" data-chart="fixtures" role="img" aria-label="Edge cases passed: V2.1.1 253, V2.5 306 of 306."></svg>
+        </div>
+        <div>
+          <h4>Failures in real games</h4>
+          <p class="chart-sub">Scripts or functions that didn’t decompile, four games • <b>Lower is better</b></p>
+          <svg class="chart-svg" data-chart="failures" role="img" aria-label="Decompile failures: V2.1.1 7, V2.5 0."></svg>
+        </div>
+      </div>
+    </figure>
+
+    <div class="text">
+      <h2 id="faster">Faster, on more machines</h2>
+      <p>All of that extra checking could have made Tovek slower. Instead, V2.5 is faster: it keeps track of what it learns about each function far more compactly, skips work that wouldn’t change the result, and decompiles identical scripts in a folder only once. On one thread, the 3,978-script game takes 11.5 seconds, against 14.1 for V2.1.1; with every core busy it finishes in 0.96 seconds.</p>
+      <p>V2.5 also runs natively on two new kinds of machine: Linux on ARM64, from single-board computers to ARM cloud servers, and Macs with Apple silicon.</p>
+
+      <h2 id="available">Available today</h2>
+      <p>Tovek V2.5 is available now from <a href="https://github.com/Kiet1308/Tovek/releases/tag/v2.5">GitHub Releases</a>. Each download contains just the two programs you need, <code>luau-lifter</code> and <code>web-server</code>, along with the licence.</p>
+      <div class="downloads">
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.5/Tovek-V2.5-windows-x86_64.zip"><span><b>Windows</b><span>x86_64 · ZIP</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 16 7 11l1.4-1.45 2.6 2.6V4h2v8.15l2.6-2.6L17 11zm-6 4q-.82 0-1.41-.59T4 18v-3h2v3h12v-3h2v3q0 .82-.59 1.41T18 20z"/></svg></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.5/Tovek-V2.5-linux-x86_64.tar.gz"><span><b>Linux</b><span>x86_64 · glibc 2.35+</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 16 7 11l1.4-1.45 2.6 2.6V4h2v8.15l2.6-2.6L17 11zm-6 4q-.82 0-1.41-.59T4 18v-3h2v3h12v-3h2v3q0 .82-.59 1.41T18 20z"/></svg></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.5/Tovek-V2.5-linux-aarch64.tar.gz"><span><b>Linux ARM64</b><span>aarch64 · glibc 2.35+</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 16 7 11l1.4-1.45 2.6 2.6V4h2v8.15l2.6-2.6L17 11zm-6 4q-.82 0-1.41-.59T4 18v-3h2v3h12v-3h2v3q0 .82-.59 1.41T18 20z"/></svg></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.5/Tovek-V2.5-macos-aarch64.tar.gz"><span><b>macOS</b><span>Apple silicon · aarch64</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 16 7 11l1.4-1.45 2.6 2.6V4h2v8.15l2.6-2.6L17 11zm-6 4q-.82 0-1.41-.59T4 18v-3h2v3h12v-3h2v3q0 .82-.59 1.41T18 20z"/></svg></a>
+      </div>
+      <div class="shell">
+        <div class="shell-bar"><span>Build from source</span><button type="button" data-copy="build-cmd">Copy</button></div>
+<pre id="build-cmd">git clone --branch v2.5 https://github.com/Kiet1308/Tovek.git
+cd Tovek
+<span class="cm"># rust-toolchain.toml selects nightly-2026-06-15</span>
+cargo build --release --locked -p luau-lifter -p web-server</pre>
+      </div>
+      <p>The executor client scripts and the usage guide stay in the <a href="https://github.com/Kiet1308/Tovek#readme">repository</a>. On macOS, if Gatekeeper blocks the download, run <code>xattr -d com.apple.quarantine luau-lifter web-server</code> in the extracted folder. Tovek is free and open source under the MIT licence, and builds on the medal project.</p>
+    </div>
+  </div>
+
+  <section class="posted" aria-labelledby="posted-title">
+    <h2 id="posted-title">Posted in:</h2>
+    <div class="chips"><a class="chip" href="../../changelog.html">Release notes</a><a class="chip" href="#deinlining">De-inlining</a><a class="chip" href="#real-games">Correctness</a></div>
+  </section>
+
+  <div class="more" data-accordion data-open="false">
+    <button type="button" aria-expanded="false">More information<i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></i></button>
+    <div class="more-body"><div><ol>
+      <li><b>Semantic fuzzing:</b> 900 programs from the three review generators (seeds 900,000 onward, never used during development), compiled at -O0, -O1 and -O2 with -g1 by the pinned Luau compiler, decompiled in one folder run per version, and run beside the original. A run fails when the decompiled program prints or errors differently, or when no source is written.</li>
+      <li><b>Edge cases:</b> the semantic round-trip suite in the repository: 102 fixtures, 87 of them added since V2.1.1 from reported and fuzzed bugs, each compiled at three optimisation levels.</li>
+      <li><b>Real games:</b> a 3,978-script game saved from a live Roblox experience plus three further game dumps (6,009 scripts). Their sources are private, so only counts are published. Rebuilt calls count the per-call de-inline annotation; anonymous names count declarations and parameters named only <code>v</code>/<code>p</code> with an optional number.</li>
+      <li>Regression programs, generated programs and source structure come from the frozen benchmark plan used since September 19, 2026 (public libraries: Fusion, Roact, Rodux, Promise and RbxUtil). Source structure is the mean similarity of the decompiled syntax tree to the original; it rewards familiar shape, not behaviour, and does not score names. lua.expert rejects bytecode v12 and above.</li>
+      <li>Timings: official build settings, default options, no artifact cache, median of repeated runs that alternate between versions on an Intel Core Ultra 9 275HX laptop (24 threads) under normal desktop load.</li>
+    </ol></div></div>
+  </div>
+
+  <section class="about" aria-labelledby="about-title">
+    <h2 id="about-title">About Tovek</h2>
+    <div class="about-card">
+      <div class="about-art" aria-hidden="true"><svg viewBox="0 0 28 30"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg></div>
+      <div>
+        <h3>Tovek</h3>
+        <p class="role">Open-source Luau decompiler for Roblox</p>
+        <p>Tovek turns compiled Luau back into source a person can read: inlined helpers put back, names recovered from evidence, loops rebuilt. It runs locally with deterministic rules and is checked against Luau’s own parser, compiler and VM.</p>
+        <a class="more-link" href="../../index.html">Read the overview <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16.2 13H4v-2h12.2l-5.6-5.6L12 4l8 8-8 8-1.4-1.4z"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="related" aria-labelledby="related-title">
+    <h2 id="related-title">Related stories</h2>
+    <div class="related-track">
+      <a class="story" href="../v2.1/"><div class="art"><div class="blob" style="background:linear-gradient(160deg,#0a0f1c 0%,#2f5d93 45%,#ff6b1e 70%,#160c07 100%)">Tovek V2.1</div></div><span class="kick">Release notes</span><h3>Tovek V2.1: faster, sturdier, and ready for bytecode v14</h3><span class="by">September 28, 2026</span></a>
+      <a class="story" href="../v2/"><div class="art"><div class="blob" style="background:radial-gradient(circle at 30% 30%,#2a4a6e 0%,#020507 70%);border-radius:58% 42% 51% 49% / 46% 56% 44% 54%">Tovek V2</div></div><span class="kick">Release notes</span><h3>Tovek V2: a new generation of decompilation</h3><span class="by">September 19, 2026</span></a>
+      <a class="story" href="../../index.html"><div class="art"><div class="blob" style="background:linear-gradient(140deg,#eeebe4,#c6f135);color:#141513;border-radius:40% 60% 55% 45% / 50% 40% 60% 50%">See through bytecode</div></div><span class="kick">Overview</span><h3>How Tovek puts helpers back, names values and rebuilds loops</h3><span class="by">Tovek</span></a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <a class="wordmark" href="../../index.html"><span class="mark"><svg viewBox="0 0 28 30" aria-hidden="true"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg></span>Tovek</a>
+    <a href="../../index.html">Overview</a>
+    <a href="../../changelog.html">Changelog</a>
+    <a href="https://github.com/Kiet1308/Tovek">GitHub</a>
+    <a href="https://discord.gg/phY6VUDSF7">Discord</a>
+    <span class="spacer"></span>
+    <small>Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>. In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality). © 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a></small>
+  </div>
+</footer>
+
+<span id="live" class="sr-only" role="status" aria-live="polite"></span>
+<script type="application/json" id="v25-data">{"charts":{"fuzz":{"type":"stacked","max":500,"ticks":[0,100,200,300,400,500],"yLabel":"Runs","keys":[{"key":"different","label":"Behaves differently","color":"#c5221f"},{"key":"no_output","label":"No output","color":"#f6aea9"}],"columns":[{"label":"Tovek V2","values":{"different":201,"no_output":11},"star":false},{"label":"Tovek V2.1.1","values":{"different":180,"no_output":18},"star":false},{"label":"Tovek V2.5","values":{"different":0,"no_output":0},"star":true}]},"markers":{"type":"bar","max":5000,"ticks":[0,1000,2000,3000,4000,5000],"bars":[{"label":"Tovek V2","value":1630,"color":"#e1e6ec","star":false},{"label":"Tovek V2.1.1","value":1630,"color":"#b2bbc5","star":false},{"label":"Tovek V2.5","value":4113,"color":"#3c90ff","star":true}],"yLabel":"Calls"},"anon":{"type":"bar","max":100000,"ticks":[0,20000,40000,60000,80000,100000],"bars":[{"label":"Tovek V2","value":57236,"color":"#e1e6ec","star":false},{"label":"Tovek V2.1.1","value":57700,"color":"#b2bbc5","star":false},{"label":"Tovek V2.5","value":37060,"color":"#3c90ff","star":true}],"yLabel":"Declarations"},"speed1":{"type":"bar","max":500,"ticks":[0,100,200,300,400,500],"bars":[{"label":"Tovek V2","value":148,"color":"#e1e6ec","star":false},{"label":"Tovek V2.1.1","value":282,"color":"#b2bbc5","star":false},{"label":"Tovek V2.5","value":345,"color":"#3c90ff","star":true}],"yLabel":"Scripts per second"},"markersByGame":{"type":"grouped","yLabel":"Calls","labels":true,"series":[{"name":"Tovek V2","color":"#b2bbc5"},{"name":"Tovek V2.1.1","color":"#9dd2ff"},{"name":"Tovek V2.5","color":"#3c90ff"}],"groups":[{"label":"Test game","values":[531,531,1283]},{"label":"Game A","values":[445,445,958]},{"label":"Game B","values":[340,340,632]},{"label":"Game C","values":[314,314,1240]}],"max":2500,"ticks":[0,500,1000,1500,2000,2500]},"fixtures":{"type":"bar","max":500,"ticks":[0,100,200,300,400,500],"bars":[{"label":"Tovek V2.1.1","value":253,"color":"#b2bbc5","star":false},{"label":"Tovek V2.5","value":306,"color":"#3c90ff","star":true}],"yLabel":"Runs passed","height":300},"failures":{"type":"bar","max":10,"ticks":[0,2,4,6,8,10],"bars":[{"label":"Tovek V2.1.1","value":7,"color":"#b2bbc5","star":false},{"label":"Tovek V2.5","value":0,"color":"#3c90ff","star":true,"display":"0"}],"yLabel":"Failures","height":300}}}</script>
+</body>
+</html>

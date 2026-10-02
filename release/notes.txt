@@ -1,47 +1,49 @@
-Tovek V2.1.1 is the latest build of Tovek V2.1: up to twice as fast as V2, ready
-for Luau bytecode v14, and exact wherever V2 could behave differently from the
-original script. It produces byte-identical output to V2.1 on our 3,978-script
-test game.
+Tovek V2.5: our next era of faithful decompilation.
 
-Download the Windows ZIP or Linux tar.gz below. Each package contains
-luau-lifter, web-server, executor client scripts, README and quick-start instructions.
-SHA256SUMS.txt provides checksums for both downloads.
+V2.5 fixes hundreds of ways decompiled Luau could quietly go wrong, rebuilds 2.5x
+as many inlined helpers, and writes code that reads closer to what people write.
 
-New in V2.1.1
-- Malformed bytecode that aborted V2 is now rejected with the exact prototype and
-  instruction: closures whose CAPTURE list does not match their prototype, stray
-  CAPTURE instructions, and NAMECALL instructions separated from their CALL
-  (e.g. "prototype 2, pc 18: invalid method call").
-- A method call whose name is not a valid identifier, which only hand-built
-  bytecode can contain, decompiles to an equivalent index call such as
-  v["foo bar"](v). V2 printed invalid syntax (`({}):foo bar()`) or aborted on
-  non-UTF-8 names.
-- On 1,500 damaged copies of real scripts, V2 aborted 104 times; V2.1.1 never
-  aborts and reports no internal errors.
+Downloads: Windows x86_64, Linux x86_64, Linux aarch64 and macOS (Apple silicon).
+Each package holds luau-lifter (CLI) and web-server (local HTTP server) with the
+licence; the executor client scripts and usage guide stay in the repository.
+SHA256SUMS.txt lists the checksums.
 
-Tovek V2.1 highlights
-- A 3,978-script Roblox game decompiles in 11.5 s on one thread (V2: 20.1 s)
-  and 0.94 s on 24 threads (V2: 1.59 s), with less memory (103 MB vs 122 MB peak
-  at 16 threads).
-- Fixes every case found by three code reviews where decompiled code could
-  behave differently from the original. Deep-review suite: V2 80/199, V2.1 199/199.
-- Reads Luau bytecode v4-v14, including the v14 FASTPCALL fast path for
-  pcall/xpcall (252/252 runtime profiles at v9, v12 and v14).
-- Bytecode is validated before analysis; the local HTTP server shares four job
-  slots across its routes with a deadline on slow uploads.
-- Output changes: where a friendlier spelling could change behaviour, V2.1
-  writes what the bytecode does (vector.create instead of Vector3.new; math.pi
-  as a numeric literal).
+Correctness
+- Semantic fuzzing, 2,700 fresh runs (programs compiled at -O0/-O1/-O2, decompiled
+  and run beside the original): V2.1.1 wrong or missing 198 times, V2.5 0.
+- 87 new edge cases from real reports and fuzzing: V2.1.1 passes 253 of the 306
+  runs, V2.5 all 306. Deep-review suite 199/199.
+- Four real games (9,987 scripts): 7 scripts failed to decompile with V2.1.1, none
+  with V2.5. Fixed: nested loops that leave or continue their parent, captured
+  variables through swaps/copies/loops, calls kept ahead of captured reads, store
+  address timing, library lookups that can raise, the 200-local limit, -0 vs 0.
 
-Validation and limits
-V2.1.1 passes 252/252 runtime profiles at v9, v12 and v14, 513/513 public source
-profiles at v12 and v14, 384/384 generated-program profiles, 45/45 semantic
-round-trips and all 199 deep-review cases. Output is byte-identical at 1 and 16
-threads. A complete game was not run inside Roblox. v15 and runtime-mutated
+De-inlining
+- 4,113 helper calls rebuilt across the four games (V2.1.1: 1,630). New shapes:
+  helpers returning their own locals, parameters, calls or tuples through
+  branches; returns from inside loops; copies trimmed by specialisation;
+  arguments evaluated as the helper's first step; outer-local anchors with the
+  longest match winning. Every rebuilt call is still proven equivalent.
+
+Readability
+- Anonymous local declarations -36%, generated parameter names -16% (four games).
+- Names from context: event connections (touchedConnection), Fusion scope/use,
+  state reads (currentHealth), keyed getters, module tables, defaults.
+- Tuple stores and swaps fold back, += on globals and table fields, trailing
+  guards become elseif, shared return tails written once.
+- Opt-in: --style compact (if-expressions), --assume-standard-libraries
+  (math.pi, Vector3.new, ... instead of folded literals).
+
+Speed
+- Full 3,978-script game: 14.1 s -> 11.5 s on one thread, 1.03 s -> 0.96 s on 24
+  threads (same machine, alternating runs). Duplicate folder inputs decompile once.
+
+Limits
+Runtime profiles pass at bytecode v9, v12 and v14; public source profiles at v12
+and v14. A complete game was not run inside Roblox. v15 and runtime-mutated
 CMPPROTO guards are rejected; decompilation cannot recover comments or stripped
-names. Building from source requires nightly-2026-06-15 (selected automatically
-by rust-toolchain.toml).
+names. macOS may quarantine downloads: xattr -d com.apple.quarantine luau-lifter web-server.
 
-Release notes: https://kiet1308.github.io/Tovek/changelog/v2.1/
+Release notes: https://kiet1308.github.io/Tovek/changelog/v2.5/
 Usage: https://github.com/Kiet1308/Tovek/blob/main/README.md
-Source: https://github.com/Kiet1308/Tovek/tree/v2.1.1
+Source: https://github.com/Kiet1308/Tovek/tree/v2.5
