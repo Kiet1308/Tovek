@@ -51,7 +51,8 @@ pub(crate) fn pattern(function: &Function) -> Option<RValue> {
     }
     let params = function.parameters.iter().cloned().collect();
     let mut budget = MAX_NODES;
-    let result = return_tree(&function.body.0, Some(&params), &mut budget, 0)?;
+    // The helper's own locals are registers no closure of its body shares.
+    let result = return_tree(&function.body.0, Some(&params), &mut budget, 0, &|_| false)?;
     // Reconstruction requires an argument for every parameter. An unused
     // parameter cannot bind from this pattern, so this is not a callable
     // candidate and must not veto the optional loop-synthesis pass either.
@@ -64,11 +65,14 @@ pub(crate) fn pattern(function: &Function) -> Option<RValue> {
     Some(result)
 }
 
+/// `captured`: whether code a moved operation runs (a metamethod) may change
+/// a local, so a let may not sink past a read of it.
 fn return_tree(
     stmts: &[Statement],
     params: Option<&FxHashSet<RcLocal>>,
     budget: &mut usize,
     depth: usize,
+    captured: &dyn Fn(&RcLocal) -> bool,
 ) -> Option<RValue> {
     if depth > 8 {
         return None;
@@ -97,11 +101,11 @@ fn return_tree(
                 || assign.right[0].any_local_read(&mut |read| read == local) { return None; }
             let mut extended = params.cloned();
             if let Some(p) = &mut extended { p.insert(local.clone()); }
-            let mut result = return_tree(rest, extended.as_ref(), budget, depth + 1)?;
+            let mut result = return_tree(rest, extended.as_ref(), budget, depth + 1, captured)?;
             let destination = Statement::Return(crate::Return::new(vec![result.clone()]));
             // A let is substituted exactly once and only at an evaluation slot
             // it can reach. This preserves metamethod order and skipped arms.
-            if !crate::evaluation_order::can_sink(&destination, local, &assign.right[0], &|_| false) {
+            if !crate::evaluation_order::can_sink(&destination, local, &assign.right[0], &|read: &RcLocal| captured(read)) {
                 return None;
             }
             fn substitute(value: &mut RValue, local: &RcLocal, replacement: &RValue) {
@@ -118,8 +122,8 @@ fn return_tree(
             if !allowed(&branch.condition, params, budget) {
                 return None;
             }
-            let yes = return_tree(&branch.then_block.lock().0, params, budget, depth + 1)?;
-            let no = return_tree(&branch.else_block.lock().0, params, budget, depth + 1)?;
+            let yes = return_tree(&branch.then_block.lock().0, params, budget, depth + 1, captured)?;
+            let no = return_tree(&branch.else_block.lock().0, params, budget, depth + 1, captured)?;
             *budget = budget.checked_sub(1)?;
             Some(IfExpression::new(branch.condition.clone(), yes, no).into())
         }
@@ -129,8 +133,8 @@ fn return_tree(
             if !allowed(&branch.condition, params, budget) {
                 return None;
             }
-            let yes = return_tree(&branch.then_block.lock().0, params, budget, depth + 1)?;
-            let no = return_tree(rest, params, budget, depth + 1)?;
+            let yes = return_tree(&branch.then_block.lock().0, params, budget, depth + 1, captured)?;
+            let no = return_tree(rest, params, budget, depth + 1, captured)?;
             *budget = budget.checked_sub(1)?;
             Some(IfExpression::new(branch.condition.clone(), yes, no).into())
         }
@@ -162,10 +166,13 @@ fn assigned_result(stmts: &[Statement], result: &RcLocal, params: Option<&FxHash
     }
 }
 
-pub(super) fn region(statements: &[Statement]) -> Option<RValue> {
+/// A caller's region as one expression. Its locals may be cells a closure
+/// shares (`captures`): a let does not sink past a read of one that code may
+/// change.
+pub(super) fn region(statements: &[Statement], captures: &crate::deinline_safety::CaptureSafety) -> Option<RValue> {
     if statements.is_empty() || statements.len() > 8 { return None; }
     let mut budget = MAX_NODES;
-    return_tree(statements, None, &mut budget, 0)
+    return_tree(statements, None, &mut budget, 0, &|local| !captures.stable(&RValue::Local(local.clone())))
 }
 
 fn allowed(value: &RValue, params: Option<&FxHashSet<RcLocal>>, budget: &mut usize) -> bool {

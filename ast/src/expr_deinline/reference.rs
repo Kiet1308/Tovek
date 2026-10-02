@@ -119,6 +119,9 @@ pub(super) struct ExprTarget {
     pub(super) param_order: Vec<RcLocal>,
     /// Additional, bounded proof path for named bytecode arithmetic helpers.
     pub(super) arithmetic: Option<std::rc::Rc<arithmetic::Safety>>,
+    pub(super) first_reads: Vec<RcLocal>,
+    pub(super) first_register_reads: Vec<RcLocal>,
+    pub(super) upvalues: std::rc::Rc<super::FunctionUpvalues>,
     pub(super) captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     pub(super) search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
     pub(super) protect_definition: bool,
@@ -212,6 +215,7 @@ pub(super) fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
     // never rebound is written exactly once (its declaration); any extra write
     // refuses it.
     let captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body));
+    let upvalues = std::rc::Rc::new(super::function_upvalues(body));
     if !captures.complete() { return Vec::new(); }
     let mut write_counts: FxHashMap<RcLocal, usize> = FxHashMap::default();
     collect_write_counts(&body.0, &mut write_counts);
@@ -235,6 +239,7 @@ pub(super) fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
         if g.is_variadic || body_unsafe(&g.body.0) {
             return;
         }
+        let (first_reads, first_register_reads) = super::first_reads(&g.body.0, &g.parameters, &captures);
         if let Some(expr) = arithmetic::pattern(&g) {
             arithmetic_targets += 1;
             if arithmetic_targets > arithmetic::MAX_TARGETS {
@@ -249,6 +254,9 @@ pub(super) fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
                 locals: FxHashSet::default(),
                 param_order: g.parameters.clone(),
                 arithmetic: Some(arithmetic_safety.clone()),
+                first_reads: first_reads.clone(),
+                first_register_reads: first_register_reads.clone(),
+                upvalues: upvalues.clone(),
                 captures: captures.clone(),
                 search: search.clone(),
                 // Keep competing helper definitions intact in every phase.
@@ -303,6 +311,9 @@ pub(super) fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
             locals: FxHashSet::default(),
             param_order,
             arithmetic: None,
+            first_reads,
+            first_register_reads,
+            upvalues: upvalues.clone(),
             captures: captures.clone(),
                 search: search.clone(),
                 protect_definition: false,
@@ -562,14 +573,14 @@ fn try_rewrite_select(
     // refuse because moving the nil initialization inside a call is observable.
     if !targets[active[0]].captures.uncaptured(&result) { return; }
     let candidate = vec![stmts[index].clone(), stmts[index + 1].clone(), crate::Return::new(vec![result.clone().into()]).into()];
-    let Some(value) = arithmetic::region(&candidate) else { return; };
+    let Some(value) = arithmetic::region(&candidate, &targets[active[0]].captures) else { return; };
     let mut pick = super::Pick::default();
     let ordered = crate::reconstruction_search::prioritize(active, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
     for idx in ordered {
         let target = &targets[idx];
         let Some(safety) = &target.arithmetic else { continue; };
         if !safety.spend_attempt() { return; }
-        if let Some(found) = try_match(target, &value) {
+        if let Some(found) = try_match(target, &value, current_func) {
             pick.offer(idx, found);
             if pick.settled() { return; }
         }
@@ -593,7 +604,7 @@ fn try_rewrite_region(
 ) -> bool {
     if active.is_empty() || stmts.len() > 8 || matches!(stmts, [Statement::Return(_)]) { return false; }
     if current_func.is_some_and(|ptr| targets.iter().any(|t| t.func_ptr == ptr)) { return false; }
-    let Some(value) = arithmetic::region(stmts) else { return false; };
+    let Some(value) = arithmetic::region(stmts, &targets[active[0]].captures) else { return false; };
     let mut declared = FxHashSet::default();
     crate::deinline::collect_declared_locals(stmts, &mut declared);
     let mut pick = super::Pick::default();
@@ -603,7 +614,7 @@ fn try_rewrite_region(
         if current_func == Some(target.func_ptr) { continue; }
         if !safety.spend_attempt() { return false; }
         if declared.iter().any(|l| l.has_source_binding() || !target.captures.uncaptured(l)) { continue; }
-        if let Some(found) = try_match(target, &value) {
+        if let Some(found) = try_match(target, &value, current_func) {
             pick.offer(idx, found);
             if pick.settled() { return false; }
         }
@@ -654,7 +665,7 @@ fn try_rewrite(
                     break;
                 }
             }
-            if let Some(found) = try_match(t, rv) {
+            if let Some(found) = try_match(t, rv, current_func) {
                 pick.offer(idx, found);
                 if pick.settled() {
                     break;
@@ -686,7 +697,7 @@ fn try_rewrite(
 
 /// Attempt to unify target `t`'s body `E` against the candidate subtree `rv` and,
 /// if it matches under all gates, return the reconstructed argument list.
-fn try_match(t: &ExprTarget, rv: &RValue) -> Option<(Vec<RValue>, super::Hoist)> {
+fn try_match(t: &ExprTarget, rv: &RValue, current_func: Option<FnPtr>) -> Option<(Vec<RValue>, super::Hoist)> {
     let mut b = Bindings::default();
     let matched = if t.arithmetic.is_some() {
         arithmetic::unify(&t.ctx(), &t.expr, rv, &mut b)
@@ -725,6 +736,11 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<(Vec<RValue>, super::Hoist)>
     // cell despite there being no syntactic assignment in the expression.
     let hoist = super::hoist(&t.expr, &t.param_order, &args, |a| {
         t.captures.stable(a) && t.arithmetic.as_ref().is_none_or(|safety| safety.stable(a))
+    }, |p, arg| {
+        let register = matches!(arg, RValue::Local(local) if current_func
+            .and_then(|function| t.upvalues.get(&(function as usize)))
+            .is_none_or(|ids| !ids.contains(&local.stable_id())));
+        if register { t.first_register_reads.contains(p) } else { t.first_reads.contains(p) }
     })?;
     // Cost: the replacement must be a net node saving against the specialised
     // subtree `S` (rejects `f(bigExpr)` non-shrinks). Computed only on a real match.

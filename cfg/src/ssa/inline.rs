@@ -363,6 +363,15 @@ impl<'a> Inliner<'a> {
     ) -> bool {
         let candidate_may_write_capture = new_rvalue_has_side_effects
             && ast::effects::may_write_capture(new_rvalue.as_ref().unwrap());
+        // A read of a register cell a closure writes. Moved into an operand
+        // Luau reads only when its operation runs, it would observe a write
+        // made by another operand of that operation: `local b = count;
+        // math.max(b, touch())` must not become `math.max(count, touch())`.
+        let reads_shared_register = new_rvalue.as_ref().unwrap().any_local_read(&mut |local| {
+            upvalue_to_group.contains_key(local)
+                && !readonly_capture_ids.contains(&local.stable_id())
+                && incoming_upvalue_ids.is_none_or(|ids| !ids.contains(&local.stable_id()))
+        });
         // Register reads the VM performs only when their operation runs, after
         // the candidate's position has been evaluated (see `late_register_read`).
         let mut late_reads: Vec<*const ast::RValue> = Vec::new();
@@ -424,6 +433,15 @@ impl<'a> Inliner<'a> {
                                 && let Some(operand) = late_register_read(rvalue, incoming)
                             {
                                 late_reads.push(operand as *const ast::RValue);
+                            }
+                            if reads_shared_register
+                                && let Some(operands) = ast::evaluation_order::late_operands(rvalue)
+                                && operands.iter().any(|operand| matches!(operand, ast::RValue::Local(local) if local == read))
+                                && operands.iter().any(|operand| {
+                                    !matches!(operand, ast::RValue::Local(_)) && ast::effects::may_write_capture(operand)
+                                })
+                            {
+                                return Some(false);
                             }
                         }
                     }

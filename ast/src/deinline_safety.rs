@@ -38,21 +38,28 @@ impl CaptureSafety {
     /// different things. Luau neither inlines nor imports in such a module.
     pub(crate) fn dynamic_environment(&self) -> bool { self.exhausted || self.dynamic_environment }
 
-    /// A global path (`math.clamp`, `workspace`) Luau resolves once, when the
-    /// script loads: up to three names, the first never assigned in the
-    /// module, in a module with a fixed environment. No code the script runs
-    /// later can change what it reads.
+    /// A global path no code the script runs can change: a builtin global
+    /// (`print`, `workspace`) or a field of a library whose members are fixed
+    /// (`math.clamp`, `Enum.KeyCode.E`), up to three names, never assigned in
+    /// the module, in a module with a fixed environment. Luau's own builtin
+    /// calls assume the same. Any other path is a read of a table someone may
+    /// write (`Shared.x`, `Foo.new`, `script.Parent`), or of a global another
+    /// chunk may set.
     pub(crate) fn constant_import(&self, value: &RValue) -> bool {
-        fn root(value: &RValue, depth: usize) -> Option<&[u8]> {
+        fn root(value: &RValue, depth: usize) -> Option<(&[u8], usize)> {
             match value {
-                RValue::Global(global) => Some(&global.0),
+                RValue::Global(global) => Some((&global.0, depth)),
                 RValue::Index(index) if depth < 2 && matches!(*index.right, RValue::Literal(Literal::String(_))) => {
                     root(&index.left, depth + 1)
                 }
                 _ => None,
             }
         }
-        !self.dynamic_environment() && root(value, 0).is_some_and(|name| !self.written_globals.contains(name))
+        !self.dynamic_environment()
+            && root(value, 0).is_some_and(|(name, fields)| {
+                !self.written_globals.contains(name)
+                    && if fields == 0 { builtin_global(name) } else { fixed_library(name) }
+            })
     }
     pub(crate) fn nodes(&self) -> usize { self.nodes }
 
@@ -72,6 +79,12 @@ impl CaptureSafety {
             }
             _ => false,
         }
+    }
+
+    /// A read the code a call runs cannot change: a literal, a local [`stable`]
+    /// here, or a [`constant_import`].
+    pub(crate) fn unchanged_by_calls(&self, value: &RValue) -> bool {
+        matches!(value, RValue::Literal(_)) || self.stable(value) || self.constant_import(value)
     }
 
     fn spend(&mut self, depth: usize) -> bool {
@@ -99,6 +112,16 @@ impl CaptureSafety {
                     match left {
                         LValue::Global(global) => {
                             self.written_globals.insert(global.0.clone());
+                        }
+                        // `math.foo = f` replaces a library member.
+                        LValue::Index(index) => {
+                            let mut base = &*index.left;
+                            while let RValue::Index(inner) = base {
+                                base = &inner.left;
+                            }
+                            if let RValue::Global(global) = base {
+                                self.written_globals.insert(global.0.clone());
+                            }
                         }
                         LValue::Local(local) if !assign.prefix => {
                             self.rebound.insert(local.stable_id());
@@ -164,6 +187,34 @@ impl CaptureSafety {
             });
         }
     }
+}
+
+/// Globals Luau and Roblox provide, whose binding a script does not change.
+fn builtin_global(name: &[u8]) -> bool {
+    fixed_library(name)
+        || matches!(
+            name,
+            b"assert" | b"error" | b"getmetatable" | b"setmetatable" | b"ipairs" | b"pairs" | b"next"
+                | b"pcall" | b"xpcall" | b"print" | b"rawequal" | b"rawget" | b"rawset" | b"rawlen"
+                | b"select" | b"tonumber" | b"tostring" | b"type" | b"typeof" | b"unpack" | b"require"
+                | b"newproxy" | b"gcinfo" | b"game" | b"workspace" | b"Workspace" | b"script" | b"plugin"
+                | b"shared" | b"_G" | b"tick" | b"time" | b"wait" | b"spawn" | b"delay" | b"warn"
+                | b"elapsedTime" | b"settings" | b"UserSettings"
+        )
+}
+
+/// Library tables whose members are fixed functions and constants.
+fn fixed_library(name: &[u8]) -> bool {
+    matches!(
+        name,
+        b"math" | b"string" | b"table" | b"bit32" | b"utf8" | b"os" | b"coroutine" | b"buffer" | b"vector"
+            | b"debug" | b"task" | b"Enum" | b"Instance" | b"Vector3" | b"Vector2" | b"Vector3int16"
+            | b"Vector2int16" | b"CFrame" | b"Color3" | b"ColorSequence" | b"ColorSequenceKeypoint"
+            | b"NumberSequence" | b"NumberSequenceKeypoint" | b"NumberRange" | b"UDim" | b"UDim2" | b"Rect"
+            | b"Ray" | b"Region3" | b"Region3int16" | b"BrickColor" | b"TweenInfo" | b"Random" | b"DateTime"
+            | b"PhysicalProperties" | b"Font" | b"Faces" | b"Axes" | b"PathWaypoint" | b"RaycastParams"
+            | b"OverlapParams" | b"SharedTable" | b"Content"
+    )
 }
 
 /// Deterministic work fuel bounds candidate comparisons independently of host

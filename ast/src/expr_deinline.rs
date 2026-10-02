@@ -117,6 +117,15 @@ struct ExprTarget {
     param_order: Vec<RcLocal>,
     /// Additional, bounded proof path for named bytecode arithmetic helpers.
     arithmetic: Option<std::rc::Rc<arithmetic::AttemptBudget>>,
+    /// Parameters the body reads once, before anything a call could change,
+    /// in the body's own statement order (`expr` may fold `local q = ...`):
+    /// for an argument evaluated where it stands, and for a register local
+    /// (`evaluation_order::reads_first`).
+    first_reads: Vec<RcLocal>,
+    first_register_reads: Vec<RcLocal>,
+    /// The locals each function reads as upvalues, which Luau fetches where
+    /// they are read; any other local of a site is a register.
+    upvalues: std::rc::Rc<FunctionUpvalues>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
     protect_definition: bool,
@@ -212,6 +221,7 @@ struct HelperCandidate {
     parameters: Vec<RcLocal>,
     prototype: Option<usize>,
     arithmetic: bool,
+    function: Arc<Mutex<Function>>,
 }
 
 fn helper_candidates(body: &Block, arithmetic_only: bool) -> Vec<HelperCandidate> {
@@ -235,6 +245,7 @@ fn helper_candidates(body: &Block, arithmetic_only: bool) -> Vec<HelperCandidate
             parameters: g.parameters.clone(),
             prototype: g.bytecode_proto_id,
             arithmetic,
+            function: fa.clone(),
         };
         if let Some(expr) = arithmetic::pattern(&g) {
             candidates.push(candidate(expr, true));
@@ -304,6 +315,7 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
     // refuses it.
     let captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body));
     if !captures.complete() { return Vec::new(); }
+    let upvalues = std::rc::Rc::new(function_upvalues(body));
     let mut write_counts: FxHashMap<RcLocal, usize> = FxHashMap::default();
     collect_write_counts(&body.0, &mut write_counts);
     let search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
@@ -322,6 +334,7 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
             }
         }
         crate::call_origins::register_callee(candidate.f_local.stable_id(), candidate.prototype);
+        let (first_reads, first_register_reads) = first_reads(&candidate.function.lock().body.0, &candidate.parameters, &captures);
         targets.push(ExprTarget {
             params: candidate.parameters.iter().cloned().collect(),
             f_local: candidate.f_local,
@@ -330,6 +343,9 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
             locals: FxHashSet::default(),
             param_order: candidate.parameters,
             arithmetic: candidate.arithmetic.then(|| arithmetic_budget.clone()),
+            first_reads,
+            first_register_reads,
+            upvalues: upvalues.clone(),
             captures: captures.clone(),
             search: search.clone(),
             // Keep competing helper definitions intact in every phase.
@@ -597,14 +613,14 @@ fn try_rewrite_select(
     // refuse because moving the nil initialization inside a call is observable.
     if !targets[active[0]].captures.uncaptured(&result) { return; }
     let candidate = vec![stmts[index].clone(), stmts[index + 1].clone(), crate::Return::new(vec![result.clone().into()]).into()];
-    let Some(value) = arithmetic::region(&candidate) else { return; };
+    let Some(value) = arithmetic::region(&candidate, &targets[active[0]].captures) else { return; };
     let mut pick = Pick::default();
     let ordered = crate::reconstruction_search::prioritize(active, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
     for idx in ordered {
         let target = &targets[idx];
         let Some(safety) = &target.arithmetic else { continue; };
         if !safety.spend_attempt() { return; }
-        if let Some(found) = try_match(target, &value) {
+        if let Some(found) = try_match(target, &value, current_func) {
             pick.offer(idx, found);
             if pick.settled() { return; }
         }
@@ -628,7 +644,7 @@ fn try_rewrite_region(
 ) -> bool {
     if active.is_empty() || stmts.len() > 8 || matches!(stmts, [Statement::Return(_)]) { return false; }
     if current_func.is_some_and(|ptr| targets.iter().any(|t| t.func_ptr == ptr)) { return false; }
-    let Some(value) = arithmetic::region(stmts) else { return false; };
+    let Some(value) = arithmetic::region(stmts, &targets[active[0]].captures) else { return false; };
     let mut declared = FxHashSet::default();
     crate::deinline::collect_declared_locals(stmts, &mut declared);
     let mut pick = Pick::default();
@@ -638,7 +654,7 @@ fn try_rewrite_region(
         if current_func == Some(target.func_ptr) { continue; }
         if !safety.spend_attempt() { return false; }
         if declared.iter().any(|l| l.has_source_binding() || !target.captures.uncaptured(l)) { continue; }
-        if let Some(found) = try_match(target, &value) {
+        if let Some(found) = try_match(target, &value, current_func) {
             pick.offer(idx, found);
             if pick.settled() { return false; }
         }
@@ -689,7 +705,7 @@ fn try_rewrite(
                     break;
                 }
             }
-            if let Some(found) = try_match(t, rv) {
+            if let Some(found) = try_match(t, rv, current_func) {
                 pick.offer(idx, found);
                 if pick.settled() {
                     break;
@@ -722,7 +738,56 @@ fn try_rewrite(
 
 /// Attempt to unify target `t`'s body `E` against the candidate subtree `rv` and,
 /// if it matches under all gates, return the reconstructed argument list.
-fn try_match(t: &ExprTarget, rv: &RValue) -> Option<(Vec<RValue>, Hoist)> {
+/// Upvalue local ids of every function, by its identity.
+pub(super) type FunctionUpvalues = FxHashMap<usize, FxHashSet<u64>>;
+
+pub(super) fn function_upvalues(body: &Block) -> FunctionUpvalues {
+    fn visit(value: &RValue, out: &mut FunctionUpvalues) {
+        if let RValue::Closure(closure) = value {
+            let function = Arc::as_ptr(&closure.function.0) as usize;
+            if !out.contains_key(&function) {
+                let ids = closure.upvalues.iter().map(|upvalue| {
+                    let (crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local)) = upvalue;
+                    local.stable_id()
+                });
+                out.insert(function, ids.collect());
+                block(&closure.function.0.lock().body.0, out);
+            }
+            return;
+        }
+        value.visit_rvalues(&mut |child| { visit(child, out); true });
+    }
+    fn block(stmts: &[Statement], out: &mut FunctionUpvalues) {
+        for statement in stmts {
+            crate::deinline::visit_stmt_rvalues(statement, &mut |value| { visit(value, out); true });
+            match statement {
+                Statement::If(f) => {
+                    block(&f.then_block.lock().0, out);
+                    block(&f.else_block.lock().0, out);
+                }
+                Statement::While(w) => block(&w.block.lock().0, out),
+                Statement::Repeat(r) => block(&r.block.lock().0, out),
+                Statement::NumericFor(nf) => block(&nf.block.lock().0, out),
+                Statement::GenericFor(gf) => block(&gf.block.lock().0, out),
+                _ => {}
+            }
+        }
+    }
+    let mut out = FunctionUpvalues::default();
+    block(&body.0, &mut out);
+    out
+}
+
+/// Whether `arg`, at a site in `current_func`, is a register local, which an
+/// operation reads only when it runs.
+fn is_register(arg: &RValue, upvalues: &FunctionUpvalues, current_func: Option<FnPtr>) -> bool {
+    let RValue::Local(local) = arg else { return false };
+    current_func
+        .and_then(|function| upvalues.get(&(function as usize)))
+        .is_none_or(|ids| !ids.contains(&local.stable_id()))
+}
+
+fn try_match(t: &ExprTarget, rv: &RValue, current_func: Option<FnPtr>) -> Option<(Vec<RValue>, Hoist)> {
     let mut b = Bindings::default();
     let matched = if t.arithmetic.is_some() {
         arithmetic::unify(&t.ctx(), &t.expr, rv, &mut b)
@@ -759,7 +824,9 @@ fn try_match(t: &ExprTarget, rv: &RValue) -> Option<(Vec<RValue>, Hoist)> {
     // Literals and non-reference-captured locals are total, identity-stable
     // snapshots. A call/metamethod in this expression may mutate a referenced
     // cell despite there being no syntactic assignment in the expression.
-    let hoist = hoist(&t.expr, &t.param_order, &args, |a| t.captures.stable(a))?;
+    let hoist = hoist(&t.expr, &t.param_order, &args, |a| t.captures.stable(a), |p, arg| {
+        if is_register(arg, &t.upvalues, current_func) { t.first_register_reads.contains(p) } else { t.first_reads.contains(p) }
+    })?;
     // The complete CaptureSafety census already excludes every reference-
     // captured local. The arithmetic family's former second census visited
     // the same statement roots (including indexed LHS) and closure bodies;
@@ -798,17 +865,37 @@ pub(super) fn hoist(
     params: &[RcLocal],
     args: &[RValue],
     stable: impl Fn(&RValue) -> bool,
+    // Whether the body reads a parameter first, before anything a call could
+    // change, given the argument standing for it.
+    first_read: impl Fn(&RcLocal, &RValue) -> bool,
 ) -> Option<Hoist> {
     let mut unstable = (0..args.len()).filter(|&i| !stable(&args[i]));
     match (unstable.next(), unstable.next()) {
         (None, _) => Some(Hoist::Stable),
         (Some(only), None) => {
             let param = &params[only];
-            let first = crate::evaluation_order::reads_first(expr, param) == Some(true);
+            let first = first_read(param, &args[only]);
             (first && reads_of(expr, param) == 1).then_some(Hoist::FirstRead)
         }
         _ => None,
     }
+}
+
+/// The parameters a helper body reads first ([`ExprTarget::first_reads`]).
+pub(super) fn first_reads(
+    body: &[Statement],
+    parameters: &[RcLocal],
+    captures: &crate::deinline_safety::CaptureSafety,
+) -> (Vec<RcLocal>, Vec<RcLocal>) {
+    let unchanged = |value: &RValue| captures.unchanged_by_calls(value);
+    let reading = |register| {
+        parameters
+            .iter()
+            .filter(|parameter| crate::evaluation_order::block_reads_first(body, parameter, register, &unchanged))
+            .cloned()
+            .collect()
+    };
+    (reading(false), reading(true))
 }
 
 /// The one helper call to rebuild at a site. A match with stable arguments
@@ -979,9 +1066,14 @@ mod tests {
         let runs_code = || call(global("f"), vec![]);
         let pi = RValue::Index(Index::new(global("math"), string("pi")));
         let field = RValue::Index(Index::new(lv(&x), string("y")));
-        let hoist_into = |body: RValue| hoist(&body, &[t.clone()], &[runs_code()], plain);
+        let unchanged = |_: &RValue| true;
+        let in_order = |body: RValue| move |p: &RcLocal, arg: &RValue| {
+            crate::evaluation_order::reads_first(&body, p, matches!(arg, RValue::Local(_)), &unchanged) == Some(true)
+        };
+        let hoist_into = |body: RValue| hoist(&body, &[t.clone()], &[runs_code()], plain, in_order(body.clone()));
 
-        assert!(hoist(&bin(lv(&t), BinaryOperation::Add, lv(&u)), &[t.clone(), u.clone()], &[lv(&x), number(1.0)], plain) == Some(Hoist::Stable));
+        let sum = bin(lv(&t), BinaryOperation::Add, lv(&u));
+        assert!(hoist(&sum, &[t.clone(), u.clone()], &[lv(&x), number(1.0)], plain, in_order(sum.clone())) == Some(Hoist::Stable));
         // `math.pi * t - x`: import paths and local reads are not observable.
         let first = bin(bin(pi, BinaryOperation::Mul, lv(&t)), BinaryOperation::Sub, lv(&x));
         assert!(hoist_into(first) == Some(Hoist::FirstRead));
@@ -993,7 +1085,19 @@ mod tests {
         assert!(hoist_into(bin(lv(&x), BinaryOperation::And, lv(&t))).is_none());
         // At most one argument may move.
         let both = bin(lv(&t), BinaryOperation::Add, lv(&u));
-        assert!(hoist(&both, &[t.clone(), u.clone()], &[runs_code(), runs_code()], plain).is_none());
+        assert!(hoist(&both, &[t.clone(), u.clone()], &[runs_code(), runs_code()], plain, in_order(both.clone())).is_none());
+        // `x * t` where code may change `x`: Luau reads the register `x` when
+        // `*` runs, after a call standing for `t`, but before a register
+        // local standing for it.
+        let changed = |value: &RValue| !matches!(value, RValue::Local(local) if *local == x);
+        let product = bin(lv(&x), BinaryOperation::Mul, lv(&t));
+        let first = |p: &RcLocal, arg: &RValue| {
+            crate::evaluation_order::reads_first(&product, p, matches!(arg, RValue::Local(_)), &changed) == Some(true)
+        };
+        assert!(hoist(&product, &[t.clone()], &[runs_code()], plain, first) == Some(Hoist::FirstRead));
+        let register = local("register");
+        let unstable = |arg: &RValue| !matches!(arg, RValue::Local(local) if *local == register);
+        assert!(hoist(&product, &[t.clone()], &[lv(&register)], unstable, first).is_none());
     }
 
     #[test]
@@ -1610,7 +1714,7 @@ mod tests {
             bin(bin(lv(&p), BinaryOperation::Add, number(1.0)), BinaryOperation::Add, lv(&t)),
             crate::IfExpression::new(lv(&p), lv(&t), number(0.0)).into(),
         ] {
-            assert!(arithmetic::region(&[local_decl(&t, product.clone()), Return::new(vec![tail]).into()]).is_none());
+            assert!(arithmetic::region(&[local_decl(&t, product.clone()), Return::new(vec![tail]).into()], &crate::deinline_safety::CaptureSafety::default()).is_none());
         }
     }
 
@@ -1635,14 +1739,14 @@ mod tests {
             crate::If::new(lv(&x), Block(vec![Assign::new(vec![result.clone().into()], vec![number(7.0)]).into()]), Block::default()).into(),
             Return::new(vec![lv(&result)]).into(),
         ];
-        let RValue::IfExpression(select) = arithmetic::region(&nil_region).unwrap() else { panic!(); };
+        let RValue::IfExpression(select) = arithmetic::region(&nil_region, &crate::deinline_safety::CaptureSafety::default()).unwrap() else { panic!(); };
         assert!(matches!(&*select.else_value, RValue::Literal(Literal::Nil)));
         let mut tuple = nil_region.clone();
         tuple[2] = Return::new(vec![lv(&result), number(2.0)]).into();
-        assert!(arithmetic::region(&tuple).is_none());
+        assert!(arithmetic::region(&tuple, &crate::deinline_safety::CaptureSafety::default()).is_none());
         let mut late = nil_region;
         late.insert(2, Assign::new(vec![result.into()], vec![number(8.0)]).into());
-        assert!(arithmetic::region(&late).is_none());
+        assert!(arithmetic::region(&late, &crate::deinline_safety::CaptureSafety::default()).is_none());
     }
 
     #[test]

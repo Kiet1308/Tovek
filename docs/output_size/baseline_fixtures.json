@@ -40,6 +40,18 @@
       "bytes": 515,
       "lines": 40
     },
+    "semantic/arithmetic_region_captured_operand__O0.luau": {
+      "bytes": 271,
+      "lines": 19
+    },
+    "semantic/arithmetic_region_captured_operand__O1.luau": {
+      "bytes": 271,
+      "lines": 19
+    },
+    "semantic/arithmetic_region_captured_operand__O2.luau": {
+      "bytes": 280,
+      "lines": 19
+    },
     "semantic/branch_tuple_helper__O0.luau": {
       "bytes": 795,
       "lines": 52
@@ -63,6 +75,18 @@
     "semantic/builtin_alias_across_blocks__O2.luau": {
       "bytes": 291,
       "lines": 26
+    },
+    "semantic/builtin_argument_zero_results__O0.luau": {
+      "bytes": 238,
+      "lines": 16
+    },
+    "semantic/builtin_argument_zero_results__O1.luau": {
+      "bytes": 225,
+      "lines": 15
+    },
+    "semantic/builtin_argument_zero_results__O2.luau": {
+      "bytes": 227,
+      "lines": 15
     },
     "semantic/call_before_capture_read__O0.luau": {
       "bytes": 420,
@@ -244,6 +268,30 @@
       "bytes": 161,
       "lines": 12
     },
+    "semantic/embedded_field_read_before_prefix__O0.luau": {
+      "bytes": 224,
+      "lines": 17
+    },
+    "semantic/embedded_field_read_before_prefix__O1.luau": {
+      "bytes": 224,
+      "lines": 17
+    },
+    "semantic/embedded_field_read_before_prefix__O2.luau": {
+      "bytes": 269,
+      "lines": 18
+    },
+    "semantic/embedded_global_read_before_prefix__O0.luau": {
+      "bytes": 198,
+      "lines": 16
+    },
+    "semantic/embedded_global_read_before_prefix__O1.luau": {
+      "bytes": 198,
+      "lines": 16
+    },
+    "semantic/embedded_global_read_before_prefix__O2.luau": {
+      "bytes": 210,
+      "lines": 16
+    },
     "semantic/embedded_helper_value__O0.luau": {
       "bytes": 463,
       "lines": 30
@@ -267,6 +315,30 @@
     "semantic/embedded_prefix_order__O2.luau": {
       "bytes": 403,
       "lines": 28
+    },
+    "semantic/embedded_value_multi_target__O0.luau": {
+      "bytes": 238,
+      "lines": 13
+    },
+    "semantic/embedded_value_multi_target__O1.luau": {
+      "bytes": 238,
+      "lines": 13
+    },
+    "semantic/embedded_value_multi_target__O2.luau": {
+      "bytes": 444,
+      "lines": 15
+    },
+    "semantic/embedded_value_multi_target_helper__O0.luau": {
+      "bytes": 239,
+      "lines": 16
+    },
+    "semantic/embedded_value_multi_target_helper__O1.luau": {
+      "bytes": 239,
+      "lines": 16
+    },
+    "semantic/embedded_value_multi_target_helper__O2.luau": {
+      "bytes": 406,
+      "lines": 19
     },
     "semantic/fall_off_helper_arity__O0.luau": {
       "bytes": 511,
@@ -292,6 +364,18 @@
       "bytes": 457,
       "lines": 20
     },
+    "semantic/fastcall_captured_register_read__O0.luau": {
+      "bytes": 161,
+      "lines": 10
+    },
+    "semantic/fastcall_captured_register_read__O1.luau": {
+      "bytes": 141,
+      "lines": 9
+    },
+    "semantic/fastcall_captured_register_read__O2.luau": {
+      "bytes": 141,
+      "lines": 9
+    },
     "semantic/first_read_argument_hoist__O0.luau": {
       "bytes": 680,
       "lines": 34
@@ -303,6 +387,42 @@
     "semantic/first_read_argument_hoist__O2.luau": {
       "bytes": 962,
       "lines": 39
+    },
+    "semantic/first_read_captured_operand__O0.luau": {
+      "bytes": 248,
+      "lines": 15
+    },
+    "semantic/first_read_captured_operand__O1.luau": {
+      "bytes": 248,
+      "lines": 15
+    },
+    "semantic/first_read_captured_operand__O2.luau": {
+      "bytes": 323,
+      "lines": 16
+    },
+    "semantic/first_read_captured_statement__O0.luau": {
+      "bytes": 199,
+      "lines": 15
+    },
+    "semantic/first_read_captured_statement__O1.luau": {
+      "bytes": 199,
+      "lines": 15
+    },
+    "semantic/first_read_captured_statement__O2.luau": {
+      "bytes": 330,
+      "lines": 16
+    },
+    "semantic/first_read_captured_store__O0.luau": {
+      "bytes": 175,
+      "lines": 16
+    },
+    "semantic/first_read_captured_store__O1.luau": {
+      "bytes": 175,
+      "lines": 16
+    },
+    "semantic/first_read_captured_store__O2.luau": {
+      "bytes": 306,
+      "lines": 17
     },
     "semantic/first_read_statement_hoist__O0.luau": {
       "bytes": 805,
@@ -339,6 +459,30 @@
     "semantic/generic_for_iterates_local_call__O2.luau": {
       "bytes": 311,
       "lines": 28
+    },
+    "semantic/import_alias_error_timing__O0.luau": {
+      "bytes": 130,
+      "lines": 6
+    },
+    "semantic/import_alias_error_timing__O1.luau": {
+      "bytes": 130,
+      "lines": 6
+    },
+    "semantic/import_alias_error_timing__O2.luau": {
+      "bytes": 130,
+      "lines": 6
+    },
+    "semantic/import_alias_field_reassigned__O0.luau": {
+      "bytes": 263,
+      "lines": 18
+    },
+    "semantic/import_alias_field_reassigned__O1.luau": {
+      "bytes": 263,
+      "lines": 18
+    },
+    "semantic/import_alias_field_reassigned__O2.luau": {
+      "bytes": 394,
+      "lines": 19
     },
     "semantic/import_callee_alias__O0.luau": {
       "bytes": 323,
@@ -567,6 +711,18 @@
     "semantic/suffix_numeric__O2.luau": {
       "bytes": 483,
       "lines": 37
+    },
+    "semantic/table_store_after_appended_call__O0.luau": {
+      "bytes": 289,
+      "lines": 25
+    },
+    "semantic/table_store_after_appended_call__O1.luau": {
+      "bytes": 289,
+      "lines": 25
+    },
+    "semantic/table_store_after_appended_call__O2.luau": {
+      "bytes": 289,
+      "lines": 25
     },
     "semantic/template_repeated_key__O0.luau": {
       "bytes": 545,

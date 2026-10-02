@@ -255,6 +255,8 @@ struct Target {
     /// right before the inlined body, so one argument that runs code may still
     /// move back into the call (`SCurveTranform(toSCurveSpace(x))`).
     first_reads: Vec<RcLocal>,
+    /// [`Target::first_reads`] for an argument that is a register local.
+    first_register_reads: Vec<RcLocal>,
     /// At least one branch condition reads a parameter.  Only such targets can
     /// change statement shape after constant argument propagation, so this is a
     /// cold precomputed gate for the Tier-B partial-evaluation fallback.
@@ -3435,8 +3437,14 @@ fn match_embedded_value(
         }
         Earlier::Value(value) => prefix_runs_code && !t.captures.constant_import(value),
     };
-    visit_leading_values(&mut host, &mut |value, evaluated_before| {
+    visit_leading_values(&mut host, &mut |value, evaluated_before, spread| {
         if std::mem::discriminant(&*value) != root || evaluated_before.iter().any(&changed_by_prefix) {
+            return false;
+        }
+        // Where every result is taken, the call must give as many as the
+        // value it replaces: a helper returning `(find(...))` is one value,
+        // the inlined `find(...)` in `local a, b = ...` two.
+        if spread.takes_all(value) != (spread != Spread::One && is_multiple(pattern_value)) {
             return false;
         }
         if let Some(Statement::Assign(store)) = window.last_mut() {
@@ -3475,15 +3483,20 @@ fn match_embedded_value(
 /// reads, literals and import paths are not observable; a store's address
 /// comes before the values it stores. `visit` also gets the reads already
 /// evaluated at that point (`Earlier`).
-fn visit_leading_values(statement: &mut Statement, visit: &mut impl FnMut(&mut RValue, &[Earlier]) -> bool) -> bool {
+fn visit_leading_values(statement: &mut Statement, visit: &mut impl FnMut(&mut RValue, &[Earlier], Spread) -> bool) -> bool {
     #[derive(PartialEq)]
     enum Flow {
         Taken,
         Clear,
         Blocked,
     }
-    fn walk(value: &mut RValue, visit: &mut impl FnMut(&mut RValue, &[Earlier]) -> bool, before: &mut Vec<Earlier>) -> Flow {
-        if visit(value, before) {
+    fn walk(
+        value: &mut RValue,
+        spread: Spread,
+        visit: &mut impl FnMut(&mut RValue, &[Earlier], Spread) -> bool,
+        before: &mut Vec<Earlier>,
+    ) -> Flow {
+        if visit(value, before, spread) {
             return Flow::Taken;
         }
         match value {
@@ -3496,26 +3509,32 @@ fn visit_leading_values(statement: &mut Statement, visit: &mut impl FnMut(&mut R
                 Flow::Clear
             }
             RValue::Binary(binary) if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) => {
-                match walk(&mut binary.left, visit, before) {
+                match walk(&mut binary.left, Spread::One, visit, before) {
                     Flow::Taken => Flow::Taken,
                     _ => Flow::Blocked,
                 }
             }
-            RValue::IfExpression(select) => match walk(&mut select.condition, visit, before) {
+            RValue::IfExpression(select) => match walk(&mut select.condition, Spread::One, visit, before) {
                 Flow::Taken => Flow::Taken,
                 _ => Flow::Blocked,
             },
-            RValue::Unary(unary) if unary.operation == UnaryOperation::Not => walk(&mut unary.value, visit, before),
+            RValue::Unary(unary) if unary.operation == UnaryOperation::Not => walk(&mut unary.value, Spread::One, visit, before),
             RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
                 match walk_method(&mut call.value, &mut call.arguments, visit, before) {
                     Flow::Taken => Flow::Taken,
                     _ => Flow::Blocked,
                 }
             }
-            RValue::Call(_) | RValue::Select(_) | RValue::Index(_) | RValue::Binary(_) | RValue::Unary(_) => {
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+                match walk_call(&mut call.value, &mut call.arguments, visit, before) {
+                    Flow::Taken => Flow::Taken,
+                    _ => Flow::Blocked,
+                }
+            }
+            RValue::Select(_) | RValue::Index(_) | RValue::Binary(_) | RValue::Unary(_) => {
                 let mut flow = Flow::Clear;
                 value.visit_rvalues_mut(&mut |child| {
-                    flow = walk(child, visit, before);
+                    flow = walk(child, Spread::One, visit, before);
                     flow == Flow::Clear
                 });
                 if flow == Flow::Taken { Flow::Taken } else { Flow::Blocked }
@@ -3523,33 +3542,46 @@ fn visit_leading_values(statement: &mut Statement, visit: &mut impl FnMut(&mut R
             _ => Flow::Blocked,
         }
     }
+    // A list whose last value stands at `last`, the others at `Spread::One`.
     fn walk_all<'a>(
         values: impl IntoIterator<Item = &'a mut RValue>,
-        visit: &mut impl FnMut(&mut RValue, &[Earlier]) -> bool,
+        last: Spread,
+        visit: &mut impl FnMut(&mut RValue, &[Earlier], Spread) -> bool,
         before: &mut Vec<Earlier>,
     ) -> Flow {
-        for value in values {
-            match walk(value, visit, before) {
+        let mut values = values.into_iter().peekable();
+        while let Some(value) = values.next() {
+            let spread = if values.peek().is_none() { last } else { Spread::One };
+            match walk(value, spread, visit, before) {
                 Flow::Clear => {}
                 flow => return flow,
             }
         }
         Flow::Clear
     }
+    fn walk_call(
+        callee: &mut RValue,
+        arguments: &mut [RValue],
+        visit: &mut impl FnMut(&mut RValue, &[Earlier], Spread) -> bool,
+        before: &mut Vec<Earlier>,
+    ) -> Flow {
+        match walk(callee, Spread::One, visit, before) {
+            Flow::Clear => walk_all(arguments, Spread::Values, visit, before),
+            flow => flow,
+        }
+    }
     fn walk_method(
         receiver: &mut RValue,
         arguments: &mut [RValue],
-        visit: &mut impl FnMut(&mut RValue, &[Earlier]) -> bool,
+        visit: &mut impl FnMut(&mut RValue, &[Earlier], Spread) -> bool,
         before: &mut Vec<Earlier>,
     ) -> Flow {
-        match walk(receiver, visit, before) {
-            Flow::Clear => walk_all(arguments, visit, before),
-            flow => flow,
-        }
+        walk_call(receiver, arguments, visit, before)
     }
     let mut before = Vec::new();
     let flow = match statement {
         Statement::Assign(assign) if !assign.parallel => {
+            let last = if assign.left.len() > assign.right.len() { Spread::Store } else { Spread::One };
             let mut addresses = Vec::new();
             for lhs in &mut assign.left {
                 if let LValue::Index(index) = lhs {
@@ -3557,18 +3589,49 @@ fn visit_leading_values(statement: &mut Statement, visit: &mut impl FnMut(&mut R
                     addresses.push(&mut *index.right);
                 }
             }
-            match walk_all(addresses, visit, &mut before) {
-                Flow::Clear => walk_all(&mut assign.right, visit, &mut before),
+            match walk_all(addresses, Spread::One, visit, &mut before) {
+                Flow::Clear => walk_all(&mut assign.right, last, visit, &mut before),
                 flow => flow,
             }
         }
-        Statement::Call(call) => walk_all(std::iter::once(&mut *call.value).chain(&mut call.arguments), visit, &mut before),
+        Statement::Call(call) => walk_call(&mut call.value, &mut call.arguments, visit, &mut before),
         Statement::MethodCall(call) => walk_method(&mut call.value, &mut call.arguments, visit, &mut before),
-        Statement::Return(ret) => walk_all(&mut ret.values, visit, &mut before),
-        Statement::If(branch) => walk(&mut branch.condition, visit, &mut before),
+        Statement::Return(ret) => walk_all(&mut ret.values, Spread::Values, visit, &mut before),
+        Statement::If(branch) => walk(&mut branch.condition, Spread::One, visit, &mut before),
         _ => Flow::Blocked,
     };
     flow == Flow::Taken
+}
+
+/// A value giving all the results of a call or of `...` where they are
+/// taken.
+fn is_multiple(value: &RValue) -> bool {
+    matches!(value, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))
+}
+
+/// How many results a statement takes from a value ([`visit_leading_values`]).
+#[derive(Clone, Copy, PartialEq)]
+enum Spread {
+    /// One: an operand, a condition, or a value before the last of a list.
+    One,
+    /// All, as the last argument of a call or value of a `return`, where
+    /// `(f())` keeps only the first.
+    Values,
+    /// As many as a store to more targets than values still needs, the last
+    /// value being a call (`local a, b = f()`, also written as a fixed-result
+    /// select).
+    Store,
+}
+
+impl Spread {
+    /// Whether `value` gives more than one result here.
+    fn takes_all(self, value: &RValue) -> bool {
+        match self {
+            Spread::One => false,
+            Spread::Values => is_multiple(value),
+            Spread::Store => is_multiple(value) || matches!(value, RValue::Select(Select::Call(_) | Select::MethodCall(_) | Select::VarArg(_))),
+        }
+    }
 }
 
 /// A read a statement performs before one of its values is evaluated: a
@@ -4006,7 +4069,8 @@ fn finish_unified(
             continue;
         }
         if !t.captures.stable(a) {
-            if moved || !t.first_reads.contains(&t.param_order[idx]) {
+            let first = if matches!(a, RValue::Local(_)) { &t.first_register_reads } else { &t.first_reads };
+            if moved || !first.contains(&t.param_order[idx]) {
                 return None;
             }
             moved = true;
@@ -5278,16 +5342,17 @@ fn collect_targets(
             .cloned()
             .collect();
         let specializable = branch_conditions_read_any(&pat, &params);
-        let first_reads = g
-            .parameters
-            .iter()
-            .filter(|p| {
-                params.contains(*p)
-                    && crate::evaluation_order::block_reads_first(&pat, p)
-                    && count_local_reads(&pat, p) == 1
-            })
-            .cloned()
-            .collect();
+        // A parameter whose argument may run code before the body: read once,
+        // first, with the argument evaluated where it stands (`first_reads`)
+        // or, a register local, read when its operation runs
+        // (`first_register_reads`).
+        let first_read = |p: &RcLocal, register: bool| {
+            params.contains(p)
+                && crate::evaluation_order::block_reads_first(&pat, p, register, &|value| captures.unchanged_by_calls(value))
+                && count_local_reads(&pat, p) == 1
+        };
+        let first_reads = g.parameters.iter().filter(|p| first_read(p, false)).cloned().collect();
+        let first_register_reads = g.parameters.iter().filter(|p| first_read(p, true)).cloned().collect();
         let mut locals: FxHashSet<RcLocal> = FxHashSet::default();
         collect_declared_locals(&pat, &mut locals);
         for p in &params {
@@ -5393,6 +5458,7 @@ fn collect_targets(
             written_params,
             unread,
             first_reads,
+            first_register_reads,
             specializable,
             falls_off,
             cps_loop_return,
@@ -6460,6 +6526,7 @@ mod tests {
             written_params: Vec::new(),
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
@@ -6912,6 +6979,7 @@ mod tests {
             written_params: Vec::new(),
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: true,
             falls_off: false,
             cps_loop_return: false,
@@ -6987,6 +7055,7 @@ mod tests {
             written_params: Vec::new(),
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: true,
             falls_off: false,
             cps_loop_return: false,
@@ -7052,6 +7121,7 @@ mod tests {
             written_params: Vec::new(),
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
@@ -7132,6 +7202,7 @@ mod tests {
             written_params: Vec::new(),
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: false,
             falls_off: false,
             cps_loop_return: true,
@@ -7470,6 +7541,7 @@ mod tests {
             written_params: Vec::new(),
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
@@ -7558,6 +7630,7 @@ mod tests {
             written_params: Vec::new(),
             unread: unread_set,
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
@@ -7708,6 +7781,7 @@ mod tests {
             written_params: Vec::new(),
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
@@ -7753,6 +7827,7 @@ mod tests {
             written_params: Vec::new(),
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
@@ -8889,6 +8964,7 @@ mod tests {
             written_params: vec![v.clone()],
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
+            first_register_reads: Vec::new(),
             specializable: false,
             falls_off: false,
             cps_loop_return: false,

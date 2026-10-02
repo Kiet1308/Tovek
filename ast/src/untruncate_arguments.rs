@@ -4,25 +4,25 @@
 //! `emit((x:FindFirstChild("Beams")))` reads as `emit(x:FindFirstChild("Beams"))`.
 //!
 //! A callee drops them when the argument sits at or after its last
-//! parameter and it takes no `...`: a local function declared once, or a
-//! Luau library function whose global the script cannot have replaced
-//! (`deinline_safety::CaptureSafety::constant_import`).
+//! parameter and it takes no `...`: a local function declared once. A call
+//! returning nothing then leaves that parameter `nil`, which such a function
+//! cannot tell from an explicit `nil`. A library function can: `tostring()`
+//! raises "missing argument" where `tostring(nil)` is `"nil"`, so its
+//! parentheses stay.
 use rustc_hash::FxHashMap;
 
 use crate::{Block, LValue, RValue, RcLocal, Select, Statement, Traverse};
 
 pub fn untruncate_arguments(body: &mut Block) {
-    let census = crate::deinline_safety::CaptureSafety::new(body);
-    if !census.complete() {
-        return;
-    }
     let mut writes = FxHashMap::default();
     crate::expr_deinline::collect_write_counts(&body.0, &mut writes);
     let mut parameters = FxHashMap::default();
     local_functions(&body.0, &writes, &mut parameters);
+    if parameters.is_empty() {
+        return;
+    }
     let arity = |callee: &RValue| match callee {
         RValue::Local(local) => parameters.get(local).copied(),
-        _ if census.constant_import(callee) => library_arity(callee),
         _ => None,
     };
     block(&mut body.0, &arity);
@@ -75,49 +75,6 @@ fn untruncate(call: &mut crate::Call, arity: &impl Fn(&RValue) -> Option<usize>)
         let value = std::mem::replace(&mut call.arguments[last], RValue::Literal(crate::Literal::Nil));
         call.arguments[last] = crate::untruncated(value);
     }
-}
-
-/// Parameters of a Luau library function that takes no `...` and ignores
-/// arguments after them. Not `math.random` or `table.insert`, which refuse
-/// extra arguments, nor `string.rep`/`string.gmatch` past their Lua 5.4
-/// optional third one.
-fn library_arity(callee: &RValue) -> Option<usize> {
-    fn name(value: &RValue) -> Option<&str> {
-        match value {
-            RValue::Global(global) => std::str::from_utf8(&global.0).ok(),
-            _ => None,
-        }
-    }
-    let (library, function) = match callee {
-        RValue::Global(_) => (None, name(callee)?),
-        RValue::Index(index) => {
-            let RValue::Literal(crate::Literal::String(key)) = &*index.right else { return None };
-            (Some(name(&index.left)?), std::str::from_utf8(key).ok()?)
-        }
-        _ => return None,
-    };
-    let arity = match (library, function) {
-        (None, "type" | "typeof" | "tostring" | "rawlen" | "getmetatable" | "ipairs" | "pairs") => 1,
-        (None, "tonumber" | "rawget" | "rawequal" | "setmetatable" | "next" | "error") => 2,
-        (None, "rawset") => 3,
-        (Some("math"), "abs" | "acos" | "asin" | "atan" | "ceil" | "cos" | "cosh" | "deg" | "exp"
-            | "floor" | "frexp" | "log10" | "modf" | "rad" | "sin" | "sinh" | "sqrt" | "tan" | "tanh"
-            | "sign" | "round") => 1,
-        (Some("math"), "atan2" | "fmod" | "ldexp" | "log" | "pow") => 2,
-        (Some("math"), "clamp" | "noise" | "lerp") => 3,
-        (Some("math"), "map") => 5,
-        (Some("string"), "len" | "lower" | "upper" | "reverse") => 1,
-        (Some("string"), "split") => 2,
-        (Some("string"), "byte" | "sub" | "match" | "rep" | "gmatch") => 3,
-        (Some("string"), "find" | "gsub") => 4,
-        (Some("table"), "clear" | "clone" | "freeze" | "isfrozen" | "maxn" | "getn") => 1,
-        (Some("table"), "sort" | "remove" | "create") => 2,
-        (Some("table"), "find") => 3,
-        (Some("table"), "concat") => 4,
-        (Some("table"), "move") => 5,
-        _ => return None,
-    };
-    Some(arity)
 }
 
 fn for_each_block(statement: &Statement, visit: &mut impl FnMut(&Block)) {
@@ -241,8 +198,10 @@ mod tests {
                 "pair((g()))",
                 "pair(a, g())",
                 "rest((g()))",
-                "type(g())",
-                "math.abs(g())",
+                // A library function counts its arguments: `type()` raises
+                // where `type(nil)` is `"nil"`.
+                "type((g()))",
+                "math.abs((g()))",
                 "tonumber((g()))",
                 "math.random(a, (g()))",
                 "math.max(a, (g()))",

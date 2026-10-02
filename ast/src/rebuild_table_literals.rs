@@ -822,7 +822,10 @@ fn placement(table: &Table, initial_len: usize, key: &RValue, listed: &crate::Li
         .take(initial_len)
         .position(|(existing_key, _)| existing_key.as_ref() == Some(key))
     {
-        Some(position) if inert_suffix(table, position, initial_len) => {
+        // The value takes the listed key's place, ahead of every entry after
+        // it, appended stores included (`{a = 1, b = 2}; t.c = g(); t.a = h()`
+        // must not become `{a = h(), b = 2, c = g()}`).
+        Some(position) if inert_suffix(table, position, table.0.len()) => {
             Some(Placement::Replace(position))
         }
         Some(position)
@@ -905,7 +908,8 @@ impl PlaceholderEntries {
         if position > self.boundary {
             // Only an appended copy lists the key.
             None
-        } else if self.non_inert.range(position..=self.boundary).next().is_none() {
+        } else if self.non_inert.range(position..).next().is_none() {
+            // Ahead of every later entry, appended stores included.
             Some(Placement::Replace(position))
         } else if matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil)) {
             Some(Placement::MoveToEnd(position))

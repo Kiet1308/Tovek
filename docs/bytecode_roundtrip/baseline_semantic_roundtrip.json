@@ -44,7 +44,20 @@
    "tuple_store_targets": "Tuple fixture (2026-10-01): stores right after a multi-result call fold into one multiple assignment; a plain swap and re-read results stay; baselined from the introducing commit output.",
    "repeated_select_operand": "Select fixture (2026-10-01): a repeated pure last operand of and/or folds; an __index read stays; baselined from the introducing commit output.",
    "nested_capture_argument": "Capture fixture (2026-10-01): a once-written local re-captured through a parent's upvalue is a stable argument; a rebound one is not; argument copies fold into early expression rebuilds; baselined from the fixing commit output.",
-   "branch_tuple_helper": "Tuple fixture (2026-10-01): a helper returning two values through branches rebuilds into its result locals (shared result register); a copy storing into its argument register stays; baselined from the introducing commit output."
+   "branch_tuple_helper": "Tuple fixture (2026-10-01): a helper returning two values through branches rebuilds into its result locals (shared result register); a copy storing into its argument register stays; baselined from the introducing commit output.",
+   "arithmetic_region_captured_operand": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "builtin_argument_zero_results": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "embedded_field_read_before_prefix": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "embedded_global_read_before_prefix": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "embedded_value_multi_target": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "embedded_value_multi_target_helper": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "fastcall_captured_register_read": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "first_read_captured_operand": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "first_read_captured_statement": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "first_read_captured_store": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "import_alias_error_timing": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "import_alias_field_reassigned": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "table_store_after_appended_call": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output."
   }
  },
  "summary": {
@@ -65,6 +78,12 @@
    "protos": 2
   },
   {
+   "file": "arithmetic_region_captured_operand",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
+  },
+  {
    "file": "branch_tuple_helper",
    "status": "ok",
    "nonequiv": 0,
@@ -75,6 +94,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 2
+  },
+  {
+   "file": "builtin_argument_zero_results",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 3
   },
   {
    "file": "callback_written_capture",
@@ -167,6 +192,18 @@
    "protos": 3
   },
   {
+   "file": "embedded_field_read_before_prefix",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
+   "file": "embedded_global_read_before_prefix",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
    "file": "embedded_helper_value",
    "status": "ok",
    "nonequiv": 1,
@@ -177,6 +214,18 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 6
+  },
+  {
+   "file": "embedded_value_multi_target",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
+   "file": "embedded_value_multi_target_helper",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
   },
   {
    "file": "fall_off_helper_arity",
@@ -191,10 +240,34 @@
    "protos": 2
   },
   {
+   "file": "fastcall_captured_register_read",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
+  },
+  {
    "file": "first_read_argument_hoist",
    "status": "ok",
    "nonequiv": 2,
    "protos": 7
+  },
+  {
+   "file": "first_read_captured_operand",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
+   "file": "first_read_captured_statement",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
+   "file": "first_read_captured_store",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
   },
   {
    "file": "first_read_statement_hoist",
@@ -213,6 +286,18 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "import_alias_error_timing",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "import_alias_field_reassigned",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
   },
   {
    "file": "import_callee_alias",
@@ -327,6 +412,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 2
+  },
+  {
+   "file": "table_store_after_appended_call",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 4
   },
   {
    "file": "template_repeated_key",
