@@ -398,7 +398,7 @@ fn decompile_bytecode_internal(
         .map_err(|e| DecompileFailure::message(format!("deserialize: {e}")))?;
     match chunk {
         Bytecode::Error(msg) => Ok(DecompileArtifact {
-            source: msg,
+            source: compile_error_source(&msg),
             upvalue_analysis: None,
         }),
         Bytecode::Chunk(chunk) => {
@@ -990,6 +990,23 @@ fn decompile_bytecode_internal(
             })
         }
     }
+}
+
+/// A script Roblox could not compile is stored as a zero version byte and the
+/// compiler's message, which is not Luau. Written as comments, one per line:
+/// a lone `\r` ends a Luau comment as `\n` does, so both split lines.
+fn compile_error_source(message: &str) -> String {
+    let message = message.replace("\r\n", "\n");
+    let message = message.trim_end_matches(['\n', '\r']);
+    if message.is_empty() {
+        return "-- Roblox could not compile this script".to_string();
+    }
+    let mut source = String::from("-- Roblox could not compile this script:");
+    for line in message.split(['\n', '\r']) {
+        source.push_str(if line.is_empty() { "\n--" } else { "\n-- " });
+        source.push_str(line);
+    }
+    source
 }
 
 fn validate_source_opcodes(functions: &[deserializer::function::Function]) -> Result<(), String> {
@@ -3310,6 +3327,23 @@ mod correctness_regressions {
     const NESTED_LOOP_UPVALUE_REBIND_SOURCE: &str =
         include_str!("../tests/fixtures/nested_loop_upvalue_rebind.luau");
     const NESTED_LOOP_UPVALUE_REBIND: &str = "CwMMBWl0ZW1zBmFjdGl2ZQRkYXRhCmZsb29ySW5kZXgDa2V5BXRhYmxlBmluc2VydAR0YXNrBHdhaXQJZ2V0Rmxvb3JzBXByaW50BXNwYXduAAMOAQEAAAApNQEAAAAAAAAKAQAAGQABABYAAQAGAQAAAgIAAAIDAABMAR0AGgUcAA8GBRgAAAAAGgYZAA8GBRgAAAAAAgcAAAIIAABMBhIAGgoRAA8LCuMBAAAAGgsOAA8LCiYCAAAAGgsLAAkMAAA2DQUAEAQNPgMAAAAQCQ1KBAAAAEo0DAMNAAAADAsIAAAcYIAVCwMBOgbt/wIAAAA6AeL/AgAAABYAAQAJAwEDAgMDAwQDBQUCAwQDBgMHBAAcYIAABAAAAAAHAAAACAAcNQAAAAAAAAATAQAARgEAAAwCAgAABACABAMBAFcCAgIAAAAAGgIQAAYCAQAMAwQAAAAwQBUDAQAVAgABBAQBADQCAAAEAwEAOAIGAAwFBgAAAFBADQYABFcFAgEBAAAAOQL6/xgA6v8LAAAAFgABAAcDCAMJBAAEAIADCgQAADBAAwsEAABQQAEAAQAAAAIABwAWAwAAAQIAB0EAAABAAAAADAEDAAAIEIAGAgAAFQECARYAAQAEBgEDCAMMBAAIEIABAQEAAAAAAg==";
+
+    /// Roblox stores a script it could not compile as a zero version byte and
+    /// the compiler's message (VoltMCP `ReplicatedStorage/BuilderGui`).
+    #[test]
+    fn a_roblox_compile_error_is_written_as_comments() {
+        let decompile = |bytes: &[u8]| super::try_decompile_bytecode_with_script_name(bytes, 1, None).unwrap();
+        assert_eq!(
+            decompile(b"\0:16: Expected identifier when parsing method name, got 'end'"),
+            "-- Roblox could not compile this script:\n-- :16: Expected identifier when parsing method name, got 'end'"
+        );
+        // Every line stays a comment, one ended by a lone carriage return too.
+        assert_eq!(
+            decompile(b"\0first\r\n\nsecond\rthird\n"),
+            "-- Roblox could not compile this script:\n-- first\n--\n-- second\n-- third"
+        );
+        assert_eq!(decompile(b"\0"), "-- Roblox could not compile this script");
+    }
 
     #[test]
     fn nested_loop_reads_live_rebound_upvalue_cell() {

@@ -1059,7 +1059,7 @@ mod tests {
         );
         assert_eq!(
             std::fs::read(out.join("Workspace/Error.lua")).unwrap(),
-            b"compile error: expected expression\n"
+            b"-- Roblox could not compile this script:\n-- compile error: expected expression\n"
         );
         let parsed: Value = serde_json::from_slice(
             &std::fs::read(out.join(".tovek-analysis/manifest.json")).unwrap(),
