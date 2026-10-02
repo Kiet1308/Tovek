@@ -4,6 +4,10 @@ on:
   push:
     tags: ['v2-v*', 'v2.*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag the binaries must report (e.g. v2.5). Builds and packages only.
+        required: true
 
 permissions:
   contents: read
@@ -11,7 +15,7 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.platform }}
-    if: startsWith(github.ref, 'refs/tags/v2-v') || startsWith(github.ref, 'refs/tags/v2.')
+    if: startsWith(github.ref, 'refs/tags/v2-v') || startsWith(github.ref, 'refs/tags/v2.') || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -23,8 +27,17 @@ jobs:
           - os: ubuntu-22.04
             platform: linux-x86_64
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04-arm
+            platform: linux-aarch64
+            target: aarch64-unknown-linux-gnu
+          - os: macos-14
+            platform: macos-aarch64
+            target: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2026-06-15
@@ -39,7 +52,7 @@ jobs:
       - name: Build CLI and local server
         run: cargo +nightly-2026-06-15 build --locked --release --target ${{ matrix.target }} -p luau-lifter -p web-server
       - name: Smoke test and package
-        run: python scripts/package_release.py --tag "${{ github.ref_name }}" --platform ${{ matrix.platform }} --bin-dir target/${{ matrix.target }}/release --out dist
+        run: python scripts/package_release.py --tag "${{ inputs.tag || github.ref_name }}" --platform ${{ matrix.platform }} --bin-dir target/${{ matrix.target }}/release --out dist
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}
@@ -49,6 +62,7 @@ jobs:
   draft:
     name: Prepare release assets
     needs: build
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-22.04
     permissions:
       contents: write

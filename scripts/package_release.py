@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke-test and package an explicit allowlist of public release files."""
+"""Smoke-test and package the release binaries (CLI, local server) with the licence."""
 import argparse
 import hashlib
 import base64
@@ -56,7 +56,8 @@ def smoke_server(server, bytecode, expected):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tag', required=True)
-    parser.add_argument('--platform', choices=('windows-x86_64', 'linux-x86_64'), required=True)
+    parser.add_argument('--platform', required=True,
+                        choices=('windows-x86_64', 'linux-x86_64', 'linux-aarch64', 'macos-aarch64'))
     parser.add_argument('--bin-dir', type=pathlib.Path, required=True)
     parser.add_argument('--out', type=pathlib.Path, required=True)
     args = parser.parse_args()
@@ -84,9 +85,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='tovek-release-') as temp:
         package = pathlib.Path(temp) / name
         package.mkdir()
-        for file in (cli, server, ROOT / 'LICENSE.txt', ROOT / 'README.md',
-                     ROOT / 'release/QUICKSTART.txt', ROOT / 'decompile.client.luau',
-                     ROOT / 'decompile-batch.client.luau'):
+        # The binaries alone, plus the MIT licence they must carry.
+        for file in (cli, server, ROOT / 'LICENSE.txt'):
             shutil.copy2(file, package / file.name)
         if suffix:
             archive = args.out / (name + '.zip')
