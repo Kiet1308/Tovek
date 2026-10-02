@@ -97,7 +97,8 @@
    "signed_zero_operands": "full-project review 2026-10-02 (raising imports, signed zero, connection stores)",
    "loop_return_value": "De-inline fixture (2026-10-02): a value returned from inside a loop, lowered to a store, a flag and a break, rebuilds as the call; main outlines the rebuilt calls; baselined from the introducing commit output.",
    "rebuilt_call_result_names": "Naming fixture (2026-10-02): rebuilt call results take the name of the local the helper returns; baselined from the introducing commit output.",
-   "folded_constant_argument": "De-inline fixture (2026-10-02): a constant argument whose truth-only reads Luau folded away is inferred for the rebuilt call; main outlines the rebuilt calls; baselined from the introducing commit output."
+   "folded_constant_argument": "De-inline fixture (2026-10-02): a constant argument whose truth-only reads Luau folded away is inferred for the rebuilt call; main outlines the rebuilt calls; baselined from the introducing commit output.",
+   "numeric_loop_return": "Structuring fixture (2026-10-02): a value returned from inside a numeric for, inlined, exports the loop counter past an exhaustion adapter run under the flag (a helper break runs a copy of it); main outlines the rebuilt calls; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -572,6 +573,12 @@
    "status": "ok",
    "nonequiv": 2,
    "protos": 5
+  },
+  {
+   "file": "numeric_loop_return",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 13
   },
   {
    "file": "outer_local_helpers",

@@ -2495,6 +2495,17 @@ struct LoopContext<'a> {
     /// exhaustion-only adapter.  The adapter must not run for an explicit
     /// break: doing so can overwrite a value selected by the break path.
     exhaustion_flag: Option<RcLocal>,
+    /// The loop's exhaustion adapter chain. A body `break` that lands in it
+    /// (a helper's own `break` before its tail, inlined beside a `return`
+    /// from the loop: `if x == nil then break end; if x == v then return i
+    /// end ... return 0`) runs a copy of it before leaving: both the copy and
+    /// the post-loop adapter run only on their own path, so it runs once.
+    shared_adapters: &'a [NodeIndex],
+    /// The loop-scoped locals the adapter stores (`res_locals`, a numeric
+    /// counter): a shared adapter may store them but not read them, since a
+    /// read would see the iteration's value on a `break` and the export's
+    /// on exhaustion.
+    results: &'a [RcLocal],
 }
 
 struct PathResult {
@@ -3290,7 +3301,13 @@ impl<'a> Builder<'a> {
     }
 
     fn exports_for(&self, info: &LoopInfo) -> Vec<(RcLocal, RcLocal)> {
-        info.res_locals
+        self.result_exports(info, &info.res_locals)
+    }
+
+    /// The loop-scoped `results` read (or captured) outside the loop, each
+    /// paired with the fresh local that carries it past the loop.
+    fn result_exports(&self, info: &LoopInfo, results: &[RcLocal]) -> Vec<(RcLocal, RcLocal)> {
+        results
             .iter()
             .filter(|local| {
                 self.analysis.proof_nodes(self.function, [local.stable_id()], PROOF_READ | PROOF_CAPTURE).iter().any(|node| {
@@ -3359,6 +3376,7 @@ impl<'a> Builder<'a> {
     fn normal_adapter_nodes(
         &self,
         info: &LoopInfo,
+        results: &[RcLocal],
         exports: &[(RcLocal, RcLocal)],
     ) -> Option<Vec<NodeIndex>> {
         let mut nil_writes = FxHashSet::default();
@@ -3390,7 +3408,7 @@ impl<'a> Builder<'a> {
             }
             let block = self.function.block(current)?;
             for statement in block.iter() {
-                for local in &info.res_locals {
+                for local in results {
                     if matches!(
                         statement,
                         Statement::Assign(assign)
@@ -3407,8 +3425,7 @@ impl<'a> Builder<'a> {
                     }
                 }
                 if !is_ignorable(statement)
-                    && !info
-                        .res_locals
+                    && !results
                         .iter()
                         .any(|local| Self::is_nil_assignment(statement, local))
                     && !is_linear_statement(statement)
@@ -3449,8 +3466,7 @@ impl<'a> Builder<'a> {
                     if is_ignorable(statement) {
                         continue;
                     }
-                    let Some(local) = info
-                        .res_locals
+                    let Some(local) = results
                         .iter()
                         .find(|local| Self::is_nil_assignment(statement, local))
                     else {
@@ -3820,7 +3836,22 @@ impl<'a> Builder<'a> {
     /// that this is an explicit break (the normal-exhaustion adapter must not
     /// run), then `break`.
     fn push_body_break(&self, block: &mut Block, context: &LoopContext<'_>) {
-        self.append_export(block, context.exports);
+        // A break that stored the result last (a copied exhaustion adapter's
+        // `i = 0`) publishes that value directly: `v = 0` for `i = 0; v = i`.
+        // An exported result is never captured, and it is dead after `break`.
+        if let [(result, export)] = context.exports
+            && let Some(Statement::Assign(store)) = block.last_mut()
+            && !store.prefix
+            && !store.parallel
+            && store.left.len() == 1
+            && store.right.len() == 1
+            && store.left[0].as_local() == Some(self.rewrite.get(result).unwrap_or(result))
+            && !store.right[0].values_read().into_iter().any(|read| read == result)
+        {
+            store.left[0] = LValue::Local(export.clone());
+        } else {
+            self.append_export(block, context.exports);
+        }
         if let Some(flag) = &context.exhaustion_flag {
             block.push(
                 Assign::new(
@@ -4085,32 +4116,27 @@ impl<'a> Builder<'a> {
                 .cloned()
                 .map(|statement| self.rewrite_statement(statement)),
         );
-        // A numeric FORNLOOP can target a short normal-exhaustion adapter
-        // before the post-loop join.  NumericFor has no result export that
-        // could absorb such a block, so only an entirely trivia adapter may
-        // be skipped; any executable statement keeps the candidate on the
-        // fail-closed path.
-        let mut normal_adapters = Vec::new();
-        let mut adapter_cursor = info.normal_exit;
-        let mut adapter_seen = FxHashSet::default();
-        while adapter_cursor != info.join {
-            if !adapter_seen.insert(adapter_cursor) || info.nodes.contains(&adapter_cursor) {
-                return None;
-            }
-            let block = self.function.block(adapter_cursor)?;
-            if block.iter().any(|statement| !is_ignorable(statement)) {
-                return None;
-            }
-            let edges = self.function.edges(adapter_cursor).collect_vec();
-            if edges.len() != 1
-                || edges[0].weight().branch_type != BranchType::Unconditional
-                || !edges[0].weight().arguments.is_empty()
-            {
-                return None;
-            }
-            normal_adapters.push(adapter_cursor);
-            adapter_cursor = edges[0].target();
+        // Luau inlines `return i` from inside a numeric `for` as a copy of
+        // the counter into the call's result register and a jump past the
+        // rest of the helper; the destructor coalesces that register with
+        // the counter, which the post-loop join then reads (`r = i; break`
+        // on one path, `r = nil` on exhaustion). A source `for` scopes its
+        // counter to the body, so a counter read after the loop is exported
+        // as the generic-for builder exports its results: a fresh local,
+        // `nil` before the loop, written by every body `break`.
+        let counter = numeric.counter.clone();
+        let results = std::slice::from_ref(&counter);
+        let exports = self.result_exports(info, results);
+        // The exhaustion path (FORNLOOP's exit, and FORNPREP's when the loop
+        // never runs) may carry the rest of an inlined helper before the
+        // join (`r = nil`, `print("miss"); r = -1`). It runs after the source
+        // `for` only when no body `break` was taken, under a flag.
+        let normal_adapters = self.normal_adapter_nodes(info, results, &exports)?;
+        if !exports.is_empty() && !self.numeric_export_is_exact(info, &counter, &normal_adapters) {
+            self.trace_unsupported("numeric-counter-export", info.header, Some(info.join));
+            return None;
         }
+        let adapter_output = self.exhaustion_adapter_output(&normal_adapters, results, &exports)?;
         // Iterator operands are evaluated before entering the body.  Capture
         // their incoming rewrite environment now; a nested loop may publish
         // an export mapping while the body is structured, but that mapping
@@ -4123,7 +4149,16 @@ impl<'a> Builder<'a> {
             .map(|statement| self.rewrite_statement(statement))
             .collect_vec()
             .into();
-        let exhaustion_flag = (!header_output.is_empty()).then(RcLocal::default);
+        for (_, export) in &exports {
+            output.push(Assign::new(vec![LValue::Local(export.clone())], vec![RValue::Literal(Literal::Nil)]).into());
+        }
+        // An adapter of trivia alone needs no guard; one with statements gets
+        // the flag even where they all vanish (`r = nil` into an export), as
+        // the generic-for builder does, so both loops give one shape.
+        let adapter_statements = normal_adapters.iter().any(|node| {
+            self.function.block(*node).is_some_and(|block| block.iter().any(|statement| !is_ignorable(statement)))
+        });
+        let exhaustion_flag = (!header_output.is_empty() || adapter_statements).then(RcLocal::default);
         if let Some(flag) = &exhaustion_flag {
             output.push(
                 Assign::new(vec![LValue::Local(flag.clone())], vec![RValue::Literal(
@@ -4134,8 +4169,10 @@ impl<'a> Builder<'a> {
         }
         let context = LoopContext {
             info,
-            exports: &[],
+            exports: &exports,
             exhaustion_flag: exhaustion_flag.clone(),
+            shared_adapters: &normal_adapters,
+            results,
         };
         let body_result = match self.build_path(info.body_entry, Some(info.header), Some(&context))
         {
@@ -4154,13 +4191,141 @@ impl<'a> Builder<'a> {
         output
             .push(ast::NumericFor::new(initial, limit, step, numeric.counter.clone(), body).into());
         if let Some(flag) = exhaustion_flag {
-            output.push(If::new(RValue::Local(flag), header_output, Block::default()).into());
+            let mut exhausted = header_output;
+            exhausted.extend(adapter_output.0);
+            if !exhausted.is_empty() {
+                output.push(If::new(RValue::Local(flag), exhausted, Block::default()).into());
+            }
         }
+        // A body break may share the exhaustion adapter; the break path has
+        // then emitted it already (see the generic-for builder).
         self.visited.extend(normal_adapters);
+        for (local, export) in exports {
+            self.rewrite.insert(local, export);
+        }
         Some(PathResult {
             block: output,
             next: Some(info.join),
         })
+    }
+
+    /// A numeric counter exported past its loop holds, at the join, the
+    /// value of the iteration a `break` left, or what the exhaustion adapter
+    /// stored: never the VM's hidden post-exhaustion counter, which no source
+    /// can name. So the counter is written only by the loop markers and the
+    /// adapter (each adapter write a whole store whose value does not read
+    /// it), read in the adapter only after such a store, captured nowhere,
+    /// and the adapter is a separate block (a direct exit would share the
+    /// join with the breaks, where a store is path-sensitive).
+    fn numeric_export_is_exact(&self, info: &LoopInfo, counter: &RcLocal, adapters: &[NodeIndex]) -> bool {
+        if adapters.is_empty() {
+            return false;
+        }
+        let one = std::slice::from_ref(counter);
+        // `proof_nodes` gives candidates; each is checked here.
+        let candidates = self.analysis.proof_nodes(self.function, [counter.stable_id()], PROOF_READ | PROOF_WRITE | PROOF_CAPTURE);
+        let markers_and_adapters = |node: &NodeIndex| {
+            *node == info.init || *node == info.header || info.nodes.contains(node) || adapters.contains(node)
+        };
+        let accesses_ok = candidates.iter().all(|node| {
+            let block_ok = self.function.block(*node).is_none_or(|block| {
+                block.iter().all(|statement| {
+                    !statement_captures_any(statement, one)
+                        && (markers_and_adapters(node)
+                            || !statement.values_written().into_iter().any(|written| written == counter))
+                })
+            });
+            let edges_ok = self.function.edges(*node).all(|edge| {
+                edge.weight().arguments.iter().all(|(destination, value)| {
+                    destination != counter
+                        && !value.values_read().into_iter().any(|read| read == counter)
+                        && !rvalue_captures_any(value, one)
+                })
+            });
+            block_ok && edges_ok
+        });
+        let mut stored = false;
+        let adapter_ok = adapters.iter().all(|node| {
+            self.function.block(*node).is_some_and(|block| {
+                block.iter().all(|statement| {
+                    let store = matches!(statement, Statement::Assign(assign)
+                        if assign.left.len() == 1 && assign.right.len() == 1
+                            && assign.left[0].as_local() == Some(counter));
+                    let reads = statement.values_read().into_iter().any(|read| read == counter);
+                    let writes = statement.values_written().into_iter().any(|written| written == counter);
+                    if store && !reads {
+                        stored = true;
+                        true
+                    } else {
+                        !writes && (!reads || stored)
+                    }
+                })
+            })
+        });
+        accesses_ok && adapter_ok && stored
+    }
+
+    /// The statements of the exhaustion adapter nodes as they run after the
+    /// source loop: a store of `nil` into an exported result is the value the
+    /// export already holds and is dropped, every other access to a result
+    /// goes to its export, and a store into a result read nowhere after the
+    /// loop (so not exported) is dead. `None` when a result is read there
+    /// without an export.
+    fn exhaustion_adapter_output(
+        &self,
+        adapters: &[NodeIndex],
+        results: &[RcLocal],
+        exports: &[(RcLocal, RcLocal)],
+    ) -> Option<Block> {
+        let mut rewrite = self.rewrite.clone();
+        for (local, export) in exports {
+            rewrite.insert(local.clone(), export.clone());
+        }
+        let exported = |local: &RcLocal| exports.iter().any(|(result, _)| result == local);
+        let touches = |statement: &Statement, local: &RcLocal| {
+            statement.values_read().into_iter().chain(statement.values_written()).any(|touched| touched == local)
+        };
+        let mut output = Block::default();
+        for node in adapters {
+            for statement in self.function.block(*node)?.iter() {
+                if is_ignorable(statement) {
+                    continue;
+                }
+                let store = results.iter().find(|result| {
+                    matches!(statement, Statement::Assign(assign)
+                        if assign.left.len() == 1 && assign.right.len() == 1
+                            && assign.left[0].as_local() == Some(*result))
+                });
+                if let Some(result) = store {
+                    let Statement::Assign(assign) = statement else { unreachable!() };
+                    if exported(result) {
+                        if Self::is_nil_assignment(statement, result) {
+                            continue;
+                        }
+                    } else if matches!(assign.right[0], RValue::Literal(_) | RValue::Local(_)) {
+                        // Dead: nothing after the loop reads the result.
+                        continue;
+                    } else {
+                        return None;
+                    }
+                } else if results.iter().any(|result| !exported(result) && touches(statement, result)) {
+                    return None;
+                }
+                let mut statement = statement.clone();
+                for local in statement.values_read_mut() {
+                    if let Some(replacement) = rewrite.get(local) {
+                        *local = replacement.clone();
+                    }
+                }
+                for local in statement.values_written_mut() {
+                    if let Some(replacement) = rewrite.get(local) {
+                        *local = replacement.clone();
+                    }
+                }
+                output.push(statement);
+            }
+        }
+        Some(output)
     }
 
     fn build_while_loop(&mut self, info: &LoopInfo) -> Option<PathResult> {
@@ -4169,6 +4334,8 @@ impl<'a> Builder<'a> {
                 info,
                 exports: &[],
                 exhaustion_flag: None,
+                shared_adapters: &[],
+                results: &[],
             };
             let result = self.build_path_inner_with_entry(
                 info.header,
@@ -4240,6 +4407,8 @@ impl<'a> Builder<'a> {
             info,
             exports: &[],
             exhaustion_flag: None,
+            shared_adapters: &[],
+            results: &[],
         };
         // The false header edge may run an adapter before the shared join.
         // Put it on that exact edge inside the loop; a body-side break must
@@ -5300,7 +5469,7 @@ impl<'a> Builder<'a> {
                 .map(|statement| self.rewrite_statement(statement)),
         );
         let mut exports = self.exports_for(info);
-        let adapters = match self.normal_adapter_nodes(info, &exports) {
+        let adapters = match self.normal_adapter_nodes(info, &info.res_locals, &exports) {
             Some(adapters) => adapters,
             None => {
                 self.trace_unsupported(
@@ -5609,6 +5778,8 @@ impl<'a> Builder<'a> {
             info,
             exports: &exports,
             exhaustion_flag: exhaustion_flag.clone(),
+            shared_adapters: &adapters,
+            results: &info.res_locals,
         };
         // The iterator RHS is evaluated before the loop body.  Capture its
         // rewrite environment now; nested loops in the body may introduce
@@ -6161,7 +6332,8 @@ impl<'a> Builder<'a> {
         let mut previous = source;
         let mut path_nodes = Vec::new();
         while current != join {
-            if context.info.nodes.contains(&current) || self.visited.contains(&current) {
+            let shared = context.shared_adapters.contains(&current);
+            if context.info.nodes.contains(&current) || (self.visited.contains(&current) && !shared) {
                 return None;
             }
             let predecessors = self
@@ -6202,7 +6374,14 @@ impl<'a> Builder<'a> {
                             | Statement::NumForNext(_)
                     )
                 });
-            if !trivia_or_nil && !linear_tail {
+            let shared_copy = shared
+                && block.iter().all(is_linear_statement)
+                && !block.iter().any(|statement| {
+                    matches!(statement, Statement::Assign(assign) if assign.prefix)
+                        || statement.values_read().into_iter().any(|read| context.results.contains(read))
+                        || statement_captures_any(statement, context.results)
+                });
+            if !trivia_or_nil && !linear_tail && !shared_copy {
                 return None;
             }
             let successors = self.function.successor_blocks(current).collect_vec();
@@ -12659,7 +12838,9 @@ mod tests {
             .expect("a body break through normal exit must remain source-shaped")
             .to_string();
         assert!(output.contains("if first then"), "{output}");
-        assert!(output.contains("result = nil"), "{output}");
+        // The break stores the adapter's `nil` into the export directly.
+        let stored = output.split("if first then").nth(1).and_then(|arm| arm.lines().nth(1));
+        assert!(stored.is_some_and(|line| line.trim_end().ends_with("= nil")), "{output}");
         assert!(output.contains("break"), "{output}");
         assert!(!output.contains("goto "), "{output}");
     }
@@ -12808,6 +12989,92 @@ mod tests {
             let exhausted = result[2].as_if().unwrap();
             assert_eq!(exhausted.condition, RValue::Local(flag.clone()));
             assert_eq!(exhausted.then_block.lock().0, vec![Statement::Assign(copy)]);
+        }
+    }
+
+    /// A value returned from inside a numeric `for`, inlined: the result
+    /// register coalesces with the counter, a body exit jumps to the join,
+    /// and the exhaustion adapter stores the helper's tail value before it.
+    /// The counter is exported (`nil`, then `export = i` on `break`) and the
+    /// adapter runs under the exhaustion flag; a helper `break` landing in
+    /// the adapter runs a copy of it, publishing the stored value directly.
+    #[test]
+    fn numeric_counter_read_after_the_loop_is_exported_past_its_adapter() {
+        // mode 0: `i = nil`; 1: `miss(); i = -1`; 2: as 1, with a body break
+        // into the adapter; 3: the adapter reads the counter first (refused).
+        for mode in 0..4 {
+            let mut function = Function::new(0);
+            let init = function.new_block();
+            let header = function.new_block();
+            let body = function.new_block();
+            let check = function.new_block();
+            let adapter = function.new_block();
+            let join = function.new_block();
+            function.set_entry(init);
+            let counter = RcLocal::new(Local::new(Some("i".into())));
+            let limit = RcLocal::default();
+            let step = RcLocal::default();
+            let mut prep = NumForInit::new(counter.clone(), limit.clone(), step.clone());
+            prep.counter.1 = Literal::Number(1.0).into();
+            prep.limit.1 = Global::from("count").into();
+            prep.step.1 = Literal::Number(1.0).into();
+            function.block_mut(init).unwrap().push(prep.into());
+            function
+                .block_mut(header)
+                .unwrap()
+                .push(NumForNext::new(counter.clone(), limit.into(), step.into()).into());
+            let test = |name: &str| -> Statement {
+                If::new(Global::from(name).into(), Block::default(), Block::default()).into()
+            };
+            function.block_mut(body).unwrap().push(test("stop"));
+            function.block_mut(check).unwrap().push(test("hit"));
+            let store = |value: RValue| -> Statement { Assign::new(vec![counter.clone().into()], vec![value]).into() };
+            let miss = || -> Statement { Call::new(Global::from("miss").into(), vec![]).into() };
+            function.block_mut(adapter).unwrap().extend(match mode {
+                0 => vec![store(Literal::Nil.into())],
+                3 => vec![Call::new(Global::from("miss").into(), vec![counter.clone().into()]).into(), store(Literal::Nil.into())],
+                _ => vec![miss(), store(Literal::Number(-1.0).into())],
+            });
+            function.block_mut(join).unwrap().push(ast::Return::new(vec![counter.clone().into()]).into());
+            function.set_edges(init, vec![(header, BlockEdge::new(BranchType::Unconditional))]);
+            function.set_edges(header, vec![
+                (body, BlockEdge::new(BranchType::Then)),
+                (adapter, BlockEdge::new(BranchType::Else)),
+            ]);
+            // `stop`: the helper's own `break` (mode 2), else on to `hit`.
+            function.set_edges(body, vec![
+                (if mode == 2 { adapter } else { check }, BlockEdge::new(BranchType::Then)),
+                (check, BlockEdge::new(BranchType::Else)),
+            ]);
+            function.set_edges(check, vec![
+                (join, BlockEdge::new(BranchType::Then)),
+                (header, BlockEdge::new(BranchType::Else)),
+            ]);
+            function.set_edges(adapter, vec![(join, BlockEdge::new(BranchType::Unconditional))]);
+            let result = production_lift(function);
+            if mode == 3 {
+                assert!(result.is_none(), "the exhaustion counter has no source name");
+                continue;
+            }
+            let output = result.expect("numeric loop with an exhaustion adapter").to_string();
+            assert!(!output.contains("goto"), "{output}");
+            let export = output
+                .lines()
+                .next()
+                .and_then(|line| line.split(" = nil").next())
+                .map(|name| name.trim().to_string())
+                .expect("export declared first");
+            assert!(output.contains(&format!("{export} = i")), "{output}");
+            assert!(output.contains(&format!("return {export}")), "{output}");
+            match mode {
+                // The flag guards nothing: `i = nil` is the export's own value.
+                0 => assert!(!output.lines().any(|line| line.starts_with("if ")), "{output}"),
+                _ => {
+                    assert!(output.contains(&format!("miss()\n\t{export} = -1")), "{output}");
+                    let copies = output.matches("miss()").count();
+                    assert_eq!(copies, if mode == 2 { 2 } else { 1 }, "{output}");
+                }
+            }
         }
     }
 

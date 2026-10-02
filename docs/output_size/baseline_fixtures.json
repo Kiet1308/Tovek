@@ -952,6 +952,18 @@
       "bytes": 567,
       "lines": 42
     },
+    "semantic/numeric_loop_return__O0.luau": {
+      "bytes": 2108,
+      "lines": 162
+    },
+    "semantic/numeric_loop_return__O1.luau": {
+      "bytes": 2108,
+      "lines": 162
+    },
+    "semantic/numeric_loop_return__O2.luau": {
+      "bytes": 4310,
+      "lines": 257
+    },
     "semantic/outer_local_helpers__O0.luau": {
       "bytes": 774,
       "lines": 54
