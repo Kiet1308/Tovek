@@ -7,7 +7,7 @@ use crate::{
     TypeSystem,
 };
 
-#[derive(Debug, From, PartialEq, PartialOrd, EnumAsInner)]
+#[derive(Debug, From, PartialOrd, EnumAsInner)]
 #[cfg_attr(not(feature = "byte-storage-trace"), derive(Clone))]
 pub enum Literal {
     Nil,
@@ -22,6 +22,27 @@ pub enum Literal {
     /// Keep this distinct from [`Vector`] so legacy f32 constants retain their
     /// compact formatting while v13+ constants are never narrowed.
     VectorD(f64, f64, f64),
+}
+
+/// The same literal, numbers compared bit for bit: an expression equal to
+/// another may stand for it, and `1 / x` tells `-0` from `0`.
+impl PartialEq for Literal {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Nil, Self::Nil) => true,
+            (Self::Boolean(a), Self::Boolean(b)) => a == b,
+            (Self::Number(a), Self::Number(b)) => a.to_bits() == b.to_bits(),
+            (Self::Integer(a), Self::Integer(b)) => a == b,
+            (Self::String(a), Self::String(b)) => a == b,
+            (Self::Vector(x, y, z), Self::Vector(a, b, c)) => {
+                [x, y, z].into_iter().zip([a, b, c]).all(|(p, q)| p.to_bits() == q.to_bits())
+            }
+            (Self::VectorD(x, y, z), Self::VectorD(a, b, c)) => {
+                [x, y, z].into_iter().zip([a, b, c]).all(|(p, q)| p.to_bits() == q.to_bits())
+            }
+            _ => false,
+        }
+    }
 }
 
 // Keep the default derived implementation intact. The attribution build uses

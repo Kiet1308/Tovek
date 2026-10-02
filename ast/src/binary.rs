@@ -473,6 +473,18 @@ mod tests {
     }
 
     #[test]
+    fn signed_zero_operands_are_not_the_same_value() {
+        // `-0 and 0` is `0`, which `1 / x` tells from `-0`.
+        let number = |value: f64| RValue::Literal(Literal::Number(value));
+        for operation in [BinaryOperation::And, BinaryOperation::Or] {
+            let reduced = Binary::new(number(-0.0), number(0.0), operation).reduce();
+            assert!(is_binary(&reduced, operation), "{operation:?}");
+        }
+        let nan = number(f64::NAN);
+        assert_eq!(Binary::new(nan.clone(), nan.clone(), BinaryOperation::And).reduce(), nan);
+    }
+
+    #[test]
     fn a_repeated_last_operand_folds_only_when_pure() {
         let (p, x) = (RcLocal::default(), RcLocal::default());
         let and = |l: RValue, r: RValue| -> RValue { Binary::new(l, r, BinaryOperation::And).into() };

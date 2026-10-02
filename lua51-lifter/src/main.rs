@@ -60,7 +60,13 @@ fn main() -> anyhow::Result<()> {
     input.read_exact(&mut buffer)?;
 
     let start = Instant::now();
-    let chunk = Chunk::parse(&buffer).unwrap().1;
+    let chunk = match Chunk::parse(&buffer) {
+        Ok((_, chunk)) => chunk,
+        Err(error) => anyhow::bail!(
+            "not a supported Lua 5.1 chunk: {:?}",
+            error.map(|error| (buffer.len() - error.input.len(), error.code))
+        ),
+    };
     let res = decompile(&chunk.function, true)?;
     let duration = start.elapsed();
 

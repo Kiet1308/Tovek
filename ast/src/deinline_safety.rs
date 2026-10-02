@@ -43,17 +43,18 @@ impl CaptureSafety {
     /// different things. Luau neither inlines nor imports in such a module.
     pub(crate) fn dynamic_environment(&self) -> bool { self.exhausted || self.dynamic_environment }
 
-    /// A global path no code the script runs can change: a builtin global
-    /// (`print`, `workspace`) or a field of a library whose members are fixed
-    /// (`math.clamp`, `Enum.KeyCode.E`), up to three names, never assigned in
-    /// the module, in a module with a fixed environment. Luau's own builtin
-    /// calls assume the same. Any other path is a read of a table someone may
-    /// write (`Shared.x`, `Foo.new`, `script.Parent`), or of a global another
-    /// chunk may set.
+    /// A global path no code the script runs can change and whose read
+    /// cannot raise, so it may be read at any point: a builtin global
+    /// (`print`, `workspace`) or a member of a fixed library table
+    /// (`math.clamp`, `Vector2.new`), never assigned in the module, in a
+    /// module with a fixed environment. Luau's own builtin calls assume the
+    /// same. Any other path is a read of a table someone may write
+    /// (`Shared.x`, `Foo.new`, `script.Parent`), of a global another chunk
+    /// may set, or one that may raise ([`import_cannot_raise`]).
     pub(crate) fn constant_import(&self, value: &RValue) -> bool {
         !self.dynamic_environment()
             && import_root(value).is_some_and(|(name, _)| !self.written_globals.contains(name))
-            && library_import(value)
+            && import_cannot_raise(value)
     }
     pub(crate) fn nodes(&self) -> usize { self.nodes }
 
@@ -233,6 +234,18 @@ fn import_root(value: &RValue) -> Option<(&[u8], usize)> {
 /// replaces the library, always gives the same value.
 pub fn library_import(value: &RValue) -> bool {
     import_root(value).is_some_and(|(name, fields)| if fields == 0 { builtin_global(name) } else { fixed_library(name) })
+}
+
+/// A builtin global or a member of a fixed library table (`print`,
+/// `math.max`): GETIMPORT reads it without raising. A member's own field
+/// may not exist (`math.abs.missing` indexes a function), and `Enum`
+/// raises for a name it lacks (`Enum.KeyCode.E` included).
+fn import_cannot_raise(value: &RValue) -> bool {
+    import_root(value).is_some_and(|(name, fields)| match fields {
+        0 => builtin_global(name),
+        1 => fixed_library(name) && name != b"Enum",
+        _ => false,
+    })
 }
 
 /// Globals Luau and Roblox provide, whose binding a script does not change.

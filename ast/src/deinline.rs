@@ -305,7 +305,7 @@ impl Bindings {
 ///
 /// Factoring this out of `Target` lets the §7 expression de-inliner
 /// (`crate::expr_deinline`) reuse the exact same battle-tested structural unifier
-/// (NaN-safe `lit_eq`, closure-arg refusal, param consistency, local injectivity)
+/// (bit-exact literals, closure-arg refusal, param consistency, local injectivity)
 /// without depending on the statement-only `Target` fields (`pat`, `kind`,
 /// `value_anchor`, ...). The statement matcher builds one via [`Target::ctx`].
 pub(crate) struct MatchCtx<'a> {
@@ -1923,7 +1923,7 @@ pub(crate) fn unify_lvalue(
 /// Structural expression unifier. Treats `ctx.params` as bind-once holes
 /// (mapping each callee parameter to one caller argument expression) and
 /// `ctx.locals` as an injective callee-local renaming; everything else (globals,
-/// literals via NaN-bit-exact `lit_eq`, operators, method/field names, upvalues by
+/// literals bit for bit, operators, method/field names, upvalues by
 /// `RcLocal` identity) must match EXACTLY — no commutativity, associativity, or
 /// boolean rewriting. Shared by the statement de-inliner and the §7 expression
 /// de-inliner (`crate::expr_deinline`).
@@ -1979,7 +1979,7 @@ pub(crate) fn unify_rvalue(
             }
         }
         (RValue::Literal(a), RValue::Literal(d)) => {
-            if lit_eq(a, d) {
+            if a == d {
                 Ok(())
             } else {
                 Err(())
@@ -2159,24 +2159,8 @@ pub(crate) fn unify_local(
     if pl == cl { Ok(()) } else { Err(()) }
 }
 
-pub(crate) fn lit_eq(a: &Literal, b: &Literal) -> bool {
-    match (a, b) {
-        (Literal::Number(x), Literal::Number(y)) => x.to_bits() == y.to_bits(),
-        (Literal::Vector(x1, y1, z1), Literal::Vector(x2, y2, z2)) => {
-            [x1, y1, z1].iter().zip([x2, y2, z2]).all(|(a, b)| a.to_bits() == b.to_bits())
-        }
-        (Literal::VectorD(x1, y1, z1), Literal::VectorD(x2, y2, z2)) => {
-            [x1, y1, z1].iter().zip([x2, y2, z2]).all(|(a, b)| a.to_bits() == b.to_bits())
-        }
-        _ => a == b,
-    }
-}
-
-/// Bit-exact structural equality for the correctness gates. The derived
-/// `PartialEq` bottoms out at `f64::eq`, so it wrongly equates `+0.0` with `-0.0`
-/// and refuses `NaN == NaN`; this descends the whole tree comparing every
-/// `Literal::Number` via `lit_eq`'s `to_bits()`. Closures compare by `Function`
-/// pointer identity only — two `{}`/closures are distinct values and must never
+/// Structural equality for the correctness gates: literals bit for bit, and
+/// closures by `Function` pointer identity only — two `{}`/closures are distinct values and must never
 /// be treated as equal by structure. Use this anywhere a gate's soundness depends
 /// on two reconstructed expressions being the SAME value (return-folding,
 /// repeated-argument consistency, recorded-site agreement).
@@ -2184,7 +2168,7 @@ pub(crate) fn rvalue_exact_eq(a: &RValue, b: &RValue) -> bool {
     match (a, b) {
         (RValue::Local(x), RValue::Local(y)) => x == y,
         (RValue::Global(x), RValue::Global(y)) => x == y,
-        (RValue::Literal(x), RValue::Literal(y)) => lit_eq(x, y),
+        (RValue::Literal(x), RValue::Literal(y)) => x == y,
         (RValue::VarArg(_), RValue::VarArg(_)) => true,
         (RValue::Unary(x), RValue::Unary(y)) => {
             x.operation == y.operation && rvalue_exact_eq(&x.value, &y.value)
@@ -2222,8 +2206,8 @@ pub(crate) fn rvalue_exact_eq(a: &RValue, b: &RValue) -> bool {
         (RValue::Closure(x), RValue::Closure(y)) => {
             Arc::as_ptr(&x.function.0) == Arc::as_ptr(&y.function.0) && x.upvalues == y.upvalues
         }
-        // Select wraps Call/MethodCall/VarArg — recurse so an inner `±0.0` arg does
-        // not leak back to the derived `f64` equality of the wrapped call.
+        // Select wraps Call/MethodCall/VarArg: recurse so a closure argument
+        // still compares by identity.
         (RValue::Select(x), RValue::Select(y)) => match (x, y) {
             (Select::Call(x), Select::Call(y)) => {
                 call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)

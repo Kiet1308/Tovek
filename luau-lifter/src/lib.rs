@@ -814,13 +814,6 @@ fn decompile_bytecode_internal(
                 ptime!(S_ELIMINATE_NIL);
                 ast::eliminate_nil::eliminate_redundant_nil(&mut body);
             }
-            // C13: re-target a dropped connection write `local _ = sig:Connect(
-            // function() ... cell:Disconnect() ... end)` back to the captured `cell`
-            // the SSA orphaned (the parent never models the closure's by-ref write).
-            {
-                ptime!(S_RECOVER_CONN);
-                ast::recover_dropped_connection::recover_dropped_connection(&mut body);
-            }
             // Expression-level de-inline (proposal §7): recover small pure scalar
             // helpers that `-O2` inlined as a sub-expression of a caller's
             // condition/RValue. Runs before normalize_conditions: the

@@ -400,6 +400,18 @@
       "bytes": 147,
       "lines": 12
     },
+    "semantic/connection_stored_only_where_written__O0.luau": {
+      "bytes": 621,
+      "lines": 40
+    },
+    "semantic/connection_stored_only_where_written__O1.luau": {
+      "bytes": 621,
+      "lines": 40
+    },
+    "semantic/connection_stored_only_where_written__O2.luau": {
+      "bytes": 919,
+      "lines": 57
+    },
     "semantic/cps_copy_without_return__O0.luau": {
       "bytes": 268,
       "lines": 26
@@ -711,6 +723,18 @@
     "semantic/import_callee_alias__O2.luau": {
       "bytes": 524,
       "lines": 25
+    },
+    "semantic/import_lookup_may_raise__O0.luau": {
+      "bytes": 360,
+      "lines": 21
+    },
+    "semantic/import_lookup_may_raise__O1.luau": {
+      "bytes": 360,
+      "lines": 21
+    },
+    "semantic/import_lookup_may_raise__O2.luau": {
+      "bytes": 364,
+      "lines": 21
     },
     "semantic/inner_loop_continues_outer__O0.luau": {
       "bytes": 460,
@@ -1035,6 +1059,18 @@
     "semantic/services_table_under_pressure__O2.luau": {
       "bytes": 3346,
       "lines": 216
+    },
+    "semantic/signed_zero_operands__O0.luau": {
+      "bytes": 118,
+      "lines": 7
+    },
+    "semantic/signed_zero_operands__O1.luau": {
+      "bytes": 101,
+      "lines": 7
+    },
+    "semantic/signed_zero_operands__O2.luau": {
+      "bytes": 95,
+      "lines": 7
     },
     "semantic/store_address_read_at_store__O0.luau": {
       "bytes": 559,
