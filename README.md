@@ -1,4 +1,7 @@
-# Tovek
+<h1><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/tovek-logo-dark.svg">
+  <img alt="Tovek" src="docs/assets/brand/tovek-logo.svg" height="64">
+</picture></h1>
 
 **A high-readability, high-performance Luau decompiler.** **Tovek V2.5**
 

@@ -82,7 +82,7 @@ p code, li code {
   display: inline-flex; align-items: center; gap: 10px;
   font: 700 19px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; text-decoration: none;
 }
-.wordmark svg { width: 15px; height: 16px; fill: currentColor; }
+.wordmark svg { width: 22px; height: 22px; flex: none; }
 .wordmark:hover { color: inherit; opacity: .8; }
 .nav-links { display: flex; align-items: center; gap: 30px; font: 500 15px/1 var(--sans); }
 .nav-links a { text-decoration: none; }
@@ -371,7 +371,7 @@ table.cost td, table.cost th { padding: 11px 11px 12px; }
 .footer { background: var(--slate); color: #c9c7bd; padding: 20px clamp(16px, 5.8vw, 86px) 36px; }
 .footer-grid { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 32px; max-width: 1270px; margin: 0 auto; }
 .footer .mark { color: #fff; }
-.footer .mark svg { width: 34px; height: 36px; fill: currentColor; }
+.footer .mark svg { width: 40px; height: 40px; display: block; }
 .footer h3 { margin: 0 0 16px; font: 600 13px/1 var(--sans); color: #fff; }
 .footer ul { list-style: none; margin: 0; padding: 0; }
 .footer li { margin: 0 0 12px; font: 400 13px/1.4 var(--sans); }

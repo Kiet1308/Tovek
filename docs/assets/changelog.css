@@ -160,9 +160,9 @@ button svg {
   letter-spacing: -0.06em;
 }
 .brand-mark {
-  width: 25px;
-  height: 27px;
-  fill: currentColor;
+  flex: none;
+  width: 26px;
+  height: 26px;
 }
 .brand small {
   font-family: var(--mono);
@@ -323,7 +323,8 @@ pre code {
   display: none;
 }
 .changelog .brand-mark {
-  width: 23px;
+  width: 24px;
+  height: 24px;
 }
 .changelog .action {
   background: white;
