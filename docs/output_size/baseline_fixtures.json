@@ -1024,6 +1024,18 @@
       "bytes": 158,
       "lines": 11
     },
+    "semantic/services_table_under_pressure__O0.luau": {
+      "bytes": 7574,
+      "lines": 410
+    },
+    "semantic/services_table_under_pressure__O1.luau": {
+      "bytes": 4678,
+      "lines": 216
+    },
+    "semantic/services_table_under_pressure__O2.luau": {
+      "bytes": 3346,
+      "lines": 216
+    },
     "semantic/store_address_read_at_store__O0.luau": {
       "bytes": 559,
       "lines": 50
@@ -1131,6 +1143,18 @@
     "semantic/ui_setlist_order__O2.luau": {
       "bytes": 2997,
       "lines": 194
+    },
+    "semantic/unfoldable_temporaries_over_local_limit__O0.luau": {
+      "bytes": 7337,
+      "lines": 455
+    },
+    "semantic/unfoldable_temporaries_over_local_limit__O1.luau": {
+      "bytes": 7337,
+      "lines": 455
+    },
+    "semantic/unfoldable_temporaries_over_local_limit__O2.luau": {
+      "bytes": 16406,
+      "lines": 675
     },
     "semantic/untruncated_arguments__O0.luau": {
       "bytes": 510,

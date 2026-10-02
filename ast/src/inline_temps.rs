@@ -1507,8 +1507,8 @@ fn rvalue_evaluation_order_barrier(rvalue: &RValue, facts: &MotionFacts) -> bool
 /// `register`: whether a local is a register of the statement's function.
 fn lvalue_evaluation_order_barrier(lvalue: &LValue, facts: &MotionFacts, register: &dyn Fn(&RcLocal) -> bool) -> bool {
     match lvalue {
-        LValue::Local(_) => false,
-        LValue::Global(_) => true,
+        // SETGLOBAL, like a local store, evaluates nothing before the values.
+        LValue::Local(_) | LValue::Global(_) => false,
         LValue::Index(index) => {
             index_component_order_barrier(&index.left, facts, register)
                 || index_component_order_barrier(&index.right, facts, register)

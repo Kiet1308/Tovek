@@ -18,6 +18,10 @@ struct Occurrence {
     branches: Vec<(usize, bool)>,
     read: bool,
     written: bool,
+    /// Written by a table constructor (`t = {...}`).
+    builds_table: bool,
+    /// Read only as the table a store writes into (`t.k = v`).
+    stores_into: bool,
 }
 
 #[derive(Clone)]
@@ -83,7 +87,7 @@ impl LocalInfo {
 /// cells keep their identities for the full closure lifetime; unrelated local
 /// values may still reuse storage after their last lexical occurrence.
 pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLocal>) {
-    coalesce_generated_locals_in_function(block, protected, &[], &[]);
+    coalesce_generated_locals_in_function(block, protected, &[], &[], true);
 }
 
 /// The full occurrence collector is needed only above the source binding
@@ -163,16 +167,22 @@ thread_local! {
     static REFERENCE_PRESSURE_COLLECTOR: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// Locals a Luau function may declare at once.
+pub const LOCAL_LIMIT: usize = 200;
+
 /// Explicit frame ownership keeps unused parameters in the root pressure count
 /// and excludes incoming upvalues, which do not consume local binding slots.
+/// `eager`: also share storage between temporaries later passes would fold
+/// into their use ([`folds_into_its_use`]). Without it, those stay apart, and
+/// the caller checks the finished function ([`declared_locals_exceed_limit`]).
 pub fn coalesce_generated_locals_in_function(
     block: &mut Block,
     protected: &FxHashSet<RcLocal>,
     parameters: &[RcLocal],
     upvalues: &[RcLocal],
+    eager: bool,
 ) {
     let _phase = crate::telemetry::Span::new("GENERATED_LOCAL_COALESCE");
-    const LOCAL_LIMIT: usize = 200;
     #[cfg(not(test))]
     let precheck = true;
     #[cfg(test)]
@@ -232,7 +242,7 @@ pub fn coalesce_generated_locals_in_function(
 
     let mut values = infos.into_values().collect::<Vec<_>>();
     values.sort_by_key(|info| (info.first, info.last, info.local.stable_id()));
-    let replacements = coalesce_values(values);
+    let replacements = coalesce_values(values, eager);
     if !replacements.is_empty() {
         crate::replace_locals::replace_locals(block, &replacements);
     }
@@ -315,11 +325,66 @@ struct ScopeGroups {
     available: GroupAvailability,
 }
 
-fn coalesce_values(values: Vec<LocalInfo>) -> FxHashMap<RcLocal, RcLocal> {
+/// Whether some function in `block` declares more locals at once than Luau
+/// accepts: a scope's declarations stay live to its end, a nested scope adds
+/// its own, and a closure starts from its parameters.
+pub fn declared_locals_exceed_limit(block: &Block) -> bool {
+    fn scope(statements: &[Statement], mut active: usize) -> bool {
+        for statement in statements {
+            let mut exceeded = false;
+            statement.traverse_rvalues_ref(&mut |value| {
+                if !exceeded && let RValue::Closure(closure) = value {
+                    let function = closure.function.0.lock();
+                    exceeded = scope(&function.body.0, function.parameters.len());
+                }
+            });
+            exceeded = exceeded || match statement {
+                Statement::Assign(assign) if assign.prefix => {
+                    active += assign.left.len();
+                    false
+                }
+                Statement::If(node) => scope(&node.then_block.lock().0, active) || scope(&node.else_block.lock().0, active),
+                Statement::While(node) => scope(&node.block.lock().0, active),
+                Statement::Repeat(node) => scope(&node.block.lock().0, active),
+                Statement::NumericFor(node) => scope(&node.block.lock().0, active + 1),
+                Statement::GenericFor(node) => scope(&node.block.lock().0, active + node.res_locals.len()),
+                _ => false,
+            };
+            if exceeded || active > LOCAL_LIMIT {
+                return true;
+            }
+        }
+        false
+    }
+    scope(&block.0, 0)
+}
+
+/// A temporary later passes fold into its one use, which a storage slot
+/// shared with other temporaries would forbid, leaving one local reassigned
+/// throughout (`Players = game:GetService("ReplicatedStorage")`): a value
+/// the very next statement reads (`t = game:GetService("X"); services.X =
+/// t`), or a table built by stores into it and then read once (`t = {...};
+/// t.X = x; ...; Services = t`).
+fn folds_into_its_use(info: &LocalInfo) -> bool {
+    match info.occurrences.as_slice() {
+        [definition, use_] if use_.position == definition.position + 1 => {
+            definition.written && !definition.read && use_.read && !use_.written
+                && use_.branches == definition.branches
+        }
+        [definition, stores @ .., use_] => {
+            definition.builds_table && !definition.read
+                && stores.iter().all(|store| store.stores_into && store.branches == definition.branches)
+                && use_.read && !use_.written && use_.branches == definition.branches
+        }
+        _ => false,
+    }
+}
+
+fn coalesce_values(values: Vec<LocalInfo>, eager: bool) -> FxHashMap<RcLocal, RcLocal> {
     let mut scopes: FxHashMap<ScopeKey, ScopeGroups> = FxHashMap::default();
     let mut replacements = FxHashMap::default();
     for info in values {
-        if info.blocked || !is_unnamed(&info.local) { continue; }
+        if info.blocked || !is_unnamed(&info.local) || (!eager && folds_into_its_use(&info)) { continue; }
         let ready = if info.occurrences.iter().any(|occurrence|
             occurrence.position == info.first && occurrence.branches == info.branch_scope)
         { info.last + 1 } else { 0 };
@@ -404,6 +469,36 @@ fn ranges_interfere(left: &LocalInfo, right: &LocalInfo) -> bool {
     })
 }
 
+/// `local = {...}`.
+fn builds_table(statement: &Statement, local: &RcLocal) -> bool {
+    matches!(statement, Statement::Assign(assign)
+        if matches!(assign.left.as_slice(), [crate::LValue::Local(written)] if written == local)
+            && matches!(assign.right.as_slice(), [RValue::Table(_)]))
+}
+
+/// `local.k = v` / `local[k] = v` reading `local` nowhere else.
+fn stores_into(statement: &Statement, local: &RcLocal) -> bool {
+    let Statement::Assign(assign) = statement else { return false };
+    let mut base = false;
+    for left in &assign.left {
+        match left {
+            crate::LValue::Index(index) => {
+                if index.right.any_local_read(&mut |read| read == local) {
+                    return false;
+                }
+                match index.left.as_ref() {
+                    RValue::Local(read) if read == local => base = true,
+                    other if other.any_local_read(&mut |read| read == local) => return false,
+                    _ => {}
+                }
+            }
+            crate::LValue::Local(written) if written == local => return false,
+            _ => {}
+        }
+    }
+    base && !assign.right.iter().any(|value| value.any_local_read(&mut |read| read == local))
+}
+
 fn record_statement(
     statement: &Statement,
     position: usize,
@@ -429,6 +524,8 @@ fn record_statement(
             branches: branches.to_vec(),
             read: reads.contains(local),
             written: writes.contains(local),
+            builds_table: builds_table(statement, local),
+            stores_into: stores_into(statement, local),
         };
         let local_blocked = blocked
             || protected.contains(local)
@@ -717,12 +814,12 @@ mod tests {
             let mut expected = crate::simplify_gotos::deep_clone_block(&block);
             {
                 let _restore = Restore(REFERENCE_PRESSURE_COLLECTOR.with(|flag| flag.replace(true)));
-                coalesce_generated_locals_in_function(&mut expected, &protected, &parameters, &upvalues);
+                coalesce_generated_locals_in_function(&mut expected, &protected, &parameters, &upvalues, true);
             }
             let expected_metadata = all.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>();
             for (local, saved) in all.iter().zip(&metadata) { *local.0.lock() = saved.clone(); }
             let mut actual = crate::simplify_gotos::deep_clone_block(&block);
-            coalesce_generated_locals_in_function(&mut actual, &protected, &parameters, &upvalues);
+            coalesce_generated_locals_in_function(&mut actual, &protected, &parameters, &upvalues, true);
             assert_eq!(actual.to_string(), expected.to_string(), "count={count}");
             let mut actual_origins = Vec::new(); let mut expected_origins = Vec::new();
             origins(&actual, &mut actual_origins); origins(&expected, &mut expected_origins);
@@ -755,8 +852,10 @@ mod tests {
                 };
                 let mut info = LocalInfo::new(RcLocal::default(), Occurrence {
                     position: first, branches: path(next() % 6), read: true, written: false,
+                    builds_table: false, stores_into: false,
                 }, &[], false);
-                info.add(Occurrence { position: last, branches: path(next() % 6), read: true, written: false }, &[], false);
+                info.add(Occurrence { position: last, branches: path(next() % 6), read: true, written: false,
+                    builds_table: false, stores_into: false }, &[], false);
                 values.push(info);
             }
             values.sort_by_key(|info| (info.first, info.last, info.local.stable_id()));
@@ -768,7 +867,7 @@ mod tests {
                     group.members.push(info);
                 } else { groups.push(CoalesceGroup { representative: info.clone(), members: vec![info] }); }
             }
-            assert_eq!(coalesce_values(values), expected, "seed {seed}");
+            assert_eq!(coalesce_values(values, true), expected, "seed {seed}");
         }
     }
 
@@ -795,6 +894,8 @@ mod tests {
             branches: Vec::new(),
             read: true,
             written: false,
+            builds_table: false,
+            stores_into: false,
         };
         let mut info = LocalInfo::new(local, occurrence, &[], false);
         if last > first {
@@ -804,6 +905,8 @@ mod tests {
                     branches: Vec::new(),
                     read: true,
                     written: false,
+                    builds_table: false,
+                    stores_into: false,
                 },
                 &[],
                 false,
@@ -960,17 +1063,17 @@ mod tests {
         let parameters: Vec<_> = (0..180).map(|_| RcLocal::default()).collect();
         let mut at_limit = locals_block(20);
         let unchanged = at_limit.clone();
-        coalesce_generated_locals_in_function(&mut at_limit, &FxHashSet::default(), &parameters, &[]);
+        coalesce_generated_locals_in_function(&mut at_limit, &FxHashSet::default(), &parameters, &[], true);
         assert_eq!(at_limit, unchanged, "200 bindings are legal even with unused parameters");
         let mut over_limit = locals_block(21);
-        coalesce_generated_locals_in_function(&mut over_limit, &FxHashSet::default(), &parameters, &[]);
+        coalesce_generated_locals_in_function(&mut over_limit, &FxHashSet::default(), &parameters, &[], true);
         let written: FxHashSet<_> = over_limit.iter().flat_map(|statement| statement.values_written()).collect();
         assert_eq!(written.len(), 1, "the 201st binding triggers conservative reuse");
         let upvalues: Vec<_> = (0..100).map(|_| RcLocal::default()).collect();
         let mut block = locals_block(150);
         block.push(Call::new(Global::from("use").into(), upvalues.iter().cloned().map(RValue::from).collect()).into());
         let unchanged = block.clone();
-        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &upvalues);
+        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &upvalues, true);
         assert_eq!(block, unchanged, "incoming upvalues are not local binding slots");
     }
 
@@ -1002,6 +1105,54 @@ mod tests {
         assert_eq!(function.lock().body, child_before, "child function locals are a separate execution frame");
         let captures = &block[2].as_call().unwrap().arguments[0].as_closure().unwrap().upvalues;
         assert_eq!(captures, &vec![Upvalue::Copy(copy), Upvalue::Ref(reference)]);
+    }
+
+    #[test]
+    fn temporaries_folded_into_their_use_keep_their_identity_unless_eager() {
+        // `t = n; callback(t)` and a table built by stores then read once: a
+        // shared slot would leave one local reassigned throughout; the caller
+        // falls back to eager sharing when the finished function overflows.
+        let build = || {
+            let table = RcLocal::default();
+            let mut block = Block(vec![
+                Assign::new(vec![table.clone().into()], vec![RValue::Table(crate::Table::new(Vec::new()))]).into(),
+                Assign::new(vec![LValue::Index(Index::new(table.clone().into(), Literal::String(b"k".to_vec()).into()))],
+                    vec![Literal::Number(1.0).into()]).into(),
+                Assign::new(vec![LValue::Global(Global::from("Services"))], vec![table.clone().into()]).into(),
+            ]);
+            let mut temps = Vec::new();
+            for index in 0..205 {
+                let temp = RcLocal::default();
+                block.push(Assign::new(vec![temp.clone().into()], vec![Literal::Number(index as f64).into()]).into());
+                block.push(Call::new(Global::from("callback").into(), vec![temp.clone().into()]).into());
+                temps.push(temp);
+            }
+            (block, table, temps)
+        };
+        let written = |block: &Block| block.iter().flat_map(|statement| statement.values_written()).cloned().collect::<FxHashSet<_>>();
+        let (mut block, table, temps) = build();
+        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &[], false);
+        let kept = written(&block);
+        assert!(kept.contains(&table) && temps.iter().all(|temp| kept.contains(temp)));
+        let (mut block, _, _) = build();
+        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &[], true);
+        assert_eq!(written(&block).len(), 1, "eager sharing gives the temporaries one slot with the table");
+    }
+
+    #[test]
+    fn declared_local_pressure_counts_scopes_and_closures() {
+        let declare = |count: usize| (0..count).map(|index| {
+            Assign { prefix: true, ..Assign::new(vec![RcLocal::default().into()], vec![Literal::Number(index as f64).into()]) }.into()
+        }).collect::<Vec<Statement>>();
+        assert!(!declared_locals_exceed_limit(&Block(declare(LOCAL_LIMIT))));
+        assert!(declared_locals_exceed_limit(&Block(declare(LOCAL_LIMIT + 1))));
+        let nested = Block(declare(LOCAL_LIMIT - 1));
+        let mut outer = Block(declare(2));
+        outer.push(crate::While::new(Literal::Boolean(true).into(), nested).into());
+        assert!(declared_locals_exceed_limit(&outer));
+        let function = Function { body: Block(declare(LOCAL_LIMIT + 1)), ..Function::default() };
+        let closure = Closure { node_origin: Default::default(), function: ByAddress(Arc::new(Mutex::new(function))), upvalues: Vec::new() };
+        assert!(declared_locals_exceed_limit(&Block(vec![Call::new(Global::from("run").into(), vec![closure.into()]).into()])));
     }
 
     #[test]

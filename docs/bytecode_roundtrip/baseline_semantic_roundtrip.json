@@ -89,7 +89,9 @@
    "value_capture_of_cell_copy": "review follow-ups 2026-10-02 (cell copies, loop exits)",
    "returned_local_helper": "review follow-ups 2026-10-02 (cell copies, loop exits)",
    "builtin_last_argument_kinds": "external review 2026-10-02 (builtin args, import aliases)",
-   "import_alias_script_globals": "external review 2026-10-02 (builtin args, import aliases)"
+   "import_alias_script_globals": "external review 2026-10-02 (builtin args, import aliases)",
+   "services_table_under_pressure": "services table under pressure / local-limit retry (2026-10-02)",
+   "unfoldable_temporaries_over_local_limit": "services table under pressure / local-limit retry (2026-10-02)"
   }
  },
  "summary": {
@@ -602,6 +604,12 @@
    "protos": 2
   },
   {
+   "file": "services_table_under_pressure",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
    "file": "store_address_read_at_store",
    "status": "ok",
    "nonequiv": 0,
@@ -654,6 +662,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 10
+  },
+  {
+   "file": "unfoldable_temporaries_over_local_limit",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
   },
   {
    "file": "untruncated_arguments",
