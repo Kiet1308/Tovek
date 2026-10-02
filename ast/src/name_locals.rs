@@ -1106,6 +1106,21 @@ fn query_result_noun(name: &str) -> &str {
     name
 }
 
+/// What a call of a helper named `callee` gives back, read off its leading
+/// verb: `loadTrack` -> `track`, `getOwnPlot` -> `ownPlot`, `findItemByName`
+/// -> `item`. `None` without such a verb: a helper name that is itself a verb
+/// (`fade`) names an action, not its result.
+pub(crate) fn helper_result_noun(callee: &str) -> Option<String> {
+    let lowered = lower_first(callee);
+    let rest = strip_verb_prefix(&lowered).or_else(|| strip_method_verb_prefix(&lowered))?;
+    let noun = if lowered.starts_with("get") || lowered.starts_with("find") { query_result_noun(rest) } else { rest };
+    // An acronym left alone (`toCF` -> `CF`) would read as a constant.
+    if noun.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+        return sanitize(&noun.to_ascii_lowercase());
+    }
+    sanitize(noun)
+}
+
 /// Lowest-tier fallback: a stored method/function result reads as the callee's
 /// own name when that name is noun-like — `state:Computed(fn)` -> `computed`,
 /// `rng:NextNumber(a, b)` -> `number`, `p:Length(x)` -> `length`,
@@ -5550,6 +5565,18 @@ mod tests {
         assert_eq!(type_call_name("ReplicaNew").as_deref(), Some("replica"));
         assert_eq!(type_call_name("PI"), None);
         assert_eq!(type_call_name("frameClock"), None);
+    }
+
+    #[test]
+    fn a_helper_named_after_a_verb_names_what_it_returns() {
+        use super::helper_result_noun;
+        assert_eq!(helper_result_noun("loadTrack").as_deref(), Some("track"));
+        assert_eq!(helper_result_noun("computeJaggedOffset").as_deref(), Some("jaggedOffset"));
+        assert_eq!(helper_result_noun("findItemByName").as_deref(), Some("item"));
+        assert_eq!(helper_result_noun("toCF").as_deref(), Some("cf"));
+        // A verb alone names an action, a connective a qualifier.
+        assert_eq!(helper_result_noun("fade"), None);
+        assert_eq!(helper_result_noun("cloneFromNode"), None);
     }
 
     #[test]

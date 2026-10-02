@@ -976,6 +976,18 @@
       "bytes": 677,
       "lines": 22
     },
+    "semantic/rebuilt_call_result_names__O0.luau": {
+      "bytes": 638,
+      "lines": 28
+    },
+    "semantic/rebuilt_call_result_names__O1.luau": {
+      "bytes": 638,
+      "lines": 28
+    },
+    "semantic/rebuilt_call_result_names__O2.luau": {
+      "bytes": 991,
+      "lines": 30
+    },
     "semantic/repeated_select_operand__O0.luau": {
       "bytes": 427,
       "lines": 22

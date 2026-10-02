@@ -3,7 +3,10 @@
 //! Candidate priorities rank evidence; they are not probabilities or effect facts.
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{Block, Call, LValue, Literal, RValue, RcLocal, Select, Statement, Traverse, Upvalue};
+use parking_lot::Mutex;
+use triomphe::Arc;
+
+use crate::{Block, Call, Function, LValue, Literal, RValue, RcLocal, Select, Statement, Traverse, Upvalue};
 
 #[derive(Clone, Copy)]
 pub struct Options {
@@ -121,6 +124,12 @@ struct Graph {
     tables: BTreeSet<u64>,
     /// The locals `merge(table, props)` calls start from.
     merge_bases: Vec<u64>,
+    /// `local a, b = helper(...)` calls the de-inliner rebuilt: (helper,
+    /// result locals).
+    rebuilt_results: Vec<(u64, Vec<Option<u64>>)>,
+    /// The function each local is declared as, read only for the helpers of
+    /// `rebuilt_results`.
+    closures: BTreeMap<u64, Arc<Mutex<Function>>>,
     report: Report,
 }
 
@@ -335,6 +344,7 @@ impl Graph {
             globals: BTreeSet::new(), copies: Vec::new(), functions: BTreeMap::new(),
             results: Vec::new(), reads: Vec::new(), joins: Vec::new(), calls: Vec::new(),
             state_reads: Vec::new(), tables: BTreeSet::new(), merge_bases: Vec::new(),
+            rebuilt_results: Vec::new(), closures: BTreeMap::new(),
             report: Report::default(),
         }
     }
@@ -637,6 +647,9 @@ impl Graph {
                             self.results.push(ResultUse { callee: local_id(&call.value),
                                 arguments: call.arguments.last().is_none_or(|arg| !matches!(arg, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))).then_some(call.arguments.len()),
                                 destinations: assign.left.iter().map(|v| v.as_local().map(RcLocal::stable_id)).collect() });
+                            if call.rebuilt && assign.prefix && let Some(callee) = local_id(&call.value) {
+                                self.rebuilt_results.push((callee, assign.left.iter().map(|v| v.as_local().map(RcLocal::stable_id)).collect()));
+                            }
                         }
                     }
                     for (left, right) in assign.left.iter().zip(&assign.right) {
@@ -691,6 +704,7 @@ impl Graph {
                                     }
                                 }
                                 if let RValue::Closure(closure) = right {
+                                    self.closures.insert(local.stable_id(), closure.function.0.clone());
                                     let function = closure.function.lock();
                                     let returns = (function.body.len() <= self.options.node_budget && function.parameters.len() <= self.options.binding_budget).then(|| function.body.last()).flatten().and_then(|tail| {
                                         let Statement::Return(ret) = tail else { return None; };
@@ -917,6 +931,45 @@ impl Graph {
         }
     }
 
+    /// The results of a call the de-inliner rebuilt take the names of the
+    /// locals the helper returns (`local track = loadTrack(...)` for a
+    /// helper ending `return track`), else the subject its name gives
+    /// (`loadTrack` -> `track`): the inlined copy held the value in that
+    /// local before the call was rebuilt. Priority 40, the rename floor, so
+    /// any other role evidence of the result decides first.
+    fn name_rebuilt_results(&mut self) {
+        let mut returned: BTreeMap<(u64, usize), Vec<Option<u64>>> = BTreeMap::new();
+        for (callee, destinations) in std::mem::take(&mut self.rebuilt_results) {
+            if !self.resolvable_function(callee) {
+                continue;
+            }
+            let Some(function) = self.closures.get(&callee) else { continue };
+            let budget = self.options.node_budget;
+            let slots = returned
+                .entry((callee, destinations.len()))
+                .or_insert_with(|| returned_locals(&function.lock(), destinations.len(), budget))
+                .clone();
+            for (slot, destination) in destinations.iter().enumerate() {
+                let Some(destination) = *destination else { continue };
+                let source = slots[slot];
+                let name = source
+                    .and_then(|id| self.nodes.get(&id))
+                    .map(|node| node.before.clone())
+                    .filter(|name| useful(name))
+                    .or_else(|| {
+                        let helper = &self.nodes.get(&callee)?.before;
+                        (slot == 0).then(|| crate::name_locals::helper_result_noun(helper)).flatten()
+                    });
+                let Some(name) = name else { continue };
+                self.candidate(destination, Candidate {
+                    name, priority: 40, reason: "rebuilt_call_result",
+                    witness: report_witness(self.options.emit_report, || format!("result of a rebuilt call of helper b{callee}; role only")),
+                    from_binding: source,
+                });
+            }
+        }
+    }
+
     fn solve(mut self) -> Report {
         self.report.binding_count = self.nodes.len();
         self.report.scope_count = self.scopes.len();
@@ -971,6 +1024,7 @@ impl Graph {
                     });
                 }
             }
+            self.name_rebuilt_results();
         }
         let mut statuses = BTreeMap::new();
         let mut proposals = BTreeMap::new();
@@ -1168,6 +1222,63 @@ impl<'a> NameReservations<'a> {
         self.reserve(name.clone(), scope);
         name
     }
+}
+
+/// The local a function returns in each of its first `slots` results: the
+/// same one of its own locals (never a parameter) on every `return` that
+/// gives the slot a value other than `nil`. Nested functions' returns are
+/// theirs; `budget` bounds the statements visited.
+fn returned_locals(function: &Function, slots: usize, budget: usize) -> Vec<Option<u64>> {
+    #[derive(Clone, Copy, PartialEq)]
+    enum Slot {
+        Unseen,
+        Local(u64),
+        Mixed,
+    }
+    fn visit(block: &[Statement], parameters: &[RcLocal], slots: &mut [Slot], budget: &mut usize) {
+        for statement in block {
+            if *budget == 0 {
+                slots.fill(Slot::Mixed);
+                return;
+            }
+            *budget -= 1;
+            match statement {
+                Statement::Return(ret) => {
+                    for (slot, value) in slots.iter_mut().zip(&ret.values) {
+                        let seen = match value {
+                            RValue::Literal(Literal::Nil) => continue,
+                            RValue::Local(local) if !parameters.contains(local) => Slot::Local(local.stable_id()),
+                            _ => Slot::Mixed,
+                        };
+                        *slot = match *slot {
+                            Slot::Unseen => seen,
+                            same if same == seen => same,
+                            _ => Slot::Mixed,
+                        };
+                    }
+                }
+                Statement::If(branch) => {
+                    visit(&branch.then_block.lock().0, parameters, slots, budget);
+                    visit(&branch.else_block.lock().0, parameters, slots, budget);
+                }
+                Statement::While(node) => visit(&node.block.lock().0, parameters, slots, budget),
+                Statement::Repeat(node) => visit(&node.block.lock().0, parameters, slots, budget),
+                Statement::NumericFor(node) => visit(&node.block.lock().0, parameters, slots, budget),
+                Statement::GenericFor(node) => visit(&node.block.lock().0, parameters, slots, budget),
+                _ => {}
+            }
+        }
+    }
+    let mut found = vec![Slot::Unseen; slots];
+    let mut budget = budget;
+    visit(&function.body.0, &function.parameters, &mut found, &mut budget);
+    found
+        .into_iter()
+        .map(|slot| match slot {
+            Slot::Local(id) => Some(id),
+            _ => None,
+        })
+        .collect()
 }
 
 pub fn refine_final_names(block: &Block, options: Options) -> Report {
@@ -1546,6 +1657,51 @@ mod tests {
                 assert_ne!(width.stable_id(), result.stable_id());
             }
         }
+    }
+
+    /// A call the de-inliner rebuilt names its result after the local the
+    /// helper returns (`loadTrack` returning `track`), else after the subject
+    /// of the helper's name; other role evidence of the result decides first,
+    /// and a call that was never inlined keeps its name.
+    #[test]
+    fn a_rebuilt_call_result_takes_the_name_the_helper_returns() {
+        let call = |helper: &RcLocal, arguments: Vec<RValue>, rebuilt: bool| -> RValue {
+            let mut call = Call::new(helper.clone().into(), arguments);
+            call.rebuilt = rebuilt;
+            call.into()
+        };
+        let make = || -> RValue { Call::new(global("make"), vec![]).into() };
+        // local function loadTrack() local track = make(); return track end
+        let (load, track) = (local("loadTrack"), local("track"));
+        let load_body = Block(vec![declare(&track, make()), Return::new(vec![track.clone().into()]).into()]);
+        // local function getOwnPlot(plot) if plot then return plot end return nil end
+        let (get, plot) = (local("getOwnPlot"), local("plot"));
+        let get_body = Block(vec![
+            If::new(plot.clone().into(), Block(vec![Return::new(vec![plot.clone().into()]).into()]), Block::default()).into(),
+            Return::new(vec![Literal::Nil.into()]).into(),
+        ]);
+        // local function fade(frame) return frame end
+        let (fade, frame) = (local("fade"), local("frame"));
+        let fade_body = Block(vec![Return::new(vec![frame.clone().into()]).into()]);
+        let (first, second, plain, owned, faded, recorded) =
+            (local("v"), local("v2"), local("v3"), local("v4"), local("v5"), local("v6"));
+        let caller = Block(vec![
+            declare(&first, call(&load, vec![], true)),
+            declare(&second, call(&load, vec![], true)),
+            declare(&plain, call(&load, vec![], false)),
+            declare(&owned, call(&get, vec![make()], true)),
+            declare(&faded, call(&fade, vec![make()], true)),
+            declare(&recorded, call(&load, vec![], true)),
+            record("Animation", &recorded),
+        ]);
+        run(&Block(vec![
+            declare(&load, closure(vec![], load_body)),
+            declare(&get, closure(vec![plot.clone()], get_body)),
+            declare(&fade, closure(vec![frame.clone()], fade_body)),
+            Return::new(vec![closure(vec![], caller)]).into(),
+        ]));
+        let names = [&first, &second, &plain, &owned, &faded, &recorded].map(|local| local.to_string());
+        assert_eq!(names, ["track", "track2", "v3", "ownPlot", "v5", "animation"]);
     }
 
     #[test]
