@@ -46,20 +46,9 @@ impl CaptureSafety {
     /// write (`Shared.x`, `Foo.new`, `script.Parent`), or of a global another
     /// chunk may set.
     pub(crate) fn constant_import(&self, value: &RValue) -> bool {
-        fn root(value: &RValue, depth: usize) -> Option<(&[u8], usize)> {
-            match value {
-                RValue::Global(global) => Some((&global.0, depth)),
-                RValue::Index(index) if depth < 2 && matches!(*index.right, RValue::Literal(Literal::String(_))) => {
-                    root(&index.left, depth + 1)
-                }
-                _ => None,
-            }
-        }
         !self.dynamic_environment()
-            && root(value, 0).is_some_and(|(name, fields)| {
-                !self.written_globals.contains(name)
-                    && if fields == 0 { builtin_global(name) } else { fixed_library(name) }
-            })
+            && import_root(value).is_some_and(|(name, _)| !self.written_globals.contains(name))
+            && library_import(value)
     }
     pub(crate) fn nodes(&self) -> usize { self.nodes }
 
@@ -187,6 +176,27 @@ impl CaptureSafety {
             });
         }
     }
+}
+
+/// The root global of an import path (up to three names) and its field count.
+fn import_root(value: &RValue) -> Option<(&[u8], usize)> {
+    fn root(value: &RValue, depth: usize) -> Option<(&[u8], usize)> {
+        match value {
+            RValue::Global(global) => Some((&global.0, depth)),
+            RValue::Index(index) if depth < 2 && matches!(*index.right, RValue::Literal(Literal::String(_))) => {
+                root(&index.left, depth + 1)
+            }
+            _ => None,
+        }
+    }
+    root(value, 0)
+}
+
+/// A builtin global or a member of a fixed library (`print`, `math.max`,
+/// `Enum.KeyCode.E`): fetching it runs no code and, unless the script
+/// replaces the library, always gives the same value.
+pub fn library_import(value: &RValue) -> bool {
+    import_root(value).is_some_and(|(name, fields)| if fields == 0 { builtin_global(name) } else { fixed_library(name) })
 }
 
 /// Globals Luau and Roblox provide, whose binding a script does not change.

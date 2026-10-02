@@ -1522,6 +1522,10 @@ fn statement_evaluation_order_barrier(statement: &Statement, facts: &MotionFacts
     });
     barrier
         || statement_may_mutate_global_or_environment(statement)
+        // A store into a cell a closure shares: a call moved past it would
+        // read the new value (`local before = get(); count = 0; log(before)`).
+        || matches!(statement, Statement::Assign(assign) if !assign.prefix
+            && assign.left.iter().any(|left| matches!(left, LValue::Local(local) if facts.captured.contains(local))))
         || match statement {
             Statement::If(r#if) => {
                 block_evaluation_order_barrier(&r#if.then_block.lock(), facts)

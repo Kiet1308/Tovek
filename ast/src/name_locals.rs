@@ -4692,7 +4692,9 @@ impl Namer {
         // `_`, which is idiomatic and needs no uniqueness handling — UNLESS it is
         // a recovered local function (closure-bound) whose calls were inlined away
         // by the Luau -O2 compiler, which we keep named so it reads as itself.
-        if Arc::count(&local.0 .0) == 1 {
+        // The script's own global `_` keeps its name: the local would shadow
+        // it for every later read.
+        if Arc::count(&local.0 .0) == 1 && !self.reserved.contains("_") {
             if self.closure_locals.contains(&ptr)
                 && let Some(hint) = self.hints.get(&ptr).map(|hint| hint.name.clone())
             {

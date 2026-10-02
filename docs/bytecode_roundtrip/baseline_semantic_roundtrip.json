@@ -57,7 +57,16 @@
    "first_read_captured_store": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
    "import_alias_error_timing": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
    "import_alias_field_reassigned": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "table_store_after_appended_call": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output."
+   "table_store_after_appended_call": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
+   "arith_moved_past_captured_store": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
+   "call_moved_past_captured_store": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
+   "codefined_results_kept_apart": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
+   "codefined_results_kept_apart_plain": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
+   "codefined_results_loop_swap": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
+   "duplicate_local_multi_assign": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
+   "late_register_read_captured": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
+   "script_index_past_captured_read": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
+   "unused_local_vs_global_underscore": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output."
   }
  },
  "summary": {
@@ -76,6 +85,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 2
+  },
+  {
+   "file": "arith_moved_past_captured_store",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
   },
   {
    "file": "arithmetic_region_captured_operand",
@@ -100,6 +115,12 @@
    "status": "ok",
    "nonequiv": 2,
    "protos": 3
+  },
+  {
+   "file": "call_moved_past_captured_store",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
   },
   {
    "file": "callback_written_capture",
@@ -156,6 +177,24 @@
    "protos": 5
   },
   {
+   "file": "codefined_results_kept_apart",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 4
+  },
+  {
+   "file": "codefined_results_kept_apart_plain",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 8
+  },
+  {
+   "file": "codefined_results_loop_swap",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 5
+  },
+  {
    "file": "compound_local_base",
    "status": "ok",
    "nonequiv": 0,
@@ -184,6 +223,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 3
+  },
+  {
+   "file": "duplicate_local_multi_assign",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
   },
   {
    "file": "dynamic_environment",
@@ -318,6 +363,12 @@
    "protos": 5
   },
   {
+   "file": "late_register_read_captured",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
+  },
+  {
    "file": "local_tuple_helper",
    "status": "ok",
    "nonequiv": 4,
@@ -408,6 +459,12 @@
    "protos": 5
   },
   {
+   "file": "script_index_past_captured_read",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
    "file": "suffix_numeric",
    "status": "ok",
    "nonequiv": 0,
@@ -448,6 +505,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 6
+  },
+  {
+   "file": "unused_local_vs_global_underscore",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
   },
   {
    "file": "while_header_opens_for",

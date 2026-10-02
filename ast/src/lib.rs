@@ -50,6 +50,7 @@ pub mod fold_import_callees;
 pub mod fold_tuple_copies;
 pub mod reconstruction_search;
 mod deinline_safety;
+pub use deinline_safety::library_import;
 pub mod telemetry;
 pub mod dense;
 #[doc(hidden)]

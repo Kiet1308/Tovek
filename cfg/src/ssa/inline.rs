@@ -143,11 +143,12 @@ fn rvalue_blocks_reorder(rvalue: &ast::RValue) -> bool {
     }
 }
 
-/// Whether evaluating `rvalue` later could write a captured cell. An import
-/// path (`error`, `debug.traceback`) is fetched by GETIMPORT without running
-/// Lua code, so it cannot; any call, operator or other index might.
+/// Whether evaluating `rvalue` later could write a captured cell. A builtin
+/// or a fixed library member (`error`, `debug.traceback`) is fetched without
+/// running Lua code, so it cannot; a script table's field (`t.x`) may run
+/// `__index`, and any call, operator or other index might.
 fn may_write_capture_when_moved(rvalue: &ast::RValue) -> bool {
-    !is_import_path(rvalue) && ast::effects::may_write_capture(rvalue)
+    !ast::library_import(rvalue) && ast::effects::may_write_capture(rvalue)
 }
 
 /// A global or a constant-key field chain on one (`table.insert`): what

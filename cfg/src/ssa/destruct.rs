@@ -57,6 +57,12 @@ enum RedOrBlue {
     Blue,
 }
 
+/// Whether two congruence classes have members defined at the same point.
+fn share_definition_point(a: &CongruenceClass, b: &CongruenceClass) -> bool {
+    let (small, large) = if a.members.len() <= b.members.len() { (a, b) } else { (b, a) };
+    small.members.keys().any(|key| large.members.contains_key(key))
+}
+
 #[derive(Default)]
 struct CongruenceClass {
     members: BTreeMap<(usize, ParamOrStatIndex), RcLocal>,
@@ -984,6 +990,11 @@ impl<'a> Destructor<'a> {
         // exactly when they share this owner. Avoid comparing growing maps.
         if Rc::ptr_eq(&left_con_class, &right_con_class) {
             true
+        } else if share_definition_point(&left_con_class.borrow(), &right_con_class.borrow()) {
+            // Two values one statement defines (`local a, b, c = f()`) are
+            // alive together from that point; the dominance-order test never
+            // compares them, and one class could not even hold both.
+            false
         } else if left_con_class.borrow().len() == 1 && right_con_class.borrow().len() == 1 {
             if self.check_interfere_single(&left_con_class, &right_con_class) {
                 false

@@ -300,6 +300,9 @@ pub fn can_sink(statement_: &Statement, local: &RcLocal, replacement: &RValue, c
 pub fn can_reuse_capture(statement_: &Statement, local: &RcLocal) -> bool {
     let order = statement(statement_, &|_| false);
     if order.exhausted { return false; }
+    // Read where its operation runs, the cell is read after every other
+    // operand of it: `v + touch()` with `v` standing for the cell.
+    if late_operand_conflict(statement_, local, &effects::may_write_capture) { return false; }
     let mut may_write = false;
     let mut found = false;
     for event in &order.events {
@@ -332,6 +335,48 @@ pub(crate) fn can_sink_with_summary(statement_: &Statement, local: &RcLocal, rep
             if effect_conflict || capture_conflict { return false; }
         }
     }
+    // A local read sunk into an operand Luau reads only when its operation
+    // runs happens after the operation's other operands, whichever side they
+    // stand on: `local v = total; v + touch()` must not read `total` after
+    // `touch` writes it.
+    if found
+        && matches!(replacement, RValue::Local(_))
+        && candidate.effects.contains(Effects::CAPTURE_READ)
+        && late_operand_conflict(statement_, local, &|operand| {
+            effects::summarize(operand, capture).effects.contains(Effects::CAPTURE_WRITE)
+        })
+    {
+        return false;
+    }
+    found
+}
+
+/// Whether `local` stands as a register operand of an operation that reads it
+/// only when it runs ([`late_operands`]) beside another operand `conflicts`
+/// holds for. Closure bodies are not entered.
+fn late_operand_conflict(statement: &Statement, local: &RcLocal, conflicts: &impl Fn(&RValue) -> bool) -> bool {
+    fn in_value(value: &RValue, local: &RcLocal, conflicts: &impl Fn(&RValue) -> bool) -> bool {
+        if let Some(operands) = late_operands(value)
+            && operands.iter().any(|operand| matches!(operand, RValue::Local(read) if read == local))
+            && operands.iter().any(|operand| !matches!(operand, RValue::Local(read) if read == local) && conflicts(operand))
+        {
+            return true;
+        }
+        if matches!(value, RValue::Closure(_)) {
+            return false;
+        }
+        let mut found = false;
+        value.visit_rvalues(&mut |child| {
+            found = in_value(child, local, conflicts);
+            !found
+        });
+        found
+    }
+    let mut found = false;
+    statement.visit_rvalues(&mut |value| {
+        found = in_value(value, local, conflicts);
+        !found
+    });
     found
 }
 
