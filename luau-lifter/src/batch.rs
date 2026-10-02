@@ -160,17 +160,26 @@ pub fn run_with_cache(
         // Game dumps repeat modules verbatim. Group identical payloads that
         // share a module hint and decompile each group once on one worker; the
         // memo still verifies exact bytecode before reusing an artifact.
+        // Grouping reads every input once, but keeps its bytes only within
+        // `PRELOAD_BUDGET`: the rest is read again where its group runs, so
+        // memory does not grow with the folder.
+        let preloaded = std::sync::atomic::AtomicUsize::new(0);
         let (texts, payloads): (Vec<_>, Vec<_>) = work.par_iter().map(|item| {
             let text = std::fs::read(&item.input);
             let payload = text.as_ref().ok().map(|text| payload_key(text));
-            (std::sync::Mutex::new(Some(text)), payload)
+            let keep = text.as_ref().map_or(true, |bytes| {
+                let before = preloaded.fetch_add(bytes.len(), std::sync::atomic::Ordering::Relaxed);
+                before + bytes.len() <= PRELOAD_BUDGET
+            });
+            (std::sync::Mutex::new(keep.then_some(text)), payload)
         }).unzip();
         let groups = duplicate_groups(&work, &payloads);
         let grouped = groups.par_iter().map_init(Vec::<u8>::new, |b64, group| {
             let memo = crate::decompile_core::DuplicateMemo::default();
             let memo = (group.len() > 1).then_some(&memo);
             group.iter().map(|&index| {
-                let text = texts[index].lock().unwrap().take().unwrap();
+                let text = texts[index].lock().unwrap().take()
+                    .unwrap_or_else(|| std::fs::read(&work[index].input));
                 (index, process_text(&work[index], text, b64, memo))
             }).collect::<Vec<_>>()
         }).collect::<Vec<_>>();
@@ -344,6 +353,9 @@ struct FolderDiagnostic {
 
 /// Hash and length of the payload the decoder sees: lines starting with `--`
 /// dropped, spaces, tabs and carriage returns removed.
+/// Input bytes kept from the grouping read for the decompile pass.
+const PRELOAD_BUDGET: usize = 64 << 20;
+
 fn payload_key(text: &[u8]) -> (u64, usize) {
     use std::hash::Hasher;
     let mut hasher = rustc_hash::FxHasher::default();

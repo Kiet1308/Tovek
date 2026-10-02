@@ -100,6 +100,18 @@
       "bytes": 227,
       "lines": 15
     },
+    "semantic/builtin_last_argument_kinds__O0.luau": {
+      "bytes": 545,
+      "lines": 36
+    },
+    "semantic/builtin_last_argument_kinds__O1.luau": {
+      "bytes": 545,
+      "lines": 36
+    },
+    "semantic/builtin_last_argument_kinds__O2.luau": {
+      "bytes": 594,
+      "lines": 38
+    },
     "semantic/call_before_capture_read__O0.luau": {
       "bytes": 420,
       "lines": 33
@@ -675,6 +687,18 @@
     "semantic/import_alias_field_reassigned__O2.luau": {
       "bytes": 394,
       "lines": 19
+    },
+    "semantic/import_alias_script_globals__O0.luau": {
+      "bytes": 460,
+      "lines": 38
+    },
+    "semantic/import_alias_script_globals__O1.luau": {
+      "bytes": 460,
+      "lines": 38
+    },
+    "semantic/import_alias_script_globals__O2.luau": {
+      "bytes": 471,
+      "lines": 40
     },
     "semantic/import_callee_alias__O0.luau": {
       "bytes": 323,

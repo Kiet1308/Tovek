@@ -87,7 +87,9 @@
    "loop_swaps_of_captured_locals": "review follow-ups 2026-10-02 (cell copies, loop exits)",
    "swap_after_breaking_for": "review follow-ups 2026-10-02 (cell copies, loop exits)",
    "value_capture_of_cell_copy": "review follow-ups 2026-10-02 (cell copies, loop exits)",
-   "returned_local_helper": "review follow-ups 2026-10-02 (cell copies, loop exits)"
+   "returned_local_helper": "review follow-ups 2026-10-02 (cell copies, loop exits)",
+   "builtin_last_argument_kinds": "external review 2026-10-02 (builtin args, import aliases)",
+   "import_alias_script_globals": "external review 2026-10-02 (builtin args, import aliases)"
   }
  },
  "summary": {
@@ -136,6 +138,12 @@
    "status": "ok",
    "nonequiv": 2,
    "protos": 3
+  },
+  {
+   "file": "builtin_last_argument_kinds",
+   "status": "ok",
+   "nonequiv": 6,
+   "protos": 12
   },
   {
    "file": "call_moved_past_captured_store",
@@ -424,6 +432,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 4
+  },
+  {
+   "file": "import_alias_script_globals",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 6
   },
   {
    "file": "import_callee_alias",
