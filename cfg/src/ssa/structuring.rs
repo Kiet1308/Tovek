@@ -933,6 +933,20 @@ fn is_for_body_edge(function: &Function, before: NodeIndex, body: NodeIndex) -> 
 
 // TODO: REFACTOR: same as match_jump in restructure, maybe can use some common code?
 // TODO: STYLE: rename to merge_blocks or something
+/// Whether `node` joins a loop's own exit with an exit from inside its body
+/// (a `break`): one predecessor is a loop header dominating another.
+fn joins_loop_exits(function: &Function, dominators: &crate::dominators::Dominators, node: NodeIndex) -> bool {
+    let dominated_by = |node: NodeIndex, by: NodeIndex| {
+        dominators.dominators(node).is_some_and(|mut chain| chain.any(|dominator| dominator == by))
+    };
+    let predecessors = function.predecessor_blocks(node).collect_vec();
+    predecessors.len() > 1
+        && predecessors.iter().any(|&header| {
+            function.predecessor_blocks(header).any(|latch| dominated_by(latch, header))
+                && predecessors.iter().any(|&exit| exit != header && dominated_by(exit, header))
+        })
+}
+
 pub fn structure_jumps(function: &mut Function, dominators: &crate::dominators::Dominators) -> bool {
     let mut did_structure = false;
     for node in function.graph().node_indices().collect_vec() {
@@ -946,7 +960,14 @@ pub fn structure_jumps(function: &mut Function, dominators: &crate::dominators::
             let jump_edge = jump.id();
             let block = function.block(node).unwrap();
             // TODO: block_is_no_op?
-            if block.is_empty() {
+            // An empty join of a loop's exits passing values on (`a, c = c, a`
+            // or `local n = 0` after `for ... if x then break end end`, folded
+            // into the next phi) holds the copies once; skipped, both the
+            // `break` and the loop's own exit would carry them, which no
+            // structure can place.
+            let shared_transfer = !function.graph().edge_weight(jump_edge).unwrap().arguments.is_empty()
+                && joins_loop_exits(function, dominators, node);
+            if block.is_empty() && !shared_transfer {
                 let mut remove = true;
                 for pred in function.predecessor_blocks(node).collect_vec() {
                     // An empty block immediately after FORGLOOP/FORNLOOP is the

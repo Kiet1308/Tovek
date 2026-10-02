@@ -521,6 +521,7 @@ fn decompile_bytecode_internal(
                     let function_id = function.id;
                     let readonly_upvalues = capture_effects.readonly.get(function_id)
                         .map(Vec::as_slice).unwrap_or(&[]);
+                    let written_slots = capture_effects.refusal.is_none().then_some(capture_effects.written.as_slice());
                     let _profile_context = ast::telemetry::enter(profile_context.as_ref().map(|c| c.prototype(function_id)));
                     let _profile_function = ast::telemetry::Span::new("FUNCTION");
                     let mut args = std::panic::AssertUnwindSafe(Some((
@@ -544,6 +545,7 @@ fn decompile_bytecode_internal(
                             upvalues_in,
                             options.control_flow_policy,
                             readonly_upvalues,
+                            written_slots,
                         )
                     });
 
@@ -1532,10 +1534,8 @@ fn terminal_cleanup_block(function: &Function) -> Option<petgraph::stable_graph:
 fn cleanup_ssa<const SPECIALIZE: bool>(
     function: &mut Function,
     local_to_group: &FxHashMap<ast::RcLocal, usize>,
-    upvalue_to_group: &mut IndexMap<ast::RcLocal, ast::RcLocal>,
-    readonly_capture_ids: &FxHashSet<u64>,
+    cells: &mut CellGroups,
     incoming_upvalue_ids: &FxHashSet<u64>,
-    protected_upvalue_locals: &mut FxHashSet<ast::RcLocal>,
     mut rounds_left: usize,
 ) -> bool {
     let mut changed = true;
@@ -1554,7 +1554,7 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
                 function.blocks().next().unwrap().1.len() as u64);
             ptime!(F_SSA_INLINE);
             ssa::inline::inline_with_readonly_captures(function, local_to_group,
-                upvalue_to_group, readonly_capture_ids, Some(incoming_upvalue_ids));
+                cells.upvalue_to_group, cells.readonly_ids, Some(incoming_upvalue_ids));
             return true;
         }
 
@@ -1571,12 +1571,12 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
         {
             ptime!(F_SSA_INLINE);
             ssa::inline::inline_with_readonly_captures(function, local_to_group,
-                upvalue_to_group, readonly_capture_ids, Some(incoming_upvalue_ids));
+                cells.upvalue_to_group, cells.readonly_ids, Some(incoming_upvalue_ids));
         }
 
         let sc = {
             ptime!(F_STRUCTURE_CONDS);
-            structure_conditionals_with_changes(function, &|local| protected_upvalue_locals.contains(local))
+            structure_conditionals_with_changes(function, &|local| cells.protected.contains(local))
         };
         if topology_changed || sc.topology_changed { dominator_cache = None; }
         if sc.changed
@@ -1596,13 +1596,13 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
             ssa::construct::remove_unnecessary_params(
                 function,
                 &mut local_map,
-                Some(upvalue_to_group),
+                Some(cells.upvalue_to_group),
                 Some(local_to_group),
             )
         };
         if rp {
             changed = true;
-            adopt_cell_replacements(&local_map, upvalue_to_group, protected_upvalue_locals);
+            cells.adopt_replacements(&local_map);
         }
         {
             ptime!(F_APPLY_MAP);
@@ -1612,32 +1612,74 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
     true
 }
 
-/// A captured cell's version replaced by a value of its register from outside
-/// the cell (the trivial phi `enabled = phi(flag, enabled)` becomes `flag`):
-/// that value now is the cell, so it joins the cell's group and protection.
-/// Otherwise later rounds treat it as a plain value, and the inliner folds a
-/// copy into it (`a = b`), making `a` and `b` one variable.
-fn adopt_cell_replacements(
-    local_map: &FxHashMap<ast::RcLocal, ast::RcLocal>,
-    upvalue_to_group: &mut IndexMap<ast::RcLocal, ast::RcLocal>,
-    protected_upvalue_locals: &mut FxHashSet<ast::RcLocal>,
-) {
-    let mut adopted = local_map.iter().filter_map(|(from, to)| {
-        let cell = upvalue_to_group.get(from)?;
-        let mut to = to;
-        while let Some(next) = local_map.get(to) {
-            to = next;
+/// The captured cells of a function as SSA cleanup sees them.
+struct CellGroups<'a> {
+    /// Each version of a cell, by its group root.
+    upvalue_to_group: &'a mut IndexMap<ast::RcLocal, ast::RcLocal>,
+    /// Versions no source-like allocation may reuse.
+    protected: &'a mut FxHashSet<ast::RcLocal>,
+    /// Versions of immutable incoming cells: nothing can change them.
+    readonly_ids: &'a FxHashSet<u64>,
+}
+
+impl CellGroups<'_> {
+    /// A captured cell's version replaced by a value of its register from
+    /// outside the cell (the trivial phi `enabled = phi(flag, enabled)`
+    /// becomes `flag`): that value now is the cell, so it joins the cell's
+    /// group and protection. Otherwise later rounds treat it as a plain
+    /// value, and the inliner folds a copy into it (`a = b`), making `a` and
+    /// `b` one variable.
+    fn adopt_replacements(&mut self, local_map: &FxHashMap<ast::RcLocal, ast::RcLocal>) {
+        let mut adopted = local_map.iter().filter_map(|(from, to)| {
+            let cell = self.upvalue_to_group.get(from)?;
+            let mut to = to;
+            while let Some(next) = local_map.get(to) {
+                to = next;
+            }
+            (!self.upvalue_to_group.contains_key(to)).then(|| (to.clone(), cell.clone()))
+        }).collect::<Vec<_>>();
+        if adopted.is_empty() {
+            return;
         }
-        (!upvalue_to_group.contains_key(to)).then(|| (to.clone(), cell.clone()))
-    }).collect::<Vec<_>>();
-    if adopted.is_empty() {
-        return;
+        adopted.sort_by_key(|(local, _)| local.stable_id());
+        for (local, cell) in adopted {
+            self.protected.insert(local.clone());
+            self.upvalue_to_group.entry(local).or_insert(cell);
+        }
     }
-    adopted.sort_by_key(|(local, _)| local.stable_id());
-    for (local, cell) in adopted {
-        protected_upvalue_locals.insert(local.clone());
-        upvalue_to_group.entry(local).or_insert(cell);
+}
+
+/// The roots of the cells this function passes (`passed_roots`) that no
+/// closure writes: every closure capturing one by reference leaves that
+/// upvalue unassigned, and so does each closure it hands the upvalue on to
+/// (`written_slots`, from `capture_effects`). Only this function's own
+/// definitions, which SSA sees, then change such a cell.
+fn unwritten_cells(
+    function: &Function,
+    upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
+    mut passed_roots: FxHashSet<ast::RcLocal>,
+    written_slots: Option<&[Vec<bool>]>,
+) -> FxHashSet<ast::RcLocal> {
+    let Some(written_slots) = written_slots else { return FxHashSet::default() };
+    for (_, block) in function.blocks() {
+        for statement in block.iter() {
+            statement.traverse_rvalues_ref(&mut |value| {
+                let ast::RValue::Closure(closure) = value else { return };
+                let prototype = closure.function.0.lock().bytecode_proto_id;
+                for (slot, upvalue) in closure.upvalues.iter().enumerate() {
+                    let ast::Upvalue::Ref(local) = upvalue else { continue };
+                    let Some(cell) = upvalue_to_group.get(local) else { continue };
+                    let assigned = prototype
+                        .and_then(|prototype| written_slots.get(prototype)?.get(slot).copied())
+                        .unwrap_or(true);
+                    if assigned {
+                        passed_roots.remove(cell);
+                    }
+                }
+            });
+        }
     }
+    passed_roots
 }
 
 #[cfg(test)]
@@ -1655,6 +1697,9 @@ fn decompile_function(
     upvalues_in: Vec<ast::RcLocal>,
     control_flow_policy: ControlFlowOutputPolicy,
     readonly_upvalues: &[bool],
+    // Per prototype and upvalue slot, whether closures assign it
+    // (`capture_effects`); `None` when that analysis refused.
+    written_slots: Option<&[Vec<bool>]>,
 ) -> (
     ByAddress<Arc<Mutex<ast::Function>>>,
     Vec<ast::RcLocal>,
@@ -1706,6 +1751,7 @@ fn decompile_function(
         .chain(passed_group_roots.iter())
         .cloned()
         .collect::<FxHashSet<_>>();
+    let passed_roots = passed_group_roots.iter().cloned().collect::<FxHashSet<_>>();
     let mut upvalue_to_group = upvalue_in_groups
         .into_iter()
         .chain(
@@ -1716,6 +1762,9 @@ fn decompile_function(
         )
         .flat_map(|(i, g)| g.into_iter().map(move |u| (u, i.clone())))
         .collect::<IndexMap<_, _>>();
+    // The SSA inliner still treats these as cells: this function writes
+    // them, and every version is one variable once destructed.
+    let unwritten_cells = unwritten_cells(&function, &upvalue_to_group, passed_roots, written_slots);
     // TODO: do we even need this?
     let local_to_group = local_groups
         .into_iter()
@@ -1745,8 +1794,12 @@ fn decompile_function(
     let rounds_left = (function.graph().node_count()
         + function.graph().edge_weights().map(|edge| edge.arguments.len()).sum::<usize>()
         + 1).saturating_mul(4).max(64);
-    if !cleanup_ssa::<true>(&mut function, &local_to_group, &mut upvalue_to_group,
-        &readonly_capture_ids, &incoming_upvalue_ids, &mut protected_upvalue_locals, rounds_left)
+    let mut cells = CellGroups {
+        upvalue_to_group: &mut upvalue_to_group,
+        protected: &mut protected_upvalue_locals,
+        readonly_ids: &readonly_capture_ids,
+    };
+    if !cleanup_ssa::<true>(&mut function, &local_to_group, &mut cells, &incoming_upvalue_ids, rounds_left)
     {
         ast_function.lock().body = unsupported_structuring_sentinel();
         return (ByAddress(ast_function), upvalues_in, Some(DecompileDiagnostic {
@@ -1780,6 +1833,7 @@ fn decompile_function(
             local_count,
         )
         .with_register_groups(&local_to_group)
+        .with_unwritten_cells(&unwritten_cells)
         .destruct();
     }
     // Freeze the trace before speculative structuring clones the CFG. This

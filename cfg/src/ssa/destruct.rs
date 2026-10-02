@@ -1,6 +1,6 @@
 use std::{cell::{OnceCell, RefCell}, collections::BTreeMap, ops::Deref, rc::Rc};
 
-use ast::{LocalRw, RcLocal};
+use ast::{LocalRw, RcLocal, Traverse};
 use ast::FxIndexMap as IndexMap;
 use itertools::Itertools;
 use petgraph::{
@@ -335,8 +335,14 @@ pub struct Destructor<'a> {
     terminal_block: Option<NodeIndex>,
     /// Bytecode register (lifter local) of each SSA version, when known.
     register_groups: Option<&'a FxHashMap<RcLocal, usize>>,
+    /// Roots of the captured cells no closure writes.
+    unwritten_cells: Option<&'a FxHashSet<RcLocal>>,
     /// Registers of the phi transports this destructor creates.
     transport_groups: FxHashMap<RcLocal, usize>,
+    /// Locals a phi transport carries (`temp = local` on an edge).
+    transported: FxHashSet<RcLocal>,
+    /// Locals closures of this function capture, collected on first use.
+    captured: Option<FxHashSet<RcLocal>>,
 }
 
 /// Terminal SSA still needs copy/capture coalescing and sequentialization,
@@ -394,7 +400,10 @@ impl<'a> Destructor<'a> {
             undesirable_blocks: FxHashSet::default(),
             terminal_block,
             register_groups: None,
+            unwritten_cells: None,
             transport_groups: FxHashMap::default(),
+            transported: FxHashSet::default(),
+            captured: None,
         }
     }
 
@@ -405,6 +414,78 @@ impl<'a> Destructor<'a> {
     pub fn with_register_groups(mut self, register_groups: &'a FxHashMap<RcLocal, usize>) -> Self {
         self.register_groups = Some(register_groups);
         self
+    }
+
+    pub fn with_unwritten_cells(mut self, unwritten_cells: &'a FxHashSet<RcLocal>) -> Self {
+        self.unwritten_cells = Some(unwritten_cells);
+        self
+    }
+
+    /// Joins `left` to the cell of `right` for the copy `left = right` out of
+    /// a cell no closure writes (`local instance = attachment`), when `left`
+    /// is defined only there, flows into no phi (whose other values would
+    /// then be written to the cell), is captured by no closure (which, in
+    /// source, would see the cell's later writes), and is dead at every
+    /// later write of it:
+    /// every such write is a definition here, so `left` then always reads
+    /// the value it copied. Value equality does not decide: all versions of a
+    /// cell are one variable, so equal versions may still be overwritten. A
+    /// copy into a cell would give it its value early, where a closure may
+    /// still read the old one.
+    fn captured_locals(&mut self) -> &FxHashSet<RcLocal> {
+        let function = &*self.function;
+        self.captured.get_or_insert_with(|| {
+            let mut captured = FxHashSet::default();
+            for (_, block) in function.blocks() {
+                for statement in block.iter() {
+                    statement.traverse_rvalues_ref(&mut |value| {
+                        if let ast::RValue::Closure(closure) = value {
+                            captured.extend(closure.upvalues.iter().map(|upvalue| {
+                                let (ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local)) = upvalue;
+                                local.clone()
+                            }));
+                        }
+                    });
+                }
+            }
+            captured
+        })
+    }
+
+    fn coalesce_unwritten_cell_copy(&mut self, left: &RcLocal, right: &RcLocal) -> bool {
+        if self.upvalue_to_group.contains_key(left)
+            || self.transported.contains(left)
+            || !self.upvalue_to_group.get(right)
+                .is_some_and(|cell| self.unwritten_cells.is_some_and(|cells| cells.contains(cell)))
+            || self.captured_locals().contains(left)
+        {
+            return false;
+        }
+        // A copy keeping a source local of its own (`local second = value`)
+        // stays that local, as any copy does.
+        if !left.source_bindings_compatible(right) {
+            return false;
+        }
+        let copy = self.get_congruence_class(left.clone()).clone();
+        let cell = self.get_congruence_class(right.clone()).clone();
+        if copy.borrow().len() != 1
+            || Rc::ptr_eq(&copy, &cell)
+            || !cell.borrow().bindings().compatible(copy.borrow().bindings())
+        {
+            return false;
+        }
+        let written_while_live = cell.borrow().values().any(|version| {
+            version != left && self.dominates(left, version) && self.intersect(version, left)
+        });
+        if written_while_live {
+            return false;
+        }
+        self.merge_congruence_classes(&cell, &copy);
+        // `left` is the cell now: no later copy may join another definition
+        // to it, which would become a write closures observe.
+        let root = self.upvalue_to_group[right].clone();
+        self.upvalue_to_group.insert(left.clone(), root);
+        true
     }
 
     fn register_group(&self, local: &RcLocal) -> Option<usize> {
@@ -851,6 +932,9 @@ impl<'a> Destructor<'a> {
                     if self.upvalue_to_group.contains_key(&left)
                         || self.upvalue_to_group.contains_key(&right)
                     {
+                        if self.coalesce_unwritten_cell_copy(&left, &right) {
+                            to_remove.push(i);
+                        }
                         continue;
                     }
                     if same_register_only
@@ -1462,6 +1546,9 @@ impl<'a> Destructor<'a> {
                             .insert(temp_local.clone(), group.clone());
                     }
 
+                    if let ast::RValue::Local(arg) = arg {
+                        self.transported.insert(arg.clone());
+                    }
                     parallel_assign.left.push(temp_local.clone().into());
                     parallel_assign
                         .right

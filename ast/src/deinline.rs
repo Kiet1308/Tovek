@@ -3024,9 +3024,10 @@ fn try_match_at(
                 outer_continuation,
                 last_occ,
                 canon_cache,
+                current_func,
             ),
             (TKind::Value, ValueAnchor::AtResultDecl) => {
-                match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache)
+                match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func)
             }
             (TKind::Value, ValueAnchor::AtPrefix) => {
                 match_value_prefixed(stmts, i, t, current_func, is_func_body_top, last_occ)
@@ -3087,6 +3088,7 @@ fn match_void(
     outer_continuation: &[&[Statement]],
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
     canon_cache: &mut CanonCache,
+    current_func: Option<FnPtr>,
 ) -> Option<Hit> {
     let kc = t.pat.len();
     // Written-param targets (`Target::written_params`): the site starts with one
@@ -3140,7 +3142,7 @@ fn match_void(
             if shorter {
                 let plain = canon_window(canon_cache, t, stmts, start, w);
                 if charge_unify(t, &plain)
-                    && let Some(u) = try_unify_specialized_site(t, &plain, &prefix)
+                    && let Some(u) = try_unify_specialized_site(t, &plain, &prefix, current_func)
                     && !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals)
                 {
                     record_site(&mut site, &mut ambiguous, w, &u, None);
@@ -3163,7 +3165,7 @@ fn match_void(
             };
             if !plain_blocked && plain_kinds_may_match(t, raw) {
                 let plain = canon_window(canon_cache, t, stmts, start, w);
-                if let Some(u) = try_unify_site_any(t, &plain, &prefix) {
+                if let Some(u) = try_unify_site_any(t, &plain, &prefix, current_func) {
                     // every callee-temp must be dead after the consumed window, else
                     // a later use would reference a now-removed declaration.
                     if !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals) {
@@ -3177,7 +3179,7 @@ fn match_void(
             if t.cps_loop_return && (start + w < stmts.len() || !outer_continuation.is_empty()) {
                 let plain = canon_window(canon_cache, t, stmts, start, w);
                 let continuation = semantic_continuation(&stmts[start + w..], outer_continuation);
-                if let Some(u) = try_unify_cps_site(t, raw, &plain, &continuation, &prefix) {
+                if let Some(u) = try_unify_cps_site(t, raw, &plain, &continuation, &prefix, current_func) {
                     let live = tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals);
                     if !live {
                         record_site(&mut site, &mut ambiguous, w, &u, None);
@@ -3193,7 +3195,7 @@ fn match_void(
             && charge_window(t, &unflagged)
         {
             let folded = canon_recurse(canon_top(&unflagged, true), true);
-            if let Some(u) = try_unify_site_any(t, &folded, &prefix) {
+            if let Some(u) = try_unify_site_any(t, &folded, &prefix, current_func) {
                 let mut dead = |set: &FxHashSet<RcLocal>| !tail_has_live(last_occ, stmts, i, start + w, set);
                 if dead(&u.callee_locals) && dead(&flags) {
                     record_site(&mut site, &mut ambiguous, w, &u, None);
@@ -3209,7 +3211,7 @@ fn match_void(
             let rewritten = rewrite_return_to_void(raw, &ret);
             if canon_top_len(&rewritten, true) == kc && charge_window(t, &rewritten) {
                 let folded = canon_recurse(canon_top(&rewritten, true), true);
-                if let Some(u) = try_unify_site_any(t, &folded, &prefix) {
+                if let Some(u) = try_unify_site_any(t, &folded, &prefix, current_func) {
                     if !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals) {
                         record_site(&mut site, &mut ambiguous, w, &u, None);
                     }
@@ -3225,7 +3227,7 @@ fn match_void(
             let rewritten = rewrite_return_to_void(raw, &ret);
             if canon_top_len(&rewritten, true) == kc && charge_window(t, &rewritten) {
                 let folded = canon_recurse(canon_top(&rewritten, true), true);
-                if let Some(u) = try_unify_site_any(t, &folded, &prefix) {
+                if let Some(u) = try_unify_site_any(t, &folded, &prefix, current_func) {
                     if !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals) {
                         record_site(&mut site, &mut ambiguous, w, &u, Some(&ret));
                     }
@@ -3258,9 +3260,10 @@ fn match_value(
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
     canon_cache: &mut CanonCache,
+    current_func: Option<FnPtr>,
 ) -> Option<Hit> {
     let Some(r) = result_decl(&stmts[i]) else {
-        return match_declared_value(stmts, i, i, t, is_func_body_top, last_occ);
+        return match_declared_value(stmts, i, i, t, is_func_body_top, last_occ, current_func);
     };
     let kc = t.pat.len();
     let body_start = i + 1;
@@ -3310,7 +3313,7 @@ fn match_value(
                 continue;
             }
             let region_eff: &[Statement] = rewritten.as_deref().unwrap_or(region);
-            if let Some(u) = try_unify_site_any(t, cw, &[]) {
+            if let Some(u) = try_unify_site_any(t, cw, &[], current_func) {
                 // RESULT must be exactly the declared local and only written (never
                 // read) inside the region, so the region is its full computation.
                 // A later reassignment of RESULT is FINE: the replacement re-declares
@@ -3359,6 +3362,7 @@ fn match_declared_value(
     t: &Target,
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    current_func: Option<FnPtr>,
 ) -> Option<Hit> {
     let Statement::Assign(decl) = &stmts[d] else { return None };
     if !decl.prefix || decl.parallel || decl.left.len() != 1 || decl.right.len() != 1 {
@@ -3374,12 +3378,89 @@ fn match_declared_value(
     if canon_top_len(&window, true) != t.pat.len() || block_has_return(prefix) || !charge_window(t, &window) {
         return None;
     }
-    let u = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), &[])?;
+    let u = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), &[], current_func)?;
     let complete = u.result.as_ref() == Some(r)
         && !u.callee_locals.contains(r)
         && !block_reads_local(prefix, r)
         && !tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals);
     complete.then(|| Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, results: vec![r.clone()], tail_ret: None, host: None })
+}
+
+/// `<prefix>` computing a local the helper returns, then read under its own
+/// name: `local conn; conn = signal:Connect(function() conn:Disconnect() end)`
+/// before `trove:Add(conn)`, for a helper ending `return conn`. The call
+/// declares that local: `local conn = helper(args)`, or stands alone when
+/// nothing reads it. The helper's closures keep their own `conn` then, so
+/// nothing may write the local once the prefix defines it: no later
+/// statement, and no closure, the prefix's included.
+fn match_returned_local(
+    stmts: &[Statement],
+    i: usize,
+    d: usize,
+    t: &Target,
+    current_func: Option<FnPtr>,
+    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+) -> Option<Hit> {
+    let prefix = &stmts[i..d];
+    if t.falls_off || prefix.is_empty() || block_has_return(prefix) {
+        return None;
+    }
+    let Some(Statement::Return(ret)) = t.pat.last() else { return None };
+    if !matches!(ret.values.as_slice(), [RValue::Local(_)]) {
+        return None;
+    }
+    let mut written_later = FxHashSet::default();
+    collect_written(&stmts[d..], &mut written_later);
+    closure_writes(prefix, &mut written_later);
+    let declared = prefix.iter().filter_map(|statement| match statement {
+        Statement::Assign(assign) if assign.prefix => Some(assign.left.iter()),
+        _ => None,
+    }).flatten().filter_map(|left| left.as_local());
+    for local in declared {
+        if written_later.contains(local) {
+            continue;
+        }
+        let read_later = tail_has_live(last_occ, stmts, i, d, &FxHashSet::from_iter([local.clone()]));
+        let result = RcLocal::default();
+        let mut window = prefix.to_vec();
+        window.push(Assign::new(vec![result.clone().into()], vec![RValue::Local(local.clone())]).into());
+        if canon_top_len(&window, true) != t.pat.len() || !charge_window(t, &window) {
+            continue;
+        }
+        let Some(u) = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), &[], current_func) else {
+            continue;
+        };
+        let mut others = u.callee_locals.clone();
+        others.remove(local);
+        if u.result.as_ref() != Some(&result) || tail_has_live(last_occ, stmts, i, d, &others) {
+            continue;
+        }
+        let results = if read_later { vec![local.clone()] } else { Vec::new() };
+        return Some(Hit { f_local: t.f_local.clone(), consume: d - i, args: u.args, results, tail_ret: None, host: None });
+    }
+    None
+}
+
+/// The locals the closures `stmts` create write, at any depth.
+fn closure_writes(stmts: &[Statement], out: &mut FxHashSet<RcLocal>) {
+    for statement in stmts {
+        statement.traverse_rvalues_ref(&mut |value| {
+            if let RValue::Closure(closure) = value {
+                collect_written(&closure.function.0.lock().body.0, out);
+            }
+        });
+        match statement {
+            Statement::If(branch) => {
+                closure_writes(&branch.then_block.lock().0, out);
+                closure_writes(&branch.else_block.lock().0, out);
+            }
+            Statement::While(node) => closure_writes(&node.block.lock().0, out),
+            Statement::Repeat(node) => closure_writes(&node.block.lock().0, out),
+            Statement::NumericFor(node) => closure_writes(&node.block.lock().0, out),
+            Statement::GenericFor(node) => closure_writes(&node.block.lock().0, out),
+            _ => {}
+        }
+    }
 }
 
 /// `<prefix>; S` where SSA folded the value branch into the one statement
@@ -3431,15 +3512,15 @@ fn match_embedded_value(
     let mut prefix_writes = FxHashSet::default();
     collect_written(prefix, &mut prefix_writes);
     let prefix_runs_code = may_run_code(prefix);
+    let function = current_func.map(|function| function as usize);
+    let register = |local: &RcLocal| t.captures.register_of(local, function);
     let changed_by_prefix = |read: &Earlier| match read {
         Earlier::Value(RValue::Literal(_)) => false,
         Earlier::Value(value @ RValue::Local(local)) => {
-            prefix_writes.contains(local) || (prefix_runs_code && !t.captures.stable(value))
+            prefix_writes.contains(local) || (prefix_runs_code && !t.captures.stable_at(value, function))
         }
         Earlier::Value(value) => prefix_runs_code && !t.captures.constant_import(value),
     };
-    let function = current_func.map(|function| function as usize);
-    let register = |local: &RcLocal| t.captures.register_of(local, function);
     visit_leading_values(&mut host, &register, &mut |value, evaluated_before, spread| {
         if value_kind(value) != root || evaluated_before.iter().any(&changed_by_prefix) {
             return false;
@@ -3456,7 +3537,7 @@ fn match_embedded_value(
         if !charge_window(t, &window) {
             return false;
         }
-        let Some(u) = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), &[]) else {
+        let Some(u) = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), &[], current_func) else {
             return false;
         };
         if u.result.as_ref() != Some(&result) || u.callee_locals.contains(&result) {
@@ -3722,8 +3803,9 @@ fn match_value_prefixed(
     // reconstruction. Count only non-trivia statements instead.
     let d = nth_effective_index(stmts, i, p)?;
     let Some(r) = result_decl(&stmts[d]) else {
-        return match_declared_value(stmts, i, d, t, is_func_body_top, last_occ)
-            .or_else(|| match_embedded_value(stmts, i, d, t, current_func, is_func_body_top, last_occ));
+        return match_declared_value(stmts, i, d, t, is_func_body_top, last_occ, current_func)
+            .or_else(|| match_embedded_value(stmts, i, d, t, current_func, is_func_body_top, last_occ))
+            .or_else(|| match_returned_local(stmts, i, d, t, current_func, last_occ));
     };
     let kc = t.pat.len();
     let region_start = d + 1;
@@ -3772,7 +3854,7 @@ fn match_value_prefixed(
             let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
             canon_recurse(canon_top(&union, true), true)
         };
-        if let Some(u) = try_unify_site_any(t, &cwin, &[]) {
+        if let Some(u) = try_unify_site_any(t, &cwin, &[], current_func) {
             // RESULT must be exactly the interposed decl, written-only inside the
             // union (its full computation), NOT also a callee-prefix binder (the
             // getOwnerId reassignment-collision class), and every OTHER callee temp
@@ -3988,7 +4070,7 @@ struct Unified {
 /// target without written params.
 type Prefix = [(RcLocal, RValue)];
 
-fn try_unify_site(t: &Target, cwin: &[Statement], prefix: &Prefix) -> Option<Unified> {
+fn try_unify_site(t: &Target, cwin: &[Statement], prefix: &Prefix, current_func: Option<FnPtr>) -> Option<Unified> {
     dprof::inc(&dprof::UNIFY_CALLS, 1);
     crate::telemetry::count("unify_calls", 1);
     let _t = dprof::T::new(&dprof::UNIFY_US);
@@ -3996,7 +4078,7 @@ fn try_unify_site(t: &Target, cwin: &[Statement], prefix: &Prefix) -> Option<Uni
     if unify_block(t, &t.pat, cwin, &mut b).is_err() {
         return None;
     }
-    finish_unified(t, cwin, b, prefix)
+    finish_unified(t, cwin, b, prefix, current_func)
 }
 
 fn finish_unified(
@@ -4004,6 +4086,8 @@ fn finish_unified(
     cwin: &[Statement],
     b: Bindings,
     prefix: &Prefix,
+    // The function the site is in: its registers read alike across calls.
+    current_func: Option<FnPtr>,
 ) -> Option<Unified> {
     let mut args = Vec::with_capacity(t.param_order.len());
     // Every consumed prefix copy must feed exactly one written param — an unbound
@@ -4097,7 +4181,7 @@ fn finish_unified(
             }
             continue;
         }
-        if !t.captures.stable(a) {
+        if !t.captures.stable_at(a, current_func.map(|function| function as usize)) {
             let first = if matches!(a, RValue::Local(_)) { &t.first_register_reads } else { &t.first_reads };
             if moved || !first.contains(&t.param_order[idx]) {
                 return None;
@@ -4132,11 +4216,11 @@ fn finish_unified(
 /// verified partial evaluation.  The fallback never trusts the partial match:
 /// it only uses it to seed arguments, specializes a deep copy of the recovered
 /// definition, then requires a full structural unification against the site.
-fn try_unify_site_any(t: &Target, cwin: &[Statement], prefix: &Prefix) -> Option<Unified> {
+fn try_unify_site_any(t: &Target, cwin: &[Statement], prefix: &Prefix, current_func: Option<FnPtr>) -> Option<Unified> {
     if !charge_unify(t, cwin) {
         return None;
     }
-    try_unify_site(t, cwin, prefix).or_else(|| try_unify_specialized_site(t, cwin, prefix))
+    try_unify_site(t, cwin, prefix, current_func).or_else(|| try_unify_specialized_site(t, cwin, prefix, current_func))
 }
 
 /// Fuel for unifying one candidate window: the pattern's node count, the most
@@ -4181,6 +4265,7 @@ fn try_unify_cps_site(
     cwin: &[Statement],
     continuation: &[Statement],
     prefix: &Prefix,
+    current_func: Option<FnPtr>,
 ) -> Option<Unified> {
     if !t.cps_loop_return
         || continuation.is_empty()
@@ -4198,7 +4283,7 @@ fn try_unify_cps_site(
     if !cps_unify_block(t, &t.pat, cwin, &continuation, true, &mut bindings) {
         return None;
     }
-    finish_unified(t, cwin, bindings, prefix)
+    finish_unified(t, cwin, bindings, prefix, current_func)
 }
 
 fn cps_unify_block(
@@ -4440,7 +4525,7 @@ fn cps_unify_loop_exit(
     equal
 }
 
-fn try_unify_specialized_site(t: &Target, cwin: &[Statement], prefix: &Prefix) -> Option<Unified> {
+fn try_unify_specialized_site(t: &Target, cwin: &[Statement], prefix: &Prefix, current_func: Option<FnPtr>) -> Option<Unified> {
     if !t.specializable || t.params.is_empty() {
         return None;
     }
@@ -4485,7 +4570,7 @@ fn try_unify_specialized_site(t: &Target, cwin: &[Statement], prefix: &Prefix) -
     if unify_block(t, &specialized, cwin, &mut verified).is_err() {
         return None;
     }
-    finish_unified(t, cwin, verified, prefix)
+    finish_unified(t, cwin, verified, prefix, current_func)
 }
 
 /// Harvest parameter bindings from structurally corresponding prefixes.  A
@@ -6578,7 +6663,7 @@ mod tests {
         let target = void_target(pat, declared);
         let cand = canon(&[print_x(), assign_local(&other, add_one(&other), false)]);
 
-        assert!(try_unify_site(&target, &cand, &[]).is_none());
+        assert!(try_unify_site(&target, &cand, &[], None).is_none());
     }
 
     #[test]
@@ -6591,11 +6676,11 @@ mod tests {
         let first: RValue = Call::new(global("first"), vec![]).into();
         let last: RValue = Call::new(global("last"), vec![]).into();
         let prefix = vec![(a.clone(), first.clone()), (b.clone(), last.clone())];
-        let hit = finish_unified(&target, &[], bindings.clone(), &prefix).unwrap();
+        let hit = finish_unified(&target, &[], bindings.clone(), &prefix, None).unwrap();
         // A non-variadic helper drops a trailing call's extra results itself.
         assert!(hit.args.iter().all(|v| matches!(v, RValue::Call(_))));
-        assert!(finish_unified(&target, &[], bindings.clone(), &[(b.clone(), last), (a.clone(), first.clone())]).is_none());
-        assert!(finish_unified(&target, &[], bindings, &[(a.clone(), first), (b, a.into())]).is_none());
+        assert!(finish_unified(&target, &[], bindings.clone(), &[(b.clone(), last), (a.clone(), first.clone())], None).is_none());
+        assert!(finish_unified(&target, &[], bindings, &[(a.clone(), first), (b, a.into())], None).is_none());
     }
 
     /// `local name = function() BODY end`
@@ -7033,7 +7118,7 @@ mod tests {
             Block::default(),
         ))]);
 
-        let unified = try_unify_site_any(&target, &candidate, &[])
+        let unified = try_unify_site_any(&target, &candidate, &[], None)
             .expect("literal-specialized branch must refold only after exact verification");
         assert_eq!(unified.args.len(), 2);
         assert!(rvalue_exact_eq(&unified.args[0], &string("OTHER")));
@@ -7048,7 +7133,7 @@ mod tests {
             vec![local_value(&caller_key)],
         ));
         assert!(
-            try_unify_site_any(&target, &wrong, &[]).is_none(),
+            try_unify_site_any(&target, &wrong, &[], None).is_none(),
             "a non-specialization body difference must remain refused"
         );
     }
@@ -7102,7 +7187,7 @@ mod tests {
         ))]);
 
         assert!(
-            try_unify_specialized_site(&target, &candidate, &[]).is_none(),
+            try_unify_specialized_site(&target, &candidate, &[], None).is_none(),
             "two fresh tables must never collapse into one reconstructed argument"
         );
     }
@@ -7173,7 +7258,7 @@ mod tests {
         ]);
 
         assert!(
-            try_unify_site(&target, &candidate, &[]).is_none(),
+            try_unify_site(&target, &candidate, &[], None).is_none(),
             "moving a potentially metamethod-backed operator before print is unsound"
         );
     }
@@ -7273,7 +7358,7 @@ mod tests {
         let window = vec![Statement::If(If::new(local_value(&actual), Block(normal_path), Block::default()))];
         let candidate = canon(&window);
 
-        let unified = try_unify_cps_site(&target, &window, &candidate, &continuation, &[])
+        let unified = try_unify_cps_site(&target, &window, &candidate, &continuation, &[], None)
             .expect("verified cloned continuation should recover the loop-return helper");
         assert!(rvalue_exact_eq(&unified.args[0], &local_value(&actual)));
 
@@ -7301,7 +7386,7 @@ mod tests {
         let structured_window =
             vec![Statement::If(If::new(local_value(&actual), Block(structured_normal_path), Block::default()))];
         let structured_candidate = canon(&structured_window);
-        let structured = try_unify_cps_site(&target, &structured_window, &structured_candidate, &continuation, &[])
+        let structured = try_unify_cps_site(&target, &structured_window, &structured_candidate, &continuation, &[], None)
             .expect("pre-guard-continue structured loop exit should also refold");
         assert!(rvalue_exact_eq(&structured.args[0], &local_value(&actual)));
 
@@ -7313,7 +7398,7 @@ mod tests {
             Statement::Return(Return::default()),
         ];
         assert!(
-            try_unify_cps_site(&target, &window, &candidate, &wrong_continuation, &[]).is_none(),
+            try_unify_cps_site(&target, &window, &candidate, &wrong_continuation, &[], None).is_none(),
             "a different caller continuation must refuse CPS refolding"
         );
     }
@@ -7500,7 +7585,7 @@ mod tests {
             Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
         ];
         assert!(
-            try_unify_site(&t, &cand, &[]).is_none(),
+            try_unify_site(&t, &cand, &[], None).is_none(),
             "two callee locals mapping to one caller local must be refused"
         );
     }
@@ -7518,12 +7603,12 @@ mod tests {
 
         // is_func_body_top = true AND the window is the whole body -> refused.
         assert!(
-            match_void(&cand, 0, &t, false, true, &[], &mut None, &mut canon_cache,).is_none(),
+            match_void(&cand, 0, &t, false, true, &[], &mut None, &mut canon_cache, None).is_none(),
             "replacing a function's entire body with one call must be refused"
         );
         // Not the whole body (is_func_body_top = false) -> matches.
         assert!(
-            match_void(&cand, 0, &t, false, false, &[], &mut None, &mut canon_cache,).is_some(),
+            match_void(&cand, 0, &t, false, false, &[], &mut None, &mut canon_cache, None).is_some(),
             "the same region matches when it is not the whole body"
         );
     }
@@ -7613,7 +7698,7 @@ mod tests {
             print_x(), // trailing real stmt: the window must stop before it (canon != kc)
         ];
         let mut canon_cache = CanonCache::default();
-        let hit = match_void(&cand, 0, &t, false, false, &[], &mut None, &mut canon_cache)
+        let hit = match_void(&cand, 0, &t, false, false, &[], &mut None, &mut canon_cache, None)
             .expect("two interposed markers must not exceed the effective window ceiling");
         assert_eq!(
             hit.consume, 5,
@@ -7681,7 +7766,7 @@ mod tests {
             Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
             Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
         ];
-        let u = try_unify_site(&t, &cand, &[]).expect("unused trailing param must not block de-inline");
+        let u = try_unify_site(&t, &cand, &[], None).expect("unused trailing param must not block de-inline");
         assert_eq!(
             u.args.len(),
             1,
@@ -7702,7 +7787,7 @@ mod tests {
             Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
             Statement::Call(Call::new(global("print"), vec![local_value(&c)])),
         ];
-        let u = try_unify_site(&t, &cand, &[]).expect("interior unused param must not block de-inline");
+        let u = try_unify_site(&t, &cand, &[], None).expect("interior unused param must not block de-inline");
         assert_eq!(u.args.len(), 2);
         assert!(
             matches!(&u.args[0], RValue::Literal(Literal::Nil)),
@@ -7728,7 +7813,7 @@ mod tests {
             Statement::Call(Call::new(global("print"), vec![local_value(&d)])),
         ];
         assert!(
-            try_unify_site(&t, &cand, &[]).is_none(),
+            try_unify_site(&t, &cand, &[], None).is_none(),
             "a read param with inconsistent bindings must refuse, never default to nil"
         );
     }
@@ -9009,15 +9094,15 @@ mod tests {
             print_local(&l),
         ]);
         let prefix = vec![(l.clone(), number(7.0))];
-        let u = try_unify_site(&t, &cand, &prefix).expect("written param binds to the copy");
+        let u = try_unify_site(&t, &cand, &prefix, None).expect("written param binds to the copy");
         assert_eq!(u.args.len(), 2);
         assert!(rvalue_exact_eq(&u.args[0], &local_value(&q)));
         assert!(rvalue_exact_eq(&u.args[1], &number(7.0)));
         assert!(u.callee_locals.contains(&l), "the copy is a callee temp (must be dead after)");
         // without the copy the written param has no argument -> refused
-        assert!(try_unify_site(&t, &cand, &[]).is_none());
+        assert!(try_unify_site(&t, &cand, &[], None).is_none());
         // a copy that binds no param would be silently deleted -> refused
         let stray = vec![(l.clone(), number(7.0)), (local("other"), number(1.0))];
-        assert!(try_unify_site(&t, &cand, &stray).is_none());
+        assert!(try_unify_site(&t, &cand, &stray, None).is_none());
     }
 }

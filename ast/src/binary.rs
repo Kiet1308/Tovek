@@ -139,6 +139,14 @@ fn repeats_last_operand(left: &RValue, right: &RValue, operation: BinaryOperatio
         && crate::is_total_pure(right)
 }
 
+/// `a and (a and b)` / `a or (a or b)` with a pure `a`: the inner test of
+/// `a` repeats the outer one and decides nothing.
+fn repeats_first_operand(left: &RValue, right: &RValue, operation: BinaryOperation) -> bool {
+    matches!(operation, BinaryOperation::And | BinaryOperation::Or)
+        && matches!(right, RValue::Binary(inner) if inner.operation == operation && *inner.left == *left)
+        && crate::is_total_pure(left)
+}
+
 impl<'a: 'b, 'b> Reduce for Binary {
     fn reduce(self) -> RValue {
         // TODO: true == true, true == false, etc.
@@ -234,6 +242,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 left.into_iter().chain(right.into_iter()).collect(),
             )),
             (left, right, operation) if repeats_last_operand(&left, &right, operation) => left,
+            (left, right, operation) if repeats_first_operand(&left, &right, operation) => right,
             (left, right, operation) => {
                 *left_box = left;
                 *right_box = right;
@@ -333,6 +342,7 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 left.into_iter().chain(right.into_iter()).collect(),
             )),
             (left, right, operation) if repeats_last_operand(&left, &right, operation) => left,
+            (left, right, operation) if repeats_first_operand(&left, &right, operation) => right,
             (left, right, operation) => {
                 *left_box = left;
                 *right_box = right;

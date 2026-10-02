@@ -26,7 +26,7 @@ pub(super) fn replace_direct_rvalue_use(
         Statement::Assign(assign) => assign
             .left
             .iter()
-            .any(|left| lvalue_evaluation_order_barrier(left, facts)),
+            .any(|left| lvalue_evaluation_order_barrier(left, facts, &|_| false)),
         _ => false,
     };
     let mut replaced = false;

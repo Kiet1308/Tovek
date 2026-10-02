@@ -11,18 +11,23 @@ use crate::{
 #[derive(Debug, Default)]
 pub(crate) struct CaptureEffects {
     pub readonly: Vec<Vec<bool>>,
+    /// Per prototype and upvalue slot: whether it or a closure it passes the
+    /// slot on to (UPVAL) assigns it. Empty when the analysis refused.
+    pub written: Vec<Vec<bool>>,
     pub refusal: Option<&'static str>,
 }
 
 impl CaptureEffects {
     pub fn build(chunk: &Chunk) -> Self {
-        match compute(chunk) {
-            Ok(readonly) => Self {
+        match analyze(chunk) {
+            Ok((readonly, written)) => Self {
                 readonly,
+                written,
                 refusal: None,
             },
             Err(reason) => Self {
                 readonly: Vec::new(),
+                written: Vec::new(),
                 refusal: Some(reason),
             },
         }
@@ -52,7 +57,15 @@ impl CaptureEffects {
     }
 }
 
+#[cfg(test)]
 fn compute(chunk: &Chunk) -> Result<Vec<Vec<bool>>, &'static str> {
+    analyze(chunk).map(|(readonly, _)| readonly)
+}
+
+/// Per prototype and slot: readonly incoming cells and assigned slots.
+type SlotTables = (Vec<Vec<bool>>, Vec<Vec<bool>>);
+
+fn analyze(chunk: &Chunk) -> Result<SlotTables, &'static str> {
     if chunk.version != 9 {
         return Err("unsupported bytecode version");
     }
@@ -197,10 +210,8 @@ fn compute(chunk: &Chunk) -> Result<Vec<Vec<bool>>, &'static str> {
             }
         }
     }
-    Ok(offsets
-        .windows(2)
-        .map(|range| readonly[range[0]..range[1]].to_vec())
-        .collect())
+    let per_prototype = |slots: &[bool]| offsets.windows(2).map(|range| slots[range[0]..range[1]].to_vec()).collect();
+    Ok((per_prototype(&readonly), per_prototype(&writes)))
 }
 
 #[cfg(test)]

@@ -8,6 +8,9 @@ pub(crate) struct CaptureSafety {
     references: FxHashSet<u64>,
     /// Locals assigned after their declaration, anywhere in the module.
     rebound: FxHashSet<u64>,
+    /// Locals a function assigns as its upvalue: only those can change
+    /// while their declaring function runs a call.
+    closure_written: FxHashSet<u64>,
     captured: FxHashSet<u64>,
     /// Globals the module assigns somewhere.
     written_globals: FxHashSet<Vec<u8>>,
@@ -24,7 +27,7 @@ pub(crate) struct CaptureSafety {
 impl CaptureSafety {
     pub(crate) fn new(body: &Block) -> Self {
         let mut result = Self::default();
-        result.block(&body.0, 0);
+        result.block(&body.0, 0, &FxHashSet::default());
         result.visited.clear();
         result
     }
@@ -82,6 +85,17 @@ impl CaptureSafety {
         }
     }
 
+    /// Whether reading `value` in `function` (`None`: the chunk) gives the
+    /// same value across any call: it is [`stable`], or a register of that
+    /// function no closure assigns. A call does not run the activation it
+    /// is made from, the only code writing such a local; read as an upvalue
+    /// it may change, its declaring activation resumed as a coroutine.
+    pub(crate) fn stable_at(&self, value: &RValue, function: Option<usize>) -> bool {
+        self.stable(value)
+            || matches!(value, RValue::Local(local)
+                if !self.closure_written.contains(&local.stable_id()) && self.register_of(local, function))
+    }
+
     /// A read the code a call runs cannot change: a literal, a local [`stable`]
     /// here, or a [`constant_import`].
     pub(crate) fn unchanged_by_calls(&self, value: &RValue) -> bool {
@@ -94,7 +108,8 @@ impl CaptureSafety {
         !self.exhausted
     }
 
-    fn block(&mut self, statements: &[Statement], depth: usize) {
+    /// `upvalues`: the locals the function owning `statements` reads as upvalues.
+    fn block(&mut self, statements: &[Statement], depth: usize, upvalues: &FxHashSet<u64>) {
         for statement in statements {
             if !self.spend(depth) { return; }
             // Check wide containers before Traverse allocates their root list.
@@ -126,6 +141,9 @@ impl CaptureSafety {
                         }
                         LValue::Local(local) if !assign.prefix => {
                             self.rebound.insert(local.stable_id());
+                            if upvalues.contains(&local.stable_id()) {
+                                self.closure_written.insert(local.stable_id());
+                            }
                         }
                         _ => {}
                     }
@@ -133,13 +151,13 @@ impl CaptureSafety {
             }
             match statement {
                 Statement::If(s) => {
-                    self.block(&s.then_block.lock().0, depth + 1);
-                    self.block(&s.else_block.lock().0, depth + 1);
+                    self.block(&s.then_block.lock().0, depth + 1, upvalues);
+                    self.block(&s.else_block.lock().0, depth + 1, upvalues);
                 }
-                Statement::While(s) => self.block(&s.block.lock().0, depth + 1),
-                Statement::Repeat(s) => self.block(&s.block.lock().0, depth + 1),
-                Statement::NumericFor(s) => self.block(&s.block.lock().0, depth + 1),
-                Statement::GenericFor(s) => self.block(&s.block.lock().0, depth + 1),
+                Statement::While(s) => self.block(&s.block.lock().0, depth + 1, upvalues),
+                Statement::Repeat(s) => self.block(&s.block.lock().0, depth + 1, upvalues),
+                Statement::NumericFor(s) => self.block(&s.block.lock().0, depth + 1, upvalues),
+                Statement::GenericFor(s) => self.block(&s.block.lock().0, depth + 1, upvalues),
                 _ => {}
             }
             if self.exhausted { return; }
@@ -184,7 +202,8 @@ impl CaptureSafety {
                 if let Upvalue::Ref(local) = capture { self.references.insert(local.stable_id()); }
             }
             if self.visited.insert(identity) {
-                self.block(&closure.function.0.lock().body.0, depth + 1);
+                let upvalues = self.upvalues[&identity].clone();
+                self.block(&closure.function.0.lock().body.0, depth + 1, &upvalues);
             }
         } else {
             value.visit_rvalues(&mut |child| {

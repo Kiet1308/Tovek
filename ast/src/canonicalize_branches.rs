@@ -113,6 +113,14 @@ fn canonicalize_block(block: &mut Block, facts: &FunctionFacts) {
 /// order, count and short-circuit as the nested form — and no other statement
 /// depends on the intermediate nesting. Iterates so `if a then if b then if c`
 /// collapses in one pass (the inner pair was already merged bottom-up).
+/// The leftmost operand of an `and` chain (`a` of `a and b and c`).
+fn first_conjunct(value: &RValue) -> &RValue {
+    match value {
+        RValue::Binary(binary) if binary.operation == BinaryOperation::And => first_conjunct(&binary.left),
+        _ => value,
+    }
+}
+
 fn merge_nested_conjunct_ifs(statements: &mut [Statement]) {
     for statement in statements.iter_mut() {
         loop {
@@ -134,11 +142,16 @@ fn merge_nested_conjunct_ifs(statements: &mut [Statement]) {
             let Some((inner_condition, inner_then)) = inner else {
                 break;
             };
-            outer.condition = RValue::Binary(crate::Binary::new(
-                std::mem::replace(&mut outer.condition, RValue::Literal(Literal::Nil)),
-                inner_condition,
-                BinaryOperation::And,
-            ));
+            let outer_condition = std::mem::replace(&mut outer.condition, RValue::Literal(Literal::Nil));
+            // `if v then if v and v.Parent then`: the inner test starts by
+            // repeating the pure outer one, which then decides nothing.
+            outer.condition = if crate::is_total_pure(&outer_condition)
+                && *first_conjunct(&inner_condition) == outer_condition
+            {
+                inner_condition
+            } else {
+                RValue::Binary(crate::Binary::new(outer_condition, inner_condition, BinaryOperation::And))
+            };
             outer.then_block = inner_then;
         }
     }

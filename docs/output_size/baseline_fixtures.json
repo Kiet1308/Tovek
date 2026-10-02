@@ -244,6 +244,30 @@
       "bytes": 1101,
       "lines": 63
     },
+    "semantic/cell_copy_reassigned_in_loop__O0.luau": {
+      "bytes": 634,
+      "lines": 52
+    },
+    "semantic/cell_copy_reassigned_in_loop__O1.luau": {
+      "bytes": 634,
+      "lines": 52
+    },
+    "semantic/cell_copy_reassigned_in_loop__O2.luau": {
+      "bytes": 634,
+      "lines": 52
+    },
+    "semantic/cell_copy_unwritten_or_forwarded__O0.luau": {
+      "bytes": 628,
+      "lines": 67
+    },
+    "semantic/cell_copy_unwritten_or_forwarded__O1.luau": {
+      "bytes": 628,
+      "lines": 67
+    },
+    "semantic/cell_copy_unwritten_or_forwarded__O2.luau": {
+      "bytes": 780,
+      "lines": 58
+    },
     "semantic/cell_joins_its_register_phi__O0.luau": {
       "bytes": 739,
       "lines": 60
@@ -712,6 +736,18 @@
       "bytes": 2008,
       "lines": 140
     },
+    "semantic/loop_after_breaking_for__O0.luau": {
+      "bytes": 254,
+      "lines": 25
+    },
+    "semantic/loop_after_breaking_for__O1.luau": {
+      "bytes": 230,
+      "lines": 23
+    },
+    "semantic/loop_after_breaking_for__O2.luau": {
+      "bytes": 272,
+      "lines": 26
+    },
     "semantic/loop_capture_post_loop_swap__O0.luau": {
       "bytes": 177,
       "lines": 14
@@ -783,6 +819,18 @@
     "semantic/loop_swap_with_later_capture__O2.luau": {
       "bytes": 439,
       "lines": 37
+    },
+    "semantic/loop_swaps_of_captured_locals__O0.luau": {
+      "bytes": 648,
+      "lines": 53
+    },
+    "semantic/loop_swaps_of_captured_locals__O1.luau": {
+      "bytes": 648,
+      "lines": 53
+    },
+    "semantic/loop_swaps_of_captured_locals__O2.luau": {
+      "bytes": 661,
+      "lines": 53
     },
     "semantic/nested_capture_argument__O0.luau": {
       "bytes": 814,
@@ -904,6 +952,18 @@
       "bytes": 447,
       "lines": 35
     },
+    "semantic/returned_local_helper__O0.luau": {
+      "bytes": 837,
+      "lines": 50
+    },
+    "semantic/returned_local_helper__O1.luau": {
+      "bytes": 837,
+      "lines": 50
+    },
+    "semantic/returned_local_helper__O2.luau": {
+      "bytes": 1056,
+      "lines": 57
+    },
     "semantic/returned_parameter_helper__O0.luau": {
       "bytes": 493,
       "lines": 35
@@ -975,6 +1035,18 @@
     "semantic/suffix_numeric__O2.luau": {
       "bytes": 483,
       "lines": 37
+    },
+    "semantic/swap_after_breaking_for__O0.luau": {
+      "bytes": 239,
+      "lines": 20
+    },
+    "semantic/swap_after_breaking_for__O1.luau": {
+      "bytes": 239,
+      "lines": 20
+    },
+    "semantic/swap_after_breaking_for__O2.luau": {
+      "bytes": 166,
+      "lines": 13
     },
     "semantic/table_store_after_appended_call__O0.luau": {
       "bytes": 289,
@@ -1059,6 +1131,18 @@
     "semantic/unused_local_vs_global_underscore__O2.luau": {
       "bytes": 103,
       "lines": 11
+    },
+    "semantic/value_capture_of_cell_copy__O0.luau": {
+      "bytes": 217,
+      "lines": 20
+    },
+    "semantic/value_capture_of_cell_copy__O1.luau": {
+      "bytes": 217,
+      "lines": 20
+    },
+    "semantic/value_capture_of_cell_copy__O2.luau": {
+      "bytes": 186,
+      "lines": 19
     },
     "semantic/while_header_opens_for__O0.luau": {
       "bytes": 587,

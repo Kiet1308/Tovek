@@ -97,19 +97,34 @@ impl Order {
 }
 
 pub fn statement(statement: &Statement, capture: &impl Fn(&RcLocal) -> bool) -> Order {
+    statement_with_registers(statement, capture, &|_| false)
+}
+
+/// As [`statement`], `register` telling the locals the statement's function
+/// holds in registers: a store reads such a base or key when it runs, after
+/// every value the statement assigns (`t.x = f()` reads `t` after `f`); an
+/// upvalue or any other address is evaluated before them.
+pub fn statement_with_registers(statement: &Statement, capture: &impl Fn(&RcLocal) -> bool,
+    register: &impl Fn(&RcLocal) -> bool) -> Order {
     let mut out = Order::default();
     match statement {
         Statement::Assign(assign) => {
+            let late = |value: &RValue| matches!(value, RValue::Local(local) if register(local));
             for (i, lhs) in assign.left.iter().enumerate() {
                 if let LValue::Index(index) = lhs {
-                    out.value(&index.left, Position::LhsBase(i), false, 0, capture);
-                    out.value(&index.right, Position::LhsKey(i), false, 0, capture);
+                    if !late(&index.left) { out.value(&index.left, Position::LhsBase(i), false, 0, capture); }
+                    if !late(&index.right) { out.value(&index.right, Position::LhsKey(i), false, 0, capture); }
                 }
             }
             for (i, rhs) in assign.right.iter().enumerate() { out.value(rhs, Position::Rhs(i), false, 0, capture); }
-            // All addresses precede all RHS evaluations; stores follow them.
+            // Other addresses precede all RHS evaluations; stores follow
+            // them in order, each reading its register base and key first.
             // No replacement is attempted inside a store event.
             for (i, lhs) in assign.left.iter().enumerate() {
+                if let LValue::Index(index) = lhs {
+                    if late(&index.left) { out.value(&index.left, Position::LhsBase(i), false, 0, capture); }
+                    if late(&index.right) { out.value(&index.right, Position::LhsKey(i), false, 0, capture); }
+                }
                 match lhs {
                     LValue::Local(local) => out.event(Position::Store(i), if capture(local) { Effects::CAPTURE_WRITE } else { Effects::default() }, None, Some(local.stable_id()), false),
                     _ => out.event(Position::Store(i), Effects::DYNAMIC_CALL, None, None, false),
@@ -291,7 +306,7 @@ fn is_import_path(value: &RValue) -> bool {
 /// The caller separately proves one use, scope, intervening statements and arity.
 pub fn can_sink(statement_: &Statement, local: &RcLocal, replacement: &RValue, capture: &impl Fn(&RcLocal) -> bool) -> bool {
     let candidate = effects::summarize(replacement, capture);
-    can_sink_with_summary(statement_, local, replacement, capture, candidate)
+    can_sink_with_summary(statement_, local, replacement, capture, &|_| false, candidate)
 }
 
 /// A captured-cell snapshot can replace every direct read only when no earlier
@@ -317,9 +332,14 @@ pub fn can_reuse_capture(statement_: &Statement, local: &RcLocal) -> bool {
 
 /// The supplied summary must describe the current candidate under caller-owned
 /// runtime facts. Capture/write/conditional and destination order gates remain.
+/// `register` tells the locals of the statement's function held in registers
+/// ([`statement_with_registers`]); `local` is read where `replacement` is,
+/// late only when that is a register too.
 pub(crate) fn can_sink_with_summary(statement_: &Statement, local: &RcLocal, replacement: &RValue,
-    capture: &impl Fn(&RcLocal) -> bool, candidate: effects::Summary) -> bool {
-    let order = statement(statement_, capture);
+    capture: &impl Fn(&RcLocal) -> bool, register: &impl Fn(&RcLocal) -> bool, candidate: effects::Summary) -> bool {
+    let replacement_register = matches!(replacement, RValue::Local(read) if register(read));
+    let order = statement_with_registers(statement_, capture,
+        &|read| if read == local { replacement_register } else { register(read) });
     if order.exhausted || candidate.exhausted { return false; }
     let reads = replacement.values_read();
     let mut found = false;

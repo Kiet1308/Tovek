@@ -229,7 +229,7 @@ fn late_destination_refusals_do_not_detach_the_initializer() {
         };
         let before_statement = statement.to_string();
         let before_owners = owners(&[&temporary, &source], &function);
-        assert!(!replace_direct_rvalue_use(&mut statement, &temporary, &mut replacement, &facts));
+        assert!(!replace_direct_rvalue_use(&mut statement, &temporary, &mut replacement, &facts, &Default::default()));
         assert_eq!(State::expression(&replacement), before_value);
         assert_eq!(statement.to_string(), before_statement);
         assert_eq!(owners(&[&temporary, &source], &function), before_owners);

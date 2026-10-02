@@ -379,14 +379,18 @@ fn collect_stable_declared_locals_reference(
 }
 
 
+/// `block` is the body of the chunk, whose function has no upvalues.
 fn inline_in_block(block: &mut Block, facts: &MotionFacts) -> bool {
     let mut usage = if cfg!(feature = "reference-temp-census") { None } else { SubtreeUsage::new(block) };
-    inline_in_block_with_usage(block, facts, &mut usage)
+    inline_in_block_with_usage(block, facts, &mut usage, &FxHashSet::default())
 }
 
-fn inline_in_block_with_usage(block: &mut Block, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>) -> bool {
-    let mut changed = inline_nested_blocks(block, facts, usage);
-    changed |= inline_current_block_with_usage(block, facts, usage.as_mut());
+/// `upvalues`: the locals the function owning `block` reads as upvalues;
+/// any other local it reads is one of its registers.
+fn inline_in_block_with_usage(block: &mut Block, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>,
+    upvalues: &FxHashSet<u64>) -> bool {
+    let mut changed = inline_nested_blocks(block, facts, usage, upvalues);
+    changed |= inline_current_block_with_usage(block, facts, usage.as_mut(), upvalues);
     changed
 }
 
@@ -396,10 +400,11 @@ fn inline_in_block_with_usage(block: &mut Block, facts: &MotionFacts, usage: &mu
 /// reads/captures inside a moved closure. Only the removed binder disappears.
 #[cfg(test)]
 fn inline_current_block(block: &mut Block, facts: &MotionFacts) -> bool {
-    inline_current_block_with_usage(block, facts, None)
+    inline_current_block_with_usage(block, facts, None, &FxHashSet::default())
 }
 
-fn inline_current_block_with_usage(block: &mut Block, facts: &MotionFacts, mut usage: Option<&mut SubtreeUsage>) -> bool {
+fn inline_current_block_with_usage(block: &mut Block, facts: &MotionFacts, mut usage: Option<&mut SubtreeUsage>,
+    upvalues: &FxHashSet<u64>) -> bool {
     // Descendant usage is irrelevant when this block cannot remove a binder.
     if !block.iter().any(|statement| candidate_decl(statement)
         .is_some_and(|(local, _)| !facts.captured.contains(local))) { return false; }
@@ -449,7 +454,7 @@ fn inline_current_block_with_usage(block: &mut Block, facts: &MotionFacts, mut u
             if declarations.contains_key(read) && uses.get(read) == Some(&index) { moved.push(read.clone()); }
             true
         });
-        if !inline_at(block, index, use_index, facts, &mut motion) {
+        if !inline_at(block, index, use_index, facts, &mut motion, upvalues) {
             work.set_use(index, Some(use_index));
             continue;
         }
@@ -537,28 +542,30 @@ impl InlineWorklist {
     }
 }
 
-fn inline_nested_blocks(block: &mut Block, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>) -> bool {
+fn inline_nested_blocks(block: &mut Block, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>,
+    upvalues: &FxHashSet<u64>) -> bool {
     let mut changed = false;
     for statement in &mut block.0 {
-        changed |= inline_nested_in_statement(statement, facts, usage);
+        changed |= inline_nested_in_statement(statement, facts, usage, upvalues);
     }
     changed
 }
 
-fn inline_nested_in_statement(statement: &mut Statement, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>) -> bool {
+fn inline_nested_in_statement(statement: &mut Statement, facts: &MotionFacts, usage: &mut Option<SubtreeUsage>,
+    upvalues: &FxHashSet<u64>) -> bool {
     let closures_changed = inline_closures_in_statement(statement, facts, usage);
     let blocks_changed = match statement {
         Statement::If(r#if) => {
             // A shallow-cloned branch can share its body with the other arm.
             // End each lock's temporary lifetime before entering the next arm.
-            let then_changed = inline_in_block_with_usage(&mut r#if.then_block.lock(), facts, usage);
-            let else_changed = inline_in_block_with_usage(&mut r#if.else_block.lock(), facts, usage);
+            let then_changed = inline_in_block_with_usage(&mut r#if.then_block.lock(), facts, usage, upvalues);
+            let else_changed = inline_in_block_with_usage(&mut r#if.else_block.lock(), facts, usage, upvalues);
             then_changed | else_changed
         }
-        Statement::While(r#while) => inline_in_block_with_usage(&mut r#while.block.lock(), facts, usage),
-        Statement::Repeat(repeat) => inline_in_block_with_usage(&mut repeat.block.lock(), facts, usage),
-        Statement::NumericFor(numeric_for) => inline_in_block_with_usage(&mut numeric_for.block.lock(), facts, usage),
-        Statement::GenericFor(generic_for) => inline_in_block_with_usage(&mut generic_for.block.lock(), facts, usage),
+        Statement::While(r#while) => inline_in_block_with_usage(&mut r#while.block.lock(), facts, usage, upvalues),
+        Statement::Repeat(repeat) => inline_in_block_with_usage(&mut repeat.block.lock(), facts, usage, upvalues),
+        Statement::NumericFor(numeric_for) => inline_in_block_with_usage(&mut numeric_for.block.lock(), facts, usage, upvalues),
+        Statement::GenericFor(generic_for) => inline_in_block_with_usage(&mut generic_for.block.lock(), facts, usage, upvalues),
         _ => false,
     };
     closures_changed | blocks_changed
@@ -568,16 +575,21 @@ fn inline_closures_in_statement(statement: &mut Statement, facts: &MotionFacts, 
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
-            functions.push(closure.function.clone());
+            let upvalues = closure.upvalues.iter().map(|upvalue| {
+                let (crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local)) = upvalue;
+                local.stable_id()
+            }).collect::<FxHashSet<_>>();
+            functions.push((closure.function.clone(), upvalues));
         }
         None
     });
-    functions.into_iter().fold(false, |changed, function| {
-        inline_in_block_with_usage(&mut function.lock().body, facts, usage) | changed
+    functions.into_iter().fold(false, |changed, (function, upvalues)| {
+        inline_in_block_with_usage(&mut function.lock().body, facts, usage, &upvalues) | changed
     })
 }
 
-fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFacts, motion: &mut MotionQueries) -> bool {
+fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFacts, motion: &mut MotionQueries,
+    upvalues: &FxHashSet<u64>) -> bool {
     let Some((local, replacement)) = candidate_decl(&block[index]) else { return false; };
     #[cfg(test)]
     chain_probe::record_attempt(replacement);
@@ -647,7 +659,7 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
     }
     if !crate::evaluation_order::can_sink_with_summary(&block.0[use_index], &local, &replacement, &|l| {
         facts.callback_may_write(l)
-    }, facts.candidate_effects(&replacement)) {
+    }, &|l| !upvalues.contains(&l.stable_id()), facts.candidate_effects(&replacement)) {
         crate::telemetry::count("inline_refused_evaluation_position", 1);
         return false;
     }
@@ -665,10 +677,10 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
     let replaced = if legacy_clone::enabled() {
         legacy_clone::replace_direct_rvalue_use(statement, &local, replacement, facts)
     } else {
-        replace_direct_rvalue_use(statement, &local, replacement, facts)
+        replace_direct_rvalue_use(statement, &local, replacement, facts, upvalues)
     };
     #[cfg(not(test))]
-    let replaced = replace_direct_rvalue_use(statement, &local, replacement, facts);
+    let replaced = replace_direct_rvalue_use(statement, &local, replacement, facts, upvalues);
     if replaced {
         crate::telemetry::count("inline_accepted", 1);
         if numeric { crate::telemetry::count("inline_accepted_numeric_proof", 1); }
@@ -691,7 +703,7 @@ fn inline_once_full_rescan(block: &mut Block, facts: &MotionFacts) -> bool {
             inlineable_direct_rvalue_read_count(&block[use_index], local) > 0
                 || (facts.rebuild_call_chains && is_single_index_key_use(&block[use_index], local)))
         else { continue; };
-        if inline_at(block, index, use_index, facts, &mut motion) { block.0.remove(index); return true; }
+        if inline_at(block, index, use_index, facts, &mut motion, &FxHashSet::default()) { block.0.remove(index); return true; }
     }
     false
 }
@@ -939,17 +951,19 @@ fn collect_closures_in_rvalue(rvalue: &RValue, f: &mut impl FnMut(&crate::Closur
     rvalue.visit_rvalues(&mut |child| { collect_closures_in_rvalue(child, f); true });
 }
 
+/// `upvalues`: the locals the statement's function reads as upvalues.
 fn replace_direct_rvalue_use(
     statement: &mut Statement,
     local: &RcLocal,
     replacement: &mut RValue,
     facts: &MotionFacts,
+    upvalues: &FxHashSet<u64>,
 ) -> bool {
     let mut before_side_effects = match &*statement {
         Statement::Assign(assign) => assign
             .left
             .iter()
-            .any(|left| lvalue_evaluation_order_barrier(left, facts)),
+            .any(|left| lvalue_evaluation_order_barrier(left, facts, &|local| !upvalues.contains(&local.stable_id()))),
         _ => false,
     };
     let mut replaced = false;
@@ -1490,21 +1504,24 @@ fn rvalue_evaluation_order_barrier(rvalue: &RValue, facts: &MotionFacts) -> bool
         || rvalue.any_local_read(&mut |local| facts.callback_may_write(local))
 }
 
-fn lvalue_evaluation_order_barrier(lvalue: &LValue, facts: &MotionFacts) -> bool {
+/// `register`: whether a local is a register of the statement's function.
+fn lvalue_evaluation_order_barrier(lvalue: &LValue, facts: &MotionFacts, register: &dyn Fn(&RcLocal) -> bool) -> bool {
     match lvalue {
         LValue::Local(_) => false,
         LValue::Global(_) => true,
         LValue::Index(index) => {
-            index_component_order_barrier(&index.left, facts)
-                || index_component_order_barrier(&index.right, facts)
+            index_component_order_barrier(&index.left, facts, register)
+                || index_component_order_barrier(&index.right, facts, register)
         }
     }
 }
 
-fn index_component_order_barrier(value: &RValue, facts: &MotionFacts) -> bool {
+fn index_component_order_barrier(value: &RValue, facts: &MotionFacts, register: &dyn Fn(&RcLocal) -> bool) -> bool {
     match value {
+        // A register is read when the store runs, after the values; an
+        // upvalue is fetched before them.
         RValue::Local(local) => {
-            facts.callback_may_write(local)
+            !register(local) && facts.callback_may_write(local)
         }
         RValue::Literal(_) => false,
         // The outer LValue index stores after the RHS, but an index inside
@@ -1678,7 +1695,7 @@ mod tests {
                 let expected_facts = super::collect_motion_facts(&expected, rebuild);
                 let actual_facts = super::collect_motion_facts(&actual, rebuild);
                 assert!(super::SubtreeUsage::new(&actual).is_some());
-                let changed = super::inline_in_block_with_usage(&mut expected, &expected_facts, &mut None);
+                let changed = super::inline_in_block_with_usage(&mut expected, &expected_facts, &mut None, &Default::default());
                 assert_eq!(super::inline_in_block(&mut actual, &actual_facts), changed);
                 assert_eq!(actual.to_string(), expected.to_string(), "seed {seed}, UI {rebuild}");
             }
@@ -1967,7 +1984,7 @@ mod tests {
                 let candidate = &block.0[1].as_assign().unwrap().right[0];
                 assert!(!super::can_replace_after_prior_effects(candidate, true, &facts));
                 assert!(crate::evaluation_order::can_sink_with_summary(&block.0[2], &helper,
-                    candidate, &|l| facts.callback_may_write(l),
+                    candidate, &|l| facts.callback_may_write(l), &|_| false,
                     facts.candidate_effects(candidate)));
             }
             let changed = super::rebuild_ui_expression_trees(&mut block);
@@ -2134,19 +2151,49 @@ mod tests {
     }
 
     #[test]
-    fn import_field_store_preserves_a_mutable_captured_receiver() {
-        let module = local("component");
-        let object = local("components");
-        let mut block = Block(vec![
-            declare(&object, global("initial")),
-            Call::new(global("publish"), vec![closure_capturing(&object)]).into(),
-            assign(object.clone().into(), global("replacement")),
-            declare(&module, RValue::Select(Select::Call(Call::new(global("require"), vec![string("Component")])))),
-            assign(Index::new(local_value(&object), string("Component")).into(), local_value(&module)),
-        ]);
-        let before = block.to_string();
-        super::rebuild_ui_expression_trees(&mut block);
-        assert_eq!(block.to_string(), before);
+    fn import_field_store_reads_a_mutable_captured_receiver_where_it_stores() {
+        // `components.Component = component`: a register receiver is read when
+        // the store runs, after `require` (which may run the published closure
+        // rebinding it) either way, so the import folds. Fetched as an upvalue,
+        // the receiver is read before the value: folding would move `require`
+        // ahead of that read.
+        for as_upvalue in [false, true] {
+            let module = local("component");
+            let object = local("components");
+            let store = vec![
+                declare(&module, RValue::Select(Select::Call(Call::new(global("require"), vec![string("Component")])))),
+                assign(Index::new(local_value(&object), string("Component")).into(), local_value(&module)),
+            ];
+            let mut block = Block(vec![
+                declare(&object, global("initial")),
+                Call::new(global("publish"), vec![closure_capturing(&object)]).into(),
+                assign(object.clone().into(), global("replacement")),
+            ]);
+            let body = if as_upvalue {
+                let function = Arc::new(Mutex::new(Function::default()));
+                function.lock().body = Block(store);
+                block.0.push(Call::new(global("run"), vec![RValue::Closure(Closure {
+                    node_origin: Default::default(),
+                    function: ByAddress(function.clone()),
+                    upvalues: vec![Upvalue::Ref(object.clone())],
+                })]).into());
+                Some(function)
+            } else {
+                block.0.extend(store);
+                None
+            };
+            let before = block.to_string();
+            super::rebuild_ui_expression_trees(&mut block);
+            match body {
+                Some(function) => {
+                    assert_eq!(block.to_string(), before);
+                    assert_eq!(function.lock().body.to_string(),
+                        "local component = require(\"Component\")
+components.Component = component");
+                }
+                None => assert!(block.to_string().ends_with("components.Component = require(\"Component\")")),
+            }
+        }
     }
 
     #[test]

@@ -80,7 +80,14 @@
    "store_address_read_at_store": "review fixes 2026-10-02 (cells, store order)",
    "store_site_helper_call": "review fixes 2026-10-02 (cells, store order)",
    "cell_written_in_loop_read_after": "review fixes 2026-10-02 (cells, store order)",
-   "loop_swap_with_later_capture": "review fixes 2026-10-02 (cells, store order)"
+   "loop_swap_with_later_capture": "review fixes 2026-10-02 (cells, store order)",
+   "cell_copy_reassigned_in_loop": "review follow-ups 2026-10-02 (cell copies, loop exits)",
+   "cell_copy_unwritten_or_forwarded": "review follow-ups 2026-10-02 (cell copies, loop exits)",
+   "loop_after_breaking_for": "review follow-ups 2026-10-02 (cell copies, loop exits)",
+   "loop_swaps_of_captured_locals": "review follow-ups 2026-10-02 (cell copies, loop exits)",
+   "swap_after_breaking_for": "review follow-ups 2026-10-02 (cell copies, loop exits)",
+   "value_capture_of_cell_copy": "review follow-ups 2026-10-02 (cell copies, loop exits)",
+   "returned_local_helper": "review follow-ups 2026-10-02 (cell copies, loop exits)"
   }
  },
  "summary": {
@@ -201,6 +208,18 @@
    "status": "ok",
    "nonequiv": 3,
    "protos": 6
+  },
+  {
+   "file": "cell_copy_reassigned_in_loop",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
+   "file": "cell_copy_unwritten_or_forwarded",
+   "status": "ok",
+   "nonequiv": 13,
+   "protos": 8
   },
   {
    "file": "cell_joins_its_register_phi",
@@ -437,6 +456,12 @@
    "protos": 10
   },
   {
+   "file": "loop_after_breaking_for",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 3
+  },
+  {
    "file": "loop_capture_post_loop_swap",
    "status": "ok",
    "nonequiv": 1,
@@ -471,6 +496,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 4
+  },
+  {
+   "file": "loop_swaps_of_captured_locals",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 6
   },
   {
    "file": "nested_capture_argument",
@@ -533,6 +564,12 @@
    "protos": 3
   },
   {
+   "file": "returned_local_helper",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 10
+  },
+  {
    "file": "returned_parameter_helper",
    "status": "ok",
    "nonequiv": 0,
@@ -566,6 +603,12 @@
    "file": "suffix_numeric",
    "status": "ok",
    "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "swap_after_breaking_for",
+   "status": "ok",
+   "nonequiv": 1,
    "protos": 2
   },
   {
@@ -609,6 +652,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 2
+  },
+  {
+   "file": "value_capture_of_cell_copy",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
   },
   {
    "file": "while_header_opens_for",
