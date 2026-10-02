@@ -270,6 +270,12 @@ struct Target {
     /// lowered by inlining into a loop guard plus a cloned caller continuation;
     /// the CPS matcher verifies that continuation before refolding it.
     cps_loop_return: bool,
+    /// A Value target returning from inside a loop ([`loop_return_split`]):
+    /// the index in `pat` of that loop, which is also the number of the
+    /// helper's statements before it. Its sites store the value and leave
+    /// through a flag and a `break` ([`match_value_loop`]). `None` for every
+    /// other target.
+    loop_exit_at: Option<usize>,
     /// The helper's own locals that its body ends by returning
     /// ([`local_tuple_return`]). Its pattern is the body before that return,
     /// matched as a void region whose site declares the caller's locals in
@@ -1835,13 +1841,14 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
             }
             unify_block(t, &pg.block.lock().0, &cg.block.lock().0, b)
         }
-        (Statement::Return(pr), Statement::Return(cr)) => {
-            if pr.values.is_empty() && cr.values.is_empty() {
-                Ok(())
-            } else {
-                Err(())
-            }
-        }
+        (Statement::Return(pr), Statement::Return(cr)) => match (pr.values.as_slice(), cr.values.as_slice()) {
+            ([], []) => Ok(()),
+            // A value helper's `return x` from inside its loop, which
+            // `unflag_value_loop` gives back from the site's `r = x; flag =
+            // false; break` (a site window has no `return` of its own).
+            ([pattern], [site]) if t.loop_exit_at.is_some() => unify_returned_value(&ctx, pattern, site, b),
+            _ => Err(()),
+        },
         // Value target: the callee's `return X` was lowered to `RESULT = X` in
         // the inlined copy. Bind the single result local and unify the value.
         // The result-write leaf is always a PLAIN reassignment (`RESULT = X`):
@@ -1869,13 +1876,7 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
                 Some(_) => return Err(()), // two different result locals
                 None => b.result = Some(r.clone()),
             }
-            // The single-local store takes one value: a call leaf (P7-A) is
-            // the call the store adjusts to one result.
-            match (&pr.values[0], &ca.right[0]) {
-                (RValue::Call(x), RValue::Select(Select::Call(y))) => unify_call(&ctx, x, y, b),
-                (RValue::MethodCall(x), RValue::Select(Select::MethodCall(y))) => unify_method(&ctx, x, y, b),
-                (pattern, site) => unify_rvalue(&ctx, pattern, site, b),
-            }
+            unify_returned_value(&ctx, &pr.values[0], &ca.right[0], b)
         }
         (Statement::Break(_), Statement::Break(_)) => Ok(()),
         (Statement::Continue(_), Statement::Continue(_)) => Ok(()),
@@ -1894,6 +1895,17 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
             }
         }
         _ => Err(()),
+    }
+}
+
+/// The value a helper returns against the one its inlined copy stores into
+/// the result local, which takes one value: a call leaf (P7-A) is the call
+/// the store adjusts to one result.
+fn unify_returned_value(ctx: &MatchCtx, pattern: &RValue, site: &RValue, b: &mut Bindings) -> Result<(), ()> {
+    match (pattern, site) {
+        (RValue::Call(x), RValue::Select(Select::Call(y))) => unify_call(ctx, x, y, b),
+        (RValue::MethodCall(x), RValue::Select(Select::MethodCall(y))) => unify_method(ctx, x, y, b),
+        (pattern, site) => unify_rvalue(ctx, pattern, site, b),
     }
 }
 
@@ -3010,6 +3022,9 @@ fn try_match_at(
                 canon_cache,
                 current_func,
             ),
+            (TKind::Value, _) if t.loop_exit_at.is_some() => {
+                match_value_loop(stmts, i, t, is_func_body_top, last_occ, current_func)
+            }
             (TKind::Value, ValueAnchor::AtResultDecl) => {
                 match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func)
             }
@@ -3332,6 +3347,76 @@ fn match_value(
         tail_ret: None,
         host: None,
     })
+}
+
+/// A value helper returning from inside a loop (`Target::loop_exit_at`),
+/// inlined as `local r = f(args)`: `PRE; local r; local ok = true; for … do
+/// if c then r = x; ok = false; break end end; if ok then REST end`, the two
+/// declarations in either order ([`unflag_value_loop`]). The window ends with
+/// the loop, or with the flag's `if` right after it.
+fn match_value_loop(
+    stmts: &[Statement],
+    i: usize,
+    t: &Target,
+    is_func_body_top: bool,
+    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    current_func: Option<FnPtr>,
+) -> Option<Hit> {
+    let pre_len = t.loop_exit_at?;
+    // Cheapest rejects first: the loop of the pattern's kind at its place,
+    // after the helper's leading statements and the two declarations.
+    let looped = nth_effective_index(stmts, i, pre_len + 2)?;
+    if std::mem::discriminant(&stmts[looped]) != std::mem::discriminant(&t.pat[pre_len]) {
+        return None;
+    }
+    let first = nth_effective_index(stmts, i, pre_len)?;
+    let second = nth_effective_index(stmts, first + 1, 0)?;
+    let (result, flag) = match (result_decl(&stmts[first]), flag_decl(&stmts[second])) {
+        (Some(result), Some(flag)) => (result, flag),
+        _ => (result_decl(&stmts[second])?, flag_decl(&stmts[first])?),
+    };
+    let guard = nth_effective_index(stmts, looped + 1, 0).filter(|&g| {
+        matches!(&stmts[g], Statement::If(branch) if matches!(&branch.condition, RValue::Local(read) if *read == flag))
+    });
+    let end = guard.map_or(looped, |g| g) + 1;
+    if is_func_body_top && i == 0 && end == stmts.len() {
+        return None;
+    }
+    // The only `return`s of the window are the ones given back.
+    if block_has_return(&stmts[i..end]) {
+        return None;
+    }
+    let window = unflag_value_loop(&stmts[i..first], &stmts[looped], guard.map(|g| &stmts[g]), &result, &flag)?;
+    if canon_top_len(&window, true) != t.pat.len() || !charge_window(t, &window) {
+        return None;
+    }
+    let u = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), &[], current_func)?;
+    let mut dead = |set: &FxHashSet<RcLocal>| !tail_has_live(last_occ, stmts, i, end, set);
+    let complete = u.result.as_ref() == Some(&result)
+        && !u.callee_locals.contains(&result)
+        && !u.callee_locals.contains(&flag)
+        && !block_reads_local(&window, &result)
+        && dead(&u.callee_locals)
+        && dead(&FxHashSet::from_iter([flag]));
+    complete.then(|| Hit {
+        f_local: t.f_local.clone(),
+        consume: end - i,
+        args: u.args,
+        results: vec![result],
+        tail_ret: None,
+        host: None,
+    })
+}
+
+/// `local flag = true` -> `flag`.
+fn flag_decl(statement: &Statement) -> Option<RcLocal> {
+    let Statement::Assign(assign) = statement else { return None };
+    match (assign.left.as_slice(), assign.right.as_slice()) {
+        ([LValue::Local(flag)], [RValue::Literal(Literal::Boolean(true))]) if assign.prefix && !assign.parallel => {
+            Some(flag.clone())
+        }
+        _ => None,
+    }
 }
 
 /// `local RESULT = E` at `d`: SSA already fused the value branch into the
@@ -4931,7 +5016,7 @@ fn unflag_block(block: &[Statement], flags: &mut FxHashSet<RcLocal>) -> Option<V
         && guard.else_block.lock().0.is_empty()
         && count_local_reads(&guard.then_block.lock().0, flag) == 0
         && !block_writes_local(&guard.then_block.lock().0, flag)
-        && let Some(exits) = return_from_loop(&block[looped], flag)
+        && let Some(exits) = return_from_loop(&block[looped], flag, None)
     {
         flags.insert(flag.clone());
         let mut out: Vec<Statement> = block[..declaration].to_vec();
@@ -4958,20 +5043,40 @@ fn unflag_block(block: &[Statement], flags: &mut FxHashSet<RcLocal>) -> Option<V
 }
 
 /// `looped` with each `flag = false; break` of its own turned into `return`,
-/// when those are its only `break`s and its only uses of `flag`.
-fn return_from_loop(looped: &Statement, flag: &RcLocal) -> Option<Statement> {
-    fn exits(stmts: &[Statement], flag: &RcLocal, replaced: &mut usize) -> Option<Vec<Statement>> {
+/// when those are its only `break`s and its only uses of `flag`. With a
+/// `result`, each exit is `result = x; flag = false; break`, turned into
+/// `return x`.
+fn return_from_loop(looped: &Statement, flag: &RcLocal, result: Option<&RcLocal>) -> Option<Statement> {
+    fn exits(stmts: &[Statement], flag: &RcLocal, result: Option<&RcLocal>, replaced: &mut usize) -> Option<Vec<Statement>> {
+        let clears_flag = |statement: &Statement| matches!(statement, Statement::Assign(assign)
+            if !assign.prefix
+                && matches!(assign.left.as_slice(), [LValue::Local(written)] if written == flag)
+                && matches!(assign.right.as_slice(), [RValue::Literal(Literal::Boolean(false))]));
+        let next_real = |from: usize| (from..stmts.len()).find(|&n| !is_match_trivia(&stmts[n]));
         let mut out = Vec::with_capacity(stmts.len());
         let mut k = 0;
         while k < stmts.len() {
             let statement = &stmts[k];
-            let clears_flag = matches!(statement, Statement::Assign(assign)
-                if !assign.prefix
-                    && matches!(assign.left.as_slice(), [LValue::Local(written)] if written == flag)
-                    && matches!(assign.right.as_slice(), [RValue::Literal(Literal::Boolean(false))]));
-            if clears_flag {
-                let next = (k + 1..stmts.len()).find(|&n| !is_match_trivia(&stmts[n]))?;
-                if !matches!(stmts[next], Statement::Break(_)) {
+            // A value exit: the store, then the flag, then the `break`.
+            if let Some(result) = result
+                && let Statement::Assign(store) = statement
+                && is_plain_local_write(store, result)
+                && let Some(clear) = next_real(k + 1)
+                && clears_flag(&stmts[clear])
+            {
+                let next = next_real(clear + 1)?;
+                if !matches!(stmts[next], Statement::Break(_)) || reads_local(&store.right[0], flag) {
+                    return None;
+                }
+                out.push(Return::new(vec![store.right[0].clone()]).into());
+                *replaced += 1;
+                k = next + 1;
+                continue;
+            }
+            if clears_flag(statement) {
+                let next = next_real(k + 1)?;
+                // A value exit stores its result first.
+                if result.is_some() || !matches!(stmts[next], Statement::Break(_)) {
                     return None;
                 }
                 out.push(Return::new(Vec::new()).into());
@@ -4985,8 +5090,8 @@ fn return_from_loop(looped: &Statement, flag: &RcLocal) -> Option<Statement> {
                     if reads_local(&branch.condition, flag) {
                         return None;
                     }
-                    let then_block = exits(&branch.then_block.lock().0, flag, replaced)?;
-                    let else_block = exits(&branch.else_block.lock().0, flag, replaced)?;
+                    let then_block = exits(&branch.then_block.lock().0, flag, result, replaced)?;
+                    let else_block = exits(&branch.else_block.lock().0, flag, result, replaced)?;
                     out.push(If::new(branch.condition.clone(), Block(then_block), Block(else_block)).into());
                 }
                 // A nested loop's `break`s are its own; it may not touch the flag.
@@ -5008,7 +5113,7 @@ fn return_from_loop(looped: &Statement, flag: &RcLocal) -> Option<Statement> {
             if node.right.iter().any(|value| reads_local(value, flag)) {
                 return None;
             }
-            let body = exits(&node.block.lock().0, flag, &mut replaced)?;
+            let body = exits(&node.block.lock().0, flag, result, &mut replaced)?;
             Statement::GenericFor(GenericFor {
                 res_locals: node.res_locals.clone(),
                 right: node.right.clone(),
@@ -5020,7 +5125,7 @@ fn return_from_loop(looped: &Statement, flag: &RcLocal) -> Option<Statement> {
             if [&node.initial, &node.limit, &node.step].into_iter().any(|value| reads_local(value, flag)) {
                 return None;
             }
-            let body = exits(&node.block.lock().0, flag, &mut replaced)?;
+            let body = exits(&node.block.lock().0, flag, result, &mut replaced)?;
             Statement::NumericFor(Box::new(NumericFor {
                 block: Arc::new(Mutex::new(Block(body))),
                 initial: node.initial.clone(),
@@ -5033,12 +5138,57 @@ fn return_from_loop(looped: &Statement, flag: &RcLocal) -> Option<Statement> {
             if reads_local(&node.condition, flag) {
                 return None;
             }
-            let body = exits(&node.block.lock().0, flag, &mut replaced)?;
+            let body = exits(&node.block.lock().0, flag, result, &mut replaced)?;
             While::new(node.condition.clone(), Block(body)).into()
         }
         _ => return None,
     };
     (replaced > 0).then_some(rebuilt)
+}
+
+/// A value helper's `return x` from inside a loop, inlined into `local r =
+/// f(args)`: Luau stores `x` into `r` and jumps past the rest of the helper,
+/// which the structurer writes as a flag and a `break`: `PRE; local r; local
+/// ok = true; for … do if c then r = x; ok = false; break end end; if ok then
+/// REST end`. The helper's own `return nil` after the loop leaves no store
+/// (the declaration already holds `nil`), so the flag's `if` may be missing.
+/// Gives back `PRE; for … do if c then return x end end; REST` with `r = nil`
+/// closing a REST that never stores `r`: the helper's body with its returns
+/// after the loop as stores to `r`, the shape a value pattern unifies
+/// against. A `return` skips the rest of the helper, the flag only REST, so
+/// every `break` of the loop must store `r` and clear the flag, which nothing
+/// else reads or writes, and the loop may not write `r` otherwise.
+fn unflag_value_loop(
+    pre: &[Statement],
+    looped: &Statement,
+    guard: Option<&Statement>,
+    result: &RcLocal,
+    flag: &RcLocal,
+) -> Option<Vec<Statement>> {
+    let exits = return_from_loop(looped, flag, Some(result))?;
+    if block_writes_local(std::slice::from_ref(&exits), result) {
+        return None;
+    }
+    let mut rest = Vec::new();
+    if let Some(guard) = guard {
+        let Statement::If(guard) = guard else { return None };
+        let then_block = guard.then_block.lock();
+        if !guard.else_block.lock().0.is_empty()
+            || count_local_reads(&then_block.0, flag) > 0
+            || block_writes_local(&then_block.0, flag)
+        {
+            return None;
+        }
+        rest.extend(then_block.0.iter().cloned());
+    }
+    if !block_writes_local(&rest, result) {
+        rest.push(Assign::new(vec![LValue::Local(result.clone())], vec![RValue::Literal(Literal::Nil)]).into());
+    }
+    let mut window = Vec::with_capacity(pre.len() + 1 + rest.len());
+    window.extend(pre.iter().cloned());
+    window.push(exits);
+    window.extend(rest);
+    Some(window)
 }
 
 fn reads_local(value: &RValue, local: &RcLocal) -> bool {
@@ -5096,13 +5246,17 @@ fn any_structural_target(body: &Block) -> bool {
         let (body, _) = pattern_body(&g.body.0, &g.parameters);
         let Some((kind, falls_off)) = classify_returns(&body) else { return; };
         let pattern = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
-        if pattern.is_empty() || anchor_score(&pattern, &g.parameters) < 2 {
+        if pattern.is_empty() {
+            return;
+        }
+        let loop_exit = kind == TKind::Value && !value_leaf_shape(&pattern) && loop_return_split(&pattern).is_some();
+        if anchor_score(&pattern, &g.parameters) + usize::from(loop_exit) < 2 {
             return;
         }
         found = match kind {
             TKind::Void => !block_has_return(&pattern)
                 || has_loop_void_return(&pattern, false),
-            TKind::Value => value_leaf_shape(&pattern),
+            TKind::Value => value_leaf_shape(&pattern) || loop_exit,
         };
     });
     found
@@ -5370,6 +5524,9 @@ fn collect_targets(
             continue;
         }
         let cps_loop_return = kind == TKind::Void && has_loop_void_return(&pat, false);
+        let loop_exit_at = (kind == TKind::Value && !value_leaf_shape(&pat))
+            .then(|| loop_return_split(&pat))
+            .flatten();
         match kind {
             // Ordinary void targets must canon away every return.  A narrowly
             // recognized loop-return target is retained for the continuation-
@@ -5383,9 +5540,10 @@ fn collect_targets(
                     continue;
                 }
             }
-            // value: every leaf must be a single value-return (the result).
+            // value: every leaf must be a single value-return (the result),
+            // or a return from inside a loop (`loop_return_split`).
             TKind::Value => {
-                if !value_leaf_shape(&pat) {
+                if !value_leaf_shape(&pat) && loop_exit_at.is_none() {
                     deinline_reject!(
                         RejectReason::UnsupportedReturnShape,
                         g.name.as_deref().unwrap_or("<anon>")
@@ -5412,7 +5570,9 @@ fn collect_targets(
                 cps_loop_return,
             );
         }
-        if anchor_score(&pat, &g.parameters) < 2 {
+        // A return from inside a loop counts as an anchor: its copies leave
+        // the loop through a flag, which no plain caller code needs.
+        if anchor_score(&pat, &g.parameters) + usize::from(loop_exit_at.is_some()) < 2 {
             deinline_reject!(
                 RejectReason::LowAnchorScore,
                 g.name.as_deref().unwrap_or("<anon>")
@@ -5507,7 +5667,7 @@ fn collect_targets(
         // past the gates the K==1 path already enforces. MAX_PREFIX bounds the
         // per-position work (the matcher's single per-width loop is unchanged).
         const MAX_PREFIX: usize = 4;
-        let (value_anchor, prefix_len) = if kind == TKind::Value && pat.len() >= 2 {
+        let (value_anchor, prefix_len) = if kind == TKind::Value && pat.len() >= 2 && loop_exit_at.is_none() {
             let k = pat.len() - 1;
             if (1..=MAX_PREFIX).contains(&k)
                 && pat[..k].iter().all(|s| {
@@ -5560,6 +5720,7 @@ fn collect_targets(
             specializable,
             falls_off,
             cps_loop_return,
+            loop_exit_at,
             returns,
             captures: captures.clone(),
             search: Default::default(),
@@ -5583,10 +5744,46 @@ fn classify_returns(body: &[Statement]) -> Option<(TKind, bool)> {
     if !has_value {
         return Some((TKind::Void, false));
     }
-    if !has_void && value_leaf_shape(&canon(body)) {
-        return Some((TKind::Value, false));
+    if !has_void {
+        let pattern = canon(body);
+        if value_leaf_shape(&pattern) || loop_return_split(&pattern).is_some() {
+            return Some((TKind::Value, false));
+        }
     }
     value_leaf_shape(&canon(&returning_nil(body))).then_some((TKind::Value, true))
+}
+
+/// A value helper returning from inside a loop: `PRE; for … do … return x …
+/// end; TAIL`, where `PRE` returns nothing, every `return` of the loop gives
+/// one value outside any loop nested in it, and `TAIL` is a value leaf shape
+/// (`value_leaf_shape`). Returns the loop's index in `pattern`. Its copies
+/// store the value and leave the loop through a flag ([`match_value_loop`]).
+fn loop_return_split(pattern: &[Statement]) -> Option<usize> {
+    fn exits_once(stmts: &[Statement], found: &mut bool) -> bool {
+        stmts.iter().all(|statement| match statement {
+            Statement::Return(ret) => {
+                *found = true;
+                ret.values.len() == 1 && is_truncatable_return_value(&ret.values[0])
+            }
+            Statement::If(branch) => {
+                exits_once(&branch.then_block.lock().0, found) && exits_once(&branch.else_block.lock().0, found)
+            }
+            // A `return` two loops deep leaves through two flags.
+            other => !statement_has_return(other),
+        })
+    }
+    let at = pattern.iter().position(|statement| {
+        matches!(statement, Statement::GenericFor(_) | Statement::NumericFor(_) | Statement::While(_))
+            && statement_has_return(statement)
+    })?;
+    let mut found = false;
+    let exits = match &pattern[at] {
+        Statement::GenericFor(node) => exits_once(&node.block.lock().0, &mut found),
+        Statement::NumericFor(node) => exits_once(&node.block.lock().0, &mut found),
+        Statement::While(node) => exits_once(&node.block.lock().0, &mut found),
+        _ => false,
+    };
+    (exits && found && !block_has_return(&pattern[..at]) && value_leaf_shape(&pattern[at + 1..])).then_some(at)
 }
 
 /// A helper that builds several values in its own locals and returns them:
@@ -6628,6 +6825,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
@@ -6727,6 +6925,109 @@ mod tests {
             guard.then_block.lock().0.push(Statement::Call(Call::new(global("print"), vec![local_value(&ok)])));
         }
         assert!(unflag_loop_exits(&reads).is_none());
+    }
+
+    /// `local function findItem(items, name) for _, item in items do if
+    /// item.Name == name then return item end end return nil end`, inlined
+    /// into `local found = findItem(list, key)`: the store, a flag and a
+    /// `break` stand for the `return`; the helper's `return nil` is the
+    /// declaration's `nil`, its `return fallback` the flag's `if`.
+    #[test]
+    fn a_value_returned_from_inside_a_loop_rebuilds_from_its_flagged_exit() {
+        let (helper, items, name, item) = (local("findItem"), local("items"), local("name"), local("item"));
+        let named = |of: &RcLocal, name: RValue| {
+            RValue::Binary(Binary::new(
+                RValue::Index(crate::Index::new(local_value(of), string("Name"))),
+                name,
+                BinaryOperation::Equal,
+            ))
+        };
+        let helper_body = |tail: RValue| {
+            vec![
+                Statement::GenericFor(GenericFor::new(
+                    vec![local("_"), item.clone()],
+                    vec![local_value(&items)],
+                    Block(vec![Statement::If(If::new(
+                        named(&item, local_value(&name)),
+                        Block(vec![return_one(local_value(&item))]),
+                        Block::default(),
+                    ))]),
+                )),
+                return_one(tail),
+            ]
+        };
+        let declare = |helper_body: Vec<Statement>| {
+            let declaration = helper_decl(&helper, helper_body);
+            if let Statement::Assign(assign) = &declaration
+                && let RValue::Closure(closure) = &assign.right[0]
+            {
+                closure.function.lock().parameters = vec![items.clone(), name.clone()];
+            }
+            declaration
+        };
+        let (list, key, found, ok, x) = (local("list"), local("key"), local("found"), local("ok"), local("x"));
+        // `exit` is the loop body's leaving arm; `after` follows the loop.
+        let site = |exit: Vec<Statement>, after: Vec<Statement>| {
+            let mut found_declaration = Assign::new(vec![LValue::Local(found.clone())], vec![RValue::Literal(Literal::Nil)]);
+            found_declaration.prefix = true;
+            let mut block = vec![
+                found_declaration.into(),
+                assign_local(&ok, boolean(true), true),
+                Statement::GenericFor(GenericFor::new(
+                    vec![local("_"), x.clone()],
+                    vec![local_value(&list)],
+                    Block(vec![Statement::If(If::new(named(&x, local_value(&key)), Block(exit), Block::default()))]),
+                )),
+            ];
+            block.extend(after);
+            block.push(Statement::Call(global_call("print", vec![local_value(&found)])));
+            block
+        };
+        let leave = || {
+            vec![
+                assign_local(&found, local_value(&x), false),
+                assign_local(&ok, boolean(false), false),
+                Statement::Break(Break {}),
+            ]
+        };
+        let rebuilt = |helper_body: Vec<Statement>, site: Vec<Statement>| {
+            let mut block = Block(vec![declare(helper_body)]);
+            block.0.extend(site);
+            deinline(&mut block);
+            block.to_string()
+        };
+
+        let output = rebuilt(helper_body(RValue::Literal(Literal::Nil)), site(leave(), Vec::new()));
+        assert!(output.contains("local found = findItem(list, key)"), "{output}");
+        assert!(!output.contains("break"), "{output}");
+
+        // The helper's `return fallback` runs where the flag is still set.
+        let fallback = |found: &RcLocal| {
+            Statement::If(If::new(
+                local_value(&ok),
+                Block(vec![assign_local(found, string("none"), false)]),
+                Block::default(),
+            ))
+        };
+        let output = rebuilt(helper_body(string("none")), site(leave(), vec![fallback(&found)]));
+        assert!(output.contains("local found = findItem(list, key)"), "{output}");
+
+        // A store that keeps looping is not a `return`.
+        let keeps_looping = vec![assign_local(&found, local_value(&x), false)];
+        let output = rebuilt(helper_body(RValue::Literal(Literal::Nil)), site(keeps_looping, Vec::new()));
+        assert!(!output.contains("findItem(list"), "{output}");
+        // A `break` leaving without the flag reaches what the flag guards.
+        let mut plain_break = leave();
+        plain_break.remove(1);
+        let output = rebuilt(helper_body(RValue::Literal(Literal::Nil)), site(plain_break, Vec::new()));
+        assert!(!output.contains("findItem(list"), "{output}");
+        // The flag is read after the loop.
+        let read_flag = vec![Statement::Call(global_call("print", vec![local_value(&ok)]))];
+        let output = rebuilt(helper_body(RValue::Literal(Literal::Nil)), site(leave(), read_flag));
+        assert!(!output.contains("findItem(list"), "{output}");
+        // The fallback stores something else than the helper returns.
+        let output = rebuilt(helper_body(string("none")), site(leave(), Vec::new()));
+        assert!(!output.contains("findItem(list"), "{output}");
     }
 
     #[test]
@@ -6962,7 +7263,18 @@ mod tests {
 
         let pat = canon(&body);
         assert!(!value_leaf_shape(&pat));
-        assert!(classify_returns(&body).is_none());
+        // Matched only where the copy leaves the loop through a flag
+        // (`match_value_loop`), never as a plain value region.
+        assert!(matches!(classify_returns(&body), Some((TKind::Value, false))));
+        assert_eq!(loop_return_split(&pat), Some(0));
+
+        // A `return` two loops deep leaves through two flags: refused.
+        let nested = vec![
+            Statement::While(While::new(local_value(&cond), Block(vec![body[0].clone()]))),
+            return_one(string("b")),
+        ];
+        assert!(loop_return_split(&canon(&nested)).is_none());
+        assert!(classify_returns(&nested).is_none());
     }
 
     #[test]
@@ -7081,6 +7393,7 @@ mod tests {
             specializable: true,
             falls_off: false,
             cps_loop_return: false,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
@@ -7157,6 +7470,7 @@ mod tests {
             specializable: true,
             falls_off: false,
             cps_loop_return: false,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
@@ -7223,6 +7537,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
@@ -7304,6 +7619,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: true,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
@@ -7643,6 +7959,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
@@ -7732,6 +8049,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
@@ -7883,6 +8201,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
@@ -7929,6 +8248,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),
@@ -9066,6 +9386,7 @@ mod tests {
             specializable: false,
             falls_off: false,
             cps_loop_return: false,
+            loop_exit_at: None,
             returns: Vec::new(),
             captures: Default::default(),
             search: Default::default(),

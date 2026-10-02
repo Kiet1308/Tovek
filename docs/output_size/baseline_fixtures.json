@@ -844,6 +844,18 @@
       "bytes": 1331,
       "lines": 91
     },
+    "semantic/loop_return_value__O0.luau": {
+      "bytes": 1190,
+      "lines": 85
+    },
+    "semantic/loop_return_value__O1.luau": {
+      "bytes": 1190,
+      "lines": 85
+    },
+    "semantic/loop_return_value__O2.luau": {
+      "bytes": 2663,
+      "lines": 169
+    },
     "semantic/loop_shapes__O0.luau": {
       "bytes": 3159,
       "lines": 249
