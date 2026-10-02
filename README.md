@@ -2,9 +2,9 @@
 
 **A high-readability, high-performance Luau decompiler.** **Tovek V2.5**
 
-[**Download V2.5 for Windows, Linux or macOS**](https://github.com/Kiet1308/Tovek/releases/tag/v2.5) · [What’s new in V2.5](https://kiet1308.github.io/Tovek/changelog/v2.5/) · [All release notes](https://kiet1308.github.io/Tovek/changelog.html)
+[**Download V2.5 for Windows, Linux or macOS**](https://github.com/Kiet1308/Tovek/releases/tag/v2.5.1) · [What’s new in V2.5](https://kiet1308.github.io/Tovek/changelog/v2.5/) · [All release notes](https://kiet1308.github.io/Tovek/changelog.html)
 
-Builds are published for Windows x86_64, Linux x86_64, Linux aarch64 and macOS on Apple silicon. Each package holds the two programs, `luau-lifter` (CLI) and `web-server` (local HTTP server), plus the licence; the executor client scripts live in this repository. The release tag is `v2.5`; Rust package versions are `2.5.0`.
+Builds are published for Windows x86_64, Linux x86_64, Linux aarch64 and macOS on Apple silicon. Each package holds the two programs, `luau-lifter` (CLI) and `web-server` (local HTTP server), plus the licence; the executor client scripts live in this repository. The release tag is `v2.5.1`; Rust package versions are `2.5.1`.
 
 [**💬 Join the Tovek Discord →**](https://discord.gg/phY6VUDSF7)
 
@@ -26,17 +26,19 @@ assets, workflow artifacts or Git LFS.
 | | Tovek V2.1.1 | **Tovek V2.5** |
 |---|---|---|
 | Semantic fuzzing: wrong or missing outputs (2,700 runs) | 198 | **0** |
-| Edge-case suite from reported and fuzzed bugs (306 runs) | 253 | **306** |
-| Rebuilt helper calls, four real games | 1,630 | **4,113** |
-| Anonymous `local` declarations, four real games | 57,700 | **37,060** |
+| Edge-case suite from reported and fuzzed bugs (318 runs) | 264 | **318** |
+| Rebuilt helper calls, four real games | 1,630 | **4,260** |
+| Anonymous `local` declarations, four real games | 57,700 | **36,949** |
 | Scripts that fail to decompile, four real games | 7 | **0** |
 | Native builds | Windows, Linux (x86_64) | **+ Linux aarch64, macOS Apple silicon** |
 
 V2.5 fixes the structuring failures, captured-variable and evaluation-order bugs
 found in real game dumps, two external reviews and semantic fuzzing; recognises
 far more of the helper shapes Luau `-O2` inlines (tuple and local returns, loop
-returns, trimmed copies, first-read arguments); and names values from events,
-state, modules and getters. New opt-in flags: `--style compact` (if-expressions)
+returns, trimmed copies, first-read arguments, constant arguments the compiler
+folded away); and names values from events, state, modules, getters and the
+helpers that produced them. Scripts Roblox could not compile come out as a
+comment holding the compiler's message. New opt-in flags: `--style compact` (if-expressions)
 and `--assume-standard-libraries` (spell folded `math.pi`, `Vector3.new`, ...).
 See the [V2.5 release notes](https://kiet1308.github.io/Tovek/changelog/v2.5/).
 

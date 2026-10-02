@@ -1,7 +1,19 @@
 Tovek V2.5: our next era of faithful decompilation.
 
-V2.5 fixes hundreds of ways decompiled Luau could quietly go wrong, rebuilds 2.5x
+V2.5 fixes hundreds of ways decompiled Luau could quietly go wrong, rebuilds 2.6x
 as many inlined helpers, and writes code that reads closer to what people write.
+
+V2.5.1 replaces the v2.5 build from October 2. It adds:
+- Helpers that return from inside a numeric for loop (indexOf, contains, ...)
+  no longer stop the whole script from decompiling once Luau inlines them; the
+  calls are rebuilt. A break before a return in the same loop is handled too.
+- Values returned from inside any loop are rebuilt as calls
+  (local item = findItem(...)), and constant arguments Luau folded away
+  (fade(frame, false)) are inferred back.
+- Rebuilt call results are named after what the helper returns
+  (local track = loadTrack(...)).
+- A script Roblox could not compile is written as a comment holding the
+  compiler's message instead of text that is not Luau.
 
 Downloads: Windows x86_64, Linux x86_64, Linux aarch64 and macOS (Apple silicon).
 Each package holds luau-lifter (CLI) and web-server (local HTTP server) with the
@@ -11,31 +23,33 @@ SHA256SUMS.txt lists the checksums.
 Correctness
 - Semantic fuzzing, 2,700 fresh runs (programs compiled at -O0/-O1/-O2, decompiled
   and run beside the original): V2.1.1 wrong or missing 198 times, V2.5 0.
-- 87 new edge cases from real reports and fuzzing: V2.1.1 passes 253 of the 306
-  runs, V2.5 all 306. Deep-review suite 199/199.
+- 91 new edge cases from real reports and fuzzing: V2.1.1 passes 264 of the 318
+  runs, V2.5 all 318. Deep-review suite 199/199.
 - Four real games (9,987 scripts): 7 scripts failed to decompile with V2.1.1, none
   with V2.5. Fixed: nested loops that leave or continue their parent, captured
   variables through swaps/copies/loops, calls kept ahead of captured reads, store
   address timing, library lookups that can raise, the 200-local limit, -0 vs 0.
 
 De-inlining
-- 4,113 helper calls rebuilt across the four games (V2.1.1: 1,630). New shapes:
+- 4,260 helper calls rebuilt across the four games (V2.1.1: 1,630). New shapes:
   helpers returning their own locals, parameters, calls or tuples through
   branches; returns from inside loops; copies trimmed by specialisation;
-  arguments evaluated as the helper's first step; outer-local anchors with the
-  longest match winning. Every rebuilt call is still proven equivalent.
+  constant arguments folded away; arguments evaluated as the helper's first
+  step; outer-local anchors with the longest match winning. Every rebuilt call
+  is still proven equivalent.
 
 Readability
 - Anonymous local declarations -36%, generated parameter names -16% (four games).
 - Names from context: event connections (touchedConnection), Fusion scope/use,
-  state reads (currentHealth), keyed getters, module tables, defaults.
+  state reads (currentHealth), keyed getters, module tables, defaults, and
+  rebuilt calls named after the helper's returned local.
 - Tuple stores and swaps fold back, += on globals and table fields, trailing
   guards become elseif, shared return tails written once.
 - Opt-in: --style compact (if-expressions), --assume-standard-libraries
   (math.pi, Vector3.new, ... instead of folded literals).
 
 Speed
-- Full 3,978-script game: 14.1 s -> 11.5 s on one thread, 1.03 s -> 0.96 s on 24
+- Full 3,978-script game: 13.5 s -> 11.0 s on one thread, 0.92 s -> 0.87 s on 24
   threads (same machine, alternating runs). Duplicate folder inputs decompile once.
 
 Limits
@@ -46,4 +60,4 @@ names. macOS may quarantine downloads: xattr -d com.apple.quarantine luau-lifter
 
 Release notes: https://kiet1308.github.io/Tovek/changelog/v2.5/
 Usage: https://github.com/Kiet1308/Tovek/blob/main/README.md
-Source: https://github.com/Kiet1308/Tovek/tree/v2.5
+Source: https://github.com/Kiet1308/Tovek/tree/v2.5.1

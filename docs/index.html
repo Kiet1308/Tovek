@@ -191,7 +191,7 @@ return Timer</pre>
     <div class="ribbon-track">
       <div class="ribbon-set">
         <span><em>0</em> wrong programs in semantic fuzzing</span>
-        <span><em>2.5×</em> more inlined helpers rebuilt</span>
+        <span><em>2.6×</em> more inlined helpers rebuilt</span>
         <span>Luau bytecode <em>v14</em> · Roblox v12</span>
         <span>Native builds for <em>ARM64</em> Linux and macOS</span>
         <span>Byte-identical output at any thread count</span>
@@ -199,7 +199,7 @@ return Timer</pre>
       </div>
       <div class="ribbon-set" aria-hidden="true">
         <span><em>0</em> wrong programs in semantic fuzzing</span>
-        <span><em>2.5×</em> more inlined helpers rebuilt</span>
+        <span><em>2.6×</em> more inlined helpers rebuilt</span>
         <span>Luau bytecode <em>v14</em> · Roblox v12</span>
         <span>Native builds for <em>ARM64</em> Linux and macOS</span>
         <span>Byte-identical output at any thread count</span>
@@ -662,19 +662,19 @@ local RunService = game:GetService("RunService")</pre>
           <p>Across 2,700 freshly generated programs, decompiled code from V2.1.1 behaved differently 198 times. V2.5’s never did.</p>
         </div>
         <div class="stat" data-reveal style="--d:120">
-          <div class="num"><span data-count="4113">4,113</span><small>from 1,630</small></div>
+          <div class="num"><span data-count="4260">4,260</span><small>from 1,630</small></div>
           <h3>Helper calls rebuilt</h3>
-          <p>Across four real games, V2.5 puts 2.5× as many inlined helpers back as calls, each one checked against the helper it came from.</p>
+          <p>Across four real games, V2.5 puts 2.6× as many inlined helpers back as calls, each one checked against the helper it came from.</p>
         </div>
         <div class="stat" data-reveal>
           <div class="num"><span class="acc">−</span><span data-count="36">36</span><small>%</small></div>
           <h3>Fewer anonymous locals</h3>
-          <p>Names now follow events, state and modules: 57,700 generated <code>local v</code> declarations fall to 37,060 across the same four games.</p>
+          <p>Names now follow events, state and modules: 57,700 generated <code>local v</code> declarations fall to 36,949 across the same four games.</p>
         </div>
         <div class="stat" data-reveal style="--d:120">
-          <div class="num"><span data-count="306">306</span><small>/ 306</small></div>
+          <div class="num"><span data-count="318">318</span><small>/ 318</small></div>
           <h3>Edge cases from reports</h3>
-          <p>Every reported or fuzzed bug becomes a permanent test. V2.1.1 gets 53 of these runs wrong; V2.5 passes them all.</p>
+          <p>Every reported or fuzzed bug becomes a permanent test. V2.1.1 gets 54 of these runs wrong; V2.5 passes them all.</p>
         </div>
       </div>
       <div class="proof-foot">
