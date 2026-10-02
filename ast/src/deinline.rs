@@ -1283,7 +1283,47 @@ fn canon_window(
 /// `block_has_return` refusal gate (for patterns) / `plain_blocked` gate (for
 /// candidates), keeping detection consistent and sound.
 fn canon_tail(stmts: &[Statement], tail: bool) -> Vec<Statement> {
-    canon_recurse(canon_top(stmts, tail), tail)
+    let canonical = canon_recurse(canon_top(stmts, tail), tail);
+    if tail { canonical } else { nest_value_return_guards(canonical) }
+}
+
+/// Below the function's tail a `return` still ends every path it is on, so
+/// the statements after an `if` that returns a value on all its paths but
+/// one belong on that path: `if a then return x end; if b then return y
+/// end; REST` is `if a then return x elseif b then return y else REST end`.
+/// A value helper's loop body returns in the first shape, its inlined copy
+/// leaves through `break`s structured in the second (`match_value_loop`).
+/// Blocks with a void `return` are left as written: the CPS matcher reads
+/// their guards as they are.
+fn nest_value_return_guards(stmts: Vec<Statement>) -> Vec<Statement> {
+    fn returns(stmts: &[Statement], void: &mut bool, value: &mut bool) {
+        for statement in stmts {
+            match statement {
+                Statement::Return(ret) if ret.values.is_empty() => *void = true,
+                Statement::Return(_) => *value = true,
+                Statement::If(branch) => {
+                    returns(&branch.then_block.lock().0, void, value);
+                    returns(&branch.else_block.lock().0, void, value);
+                }
+                _ => {}
+            }
+        }
+    }
+    let at = stmts.iter().position(|statement| {
+        let Statement::If(branch) = statement else { return false };
+        let (mut void, mut value) = (false, false);
+        returns(std::slice::from_ref(statement), &mut void, &mut value);
+        value && !void && is_open_guard(branch)
+    });
+    let Some(at) = at else { return stmts };
+    if stmts[at + 1..].iter().all(is_match_trivia) {
+        return stmts;
+    }
+    let mut stmts = stmts;
+    let rest = nest_value_return_guards(stmts.split_off(at + 1));
+    let guard = stmts.pop().expect("the guard");
+    stmts.extend(graft(vec![guard], rest));
+    stmts
 }
 
 /// The *top-level* (non-recursive) half of canon: the only edits that change the
@@ -5517,7 +5557,7 @@ fn any_structural_target(body: &Block) -> bool {
             return;
         }
         let loop_exit = kind == TKind::Value && !value_leaf_shape(&pattern) && loop_return_split(&pattern).is_some();
-        if anchor_score(&pattern, &g.parameters) + usize::from(loop_exit) < 2 {
+        if anchor_score(&pattern, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit) < 2 {
             return;
         }
         found = match kind {
@@ -5837,9 +5877,7 @@ fn collect_targets(
                 cps_loop_return,
             );
         }
-        // A return from inside a loop counts as an anchor: its copies leave
-        // the loop through a flag, which no plain caller code needs.
-        if anchor_score(&pat, &g.parameters) + usize::from(loop_exit_at.is_some()) < 2 {
+        if anchor_score(&pat, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit_at.is_some()) < 2 {
             deinline_reject!(
                 RejectReason::LowAnchorScore,
                 g.name.as_deref().unwrap_or("<anon>")
@@ -6021,8 +6059,16 @@ fn classify_returns(body: &[Statement]) -> Option<(TKind, bool)> {
             return Some((TKind::Value, false));
         }
     }
-    value_leaf_shape(&canon(&returning_nil(body))).then_some((TKind::Value, true))
+    let filled = canon(&returning_nil(body));
+    (value_leaf_shape(&filled) || loop_return_split(&filled).is_some()).then_some((TKind::Value, true))
 }
+
+/// What a value return from inside a loop counts toward the anchor floor
+/// (`anchor_score`): its copies leave the loop through a stored result, a
+/// flag and a `break` (`match_value_loop`), which plain caller code does not
+/// write, so it passes the floor alone (`for i = 1, #t do if t[i] == v then
+/// return i end end`).
+const LOOP_EXIT_ANCHORS: usize = 2;
 
 /// A value helper returning from inside a loop: `PRE; for … do … return x …
 /// end; TAIL`, where `PRE` returns nothing, every `return` of the loop gives
@@ -7302,6 +7348,77 @@ mod tests {
         // The fallback stores something else than the helper returns.
         let output = rebuilt(helper_body(string("none")), site(leave(), Vec::new()));
         assert!(!output.contains("findItem(list"), "{output}");
+    }
+
+    /// A numeric `for` returning from two guards (`if a then return "x" end;
+    /// if b then return "y" end`), copied with `break` exits the structurer
+    /// writes as `if a then … elseif b then … end`, and a helper falling off
+    /// its end (the declaration's `nil`), both rebuild.
+    #[test]
+    fn a_numeric_loop_with_two_returns_or_none_after_it_rebuilds() {
+        let (helper, list, i, n) = (local("classify"), local("list"), local("i"), local("n"));
+        let numeric = |counter: &RcLocal, body: Vec<Statement>| {
+            Statement::NumericFor(Box::new(NumericFor::new(
+                number(1.0),
+                RValue::Unary(Unary::new(local_value(&list), UnaryOperation::Length)),
+                number(1.0),
+                counter.clone(),
+                Block(body),
+            )))
+        };
+        let test = |name: &str, of: &RcLocal| RValue::Call(global_call(name, vec![local_value(of)]));
+        let guard = |condition: RValue, then_block: Vec<Statement>, else_block: Vec<Statement>| {
+            Statement::If(If::new(condition, Block(then_block), Block(else_block)))
+        };
+        let run = |helper_body: Vec<Statement>, site: Vec<Statement>| {
+            let declaration = helper_decl(&helper, helper_body);
+            if let Statement::Assign(assign) = &declaration
+                && let RValue::Closure(closure) = &assign.right[0]
+            {
+                closure.function.lock().parameters = vec![list.clone()];
+            }
+            let mut block = Block(vec![declaration]);
+            block.0.extend(site);
+            deinline(&mut block);
+            block.to_string()
+        };
+        let (r, ok) = (local("r"), local("ok"));
+        let declare_r = || {
+            let mut declaration = Assign::new(vec![LValue::Local(r.clone())], vec![RValue::Literal(Literal::Nil)]);
+            declaration.prefix = true;
+            Statement::from(declaration)
+        };
+        let leave = |value: RValue| vec![assign_local(&r, value, false), assign_local(&ok, boolean(false), false), Statement::Break(Break {})];
+        let use_r = || Statement::Call(global_call("print", vec![local_value(&r)]));
+
+        // for i = 1, #list do if a(i) then return "x" end if b(i) then return "y" end end return "none"
+        let helper_body = vec![
+            numeric(&i, vec![
+                guard(test("a", &i), vec![return_one(string("x"))], vec![]),
+                guard(test("b", &i), vec![return_one(string("y"))], vec![]),
+            ]),
+            return_one(string("none")),
+        ];
+        let site = vec![
+            declare_r(),
+            assign_local(&ok, boolean(true), true),
+            numeric(&n, vec![guard(test("a", &n), leave(string("x")), vec![guard(test("b", &n), leave(string("y")), vec![])])]),
+            guard(local_value(&ok), vec![assign_local(&r, string("none"), false)], vec![]),
+            use_r(),
+        ];
+        let output = run(helper_body, site);
+        assert!(output.contains("local r = classify(list)"), "{output}");
+
+        // for i = 1, #list do if a(i) then return i end end (nothing after)
+        let helper_body = vec![numeric(&i, vec![guard(test("a", &i), vec![return_one(local_value(&i))], vec![])])];
+        let site = vec![
+            declare_r(),
+            assign_local(&ok, boolean(true), true),
+            numeric(&n, vec![guard(test("a", &n), leave(local_value(&n)), vec![])]),
+            use_r(),
+        ];
+        let output = run(helper_body, site);
+        assert!(output.contains("local r = classify(list)"), "{output}");
     }
 
     /// Luau folds the reads of a constant argument whose truth alone is
