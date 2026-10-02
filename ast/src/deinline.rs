@@ -261,6 +261,18 @@ struct Target {
     /// change statement shape after constant argument propagation, so this is a
     /// cold precomputed gate for the Tier-B partial-evaluation fallback.
     specializable: bool,
+    /// Parameters read where only their truth matters
+    /// ([`truth_tested_params`]), in parameter order. Luau folds such a read
+    /// of a constant argument away, so a copy may keep no trace of it; Tier B
+    /// then tries `true` and `false` for it.
+    truth_params: Vec<RcLocal>,
+    /// The [`Target::truth_params`] whose value is read too (`parent or
+    /// root`, `if timeout then x.Value = timeout end`): an optional argument,
+    /// left out rather than `false` where the copy says it was false.
+    optional_params: Vec<RcLocal>,
+    /// [`try_truth`]'s specializations of `pat`, built on first use: `None`
+    /// where too little of the body is left.
+    specializations: std::cell::RefCell<FxHashMap<(usize, InferredTruth), Option<std::rc::Rc<Vec<Statement>>>>>,
     /// A Value target with a path that falls off the end of the body instead
     /// of returning one value (`if c then return x end`). Exact only where the
     /// result is one nil-initialized local (`local r; if c then r = x end`):
@@ -2686,10 +2698,15 @@ fn recurse_into_closures(
 
 /// A matched site: window width, call arguments, and (Gap B arm-return form)
 /// the tail return value to re-emit after the call.
-/// A matched width, its arguments, the re-emitted tail return and the
-/// call's result locals.
-type Site = (usize, Vec<RValue>, Option<RValue>, Vec<RcLocal>);
+/// A matched width, its arguments, the re-emitted tail return, the call's
+/// result locals and whether a constant argument was inferred.
+type Site = (usize, Vec<RValue>, Option<RValue>, Vec<RcLocal>, Option<RcLocal>);
 
+/// Two widths matching with different calls make the site ambiguous, except
+/// that a match inferring a constant argument ([`try_inferred_constant`])
+/// yields to one that does not: the constant would have removed the code
+/// the wider copy still has (`startFlipbook(nil)` is a prefix of
+/// `startFlipbook(time)`).
 fn record_site(
     site: &mut Option<Site>,
     ambiguous: &mut bool,
@@ -2697,9 +2714,16 @@ fn record_site(
     u: &Unified,
     tail_ret: Option<&RValue>,
 ) {
+    let found = || Some((w, u.args.clone(), tail_ret.cloned(), u.returned.clone(), u.inferred.clone()));
     match site {
-        None => *site = Some((w, u.args.clone(), tail_ret.cloned(), u.returned.clone())),
-        Some((_, prev, prev_ret, prev_results)) => {
+        None => *site = found(),
+        // Only inferred matches were seen, so only they made it ambiguous.
+        Some((.., Some(_))) if u.inferred.is_none() => {
+            *site = found();
+            *ambiguous = false;
+        }
+        Some((.., None)) if u.inferred.is_some() => {}
+        Some((_, prev, prev_ret, prev_results, _)) => {
             let same_ret = match (prev_ret.as_ref(), tail_ret) {
                 (None, None) => true,
                 (Some(a), Some(b)) => rvalue_exact_eq(a, b),
@@ -2912,6 +2936,8 @@ struct Hit {
     /// The statement that uses the value, with the call already in its place
     /// (`match_embedded_value`); emitted instead of a result declaration.
     host: Option<Statement>,
+    /// The parameter a constant argument was inferred for.
+    inferred: Option<RcLocal>,
 }
 
 fn try_match_at(
@@ -3010,7 +3036,7 @@ fn try_match_at(
         // One unit per width the non-allocating length check scans; the deep
         // canon/unify work is charged where it happens (`charge_unify`).
         if !t.search.spend(t.pat_spine_len.saturating_add(2)) { return Err(()); }
-        Ok(match (t.kind, t.value_anchor) {
+        let hit = match (t.kind, t.value_anchor) {
             (TKind::Void, _) => match_void(
                 stmts,
                 i,
@@ -3031,7 +3057,8 @@ fn try_match_at(
             (TKind::Value, ValueAnchor::AtPrefix) => {
                 match_value_prefixed(stmts, i, t, current_func, is_func_body_top, last_occ)
             }
-        })
+        };
+        Ok(hit.filter(|hit| !hit.inferred.as_ref().is_some_and(|param| continues_pruned_branch(t, param, stmts, i + hit.consume))))
     };
     // Where several helpers match, the one covering the most statements wins:
     // each rebuild is exact, and a shorter one would leave the rest pasted
@@ -3237,7 +3264,7 @@ fn match_void(
     if ambiguous {
         return None;
     }
-    let (w, args, tail_ret, results) = site?;
+    let (w, args, tail_ret, results, inferred) = site?;
     Some(Hit {
         f_local: t.f_local.clone(),
         consume: (start - i) + w,
@@ -3245,6 +3272,7 @@ fn match_void(
         results,
         tail_ret,
         host: None,
+        inferred,
     })
 }
 
@@ -3338,7 +3366,7 @@ fn match_value(
     if ambiguous {
         return None;
     }
-    let (w, args, _, _) = site?;
+    let (w, args, _, _, inferred) = site?;
     Some(Hit {
         f_local: t.f_local.clone(),
         consume: 1 + w,
@@ -3346,6 +3374,7 @@ fn match_value(
         results: vec![r],
         tail_ret: None,
         host: None,
+        inferred,
     })
 }
 
@@ -3405,6 +3434,7 @@ fn match_value_loop(
         results: vec![result],
         tail_ret: None,
         host: None,
+        inferred: u.inferred,
     })
 }
 
@@ -3452,7 +3482,7 @@ fn match_declared_value(
         && !u.callee_locals.contains(r)
         && !block_reads_local(prefix, r)
         && !tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals);
-    complete.then(|| Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, results: vec![r.clone()], tail_ret: None, host: None })
+    complete.then(|| Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, results: vec![r.clone()], tail_ret: None, host: None, inferred: u.inferred })
 }
 
 /// `<prefix>` computing a local the helper returns, then read under its own
@@ -3505,7 +3535,7 @@ fn match_returned_local(
             continue;
         }
         let results = if read_later { vec![local.clone()] } else { Vec::new() };
-        return Some(Hit { f_local: t.f_local.clone(), consume: d - i, args: u.args, results, tail_ret: None, host: None });
+        return Some(Hit { f_local: t.f_local.clone(), consume: d - i, args: u.args, results, tail_ret: None, host: None, inferred: u.inferred });
     }
     None
 }
@@ -3627,7 +3657,7 @@ fn match_embedded_value(
     if !host_locals.is_disjoint(&u.callee_locals) || tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals) {
         return None;
     }
-    Some(Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, results: Vec::new(), tail_ret: None, host: Some(host) })
+    Some(Hit { f_local: t.f_local.clone(), consume: d + 1 - i, args: u.args, results: Vec::new(), tail_ret: None, host: Some(host), inferred: u.inferred })
 }
 
 /// Offers `visit` each value of `statement` that Lua evaluates on every path
@@ -3941,7 +3971,7 @@ fn match_value_prefixed(
     if ambiguous {
         return None;
     }
-    let (w, args, _, _) = site?;
+    let (w, args, _, _, inferred) = site?;
     Some(Hit {
         f_local: t.f_local.clone(),
         // Absolute span from i: prefix + any interposed trivia + the RESULT decl
@@ -3952,6 +3982,7 @@ fn match_value_prefixed(
         results: vec![r],
         tail_ret: None,
         host: None,
+        inferred,
     })
 }
 
@@ -4132,6 +4163,9 @@ struct Unified {
     /// The caller locals the helper's returned locals (`Target::returns`)
     /// mapped onto, in return order: the call's results.
     returned: Vec<RcLocal>,
+    /// The parameter a constant argument was inferred for
+    /// ([`try_inferred_constant`]).
+    inferred: Option<RcLocal>,
 }
 
 /// The leading `local L = ARG` copies a written-param site starts with (see
@@ -4278,6 +4312,7 @@ fn finish_unified(
         result: b.result,
         callee_locals,
         returned,
+        inferred: None,
     })
 }
 
@@ -4595,6 +4630,10 @@ fn cps_unify_loop_exit(
 }
 
 fn try_unify_specialized_site(t: &Target, cwin: &[Statement], prefix: &Prefix, current_func: Option<FnPtr>) -> Option<Unified> {
+    try_seeded_specialization(t, cwin, prefix, current_func).or_else(|| try_inferred_constant(t, cwin, prefix, current_func))
+}
+
+fn try_seeded_specialization(t: &Target, cwin: &[Statement], prefix: &Prefix, current_func: Option<FnPtr>) -> Option<Unified> {
     if !t.specializable || t.params.is_empty() {
         return None;
     }
@@ -4640,6 +4679,234 @@ fn try_unify_specialized_site(t: &Target, cwin: &[Statement], prefix: &Prefix, c
         return None;
     }
     finish_unified(t, cwin, verified, prefix, current_func)
+}
+
+/// The most truth-tested parameters a constant is inferred for.
+const MAX_TRUTH_PARAMS: usize = 2;
+
+/// A constant argument whose every read Luau folded (`visible and 0 or 1`
+/// with `false` is `1`) leaves nothing at the site to bind. Its truth is what
+/// the folding read, so `true` or a false value stands for it, whichever
+/// specializes the body into exactly the copy, the other parameters bound by
+/// the exact unification; where a true and a false value both do, the copy
+/// says nothing. A false value is `nil` (left out when last) for a parameter
+/// whose value is read too (`parent or root`), as for an argument left out,
+/// else `false` (a flag); the other one where that fails (`p and x` keeps
+/// it). One parameter per call, from targets with at most
+/// [`MAX_TRUTH_PARAMS`]; the specializations are built once per target.
+fn try_inferred_constant(t: &Target, cwin: &[Statement], prefix: &Prefix, current_func: Option<FnPtr>) -> Option<Unified> {
+    if t.truth_params.is_empty() || t.truth_params.len() > MAX_TRUTH_PARAMS {
+        return None;
+    }
+    for (index, param) in t.truth_params.iter().enumerate() {
+        let optional = t.optional_params.contains(param);
+        let truthy = try_truth(t, cwin, prefix, current_func, index, InferredTruth::True);
+        let preferred = if optional { InferredTruth::Nil } else { InferredTruth::False };
+        let other = if optional { InferredTruth::False } else { InferredTruth::Nil };
+        let falsy = try_truth(t, cwin, prefix, current_func, index, preferred)
+            .or_else(|| try_truth(t, cwin, prefix, current_func, index, other));
+        match (truthy, falsy) {
+            (Some(_), Some(_)) => return None,
+            (Some(unified), None) | (None, Some(unified)) => return Some(unified),
+            (None, None) => {}
+        }
+    }
+    None
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum InferredTruth {
+    True,
+    False,
+    Nil,
+}
+
+impl InferredTruth {
+    fn literal(self) -> Literal {
+        match self {
+            InferredTruth::True => Literal::Boolean(true),
+            InferredTruth::False => Literal::Boolean(false),
+            InferredTruth::Nil => Literal::Nil,
+        }
+    }
+}
+
+/// `t`'s body with truth parameter `index` given `truth`, unified exactly
+/// against `cwin`. Nothing of the site vouched for that constant: the body
+/// it leaves must still pass the collection floor (`anchor_score`, arguments
+/// not counted), or a helper doing nothing for it would match anywhere.
+fn try_truth(
+    t: &Target,
+    cwin: &[Statement],
+    prefix: &Prefix,
+    current_func: Option<FnPtr>,
+    index: usize,
+    truth: InferredTruth,
+) -> Option<Unified> {
+    let param = &t.truth_params[index];
+    let specialized = t
+        .specializations
+        .borrow_mut()
+        .entry((index, truth))
+        .or_insert_with(|| {
+            // `canon` deep-copies every block-bearing statement, avoiding
+            // mutation of the recovered function body's shared Arcs.
+            let mut specialized = canon(&t.pat);
+            let bindings = FxHashMap::from_iter([(param.clone(), RValue::Literal(truth.literal()))]);
+            specialize_block(&mut specialized, &bindings);
+            let specialized = canon(&specialized);
+            (!specialized.is_empty() && anchor_score(&specialized, &t.param_order) >= 2)
+                .then(|| std::rc::Rc::new(specialized))
+        })
+        .clone()?;
+    if specialized.len() != cwin.len() || !charge_unify(t, cwin) {
+        return None;
+    }
+    let mut bindings = Bindings::default();
+    unify_block(t, &specialized, cwin, &mut bindings).ok()?;
+    bindings.params.insert(param.clone(), RValue::Literal(truth.literal()));
+    let mut unified = finish_unified(t, cwin, bindings, prefix, current_func)?;
+    unified.inferred = Some(param.clone());
+    // A `nil` supplied last is an argument left out.
+    if truth == InferredTruth::Nil
+        && matches!(unified.args.last(), Some(RValue::Literal(Literal::Nil)))
+        && t.param_order.get(unified.args.len() - 1) == Some(param)
+    {
+        unified.args.pop();
+    }
+    Some(unified)
+}
+
+/// The statement after a window matched with a constant inferred for `param`
+/// is one that constant removed from the body, with another condition:
+/// `if thread then … end; if now then thread = task.defer(…) end` for a
+/// helper `startFlipbook(time)` ending `if time then thread = task.defer(…)
+/// end`. The copy goes on past the window; it is a call with another
+/// argument that the exact match missed, not a call with the constant.
+fn continues_pruned_branch(t: &Target, param: &RcLocal, stmts: &[Statement], end: usize) -> bool {
+    fn same_shape(a: &[Statement], b: &[Statement]) -> bool {
+        let mut a = a.iter().filter(|s| !is_match_trivia(s));
+        let mut b = b.iter().filter(|s| !is_match_trivia(s));
+        loop {
+            match (a.next(), b.next()) {
+                (None, None) => return true,
+                (Some(x), Some(y)) if std::mem::discriminant(x) == std::mem::discriminant(y) => {}
+                _ => return false,
+            }
+        }
+    }
+    let Some(Statement::If(site)) = (end..stmts.len()).find(|&k| !is_match_trivia(&stmts[k])).map(|k| &stmts[k]) else {
+        return false;
+    };
+    t.pat.iter().any(|statement| {
+        matches!(statement, Statement::If(pruned)
+            if reads_local(&pruned.condition, param)
+                && same_shape(&pruned.then_block.lock().0, &site.then_block.lock().0)
+                && same_shape(&pruned.else_block.lock().0, &site.else_block.lock().0))
+    })
+}
+
+/// Parameters `pattern` reads where only their truth matters: a branch or
+/// `if`-expression condition, an `and`/`or` left operand, `not`'s operand.
+/// Luau's constant folding removes such a read of a constant argument.
+/// Also the parameters whose value is read: the left of an `or`, or any
+/// other read. In `parameters` order.
+fn truth_tested_params(
+    pattern: &[Statement],
+    params: &FxHashSet<RcLocal>,
+    parameters: &[RcLocal],
+) -> (Vec<RcLocal>, Vec<RcLocal>) {
+    struct Found {
+        truth: FxHashSet<RcLocal>,
+        valued: FxHashSet<RcLocal>,
+    }
+    fn truth(value: &RValue, params: &FxHashSet<RcLocal>, found: &mut Found) {
+        match value {
+            RValue::Local(local) if params.contains(local) => {
+                found.truth.insert(local.clone());
+            }
+            RValue::Unary(unary) if unary.operation == UnaryOperation::Not => truth(&unary.value, params, found),
+            RValue::Binary(binary) if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) => {
+                truth(&binary.left, params, found);
+                truth(&binary.right, params, found);
+            }
+            other => operands(other, params, found),
+        }
+    }
+    // `p or default` gives `p` itself where it is true.
+    fn defaulted(binary: &Binary, params: &FxHashSet<RcLocal>, found: &mut Found) {
+        if binary.operation == BinaryOperation::Or
+            && let RValue::Local(local) = &*binary.left
+            && params.contains(local)
+        {
+            found.valued.insert(local.clone());
+        }
+    }
+    fn operands(value: &RValue, params: &FxHashSet<RcLocal>, found: &mut Found) {
+        match value {
+            RValue::Local(local) if params.contains(local) => {
+                found.valued.insert(local.clone());
+            }
+            RValue::Unary(unary) if unary.operation == UnaryOperation::Not => truth(&unary.value, params, found),
+            RValue::Binary(binary) if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) => {
+                defaulted(binary, params, found);
+                truth(&binary.left, params, found);
+                operands(&binary.right, params, found);
+            }
+            RValue::IfExpression(select) => {
+                truth(&select.condition, params, found);
+                operands(&select.then_value, params, found);
+                operands(&select.else_value, params, found);
+            }
+            other => {
+                other.visit_rvalues(&mut |child| {
+                    operands(child, params, found);
+                    true
+                });
+            }
+        }
+    }
+    fn block(stmts: &[Statement], params: &FxHashSet<RcLocal>, found: &mut Found) {
+        for statement in stmts {
+            match statement {
+                Statement::If(branch) => {
+                    truth(&branch.condition, params, found);
+                    block(&branch.then_block.lock().0, params, found);
+                    block(&branch.else_block.lock().0, params, found);
+                }
+                Statement::While(node) => {
+                    truth(&node.condition, params, found);
+                    block(&node.block.lock().0, params, found);
+                }
+                Statement::Repeat(node) => {
+                    block(&node.block.lock().0, params, found);
+                    truth(&node.condition, params, found);
+                }
+                Statement::NumericFor(node) => {
+                    for value in [&node.initial, &node.limit, &node.step] {
+                        operands(value, params, found);
+                    }
+                    block(&node.block.lock().0, params, found);
+                }
+                Statement::GenericFor(node) => {
+                    for value in &node.right {
+                        operands(value, params, found);
+                    }
+                    block(&node.block.lock().0, params, found);
+                }
+                other => {
+                    visit_stmt_rvalues(other, &mut |value| {
+                        operands(value, params, found);
+                        true
+                    });
+                }
+            }
+        }
+    }
+    let mut found = Found { truth: FxHashSet::default(), valued: FxHashSet::default() };
+    block(pattern, params, &mut found);
+    let in_order = |set: &FxHashSet<RcLocal>| parameters.iter().filter(|param| set.contains(*param)).cloned().collect();
+    (in_order(&found.truth), in_order(&found.valued))
 }
 
 /// Harvest parameter bindings from structurally corresponding prefixes.  A
@@ -5600,6 +5867,7 @@ fn collect_targets(
             .cloned()
             .collect();
         let specializable = branch_conditions_read_any(&pat, &params);
+        let (truth_params, optional_params) = truth_tested_params(&pat, &params, &g.parameters);
         // A parameter whose argument may run code before the body: read once,
         // first, with the argument evaluated where it stands (`first_reads`)
         // or, a register local, read when its operation runs
@@ -5718,6 +5986,9 @@ fn collect_targets(
             first_reads,
             first_register_reads,
             specializable,
+            truth_params,
+            optional_params,
+            specializations: Default::default(),
             falls_off,
             cps_loop_return,
             loop_exit_at,
@@ -6823,6 +7094,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: false,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: false,
             loop_exit_at: None,
@@ -7028,6 +7302,122 @@ mod tests {
         // The fallback stores something else than the helper returns.
         let output = rebuilt(helper_body(string("none")), site(leave(), Vec::new()));
         assert!(!output.contains("findItem(list"), "{output}");
+    }
+
+    /// Luau folds the reads of a constant argument whose truth alone is
+    /// tested (`visible and 0 or 1` with `false` is `1`), leaving the copy no
+    /// trace of it: the constant that specializes the body into exactly the
+    /// copy is passed (`nil`, left out, for a parameter given a default).
+    #[test]
+    fn a_constant_argument_folded_away_is_inferred_from_its_truth() {
+        let declare = |helper: &RcLocal, parameters: Vec<RcLocal>, body: Vec<Statement>| {
+            let declaration = helper_decl(helper, body);
+            if let Statement::Assign(assign) = &declaration
+                && let RValue::Closure(closure) = &assign.right[0]
+            {
+                closure.function.lock().parameters = parameters;
+            }
+            declaration
+        };
+        let store = |object: &RcLocal, field: &str, value: RValue| {
+            Statement::Assign(Assign::new(
+                vec![LValue::Index(crate::Index::new(local_value(object), string(field)))],
+                vec![value],
+            ))
+        };
+        let method = |object: &RcLocal, name: &str| {
+            Statement::MethodCall(MethodCall::new(local_value(object), name.to_string(), Vec::new()))
+        };
+        let select = |condition: RValue, yes: RValue, no: RValue| {
+            RValue::Binary(Binary::new(RValue::Binary(Binary::new(condition, yes, BinaryOperation::And)), no, BinaryOperation::Or))
+        };
+        let run = |block: Vec<Statement>| {
+            let mut block = Block(block);
+            deinline(&mut block);
+            block.to_string()
+        };
+
+        // local function fade(frame, visible) frame.Transparency = visible and 0 or 1; frame:Play() end
+        let (fade, frame, visible, part) = (local("fade"), local("frame"), local("visible"), local("part"));
+        let fade_body = vec![
+            store(&frame, "Transparency", select(local_value(&visible), number(0.0), number(1.0))),
+            method(&frame, "Play"),
+        ];
+        let output = run(vec![
+            declare(&fade, vec![frame.clone(), visible.clone()], fade_body.clone()),
+            store(&part, "Transparency", number(1.0)),
+            method(&part, "Play"),
+            store(&part, "Transparency", number(0.0)),
+            method(&part, "Play"),
+        ]);
+        assert!(output.contains("fade(part, false)") && output.contains("fade(part, true)"), "{output}");
+        // A value neither constant gives keeps the copy.
+        let output = run(vec![
+            declare(&fade, vec![frame.clone(), visible.clone()], fade_body),
+            store(&part, "Transparency", number(0.5)),
+            method(&part, "Play"),
+        ]);
+        assert!(!output.contains("fade(part"), "{output}");
+
+        // local function attach(item, parent) item.Parent = parent or root; item:Init() end
+        let (attach, item, parent, root) = (local("attach"), local("item"), local("parent"), local("root"));
+        let output = run(vec![
+            declare(&attach, vec![item.clone(), parent.clone()], vec![
+                store(&item, "Parent", RValue::Binary(Binary::new(local_value(&parent), local_value(&root), BinaryOperation::Or))),
+                method(&item, "Init"),
+            ]),
+            store(&part, "Parent", local_value(&root)),
+            method(&part, "Init"),
+        ]);
+        assert!(output.contains("attach(part)"), "{output}");
+
+        // local function add(item, timeout) item:Init(); item.Ready = true; if timeout then item.Value = timeout end end:
+        // an optional value is left out, a flag is passed `false`.
+        let (add, timeout) = (local("add"), local("timeout"));
+        let output = run(vec![
+            declare(&add, vec![item.clone(), timeout.clone()], vec![
+                method(&item, "Init"),
+                store(&item, "Ready", RValue::Literal(Literal::Boolean(true))),
+                Statement::If(If::new(local_value(&timeout), Block(vec![store(&item, "Value", local_value(&timeout))]), Block::default())),
+            ]),
+            method(&part, "Init"),
+            store(&part, "Ready", RValue::Literal(Literal::Boolean(true))),
+        ]);
+        assert!(output.contains("add(part)"), "{output}");
+
+        // local function emit(enabled) if enabled then work("a") end end:
+        // `false` leaves nothing, which no statement may stand for.
+        let (emit, enabled) = (local("emit"), local("enabled"));
+        let work = || Statement::Call(global_call("work", vec![string("a")]));
+        let output = run(vec![
+            declare(&emit, vec![enabled.clone()], vec![Statement::If(If::new(local_value(&enabled), Block(vec![work()]), Block::default()))]),
+            print_x(),
+            work(),
+        ]);
+        assert!(output.contains("emit(true)") && !output.contains("emit(false)"), "{output}");
+
+        // local function start(time) cancel("x"); if time then work(time) end end:
+        // the whole copy `start(t)` wins over its prefix, `start(nil)`.
+        let (start, time, t) = (local("start"), local("time"), local("t"));
+        let cancel = || Statement::Call(global_call("cancel", vec![string("x")]));
+        let work = |of: &RcLocal| Statement::Call(global_call("work", vec![local_value(of)]));
+        let body = |time: &RcLocal| {
+            vec![cancel(), Statement::If(If::new(local_value(time), Block(vec![work(time)]), Block::default()))]
+        };
+        let mut site = body(&t);
+        site.insert(0, declare(&start, vec![time.clone()], body(&time)));
+        let output = run(site);
+        assert!(output.contains("start(t)") && output.matches("cancel(").count() == 1, "{output}");
+        // Where the copy goes on with the branch the constant removed (here
+        // under another condition), the prefix is no call with `nil`.
+        let now = local("now");
+        let mut site = vec![
+            cancel(),
+            Statement::If(If::new(local_value(&now), Block(vec![Statement::Call(global_call("work", vec![local_value(&now), number(1.0)]))]), Block::default())),
+        ];
+        site.insert(0, declare(&start, vec![time.clone()], body(&time)));
+        let output = run(site);
+        assert!(output.matches("cancel(").count() == 2, "{output}");
     }
 
     #[test]
@@ -7391,6 +7781,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: true,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: false,
             loop_exit_at: None,
@@ -7468,6 +7861,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: true,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: false,
             loop_exit_at: None,
@@ -7535,6 +7931,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: false,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: false,
             loop_exit_at: None,
@@ -7617,6 +8016,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: false,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: true,
             loop_exit_at: None,
@@ -7957,6 +8359,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: false,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: false,
             loop_exit_at: None,
@@ -8047,6 +8452,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: false,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: false,
             loop_exit_at: None,
@@ -8199,6 +8607,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: false,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: false,
             loop_exit_at: None,
@@ -8246,6 +8657,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: false,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: false,
             loop_exit_at: None,
@@ -9384,6 +9798,9 @@ mod tests {
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
             specializable: false,
+            truth_params: Vec::new(),
+            optional_params: Vec::new(),
+            specializations: Default::default(),
             falls_off: false,
             cps_loop_return: false,
             loop_exit_at: None,

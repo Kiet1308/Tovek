@@ -96,7 +96,8 @@
    "import_lookup_may_raise": "full-project review 2026-10-02 (raising imports, signed zero, connection stores)",
    "signed_zero_operands": "full-project review 2026-10-02 (raising imports, signed zero, connection stores)",
    "loop_return_value": "De-inline fixture (2026-10-02): a value returned from inside a loop, lowered to a store, a flag and a break, rebuilds as the call; main outlines the rebuilt calls; baselined from the introducing commit output.",
-   "rebuilt_call_result_names": "Naming fixture (2026-10-02): rebuilt call results take the name of the local the helper returns; baselined from the introducing commit output."
+   "rebuilt_call_result_names": "Naming fixture (2026-10-02): rebuilt call results take the name of the local the helper returns; baselined from the introducing commit output.",
+   "folded_constant_argument": "De-inline fixture (2026-10-02): a constant argument whose truth-only reads Luau folded away is inferred for the rebuilt call; main outlines the rebuilt calls; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -421,6 +422,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 7
+  },
+  {
+   "file": "folded_constant_argument",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 6
   },
   {
    "file": "generic_break_found",

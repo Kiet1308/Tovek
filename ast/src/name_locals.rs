@@ -5181,11 +5181,14 @@ fn record_local_function_call(
     });
     state.calls += 1;
     for index in 0..parameters {
-        let Some(name) = call
-            .arguments
-            .get(index)
-            .and_then(|argument| namer.callsite_argument_name(argument))
-        else {
+        // A rebuilt call's literal or left-out argument says nothing about
+        // the slot: Luau folded the argument into the copy, so the call
+        // passes the constant the copy shows, or one inferred for it.
+        let argument = call.arguments.get(index);
+        if call.rebuilt && argument.is_none_or(|argument| matches!(argument, RValue::Literal(_))) {
+            continue;
+        }
+        let Some(name) = argument.and_then(|argument| namer.callsite_argument_name(argument)) else {
             state.valid[index] = false;
             continue;
         };
@@ -5197,15 +5200,23 @@ fn record_local_function_call(
     }
 }
 
+/// The calls of a helper written in the source decide its parameters'
+/// names; the calls the de-inliner rebuilt (whose original call sites are
+/// unknown) only where it has none.
 fn collect_local_function_calls<P>(
     block: &Block,
     definitions: &FxHashMap<usize, Vec<P>>,
     namer: &Namer,
     consensus: &mut FxHashMap<usize, ParamConsensus>,
 ) {
+    let mut rebuilt = FxHashMap::<usize, ParamConsensus>::default();
     visit_local_function_calls(block, definitions, &mut |call, binder, parameters| {
-        record_local_function_call(call, binder, parameters.len(), namer, consensus);
+        let votes = if call.rebuilt { &mut rebuilt } else { &mut *consensus };
+        record_local_function_call(call, binder, parameters.len(), namer, votes);
     });
+    for (binder, state) in rebuilt {
+        consensus.entry(binder).or_insert(state);
+    }
 }
 
 /// Every call `f(...)` of a local function in `definitions`, in `block` and
@@ -8632,6 +8643,40 @@ mod tests {
         name_locals(&mut block, true);
 
         assert_eq!(name_of(&parameter), "petData");
+    }
+
+    /// A rebuilt call never outvotes the calls written in the source; it
+    /// names a parameter only for a helper that has none, and then its
+    /// literal or left-out arguments (folded into the copy) are no evidence.
+    #[test]
+    fn rebuilt_call_sites_do_not_veto_a_parameter_name() {
+        let run = |calls: &dyn Fn(&RcLocal) -> Vec<Statement>| {
+            let parameter = RcLocal::default();
+            let mut function = Function::default();
+            function.parameters = vec![parameter.clone()];
+            function.body = Block(vec![use_local(&parameter)]);
+            let binder = RcLocal::default();
+            let mut block = Block(vec![declare(&binder, closure_of(function))]);
+            block.0.extend(calls(&binder));
+            name_locals(&mut block, true);
+            name_of(&parameter)
+        };
+        let call = |binder: &RcLocal, arguments: Vec<RValue>, rebuilt: bool| {
+            let mut call = Call::new(RValue::Local(binder.clone()), arguments);
+            if rebuilt {
+                call = call.reconstructed(crate::call_origins::Kind::StatementDeinline);
+            }
+            Statement::Call(call)
+        };
+        let pet = || RValue::Index(Index::new(global("record"), string("PetData")));
+        let other = || RValue::Index(Index::new(global("record"), string("Other")));
+        // A literal in a source call still says the parameter takes values
+        // without that name.
+        assert_eq!(run(&|f| vec![call(f, vec![pet()], false), call(f, vec![number(1.0)], false)]), "p");
+        assert_eq!(run(&|f| vec![call(f, vec![pet()], false), call(f, vec![other()], true)]), "petData");
+        assert_eq!(run(&|f| vec![call(f, vec![pet()], true), call(f, vec![RValue::Literal(Literal::Boolean(false))], true)]), "petData");
+        // Source calls that disagree still leave it unnamed.
+        assert_eq!(run(&|f| vec![call(f, vec![pet()], false), call(f, vec![other()], false)]), "p");
     }
 
     #[test]

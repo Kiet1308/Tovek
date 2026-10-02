@@ -652,6 +652,18 @@
       "bytes": 1424,
       "lines": 64
     },
+    "semantic/folded_constant_argument__O0.luau": {
+      "bytes": 1006,
+      "lines": 57
+    },
+    "semantic/folded_constant_argument__O1.luau": {
+      "bytes": 1006,
+      "lines": 57
+    },
+    "semantic/folded_constant_argument__O2.luau": {
+      "bytes": 1953,
+      "lines": 68
+    },
     "semantic/generic_break_found__O0.luau": {
       "bytes": 502,
       "lines": 46
