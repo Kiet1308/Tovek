@@ -14,23 +14,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400..700&family=Google+Sans+Code:wght@400;500&display=swap">
-  <link rel="stylesheet" href="v25.css?v=1">
+  <link rel="stylesheet" href="v25.css?v=3">
   <script>document.documentElement.classList.add('js')</script>
-  <script src="v25.js?v=1" defer></script>
+  <script src="v25.js?v=3" defer></script>
 </head>
 <body>
 <a class="skip" href="#article">Skip to article</a>
 
 <header class="top">
   <a class="wordmark" href="../../index.html" aria-label="Tovek home"><span class="mark"><svg viewBox="0 0 28 30" aria-hidden="true"><path d="M0 0h28v7H18v23h-8V7H0z"/></svg></span>Tovek <span>Release notes</span></a>
-  <nav aria-label="Main">
+  <nav id="site-menu" aria-label="Main">
     <a href="../../index.html">Overview</a>
     <a href="../../changelog.html" aria-current="true">Changelog</a>
     <a href="https://github.com/Kiet1308/Tovek">GitHub</a>
     <a href="https://discord.gg/phY6VUDSF7">Discord</a>
   </nav>
   <span class="spacer"></span>
-  <a class="icon-btn" href="https://github.com/Kiet1308/Tovek" aria-label="Source on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg></a>
+  <button class="icon-btn menu-btn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+  <a class="icon-btn gh-btn" href="https://github.com/Kiet1308/Tovek" aria-label="Source on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg></a>
   <a class="pill-btn" href="#available">Download V2.5</a>
 </header>
 
@@ -129,169 +130,26 @@
     <figure class="compare" data-tabs data-in>
       <div class="compare-tabs" role="tablist" aria-label="Before and after"><button type="button" role="tab">A game loop</button><button type="button" role="tab">A captured update</button><button type="button" role="tab">A helper put back</button></div>
       <div class="compare-panel" role="tabpanel">
-        <div class="code-src"><b>Original Luau</b><pre>local Players = game:GetService(&quot;Players&quot;)
-
-local function runRounds(arena)
-  while true do
-    if #Players:GetPlayers() &gt;= 2 then
-      while true do
-        if arena:GetAttribute(&quot;Alive&quot;) &lt;= 1 then
-          arena:SetAttribute(&quot;Status&quot;, &quot;Round over&quot;)
-          break
-        end
-        for _, zone in arena.Zones:GetChildren() do
-          zone.Size *= 0.95
-        end
-        if arena:GetAttribute(&quot;TimeLeft&quot;) &lt;= 0 then
-          break
-        end
-        task.wait(1)
-      end
-    end
-    task.wait(5)
-  end
-end
-
-return runRounds</pre></div>
+        <div class="code-src"><b>Original Luau</b><pre><span class="ln" style="--i:0">local Players = game:GetService(&quot;Players&quot;)</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">local function runRounds(arena)</span><span class="ln" style="--i:2">while true do</span><span class="ln" style="--i:4">if #Players:GetPlayers() &gt;= 2 then</span><span class="ln" style="--i:6">while true do</span><span class="ln" style="--i:8">if arena:GetAttribute(&quot;Alive&quot;) &lt;= 1 then</span><span class="ln" style="--i:10">arena:SetAttribute(&quot;Status&quot;, &quot;Round over&quot;)</span><span class="ln" style="--i:10">break</span><span class="ln" style="--i:8">end</span><span class="ln" style="--i:8">for _, zone in arena.Zones:GetChildren() do</span><span class="ln" style="--i:10">zone.Size *= 0.95</span><span class="ln" style="--i:8">end</span><span class="ln" style="--i:8">if arena:GetAttribute(&quot;TimeLeft&quot;) &lt;= 0 then</span><span class="ln" style="--i:10">break</span><span class="ln" style="--i:8">end</span><span class="ln" style="--i:8">task.wait(1)</span><span class="ln" style="--i:6">end</span><span class="ln" style="--i:4">end</span><span class="ln" style="--i:4">task.wait(5)</span><span class="ln" style="--i:2">end</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">return runRounds</span></pre></div>
         <div class="compare-grid">
           <div class="code-card"><h4>Tovek V2.1.1<span class="tag">Fails</span></h4><p class="err">control-flow structuring failed: residual goto/label would be invalid Luau</p></div>
-          <div class="code-card now"><h4>Tovek V2.5<span class="tag">Decompiled</span></h4><pre>local Players = game:GetService(&quot;Players&quot;)
-
-local function runRounds(instance)
-<span class="hi">  while true do</span>
-    if #Players:GetPlayers() &gt;= 2 then
-<span class="hi">      while true do</span>
-        if instance:GetAttribute(&quot;Alive&quot;) &lt;= 1 then
-          instance:SetAttribute(&quot;Status&quot;, &quot;Round over&quot;)
-          break
-        end
-
-        for _, child in instance.Zones:GetChildren() do
-          child.Size *= 0.95
-        end
-
-        if instance:GetAttribute(&quot;TimeLeft&quot;) &lt;= 0 then
-          break
-        else
-          task.wait(1)
-        end
-      end
-    end
-
-    task.wait(5)
-  end
-end
-
-return runRounds</pre></div>
+          <div class="code-card now"><h4>Tovek V2.5<span class="tag">Decompiled</span></h4><pre><span class="ln" style="--i:0">local Players = game:GetService(&quot;Players&quot;)</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">local function runRounds(instance)</span><span class="ln hi" style="--i:2">while true do</span><span class="ln" style="--i:4">if #Players:GetPlayers() &gt;= 2 then</span><span class="ln hi" style="--i:6">while true do</span><span class="ln" style="--i:8">if instance:GetAttribute(&quot;Alive&quot;) &lt;= 1 then</span><span class="ln" style="--i:10">instance:SetAttribute(&quot;Status&quot;, &quot;Round over&quot;)</span><span class="ln" style="--i:10">break</span><span class="ln" style="--i:8">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:8">for _, child in instance.Zones:GetChildren() do</span><span class="ln" style="--i:10">child.Size *= 0.95</span><span class="ln" style="--i:8">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:8">if instance:GetAttribute(&quot;TimeLeft&quot;) &lt;= 0 then</span><span class="ln" style="--i:10">break</span><span class="ln" style="--i:8">else</span><span class="ln" style="--i:10">task.wait(1)</span><span class="ln" style="--i:8">end</span><span class="ln" style="--i:6">end</span><span class="ln" style="--i:4">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:4">task.wait(5)</span><span class="ln" style="--i:2">end</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">return runRounds</span></pre></div>
         </div>
         <p class="compare-cap">A round loop inside a <code>while true</code> main loop, compiled with -O1. V2.1.1 gave up on the whole script; V2.5 rebuilds both loops.</p>
       </div>
       <div class="compare-panel" role="tabpanel" hidden>
-        <div class="code-src"><b>Original Luau</b><pre>local coins = 0
-
-function giveCoins(amount)
-  coins += amount
-  return amount &gt;= 100
-end
-
-local function reward(amount)
-  local big = giveCoins(amount)
-  coins += big and 50 or 0
-  return coins
-end
-
-print(reward(100))</pre></div>
+        <div class="code-src"><b>Original Luau</b><pre><span class="ln" style="--i:0">local coins = 0</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">function giveCoins(amount)</span><span class="ln" style="--i:2">coins += amount</span><span class="ln" style="--i:2">return amount &gt;= 100</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">local function reward(amount)</span><span class="ln" style="--i:2">local big = giveCoins(amount)</span><span class="ln" style="--i:2">coins += big and 50 or 0</span><span class="ln" style="--i:2">return coins</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">print(reward(100))</span></pre></div>
         <div class="compare-grid">
-          <div class="code-card"><h4>Tovek V2.1.1<span class="tag">Prints 50</span></h4><pre>local total = 0
-
-function giveCoins(p)
-  total += p
-  return p &gt;= 100
-end
-
-local function reward(p)
-<span class="lo">  total += giveCoins(p) and 50 or 0</span>
-  return total
-end
-
-print(reward(100))</pre></div>
-          <div class="code-card now"><h4>Tovek V2.5<span class="tag">Prints 150</span></h4><pre>local total = 0
-
-function giveCoins(p)
-  total += p
-  return p &gt;= 100
-end
-
-local function reward(p)
-<span class="hi">  local v = giveCoins(p)</span>
-<span class="hi">  total += v and 50 or 0</span>
-  return total
-end
-
-print(reward(100))</pre></div>
+          <div class="code-card"><h4>Tovek V2.1.1<span class="tag">Prints 50</span></h4><pre><span class="ln" style="--i:0">local total = 0</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">function giveCoins(p)</span><span class="ln" style="--i:2">total += p</span><span class="ln" style="--i:2">return p &gt;= 100</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">local function reward(p)</span><span class="ln lo" style="--i:2">total += giveCoins(p) and 50 or 0</span><span class="ln" style="--i:2">return total</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">print(reward(100))</span></pre></div>
+          <div class="code-card now"><h4>Tovek V2.5<span class="tag">Prints 150</span></h4><pre><span class="ln" style="--i:0">local total = 0</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">function giveCoins(p)</span><span class="ln" style="--i:2">total += p</span><span class="ln" style="--i:2">return p &gt;= 100</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">local function reward(p)</span><span class="ln hi" style="--i:2">local v = giveCoins(p)</span><span class="ln hi" style="--i:2">total += v and 50 or 0</span><span class="ln" style="--i:2">return total</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">print(reward(100))</span></pre></div>
         </div>
         <p class="compare-cap"><code>giveCoins</code> changes <code>coins</code> before it returns. V2.1.1 read <code>total</code> first and printed 50; V2.5 keeps the call first and prints 150, like the original.</p>
       </div>
       <div class="compare-panel" role="tabpanel" hidden>
-        <div class="code-src"><b>Original Luau</b><pre>local function loadTrack(animator, id, looped)
-  local animation = Instance.new(&quot;Animation&quot;)
-  animation.AnimationId = id
-  local track = animator:LoadAnimation(animation)
-  track.Looped = looped
-  return track
-end
-
-local function setup(character)
-  local animator = character:WaitForChild(&quot;Humanoid&quot;):WaitForChild(&quot;Animator&quot;)
-  local idle = loadTrack(animator, &quot;rbxassetid://507766666&quot;, true)
-  local swing = loadTrack(animator, &quot;rbxassetid://522635514&quot;, false)
-  idle:Play()
-  return idle, swing
-end
-
-return setup</pre></div>
+        <div class="code-src"><b>Original Luau</b><pre><span class="ln" style="--i:0">local function loadTrack(animator, id, looped)</span><span class="ln" style="--i:2">local animation = Instance.new(&quot;Animation&quot;)</span><span class="ln" style="--i:2">animation.AnimationId = id</span><span class="ln" style="--i:2">local track = animator:LoadAnimation(animation)</span><span class="ln" style="--i:2">track.Looped = looped</span><span class="ln" style="--i:2">return track</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">local function setup(character)</span><span class="ln" style="--i:2">local animator = character:WaitForChild(&quot;Humanoid&quot;):WaitForChild(&quot;Animator&quot;)</span><span class="ln" style="--i:2">local idle = loadTrack(animator, &quot;rbxassetid://507766666&quot;, true)</span><span class="ln" style="--i:2">local swing = loadTrack(animator, &quot;rbxassetid://522635514&quot;, false)</span><span class="ln" style="--i:2">idle:Play()</span><span class="ln" style="--i:2">return idle, swing</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">return setup</span></pre></div>
         <div class="compare-grid">
-          <div class="code-card"><h4>Tovek V2.1.1<span class="tag">Pasted twice</span></h4><pre>local function loadTrack(animator, animationId, looped)
-<span class="lo">  local animation = Instance.new(&quot;Animation&quot;)</span>
-  animation.AnimationId = animationId
-  local track = animator:LoadAnimation(animation)
-  track.Looped = looped
-  return track
-end
-
-local function setup(instance)
-  local animator = instance:WaitForChild(&quot;Humanoid&quot;):WaitForChild(&quot;Animator&quot;)
-<span class="lo">  local animation = Instance.new(&quot;Animation&quot;)</span>
-  animation.AnimationId = &quot;rbxassetid://507766666&quot;
-  local track = animator:LoadAnimation(animation)
-  track.Looped = true
-<span class="lo">  local animation2 = Instance.new(&quot;Animation&quot;)</span>
-  animation2.AnimationId = &quot;rbxassetid://522635514&quot;
-  local track2 = animator:LoadAnimation(animation2)
-  track2.Looped = false
-  track:Play()
-  return track, track2
-end
-
-return setup</pre></div>
-          <div class="code-card now"><h4>Tovek V2.5<span class="tag">Two calls</span></h4><pre>-- equivalent calls inferred from this helper; original call sites unknown
-<span class="hi">local function loadTrack(animator, animationId, looped)</span>
-  local animation = Instance.new(&quot;Animation&quot;)
-  animation.AnimationId = animationId
-  local track = animator:LoadAnimation(animation)
-  track.Looped = looped
-  return track
-end
-
-local function setup(instance)
-  local animator = instance:WaitForChild(&quot;Humanoid&quot;):WaitForChild(&quot;Animator&quot;)
-<span class="hi">  local v = loadTrack(animator, &quot;rbxassetid://507766666&quot;, true) -- equivalent call inferred; original call site unknown</span>
-<span class="hi">  local v2 = loadTrack(animator, &quot;rbxassetid://522635514&quot;, false) -- equivalent call inferred; original call site unknown</span>
-  v:Play()
-  return v, v2
-end
-
-return setup</pre></div>
+          <div class="code-card"><h4>Tovek V2.1.1<span class="tag">Pasted twice</span></h4><pre><span class="ln" style="--i:0">local function loadTrack(animator, animationId, looped)</span><span class="ln" style="--i:2">local animation = Instance.new(&quot;Animation&quot;)</span><span class="ln" style="--i:2">animation.AnimationId = animationId</span><span class="ln" style="--i:2">local track = animator:LoadAnimation(animation)</span><span class="ln" style="--i:2">track.Looped = looped</span><span class="ln" style="--i:2">return track</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">local function setup(instance)</span><span class="ln" style="--i:2">local animator = instance:WaitForChild(&quot;Humanoid&quot;):WaitForChild(&quot;Animator&quot;)</span><span class="ln lo" style="--i:2">local animation = Instance.new(&quot;Animation&quot;)</span><span class="ln" style="--i:2">animation.AnimationId = &quot;rbxassetid://507766666&quot;</span><span class="ln" style="--i:2">local track = animator:LoadAnimation(animation)</span><span class="ln" style="--i:2">track.Looped = true</span><span class="ln lo" style="--i:2">local animation2 = Instance.new(&quot;Animation&quot;)</span><span class="ln" style="--i:2">animation2.AnimationId = &quot;rbxassetid://522635514&quot;</span><span class="ln" style="--i:2">local track2 = animator:LoadAnimation(animation2)</span><span class="ln" style="--i:2">track2.Looped = false</span><span class="ln" style="--i:2">track:Play()</span><span class="ln" style="--i:2">return track, track2</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">return setup</span></pre></div>
+          <div class="code-card now"><h4>Tovek V2.5<span class="tag">Two calls</span></h4><pre><span class="ln" style="--i:0">-- equivalent calls inferred from this helper; original call sites unknown</span><span class="ln" style="--i:0">local function loadTrack(animator, animationId, looped)</span><span class="ln" style="--i:2">local animation = Instance.new(&quot;Animation&quot;)</span><span class="ln" style="--i:2">animation.AnimationId = animationId</span><span class="ln" style="--i:2">local track = animator:LoadAnimation(animation)</span><span class="ln" style="--i:2">track.Looped = looped</span><span class="ln" style="--i:2">return track</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">local function setup(instance)</span><span class="ln" style="--i:2">local animator = instance:WaitForChild(&quot;Humanoid&quot;):WaitForChild(&quot;Animator&quot;)</span><span class="ln hi" style="--i:2">local v = loadTrack(animator, &quot;rbxassetid://507766666&quot;, true) -- equivalent call inferred; original call site unknown</span><span class="ln hi" style="--i:2">local v2 = loadTrack(animator, &quot;rbxassetid://522635514&quot;, false) -- equivalent call inferred; original call site unknown</span><span class="ln" style="--i:2">v:Play()</span><span class="ln" style="--i:2">return v, v2</span><span class="ln" style="--i:0">end</span><span class="ln" style="--i:0">&#8203;</span><span class="ln" style="--i:0">return setup</span></pre></div>
         </div>
         <p class="compare-cap">At -O2 Luau pastes <code>loadTrack</code> into <code>setup</code> twice. V2.5 recognises both copies, including the helper’s own returned local, and writes the calls.</p>
       </div>

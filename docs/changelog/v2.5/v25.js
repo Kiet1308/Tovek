@@ -241,7 +241,8 @@
         const rect = el('rect', { x, y: top, width: bw - 3, height: H - m.b - top, rx: 2, fill: series.color, stroke: '#3c4043', 'stroke-width': 0.6 }, svg);
         const t = el('title', {}, rect);
         t.textContent = `${group.label.replace('\n', ' ')} · ${series.name}: ${fmt(v, spec)}`;
-        if (spec.labels !== false) {
+        // Value labels only where they fit above their own bar.
+        if (spec.labels !== false && bw >= 34) {
           const lab = el('text', { x: x + (bw - 3) / 2, y: top - 6, 'text-anchor': 'middle', 'font-size': 10.5, fill: '#3c4043' }, svg);
           lab.textContent = fmt(v, spec);
         }
@@ -326,6 +327,14 @@
     addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     $$('[data-accordion]').forEach(accordion);
+
+    const menu = $('.menu-btn'), nav = $('#site-menu');
+    if (menu && nav) {
+      const setOpen = (open) => { nav.classList.toggle('is-open', open); menu.setAttribute('aria-expanded', String(open)); };
+      menu.addEventListener('click', () => setOpen(!nav.classList.contains('is-open')));
+      nav.addEventListener('click', (e) => { if (e.target.closest('a')) setOpen(false); });
+      addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+    }
 
     const toc = $('.toc');
     if (toc) {
