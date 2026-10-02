@@ -387,6 +387,19 @@ impl<'a> Inliner<'a> {
             .traverse_values(&mut |p, v| {
                 match p {
                     ast::PreOrPost::Pre => {
+                        // A store into a register local's field (`t.k = v`,
+                        // `t[k] = v`) reads `t` and `k` when SETTABLE runs,
+                        // after every value the statement assigns.
+                        if candidate_may_write_capture
+                            && let Some(incoming) = incoming_upvalue_ids
+                            && let Either::Left(ast::LValue::Index(index)) = &v
+                        {
+                            for operand in [index.left.as_ref(), index.right.as_ref()] {
+                                if matches!(operand, ast::RValue::Local(local) if !incoming.contains(&local.stable_id())) {
+                                    late_reads.push(operand as *const ast::RValue);
+                                }
+                            }
+                        }
                         if let Either::Right(rvalue) = v {
                             match rvalue {
                                 ast::RValue::Binary(ast::Binary {

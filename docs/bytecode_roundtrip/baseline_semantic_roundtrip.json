@@ -66,7 +66,21 @@
    "duplicate_local_multi_assign": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
    "late_register_read_captured": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
    "script_index_past_captured_read": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "unused_local_vs_global_underscore": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output."
+   "unused_local_vs_global_underscore": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
+   "captured_copy_into_plain_local": "review fixes 2026-10-02 (SSA cells)",
+   "captured_swap_cell_phi": "review fixes 2026-10-02 (SSA cells)",
+   "conditional_capture_loop_swap": "review fixes 2026-10-02 (SSA cells)",
+   "loop_capture_post_loop_swap": "review fixes 2026-10-02 (SSA cells)",
+   "loop_capture_post_loop_write": "review fixes 2026-10-02 (SSA cells)",
+   "cell_joins_its_register_phi": "review fixes 2026-10-02 (cells, store order)",
+   "cell_phi_other_variable": "review fixes 2026-10-02 (cells, store order)",
+   "cell_phi_other_variable_folded": "review fixes 2026-10-02 (cells, store order)",
+   "cell_snapshot_after_trivial_phi": "review fixes 2026-10-02 (cells, store order)",
+   "numeric_for_init_reads_cell": "review fixes 2026-10-02 (cells, store order)",
+   "store_address_read_at_store": "review fixes 2026-10-02 (cells, store order)",
+   "store_site_helper_call": "review fixes 2026-10-02 (cells, store order)",
+   "cell_written_in_loop_read_after": "review fixes 2026-10-02 (cells, store order)",
+   "loop_swap_with_later_capture": "review fixes 2026-10-02 (cells, store order)"
   }
  },
  "summary": {
@@ -165,6 +179,12 @@
    "protos": 6
   },
   {
+   "file": "captured_copy_into_plain_local",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 7
+  },
+  {
    "file": "captured_handle_from_merge",
    "status": "ok",
    "nonequiv": 2,
@@ -175,6 +195,42 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 5
+  },
+  {
+   "file": "captured_swap_cell_phi",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 6
+  },
+  {
+   "file": "cell_joins_its_register_phi",
+   "status": "ok",
+   "nonequiv": 4,
+   "protos": 7
+  },
+  {
+   "file": "cell_phi_other_variable",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 8
+  },
+  {
+   "file": "cell_phi_other_variable_folded",
+   "status": "ok",
+   "nonequiv": 4,
+   "protos": 8
+  },
+  {
+   "file": "cell_snapshot_after_trivial_phi",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 5
+  },
+  {
+   "file": "cell_written_in_loop_read_after",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 7
   },
   {
    "file": "codefined_results_kept_apart",
@@ -198,6 +254,12 @@
    "file": "compound_local_base",
    "status": "ok",
    "nonequiv": 0,
+   "protos": 3
+  },
+  {
+   "file": "conditional_capture_loop_swap",
+   "status": "ok",
+   "nonequiv": 2,
    "protos": 3
   },
   {
@@ -375,6 +437,18 @@
    "protos": 10
   },
   {
+   "file": "loop_capture_post_loop_swap",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
+   "file": "loop_capture_post_loop_write",
+   "status": "ok",
+   "nonequiv": 4,
+   "protos": 7
+  },
+  {
    "file": "loop_result_exports",
    "status": "ok",
    "nonequiv": 3,
@@ -393,6 +467,12 @@
    "protos": 13
   },
   {
+   "file": "loop_swap_with_later_capture",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 4
+  },
+  {
    "file": "nested_capture_argument",
    "status": "ok",
    "nonequiv": 0,
@@ -409,6 +489,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 1
+  },
+  {
+   "file": "numeric_for_init_reads_cell",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 5
   },
   {
    "file": "outer_local_helpers",
@@ -463,6 +549,18 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 2
+  },
+  {
+   "file": "store_address_read_at_store",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 8
+  },
+  {
+   "file": "store_site_helper_call",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 7
   },
   {
    "file": "suffix_numeric",

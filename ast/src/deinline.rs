@@ -3029,7 +3029,7 @@ fn try_match_at(
                 match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache)
             }
             (TKind::Value, ValueAnchor::AtPrefix) => {
-                match_value_prefixed(stmts, i, t, is_func_body_top, last_occ)
+                match_value_prefixed(stmts, i, t, current_func, is_func_body_top, last_occ)
             }
         })
     };
@@ -3393,6 +3393,7 @@ fn match_embedded_value(
     i: usize,
     d: usize,
     t: &Target,
+    current_func: Option<FnPtr>,
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
@@ -3412,7 +3413,7 @@ fn match_embedded_value(
     {
         return None;
     }
-    let root = std::mem::discriminant(pattern_value);
+    let root = value_kind(pattern_value);
     let result = RcLocal::default();
     let mut window = prefix.to_vec();
     window.push(Assign::new(vec![result.clone().into()], vec![RValue::Literal(Literal::Nil)]).into());
@@ -3437,8 +3438,10 @@ fn match_embedded_value(
         }
         Earlier::Value(value) => prefix_runs_code && !t.captures.constant_import(value),
     };
-    visit_leading_values(&mut host, &mut |value, evaluated_before, spread| {
-        if std::mem::discriminant(&*value) != root || evaluated_before.iter().any(&changed_by_prefix) {
+    let function = current_func.map(|function| function as usize);
+    let register = |local: &RcLocal| t.captures.register_of(local, function);
+    visit_leading_values(&mut host, &register, &mut |value, evaluated_before, spread| {
+        if value_kind(value) != root || evaluated_before.iter().any(&changed_by_prefix) {
             return false;
         }
         // Where every result is taken, the call must give as many as the
@@ -3481,9 +3484,14 @@ fn match_embedded_value(
 /// before anything observable happens in it, outermost first and in
 /// evaluation order, until `visit` takes one (and returns `true`). Local
 /// reads, literals and import paths are not observable; a store's address
-/// comes before the values it stores. `visit` also gets the reads already
-/// evaluated at that point (`Earlier`).
-fn visit_leading_values(statement: &mut Statement, visit: &mut impl FnMut(&mut RValue, &[Earlier], Spread) -> bool) -> bool {
+/// comes before the values it stores, except a `register` local, which the
+/// store reads when it runs. `visit` also gets the reads already evaluated at
+/// that point (`Earlier`).
+fn visit_leading_values(
+    statement: &mut Statement,
+    register: &dyn Fn(&RcLocal) -> bool,
+    visit: &mut impl FnMut(&mut RValue, &[Earlier], Spread) -> bool,
+) -> bool {
     #[derive(PartialEq)]
     enum Flow {
         Taken,
@@ -3585,8 +3593,11 @@ fn visit_leading_values(statement: &mut Statement, visit: &mut impl FnMut(&mut R
             let mut addresses = Vec::new();
             for lhs in &mut assign.left {
                 if let LValue::Index(index) = lhs {
-                    addresses.push(&mut *index.left);
-                    addresses.push(&mut *index.right);
+                    for address in [&mut *index.left, &mut *index.right] {
+                        if !matches!(address, RValue::Local(local) if register(local)) {
+                            addresses.push(address);
+                        }
+                    }
                 }
             }
             match walk_all(addresses, Spread::One, visit, &mut before) {
@@ -3601,6 +3612,23 @@ fn visit_leading_values(statement: &mut Statement, visit: &mut impl FnMut(&mut R
         _ => Flow::Blocked,
     };
     flow == Flow::Taken
+}
+
+/// The kind of a value, a call the same whether it gives one result
+/// (`x = f()`) or all of them (`return f()`): `Spread` tells them apart.
+#[derive(PartialEq)]
+enum ValueKind {
+    Call,
+    MethodCall,
+    Other(std::mem::Discriminant<RValue>),
+}
+
+fn value_kind(value: &RValue) -> ValueKind {
+    match value {
+        RValue::Call(_) | RValue::Select(Select::Call(_)) => ValueKind::Call,
+        RValue::MethodCall(_) | RValue::Select(Select::MethodCall(_)) => ValueKind::MethodCall,
+        _ => ValueKind::Other(std::mem::discriminant(value)),
+    }
 }
 
 /// A value giving all the results of a call or of `...` where they are
@@ -3682,6 +3710,7 @@ fn match_value_prefixed(
     stmts: &[Statement],
     i: usize,
     t: &Target,
+    current_func: Option<FnPtr>,
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
@@ -3694,7 +3723,7 @@ fn match_value_prefixed(
     let d = nth_effective_index(stmts, i, p)?;
     let Some(r) = result_decl(&stmts[d]) else {
         return match_declared_value(stmts, i, d, t, is_func_body_top, last_occ)
-            .or_else(|| match_embedded_value(stmts, i, d, t, is_func_body_top, last_occ));
+            .or_else(|| match_embedded_value(stmts, i, d, t, current_func, is_func_body_top, last_occ));
     };
     let kc = t.pat.len();
     let region_start = d + 1;
@@ -7559,7 +7588,7 @@ mod tests {
             print_x(),
         ];
         assert!(
-            match_value_prefixed(&cand, 0, &t, false, &mut None).is_none(),
+            match_value_prefixed(&cand, 0, &t, None, false, &mut None).is_none(),
             "an in-place accumulator with a param-LHS must not de-inline"
         );
     }
@@ -7930,7 +7959,7 @@ mod tests {
             if_stmt(not_rv(local_value(&v2)), vec![void_return()], vec![]),
         ];
 
-        let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
             .expect("isAfkEnabled prefix + guard-polarity flip should match");
         assert_eq!(hit.consume, 3, "consume prefix + decl + value branch");
         assert_eq!(hit.results, vec![v2]);
@@ -7966,7 +7995,7 @@ mod tests {
             print_x(), // trailing stmt: window isn't whole-body; doesn't read k2
         ];
 
-        let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
             .expect("if/else value prefix should match without a flip");
         assert_eq!(hit.consume, 3);
         assert_eq!(hit.results, vec![v]);
@@ -8006,7 +8035,7 @@ mod tests {
         ];
 
         assert!(
-            match_value_prefixed(&candidate, 0, &t, false, &mut None).is_none(),
+            match_value_prefixed(&candidate, 0, &t, None, false, &mut None).is_none(),
             "a prefix=true result-write leaf must not unify as the result lane (F10a)"
         );
     }
@@ -8046,7 +8075,7 @@ mod tests {
             print_x(), // trailing stmt: window isn't whole-body; doesn't read k2
         ];
 
-        let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
             .expect("interposed marker must not break the AtPrefix match");
         // span = prefix(0) + marker(1) + decl(2) + region-if(3): removes 4 stmts,
         // leaving the trailing print.
@@ -8098,7 +8127,7 @@ mod tests {
             print_x(), // trailing: window isn't whole-body
         ];
 
-        let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
             .expect("K==2 value prefix should match");
         // span = prefix a2(0) + prefix b2(1) + RESULT decl(2) + value-if(3).
         assert_eq!(hit.consume, 4);
@@ -8141,7 +8170,7 @@ mod tests {
         // f(obj) = k=obj.Field; if k<0 then return false end; return k. The
         // candidate computes v = (k2<0) ? false : k2 == f(obj). The flip negates
         // the candidate's `k2<0` to `not (k2<0)` (NOT `k2>=0`) and swaps branches.
-        let hit = match_value_prefixed(&candidate, 0, &t, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
             .expect("relational guard condition IS polarity-flipped under P9");
         assert_eq!(hit.consume, 3); // prefix k2(0) + RESULT decl(1) + value-if(2)
         assert_eq!(hit.results, vec![v]);
@@ -8240,7 +8269,7 @@ mod tests {
         ];
 
         assert!(
-            match_value_prefixed(&candidate, 0, &t, false, &mut None).is_none(),
+            match_value_prefixed(&candidate, 0, &t, None, false, &mut None).is_none(),
             "a divergent leaf literal must be refused even when the flip aligns the diamond"
         );
     }

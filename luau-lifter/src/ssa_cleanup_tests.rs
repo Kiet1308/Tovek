@@ -61,7 +61,9 @@ fn snapshot(function: &Function, fresh_ids: std::ops::Range<u64>) -> (String, Ve
 fn compare(function: &Function, locals: &[RcLocal], groups: &IndexMap<RcLocal, RcLocal>,
     budget: usize, admitted: bool) -> bool {
     let local_groups = locals.iter().cloned().enumerate().map(|(index, local)| (local, index / 2)).collect();
-    let protected = groups.keys().cloned().collect();
+    let protected: FxHashSet<RcLocal> = groups.keys().cloned().collect();
+    let (mut expected_groups, mut actual_groups) = (groups.clone(), groups.clone());
+    let (mut expected_protected, mut actual_protected) = (protected.clone(), protected);
     let readonly = groups.keys().take(1).map(RcLocal::stable_id).collect();
     let mut expected = function.deep_clone();
     let mut actual = function.deep_clone();
@@ -69,7 +71,7 @@ fn compare(function: &Function, locals: &[RcLocal], groups: &IndexMap<RcLocal, R
     let before = locals.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>();
     let base = ast::current_local_id();
     let reference = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
-        cleanup_ssa::<false>(&mut expected, &local_groups, groups, &readonly, &Default::default(), &protected, budget)));
+        cleanup_ssa::<false>(&mut expected, &local_groups, &mut expected_groups, &readonly, &Default::default(), &mut expected_protected, budget)));
     let end = ast::current_local_id();
     let expected_snapshot = snapshot(&expected, base..end);
     let metadata = locals.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>();
@@ -79,7 +81,7 @@ fn compare(function: &Function, locals: &[RcLocal], groups: &IndexMap<RcLocal, R
     ast::set_local_id_base(base);
     SSA_CLEANUP_TERMINAL_ADMISSIONS.with(|count| count.set(0));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
-        cleanup_ssa::<true>(&mut actual, &local_groups, groups, &readonly, &Default::default(), &protected, budget)));
+        cleanup_ssa::<true>(&mut actual, &local_groups, &mut actual_groups, &readonly, &Default::default(), &mut actual_protected, budget)));
     fn status(result: &Result<bool, Box<dyn std::any::Any + Send>>) -> Result<bool, String> {
         result.as_ref().map(|value| *value).map_err(|error| error.downcast_ref::<String>().cloned()
             .or_else(|| error.downcast_ref::<&str>().map(|value| (*value).into())).unwrap_or_default())

@@ -1,6 +1,6 @@
 //! Argument snapshots for call reconstruction. Local spelling and type hints
 //! cannot prove that a cell stays unchanged during a reconstructed helper body.
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 use crate::{Block, LValue, Literal, RValue, Statement, Traverse, Upvalue};
 
 #[derive(Default)]
@@ -13,6 +13,8 @@ pub(crate) struct CaptureSafety {
     written_globals: FxHashSet<Vec<u8>>,
     /// The module reads `getfenv` or `setfenv`.
     dynamic_environment: bool,
+    /// The locals each function reads as upvalues, by its identity.
+    upvalues: FxHashMap<usize, FxHashSet<u64>>,
     visited: FxHashSet<usize>,
     nodes: usize,
     literal_bytes: usize,
@@ -51,6 +53,16 @@ impl CaptureSafety {
             && library_import(value)
     }
     pub(crate) fn nodes(&self) -> usize { self.nodes }
+
+    /// Whether `local`, read in `function` (`None`: the chunk), is one of its
+    /// registers, which Luau reads where an operation uses it; an upvalue is
+    /// fetched (GETUPVAL) before.
+    pub(crate) fn register_of(&self, local: &crate::RcLocal, function: Option<usize>) -> bool {
+        !self.exhausted
+            && function.is_none_or(|function| {
+                self.upvalues.get(&function).is_some_and(|upvalues| !upvalues.contains(&local.stable_id()))
+            })
+    }
 
     pub(crate) fn stable(&self, value: &RValue) -> bool {
         match value {
@@ -159,13 +171,18 @@ impl CaptureSafety {
             if self.literal_bytes > 8 * 1024 * 1024 { self.exhausted = true; return; }
         }
         if let RValue::Closure(closure) = value {
+            let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
+            let upvalues = self.upvalues.entry(identity).or_default();
+            upvalues.extend(closure.upvalues.iter().map(|capture| {
+                let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
+                local.stable_id()
+            }));
             for capture in &closure.upvalues {
                 if !self.spend(depth) { return; }
                 let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
                 self.captured.insert(local.stable_id());
                 if let Upvalue::Ref(local) = capture { self.references.insert(local.stable_id()); }
             }
-            let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
             if self.visited.insert(identity) {
                 self.block(&closure.function.0.lock().body.0, depth + 1);
             }

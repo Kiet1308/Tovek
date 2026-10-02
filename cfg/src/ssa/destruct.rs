@@ -775,6 +775,15 @@ impl<'a> Destructor<'a> {
                 for (param, arg) in args {
                     let arg = arg.into_local().unwrap();
                     let congruence_class = self.get_congruence_class(param).clone();
+                    // A transport carrying a cell's value into its own
+                    // register's phi already joined the cell: the phi joins
+                    // it too, so no member ever sits in two classes.
+                    if let Some(cell) = self.congruence_classes.get(&arg).cloned() {
+                        if !Rc::ptr_eq(&cell, &congruence_class) {
+                            self.merge_congruence_classes(&cell, &congruence_class);
+                        }
+                        continue;
+                    }
 
                     let (dominator_index, _, stat_index) = self.local_defs[&arg];
                     congruence_class
@@ -1437,8 +1446,17 @@ impl<'a> Destructor<'a> {
                             } else { omitted_transports += 1; }
                         }
                     }
+
+                    // A cell's value carried into another version of the same
+                    // register stays that variable (one source local, captured
+                    // on some paths only). Carried into another register's
+                    // phi (`b = a`, `a` captured) it is a copy: as a member of
+                    // the cell, `b` would become `a`.
                     if let ast::RValue::Local(arg) = arg
                         && let Some(group) = self.upvalue_to_group.get(arg)
+                        && self.register_groups.is_some_and(|groups| {
+                            groups.get(param).is_some_and(|register| groups.get(arg) == Some(register))
+                        })
                     {
                         self.upvalue_to_group
                             .insert(temp_local.clone(), group.clone());
@@ -1540,8 +1558,10 @@ impl<'a> Destructor<'a> {
     /// the marker itself defines (a value that only exists after preparation,
     /// e.g. the loop-carried counter/control phi) or touches an upvalue cell (a
     /// generic preparation may invoke `__iter`/`__call` user code that observes
-    /// the cell).  Splitting the parallel copy is sound because every
-    /// destination is a fresh temporary that no element reads.
+    /// the cell).  A numeric preparation runs no code, so when its operands
+    /// cannot write a cell either, reading one before the marker reads the same
+    /// value.  Splitting the parallel copy is sound because every destination
+    /// is a fresh temporary that no element reads.
     ///
     /// Returns `(before_marker, after_marker)`; for a block that does not end
     /// in a prep marker everything is returned in `after_marker`.
@@ -1561,6 +1581,12 @@ impl<'a> Destructor<'a> {
         }
         let marker_outputs = marker.values_written();
         let marker_inputs = marker.values_read();
+        let cells_unchanged_by_prep = match marker {
+            ast::Statement::NumForInit(init) => [&init.counter.1, &init.limit.1, &init.step.1]
+                .into_iter()
+                .all(|operand| !ast::effects::may_write_capture(operand)),
+            _ => false,
+        };
         let mut before = ast::Assign {
             node_origin: Default::default(),
             left: Vec::new(),
@@ -1571,7 +1597,7 @@ impl<'a> Destructor<'a> {
         let mut after = before.clone();
         for (left, right) in transfer.left.into_iter().zip(transfer.right) {
             let reads_marker_output_or_cell = right.values_read().into_iter().any(|read| {
-                marker_outputs.contains(&read) || upvalue_to_group.contains_key(read)
+                marker_outputs.contains(&read) || (!cells_unchanged_by_prep && upvalue_to_group.contains_key(read))
             });
             let writes_marker_input_or_cell = left.values_written().into_iter().any(|written| {
                 marker_inputs.contains(&written) || upvalue_to_group.contains_key(written)

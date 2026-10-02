@@ -137,7 +137,7 @@ fn decompile(prototype: &lua51_deserializer::Function<'_>, parallel: bool) -> an
                 }
                 let mut local_map = FxHashMap::default();
                 // TODO: loop until returns false?
-                if ssa::construct::remove_unnecessary_params(&mut function, &mut local_map, None) {
+                if ssa::construct::remove_unnecessary_params(&mut function, &mut local_map, None, None) {
                     changed = true;
                 }
                 ssa::construct::apply_local_map(&mut function, local_map);

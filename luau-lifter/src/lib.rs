@@ -1532,10 +1532,10 @@ fn terminal_cleanup_block(function: &Function) -> Option<petgraph::stable_graph:
 fn cleanup_ssa<const SPECIALIZE: bool>(
     function: &mut Function,
     local_to_group: &FxHashMap<ast::RcLocal, usize>,
-    upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
+    upvalue_to_group: &mut IndexMap<ast::RcLocal, ast::RcLocal>,
     readonly_capture_ids: &FxHashSet<u64>,
     incoming_upvalue_ids: &FxHashSet<u64>,
-    protected_upvalue_locals: &FxHashSet<ast::RcLocal>,
+    protected_upvalue_locals: &mut FxHashSet<ast::RcLocal>,
     mut rounds_left: usize,
 ) -> bool {
     let mut changed = true;
@@ -1597,10 +1597,12 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
                 function,
                 &mut local_map,
                 Some(upvalue_to_group),
+                Some(local_to_group),
             )
         };
         if rp {
             changed = true;
+            adopt_cell_replacements(&local_map, upvalue_to_group, protected_upvalue_locals);
         }
         {
             ptime!(F_APPLY_MAP);
@@ -1608,6 +1610,34 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
         }
     }
     true
+}
+
+/// A captured cell's version replaced by a value of its register from outside
+/// the cell (the trivial phi `enabled = phi(flag, enabled)` becomes `flag`):
+/// that value now is the cell, so it joins the cell's group and protection.
+/// Otherwise later rounds treat it as a plain value, and the inliner folds a
+/// copy into it (`a = b`), making `a` and `b` one variable.
+fn adopt_cell_replacements(
+    local_map: &FxHashMap<ast::RcLocal, ast::RcLocal>,
+    upvalue_to_group: &mut IndexMap<ast::RcLocal, ast::RcLocal>,
+    protected_upvalue_locals: &mut FxHashSet<ast::RcLocal>,
+) {
+    let mut adopted = local_map.iter().filter_map(|(from, to)| {
+        let cell = upvalue_to_group.get(from)?;
+        let mut to = to;
+        while let Some(next) = local_map.get(to) {
+            to = next;
+        }
+        (!upvalue_to_group.contains_key(to)).then(|| (to.clone(), cell.clone()))
+    }).collect::<Vec<_>>();
+    if adopted.is_empty() {
+        return;
+    }
+    adopted.sort_by_key(|(local, _)| local.stable_id());
+    for (local, cell) in adopted {
+        protected_upvalue_locals.insert(local.clone());
+        upvalue_to_group.entry(local).or_insert(cell);
+    }
 }
 
 #[cfg(test)]
@@ -1663,20 +1693,20 @@ fn decompile_function(
     let incoming_upvalue_ids = upvalue_in_groups.iter()
         .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
         .map(ast::RcLocal::stable_id).collect::<FxHashSet<_>>();
-    let protected_upvalue_locals = upvalue_in_groups
+    let mut protected_upvalue_locals = upvalue_in_groups
         .iter()
         .flat_map(|(root, group)| std::iter::once(root).chain(group.iter()))
         .chain(upvalue_passed_groups.iter().flat_map(|group| group.iter()))
         .chain(passed_group_roots.iter())
         .cloned()
         .collect::<FxHashSet<_>>();
-    let local_capture_bindings = upvalue_passed_groups
+    let mut local_capture_bindings = upvalue_passed_groups
         .iter()
         .flat_map(|group| group.iter())
         .chain(passed_group_roots.iter())
         .cloned()
         .collect::<FxHashSet<_>>();
-    let upvalue_to_group = upvalue_in_groups
+    let mut upvalue_to_group = upvalue_in_groups
         .into_iter()
         .chain(
             upvalue_passed_groups
@@ -1715,8 +1745,8 @@ fn decompile_function(
     let rounds_left = (function.graph().node_count()
         + function.graph().edge_weights().map(|edge| edge.arguments.len()).sum::<usize>()
         + 1).saturating_mul(4).max(64);
-    if !cleanup_ssa::<true>(&mut function, &local_to_group, &upvalue_to_group,
-        &readonly_capture_ids, &incoming_upvalue_ids, &protected_upvalue_locals, rounds_left)
+    if !cleanup_ssa::<true>(&mut function, &local_to_group, &mut upvalue_to_group,
+        &readonly_capture_ids, &incoming_upvalue_ids, &mut protected_upvalue_locals, rounds_left)
     {
         ast_function.lock().body = unsupported_structuring_sentinel();
         return (ByAddress(ast_function), upvalues_in, Some(DecompileDiagnostic {
@@ -1724,6 +1754,12 @@ fn decompile_function(
             function: function_identity, message: "CFG simplification exceeded its size-derived iteration budget".into(),
         }), function.provenance.take());
     }
+    // Values that took a passed cell's place in cleanup are its versions too.
+    let adopted_captures = upvalue_to_group.iter()
+        .filter(|(local, cell)| local_capture_bindings.contains(*cell) && !local_capture_bindings.contains(*local))
+        .map(|(local, _)| local.clone())
+        .collect::<Vec<_>>();
+    local_capture_bindings.extend(adopted_captures);
     // cfg::dot::render_to(&function, &mut std::io::stdout()).unwrap();
     if ast::env_flag!("MEDAL_DUMP_CFG") {
         debug_dump_cfg(&function, "pre-destruct");

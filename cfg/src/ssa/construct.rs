@@ -7,7 +7,7 @@ use petgraph::{
     algo::kosaraju_scc,
     graph::DiGraph,
     stable_graph::NodeIndex,
-    visit::{Dfs, EdgeRef, Walker},
+    visit::{Dfs, EdgeRef, IntoEdgeReferences, Walker},
     Direction,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -201,9 +201,11 @@ fn remove_upvalue_param_sccs(
         nodes.insert(param, node);
     }
     let mut incoming: FxHashMap<RcLocal, Vec<Option<RcLocal>>> = FxHashMap::default();
-    for edge in function.graph().edge_weights() {
-        for (param, argument) in &edge.arguments {
+    let mut param_block = FxHashMap::default();
+    for edge in function.graph().edge_references() {
+        for (param, argument) in &edge.weight().arguments {
             let param = resolve(param, local_map);
+            param_block.insert(param.clone(), edge.target());
             let argument = argument
                 .as_local()
                 .map(|argument| resolve(argument, local_map).clone());
@@ -236,6 +238,8 @@ fn remove_upvalue_param_sccs(
     // component exactly once after deterministic O(P log P) graph ordering,
     // instead of repeatedly rescanning every CFG edge for every component.
     let mut direct: Vec<Option<CellLabel>> = vec![None; components.len()];
+    // Every version of the cell flowing into a component from outside it.
+    let mut candidates: Vec<Vec<RcLocal>> = vec![Vec::new(); components.len()];
     let mut expected_group: Vec<Option<RcLocal>> = vec![None; components.len()];
     let mut dependencies: Vec<Vec<usize>> = vec![Vec::new(); components.len()];
     let mut invalid = vec![false; components.len()];
@@ -269,6 +273,7 @@ fn remove_upvalue_param_sccs(
                     if expected_group[component_index].as_ref() != Some(group) {
                         invalid[component_index] = true;
                     }
+                    candidates[component_index].push(argument.clone());
                     let label = CellLabel {
                         group: group.clone(),
                         canonical: argument.clone(),
@@ -315,26 +320,26 @@ fn remove_upvalue_param_sccs(
         .enumerate()
         .filter_map(|(index, &count)| (count == 0).then_some(index))
         .collect();
+    let mut dominance = None;
     while let Some(component) = ready.pop_front() {
         let mut label = direct[component].clone();
         let mut rejected = invalid[component] || !has_external[component];
+        let mut candidates = std::mem::take(&mut candidates[component]);
         if !rejected {
             for &dependency in &dependencies[component] {
                 let LabelState::Resolved(incoming) = &states[dependency] else {
                     rejected = true;
                     break;
                 };
-                if let Some(current) = &mut label {
+                if let Some(current) = &label {
                     if current.group != incoming.group {
                         rejected = true;
                         break;
                     }
-                    if incoming.canonical < current.canonical {
-                        current.canonical = incoming.canonical.clone();
-                    }
                 } else {
                     label = Some(incoming.clone());
                 }
+                candidates.push(incoming.canonical.clone());
             }
         }
         if label
@@ -342,6 +347,18 @@ fn remove_upvalue_param_sccs(
             .is_some_and(|label| expected_group[component].as_ref() != Some(&label.group))
         {
             rejected = true;
+        }
+        // Every version names the one cell variable, but the version standing
+        // for the phis must still be defined before their uses: a version a
+        // loop body writes (`b = a`) read at the loop's start would tie values
+        // that differ at that point, and destruction would merge them.
+        if !rejected && let Some(label) = &mut label {
+            let dominance = dominance.get_or_insert_with(|| CellDominance::new(function, &param_block));
+            let phi_blocks = components[component].iter().map(|&node| param_block[&graph[node]]).collect::<Vec<_>>();
+            match candidates.into_iter().filter(|candidate| dominance.dominates_all(candidate, &phi_blocks)).min() {
+                Some(canonical) => label.canonical = canonical,
+                None => rejected = true,
+            }
         }
         states[component] = if rejected {
             LabelState::Rejected
@@ -390,6 +407,48 @@ fn remove_upvalue_param_sccs(
     true
 }
 
+/// Where the versions of a function are defined, for dominance questions.
+struct CellDominance<'a> {
+    dominators: crate::dominators::Dominators,
+    param_block: &'a FxHashMap<RcLocal, NodeIndex>,
+    written_in: FxHashMap<RcLocal, NodeIndex>,
+}
+
+impl<'a> CellDominance<'a> {
+    fn new(function: &Function, param_block: &'a FxHashMap<RcLocal, NodeIndex>) -> Self {
+        let dominators = crate::dominators::Dominators::new(function.graph(), function.entry().unwrap());
+        Self { dominators, param_block, written_in: statement_definitions(function) }
+    }
+
+    /// Whether `local` is defined before the start of each of `blocks`: a
+    /// phi of the same block, a value written in a strict dominator, or a
+    /// value the function receives (a parameter or an upvalue).
+    fn dominates_all(&self, local: &RcLocal, blocks: &[NodeIndex]) -> bool {
+        let (definition, is_phi) = match (self.param_block.get(local), self.written_in.get(local)) {
+            (Some(&block), _) => (block, true),
+            (None, Some(&block)) => (block, false),
+            (None, None) => return true,
+        };
+        blocks.iter().all(|&block| {
+            if block == definition {
+                return is_phi;
+            }
+            self.dominators.dominators(block).is_some_and(|mut chain| chain.any(|node| node == definition))
+        })
+    }
+}
+
+/// The block of each local a statement writes.
+fn statement_definitions(function: &Function) -> FxHashMap<RcLocal, NodeIndex> {
+    let mut written_in = FxHashMap::default();
+    for (node, block) in function.blocks() {
+        for statement in block.iter() {
+            statement.visit_local_writes(&mut |local| { written_in.insert(local.clone(), node); true });
+        }
+    }
+    written_in
+}
+
 #[cfg(test)]
 #[path = "construct/params_reference.rs"]
 mod params_reference;
@@ -408,6 +467,46 @@ fn cell_param_name(
         }
     }
     name.clone()
+}
+
+/// Whether replacing the captured cell version `param` by `arg`, a value
+/// outside its cell, would change what the cell is. Another register's value
+/// (`a = b` folded into the phi) is another variable: the closures' writes to
+/// `a` would reach `b`. A value of the same variable would part the cell from
+/// its later writes (`enabled = true` after the loop); versions that only
+/// carry the same value onward (phis) follow the replacement.
+fn splits_cell(
+    function: &Function,
+    upvalue_to_group: Option<&IndexMap<RcLocal, RcLocal>>,
+    registers: Option<&FxHashMap<RcLocal, usize>>,
+    statement_writes: &mut Option<FxHashMap<RcLocal, NodeIndex>>,
+    param: &RcLocal,
+    arg: &RcLocal,
+) -> bool {
+    let Some(groups) = upvalue_to_group else { return false };
+    let Some(cell) = groups.get(param).filter(|&cell| groups.get(arg) != Some(cell)) else { return false };
+    if holds_other_variable(upvalue_to_group, registers, param, arg) {
+        return true;
+    }
+    let written = statement_writes.get_or_insert_with(|| statement_definitions(function));
+    groups.iter().any(|(version, root)| root == cell && version != param && written.contains_key(version))
+}
+
+/// Whether the captured cell version `param` merges `arg`, a value outside
+/// its cell from another register (`a = b` folded into `a`'s phi): neither
+/// may stand for the other, or the closures' writes to `a` would reach `b`.
+fn holds_other_variable(
+    upvalue_to_group: Option<&IndexMap<RcLocal, RcLocal>>,
+    registers: Option<&FxHashMap<RcLocal, usize>>,
+    param: &RcLocal,
+    arg: &RcLocal,
+) -> bool {
+    upvalue_to_group.is_some_and(|groups| {
+        groups.get(param).is_some_and(|cell| groups.get(arg) != Some(cell))
+            && !registers.is_some_and(|registers| {
+                registers.get(param).is_some_and(|register| registers.get(arg) == Some(register))
+            })
+    })
 }
 
 fn remove_trivial_dependency(
@@ -433,12 +532,17 @@ pub fn remove_unnecessary_params(
     // restructurer (which relies on those phis) is unaffected. `None` reproduces
     // the original behavior verbatim.
     upvalue_to_group: Option<&IndexMap<RcLocal, RcLocal>>,
+    // The bytecode register of each version, telling which values are one
+    // source variable; without it no cell phi takes another cell's value.
+    registers: Option<&FxHashMap<RcLocal, usize>>,
 ) -> bool {
     let mut changed = upvalue_to_group
         .is_some_and(|groups| remove_upvalue_param_sccs(function, local_map, groups));
     // Values renamed into a captured cell below. A later block whose param is
     // one of them keys its dependency graph by the new name.
     let mut cell_renamed = FxHashSet::default();
+    // Locals a statement writes, collected once a cell phi asks.
+    let mut statement_writes = None;
     let mut graphs_built = 0u64;
     let mut graphs_skipped = 0u64;
     for node in function.blocks().map(|(i, _)| i).collect::<Vec<_>>() {
@@ -534,6 +638,20 @@ pub fn remove_unnecessary_params(
                             arg = arg_to;
                         }
                         if *arg != resolved_param {
+                            // The loop phi of another variable copying a cell's
+                            // value (`a, c = c, a`) is that variable's, as any
+                            // loop phi is: replaced by the cell, `a` would be
+                            // named `c` through the loop.
+                            if registers.is_some_and(|registers| registers.get(&resolved_param) != registers.get(arg)) {
+                                continue;
+                            }
+                            // Replacing a cell's phi by a value outside the cell
+                            // could tie the cell to another variable or part it
+                            // from a later write: keep the phi, a copy into the
+                            // cell at loop entry.
+                            if splits_cell(&*function, upvalue_to_group, registers, &mut statement_writes, &resolved_param, arg) {
+                                continue;
+                            }
                             removable_params.insert(resolved_param.clone(), arg.clone());
                         } else {
                             remove_trivial_dependency(&mut dependency_graph, &mut deferred_trivial, &resolved_param);
@@ -562,7 +680,9 @@ pub fn remove_unnecessary_params(
                             arg = arg_to;
                         }
                         if arg != param {
-                            if !param.source_bindings_compatible(arg) {
+                            if !param.source_bindings_compatible(arg)
+                                || holds_other_variable(upvalue_to_group, registers, param, arg)
+                            {
                                 continue;
                             }
                             // A captured cell's version merging one uncaptured
@@ -1453,7 +1573,7 @@ impl<'a> SsaConstructor<'a> {
         {
             let _timer = ast::prof::Timer::new(&ast::prof::C_REMOVE_PARAMS);
             let _phase = ast::telemetry::Span::new("SSA_CONSTRUCT_REMOVE_PARAMS");
-            remove_unnecessary_params(self.function, &mut self.local_map, None);
+            remove_unnecessary_params(self.function, &mut self.local_map, None, None);
         }
         self.apply_pending_local_map();
 
@@ -1845,7 +1965,7 @@ mod tests {
                 params_reference::remove_unnecessary_params(&mut expected_function, &mut expected_map, groups.as_ref())
             })));
             let actual = outcome(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                remove_unnecessary_params(&mut function, &mut map, groups.as_ref())
+                remove_unnecessary_params(&mut function, &mut map, groups.as_ref(), None)
             })));
             assert_eq!(actual, expected, "seed={seed}");
             assert_eq!(ast::current_local_id(), before);
@@ -1870,7 +1990,7 @@ mod tests {
             params_reference::remove_unnecessary_params(&mut expected_function, &mut FxHashMap::default(), None)
         })));
         let actual = outcome(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            remove_unnecessary_params(&mut function, &mut FxHashMap::default(), None)
+            remove_unnecessary_params(&mut function, &mut FxHashMap::default(), None, None)
         })));
         assert!(expected.is_err());
         assert_eq!(actual, expected);
