@@ -144,11 +144,12 @@ fn rvalue_blocks_reorder(rvalue: &ast::RValue) -> bool {
 }
 
 /// Whether evaluating `rvalue` later could write a captured cell. A builtin
-/// or a fixed library member (`error`, `debug.traceback`) is fetched without
-/// running Lua code, so it cannot; a script table's field (`t.x`) may run
-/// `__index`, and any call, operator or other index might.
-fn may_write_capture_when_moved(rvalue: &ast::RValue) -> bool {
-    !ast::library_import(rvalue) && ast::effects::may_write_capture(rvalue)
+/// or a fixed library member (`error`, `debug.traceback`) the chunk cannot
+/// have replaced is fetched without running Lua code, so it cannot; a script
+/// table's field (`t.x`) may run `__index`, and any call, operator or other
+/// index might.
+fn may_write_capture_when_moved(rvalue: &ast::RValue, globals: &ast::ChunkGlobals) -> bool {
+    !globals.fixed_library_import(rvalue) && ast::effects::may_write_capture(rvalue)
 }
 
 /// A global or a constant-key field chain on one (`table.insert`): what
@@ -504,6 +505,7 @@ impl<'a> Inliner<'a> {
         for node_index in 0..schedule.nodes.len() {
             let node = schedule.nodes[node_index];
             if !schedule.visit(node, self.function.block(node).unwrap().len()) { continue; }
+            let globals = self.function.globals.clone();
             let block = self.function.block_mut(node).unwrap();
             let mut facts = facts::Cache::new(
                 block.len(), self.local_to_group, self.upvalue_to_group, self.readonly_capture_ids);
@@ -583,7 +585,7 @@ impl<'a> Inliner<'a> {
                         let new_rvalue_has_side_effects = statement_facts.single_rhs_observable.unwrap();
                         if (!new_rvalue_has_side_effects || allow_side_effects)
                             && !(crossed_capture_read && new_rvalue_has_side_effects
-                                && may_write_capture_when_moved(new_rvalue))
+                                && may_write_capture_when_moved(new_rvalue, &globals))
                             && !is_service_or_require_handle(new_rvalue)
                             && !matches!(new_rvalue, ast::RValue::Closure(c)
                                 if c.function.lock().retain_for_reconstruction)
@@ -658,13 +660,15 @@ impl<'a> Inliner<'a> {
                                 }
                             } else if let Some(generic_for_init) =
                                 block[index].as_generic_for_init()
-                                && generic_for_init
-                                    .0
-                                    .right
+                                // The pack fills the init's trailing slots (`next,
+                                // t:GetChildren()` packs state and control); the
+                                // leading values stay where they are.
+                                && !assign.left.is_empty()
+                                && generic_for_init.0.right.len() >= assign.left.len()
+                                && generic_for_init.0.right[generic_for_init.0.right.len() - assign.left.len()..]
                                     .iter()
-                                    .rev()
-                                    .map_while(|r| r.as_local())
-                                    .eq_by(assign.left.iter().rev(), |a, b| Some(a) == b.as_local())
+                                    .zip(&assign.left)
+                                    .all(|(r, l)| r.as_local().is_some_and(|r| Some(r) == l.as_local()))
                                 && assign.left.iter().all(|l| {
                                     l.as_local().is_some_and(|l| {
                                         stat_to_values_read[index]
@@ -675,15 +679,16 @@ impl<'a> Inliner<'a> {
                             {
                                 let start_index =
                                     generic_for_init.0.right.len() - assign.left.len();
+                                // The leading values are now evaluated before the
+                                // pack: none may run code or read a cell it may write.
                                 let has_leading_side_effects = || {
-                                    let mut leading_side_effects = false;
-                                    for expr in generic_for_init.0.right.iter().take(start_index) {
-                                        if ast::is_observable(expr) {
-                                            leading_side_effects = true;
-                                            break;
-                                        }
-                                    }
-                                    leading_side_effects
+                                    generic_for_init.0.right.iter().take(start_index).any(|expr| {
+                                        ast::is_observable(expr)
+                                            || expr.any_local_read(&mut |local| {
+                                                self.upvalue_to_group.contains_key(local)
+                                                    && !self.readonly_capture_ids.contains(&local.stable_id())
+                                            })
+                                    })
                                 };
 
                                 if !new_rvalue_has_side_effects || !has_leading_side_effects() {
@@ -946,13 +951,18 @@ fn decrement_rvalue_usages(
 /// The move is only legal when no statement in between reads or writes `t`
 /// (closure captures count as reads), and when every entry already in the
 /// constructor is total-pure and reads no local written in between (moving the
-/// constructor later must not change what those entries evaluate to).
+/// constructor later must not change what those entries evaluate to). A call
+/// in between writes no local syntactically but may write a captured cell
+/// (`cell`): an entry reading one stays before any statement that can run
+/// code (`{a = x, obj:Get()}` reads `x` before the call).
 fn movable_table_declaration(
     block: &ast::Block,
     set_list_index: usize,
     object_local: &ast::RcLocal,
+    cell: impl Fn(&ast::RcLocal) -> bool,
 ) -> Option<usize> {
     let mut written_between: Vec<ast::RcLocal> = Vec::new();
+    let mut runs_code_between = false;
     for j in (0..set_list_index).rev() {
         let statement = &block[j];
         if let Some(assign) = statement.as_assign()
@@ -962,7 +972,9 @@ fn movable_table_declaration(
             let entries_movable = table.0.iter().all(|(key, value)| {
                 key.iter().chain(std::iter::once(value)).all(|rvalue| {
                     ast::is_total_pure(rvalue)
-                        && !rvalue.any_local_read(&mut |local| written_between.contains(local))
+                        && !rvalue.any_local_read(&mut |local| {
+                            written_between.contains(local) || (runs_code_between && cell(local))
+                        })
                 })
             });
             return entries_movable.then_some(j);
@@ -972,6 +984,7 @@ fn movable_table_declaration(
         {
             return None;
         }
+        runs_code_between |= ast::statement_is_observable(statement);
         statement.visit_local_writes(&mut |local| { written_between.push(local.clone()); true });
     }
     None
@@ -1307,7 +1320,9 @@ pub fn inline_with_readonly_captures(
                     if block[i - 1]
                         .as_assign()
                         .is_none_or(|assign| assign.left != [object_local.clone().into()])
-                        && let Some(decl_index) = movable_table_declaration(block, i, &object_local)
+                        && let Some(decl_index) = movable_table_declaration(block, i, &object_local, |local| {
+                            upvalue_to_group.contains_key(local) && !readonly_capture_ids.contains(&local.stable_id())
+                        })
                     {
                         let decl = block.remove(decl_index);
                         block.insert(i - 1, decl);
@@ -2294,7 +2309,7 @@ mod set_list_fold_through_tests {
             call_assign(&y, "g", vec![RValue::Local(x.clone())]),
             set_list(&t, vec![RValue::Local(x.clone()), RValue::Local(y.clone())], None),
         ]);
-        assert_eq!(movable_table_declaration(&block, 3, &t), Some(0));
+        assert_eq!(movable_table_declaration(&block, 3, &t, |_| false), Some(0));
     }
 
     #[test]
@@ -2306,7 +2321,7 @@ mod set_list_fold_through_tests {
             call_assign(&x, "f", vec![RValue::Local(t.clone())]),
             set_list(&t, vec![RValue::Local(x.clone())], None),
         ]);
-        assert_eq!(movable_table_declaration(&block, 2, &t), None);
+        assert_eq!(movable_table_declaration(&block, 2, &t, |_| false), None);
     }
 
     #[test]
@@ -2324,7 +2339,7 @@ mod set_list_fold_through_tests {
             call_assign(&x, "f", Vec::new()),
             set_list(&t, vec![RValue::Local(x.clone())], None),
         ]);
-        assert_eq!(movable_table_declaration(&block, 2, &t), None);
+        assert_eq!(movable_table_declaration(&block, 2, &t, |_| false), None);
     }
 
     #[test]
@@ -2342,7 +2357,7 @@ mod set_list_fold_through_tests {
             call_assign(&x, "f", Vec::new()),
             set_list(&t, vec![RValue::Local(x.clone())], Some(Call::new(RValue::Global(Global::from("g")), Vec::new()).into())),
         ]);
-        assert_eq!(movable_table_declaration(&block, 2, &t), Some(0));
+        assert_eq!(movable_table_declaration(&block, 2, &t, |_| false), Some(0));
     }
 
     #[test]

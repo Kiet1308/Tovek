@@ -147,6 +147,16 @@ impl Literal {
         NumberText(value).to_string()
     }
 
+    /// Whether this literal prints with a leading `-` (`-1`, `-1e999`, the
+    /// positive NaN `-(0 / 0)`), so it groups like a negation.
+    pub fn prints_negated(&self) -> bool {
+        match *self {
+            Literal::Number(value) => if value.is_nan() { value.is_sign_positive() } else { value.is_sign_negative() },
+            Literal::Integer(value) => value < 0 && value != i64::MIN,
+            _ => false,
+        }
+    }
+
 }
 
 /// Display adapters keep temporary numeric text on the stack. The owned
@@ -157,7 +167,10 @@ impl fmt::Display for NumberText {
         if self.0.is_infinite() {
             f.write_str(if self.0.is_sign_positive() { "1e999" } else { "-1e999" })
         } else if self.0.is_nan() {
-            f.write_str("(0 / 0)")
+            // `0 / 0` folds to the default NaN, whose sign bit is set on
+            // x86; negating it gives the other sign, which `buffer.writef64`
+            // and friends can observe. No NaN arithmetic makes another payload.
+            f.write_str(if self.0.is_sign_negative() { "(0 / 0)" } else { "-(0 / 0)" })
         } else {
             // Constants cannot depend on a shadowed global (including math.pi).
             let mut buffer = ryu::Buffer::new();
@@ -173,7 +186,7 @@ impl fmt::Display for VectorComponentText {
         if self.0.is_infinite() {
             f.write_str(if self.0.is_sign_positive() { "1e999" } else { "-1e999" })
         } else if self.0.is_nan() {
-            f.write_str("(0 / 0)")
+            f.write_str(if self.0.is_sign_negative() { "(0 / 0)" } else { "-(0 / 0)" })
         } else {
             // Keep standard f32 spelling; widening to f64 expands e.g. 0.1.
             write!(f, "{}", self.0)
@@ -370,7 +383,7 @@ mod tests {
         fn reference64(value: f64) -> String {
             if value.is_infinite() {
                 if value.is_sign_positive() { "1e999".into() } else { "-1e999".into() }
-            } else if value.is_nan() { "(0 / 0)".into() }
+            } else if value.is_nan() { if value.is_sign_negative() { "(0 / 0)".into() } else { "-(0 / 0)".into() } }
             else {
                 let mut buffer = ryu::Buffer::new();
                 let printed = buffer.format_finite(value);
@@ -380,7 +393,7 @@ mod tests {
         fn reference32(value: f32) -> String {
             if value.is_infinite() {
                 if value.is_sign_positive() { "1e999".into() } else { "-1e999".into() }
-            } else if value.is_nan() { "(0 / 0)".into() }
+            } else if value.is_nan() { if value.is_sign_negative() { "(0 / 0)".into() } else { "-(0 / 0)".into() } }
             else { value.to_string() }
         }
         fn check(bits64: u64, bits32: u32) {
@@ -666,7 +679,10 @@ mod tests {
         let huge = Literal::VectorD(1e300, f64::INFINITY, f64::NAN);
         assert_eq!(
             huge.to_string(),
-            "vector.create(1e300, 1e999, (0 / 0))"
+            "vector.create(1e300, 1e999, -(0 / 0))"
         );
+        // `0 / 0` is the NaN with the sign bit set; the other sign negates it.
+        assert_eq!(Literal::Number(-f64::NAN).to_string(), "(0 / 0)");
+        assert_eq!(Literal::Number(f64::NAN).to_string(), "-(0 / 0)");
     }
 }

@@ -915,6 +915,7 @@ impl<'a> Lifter<'a> {
                             } => {
                                 assert!(a == namecall_base);
                                 // TODO: repeated code :(
+                                let open_tail = b == 0;
                                 let arguments = if b != 0 {
                                     (a + 2..a + b)
                                         .map(|r| self.register(r as _).into())
@@ -938,6 +939,7 @@ impl<'a> Lifter<'a> {
                                         arguments,
                                     )
                                     .into(),
+                                    _ if open_tail => namecall_after_arguments(namecall_object, namecall_method, arguments).into(),
                                     _ => ast::Call::new(
                                         ast::Index::new(
                                             namecall_object.clone().into(),
@@ -1590,48 +1592,28 @@ impl<'a> Lifter<'a> {
                         let limit = self.register(a as _);
                         let step = self.register((a + 1) as _);
                         let counter = self.register((a + 2) as _);
-                        let counter_lvalue: ast::LValue = counter.clone().into();
                         statements.push(ast::NumForInit::new(counter, limit, step).into());
 
-                        // The loop header is the block that ends in the matching
-                        // `NumForNext` (the FORNLOOP), which FORNPREP jumps to. Normally
-                        // it is found as the predecessor of the body that loops back to
-                        // it. A degenerate `for i = 1, n do break end` body never loops
-                        // back, so the FORNLOOP is NOT a predecessor of the body — the
-                        // predecessor lookup then finds nothing and the old
-                        // `exactly_one().unwrap()` panicked the whole function out (C8 at
-                        // O1). Fall back to the unique `NumForNext` block over the *same*
-                        // counter, scanning the whole function.
-                        let body_node = self.block_to_node(block_start + index + 1);
-                        let loop_node = self
-                            .function
-                            .predecessor_blocks(body_node)
-                            .filter(|&p| {
-                                self.function
-                                    .block(p)
-                                    .unwrap()
-                                    .last()
-                                    .is_some_and(|s| matches!(s, ast::Statement::NumForNext(_)))
-                            })
-                            .unique()
-                            .exactly_one()
-                            .ok()
-                            .or_else(|| {
-                                self.function
-                                    .graph()
-                                    .node_indices()
-                                    .filter(|&n| {
-                                        self.function.block(n).and_then(|b| b.last()).is_some_and(
-                                            |s| {
-                                                matches!(s, ast::Statement::NumForNext(nfn)
-                                                if nfn.counter.0 == counter_lvalue)
-                                            },
-                                        )
-                                    })
-                                    .exactly_one()
-                                    .ok()
-                            })
-                            .expect("FORNPREP: no matching NumForNext (FORNLOOP) block");
+                        // The loop header is the block of the matching FORNLOOP,
+                        // which tests the counter (a FORNLOOP starts its own
+                        // block). Luau lays a loop out as `FORNPREP exit; body;
+                        // FORNLOOP body; exit:` and keeps the loop's registers
+                        // live through the body, so no loop inside reuses them:
+                        // it is the first FORNLOOP on the same registers after
+                        // FORNPREP, whatever the body does (`for ... do break end`
+                        // threads the back jump to the exit) and wherever a later
+                        // loop reuses the registers. Jump folding retargets
+                        // FORNPREP through the forward JUMPs after the loop (and
+                        // copies a RETURN such a JUMP reaches), so the exit is
+                        // only known to follow the FORNLOOP.
+                        let body_node = self.block_to_node(pc + 1);
+                        let instructions = &self.function_list[self.function.id].instructions;
+                        let exit = (pc + 1).checked_add_signed(d.into()).unwrap_or(0);
+                        let loop_node = (pc + 1..exit.min(instructions.len()))
+                            .find(|&at| matches!(instructions[at],
+                                Instruction::AD { op_code: OpCode::LOP_FORNLOOP, a: loop_a, .. } if loop_a == a))
+                            .and_then(|loop_pc| self.blocks.get(&loop_pc).copied())
+                            .expect("FORNPREP: no FORNLOOP on its registers before its exit");
                         // The compiler can thread FORNLOOP's backedge through
                         // an empty `break` body, even when the step is dead.
                         // FORNPREP still enters that body on its first trip.
@@ -1732,7 +1714,7 @@ impl<'a> Lifter<'a> {
                     OpCode::LOP_DUPTABLE => {
                         // Loader templates contain actual zero-valued fields,
                         // observable even if no SETTABLE ever follows DUPTABLE.
-                        let template = self.constant_to_rvalue(d as usize);
+                        let template = self.template_to_rvalue(d as usize);
                         statements.push(
                             ast::Assign::new(vec![self.register(a as _).into()], vec![template])
                                 .into(),
@@ -1947,35 +1929,44 @@ impl<'a> Lifter<'a> {
         }
     }
 
-    // Reconstructs an arbitrary constant (including nested constant tables) as an
-    // rvalue. Used to materialize DUPTABLE templates whose field values are baked
-    // into the bytecode constant pool.
-    fn constant_to_rvalue(&self, index: usize) -> ast::RValue {
-        match self.function_list[self.function.id].constants.get(index) {
-            Some(BytecodeConstant::TableWithConstants(pairs)) => {
-                let entries = pairs
-                    .iter()
-                    .map(|&(key, value)| {
-                        let key = self.constant_to_rvalue(key);
-                        let value = if value < 0 {
-                            ast::Literal::Number(0.0).into()
-                        } else {
-                            self.constant_to_rvalue(value as usize)
-                        };
-                        (Some(key), value)
-                    })
-                    .collect();
-                ast::Table::new(entries).into()
+    /// The table a DUPTABLE copies, as a constructor. The loader builds
+    /// constants in order, so a template entry reads the constants before it:
+    /// one naming a later constant reads nil, as `{field = nil}` spells (the
+    /// field stays out, as in the source). Luau only ever bakes scalar
+    /// constants into a template; a nested table or a closure would be shared
+    /// by every copy, which no constructor spells, so such bytecode is refused.
+    fn template_to_rvalue(&self, index: usize) -> ast::RValue {
+        let constants = &self.function_list[self.function.id].constants;
+        let scalar = |at: usize| matches!(constants.get(at), Some(BytecodeConstant::Boolean(_)
+            | BytecodeConstant::Number(_) | BytecodeConstant::Integer(_) | BytecodeConstant::String(_)
+            | BytecodeConstant::Vector(..) | BytecodeConstant::VectorD(..)));
+        let key = |at: usize| -> ast::RValue {
+            assert!(at < index && scalar(at), "DUPTABLE template key {at} is not an earlier scalar constant");
+            self.constant(at).into()
+        };
+        let entries = match constants.get(index) {
+            Some(BytecodeConstant::TableWithConstants(pairs)) => pairs
+                .iter()
+                .map(|&(at, value)| {
+                    let value = match usize::try_from(value) {
+                        Err(_) => ast::Literal::Number(0.0).into(),
+                        Ok(value) if value >= index || matches!(constants.get(value), Some(BytecodeConstant::Nil)) => {
+                            ast::Literal::Nil.into()
+                        }
+                        Ok(value) => {
+                            assert!(scalar(value), "DUPTABLE template value {value} is not a scalar constant");
+                            self.constant(value).into()
+                        }
+                    };
+                    (Some(key(at)), value)
+                })
+                .collect(),
+            Some(BytecodeConstant::Table(keys)) => {
+                keys.iter().map(|&at| (Some(key(at)), ast::Literal::Number(0.0).into())).collect()
             }
-            Some(BytecodeConstant::Table(keys)) => ast::Table::new(keys.iter().map(|&key| {
-                (Some(self.constant_to_rvalue(key)), ast::Literal::Number(0.0).into())
-            }).collect()).into(),
-            Some(BytecodeConstant::Nil | BytecodeConstant::Boolean(_) | BytecodeConstant::Number(_)
-                | BytecodeConstant::Integer(_) | BytecodeConstant::String(_) | BytecodeConstant::Vector(..)
-                | BytecodeConstant::VectorD(..)) => self.constant(index).into(),
-            // Import, Closure and unknown template values retain the nil fallback.
-            _ => ast::Literal::Nil.into(),
-        }
+            _ => panic!("DUPTABLE constant {index} is not a table template"),
+        };
+        ast::Table::new(entries).into()
     }
 
     fn block_to_node(&self, insn_index: usize) -> NodeIndex {
@@ -2015,6 +2006,31 @@ impl<'a> Lifter<'a> {
             Instruction::E { op_code, .. } => matches!(op_code, OpCode::LOP_JUMPX),
         }
     }
+}
+
+/// `object[method](object, arguments)` for a NAMECALL whose method is no
+/// identifier and whose arguments end in a call or `...` of all its values:
+/// NAMECALL looks the method up after them, an indexed call before. Those
+/// values cannot be held in locals, so a function takes them first:
+/// `(function(self, ...) return self[method](self, ...) end)(object, arguments)`.
+fn namecall_after_arguments(object: ast::RcLocal, method: Vec<u8>, arguments: Vec<ast::RValue>) -> ast::Call {
+    let receiver = ast::RcLocal::new(ast::Local::new(Some("self".to_string())));
+    let lookup = ast::Call::new(
+        ast::Index::new(receiver.clone().into(), ast::Literal::String(method).into()).into(),
+        vec![receiver.clone().into(), ast::RValue::VarArg(ast::VarArg)],
+    );
+    let function = ast::Function {
+        parameters: vec![receiver],
+        is_variadic: true,
+        body: ast::Block(vec![ast::Return::new(vec![lookup.into()]).into()]),
+        ..Default::default()
+    };
+    let closure = ast::Closure {
+        node_origin: Default::default(),
+        function: ByAddress(Arc::new(Mutex::new(function))),
+        upvalues: Vec::new(),
+    };
+    ast::Call::new(closure.into(), std::iter::once(object.into()).chain(arguments).collect())
 }
 
 #[cfg(test)]
@@ -2081,7 +2097,7 @@ mod tests {
     }
 
     #[test]
-    fn repeated_constants_preserve_bits_and_nested_table_defaults() {
+    fn repeated_constants_preserve_bits_and_template_defaults() {
         use super::BytecodeConstant as C;
         use ast::Literal as L;
         let nan = f64::from_bits(0x7ff8_0000_0000_1234);
@@ -2091,7 +2107,9 @@ mod tests {
             C::Number(f64::NEG_INFINITY), C::Number(-0.0), C::String(0), C::String(1),
             C::Vector(1.0, 2.0, 3.0, 99.0), C::VectorD(1.0000000000001, 2.0, 3.0, 99.0),
             C::Integer(i64::MIN), C::Table(vec![7]),
-            C::TableWithConstants(vec![(7, 11), (6, -1), (1, 99)]),
+            // A value the loader has not built yet (itself, past the pool) or
+            // a nil one reads nil.
+            C::TableWithConstants(vec![(7, 2), (6, -1), (1, 99), (8, 0), (5, 12)]),
         ];
         // Repeated loads exercise both the former cold-cache and warm-cache
         // behavior, with every non-table literal and both table encodings.
@@ -2126,10 +2144,35 @@ mod tests {
             ]);
             assert_eq!(loaded[11], &ast::RValue::from(plain.clone()));
             assert_eq!(loaded[12], &ast::RValue::from(ast::Table::new(vec![
-                (Some(L::String(b"value".to_vec()).into()), plain.into()),
+                (Some(L::String(b"value".to_vec()).into()), L::Number(nan).into()),
                 (Some(L::String(vec![]).into()), L::Number(0.0).into()),
                 (Some(L::Boolean(true).into()), L::Nil.into()),
+                (Some(L::Vector(1.0, 2.0, 3.0).into()), L::Nil.into()),
+                (Some(L::Number(-0.0).into()), L::Nil.into()),
             ])));
+        }
+    }
+
+    /// Every copy of a template shares a table or closure baked into it, and
+    /// a template naming itself as a key has no key yet: no constructor
+    /// spells either, so lifting refuses instead of inventing one.
+    #[test]
+    fn templates_sharing_objects_or_naming_themselves_are_refused() {
+        use super::BytecodeConstant as C;
+        let shapes = [
+            vec![C::String(1), C::Table(vec![0]), C::TableWithConstants(vec![(0, 1)])],
+            vec![C::String(1), C::TableWithConstants(vec![(1, -1)])],
+            vec![C::String(1), C::Closure(0), C::TableWithConstants(vec![(0, 1)])],
+        ];
+        for constants in shapes {
+            let template = constants.len() - 1;
+            let mut proto = prototype(0, vec![
+                Instruction::AD { op_code: OpCode::LOP_DUPTABLE, a: 0, d: template as i16, aux: 0 },
+                instruction(OpCode::LOP_RETURN, 0, 2, 0),
+            ]);
+            proto.constants = constants;
+            let lifted = std::panic::catch_unwind(|| Lifter::lift(&vec![proto], &[b"key"], 9, 0, None, &[], false));
+            assert!(lifted.is_err());
         }
     }
 

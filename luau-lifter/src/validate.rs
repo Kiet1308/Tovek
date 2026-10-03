@@ -463,21 +463,37 @@ fn invoke_analyze(
         .stdin(Stdio::null()) // mirror the shell's `< /dev/null`
         .output();
     match result {
-        Ok(o) => {
-            // analyze writes diagnostics to stdout under --formatter=plain; the
-            // shell merges stderr too (`2>&1`), so scan both.
-            for buf in [&o.stdout, &o.stderr] {
-                for l in String::from_utf8_lossy(buf).lines() {
-                    out.push(l.to_string());
-                }
-            }
-            Ok(())
-        }
+        Ok(o) => collect_analyze_output(analyze, &o, out),
         Err(e) => Err(format!(
             "failed to run luau-analyze {}: {e}",
             analyze.display()
         )),
     }
+}
+
+/// The diagnostic lines of one finished analyze run. Under --formatter=plain
+/// analyze exits 0 whatever it reports; any other status (a crash, a usage or
+/// internal error) means it did not check every file, and a file it never
+/// reported on is not valid.
+fn collect_analyze_output(analyze: &Path, o: &std::process::Output, out: &mut Vec<String>) -> Result<(), String> {
+    if !o.status.success() {
+        let stderr = String::from_utf8_lossy(&o.stderr);
+        let excerpt: Vec<&str> = stderr.lines().take(3).collect();
+        return Err(format!(
+            "luau-analyze {} did not complete ({}): {}",
+            analyze.display(),
+            o.status,
+            excerpt.join(" | ")
+        ));
+    }
+    // analyze writes diagnostics to stdout under --formatter=plain; the
+    // shell merges stderr too (`2>&1`), so scan both.
+    for buf in [&o.stdout, &o.stderr] {
+        for l in String::from_utf8_lossy(buf).lines() {
+            out.push(l.to_string());
+        }
+    }
+    Ok(())
 }
 
 /// Return the `<...>.luau` path prefix of an analyze diagnostic line, or `None`
@@ -641,5 +657,33 @@ fn is_inner_random_decl(line: &str) -> bool {
     match rest.find(" = children[math.random") {
         Some(eq) => is_ident(&rest[..eq]),
         None => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn output(code: i32, stderr: &str) -> std::process::Output {
+        #[cfg(windows)]
+        let status = std::os::windows::process::ExitStatusExt::from_raw(code as u32);
+        #[cfg(unix)]
+        let status = std::os::unix::process::ExitStatusExt::from_raw(code << 8);
+        std::process::Output { status, stdout: b"a.luau:1:1: SyntaxError: x".to_vec(), stderr: stderr.as_bytes().to_vec() }
+    }
+
+    /// A checker that crashed or refused its arguments validated nothing.
+    #[test]
+    fn an_analyzer_that_did_not_complete_is_an_error() {
+        let analyze = Path::new("luau-analyze");
+        let mut lines = Vec::new();
+        assert!(collect_analyze_output(analyze, &output(0, ""), &mut lines).is_ok());
+        assert_eq!(lines, ["a.luau:1:1: SyntaxError: x"]);
+        for code in [1, 2, 134] {
+            let mut lines = Vec::new();
+            let error = collect_analyze_output(analyze, &output(code, "Error: bad config"), &mut lines).unwrap_err();
+            assert!(error.contains("did not complete") && error.contains("bad config"), "{error}");
+            assert!(lines.is_empty());
+        }
     }
 }

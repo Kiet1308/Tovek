@@ -279,16 +279,17 @@ fn closure_domain_masks_keep_lhs_marker_alias_order_and_duplicate_definitions() 
         vec![number(0.0)]).into()]);
     let actual = NamingPreparation::for_naming(&only_lhs, true);
     compare_preparation(&actual, &reference::prepare(&only_lhs, true));
-    assert!(!actual.field_aliases.contains_key(&local_ptr(&alias)));
-    assert!(!actual.counts.contains_key(&local_ptr(&alias)));
+    // A closure in a store address runs like any other: its body counts.
+    assert_eq!(actual.field_aliases[&local_ptr(&alias)], "Shared");
+    assert_eq!(actual.counts[&local_ptr(&alias)].writes, 1);
     assert!(actual.definitions.contains_key(&local_ptr(&binder)));
     let capture = &actual.counts[&local_ptr(&captured)];
-    assert_eq!((capture.reads, capture.captured), (1, false));
+    assert_eq!((capture.reads, capture.captured), (1, true));
     let both = Block(vec![Assign::new(vec![Index::new(closure(&shared, vec![]), string("x")).into()], vec![closure(&shared, vec![])]).into()]);
     let actual = NamingPreparation::for_naming(&both, true);
     compare_preparation(&actual, &reference::prepare(&both, true));
     assert!(!actual.definitions.contains_key(&local_ptr(&binder)), "the two definition occurrences invalidate their binder");
-    assert_eq!(actual.counts[&local_ptr(&alias)].writes, 1, "indexed-LHS body omitted only from usage");
+    assert_eq!(actual.counts[&local_ptr(&alias)].writes, 2, "each occurrence of the shared body counts");
     let marker = Block(vec![crate::NumForNext {
         counter: (local().into(), closure(&make("Counter"), vec![])),
         limit: closure(&make("Limit"), vec![]), step: closure(&make("Step"), vec![]),

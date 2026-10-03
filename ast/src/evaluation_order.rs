@@ -189,41 +189,18 @@ pub(crate) fn reads_first(value: &RValue, local: &RcLocal, register: bool, uncha
             reads_first(&binary.left, local, register, unchanged).or(Some(false))
         }
         RValue::IfExpression(select) => reads_first(&select.condition, local, register, unchanged).or(Some(false)),
+        RValue::Call(call) | RValue::Select(Select::Call(call)) => call_reads_first(call, local, register, unchanged),
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
+            method_call_reads_first(call, local, register, unchanged)
+        }
         // Luau hands a register local straight to an arithmetic or comparison
-        // instruction, to GETTABLE, and to a builtin's FASTCALL: it is read
-        // when the operation runs, after the other operands (`a * (b * 2)`
-        // runs `b * 2` before reading `a`).
+        // instruction and to GETTABLE: it is read when the operation runs,
+        // after the other operands (`a * (b * 2)` runs `b * 2` before reading
+        // `a`).
         _ if late_operands(value).is_some() => {
-            let operands = late_operands(value).unwrap();
-            // A call Luau may or may not compile to FASTCALL: assume the order
-            // that refuses more, early for other locals, late for a register
-            // argument in place of `local`.
-            let definite = !matches!(value, RValue::Call(_) | RValue::Select(_));
-            let late = |operand: &RValue| match operand {
-                RValue::Local(read) if read == local => register,
-                RValue::Local(_) => definite,
-                _ => false,
-            };
-            let early = operands.iter().filter(|operand| !late(operand));
-            if let Some(first) = early.into_iter().find_map(|operand| reads_first(operand, local, register, unchanged)) {
-                return Some(first);
-            }
-            for operand in &operands {
-                match operand {
-                    RValue::Local(read) if read == local => return Some(true),
-                    RValue::Local(_) if !unchanged(operand) => return Some(false),
-                    _ => {}
-                }
-            }
-            Some(false)
+            late_operands_read_first(&late_operands(value).unwrap(), true, local, register, unchanged)
         }
-        // NAMECALL reads a register receiver after the arguments, a
-        // constructor's SETTABLE a register key after the field's value.
-        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call))
-            if register && matches!(call.value.as_ref(), RValue::Local(read) if read == local) =>
-        {
-            call.arguments.iter().find_map(|argument| reads_first(argument, local, register, unchanged)).or(Some(true))
-        }
+        // A constructor's SETTABLE reads a register key after the field's value.
         RValue::Table(table) if register => {
             let first = table.0.iter().find_map(|(key, item)| match key {
                 Some(RValue::Local(read)) if read == local => reads_first(item, local, register, unchanged).or(Some(true)),
@@ -241,6 +218,55 @@ pub(crate) fn reads_first(value: &RValue, local: &RcLocal, register: bool, uncha
             first.or(Some(false))
         }
     }
+}
+
+/// [`reads_first`] of a call: a builtin's FASTCALL takes a register-local
+/// argument as it is, when it runs ([`fastcall_arguments`]); any other call
+/// fetches its callee and copies its arguments in order.
+fn call_reads_first(call: &crate::Call, local: &RcLocal, register: bool, unchanged: &impl Fn(&RValue) -> bool) -> Option<bool> {
+    match fastcall_arguments(call) {
+        // Luau may or may not compile it to FASTCALL: assume the order that
+        // refuses more, early for other locals, late for a register argument
+        // in place of `local`.
+        Some(arguments) => late_operands_read_first(&arguments.iter().collect::<Vec<_>>(), false, local, register, unchanged),
+        None => std::iter::once(&*call.value).chain(&call.arguments)
+            .find_map(|value| reads_first(value, local, register, unchanged)).or(Some(false)),
+    }
+}
+
+/// [`reads_first`] of a method call: NAMECALL reads a register receiver after
+/// the arguments, statement or expression alike.
+fn method_call_reads_first(call: &crate::MethodCall, local: &RcLocal, register: bool, unchanged: &impl Fn(&RValue) -> bool) -> Option<bool> {
+    if register && matches!(call.value.as_ref(), RValue::Local(read) if read == local) {
+        return call.arguments.iter().find_map(|argument| reads_first(argument, local, register, unchanged)).or(Some(true));
+    }
+    std::iter::once(&*call.value).chain(&call.arguments)
+        .find_map(|value| reads_first(value, local, register, unchanged)).or(Some(false))
+}
+
+/// [`reads_first`] of an operation reading its register-local operands when
+/// it runs. `definite`: it surely does; otherwise only a register argument in
+/// place of `local` counts as read late.
+fn late_operands_read_first(operands: &[&RValue], definite: bool, local: &RcLocal, register: bool,
+    unchanged: &impl Fn(&RValue) -> bool) -> Option<bool> {
+    let late = |operand: &RValue| match operand {
+        RValue::Local(read) if read == local => register,
+        RValue::Local(_) => definite,
+        _ => false,
+    };
+    if let Some(first) = operands.iter().filter(|operand| !late(operand))
+        .find_map(|operand| reads_first(operand, local, register, unchanged))
+    {
+        return Some(first);
+    }
+    for operand in operands {
+        match operand {
+            RValue::Local(read) if read == local => return Some(true),
+            RValue::Local(_) if !unchanged(operand) => return Some(false),
+            _ => {}
+        }
+    }
+    Some(false)
 }
 
 /// The operands of an operation that reads its register-local operands only
@@ -316,10 +342,10 @@ pub(crate) fn block_reads_first(stmts: &[Statement], local: &RcLocal, register: 
                 });
                 if stores_observably { first.or(Some(false)) } else { first }
             }
-            Statement::Call(call) => first_of(std::iter::once(&*call.value).chain(&call.arguments), local, register, unchanged).or(Some(false)),
-            Statement::MethodCall(call) => {
-                first_of(std::iter::once(&*call.value).chain(&call.arguments), local, register, unchanged).or(Some(false))
-            }
+            // The same order as the call as an expression (a register
+            // receiver after the arguments, a FASTCALL argument when it runs).
+            Statement::Call(call) => call_reads_first(call, local, register, unchanged),
+            Statement::MethodCall(call) => method_call_reads_first(call, local, register, unchanged),
             Statement::If(branch) => reads_first(&branch.condition, local, register, unchanged).or(Some(false)),
             Statement::Return(ret) => first_of(&ret.values, local, register, unchanged).or(Some(false)),
             Statement::Empty(_) | Statement::Comment(_) => None,
@@ -429,20 +455,26 @@ pub fn late_operand_conflict(statement: &Statement, local: &RcLocal, conflicts: 
         Statement::MethodCall(call) => is_local(&call.value) && call.arguments.iter().any(conflicts),
         _ => false,
     };
-    fn in_value(value: &RValue, is_local: &impl Fn(&RValue) -> bool, conflicts: &impl Fn(&RValue) -> bool) -> bool {
-        let here = match value {
-            RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
-                is_local(&call.value) && call.arguments.iter().any(conflicts)
-            }
-            RValue::Table(table) => table.0.iter().any(|(key, item)| key.as_ref().is_some_and(is_local) && conflicts(item)),
-            RValue::Closure(_) => return false,
-            _ => late_operands(value).is_some_and(|operands| operands_conflict(operands.into_iter(), is_local, conflicts)),
-        };
-        here || !value.visit_rvalues(&mut |child| !in_value(child, is_local, conflicts))
-    }
     at_statement
-        || !statement.visit_lvalues(&mut |lhs| lhs.visit_rvalues(&mut |value| !in_value(value, &is_local, conflicts)))
-        || !statement.visit_rvalues(&mut |value| !in_value(value, &is_local, conflicts))
+        || !statement.visit_lvalues(&mut |lhs| lhs.visit_rvalues(&mut |value| !late_operand_conflict_in(value, &is_local, conflicts)))
+        || !statement.visit_rvalues(&mut |value| !late_operand_conflict_in(value, &is_local, conflicts))
+}
+
+/// [`late_operand_conflict`] within one expression, `value` included.
+pub fn value_late_operand_conflict(value: &RValue, local: &RcLocal, conflicts: &impl Fn(&RValue) -> bool) -> bool {
+    late_operand_conflict_in(value, &|value: &RValue| matches!(value, RValue::Local(read) if read == local), conflicts)
+}
+
+fn late_operand_conflict_in(value: &RValue, is_local: &impl Fn(&RValue) -> bool, conflicts: &impl Fn(&RValue) -> bool) -> bool {
+    let here = match value {
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
+            is_local(&call.value) && call.arguments.iter().any(conflicts)
+        }
+        RValue::Table(table) => table.0.iter().any(|(key, item)| key.as_ref().is_some_and(is_local) && conflicts(item)),
+        RValue::Closure(_) => return false,
+        _ => late_operands(value).is_some_and(|operands| operands_conflict(operands.into_iter(), is_local, conflicts)),
+    };
+    here || !value.visit_rvalues(&mut |child| !late_operand_conflict_in(child, is_local, conflicts))
 }
 
 /// Whether `local`, a register local standing as the base or key of a store,
@@ -456,6 +488,31 @@ pub fn late_store_conflict(statement: &Statement, local: &RcLocal, conflicts: &i
     addresses().any(is_local)
         && (assign.left.iter().filter(|lhs| !matches!(lhs, LValue::Local(_))).count() > 1
             || addresses().chain(&assign.right).any(|value| !is_local(value) && conflicts(value)))
+}
+
+/// Whether code reading `local` from an upvalue would see another value than
+/// these statements reading it from their function's register: some
+/// operation of theirs, nested control flow included (closure bodies run
+/// elsewhere), reads the register `local` when it runs, after a value
+/// `may_change` says may write it ([`late_operand_conflict`],
+/// [`late_store_conflict`]). An upvalue is fetched (GETUPVAL) where it
+/// stands, before that value.
+pub fn region_late_read_conflict(stmts: &[Statement], local: &RcLocal, may_change: &impl Fn(&RValue) -> bool) -> bool {
+    stmts.iter().any(|statement| {
+        late_operand_conflict(statement, local, may_change)
+            || late_store_conflict(statement, local, may_change)
+            || match statement {
+                Statement::If(node) => {
+                    region_late_read_conflict(&node.then_block.lock().0, local, may_change)
+                        || region_late_read_conflict(&node.else_block.lock().0, local, may_change)
+                }
+                Statement::While(node) => region_late_read_conflict(&node.block.lock().0, local, may_change),
+                Statement::Repeat(node) => region_late_read_conflict(&node.block.lock().0, local, may_change),
+                Statement::NumericFor(node) => region_late_read_conflict(&node.block.lock().0, local, may_change),
+                Statement::GenericFor(node) => region_late_read_conflict(&node.block.lock().0, local, may_change),
+                _ => false,
+            }
+    })
 }
 
 /// One of `operands` is `local` and another one `conflicts` holds for.
@@ -588,6 +645,16 @@ mod tests {
         assert!(block_reads_first(&[Return::new(vec![sum.clone()]).into()], &param, false, &changed));
         assert!(!block_reads_first(&[Return::new(vec![sum.clone()]).into()], &param, true, &changed));
         assert!(block_reads_first(&[Return::new(vec![sum]).into()], &param, true, &unchanged));
+        // `p:report(change())` as a statement: NAMECALL reads a register
+        // receiver after the argument, an argument expression before it.
+        let report = Statement::MethodCall(MethodCall { node_origin: Default::default(), value: Box::new(param.clone().into()),
+            method: "report".into(), arguments: vec![call(vec![])] });
+        assert!(!block_reads_first(std::slice::from_ref(&report), &param, true, &unchanged));
+        assert!(block_reads_first(std::slice::from_ref(&report), &param, false, &unchanged));
+        // `table.insert(p, f())` as a statement: FASTCALL2 takes it as it is.
+        let path = Index::new(crate::Global(b"table".to_vec()).into(), Literal::String(b"insert".to_vec()).into()).into();
+        let insert = Statement::Call(Call::new(path, vec![param.clone().into(), call(vec![])]));
+        assert!(!block_reads_first(std::slice::from_ref(&insert), &param, true, &unchanged));
         // `return f(x) * p`: the call runs before `p` either way.
         let call_first = RValue::Binary(crate::Binary::new(call(vec![other.clone().into()]), param.clone().into(), crate::BinaryOperation::Mul));
         assert!(!block_reads_first(&[Return::new(vec![call_first]).into()], &param, false, &unchanged));

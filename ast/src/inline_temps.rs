@@ -938,9 +938,18 @@ fn rvalue_read_count(rvalue: &RValue, local: &RcLocal) -> usize {
     count
 }
 
+/// Every closure a statement creates, store addresses included
+/// (`handlers[function() x = 5 end] = true`): a census, unlike the
+/// positions [`for_each_direct_rvalue`] offers for inlining.
 pub(crate) fn collect_closures_in_statement(statement: &Statement, f: &mut impl FnMut(&crate::Closure)) {
     for_each_direct_rvalue(statement, &mut |rvalue| {
         collect_closures_in_rvalue(rvalue, f)
+    });
+    statement.visit_lvalues(&mut |lvalue| {
+        lvalue.visit_rvalues(&mut |rvalue| {
+            collect_closures_in_rvalue(rvalue, f);
+            true
+        })
     });
 }
 

@@ -3098,8 +3098,9 @@ impl ParameterIdentity {
 type FunctionDefinitions = FxHashMap<usize, Vec<ParameterIdentity>>;
 
 // Distinct historical selectors are deliberately kept distinct. The usage and
-// field-alias censuses enter direct RHS/loop-marker closures, while definition
-// discovery enters indexed-LHS closures and excludes internal loop markers.
+// field-alias censuses enter every closure, store addresses included
+// (`t[function() x = 1 end] = v` reads and writes `x`), while definition
+// discovery excludes internal loop markers.
 #[derive(Clone, Copy)]
 struct PreparationDomains { usage: bool, definitions: bool }
 
@@ -3246,7 +3247,7 @@ impl NamingPreparation {
             } else {
                 statement.visit_rvalues(&mut |right| { self.expression(right, rhs_domains); true });
             }
-            let lhs_domains = PreparationDomains { usage: false,
+            let lhs_domains = PreparationDomains { usage: domains.usage,
                 definitions: domains.definitions && matches!(statement, Statement::Assign(_)) };
             statement.visit_lvalues(&mut |left| {
                 left.visit_rvalues(&mut |value| { self.expression(value, lhs_domains); true });

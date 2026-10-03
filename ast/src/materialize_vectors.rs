@@ -1,10 +1,10 @@
 //! Vector constants must not look up a mutable environment every time a
 //! function runs. Source has no vector literal token, so capture the standard
 //! runtime constructor once, before executing the recovered chunk. A chunk with
-//! no local/register headroom left calls `vector.create` inline instead, where
-//! Luau resolves that path once at load time (the script never assigns
-//! `vector` and keeps its environment): it then folds the call back into the
-//! constant.
+//! no local/register headroom left, or with a closure that has no room for one
+//! more upvalue, calls `vector.create` inline instead, where Luau resolves that
+//! path once at load time (the script never assigns `vector` and keeps its
+//! environment): it then folds the call back into the constant.
 use rustc_hash::FxHashMap;
 
 use crate::{
@@ -33,9 +33,10 @@ pub fn materialize_vectors(
     let has_headroom =
         crate::lower_conditionals::local_rewrite_frame_with_bound(body, &[], 0, register_bound)
             .headroom
-            != 0;
+            != 0
+            && captures_fit(body);
     if !has_headroom && !crate::deinline_safety::CaptureSafety::new(body).constant_import(&vector_create()) {
-        return Err("no local/register headroom for the vector constructor binding");
+        return Err("no local/register or upvalue headroom for the vector constructor binding");
     }
     let constructor = has_headroom.then(|| {
         let name = crate::rehoist_constants::unique_name("createVector", &mut inventory.reserved);
@@ -168,6 +169,67 @@ mod tests {
         let mut body = full_frame(vec![assignment.into()]);
         assert!(materialize_vectors(&mut body).is_err());
     }
+}
+
+/// Luau's upvalue limit per function.
+const MAX_UPVALUES: usize = 200;
+
+/// Whether every closure the shared constructor binding would reach (one
+/// using a vector constant, or enclosing one that does) can capture it
+/// without exceeding [`MAX_UPVALUES`].
+fn captures_fit(body: &Block) -> bool {
+    fn visit(value: &RValue, functions: &mut FxHashMap<usize, bool>, fits: &mut bool) -> bool {
+        match value {
+            RValue::Literal(Literal::Vector(..) | Literal::VectorD(..)) => true,
+            RValue::Closure(closure) => {
+                let id = triomphe::Arc::as_ptr(&closure.function.0) as usize;
+                let used = match functions.get(&id) {
+                    Some(&used) => used,
+                    None => {
+                        functions.insert(id, false);
+                        let used = block(&closure.function.lock().body, functions, fits);
+                        functions.insert(id, used);
+                        used
+                    }
+                };
+                if used && closure.upvalues.len() >= MAX_UPVALUES {
+                    *fits = false;
+                }
+                used
+            }
+            _ => {
+                let mut used = false;
+                value.visit_rvalues(&mut |child| {
+                    used |= visit(child, functions, fits);
+                    true
+                });
+                used
+            }
+        }
+    }
+    fn block(body: &Block, functions: &mut FxHashMap<usize, bool>, fits: &mut bool) -> bool {
+        let mut used = false;
+        for statement in &body.0 {
+            crate::deinline::visit_stmt_rvalues(statement, &mut |rvalue| {
+                used |= visit(rvalue, functions, fits);
+                true
+            });
+            used |= match statement {
+                Statement::If(node) => {
+                    block(&node.then_block.lock(), functions, fits) | block(&node.else_block.lock(), functions, fits)
+                }
+                Statement::While(node) => block(&node.block.lock(), functions, fits),
+                Statement::Repeat(node) => block(&node.block.lock(), functions, fits),
+                Statement::NumericFor(node) => block(&node.block.lock(), functions, fits),
+                Statement::GenericFor(node) => block(&node.block.lock(), functions, fits),
+                _ => false,
+            };
+        }
+        used
+    }
+    let mut fits = true;
+    block(body, &mut FxHashMap::default(), &mut fits);
+    fits
 }
 
 fn vector_create() -> RValue {

@@ -351,14 +351,7 @@ impl Unary {
                         operation: UnaryOperation::Negate,
                         ..
                     })
-                ) || matches!(
-                    *self.value,
-                    RValue::Literal(Literal::Number(value))
-                        if value.is_sign_negative() && !value.is_nan()
-                ) || matches!(
-                    *self.value,
-                    RValue::Literal(Literal::Integer(value)) if value < 0 && value != i64::MIN
-                )))
+                ) || matches!(&*self.value, RValue::Literal(literal) if literal.prints_negated())))
     }
 }
 

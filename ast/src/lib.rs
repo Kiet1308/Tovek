@@ -50,7 +50,7 @@ pub mod fold_import_callees;
 pub mod fold_tuple_copies;
 pub mod reconstruction_search;
 mod deinline_safety;
-pub use deinline_safety::library_import;
+pub use deinline_safety::{library_import, ChunkGlobals};
 pub mod telemetry;
 pub mod dense;
 #[doc(hidden)]
@@ -252,10 +252,7 @@ impl RValue {
             Self::Binary(binary) => binary.precedence(),
             Self::Unary(unary) => unary.precedence(),
             Self::IfExpression(_) => 0,
-            RValue::Literal(Literal::Number(n)) if n.is_sign_negative() && !n.is_nan() => {
-                return 7;
-            }
-            RValue::Literal(Literal::Integer(n)) if *n < 0 && *n != i64::MIN => 7,
+            RValue::Literal(literal) if literal.prints_negated() => 7,
             _ => 9,
         }
     }

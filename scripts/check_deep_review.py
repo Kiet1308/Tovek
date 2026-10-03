@@ -144,6 +144,21 @@ def main():
                 + (struct.pack('<i', -1) if tag == 8 else b'') + bytes(6))
         results.append(check(args, f'table_template_{tag}', '-- VM template with zero field',
                              'print(f.field,type(f.field))', 1, 1, data))
+    # NAMECALL with a method name no identifier spells (the VM takes any
+    # string): it looks the method up after the arguments, an open last one
+    # included, which `object[name](object, ...)` would not.
+    namecall = ('local o = setmetatable({}, {__index = function(_, k) print("lookup", k) '
+                'return function(self, ...) print("call", ...) return "r1", "r2" end end}) '
+                'local function args() print("arg") return 1, 2 end '
+                'return function() o:bad_nam(args()); print(o:bad_nam(0, args())); o:bad_nam("x") end')
+    for optimization in (0, 1, 2):
+        directory = args.work / f'namecall_name.raw.O{optimization}'
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / 'input.luau').write_text(namecall, encoding='utf-8')
+        compile_source(args, directory / 'input.luau', directory / 'input.bc', optimization, 1)
+        data = (directory / 'input.bc').read_bytes().replace(b'bad_nam', b'bad nam')
+        results.append(check(args, 'namecall_name', '-- NAMECALL "bad nam": bytecode patched from the source',
+                             'f()', optimization, 1, data))
     (args.work / 'results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
     failed = sum(result['ket_qua'] != 'PASS' for result in results)
     print(f'Tổng: {len(results)}; pass: {len(results)-failed}; fail: {failed}')

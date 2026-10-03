@@ -106,7 +106,24 @@
    "cell_swap_beside_copy": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
    "collapsed_conditional_stays_ssa": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
    "loop_return_skips_loop_tail": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
-   "paren_call_truncates_multret": "Regression fixture (2026-10-03, paren_call_truncates_multret); baselined from the 2026-10-03 fix commit output."
+   "paren_call_truncates_multret": "Regression fixture (2026-10-03, paren_call_truncates_multret); baselined from the 2026-10-03 fix commit output.",
+   "cell_copy_dead_update": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "closure_in_store_key_captures": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "conditional_value_before_short_circuit": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "conditional_value_before_store_address": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "conditional_value_before_upvalue_callee": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "deinline_free_cell_read_late": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "deinline_method_receiver_read_late": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "drained_field_positional_slot": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "format_call_statement": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "library_fetch_with_replaced_library": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "nan_sign_preserved": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "next_call_generic_for": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "numeric_loops_sharing_registers": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "paren_statement_after_index_and_unary": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "swap_of_two_captured_cells": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "table_constructor_snapshot_before_call": "review 10-03 (R01-R20) + user reports + fuzz swap",
+   "vector_constant_full_upvalues": "review 10-03 (R01-R20) + user reports + fuzz swap"
   }
  },
  "summary": {
@@ -235,6 +252,12 @@
    "protos": 6
   },
   {
+   "file": "cell_copy_dead_update",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 2
+  },
+  {
    "file": "cell_copy_reassigned_in_loop",
    "status": "ok",
    "nonequiv": 1,
@@ -283,6 +306,12 @@
    "protos": 7
   },
   {
+   "file": "closure_in_store_key_captures",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
    "file": "codefined_results_kept_apart",
    "status": "ok",
    "nonequiv": 2,
@@ -319,6 +348,24 @@
    "protos": 3
   },
   {
+   "file": "conditional_value_before_short_circuit",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
+   "file": "conditional_value_before_store_address",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 4
+  },
+  {
+   "file": "conditional_value_before_upvalue_callee",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 7
+  },
+  {
    "file": "connection_stored_only_where_written",
    "status": "ok",
    "nonequiv": 1,
@@ -347,6 +394,24 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 3
+  },
+  {
+   "file": "deinline_free_cell_read_late",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
+   "file": "deinline_method_receiver_read_late",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
+  },
+  {
+   "file": "drained_field_positional_slot",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
   },
   {
    "file": "duplicate_local_multi_assign",
@@ -457,6 +522,12 @@
    "protos": 6
   },
   {
+   "file": "format_call_statement",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
    "file": "generic_break_found",
    "status": "ok",
    "nonequiv": 1,
@@ -515,6 +586,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 2
+  },
+  {
+   "file": "library_fetch_with_replaced_library",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
   },
   {
    "file": "local_tuple_helper",
@@ -583,6 +660,12 @@
    "protos": 6
   },
   {
+   "file": "nan_sign_preserved",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 1
+  },
+  {
    "file": "nested_capture_argument",
    "status": "ok",
    "nonequiv": 0,
@@ -601,6 +684,12 @@
    "protos": 1
   },
   {
+   "file": "next_call_generic_for",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 9
+  },
+  {
    "file": "numeric_for_init_reads_cell",
    "status": "ok",
    "nonequiv": 2,
@@ -611,6 +700,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 13
+  },
+  {
+   "file": "numeric_loops_sharing_registers",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
   },
   {
    "file": "outer_local_helpers",
@@ -635,6 +730,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "paren_statement_after_index_and_unary",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 6
   },
   {
    "file": "rebuilt_call_result_names",
@@ -739,6 +840,18 @@
    "protos": 2
   },
   {
+   "file": "swap_of_two_captured_cells",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 11
+  },
+  {
+   "file": "table_constructor_snapshot_before_call",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
+  },
+  {
    "file": "table_store_after_appended_call",
    "status": "ok",
    "nonequiv": 1,
@@ -791,6 +904,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 4
+  },
+  {
+   "file": "vector_constant_full_upvalues",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
   },
   {
    "file": "while_header_opens_for",

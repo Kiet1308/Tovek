@@ -257,6 +257,12 @@ struct Target {
     first_reads: Vec<RcLocal>,
     /// [`Target::first_reads`] for an argument that is a register local.
     first_register_reads: Vec<RcLocal>,
+    /// Outer locals the body reads that a closure assigns. The helper
+    /// fetches one as an upvalue where it stands; a site holding it in a
+    /// register reads it when an operation runs, maybe after a call changed
+    /// it (`x + change()`), so such a site is refused
+    /// ([`crate::evaluation_order::region_late_read_conflict`]).
+    free_cells: Vec<RcLocal>,
     /// At least one branch condition reads a parameter.  Only such targets can
     /// change statement shape after constant argument propagation, so this is a
     /// cold precomputed gate for the Tier-B partial-evaluation fallback.
@@ -4294,6 +4300,12 @@ fn finish_unified(
     if prefix_used != prefix.len() {
         return None;
     }
+    if t.free_cells.iter().any(|local| {
+        t.captures.register_of(local, current_func.map(|function| function as usize))
+            && crate::evaluation_order::region_late_read_conflict(cwin, local, &t.captures.may_change(local))
+    }) {
+        return None;
+    }
     let mut region_writes: FxHashSet<RcLocal> = FxHashSet::default();
     collect_written(cwin, &mut region_writes);
     // Written-parameter copies may have effects. Their original order must
@@ -5923,6 +5935,13 @@ fn collect_targets(
             locals.remove(p);
         }
         locals.extend(written_params.iter().cloned());
+        let mut pat_reads: FxHashSet<RcLocal> = FxHashSet::default();
+        collect_reads(&pat, &mut pat_reads);
+        let mut free_cells: Vec<RcLocal> = pat_reads
+            .into_iter()
+            .filter(|l| !params.contains(l) && !locals.contains(l) && captures.closure_written(l))
+            .collect();
+        free_cells.sort();
         // F6a: parameters the body never READS. Build the read-set in ONE pass over
         // the RAW body (`g.body.0`) — O(body + params), not a per-param re-traversal,
         // and over the body the helper ACTUALLY runs, which decouples F6a soundness
@@ -6023,6 +6042,7 @@ fn collect_targets(
             unread,
             first_reads,
             first_register_reads,
+            free_cells,
             specializable,
             truth_params,
             optional_params,
@@ -7139,6 +7159,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -7897,6 +7918,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: true,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -7977,6 +7999,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: true,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8047,6 +8070,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8132,6 +8156,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8475,6 +8500,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8568,6 +8594,7 @@ mod tests {
             unread: unread_set,
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8723,6 +8750,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8773,6 +8801,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -9914,6 +9943,7 @@ mod tests {
             unread: FxHashSet::default(),
             first_reads: Vec::new(),
             first_register_reads: Vec::new(),
+            free_cells: Vec::new(),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),

@@ -29,7 +29,9 @@ fn link_block(body: &mut Block, upvalues: &Inputs, locals: &FxHashMap<RcLocal, R
         }
         statement.traverse_rvalues(&mut |value| {
             if let RValue::Closure(closure) = value {
-                let inputs = &upvalues[&closure.function];
+                // A function the lifter wrote itself, already in source form,
+                // has no bytecode inputs.
+                let inputs = upvalues.get(&closure.function).map_or(&[][..], Vec::as_slice);
                 let locals = inputs.iter().zip(&closure.upvalues).map(|(old, capture)| {
                     let (Upvalue::Copy(new) | Upvalue::Ref(new)) = capture;
                     (old.clone(), new.clone())

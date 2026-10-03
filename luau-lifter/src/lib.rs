@@ -160,20 +160,34 @@ impl DecompileOptions {
     }
 }
 
+/// The globals the chunk assigns (SETGLOBAL) and whether it names getfenv or
+/// setfenv: what decides if a library fetch can run script code.
+fn chunk_globals(chunk: &deserializer::chunk::Chunk) -> ast::ChunkGlobals {
+    let mut written = FxHashSet::default();
+    for function in &chunk.functions {
+        for instruction in &function.instructions {
+            if let instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETGLOBAL, aux, .. } = instruction
+                && let Some(deserializer::constant::Constant::String(index)) = function.constants.get(*aux as usize)
+                && let Some(name) = index.checked_sub(1).and_then(|index| chunk.string_table.get(index))
+            {
+                written.insert(name.to_vec());
+            }
+        }
+    }
+    ast::ChunkGlobals {
+        dynamic_environment: chunk.string_table.iter().any(|string| *string == b"getfenv" || *string == b"setfenv"),
+        written,
+    }
+}
+
 /// Libraries whose folded constants compile back unchanged from their library
 /// spelling: the chunk never writes the global and never names getfenv or
 /// setfenv, exactly the conditions under which the compiler folds them.
-fn pristine_libraries(chunk: &deserializer::chunk::Chunk) -> ast::library_constants::Libraries {
-    if chunk.string_table.iter().any(|string| *string == b"getfenv" || *string == b"setfenv") {
+fn pristine_libraries(globals: &ast::ChunkGlobals) -> ast::library_constants::Libraries {
+    if globals.dynamic_environment {
         return Default::default();
     }
-    let written = |name: &[u8]| chunk.functions.iter().any(|function| {
-        function.instructions.iter().any(|instruction| matches!(instruction,
-            instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETGLOBAL, aux, .. }
-                if matches!(function.constants.get(*aux as usize),
-                    Some(deserializer::constant::Constant::String(index))
-                        if index.checked_sub(1).and_then(|index| chunk.string_table.get(index)) == Some(&name))))
-    });
+    let written = |name: &[u8]| globals.written.contains(name);
     ast::library_constants::Libraries { math: !written(b"math"), vector3: !written(b"Vector3") }
 }
 
@@ -421,6 +435,7 @@ fn decompile_bytecode_internal(
                 }
             } else { ast::reconstruction_search::enter_truncated() };
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
+            let globals = std::sync::Arc::new(chunk_globals(&chunk));
             drop(setup_timer);
             ast::telemetry::count("capture_readonly_slots", capture_effects.readonly.iter()
                 .flatten().filter(|&&readonly| readonly).count() as u64);
@@ -462,6 +477,7 @@ fn decompile_bytecode_internal(
                     emit_upvalue_analysis && options.emit_binding_provenance,
                 );
                 function.lifted_ids = lifted_start..ast::current_local_id();
+                function.globals = globals.clone();
                 lifted.push((ast_func, function, upvalues));
                 // The whole-program decompile order determines the monotonic
                 // local-id assignment and thus the generated local names, so it
@@ -922,7 +938,7 @@ fn decompile_bytecode_internal(
             } else { None };
             let late_timer = prof::Timer::new(&prof::S_LATE);
             if options.assume_standard_libraries {
-                ast::library_constants::spell_library_constants(&mut body, pristine_libraries(&chunk));
+                ast::library_constants::spell_library_constants(&mut body, pristine_libraries(&globals));
             }
             if chunk.functions.iter().any(|function| function.constants.iter().any(|constant| {
                 matches!(constant, deserializer::constant::Constant::Vector(..)

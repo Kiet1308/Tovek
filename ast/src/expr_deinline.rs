@@ -123,6 +123,11 @@ struct ExprTarget {
     /// (`evaluation_order::reads_first`).
     first_reads: Vec<RcLocal>,
     first_register_reads: Vec<RcLocal>,
+    /// Outer locals `expr` reads that a closure assigns: the helper fetches
+    /// one as an upvalue where it stands, a site holding it in a register
+    /// reads it when its operation runs (`x + change()` reads `x` after the
+    /// call), so such a site is refused.
+    free_cells: Vec<RcLocal>,
     /// The locals each function reads as upvalues, which Luau fetches where
     /// they are read; any other local of a site is a register.
     upvalues: std::rc::Rc<FunctionUpvalues>,
@@ -335,6 +340,13 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
         }
         crate::call_origins::register_callee(candidate.f_local.stable_id(), candidate.prototype);
         let (first_reads, first_register_reads) = first_reads(&candidate.function.lock().body.0, &candidate.parameters, &captures);
+        let mut free_cells = Vec::new();
+        candidate.expr.visit_local_reads(&mut |local| {
+            if !candidate.parameters.contains(local) && captures.closure_written(local) && !free_cells.contains(local) {
+                free_cells.push(local.clone());
+            }
+            true
+        });
         targets.push(ExprTarget {
             params: candidate.parameters.iter().cloned().collect(),
             f_local: candidate.f_local,
@@ -345,6 +357,7 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
             arithmetic: candidate.arithmetic.then(|| arithmetic_budget.clone()),
             first_reads,
             first_register_reads,
+            free_cells,
             upvalues: upvalues.clone(),
             captures: captures.clone(),
             search: search.clone(),
@@ -824,6 +837,12 @@ fn try_match(t: &ExprTarget, rv: &RValue, current_func: Option<FnPtr>) -> Option
     // Literals and non-reference-captured locals are total, identity-stable
     // snapshots. A call/metamethod in this expression may mutate a referenced
     // cell despite there being no syntactic assignment in the expression.
+    if t.free_cells.iter().any(|local| {
+        t.captures.register_of(local, current_func.map(|function| function as usize))
+            && crate::evaluation_order::value_late_operand_conflict(rv, local, &t.captures.may_change(local))
+    }) {
+        return None;
+    }
     let hoist = hoist(&t.expr, &t.param_order, &args, |a| t.captures.stable(a), |p, arg| {
         if is_register(arg, &t.upvalues, current_func) { t.first_register_reads.contains(p) } else { t.first_reads.contains(p) }
     })?;

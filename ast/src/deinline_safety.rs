@@ -18,18 +18,100 @@ pub(crate) struct CaptureSafety {
     dynamic_environment: bool,
     /// The locals each function reads as upvalues, by its identity.
     upvalues: FxHashMap<usize, FxHashSet<u64>>,
+    /// Who may run a function that assigns a cell (see [`Self::private_writers`]).
+    calls: CallGraph,
     visited: FxHashSet<usize>,
     nodes: usize,
     literal_bytes: usize,
     exhausted: bool,
 }
 
+/// How the module's functions reach each other, by function identity: what
+/// tells whether code other than a named call may run a function.
+#[derive(Default)]
+struct CallGraph {
+    /// Reads of each local, and those calling it by name (`f(...)`).
+    reads: FxHashMap<u64, u32>,
+    callee_reads: FxHashMap<u64, u32>,
+    /// Each function's closure expressions, and the one local declarations
+    /// bind them to (`local function f`), when every one of them does.
+    closures: FxHashMap<usize, u32>,
+    bound: FxHashMap<usize, (u32, Option<u64>)>,
+    /// The functions assigning each cell, and those calling each local.
+    writers: FxHashMap<u64, FxHashSet<usize>>,
+    callers: FxHashMap<u64, FxHashSet<usize>>,
+    /// The function declaring each local (`None`: the chunk). A call it
+    /// makes runs on its own activation's cells, never on another's.
+    declared_in: FxHashMap<u64, Option<usize>>,
+    private_writers: std::cell::RefCell<FxHashMap<u64, Option<std::rc::Rc<FxHashSet<u64>>>>>,
+}
+
 impl CaptureSafety {
     pub(crate) fn new(body: &Block) -> Self {
         let mut result = Self::default();
-        result.block(&body.0, 0, &FxHashSet::default());
+        result.block(&body.0, 0, &FxHashSet::default(), None);
         result.visited.clear();
         result
+    }
+
+    /// The locals naming every function that may assign `cell`, directly or
+    /// by calling one that does, when each such function is only ever called
+    /// by that name: then nothing but a call `f(...)` of one of them changes
+    /// `cell` while an expression runs. `None` when one may run otherwise
+    /// (passed as a value, stored, returned, rebound), so any call or
+    /// metamethod might.
+    fn private_writers(&self, cell: u64) -> Option<std::rc::Rc<FxHashSet<u64>>> {
+        if self.exhausted {
+            return None;
+        }
+        let calls = &self.calls;
+        if let Some(known) = calls.private_writers.borrow().get(&cell) {
+            return known.clone();
+        }
+        let home = calls.declared_in.get(&cell).copied().flatten();
+        let result = (|| {
+            let mut functions: FxHashSet<usize> = calls.writers.get(&cell).cloned().unwrap_or_default();
+            let mut pending: Vec<usize> = functions.iter().copied().collect();
+            let mut names = FxHashSet::default();
+            while let Some(function) = pending.pop() {
+                let &(declarations, name) = calls.bound.get(&function)?;
+                let name = name?;
+                let called_only = calls.reads.get(&name).copied().unwrap_or(0)
+                    == calls.callee_reads.get(&name).copied().unwrap_or(0);
+                if declarations != calls.closures.get(&function).copied().unwrap_or(0)
+                    || self.rebound.contains(&name)
+                    || !called_only
+                {
+                    return None;
+                }
+                if names.insert(name) {
+                    for &caller in calls.callers.get(&name).into_iter().flatten() {
+                        if Some(caller) != home && functions.insert(caller) {
+                            pending.push(caller);
+                        }
+                    }
+                }
+            }
+            Some(std::rc::Rc::new(names))
+        })();
+        calls.private_writers.borrow_mut().insert(cell, result.clone());
+        result
+    }
+
+    /// Whether evaluating a value may change `local`: a local no function
+    /// assigns as its upvalue never does; one only named functions assign
+    /// does by a call of one of them ([`Self::private_writers`]); any other
+    /// by any call or metamethod ([`crate::effects::may_write_capture`]).
+    pub(crate) fn may_change(&self, local: &crate::RcLocal) -> impl Fn(&RValue) -> bool + '_ {
+        let writers = if self.closure_written(local) {
+            self.private_writers(local.stable_id())
+        } else {
+            Some(Default::default())
+        };
+        move |value: &RValue| match &writers {
+            Some(names) => !names.is_empty() && calls_any(value, names),
+            None => crate::effects::may_write_capture(value),
+        }
     }
 
     pub(crate) fn uncaptured(&self, local: &crate::RcLocal) -> bool {
@@ -37,6 +119,12 @@ impl CaptureSafety {
     }
 
     pub(crate) fn complete(&self) -> bool { !self.exhausted }
+
+    /// Whether some function assigns `local` as its upvalue: then a call
+    /// made while its declaring function runs may change it.
+    pub(crate) fn closure_written(&self, local: &crate::RcLocal) -> bool {
+        self.exhausted || self.closure_written.contains(&local.stable_id())
+    }
 
     /// A module that reads `getfenv`/`setfenv` can give a function its own
     /// globals, so the same code in a helper and in its caller may mean
@@ -109,8 +197,9 @@ impl CaptureSafety {
         !self.exhausted
     }
 
-    /// `upvalues`: the locals the function owning `statements` reads as upvalues.
-    fn block(&mut self, statements: &[Statement], depth: usize, upvalues: &FxHashSet<u64>) {
+    /// `upvalues`: the locals the function owning `statements` reads as
+    /// upvalues; `owner`: its identity (`None`: the chunk).
+    fn block(&mut self, statements: &[Statement], depth: usize, upvalues: &FxHashSet<u64>, owner: Option<usize>) {
         for statement in statements {
             if !self.spend(depth) { return; }
             // Check wide containers before Traverse allocates their root list.
@@ -124,6 +213,26 @@ impl CaptureSafety {
                 _ => 0,
             };
             if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
+            match statement {
+                Statement::Call(call) => self.call(call, owner),
+                // `local function f` / `local f = function`: the closure's name.
+                Statement::Assign(assign) if assign.prefix => {
+                    for left in &assign.left {
+                        if let LValue::Local(local) = left {
+                            self.calls.declared_in.insert(local.stable_id(), owner);
+                        }
+                    }
+                    if let ([LValue::Local(name)], [RValue::Closure(closure)]) = (assign.left.as_slice(), assign.right.as_slice()) {
+                        let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
+                        let entry = self.calls.bound.entry(identity).or_insert((0, Some(name.stable_id())));
+                        entry.0 += 1;
+                        if entry.1 != Some(name.stable_id()) {
+                            entry.1 = None;
+                        }
+                    }
+                }
+                _ => {}
+            }
             if let Statement::Assign(assign) = statement {
                 for left in &assign.left {
                     match left {
@@ -144,6 +253,9 @@ impl CaptureSafety {
                             self.rebound.insert(local.stable_id());
                             if upvalues.contains(&local.stable_id()) {
                                 self.closure_written.insert(local.stable_id());
+                                if let Some(owner) = owner {
+                                    self.calls.writers.entry(local.stable_id()).or_default().insert(owner);
+                                }
                             }
                         }
                         _ => {}
@@ -152,25 +264,35 @@ impl CaptureSafety {
             }
             match statement {
                 Statement::If(s) => {
-                    self.block(&s.then_block.lock().0, depth + 1, upvalues);
-                    self.block(&s.else_block.lock().0, depth + 1, upvalues);
+                    self.block(&s.then_block.lock().0, depth + 1, upvalues, owner);
+                    self.block(&s.else_block.lock().0, depth + 1, upvalues, owner);
                 }
-                Statement::While(s) => self.block(&s.block.lock().0, depth + 1, upvalues),
-                Statement::Repeat(s) => self.block(&s.block.lock().0, depth + 1, upvalues),
-                Statement::NumericFor(s) => self.block(&s.block.lock().0, depth + 1, upvalues),
-                Statement::GenericFor(s) => self.block(&s.block.lock().0, depth + 1, upvalues),
+                Statement::While(s) => self.block(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::Repeat(s) => self.block(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::NumericFor(s) => self.block(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::GenericFor(s) => self.block(&s.block.lock().0, depth + 1, upvalues, owner),
                 _ => {}
             }
             if self.exhausted { return; }
             crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
-                self.value(value, depth + 1);
+                self.value(value, depth + 1, owner);
                 !self.exhausted
             });
             if self.exhausted { return; }
         }
     }
 
-    fn value(&mut self, value: &RValue, depth: usize) {
+    /// A call by a local's name, made in `owner`.
+    fn call(&mut self, call: &crate::Call, owner: Option<usize>) {
+        if let RValue::Local(callee) = call.value.as_ref() {
+            *self.calls.callee_reads.entry(callee.stable_id()).or_default() += 1;
+            if let Some(owner) = owner {
+                self.calls.callers.entry(callee.stable_id()).or_default().insert(owner);
+            }
+        }
+    }
+
+    fn value(&mut self, value: &RValue, depth: usize, owner: Option<usize>) {
         if !self.spend(depth) { return; }
         let width = match value {
             RValue::Table(s) => s.0.len().saturating_mul(2),
@@ -185,12 +307,18 @@ impl CaptureSafety {
         {
             self.dynamic_environment = true;
         }
+        match value {
+            RValue::Local(local) => *self.calls.reads.entry(local.stable_id()).or_default() += 1,
+            RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => self.call(call, owner),
+            _ => {}
+        }
         if let RValue::Literal(crate::Literal::String(bytes)) = value {
             self.literal_bytes = self.literal_bytes.saturating_add(bytes.len());
             if self.literal_bytes > 8 * 1024 * 1024 { self.exhausted = true; return; }
         }
         if let RValue::Closure(closure) = value {
             let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
+            *self.calls.closures.entry(identity).or_default() += 1;
             let upvalues = self.upvalues.entry(identity).or_default();
             upvalues.extend(closure.upvalues.iter().map(|capture| {
                 let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
@@ -204,15 +332,29 @@ impl CaptureSafety {
             }
             if self.visited.insert(identity) {
                 let upvalues = self.upvalues[&identity].clone();
-                self.block(&closure.function.0.lock().body.0, depth + 1, &upvalues);
+                self.block(&closure.function.0.lock().body.0, depth + 1, &upvalues, Some(identity));
             }
         } else {
             value.visit_rvalues(&mut |child| {
-                self.value(child, depth + 1);
+                self.value(child, depth + 1, owner);
                 !self.exhausted
             });
         }
     }
+}
+
+/// Whether `value` calls one of `names` (`f(...)`), closure bodies aside.
+fn calls_any(value: &RValue, names: &FxHashSet<u64>) -> bool {
+    match value {
+        RValue::Closure(_) => return false,
+        RValue::Call(call) | RValue::Select(crate::Select::Call(call))
+            if matches!(call.value.as_ref(), RValue::Local(callee) if names.contains(&callee.stable_id())) =>
+        {
+            return true;
+        }
+        _ => {}
+    }
+    !value.visit_rvalues(&mut |child| !calls_any(child, names))
 }
 
 /// The root global of an import path (up to three names) and its field count.
@@ -234,6 +376,28 @@ fn import_root(value: &RValue) -> Option<(&[u8], usize)> {
 /// replaces the library, always gives the same value.
 pub fn library_import(value: &RValue) -> bool {
     import_root(value).is_some_and(|(name, fields)| if fields == 0 { builtin_global(name) } else { fixed_library(name) })
+}
+
+/// What a chunk's bytecode shows about its globals, for passes that run
+/// before an AST census ([`CaptureSafety`]) exists. The default knows of no
+/// assignment and no environment change.
+#[derive(Clone, Debug, Default)]
+pub struct ChunkGlobals {
+    /// The chunk names `getfenv` or `setfenv`: a function may get globals of
+    /// its own, any of which may be a table with an `__index`.
+    pub dynamic_environment: bool,
+    /// Globals the chunk assigns (SETGLOBAL): `math = setmetatable(...)`.
+    pub written: FxHashSet<Vec<u8>>,
+}
+
+impl ChunkGlobals {
+    /// A [`library_import`] this chunk cannot have replaced: fetching it runs
+    /// no script code.
+    pub fn fixed_library_import(&self, value: &RValue) -> bool {
+        !self.dynamic_environment
+            && library_import(value)
+            && import_root(value).is_some_and(|(name, _)| !self.written.contains(name))
+    }
 }
 
 /// A builtin global or a member of a fixed library table (`print`,
@@ -319,6 +483,43 @@ mod tests {
         assert!(!budget.spend(0));
         let huge = Block(vec![crate::Return::new(vec![crate::Literal::String(vec![0; 8 * 1024 * 1024 + 1]).into()]).into()]);
         assert!(!CaptureSafety::new(&huge).complete());
+    }
+
+    /// `local total; local function bump() total += 1 end`: while `bump` is
+    /// only called by name, nothing but `bump()` changes `total`; once it is
+    /// passed as a value, any call or metamethod might.
+    #[test]
+    fn only_calls_of_named_writers_change_a_cell_until_one_escapes() {
+        let (total, bump, object) = (crate::RcLocal::default(), crate::RcLocal::default(), crate::RcLocal::default());
+        let writer = crate::Function {
+            body: Block(vec![crate::Assign::new(vec![total.clone().into()], vec![crate::Literal::Number(1.0).into()]).into()]),
+            ..Default::default()
+        };
+        let declare = |local: &crate::RcLocal, value: RValue| -> Statement {
+            let mut assign = crate::Assign::new(vec![local.clone().into()], vec![value]);
+            assign.prefix = true;
+            assign.into()
+        };
+        let closure = crate::Closure {
+            node_origin: Default::default(),
+            function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(writer))),
+            upvalues: vec![Upvalue::Ref(total.clone())],
+        };
+        let mut statements = vec![
+            declare(&total, crate::Literal::Number(0.0).into()),
+            declare(&bump, closure.into()),
+            crate::Call::new(bump.clone().into(), vec![]).into(),
+        ];
+        let field: RValue = crate::Index::new(object.into(), crate::Literal::String(b"x".to_vec()).into()).into();
+        let call: RValue = crate::Call::new(bump.clone().into(), vec![]).into();
+        let safety = CaptureSafety::new(&Block(statements.clone()));
+        let may_change = safety.may_change(&total);
+        assert!(may_change(&call));
+        assert!(!may_change(&field));
+        statements.push(crate::Call::new(RValue::Global(crate::Global::from("register")), vec![bump.into()]).into());
+        let safety = CaptureSafety::new(&Block(statements));
+        let may_change = safety.may_change(&total);
+        assert!(may_change(&field));
     }
 
     /// A reference capture changes a cell only if something assigns it after

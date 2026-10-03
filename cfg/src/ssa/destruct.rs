@@ -485,6 +485,12 @@ impl<'a> Destructor<'a> {
             return false;
         }
         self.merge_congruence_classes(&cell, &copy);
+        // The class joined without an interference walk, so `left` has no
+        // equal ancestor recorded. Later walks only test a candidate against
+        // the closest dominating member and that member's equal ancestors:
+        // through `left` they must still reach the version it copies, which
+        // may outlive it (`tmp = b; b = a; a = tmp` with `a` copied before).
+        self.equal_ancestor_in.insert(left.clone(), right.clone());
         // `left` is the cell now: no later copy may join another definition
         // to it, which would become a write closures observe.
         let root = self.upvalue_to_group[right].clone();
@@ -1088,9 +1094,14 @@ impl<'a> Destructor<'a> {
             }
             let dead_class = self.get_congruence_class(dst).clone();
             let live_class = self.get_congruence_class(operand).clone();
+            // A class holding a cell (its own versions, or a copy of it
+            // `coalesce_unwritten_cell_copy` joined) is the captured variable:
+            // the dead write would become a store closures observe
+            // (`local y = x; y += 1` must not print as `x += 1`).
             if Rc::ptr_eq(&dead_class, &live_class)
                 || dead_class.borrow().len() != 1
                 || !live_class.borrow().bindings().compatible(dead_class.borrow().bindings())
+                || live_class.borrow().values().any(|version| self.upvalue_to_group.contains_key(version))
             {
                 continue;
             }

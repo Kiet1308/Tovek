@@ -88,7 +88,7 @@ impl FunctionTypeInfo {
         let function_size = varint(raw, &mut pos)?;
         let upvalue_count = varint(raw, &mut pos)?;
         let local_count = varint(raw, &mut pos)?;
-        let function = raw.get(pos..pos + function_size)?;
+        let function = raw.get(pos..pos.checked_add(function_size)?)?;
         pos += function_size;
         let parameter_types = match function {
             [] => Vec::new(),
@@ -97,8 +97,13 @@ impl FunctionTypeInfo {
             }
             _ => return None,
         };
-        let upvalue_types = raw.get(pos..pos + upvalue_count)?.to_vec();
+        let upvalue_types = raw.get(pos..pos.checked_add(upvalue_count)?)?.to_vec();
         pos += upvalue_count;
+        // A record takes at least four bytes (tag, register, two varints):
+        // a count the blob cannot hold is corrupt, not an allocation size.
+        if local_count > (raw.len() - pos) / 4 {
+            return None;
+        }
         let mut local_types = Vec::with_capacity(local_count);
         for _ in 0..local_count {
             let type_tag = *raw.get(pos)?;
@@ -401,6 +406,16 @@ mod tests {
         // Empty block and truncated block.
         assert!(FunctionTypeInfo::parse(&[]).is_none());
         assert!(FunctionTypeInfo::parse(&[5, 0, 0, super::LBC_TYPE_FUNCTION, 3]).is_none());
+        // A local count no blob can hold is refused before anything is
+        // allocated for it (2^55 records would abort the process).
+        let mut huge = vec![0, 0];
+        huge.extend(leb128(1 << 55));
+        huge.extend([0; 8]);
+        assert!(FunctionTypeInfo::parse(&huge).is_none());
+        let mut sizes = vec![];
+        sizes.extend(leb128(usize::MAX));
+        sizes.extend([0, 0]);
+        assert!(FunctionTypeInfo::parse(&sizes).is_none());
     }
 
     fn leb128(mut value: usize) -> Vec<u8> {

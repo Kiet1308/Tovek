@@ -16,7 +16,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::{
-    Assign, Block, Call, Closure, Comment, Function, LValue, Literal, Local, LocalRw, RValue,
+    deinline_safety::CaptureSafety, Assign, Block, Call, Closure, Comment, Function, LValue, Literal, Local, LocalRw, RValue,
     RcLocal, Return, Select, Statement, Traverse, Upvalue,
     deinline::{collect_declared_locals, collect_reads, collect_written, dbg_stmt_node_count},
     factor_common_tails::block_alpha_bindings_with_locals,
@@ -45,50 +45,56 @@ struct Group {
 /// closure body. Returns the number of synthesized helpers.
 pub fn synthesize_terminal_helpers(body: &mut Block) -> usize {
     crate::factor_common_tails::unshare_blocks(body);
-    synthesize_in_existing_closures(&mut body.0) + synthesize_scope(&mut body.0)
+    // A helper is a new closure with the globals its creating function has
+    // then: after a `setfenv`, its copy of the code reads other globals.
+    let safety = CaptureSafety::new(body);
+    if safety.dynamic_environment() {
+        return 0;
+    }
+    synthesize_in_existing_closures(&mut body.0, &safety) + synthesize_scope(&mut body.0, &safety)
 }
 
-fn synthesize_in_existing_closures(stmts: &mut [Statement]) -> usize {
+fn synthesize_in_existing_closures(stmts: &mut [Statement], safety: &CaptureSafety) -> usize {
     let mut count = 0;
     for statement in stmts {
-        count += synthesize_in_statement_children(statement);
+        count += synthesize_in_statement_children(statement, safety);
         crate::deinline::visit_stmt_rvalues_mut(statement, &mut |value| {
-            count += synthesize_in_rvalue(value);
+            count += synthesize_in_rvalue(value, safety);
             true
         });
     }
     count
 }
 
-fn synthesize_in_statement_children(statement: &mut Statement) -> usize {
+fn synthesize_in_statement_children(statement: &mut Statement, safety: &CaptureSafety) -> usize {
     match statement {
         Statement::If(node) => {
-            synthesize_in_existing_closures(&mut node.then_block.lock().0)
-                + synthesize_in_existing_closures(&mut node.else_block.lock().0)
+            synthesize_in_existing_closures(&mut node.then_block.lock().0, safety)
+                + synthesize_in_existing_closures(&mut node.else_block.lock().0, safety)
         }
-        Statement::While(node) => synthesize_in_existing_closures(&mut node.block.lock().0),
-        Statement::Repeat(node) => synthesize_in_existing_closures(&mut node.block.lock().0),
-        Statement::NumericFor(node) => synthesize_in_existing_closures(&mut node.block.lock().0),
-        Statement::GenericFor(node) => synthesize_in_existing_closures(&mut node.block.lock().0),
+        Statement::While(node) => synthesize_in_existing_closures(&mut node.block.lock().0, safety),
+        Statement::Repeat(node) => synthesize_in_existing_closures(&mut node.block.lock().0, safety),
+        Statement::NumericFor(node) => synthesize_in_existing_closures(&mut node.block.lock().0, safety),
+        Statement::GenericFor(node) => synthesize_in_existing_closures(&mut node.block.lock().0, safety),
         _ => 0,
     }
 }
 
-fn synthesize_in_rvalue(value: &mut RValue) -> usize {
+fn synthesize_in_rvalue(value: &mut RValue, safety: &CaptureSafety) -> usize {
     if let RValue::Closure(closure) = value {
         let mut function = closure.function.0.lock();
-        let nested = synthesize_in_existing_closures(&mut function.body.0);
-        return nested + synthesize_scope(&mut function.body.0);
+        let nested = synthesize_in_existing_closures(&mut function.body.0, safety);
+        return nested + synthesize_scope(&mut function.body.0, safety);
     }
     let mut synthesized = 0;
     value.visit_rvalues_mut(&mut |child| {
-        synthesized += synthesize_in_rvalue(child);
+        synthesized += synthesize_in_rvalue(child, safety);
         true
     });
     synthesized
 }
 
-fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
+fn synthesize_scope(stmts: &mut Vec<Statement>, safety: &CaptureSafety) -> usize {
     let mut synthesized = 0;
     while synthesized < MAX_HELPERS_PER_SCOPE {
         if count_potential_sites(stmts, 2) < 2 {
@@ -100,7 +106,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>) -> usize {
         collect_captured_locals(stmts, &mut captured);
         let groups = collect_groups(stmts, &scope_declared, &captured);
         let Some((template, localizable, insertion, upvalues, name)) =
-            choose_candidate(stmts, groups, &scope_declared, &captured)
+            choose_candidate(stmts, groups, &scope_declared, &captured, safety)
         else {
             break;
         };
@@ -328,6 +334,7 @@ fn choose_candidate(
     groups: Vec<Group>,
     scope_declared: &FxHashSet<RcLocal>,
     captured: &FxHashSet<RcLocal>,
+    safety: &CaptureSafety,
 ) -> Option<(
     Vec<Statement>,
     FxHashSet<RcLocal>,
@@ -373,6 +380,15 @@ fn choose_candidate(
             }
         }
         if !scope_safe || insertion >= scope.len() {
+            continue;
+        }
+        // A free local becomes the helper's upvalue, fetched where it stands;
+        // a copy holding it in a register reads it when an operation runs,
+        // maybe after a call changed it (`current:report(change())`).
+        if free.iter().any(|local| {
+            safety.closure_written(local)
+                && crate::evaluation_order::region_late_read_conflict(&group.template, local, &safety.may_change(local))
+        }) {
             continue;
         }
         let suffix_count = count_suffixes(
@@ -1133,5 +1149,107 @@ mod tests {
 
     fn global(name: &str) -> RValue {
         RValue::Global(crate::Global::from(name))
+    }
+
+    /// `local frames = {}; local result` and four copies of `if c then
+    /// <terminal search> end`, with `extra` before them.
+    fn duplicated_search_scope(frames: &RcLocal, extra: Vec<Statement>, tail: impl Fn() -> Vec<Statement>) -> Block {
+        let result = local("result");
+        let mut body = Block(vec![
+            Statement::Assign(Assign {
+                node_origin: Default::default(),
+                left: vec![LValue::Local(frames.clone())],
+                right: vec![RValue::Table(crate::Table::default())],
+                prefix: true,
+                parallel: false, compound: false,
+            }),
+            Statement::Assign(Assign {
+                node_origin: Default::default(),
+                left: vec![LValue::Local(result.clone())],
+                right: Vec::new(),
+                prefix: true,
+                parallel: false, compound: false,
+            }),
+        ]);
+        body.0.extend(extra);
+        for index in 0..4 {
+            let mut region = terminal_search(frames, local("item"), &result);
+            let ret = region.pop().unwrap();
+            region.extend(tail());
+            region.push(ret);
+            body.0.push(Statement::If(If::new(
+                RValue::Literal(Literal::Boolean(index % 2 == 0)),
+                Block(region),
+                Block::default(),
+            )));
+        }
+        body
+    }
+
+    /// After `setfenv`, a helper created earlier keeps the old globals.
+    #[test]
+    fn a_dynamic_environment_disables_synthesis() {
+        let frames = local("frames");
+        let setfenv = Statement::Call(Call::new(global("setfenv"), vec![
+            RValue::Literal(Literal::Number(1.0)),
+            RValue::Table(crate::Table::default()),
+        ]));
+        let mut body = duplicated_search_scope(&frames, vec![setfenv], Vec::new);
+        assert_eq!(synthesize_terminal_helpers(&mut body), 0);
+        let mut plain = duplicated_search_scope(&frames, Vec::new(), Vec::new);
+        assert_eq!(synthesize_terminal_helpers(&mut plain), 1);
+    }
+
+    /// `frames:Report(change())` reads the register `frames` after `change`
+    /// reassigned it; a helper would fetch the upvalue before the call.
+    #[test]
+    fn refuses_a_late_register_read_of_a_closure_written_free_local() {
+        let frames = local("frames");
+        let change = local("change");
+        let writer = Function {
+            body: Block(vec![Statement::Assign(Assign::new(
+                vec![LValue::Local(frames.clone())],
+                vec![RValue::Table(crate::Table::default())],
+            ))]),
+            ..Default::default()
+        };
+        let mut declare_change = Assign::new(
+            vec![LValue::Local(change.clone())],
+            vec![RValue::Closure(Closure {
+                node_origin: Default::default(),
+                function: ByAddress(Arc::new(Mutex::new(writer))),
+                upvalues: vec![Upvalue::Ref(frames.clone())],
+            })],
+        );
+        declare_change.prefix = true;
+        let report = || vec![Statement::MethodCall(MethodCall::new(
+            RValue::Local(frames.clone()),
+            "Report".to_string(),
+            vec![RValue::Call(Call::new(RValue::Local(change.clone()), Vec::new()))],
+        ))];
+        let mut body = duplicated_search_scope(&frames, vec![declare_change.into()], report);
+        assert_eq!(synthesize_terminal_helpers(&mut body), 0);
+        // Reading it as an argument, before the call, is fine.
+        let argument = || vec![Statement::Call(Call::new(
+            RValue::Local(change.clone()),
+            vec![RValue::Local(frames.clone())],
+        ))];
+        let mut declare_change = Assign::new(
+            vec![LValue::Local(change.clone())],
+            vec![RValue::Closure(Closure {
+                node_origin: Default::default(),
+                function: ByAddress(Arc::new(Mutex::new(Function {
+                    body: Block(vec![Statement::Assign(Assign::new(
+                        vec![LValue::Local(frames.clone())],
+                        vec![RValue::Table(crate::Table::default())],
+                    ))]),
+                    ..Default::default()
+                }))),
+                upvalues: vec![Upvalue::Ref(frames.clone())],
+            })],
+        );
+        declare_change.prefix = true;
+        let mut body = duplicated_search_scope(&frames, vec![declare_change.into()], argument);
+        assert_eq!(synthesize_terminal_helpers(&mut body), 1);
     }
 }

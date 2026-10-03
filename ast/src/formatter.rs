@@ -1859,29 +1859,34 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         )
     }
 
-    /// Whether formatting this expression at the beginning of a statement
-    /// starts with `(`.  Luau treats a parenthesized call receiver as an
-    /// ambiguous continuation of the preceding statement unless a semicolon
-    /// separates the two lines (for example `(obj or fallback).Method()`).
-    fn rvalue_starts_with_parenthesis(value: &RValue) -> bool {
-        match value {
-            RValue::Index(index) => Self::should_wrap_left_rvalue(&index.left),
-            RValue::Call(call) => {
-                Self::should_wrap_left_rvalue(&call.value)
-                    || Self::rvalue_starts_with_parenthesis(&call.value)
+    /// Whether this expression, printed as the prefix a statement starts
+    /// with (a callee, a method receiver, an assigned table), begins with
+    /// `(`: it is wrapped itself, or so is the expression it indexes or
+    /// calls (`(a or b).x.y = 3`). Luau would read such a line as arguments
+    /// to the line before.
+    fn prefix_starts_with_parenthesis(value: &RValue) -> bool {
+        Self::should_wrap_left_rvalue(value)
+            || match value {
+                RValue::Index(index) => Self::prefix_starts_with_parenthesis(&index.left),
+                RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+                    Self::prefix_starts_with_parenthesis(&call.value)
+                }
+                RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call)) => {
+                    Self::prefix_starts_with_parenthesis(&method_call.value)
+                }
+                _ => false,
             }
-            RValue::MethodCall(method_call) => {
-                Self::should_wrap_left_rvalue(&method_call.value)
-                    || Self::rvalue_starts_with_parenthesis(&method_call.value)
-            }
-            RValue::Select(Select::Call(call)) => {
-                Self::should_wrap_left_rvalue(&call.value)
-                    || Self::rvalue_starts_with_parenthesis(&call.value)
-            }
-            RValue::Select(Select::MethodCall(method_call)) => {
-                Self::should_wrap_left_rvalue(&method_call.value)
-                    || Self::rvalue_starts_with_parenthesis(&method_call.value)
-            }
+    }
+
+    fn statement_starts_with_parenthesis(statement: &Statement) -> bool {
+        match statement {
+            Statement::Call(call) => Self::prefix_starts_with_parenthesis(&call.value),
+            Statement::MethodCall(method_call) => Self::prefix_starts_with_parenthesis(&method_call.value),
+            Statement::Assign(assign) if !assign.prefix => assign
+                .left
+                .first()
+                .and_then(LValue::as_index)
+                .is_some_and(|index| Self::prefix_starts_with_parenthesis(&index.left)),
             _ => false,
         }
     }
@@ -1933,9 +1938,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             // A trailing comment is appended to the PRECEDING statement's line
             // (` -- text`): no leading newline, no indentation. Guarded on `i != 0`
             // so a comment with nothing before it falls back to its own line. The
-            // preceding statement already ran its own disambiguation `;` logic in
-            // its iteration (a line comment is not a statement separator in Lua), so
-            // `f(); -- text` stays correctly disambiguated.
+            // preceding statement already wrote its separating `;` (a line comment
+            // is not a statement separator in Lua), so `f(); -- text` stays
+            // correctly separated.
             if i != 0
                 && let Statement::Comment(comment) = statement
                 && comment.trailing
@@ -1951,66 +1956,22 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 }
             }
             self.format_statement(statement)?;
+            if statement.as_comment().is_some() {
+                continue;
+            }
             if next_non_comment <= i {
                 next_non_comment = i + 1;
                 while block.get(next_non_comment).is_some_and(|s| s.as_comment().is_some()) {
                     next_non_comment += 1;
                 }
             }
-            if let Some(next_statement) = block.get(next_non_comment) {
-                fn is_ambiguous(r: &RValue) -> bool {
-                    match r {
-                        RValue::Local(_)
-                        | RValue::Global(_)
-                        | RValue::Index(_)
-                        | RValue::Call(_)
-                        | RValue::MethodCall(_)
-                        | RValue::Select(Select::Call(_) | Select::MethodCall(_)) => true,
-                        RValue::Binary(binary) => is_ambiguous(&binary.right),
-                        RValue::IfExpression(if_expression) => {
-                            is_ambiguous(&if_expression.else_value)
-                        }
-                        _ => false,
-                    }
-                }
-
-                let disambiguate = match statement {
-                    Statement::Call(_) | Statement::MethodCall(_) => true,
-                    Statement::Repeat(repeat) => is_ambiguous(&repeat.condition),
-                    Statement::Assign(Assign { right: list, .. })
-                    | Statement::Return(Return { values: list, .. }) => {
-                        if let Some(last) = list.last() {
-                            is_ambiguous(last)
-                        } else {
-                            false
-                        }
-                    }
-                    Statement::Goto(_) | Statement::Continue(_) | Statement::Break(_) => true,
-                    _ => false,
-                };
-                let disambiguate = disambiguate
-                    && match next_statement {
-                        Statement::Assign(Assign {
-                            left,
-                            prefix: false,
-                            ..
-                        }) => {
-                            if let Some(index) = left[0].as_index() {
-                                Self::should_wrap_left_rvalue(&index.left)
-                            } else {
-                                false
-                            }
-                        }
-                        Statement::Call(Call { value, .. })
-                        | Statement::MethodCall(MethodCall { value, .. }) => {
-                            Self::should_wrap_left_rvalue(value)
-                        }
-                        Statement::Comment(_) => unimplemented!(),
-                        _ => false,
-                    };
-                if disambiguate {
-                    write!(self.output, ";")?;
-                }
+            // Luau would read a next line starting with `(` as arguments to
+            // a name, `)` or `]` this statement ends with. Any statement may
+            // end in `;` (a block may not start with one).
+            if block.get(next_non_comment).is_some_and(Self::statement_starts_with_parenthesis)
+                && self.statement_may_continue(statement)
+            {
+                write!(self.output, ";")?;
             }
         }
         Ok(())
@@ -2898,12 +2859,20 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_method_call(&mut self, method_call: &MethodCall) -> fmt::Result {
+        self.format_method_call_as(method_call, true)
+    }
+
+    /// `interpolate`: the call is an expression, which an interpolated string
+    /// can stand for. A statement keeps `:format`: a string is no statement,
+    /// and the call still runs each argument's `__tostring`.
+    fn format_method_call_as(&mut self, method_call: &MethodCall, interpolate: bool) -> fmt::Result {
         // `("...%*..."):format(args)` -> Luau interpolated string `` `...{args}...` ``.
         // `%*` is exactly the tostring-coercion that `{expr}` performs and evaluation
         // order is preserved, so the result re-lexes to the same string with the same
         // runtime behavior. Refuse-by-default: any other specifier or an unsafe static
         // byte aborts to the normal `:format` path below.
-        if method_call.method == "format"
+        if interpolate
+            && method_call.method == "format"
             && let RValue::Literal(Literal::String(bytes)) = method_call.value.as_ref()
             && let Some(interpolated) = self.try_format_interpolation(bytes, &method_call.arguments)
         {
@@ -2916,7 +2885,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
 
         let multiline = self.layout_budget.is_none() && method_call.arguments.len() > 1
-            && !self.fits_flat(|preview| preview.format_method_call(method_call));
+            && !self.fits_flat(|preview| preview.format_method_call_as(method_call, interpolate));
         let wrap = Self::should_wrap_left_rvalue(&method_call.value);
         if wrap {
             write!(self.output, "(")?;
@@ -2935,24 +2904,53 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     /// Render an rvalue using the normal formatter path into a fresh `String`,
     /// sharing the current indentation level and colon-method context.
-    fn render_rvalue_to_string(&self, rvalue: &RValue) -> Option<String> {
-        let mut buffer = String::new();
-        let mut sub = Formatter {
+    /// A formatter with this one's settings writing into `buffer`, recording
+    /// nothing.
+    fn scratch<'b>(&self, buffer: &'b mut String) -> Formatter<'b, String> {
+        Formatter {
             indentation_level: self.indentation_level,
             indentation_mode: match &self.indentation_mode {
                 IndentationMode::Spaces(n) => IndentationMode::Spaces(*n),
                 IndentationMode::Tab => IndentationMode::Tab,
             },
-            output: &mut buffer,
+            output: buffer,
             colon_method_calls: self.colon_method_calls.clone(),
             position_query: None,
             closure_observer: None,
             emission_map: None,
             layout_budget: self.layout_budget,
             compact_annotations: self.compact_annotations,
-        };
-        sub.format_rvalue(rvalue).ok()?;
+        }
+    }
+
+    fn render_rvalue_to_string(&self, rvalue: &RValue) -> Option<String> {
+        let mut buffer = String::new();
+        self.scratch(&mut buffer).format_rvalue(rvalue).ok()?;
         Some(buffer)
+    }
+
+    /// Whether `statement`, as printed, ends in a token a following `(`
+    /// would continue as a call: a name (`continue` too, which Luau may
+    /// read as one), `)` or `]`. Not a keyword, a number, a string, `}`.
+    fn statement_may_continue(&self, statement: &Statement) -> bool {
+        let mut buffer = String::new();
+        if self.scratch(&mut buffer).format_statement_inner(statement).is_err() {
+            return true;
+        }
+        let text = buffer.trim_end();
+        match text.chars().next_back() {
+            Some(')' | ']') => true,
+            Some(last) if last == '_' || last.is_ascii_alphanumeric() => {
+                let start = text
+                    .rfind(|c: char| c != '_' && !c.is_ascii_alphanumeric())
+                    .map_or(0, |at| at + 1);
+                let word = &text[start..];
+                // A word starting with a digit is a number.
+                !word.starts_with(|c: char| c.is_ascii_digit())
+                    && !matches!(word, "end" | "true" | "false" | "nil" | "break" | "return")
+            }
+            _ => false,
+        }
     }
 
     /// Try to convert `("<fmt>"):format(<args>)` into a backtick interpolated
@@ -3246,7 +3244,19 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             self.format_local(local, "iteration_binding")?;
         }
         write!(self.output, " in ")?;
-        for (i, rvalue) in generic_for.right.iter().enumerate() {
+        // The VM fills a missing state or control with nil: `next, t, nil` is
+        // `next, t`, unless the value before the nils gives all its results
+        // there (`(f()), nil, nil`).
+        let right = &generic_for.right;
+        let values = right.iter().rposition(|value| !matches!(value, RValue::Literal(Literal::Nil))).map_or(1, |last| last + 1);
+        let shown = if matches!(right.get(values - 1), Some(RValue::Call(_) | RValue::MethodCall(_)
+            | RValue::VarArg(_) | RValue::Select(_)))
+        {
+            right.len()
+        } else {
+            values.min(right.len())
+        };
+        for (i, rvalue) in generic_for.right[..shown].iter().enumerate() {
             if i != 0 {
                 write!(self.output, ", ")?;
             }
@@ -3314,21 +3324,6 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     fn format_statement_inner(&mut self, statement: &Statement) -> fmt::Result {
         self.indent()?;
 
-        if matches!(
-            statement,
-            Statement::Call(call)
-                if Self::rvalue_starts_with_parenthesis(&call.value)
-        ) || matches!(
-            statement,
-            Statement::MethodCall(method_call)
-                if Self::rvalue_starts_with_parenthesis(&method_call.value)
-        ) {
-            // A leading semicolon is valid Luau and prevents an expression
-            // statement beginning with `(` from being parsed as arguments to
-            // the preceding call/control statement.
-            write!(self.output, ";")?;
-        }
-
         match statement {
             Statement::Assign(assign) => self.format_assign(assign),
             Statement::If(r#if) => self.format_if(r#if),
@@ -3337,7 +3332,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             Statement::NumericFor(numeric_for) => self.format_numeric_for(numeric_for),
             Statement::GenericFor(generic_for) => self.format_generic_for(generic_for),
             Statement::Call(call) => self.format_call(call),
-            Statement::MethodCall(method_call) => self.format_method_call(method_call),
+            Statement::MethodCall(method_call) => self.format_method_call_as(method_call, false),
             Statement::Return(r#return) => self.format_return(r#return),
             Statement::Comment(comment) => self.format_comment(comment),
             _ => {

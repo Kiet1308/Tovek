@@ -63,6 +63,9 @@ pub struct Function {
     /// first id of the segment it mints versions from; see [`ast::dense`].
     pub lifted_ids: std::ops::Range<u64>,
     pub minted_ids: u64,
+    /// The chunk's globals, shared by all its functions: which library
+    /// fetches run no script code (see [`ast::ChunkGlobals`]).
+    pub globals: std::sync::Arc<ast::ChunkGlobals>,
 }
 
 impl Function {
@@ -89,6 +92,7 @@ impl Function {
             provenance: None,
             lifted_ids: 0..0,
             minted_ids: 0,
+            globals: Default::default(),
         }
     }
 
@@ -125,6 +129,7 @@ impl Function {
             provenance: self.provenance.clone(),
             lifted_ids: self.lifted_ids.clone(),
             minted_ids: self.minted_ids,
+            globals: self.globals.clone(),
         }
     }
 

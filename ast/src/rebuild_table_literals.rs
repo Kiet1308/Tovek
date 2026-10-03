@@ -635,9 +635,11 @@ impl ConstructorMotion {
 /// `local p = { ..., children = C }; local c = p.children; p.children = nil`
 /// becomes `local p = { ... }; local c = C`.
 ///
-/// The field must be the last constructor entry and unique, so evaluation order
-/// and the final raw-table contents are identical. The regular table/tree
-/// inliner can then consume `p` and `c` from the leaves upward.
+/// The field must be the last constructor entry and no earlier entry may name
+/// the same slot (`{99, [1] = 42}` keeps `99` in slot 1 once `[1] = 42` goes),
+/// so evaluation order and the final raw-table contents are identical. The
+/// regular table/tree inliner can then consume `p` and `c` from the leaves
+/// upward.
 fn extract_drained_constructor_fields(block: &mut Block) -> bool {
     let mut changed = false;
     let mut index = 0;
@@ -661,7 +663,7 @@ fn extract_drained_constructor_fields(block: &mut Block) -> bool {
                 .0
                 .iter()
                 .take(table.0.len() - 1)
-                .any(|(existing, _)| existing.as_ref() == Some(&key))
+                .any(|(existing, _)| may_name_slot(existing.as_ref(), &key))
         {
             index += 1;
             continue;
@@ -736,6 +738,24 @@ fn drained_field_pattern(
 
 fn stable_drained_key(key: &RValue) -> bool {
     crate::side_effects::is_total_table_key(key)
+}
+
+/// Whether a constructor entry keyed `existing` (`None`: positional) may
+/// store into the slot of the literal `key`. Positional entries fill 1, 2, ...
+/// (a call or `...` last, any number of them), a computed key any slot;
+/// numbers name slots by value (`[0]` and `[-0]` are one slot).
+fn may_name_slot(existing: Option<&RValue>, key: &RValue) -> bool {
+    use crate::Literal;
+    let RValue::Literal(key) = key else { return true };
+    match existing {
+        None => matches!(key, Literal::Number(_)),
+        Some(RValue::Literal(existing)) => match (existing, key) {
+            (Literal::Number(a), Literal::Number(b)) => a == b,
+            (Literal::Vector(..) | Literal::VectorD(..), Literal::Vector(..) | Literal::VectorD(..)) => true,
+            _ => existing == key,
+        },
+        Some(_) => true,
+    }
 }
 
 fn table_constructor_local(statement: &Statement) -> Option<RcLocal> {
