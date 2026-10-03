@@ -343,6 +343,9 @@ pub struct Destructor<'a> {
     transported: FxHashSet<RcLocal>,
     /// Locals closures of this function capture, collected on first use.
     captured: Option<FxHashSet<RcLocal>>,
+    /// Roots of the cells whose value may change after a copy of it is
+    /// taken ([`Self::find_unstable_cells`]).
+    unstable_cells: FxHashSet<RcLocal>,
 }
 
 /// Terminal SSA still needs copy/capture coalescing and sequentialization,
@@ -404,6 +407,7 @@ impl<'a> Destructor<'a> {
             transport_groups: FxHashMap::default(),
             transported: FxHashSet::default(),
             captured: None,
+            unstable_cells: FxHashSet::default(),
         }
     }
 
@@ -488,6 +492,35 @@ impl<'a> Destructor<'a> {
         true
     }
 
+    /// Cells whose value may change after a copy of it is taken: written by
+    /// a closure, or here by more than one statement. All versions of a cell
+    /// are one variable and a read names an earlier version (`return a` with
+    /// `a` the cell's first version after `a, b = b, a` wrote it), so SSA
+    /// values and liveness do not show such a change. Found before
+    /// `lift_params` adds transports, while phis are still edge arguments.
+    fn find_unstable_cells(&self) -> FxHashSet<RcLocal> {
+        let mut definitions = FxHashMap::<&RcLocal, usize>::default();
+        for (_, block) in self.function.blocks() {
+            for statement in block.iter() {
+                statement.visit_local_writes(&mut |local| {
+                    if let Some(cell) = self.upvalue_to_group.get(local) {
+                        *definitions.entry(cell).or_default() += 1;
+                    }
+                    true
+                });
+            }
+        }
+        self.upvalue_to_group.values()
+            .filter(|cell| definitions.get(cell).is_some_and(|&count| count > 1)
+                || !self.unwritten_cells.is_some_and(|cells| cells.contains(*cell)))
+            .cloned()
+            .collect()
+    }
+
+    fn in_unstable_cell(&self, local: &RcLocal) -> bool {
+        self.upvalue_to_group.get(local).is_some_and(|cell| self.unstable_cells.contains(cell))
+    }
+
     fn register_group(&self, local: &RcLocal) -> Option<usize> {
         self.register_groups?.get(local).or_else(|| self.transport_groups.get(local)).copied()
     }
@@ -497,6 +530,7 @@ impl<'a> Destructor<'a> {
             ast::telemetry::count("ssa_destruct_terminal_admitted", 1);
             ast::telemetry::count("ssa_destruct_terminal_statements", self.function.block(node).unwrap().len() as u64);
         }
+        self.unstable_cells = self.find_unstable_cells();
         let phase = ast::telemetry::Span::new("SSA_LIFT_PARAMS");
         if self.terminal_block.is_none() {
             self.lift_params();
@@ -1393,7 +1427,14 @@ impl<'a> Destructor<'a> {
                         .map(|(i, l)| (l, assign.right.get(i).and_then(|r| r.as_local().cloned())))
                         .collect::<Vec<_>>()
                     {
-                        if let Some(right) = right {
+                        // A version of a cell that may change names no
+                        // stable value: a copy of it holds what the cell held
+                        // then, one into it what the cell holds until its next
+                        // write ([`Self::find_unstable_cells`]).
+                        if let Some(right) = right
+                            && !self.in_unstable_cell(&left)
+                            && !self.in_unstable_cell(&right)
+                        {
                             let value_class = self.get_value_class(right.clone()).clone();
                             value_class.borrow_mut().insert(left.clone());
                             let prev_val_class =

@@ -103,6 +103,9 @@
    "snapshot_compared_after_callback": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
    "snapshot_receiver_and_constructor_key": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
    "snapshot_store_address_after_callback": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
+   "cell_swap_beside_copy": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
+   "collapsed_conditional_stays_ssa": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
+   "loop_return_skips_loop_tail": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
    "paren_call_truncates_multret": "Regression fixture (2026-10-03, paren_call_truncates_multret); baselined from the 2026-10-03 fix commit output."
   }
  },
@@ -268,6 +271,12 @@
    "protos": 5
   },
   {
+   "file": "cell_swap_beside_copy",
+   "status": "ok",
+   "nonequiv": 6,
+   "protos": 8
+  },
+  {
    "file": "cell_written_in_loop_read_after",
    "status": "ok",
    "nonequiv": 3,
@@ -289,6 +298,12 @@
    "file": "codefined_results_loop_swap",
    "status": "ok",
    "nonequiv": 1,
+   "protos": 5
+  },
+  {
+   "file": "collapsed_conditional_stays_ssa",
+   "status": "ok",
+   "nonequiv": 4,
    "protos": 5
   },
   {
@@ -535,6 +550,12 @@
    "file": "loop_return_flag",
    "status": "ok",
    "nonequiv": 0,
+   "protos": 4
+  },
+  {
+   "file": "loop_return_skips_loop_tail",
+   "status": "ok",
+   "nonequiv": 1,
    "protos": 4
   },
   {

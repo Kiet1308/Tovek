@@ -2506,6 +2506,10 @@ struct LoopContext<'a> {
     /// read would see the iteration's value on a `break` and the export's
     /// on exhaustion.
     results: &'a [RcLocal],
+    /// The entry of an adapter that runs after the loop under
+    /// `exhaustion_flag` ([`Builder::build_flagged_while_loop`]): a body exit
+    /// to it is a bare `break`, which leaves the flag set.
+    adapter_entry: Option<NodeIndex>,
 }
 
 struct PathResult {
@@ -4173,6 +4177,7 @@ impl<'a> Builder<'a> {
             exhaustion_flag: exhaustion_flag.clone(),
             shared_adapters: &normal_adapters,
             results,
+            adapter_entry: None,
         };
         let body_result = match self.build_path(info.body_entry, Some(info.header), Some(&context))
         {
@@ -4328,7 +4333,8 @@ impl<'a> Builder<'a> {
         Some(output)
     }
 
-    fn build_while_loop(&mut self, info: &LoopInfo) -> Option<PathResult> {
+    /// `outer`: the loop this one is nested in, which owns the code after it.
+    fn build_while_loop(&mut self, info: &LoopInfo, outer: Option<&LoopContext<'_>>) -> Option<PathResult> {
         if info.whole_header {
             let context = LoopContext {
                 info,
@@ -4336,6 +4342,7 @@ impl<'a> Builder<'a> {
                 exhaustion_flag: None,
                 shared_adapters: &[],
                 results: &[],
+                adapter_entry: None,
             };
             let result = self.build_path_inner_with_entry(
                 info.header,
@@ -4409,17 +4416,15 @@ impl<'a> Builder<'a> {
             exhaustion_flag: None,
             shared_adapters: &[],
             results: &[],
+            adapter_entry: None,
         };
-        // The false header edge may run an adapter before the shared join.
-        // Put it on that exact edge inside the loop; a body-side break must
-        // bypass it. Snapshot coverage because a different break edge can
-        // legitimately reach the same adapter and needs its own copy.
-        let base_visited = self.visited.checkpoint();
-        let normal_adapter =
-            self.build_exit_adapter(info.normal_exit, info.join, &context, Some(info.header))?;
-        let normal_visited = self.visited.take_branch(&base_visited);
-        let body_result = self.build_path(info.body_entry, Some(info.header), Some(&context))?;
-        self.visited.merge(normal_visited);
+        let attempt_visited = self.visited.checkpoint();
+        let attempt_rewrite = self.rewrite.clone();
+        let Some((normal_adapter, body_result)) = self.while_body_with_exit_adapter(&context) else {
+            self.visited.restore(&attempt_visited);
+            self.rewrite = attempt_rewrite;
+            return self.build_flagged_while_loop(info, outer, rewritten_condition, prefix);
+        };
         if body_result.next != Some(info.header)
             && body_result.next != Some(info.join)
             && body_result.next.is_some()
@@ -4506,6 +4511,96 @@ impl<'a> Builder<'a> {
         })
     }
 
+    /// The false header edge may run an adapter before the shared join. Put
+    /// it on that exact edge inside the loop; a body-side break must bypass
+    /// it or run its own linear copy. Snapshot coverage because a different
+    /// break edge can legitimately reach the same adapter and needs its copy.
+    fn while_body_with_exit_adapter(&mut self, context: &LoopContext<'_>) -> Option<(PathResult, PathResult)> {
+        let info = context.info;
+        let base_visited = self.visited.checkpoint();
+        let normal_adapter =
+            self.build_exit_adapter(info.normal_exit, info.join, context, Some(info.header))?;
+        let normal_visited = self.visited.take_branch(&base_visited);
+        let body_result = self.build_path(info.body_entry, Some(info.header), Some(context))?;
+        self.visited.merge(normal_visited);
+        Some((normal_adapter, body_result))
+    }
+
+    /// A `while` whose exits part ways before its join: the false test and
+    /// some body `break`s run the code from `normal_exit` on (the adapter),
+    /// other exits skip it, as a helper's `return` from inside its loop,
+    /// inlined, jumps past the rest of the helper. When no `break` can carry
+    /// a linear copy of that adapter, it runs once after the loop, under a
+    /// flag the skipping exits clear, and may branch like any other code:
+    ///
+    /// ```text
+    /// local flag = true
+    /// while condition do ... flag = false break ... break ... end
+    /// if flag then <adapter> end
+    /// ```
+    fn build_flagged_while_loop(
+        &mut self,
+        info: &LoopInfo,
+        outer: Option<&LoopContext<'_>>,
+        condition: RValue,
+        prefix: Block,
+    ) -> Option<PathResult> {
+        if info.normal_exit == info.join {
+            return None;
+        }
+        let flag = RcLocal::default();
+        let context = LoopContext {
+            info,
+            exports: &[],
+            exhaustion_flag: Some(flag.clone()),
+            shared_adapters: &[],
+            results: &[],
+            adapter_entry: Some(info.normal_exit),
+        };
+        let body_result = self.build_path(info.body_entry, Some(info.header), Some(&context))?;
+        if body_result.next.is_some_and(|next| next != info.header && next != info.join) {
+            return None;
+        }
+        // A nested generic-for reusing the condition's register needs the
+        // carried-cell rewrite of the unflagged lowering.
+        if let RValue::Local(condition_local) = &condition
+            && body_result.block.iter().any(|statement| matches!(statement, Statement::GenericFor(for_loop)
+                if for_loop.res_locals.contains(condition_local)))
+        {
+            return None;
+        }
+        let adapter = self.build_path(info.normal_exit, Some(info.join), outer)?;
+        if adapter.next.is_some_and(|next| next != info.join) {
+            return None;
+        }
+        let mut body = body_result.block;
+        strip_trailing_continues(&mut body);
+        let mut output = Block::from(vec![
+            Assign::new(vec![LValue::Local(flag.clone())], vec![Literal::Boolean(true).into()]).into(),
+        ]);
+        let mut loop_condition = condition;
+        if prefix.iter().any(|statement| !is_ignorable(statement)) {
+            // Header effects run before every test (see `build_while_loop`).
+            let mut guarded = prefix;
+            guarded.push(If::new(
+                Unary::new(loop_condition, UnaryOperation::Not).reduce_condition(),
+                Block::from(vec![Statement::Break(ast::Break {})]),
+                Block::default(),
+            ).into());
+            guarded.extend(body.0);
+            body = guarded;
+            loop_condition = Literal::Boolean(true).into();
+        } else {
+            output.extend(prefix.0);
+        }
+        output.push(ast::While::new(loop_condition, body).into());
+        output.push(If::new(RValue::Local(flag), adapter.block, Block::default()).into());
+        Some(PathResult {
+            block: output,
+            next: Some(info.join),
+        })
+    }
+
     fn build_loop(
         &mut self,
         info: &LoopInfo,
@@ -4515,7 +4610,7 @@ impl<'a> Builder<'a> {
         // `while true` wrapper.  Inside an enclosing loop, returning `next =
         // None` would escape the nested path and alter the parent's control
         // flow, so keep the conservative generic-for lowering there.
-        let result = self.build_loop_inner_with_reentry(info, context.is_none());
+        let result = self.build_loop_inner_with_reentry(info, context.is_none(), context);
         if result.is_none() {
             self.trace_unsupported("loop", info.init, Some(info.join));
         }
@@ -5262,7 +5357,7 @@ impl<'a> Builder<'a> {
     }
 
     fn build_reentry_loop(&mut self, info: &LoopInfo, tail: ReentryTail) -> Option<PathResult> {
-        let generic = match self.build_loop_inner_with_reentry(info, false) {
+        let generic = match self.build_loop_inner_with_reentry(info, false, None) {
             Some(generic) => generic,
             None => return None,
         };
@@ -5299,13 +5394,14 @@ impl<'a> Builder<'a> {
     }
 
     fn build_loop_inner(&mut self, info: &LoopInfo) -> Option<PathResult> {
-        self.build_loop_inner_with_reentry(info, true)
+        self.build_loop_inner_with_reentry(info, true, None)
     }
 
     fn build_loop_inner_with_reentry(
         &mut self,
         info: &LoopInfo,
         allow_reentry: bool,
+        outer: Option<&LoopContext<'_>>,
     ) -> Option<PathResult> {
         if allow_reentry {
             let tail = self.reentry_tail(info);
@@ -5318,7 +5414,7 @@ impl<'a> Builder<'a> {
             }
         }
         if info.while_condition.is_some() {
-            return self.build_while_loop(info);
+            return self.build_while_loop(info, outer);
         }
         if info.numeric.is_some() {
             return self.build_numeric_loop(info);
@@ -5780,6 +5876,7 @@ impl<'a> Builder<'a> {
             exhaustion_flag: exhaustion_flag.clone(),
             shared_adapters: &adapters,
             results: &info.res_locals,
+            adapter_entry: None,
         };
         // The iterator RHS is evaluated before the loop body.  Capture its
         // rewrite environment now; nested loops in the body may introduce
@@ -6188,6 +6285,13 @@ impl<'a> Builder<'a> {
                             // to the next iteration rather than a break.
                             current = *target;
                             continue;
+                        }
+                        if ctx.adapter_entry == Some(*target) {
+                            output.push(Statement::Break(ast::Break {}));
+                            return Some(PathResult {
+                                block: output,
+                                next: Some(ctx.info.join),
+                            });
                         }
                         if !ctx.info.nodes.contains(target) {
                             // This edge originates in the loop body, not in
@@ -7058,6 +7162,12 @@ impl<'a> Builder<'a> {
         // arm to the current loop join.  A direct ancestor escape cannot pass
         // that proof because its header has already been visited (and any
         // cycle/ambiguous path is rejected there).
+        if context.adapter_entry == Some(target) {
+            return Some(PathResult {
+                block: Block::from(vec![Statement::Break(ast::Break {})]),
+                next: Some(context.info.join),
+            });
+        }
         let mut block = Block::default();
         // This is a transfer from inside the loop body. A target equal to
         // `normal_exit` is still a body-side break and must run that adapter;

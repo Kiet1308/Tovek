@@ -328,6 +328,18 @@
       "bytes": 397,
       "lines": 47
     },
+    "semantic/cell_swap_beside_copy__O0.luau": {
+      "bytes": 649,
+      "lines": 61
+    },
+    "semantic/cell_swap_beside_copy__O1.luau": {
+      "bytes": 649,
+      "lines": 61
+    },
+    "semantic/cell_swap_beside_copy__O2.luau": {
+      "bytes": 607,
+      "lines": 47
+    },
     "semantic/cell_written_in_loop_read_after__O0.luau": {
       "bytes": 562,
       "lines": 54
@@ -375,6 +387,18 @@
     "semantic/codefined_results_loop_swap__O2.luau": {
       "bytes": 284,
       "lines": 23
+    },
+    "semantic/collapsed_conditional_stays_ssa__O0.luau": {
+      "bytes": 828,
+      "lines": 63
+    },
+    "semantic/collapsed_conditional_stays_ssa__O1.luau": {
+      "bytes": 822,
+      "lines": 63
+    },
+    "semantic/collapsed_conditional_stays_ssa__O2.luau": {
+      "bytes": 1325,
+      "lines": 112
     },
     "semantic/compound_local_base__O0.luau": {
       "bytes": 444,
@@ -867,6 +891,18 @@
     "semantic/loop_return_flag__O2.luau": {
       "bytes": 1331,
       "lines": 91
+    },
+    "semantic/loop_return_skips_loop_tail__O0.luau": {
+      "bytes": 844,
+      "lines": 84
+    },
+    "semantic/loop_return_skips_loop_tail__O1.luau": {
+      "bytes": 844,
+      "lines": 84
+    },
+    "semantic/loop_return_skips_loop_tail__O2.luau": {
+      "bytes": 2001,
+      "lines": 191
     },
     "semantic/loop_return_value__O0.luau": {
       "bytes": 1190,

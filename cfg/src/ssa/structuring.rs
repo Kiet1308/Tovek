@@ -411,6 +411,28 @@ fn make_bool_conditional(
     ast::select_value(&mut r#if.condition, then_value, else_value)
 }
 
+/// The local a collapsed conditional's value is assigned to in its head. The
+/// target's phi parameter itself once the collapsed blocks are all its
+/// predecessors: the phi then reads only that parameter and goes. While
+/// another predecessor keeps the phi, a second definition of the parameter
+/// would leave SSA form, which destruction relies on: it joined a value live
+/// across that definition (`c, a = a, c` after `if a then a = ... end`
+/// printed as `a = c; c = a`).
+fn collapsed_value_local(
+    function: &Function,
+    param: &ast::RcLocal,
+    target: NodeIndex,
+    collapsed: &[NodeIndex],
+) -> ast::RcLocal {
+    if function.predecessor_blocks(target).all(|predecessor| collapsed.contains(&predecessor)) {
+        param.clone()
+    } else {
+        let local = ast::RcLocal::default();
+        local.inherit_source_bindings(param);
+        local
+    }
+}
+
 // TODO: `return if g then true else false` in luau?
 // local a; if g then a = true else a = false end; return a -> return g and true or false
 // local a; if g then a = false else a = true end; return a -> return not g
@@ -467,9 +489,9 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
                 })
                 .exactly_one()
             {
+                let res_local = collapsed_value_local(function, res_local, then_edge.target(), &[node]);
                 let (then_edge, else_edge) = (then_edge.id(), else_edge.id());
                 // TODO: unnecessary clones
-                let res_local = res_local.clone();
                 let then_value = then_value.clone();
                 let else_value = else_value.clone();
 
@@ -511,11 +533,11 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
                 match_triangle(then_edge.target(), else_edge.target(), else_args)
         {
             let then_block = then_edge.target();
+            let res_local = collapsed_value_local(function, res_local, else_edge.target(), &[node, then_block]);
             let (then_edge, else_edge) = (
                 function.unconditional_edge(then_block).unwrap().id(),
                 else_edge.id(),
             );
-            let res_local = res_local.clone();
             if let Some(res) = make_bool_conditional(function, node, then_value, else_value) {
                 function
                     .graph_mut()
@@ -555,11 +577,11 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
                 match_triangle(else_edge.target(), then_edge.target(), then_args)
         {
             let else_block = else_edge.target();
+            let res_local = collapsed_value_local(function, res_local, then_edge.target(), &[node, else_block]);
             let (then_edge, else_edge) = (
                 then_edge.id(),
                 function.unconditional_edge(else_block).unwrap().id(),
             );
-            let res_local = res_local.clone();
             if let Some(res) = make_bool_conditional(function, node, then_value, else_value) {
                 function
                     .graph_mut()
@@ -608,11 +630,11 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
         {
             // TODO: make sure then_arg and else_arg arent used outside their respective assigner blocks
             // and the arguments passed to next
-            let res_local = then_param.clone();
             let then_value = then_assign.right[0].clone();
             let else_value = else_assign.right[0].clone();
             let then_block = then_edge.target();
             let else_block = else_edge.target();
+            let res_local = collapsed_value_local(function, then_param, then_next, &[node, then_block, else_block]);
             let (then_edge, else_edge) = (
                 function.unconditional_edge(then_block).unwrap().id(),
                 function.unconditional_edge(else_block).unwrap().id(),
