@@ -98,7 +98,12 @@
    "loop_return_value": "De-inline fixture (2026-10-02): a value returned from inside a loop, lowered to a store, a flag and a break, rebuilds as the call; main outlines the rebuilt calls; baselined from the introducing commit output.",
    "rebuilt_call_result_names": "Naming fixture (2026-10-02): rebuilt call results take the name of the local the helper returns; baselined from the introducing commit output.",
    "folded_constant_argument": "De-inline fixture (2026-10-02): a constant argument whose truth-only reads Luau folded away is inferred for the rebuilt call; main outlines the rebuilt calls; baselined from the introducing commit output.",
-   "numeric_loop_return": "Structuring fixture (2026-10-02): a value returned from inside a numeric for, inlined, exports the loop counter past an exhaustion adapter run under the flag (a helper break runs a copy of it); main outlines the rebuilt calls; baselined from the introducing commit output."
+   "numeric_loop_return": "Structuring fixture (2026-10-02): a value returned from inside a numeric for, inlined, exports the loop counter past an exhaustion adapter run under the flag (a helper break runs a copy of it); main outlines the rebuilt calls; baselined from the introducing commit output.",
+   "fastcall_multret_argument_copied": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
+   "snapshot_compared_after_callback": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
+   "snapshot_receiver_and_constructor_key": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
+   "snapshot_store_address_after_callback": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
+   "paren_call_truncates_multret": "Regression fixture (2026-10-03, paren_call_truncates_multret); baselined from the 2026-10-03 fix commit output."
   }
  },
  "summary": {
@@ -395,6 +400,12 @@
    "protos": 2
   },
   {
+   "file": "fastcall_multret_argument_copied",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
    "file": "first_read_argument_hoist",
    "status": "ok",
    "nonequiv": 2,
@@ -599,6 +610,12 @@
    "protos": 5
   },
   {
+   "file": "paren_call_truncates_multret",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
    "file": "rebuilt_call_result_names",
    "status": "ok",
    "nonequiv": 0,
@@ -657,6 +674,24 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 2
+  },
+  {
+   "file": "snapshot_compared_after_callback",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 7
+  },
+  {
+   "file": "snapshot_receiver_and_constructor_key",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 6
+  },
+  {
+   "file": "snapshot_store_address_after_callback",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 7
   },
   {
    "file": "store_address_read_at_store",

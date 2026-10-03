@@ -266,6 +266,26 @@ fn forwards_call_into_generalized_iteration(
         && matches!(init.right.first(), Some(ast::RValue::Local(first)) if first == local)
 }
 
+/// Never forward a register cell a closure writes, as a bare local, to where
+/// Luau hands the register straight to an instruction that runs after a value
+/// which may write the cell ([`ast::evaluation_order::late_operand_conflict`],
+/// [`ast::evaluation_order::late_store_conflict`]):
+/// the copy keeps the value from before that write. `local before = x; return
+/// change() < before` must not become `return x > change()`, nor `local key =
+/// x; t[key] = change()` become `t[x] = change()`. An incoming upvalue is
+/// fetched where it stands (GETUPVAL), and any other expression is evaluated
+/// into a temporary there.
+fn forwards_cell_into_late_read(
+    new_rvalue: &ast::RValue,
+    use_stat: &ast::Statement,
+    local: &ast::RcLocal,
+    shared_register: impl Fn(&ast::RcLocal) -> bool,
+) -> bool {
+    matches!(new_rvalue, ast::RValue::Local(cell) if shared_register(cell))
+        && (ast::evaluation_order::late_operand_conflict(use_stat, local, &ast::effects::may_write_capture)
+            || ast::evaluation_order::late_store_conflict(use_stat, local, &ast::effects::may_write_capture))
+}
+
 /// The operand of `rvalue` that Luau reads from its register only when the
 /// operation itself runs. The compiler hands a register local straight to an
 /// arithmetic or comparison instruction and to GETTABLE, so in `v + f()`,
@@ -364,15 +384,6 @@ impl<'a> Inliner<'a> {
     ) -> bool {
         let candidate_may_write_capture = new_rvalue_has_side_effects
             && ast::effects::may_write_capture(new_rvalue.as_ref().unwrap());
-        // A read of a register cell a closure writes. Moved into an operand
-        // Luau reads only when its operation runs, it would observe a write
-        // made by another operand of that operation: `local b = count;
-        // math.max(b, touch())` must not become `math.max(count, touch())`.
-        let reads_shared_register = new_rvalue.as_ref().unwrap().any_local_read(&mut |local| {
-            upvalue_to_group.contains_key(local)
-                && !readonly_capture_ids.contains(&local.stable_id())
-                && incoming_upvalue_ids.is_none_or(|ids| !ids.contains(&local.stable_id()))
-        });
         // Register reads the VM performs only when their operation runs, after
         // the candidate's position has been evaluated (see `late_register_read`).
         let mut late_reads: Vec<*const ast::RValue> = Vec::new();
@@ -447,15 +458,6 @@ impl<'a> Inliner<'a> {
                                 && let Some(operand) = late_register_read(rvalue, incoming)
                             {
                                 late_reads.push(operand as *const ast::RValue);
-                            }
-                            if reads_shared_register
-                                && let Some(operands) = ast::evaluation_order::late_operands(rvalue)
-                                && operands.iter().any(|operand| matches!(operand, ast::RValue::Local(local) if local == read))
-                                && operands.iter().any(|operand| {
-                                    !matches!(operand, ast::RValue::Local(_)) && ast::effects::may_write_capture(operand)
-                                })
-                            {
-                                return Some(false);
                             }
                         }
                     }
@@ -589,6 +591,11 @@ impl<'a> Inliner<'a> {
                             if let Ok(ast::LValue::Local(local)) = &assign.left.iter().exactly_one()
                                 && !forwards_table_into_index_write(new_rvalue, &block[index], local)
                                 && !forwards_call_into_generalized_iteration(new_rvalue, &block[index], local)
+                                && !forwards_cell_into_late_read(new_rvalue, &block[index], local, |cell| {
+                                    self.upvalue_to_group.contains_key(cell)
+                                        && !self.readonly_capture_ids.contains(&cell.stable_id())
+                                        && self.incoming_upvalue_ids.is_none_or(|ids| !ids.contains(&cell.stable_id()))
+                                })
                                 && let Some(read) = stat_to_values_read[index]
                                     .iter_mut()
                                     .find(|l| l.as_ref() == Some(local))
@@ -1870,6 +1877,62 @@ mod tests {
             let block = function.block_mut(entry).unwrap();
             remove_empty(block);
             assert_eq!(block.len(), if inlined { 1 } else { 2 }, "{shape} incoming={incoming}");
+        }
+    }
+
+    #[test]
+    fn cell_snapshot_stays_where_luau_reads_the_register_late() {
+        // `local before = cell` with `change()` able to write `cell`: as the
+        // operand of a comparison (reversed or not), the base or key of a
+        // store, a method receiver or a constructor key, the register `cell`
+        // would be read after the call. An incoming upvalue is fetched where
+        // it stands, and with nothing that may write the cell nothing moves.
+        for (shape, incoming, inlined) in [
+            ("compare", false, false),
+            ("store_key", false, false),
+            ("store_base", false, false),
+            ("receiver", false, false),
+            ("constructor_key", false, false),
+            ("store_key", true, true),
+            ("store_literal", false, true),
+        ] {
+            let cell = local("cell");
+            let before = local("before");
+            let target = local("target");
+            let change = || -> RValue { ast::Call::new(global("change"), vec![]).into() };
+            let store = |base: RValue, key: RValue, value: RValue| -> Statement {
+                Assign::new(vec![Index::new(base, key).into()], vec![value]).into()
+            };
+            let use_statement = match shape {
+                "compare" => Return::new(vec![
+                    Binary::new(change(), local_value(&before), ast::BinaryOperation::LessThan).into(),
+                ]).into(),
+                "store_key" => store(local_value(&target), local_value(&before), change()),
+                "store_literal" => store(local_value(&target), local_value(&before), number(1.0)),
+                "store_base" => store(local_value(&before), string("x"), change()),
+                "receiver" => Return::new(vec![
+                    ast::MethodCall::new(local_value(&before), "m".into(), vec![change()]).into(),
+                ]).into(),
+                _ => Return::new(vec![Table::new(vec![(Some(local_value(&before)), change())]).into()]).into(),
+            };
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            *function.block_mut(entry).unwrap() = Block(vec![
+                Assign::new(vec![LValue::Local(before.clone())], vec![local_value(&cell)]).into(),
+                use_statement,
+            ]);
+            function.set_entry(entry);
+            let captures = IndexMap::from_iter([(cell.clone(), cell.clone())]);
+            let incoming_ids = if incoming {
+                rustc_hash::FxHashSet::from_iter([cell.stable_id()])
+            } else {
+                rustc_hash::FxHashSet::default()
+            };
+            super::inline_with_readonly_captures(&mut function, &FxHashMap::default(), &captures,
+                &Default::default(), Some(&incoming_ids));
+            let block = function.block_mut(entry).unwrap();
+            remove_empty(block);
+            assert_eq!(block.len(), if inlined { 1 } else { 2 }, "{shape} incoming={incoming}: {block}");
         }
     }
 

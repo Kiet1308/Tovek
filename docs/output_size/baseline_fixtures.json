@@ -592,6 +592,18 @@
       "bytes": 141,
       "lines": 9
     },
+    "semantic/fastcall_multret_argument_copied__O0.luau": {
+      "bytes": 215,
+      "lines": 14
+    },
+    "semantic/fastcall_multret_argument_copied__O1.luau": {
+      "bytes": 202,
+      "lines": 13
+    },
+    "semantic/fastcall_multret_argument_copied__O2.luau": {
+      "bytes": 202,
+      "lines": 13
+    },
     "semantic/first_read_argument_hoist__O0.luau": {
       "bytes": 680,
       "lines": 34
@@ -1000,6 +1012,18 @@
       "bytes": 677,
       "lines": 22
     },
+    "semantic/paren_call_truncates_multret__O0.luau": {
+      "bytes": 105,
+      "lines": 9
+    },
+    "semantic/paren_call_truncates_multret__O1.luau": {
+      "bytes": 105,
+      "lines": 9
+    },
+    "semantic/paren_call_truncates_multret__O2.luau": {
+      "bytes": 101,
+      "lines": 9
+    },
     "semantic/rebuilt_call_result_names__O0.luau": {
       "bytes": 638,
       "lines": 28
@@ -1119,6 +1143,42 @@
     "semantic/signed_zero_operands__O2.luau": {
       "bytes": 95,
       "lines": 7
+    },
+    "semantic/snapshot_compared_after_callback__O0.luau": {
+      "bytes": 471,
+      "lines": 42
+    },
+    "semantic/snapshot_compared_after_callback__O1.luau": {
+      "bytes": 471,
+      "lines": 42
+    },
+    "semantic/snapshot_compared_after_callback__O2.luau": {
+      "bytes": 692,
+      "lines": 48
+    },
+    "semantic/snapshot_receiver_and_constructor_key__O0.luau": {
+      "bytes": 470,
+      "lines": 39
+    },
+    "semantic/snapshot_receiver_and_constructor_key__O1.luau": {
+      "bytes": 470,
+      "lines": 39
+    },
+    "semantic/snapshot_receiver_and_constructor_key__O2.luau": {
+      "bytes": 777,
+      "lines": 50
+    },
+    "semantic/snapshot_store_address_after_callback__O0.luau": {
+      "bytes": 590,
+      "lines": 47
+    },
+    "semantic/snapshot_store_address_after_callback__O1.luau": {
+      "bytes": 590,
+      "lines": 47
+    },
+    "semantic/snapshot_store_address_after_callback__O2.luau": {
+      "bytes": 669,
+      "lines": 50
     },
     "semantic/store_address_read_at_store__O0.luau": {
       "bytes": 559,

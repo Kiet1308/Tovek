@@ -88,10 +88,13 @@ pub fn run(
     }
 
     // ---- Phase A: discover + decompile in parallel --------------------------
-    let (_src_root, out_root, mut work) = match build_work(src, out) {
+    let (_src_root, out_root, mut work, discovery_failures) = match build_work(src, out) {
         Ok(t) => t,
         Err(code) => return code,
     };
+    for failure in &discovery_failures {
+        eprintln!("FAIL {}\n      {}", failure.rel, failure.message);
+    }
     // The bash baseline iterates `find | sort`; with `LC_ALL=C` that is a byte
     // sort of the full path, which (since every path shares the SRC prefix) is a
     // byte sort of the forward-slashed `rel`. Sort by `rel` bytes explicitly so
@@ -321,7 +324,8 @@ scope-files={scope_files} regression-fail={regression_fail} total-output-lines={
         );
     }
 
-    if invalid != 0
+    if !discovery_failures.is_empty()
+        || invalid != 0
         || decode_fail != 0
         || decompile_fail != 0
         || goto_files != 0

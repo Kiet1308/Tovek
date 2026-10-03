@@ -146,10 +146,23 @@ pub(crate) struct ExportManifestInventory {
     pub diagnostics: Vec<ExportManifestDiagnostic>,
 }
 
+/// An input the folder walk cannot turn into work: an entry it could not read,
+/// whose subtree is then never searched, or one of several inputs that would
+/// write the same output, where the last write would silently win. Each is a
+/// failure, so a run that misses an input never reports success.
+#[derive(Debug)]
+pub(crate) struct DiscoveryFailure {
+    /// Path relative to SRC, forward-slashed.
+    pub rel: String,
+    pub code: &'static str,
+    pub message: String,
+}
+
 /// Discover every `*.lua` file under SRC (recursive, sorted), resolve the SRC/OUT
-/// roots, and build the fully-resolved [`Work`] list. Returns a process exit code
-/// (`Err`) on a fatal path error, mirroring the original `batch::run` behavior.
-pub(crate) fn build_work(src: &Path, out: &Path) -> Result<(PathBuf, PathBuf, Vec<Work>), i32> {
+/// roots, and build the fully-resolved [`Work`] list, with the inputs it could
+/// not include. Returns a process exit code (`Err`) on a fatal path error,
+/// mirroring the original `batch::run` behavior.
+pub(crate) fn build_work(src: &Path, out: &Path) -> Result<(PathBuf, PathBuf, Vec<Work>, Vec<DiscoveryFailure>), i32> {
     build_work_with_extension(src, out, "luau")
 }
 
@@ -157,7 +170,7 @@ pub(crate) fn build_work_with_extension(
     src: &Path,
     out: &Path,
     output_extension: &str,
-) -> Result<(PathBuf, PathBuf, Vec<Work>), i32> {
+) -> Result<(PathBuf, PathBuf, Vec<Work>, Vec<DiscoveryFailure>), i32> {
     // canonicalize SRC (must exist) so the walk + strip_prefix share one verbatim
     // form; OUT may not exist yet, so use `absolute` (no existence requirement,
     // and keeps long paths Windows-safe). This asymmetry is load-bearing — do not
@@ -177,25 +190,43 @@ pub(crate) fn build_work_with_extension(
         }
     };
 
-    let mut files: Vec<PathBuf> = walkdir::WalkDir::new(&src_root)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| e.file_type().is_file())
-        .map(walkdir::DirEntry::into_path)
-        .filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("lua")))
-        .collect();
+    let relative = |path: &Path| match path.strip_prefix(&src_root).unwrap_or(path).to_string_lossy().replace('\\', "/") {
+        rel if rel.is_empty() => ".".to_string(),
+        rel => rel,
+    };
+    let mut failures = Vec::new();
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(&src_root) {
+        match entry {
+            Ok(entry) => {
+                if entry.file_type().is_file()
+                    && entry.path().extension().is_some_and(|x| x.eq_ignore_ascii_case("lua"))
+                {
+                    files.push(entry.into_path());
+                }
+            }
+            Err(error) => failures.push(DiscoveryFailure {
+                rel: error.path().map_or_else(|| ".".to_string(), &relative),
+                code: "unreadable_source_path",
+                message: match error.io_error() {
+                    Some(io) => format!("cannot read: {io}"),
+                    None => format!("cannot read: {error}"),
+                },
+            }),
+        }
+    }
     files.sort();
 
     let work: Vec<Work> = files
-        .iter()
+        .into_iter()
         .map(|input| {
-            let rel_path = input.strip_prefix(&src_root).unwrap_or(input);
+            let rel_path = input.strip_prefix(&src_root).unwrap_or(&input);
             let source_rel_path = rel_path.with_extension(output_extension);
             let output = out_root.join(&source_rel_path);
             let rel = rel_path.to_string_lossy().replace('\\', "/");
             let source_rel = source_rel_path.to_string_lossy().replace('\\', "/");
             Work {
-                input: input.clone(),
+                input,
                 output,
                 output_root: out_root.clone(),
                 rel,
@@ -205,8 +236,46 @@ pub(crate) fn build_work_with_extension(
             }
         })
         .collect();
+    let work = reject_shared_outputs(work, &mut failures);
+    failures.sort_by(|left, right| left.rel.cmp(&right.rel));
 
-    Ok((src_root, out_root, work))
+    Ok((src_root, out_root, work, failures))
+}
+
+/// Take out every input whose output another input also writes: `A.lua` and
+/// `A.LUA` both become `A.luau`, and where the file system ignores case
+/// (Windows, macOS) so do `Main.lua` and `main.lua`. Keeping either would make
+/// the result depend on which write lands last, so all of them fail.
+fn reject_shared_outputs(work: Vec<Work>, failures: &mut Vec<DiscoveryFailure>) -> Vec<Work> {
+    let destination = |work: &Work| {
+        if cfg!(any(windows, target_os = "macos")) { work.source_rel.to_lowercase() } else { work.source_rel.clone() }
+    };
+    let mut writers: HashMap<String, Vec<usize>> = HashMap::with_capacity(work.len());
+    for (index, item) in work.iter().enumerate() {
+        writers.entry(destination(item)).or_default().push(index);
+    }
+    if writers.len() == work.len() {
+        return work;
+    }
+    let shared: HashSet<usize> = writers.values().filter(|inputs| inputs.len() > 1).flatten().copied().collect();
+    for &index in &shared {
+        let others = writers[&destination(&work[index])]
+            .iter()
+            .filter(|&&other| other != index)
+            .map(|&other| work[other].rel.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        failures.push(DiscoveryFailure {
+            rel: work[index].rel.clone(),
+            code: "colliding_output_path",
+            message: format!("output {} is also written by {others}", work[index].source_rel),
+        });
+    }
+    work.into_iter()
+        .enumerate()
+        .filter(|(index, _)| !shared.contains(index))
+        .map(|(_, item)| item)
+        .collect()
 }
 
 #[derive(Deserialize)]
@@ -3564,5 +3633,86 @@ mod tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(&outside, &scripts_link).unwrap();
         assert!(prepare_analysis_root(&out_root).is_err());
+    }
+
+    fn folder_work(rel: &str, source_rel: &str) -> Work {
+        Work {
+            input: PathBuf::from(rel),
+            output: PathBuf::from(source_rel),
+            output_root: PathBuf::new(),
+            rel: rel.to_string(),
+            source_rel: source_rel.to_string(),
+            kind: WorkKind::RawBytecode,
+            volt_export: None,
+        }
+    }
+
+    #[test]
+    fn inputs_writing_one_output_all_fail() {
+        let mut failures = Vec::new();
+        let work = reject_shared_outputs(vec![
+            folder_work("A.LUA", "A.luau"),
+            folder_work("A.lua", "A.luau"),
+            folder_work("B.lua", "B.luau"),
+            folder_work("Main.lua", "Main.luau"),
+            folder_work("main.lua", "main.luau"),
+        ], &mut failures);
+        let kept = work.iter().map(|item| item.rel.as_str()).collect::<Vec<_>>();
+        failures.sort_by(|left, right| left.rel.cmp(&right.rel));
+        let failed = failures.iter().map(|failure| failure.rel.as_str()).collect::<Vec<_>>();
+        if cfg!(any(windows, target_os = "macos")) {
+            assert_eq!(kept, ["B.lua"]);
+            assert_eq!(failed, ["A.LUA", "A.lua", "Main.lua", "main.lua"]);
+        } else {
+            assert_eq!(kept, ["B.lua", "Main.lua", "main.lua"]);
+            assert_eq!(failed, ["A.LUA", "A.lua"]);
+        }
+        assert!(failures.iter().all(|failure| failure.code == "colliding_output_path"));
+        assert_eq!(failures[0].message, "output A.luau is also written by A.lua");
+        assert_eq!(failures[1].message, "output A.luau is also written by A.LUA");
+    }
+
+    #[test]
+    fn folder_inputs_differing_in_extension_case_are_reported() {
+        let temp = TestDir::new("extension-case");
+        let src = temp.0.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(src.join("A.lua"), b"first").unwrap();
+        std::fs::write(src.join("A.LUA"), b"second").unwrap();
+        std::fs::write(src.join("B.lua"), b"third").unwrap();
+        let (_, _, work, failures) = build_work(&src, &temp.0.join("out")).unwrap();
+        let kept = work.iter().map(|item| item.rel.as_str()).collect::<Vec<_>>();
+        // A case-insensitive file system keeps a single `A.lua` here.
+        if std::fs::read_dir(&src).unwrap().count() == 3 {
+            assert_eq!(kept, ["B.lua"]);
+            assert_eq!(failures.len(), 2);
+        } else {
+            assert_eq!(kept, ["A.lua", "B.lua"]);
+            assert!(failures.is_empty());
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unreadable_folder_is_a_failure_not_a_skip() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = TestDir::new("unreadable");
+        let src = temp.0.join("src");
+        let denied = src.join("denied");
+        std::fs::create_dir_all(&denied).unwrap();
+        std::fs::write(src.join("visible.lua"), b"x").unwrap();
+        std::fs::write(denied.join("hidden.lua"), b"x").unwrap();
+        std::fs::set_permissions(&denied, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let readable = std::fs::read_dir(&denied).is_ok();
+        let result = build_work(&src, &temp.0.join("out"));
+        std::fs::set_permissions(&denied, std::fs::Permissions::from_mode(0o755)).unwrap();
+        if readable {
+            return; // root ignores the permission bits
+        }
+        let (_, _, work, failures) = result.unwrap();
+        assert_eq!(work.iter().map(|item| item.rel.as_str()).collect::<Vec<_>>(), ["visible.lua"]);
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].rel, "denied");
+        assert_eq!(failures[0].code, "unreadable_source_path");
     }
 }

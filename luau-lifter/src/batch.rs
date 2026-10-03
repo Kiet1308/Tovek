@@ -54,16 +54,16 @@ pub fn run_with_cache(
 ) -> i32 {
     let start = Instant::now();
 
-    let (_src_root, out_root, work, inventory) = match export_manifest {
+    let (_src_root, out_root, work, inventory, discovery_failures) = match export_manifest {
         Some(manifest) => {
             match build_work_from_export_manifest(src, out, output_extension, manifest) {
-                Ok((src_root, out_root, work, inventory)) => (src_root, out_root, work, inventory),
+                Ok((src_root, out_root, work, inventory)) => (src_root, out_root, work, inventory, Vec::new()),
                 Err(code) => return code,
             }
         }
         None => match build_work_with_extension(src, out, output_extension) {
-            Ok((src_root, out_root, work)) => {
-                let total_scripts = work.len();
+            Ok((src_root, out_root, work, failures)) => {
+                let total_scripts = work.len() + failures.len();
                 (
                     src_root,
                     out_root,
@@ -72,6 +72,7 @@ pub fn run_with_cache(
                         total_scripts,
                         ..ExportManifestInventory::default()
                     },
+                    failures,
                 )
             }
             Err(code) => return code,
@@ -215,7 +216,7 @@ pub fn run_with_cache(
 
     // Tally on the main thread (collect() preserves input order, so the FAIL
     // list is deterministic).
-    let (mut ok, mut skipped, mut fail) = (0usize, 0usize, inventory.failed_scripts);
+    let (mut ok, mut skipped, mut fail) = (0usize, 0usize, inventory.failed_scripts + discovery_failures.len());
     let mut entries = Vec::new();
     let mut diagnostics: Vec<FolderDiagnostic> = inventory
         .diagnostics
@@ -233,6 +234,17 @@ pub fn run_with_cache(
             evidence: None,
         })
         .collect();
+    for failure in discovery_failures {
+        eprintln!("FAIL {}\n      {}", failure.rel, failure.message);
+        diagnostics.push(FolderDiagnostic {
+            export_id: None,
+            script_path: failure.rel,
+            status: "failed",
+            code: failure.code,
+            message: failure.message,
+            evidence: None,
+        });
+    }
     let mut unavailable = 0usize;
     let mut generated_sources = Vec::new();
     for (w, (o, entry, analysis_unavailable, source_record, _)) in work.iter().zip(outcomes) {

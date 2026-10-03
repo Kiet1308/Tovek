@@ -36,18 +36,21 @@ pub fn copy_cleanup(block: &mut Block) {
         .filter(|(_, u)| u.captured)
         .map(|(l, _)| l)
         .collect();
-    cleanup_in_block(block, &mut captured, true);
+    cleanup_in_block(block, &mut captured, true, &FxHashSet::default());
 }
 
-fn cleanup_in_block(block: &mut Block, captured: &mut FxHashSet<RcLocal>, function_root: bool) {
-    cleanup_nested_blocks(block, captured);
-    cleanup_current_block(block, captured, function_root);
+/// `upvalues`: the stable ids of the upvalues of the function `block` belongs
+/// to; any other local it reads is one of its registers.
+fn cleanup_in_block(block: &mut Block, captured: &mut FxHashSet<RcLocal>, function_root: bool, upvalues: &FxHashSet<u64>) {
+    cleanup_nested_blocks(block, captured, upvalues);
+    cleanup_current_block(block, captured, function_root, upvalues);
 }
 
 /// Alias substitution changes counts only for the two bindings. Preserve
 /// source-order decisions with an ordered queue, and replace only statements
 /// indexed under the removed binding, keeping positions stable until the end.
-fn cleanup_current_block(block: &mut Block, captured: &mut FxHashSet<RcLocal>, function_root: bool) {
+fn cleanup_current_block(block: &mut Block, captured: &mut FxHashSet<RcLocal>, function_root: bool,
+    upvalues: &FxHashSet<u64>) {
     let mut pending: BTreeSet<_> = block.iter().enumerate()
         .filter_map(|(index, statement)| candidate_copy(statement).map(|_| index)).collect();
     if pending.is_empty() { return; }
@@ -82,7 +85,8 @@ fn cleanup_current_block(block: &mut Block, captured: &mut FxHashSet<RcLocal>, f
         if dst_was_captured && (captured.contains(&src)
             || (!function_root && !declarations.get(&src).is_some_and(|&at| at < index))) { continue; }
         if captured.contains(&src)
-            && captured_src_mutated_before_indexed_use(block, index, &dst, &runtime_reads) { continue; }
+            && captured_src_mutated_before_indexed_use(block, index, &dst, &runtime_reads,
+                !upvalues.contains(&src.stable_id())) { continue; }
 
         removed[index] = true;
         block[index] = crate::Empty {}.into();
@@ -148,38 +152,39 @@ fn captured_src_mutated_before_indexed_use(
     decl_index: usize,
     dst: &RcLocal,
     reads: &FxHashMap<RcLocal, BTreeSet<usize>>,
+    register: bool,
 ) -> bool {
     let Some(&bound) = reads.get(dst).and_then(BTreeSet::last).filter(|&&at| at > decl_index) else {
         return false;
     };
     block.0[decl_index + 1..bound].iter().any(crate::statement_is_observable)
         || reads_local_nested(&block[bound], dst)
-        || !crate::evaluation_order::can_reuse_capture(&block[bound], dst)
+        || !crate::evaluation_order::can_reuse_capture(&block[bound], dst, register)
 }
 
 /// Recurse into nested blocks and closures first (mirrors
 /// `inline_temps::inline_single_use_temps`), so the fixpoint at every level only
 /// has to consider its own statement list.
-fn cleanup_nested_blocks(block: &mut Block, captured: &mut FxHashSet<RcLocal>) {
+fn cleanup_nested_blocks(block: &mut Block, captured: &mut FxHashSet<RcLocal>, upvalues: &FxHashSet<u64>) {
     for statement in &mut block.0 {
-        cleanup_nested_in_statement(statement, captured);
+        cleanup_nested_in_statement(statement, captured, upvalues);
     }
 }
 
-fn cleanup_nested_in_statement(statement: &mut Statement, captured: &mut FxHashSet<RcLocal>) {
+fn cleanup_nested_in_statement(statement: &mut Statement, captured: &mut FxHashSet<RcLocal>, upvalues: &FxHashSet<u64>) {
     cleanup_closures_in_statement(statement, captured);
     match statement {
         Statement::If(r#if) => {
-            cleanup_in_block(&mut r#if.then_block.lock(), captured, false);
-            cleanup_in_block(&mut r#if.else_block.lock(), captured, false);
+            cleanup_in_block(&mut r#if.then_block.lock(), captured, false, upvalues);
+            cleanup_in_block(&mut r#if.else_block.lock(), captured, false, upvalues);
         }
-        Statement::While(r#while) => cleanup_in_block(&mut r#while.block.lock(), captured, false),
-        Statement::Repeat(repeat) => cleanup_in_block(&mut repeat.block.lock(), captured, false),
+        Statement::While(r#while) => cleanup_in_block(&mut r#while.block.lock(), captured, false, upvalues),
+        Statement::Repeat(repeat) => cleanup_in_block(&mut repeat.block.lock(), captured, false, upvalues),
         Statement::NumericFor(numeric_for) => {
-            cleanup_in_block(&mut numeric_for.block.lock(), captured, false)
+            cleanup_in_block(&mut numeric_for.block.lock(), captured, false, upvalues)
         }
         Statement::GenericFor(generic_for) => {
-            cleanup_in_block(&mut generic_for.block.lock(), captured, false)
+            cleanup_in_block(&mut generic_for.block.lock(), captured, false, upvalues)
         }
         _ => {}
     }
@@ -189,12 +194,16 @@ fn cleanup_closures_in_statement(statement: &mut Statement, captured: &mut FxHas
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
-            functions.push(closure.function.clone());
+            let upvalues = closure.upvalues.iter().map(|upvalue| {
+                let (crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local)) = upvalue;
+                local.stable_id()
+            }).collect::<FxHashSet<_>>();
+            functions.push((closure.function.clone(), upvalues));
         }
         None
     });
-    for function in functions {
-        cleanup_in_block(&mut function.lock().body, captured, true);
+    for (function, upvalues) in functions {
+        cleanup_in_block(&mut function.lock().body, captured, true, &upvalues);
     }
 }
 
@@ -370,7 +379,7 @@ fn captured_src_mutated_before_use(block: &Block, decl_index: usize, dst: &RcLoc
     // indexing and operator metamethods. Direct and nested reads can coexist;
     // the direct order model does not prove safety across a nested region.
     reads_local_nested(&block.0[bound], dst)
-        || !crate::evaluation_order::can_reuse_capture(&block.0[bound], dst)
+        || !crate::evaluation_order::can_reuse_capture(&block.0[bound], dst, true)
 }
 
 /// Gate 6 — anti-swap / anti-stale-copy: `src` must NOT be reassigned anywhere
@@ -434,7 +443,7 @@ mod tests {
                 let mut expected_captures = captures(&expected);
                 let mut actual_captures = captures(&actual);
                 while super::cleanup_once(&mut expected, &mut expected_captures, function_root) {}
-                super::cleanup_current_block(&mut actual, &mut actual_captures, function_root);
+                super::cleanup_current_block(&mut actual, &mut actual_captures, function_root, &Default::default());
                 assert_eq!(actual.to_string(), expected.to_string(), "seed {seed}, function root {function_root}");
             }
         }

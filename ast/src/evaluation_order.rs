@@ -217,6 +217,21 @@ pub(crate) fn reads_first(value: &RValue, local: &RcLocal, register: bool, uncha
             }
             Some(false)
         }
+        // NAMECALL reads a register receiver after the arguments, a
+        // constructor's SETTABLE a register key after the field's value.
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call))
+            if register && matches!(call.value.as_ref(), RValue::Local(read) if read == local) =>
+        {
+            call.arguments.iter().find_map(|argument| reads_first(argument, local, register, unchanged)).or(Some(true))
+        }
+        RValue::Table(table) if register => {
+            let first = table.0.iter().find_map(|(key, item)| match key {
+                Some(RValue::Local(read)) if read == local => reads_first(item, local, register, unchanged).or(Some(true)),
+                Some(key) => reads_first(key, local, register, unchanged).or_else(|| reads_first(item, local, register, unchanged)),
+                None => reads_first(item, local, register, unchanged),
+            });
+            first.or(Some(false))
+        }
         _ => {
             let mut first = None;
             value.visit_rvalues(&mut |child| {
@@ -230,7 +245,7 @@ pub(crate) fn reads_first(value: &RValue, local: &RcLocal, register: bool, uncha
 
 /// The operands of an operation that reads its register-local operands only
 /// when it runs, in evaluation order: arithmetic and comparison, indexing, and
-/// a call of a global path Luau may compile to a builtin's FASTCALL.
+/// a call Luau may compile to a builtin's FASTCALL ([`fastcall_arguments`]).
 pub fn late_operands(value: &RValue) -> Option<Vec<&RValue>> {
     match value {
         RValue::Binary(binary) if matches!(
@@ -241,11 +256,36 @@ pub fn late_operands(value: &RValue) -> Option<Vec<&RValue>> {
                 | BinaryOperation::GreaterThan | BinaryOperation::GreaterThanOrEqual
         ) => Some(vec![&binary.left, &binary.right]),
         RValue::Index(index) => Some(vec![&index.left, &index.right]),
-        RValue::Call(call) | RValue::Select(crate::Select::Call(call)) if is_import_path(&call.value) => {
-            Some(call.arguments.iter().collect())
+        RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => {
+            fastcall_arguments(call).map(|arguments| arguments.iter().collect())
         }
         _ => None,
     }
+}
+
+/// The arguments of a call Luau may compile to a builtin's FASTCALL1/2/3, which
+/// takes a register-local argument as it is: a global path given one to three
+/// arguments, the last giving one value. A last call or `...` passes as one
+/// value only at -O2, to a fixed-arity numeric builtin (math, bit32, buffer,
+/// vector, integer) or when it is a builtin call known to give one result.
+/// Any other call copies its arguments into place in order.
+fn fastcall_arguments(call: &crate::Call) -> Option<&[RValue]> {
+    fn fixed_arity_library(path: &RValue) -> bool {
+        match path {
+            RValue::Index(index) => fixed_arity_library(&index.left),
+            RValue::Global(global) => matches!(global.0.as_slice(), b"math" | b"bit32" | b"buffer" | b"vector" | b"integer"),
+            _ => false,
+        }
+    }
+    let arguments = call.arguments.as_slice();
+    let direct = is_import_path(&call.value)
+        && arguments.len() <= 3
+        && match arguments.last() {
+            Some(RValue::Call(last)) => is_import_path(&last.value) || fixed_arity_library(&call.value),
+            Some(RValue::MethodCall(_) | RValue::VarArg(_)) => fixed_arity_library(&call.value),
+            _ => true,
+        };
+    direct.then_some(arguments)
 }
 
 /// [`reads_first`] over a block: a statement that only binds locals to
@@ -312,12 +352,15 @@ pub fn can_sink(statement_: &Statement, local: &RcLocal, replacement: &RValue, c
 /// A captured-cell snapshot can replace every direct read only when no earlier
 /// operation can change that cell. Unlike `can_sink`, aliases may have multiple
 /// reads in one statement. Nested control flow is checked by the caller.
-pub fn can_reuse_capture(statement_: &Statement, local: &RcLocal) -> bool {
-    let order = statement(statement_, &|_| false);
+/// `register`: the cell is a register of the statement's function, which Luau
+/// reads where the instruction consuming it runs; an upvalue is fetched where
+/// it stands.
+pub fn can_reuse_capture(statement_: &Statement, local: &RcLocal, register: bool) -> bool {
+    let order = statement_with_registers(statement_, &|_| false, &|read| register && read == local);
     if order.exhausted { return false; }
     // Read where its operation runs, the cell is read after every other
     // operand of it: `v + touch()` with `v` standing for the cell.
-    if late_operand_conflict(statement_, local, &effects::may_write_capture) { return false; }
+    if register && late_operand_conflict(statement_, local, &effects::may_write_capture) { return false; }
     let mut may_write = false;
     let mut found = false;
     for event in &order.events {
@@ -371,33 +414,54 @@ pub(crate) fn can_sink_with_summary(statement_: &Statement, local: &RcLocal, rep
     found
 }
 
-/// Whether `local` stands as a register operand of an operation that reads it
-/// only when it runs ([`late_operands`]) beside another operand `conflicts`
-/// holds for. Closure bodies are not entered.
-fn late_operand_conflict(statement: &Statement, local: &RcLocal, conflicts: &impl Fn(&RValue) -> bool) -> bool {
-    fn in_value(value: &RValue, local: &RcLocal, conflicts: &impl Fn(&RValue) -> bool) -> bool {
-        if let Some(operands) = late_operands(value)
-            && operands.iter().any(|operand| matches!(operand, RValue::Local(read) if read == local))
-            && operands.iter().any(|operand| !matches!(operand, RValue::Local(read) if read == local) && conflicts(operand))
-        {
-            return true;
-        }
-        if matches!(value, RValue::Closure(_)) {
-            return false;
-        }
-        let mut found = false;
-        value.visit_rvalues(&mut |child| {
-            found = in_value(child, local, conflicts);
-            !found
-        });
-        found
+/// Whether `local`, standing where Luau hands a register local straight to the
+/// instruction consuming it, is read there after a value `conflicts` holds
+/// for. That instruction runs once the values around it are evaluated: an
+/// operation of [`late_operands`] after its other operands, NAMECALL after
+/// the arguments of a method call on `local`, a constructor's SETTABLE after
+/// the value of the field `local` keys. A store address is the event order's
+/// ([`statement_with_registers`], [`late_store_conflict`]). Closure bodies are
+/// not entered.
+pub fn late_operand_conflict(statement: &Statement, local: &RcLocal, conflicts: &impl Fn(&RValue) -> bool) -> bool {
+    let is_local = |value: &RValue| matches!(value, RValue::Local(read) if read == local);
+    let at_statement = match statement {
+        Statement::Call(call) => fastcall_arguments(call).is_some_and(|arguments| operands_conflict(arguments.iter(), &is_local, conflicts)),
+        Statement::MethodCall(call) => is_local(&call.value) && call.arguments.iter().any(conflicts),
+        _ => false,
+    };
+    fn in_value(value: &RValue, is_local: &impl Fn(&RValue) -> bool, conflicts: &impl Fn(&RValue) -> bool) -> bool {
+        let here = match value {
+            RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
+                is_local(&call.value) && call.arguments.iter().any(conflicts)
+            }
+            RValue::Table(table) => table.0.iter().any(|(key, item)| key.as_ref().is_some_and(is_local) && conflicts(item)),
+            RValue::Closure(_) => return false,
+            _ => late_operands(value).is_some_and(|operands| operands_conflict(operands.into_iter(), is_local, conflicts)),
+        };
+        here || !value.visit_rvalues(&mut |child| !in_value(child, is_local, conflicts))
     }
-    let mut found = false;
-    statement.visit_rvalues(&mut |value| {
-        found = in_value(value, local, conflicts);
-        !found
-    });
-    found
+    at_statement
+        || !statement.visit_lvalues(&mut |lhs| lhs.visit_rvalues(&mut |value| !in_value(value, &is_local, conflicts)))
+        || !statement.visit_rvalues(&mut |value| !in_value(value, &is_local, conflicts))
+}
+
+/// Whether `local`, a register local standing as the base or key of a store,
+/// is read after a value `conflicts` holds for: SETTABLE runs after every
+/// other value of its assignment and after the stores before it, which may
+/// run `__newindex` ([`statement_with_registers`]).
+pub fn late_store_conflict(statement: &Statement, local: &RcLocal, conflicts: &impl Fn(&RValue) -> bool) -> bool {
+    let Statement::Assign(assign) = statement else { return false };
+    let is_local = |value: &RValue| matches!(value, RValue::Local(read) if read == local);
+    let addresses = || assign.left.iter().filter_map(LValue::as_index).flat_map(|index| [index.left.as_ref(), index.right.as_ref()]);
+    addresses().any(is_local)
+        && (assign.left.iter().filter(|lhs| !matches!(lhs, LValue::Local(_))).count() > 1
+            || addresses().chain(&assign.right).any(|value| !is_local(value) && conflicts(value)))
+}
+
+/// One of `operands` is `local` and another one `conflicts` holds for.
+fn operands_conflict<'a>(operands: impl Iterator<Item = &'a RValue> + Clone, is_local: &impl Fn(&RValue) -> bool,
+    conflicts: &impl Fn(&RValue) -> bool) -> bool {
+    operands.clone().any(is_local) && operands.filter(|operand| !is_local(operand)).any(conflicts)
 }
 
 #[cfg(test)]
@@ -413,13 +477,60 @@ mod tests {
         let mutate = local("mutate");
         let call: RValue = Call::new(mutate.into(), vec![]).into();
         let read: RValue = snapshot.clone().into();
-        assert!(can_reuse_capture(&Return::new(vec![read.clone(), call.clone()]).into(), &snapshot));
-        assert!(!can_reuse_capture(&Return::new(vec![call.clone(), read.clone()]).into(), &snapshot));
-        assert!(!can_reuse_capture(&Return::new(vec![read.clone(), call, read]).into(), &snapshot));
-        assert!(can_reuse_capture(&Return::new(vec![field(&snapshot)]).into(), &snapshot));
+        assert!(can_reuse_capture(&Return::new(vec![read.clone(), call.clone()]).into(), &snapshot, true));
+        assert!(!can_reuse_capture(&Return::new(vec![call.clone(), read.clone()]).into(), &snapshot, true));
+        assert!(!can_reuse_capture(&Return::new(vec![read.clone(), call, read]).into(), &snapshot, true));
+        assert!(can_reuse_capture(&Return::new(vec![field(&snapshot)]).into(), &snapshot, true));
         // A global callee lookup may dispatch __index before its argument read.
         let global = crate::Global(b"print".to_vec()).into();
-        assert!(!can_reuse_capture(&Call::new(global, vec![snapshot.clone().into()]).into(), &snapshot));
+        assert!(!can_reuse_capture(&Call::new(global, vec![snapshot.clone().into()]).into(), &snapshot, true));
+    }
+
+    #[test]
+    fn register_operands_wait_for_their_instruction() {
+        let (cell, other) = (local("cell"), local("other"));
+        let call = |name: &str, args: Vec<RValue>| -> RValue { Call::new(crate::Global(name.as_bytes().to_vec()).into(), args).into() };
+        let path = |library: &str, name: &str| -> RValue {
+            Index::new(crate::Global(library.as_bytes().to_vec()).into(), Literal::String(name.as_bytes().to_vec()).into()).into()
+        };
+        let method = |object: &RcLocal, args: Vec<RValue>| -> RValue {
+            MethodCall { node_origin: Default::default(), value: Box::new(object.clone().into()), method: "m".into(), arguments: args }.into()
+        };
+        let change = || call("change", vec![]);
+        let writes = &effects::may_write_capture;
+        let returns = |value: RValue| -> Statement { Return::new(vec![value]).into() };
+        // NAMECALL runs after the arguments, which are copied in order.
+        assert!(late_operand_conflict(&returns(method(&cell, vec![change()])), &cell, writes));
+        assert!(!late_operand_conflict(&returns(method(&other, vec![cell.clone().into(), change()])), &cell, writes));
+        // A constructor's SETTABLE runs after the field's value.
+        let keyed = Table::new(vec![(Some(cell.clone().into()), change())]).into();
+        assert!(late_operand_conflict(&returns(keyed), &cell, writes));
+        // FASTCALL2 takes a register argument as is; a last argument giving
+        // all its results leaves the copies, but for a fixed-arity numeric
+        // builtin or a builtin call giving one result at -O2.
+        let insert = |last: RValue| -> Statement {
+            Statement::Call(Call::new(path("table", "insert"), vec![cell.clone().into(), last]))
+        };
+        assert!(late_operand_conflict(&insert(change()), &cell, writes));
+        assert!(!late_operand_conflict(&insert(method(&other, vec![])), &cell, writes));
+        let fmod = Call::new(path("math", "fmod"), vec![cell.clone().into(), method(&other, vec![])]).into();
+        assert!(late_operand_conflict(&returns(fmod), &cell, writes));
+        let wide = Call::new(path("math", "max"), vec![cell.clone().into(), change(), Literal::Number(1.0).into(), Literal::Number(2.0).into()]).into();
+        assert!(!late_operand_conflict(&returns(wide), &cell, writes));
+        // As the base or key of a store, after the values and earlier stores.
+        let store = |lhs: Vec<LValue>, rhs: Vec<RValue>| -> Statement { Assign::new(lhs, rhs).into() };
+        let at = |base: &RcLocal, key: RValue| -> LValue { Index::new(base.clone().into(), key).into() };
+        assert!(late_store_conflict(&store(vec![at(&other, cell.clone().into())], vec![change()]), &cell, writes));
+        assert!(late_store_conflict(&store(vec![at(&cell, Literal::String(b"x".to_vec()).into())], vec![change()]), &cell, writes));
+        assert!(!late_store_conflict(&store(vec![at(&other, cell.clone().into())], vec![Literal::Number(1.0).into()]), &cell, writes));
+        let two = store(vec![at(&other, Literal::Number(1.0).into()), at(&cell, Literal::Number(1.0).into())],
+            vec![Literal::Number(1.0).into(), Literal::Number(2.0).into()]);
+        assert!(late_store_conflict(&two, &cell, writes));
+        // `reads_first`: a register receiver is read after the arguments.
+        let unchanged = |_: &RValue| true;
+        let receiver = method(&cell, vec![change()]);
+        assert_eq!(reads_first(&receiver, &cell, true, &unchanged), Some(false));
+        assert_eq!(reads_first(&receiver, &cell, false, &unchanged), Some(true));
     }
 
     #[test]
