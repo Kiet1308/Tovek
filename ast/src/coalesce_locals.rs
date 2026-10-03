@@ -87,7 +87,7 @@ impl LocalInfo {
 /// cells keep their identities for the full closure lifetime; unrelated local
 /// values may still reuse storage after their last lexical occurrence.
 pub fn coalesce_generated_locals(block: &mut Block, protected: &FxHashSet<RcLocal>) {
-    coalesce_generated_locals_in_function(block, protected, &[], &[], true);
+    coalesce_generated_locals_in_function(block, protected, &[], &[], Sharing::Eager);
 }
 
 /// The full occurrence collector is needed only above the source binding
@@ -170,17 +170,45 @@ thread_local! {
 /// Locals a Luau function may declare at once.
 pub const LOCAL_LIMIT: usize = 200;
 
+/// How freely locals share storage in a function over [`LOCAL_LIMIT`]. A
+/// decompile starts `Deferred` and retries with the next level while the
+/// finished output still declares too many ([`declared_locals_exceed_limit`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Sharing {
+    /// Temporaries later passes fold into their use stay apart.
+    #[default]
+    Deferred,
+    /// Every unnamed temporary, and source locals of one name (`do local a
+    /// = ... end` repeated past the limit becomes one reassigned `a`).
+    Eager,
+    /// Source locals of any names too; a slot holding several names takes
+    /// none of them (naming infers one), which no source spelled.
+    AnyName,
+}
+
+impl Sharing {
+    /// The next, freer level, if any.
+    pub fn next(self) -> Option<Self> {
+        match self {
+            Sharing::Deferred => Some(Sharing::Eager),
+            Sharing::Eager => Some(Sharing::AnyName),
+            Sharing::AnyName => None,
+        }
+    }
+}
+
 /// Explicit frame ownership keeps unused parameters in the root pressure count
 /// and excludes incoming upvalues, which do not consume local binding slots.
-/// `eager`: also share storage between temporaries later passes would fold
-/// into their use ([`folds_into_its_use`]). Without it, those stay apart, and
-/// the caller checks the finished function ([`declared_locals_exceed_limit`]).
+/// `sharing`: which locals may share storage ([`Sharing`]); short of
+/// `Eager`, temporaries later passes fold into their use
+/// ([`folds_into_its_use`]) stay apart, and the caller checks the finished
+/// function ([`declared_locals_exceed_limit`]).
 pub fn coalesce_generated_locals_in_function(
     block: &mut Block,
     protected: &FxHashSet<RcLocal>,
     parameters: &[RcLocal],
     upvalues: &[RcLocal],
-    eager: bool,
+    sharing: Sharing,
 ) {
     let _phase = crate::telemetry::Span::new("GENERATED_LOCAL_COALESCE");
     #[cfg(not(test))]
@@ -242,9 +270,12 @@ pub fn coalesce_generated_locals_in_function(
 
     let mut values = infos.into_values().collect::<Vec<_>>();
     values.sort_by_key(|info| (info.first, info.last, info.local.stable_id()));
-    let replacements = coalesce_values(values, eager);
+    let (replacements, mixed) = coalesce_values(values, sharing);
     if !replacements.is_empty() {
         crate::replace_locals::replace_locals(block, &replacements);
+    }
+    for local in mixed {
+        local.0.lock().0 = None;
     }
 }
 
@@ -380,15 +411,23 @@ fn folds_into_its_use(info: &LocalInfo) -> bool {
     }
 }
 
-fn coalesce_values(values: Vec<LocalInfo>, eager: bool) -> FxHashMap<RcLocal, RcLocal> {
-    let mut scopes: FxHashMap<ScopeKey, ScopeGroups> = FxHashMap::default();
+/// The replacements, and the slots that took locals of other names.
+fn coalesce_values(values: Vec<LocalInfo>, sharing: Sharing) -> (FxHashMap<RcLocal, RcLocal>, Vec<RcLocal>) {
+    let mut scopes: FxHashMap<(ScopeKey, Option<String>), ScopeGroups> = FxHashMap::default();
     let mut replacements = FxHashMap::default();
+    let mut mixed = Vec::new();
     for info in values {
-        if info.blocked || !is_unnamed(&info.local) || (!eager && folds_into_its_use(&info)) { continue; }
+        if info.blocked || (sharing < Sharing::Eager && folds_into_its_use(&info)) { continue; }
+        // Storage is shared only between locals of one spelling: unnamed
+        // temporaries, or, when eager, source locals of the same name (`do
+        // local a = ... end` repeated past the limit, flattened into one
+        // scope, becomes one reassigned `a`); at `AnyName`, any.
+        let Some(spelling) = storage_spelling(&info.local, sharing) else { continue; };
+        let spelling = if sharing == Sharing::AnyName { None } else { spelling };
         let ready = if info.occurrences.iter().any(|occurrence|
             occurrence.position == info.first && occurrence.branches == info.branch_scope)
         { info.last + 1 } else { 0 };
-        let scope = scopes.entry((info.loop_scope.clone(), info.branch_scope.clone())).or_default();
+        let scope = scopes.entry(((info.loop_scope.clone(), info.branch_scope.clone()), spelling)).or_default();
         let mut start = 0;
         let mut selected = None;
         while let Some(index) = scope.available.first_ready(start, info.first) {
@@ -401,6 +440,12 @@ fn coalesce_values(values: Vec<LocalInfo>, eager: bool) -> FxHashMap<RcLocal, Rc
         }
         if let Some(index) = selected {
             let group = &mut scope.groups[index];
+            if sharing == Sharing::AnyName
+                && storage_spelling(&info.local, sharing) != storage_spelling(&group.representative.local, sharing)
+                && !mixed.contains(&group.representative.local)
+            {
+                mixed.push(group.representative.local.clone());
+            }
             replacements.insert(info.local.clone(), group.representative.local.clone());
             group.members.push(info);
             scope.available.set(index, ready.max(scope.available.minimum[scope.available.size + index]));
@@ -409,7 +454,7 @@ fn coalesce_values(values: Vec<LocalInfo>, eager: bool) -> FxHashMap<RcLocal, Rc
             scope.available.push(ready);
         }
     }
-    replacements
+    (replacements, mixed)
 }
 
 fn can_join_group(group: &CoalesceGroup, info: &LocalInfo) -> bool {
@@ -442,6 +487,26 @@ fn collect_statement_captures(statement: &Statement, captured: &mut FxHashSet<Rc
 
 fn is_unnamed(local: &RcLocal) -> bool {
     !local.preserve_binding() && local.0.0.lock().0.is_none()
+}
+
+/// The spelling a local brings to a shared storage slot: `Some(None)` for an
+/// unnamed temporary, `Some(Some(name))` from `Eager` on for a source local
+/// whose debug intervals all name it the same, `None` when it keeps its own.
+fn storage_spelling(local: &RcLocal, sharing: Sharing) -> Option<Option<String>> {
+    if is_unnamed(local) {
+        return Some(None);
+    }
+    if sharing < Sharing::Eager {
+        return None;
+    }
+    let inner = local.0.lock();
+    if inner.4.conditional_result || inner.4.parameter
+        || !inner.2.iter().all(|binding| matches!(binding.origin, crate::BindingOrigin::DebugLocal { .. }))
+    {
+        return None;
+    }
+    let name = inner.source_name()?;
+    inner.0.as_deref().is_none_or(|own| own == name).then(|| Some(name.to_owned()))
 }
 
 fn paths_are_exclusive(left: &[(usize, bool)], right: &[(usize, bool)]) -> bool {
@@ -814,12 +879,12 @@ mod tests {
             let mut expected = crate::simplify_gotos::deep_clone_block(&block);
             {
                 let _restore = Restore(REFERENCE_PRESSURE_COLLECTOR.with(|flag| flag.replace(true)));
-                coalesce_generated_locals_in_function(&mut expected, &protected, &parameters, &upvalues, true);
+                coalesce_generated_locals_in_function(&mut expected, &protected, &parameters, &upvalues, Sharing::Eager);
             }
             let expected_metadata = all.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>();
             for (local, saved) in all.iter().zip(&metadata) { *local.0.lock() = saved.clone(); }
             let mut actual = crate::simplify_gotos::deep_clone_block(&block);
-            coalesce_generated_locals_in_function(&mut actual, &protected, &parameters, &upvalues, true);
+            coalesce_generated_locals_in_function(&mut actual, &protected, &parameters, &upvalues, Sharing::Eager);
             assert_eq!(actual.to_string(), expected.to_string(), "count={count}");
             let mut actual_origins = Vec::new(); let mut expected_origins = Vec::new();
             origins(&actual, &mut actual_origins); origins(&expected, &mut expected_origins);
@@ -867,7 +932,7 @@ mod tests {
                     group.members.push(info);
                 } else { groups.push(CoalesceGroup { representative: info.clone(), members: vec![info] }); }
             }
-            assert_eq!(coalesce_values(values, true), expected, "seed {seed}");
+            assert_eq!(coalesce_values(values, Sharing::Eager).0, expected, "seed {seed}");
         }
     }
 
@@ -1063,17 +1128,17 @@ mod tests {
         let parameters: Vec<_> = (0..180).map(|_| RcLocal::default()).collect();
         let mut at_limit = locals_block(20);
         let unchanged = at_limit.clone();
-        coalesce_generated_locals_in_function(&mut at_limit, &FxHashSet::default(), &parameters, &[], true);
+        coalesce_generated_locals_in_function(&mut at_limit, &FxHashSet::default(), &parameters, &[], Sharing::Eager);
         assert_eq!(at_limit, unchanged, "200 bindings are legal even with unused parameters");
         let mut over_limit = locals_block(21);
-        coalesce_generated_locals_in_function(&mut over_limit, &FxHashSet::default(), &parameters, &[], true);
+        coalesce_generated_locals_in_function(&mut over_limit, &FxHashSet::default(), &parameters, &[], Sharing::Eager);
         let written: FxHashSet<_> = over_limit.iter().flat_map(|statement| statement.values_written()).collect();
         assert_eq!(written.len(), 1, "the 201st binding triggers conservative reuse");
         let upvalues: Vec<_> = (0..100).map(|_| RcLocal::default()).collect();
         let mut block = locals_block(150);
         block.push(Call::new(Global::from("use").into(), upvalues.iter().cloned().map(RValue::from).collect()).into());
         let unchanged = block.clone();
-        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &upvalues, true);
+        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &upvalues, Sharing::Eager);
         assert_eq!(block, unchanged, "incoming upvalues are not local binding slots");
     }
 
@@ -1131,11 +1196,11 @@ mod tests {
         };
         let written = |block: &Block| block.iter().flat_map(|statement| statement.values_written()).cloned().collect::<FxHashSet<_>>();
         let (mut block, table, temps) = build();
-        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &[], false);
+        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &[], Sharing::Deferred);
         let kept = written(&block);
         assert!(kept.contains(&table) && temps.iter().all(|temp| kept.contains(temp)));
         let (mut block, _, _) = build();
-        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &[], true);
+        coalesce_generated_locals_in_function(&mut block, &FxHashSet::default(), &[], &[], Sharing::Eager);
         assert_eq!(written(&block).len(), 1, "eager sharing gives the temporaries one slot with the table");
     }
 

@@ -179,10 +179,12 @@ impl Local {
 
     pub fn source_name(&self) -> Option<&str> {
         // A local's own debug interval outranks names recorded at capture sites
-        // and the weaker function-prototype name. Conflicting intervals refuse.
+        // and the weaker function-prototype name. Intervals spelling different
+        // names refuse; several of one name (a variable reused across the
+        // source's `do` blocks) agree.
         let mut locals = self.2.iter().filter(|b| matches!(b.origin, BindingOrigin::DebugLocal { .. }));
         if let Some(local) = locals.next() {
-            return locals.next().is_none().then_some(local.name.as_str());
+            return locals.all(|other| other.name == local.name).then_some(local.name.as_str());
         }
         let first = self.2.first()?;
         self.2.iter().all(|b| b.name == first.name).then_some(first.name.as_str())
@@ -515,7 +517,13 @@ mod source_binding_tests {
         assert!(!a.source_bindings_compatible(&b));
         b.inherit_source_bindings(&a);
         assert_eq!(b.0.lock().2.len(), 2);
-        assert_eq!(b.0.lock().source_name(), None);
+        // Once joined (storage shared past the local limit), intervals of one
+        // spelling still name the local; different spellings do not.
+        assert_eq!(b.0.lock().source_name(), Some("value"));
+        let c = RcLocal::default();
+        c.0.lock().add_source_binding(binding(16, "other"));
+        c.inherit_source_bindings(&b);
+        assert_eq!(c.0.lock().source_name(), None);
     }
 
     #[test]

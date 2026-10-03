@@ -373,23 +373,23 @@ fn try_decompile_bytecode_internal(
     // All fallible APIs share the same recovery boundary, including parsing,
     // lifting and final formatting. Worker builds must use panic=unwind too.
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis, false)
+        decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis, Default::default())
     }))
     .unwrap_or_else(|payload| Err(DecompileFailure::message(format!(
         "panicked: {}", panic_payload_message(payload.as_ref())
     ))))
 }
 
-/// `eager_coalescing`: share storage between temporaries before the passes
-/// that fold them (see `coalesce_generated_locals_in_function`); only when a
-/// first attempt leaves a function over Luau's local limit.
+/// `sharing`: which locals share storage before the passes that fold them
+/// (see `coalesce_generated_locals_in_function`); freer only when an attempt
+/// leaves a function over Luau's local limit.
 fn decompile_bytecode_internal(
     bytecode: &[u8],
     encode_key: u8,
     script_name: Option<&str>,
     options: DecompileOptions,
     emit_upvalue_analysis: bool,
-    eager_coalescing: bool,
+    sharing: ast::coalesce_locals::Sharing,
 ) -> Result<DecompileArtifact, DecompileFailure> {
     // Reset the per-thread local-id sequence so this decompilation's `RcLocal`
     // ids (and thus the FxHash-iteration order that depends on them, and the
@@ -566,7 +566,7 @@ fn decompile_bytecode_internal(
                             options.control_flow_policy,
                             readonly_upvalues,
                             written_slots,
-                            eager_coalescing,
+                            sharing,
                         )
                     });
 
@@ -960,11 +960,14 @@ fn decompile_bytecode_internal(
             ast::untruncate_arguments::untruncate_arguments(&mut body);
             drop(late_timer);
             // Temporaries left apart for the folding passes may, where some
-            // did not fold, push a huge function past the local limit: decompile
-            // again sharing their storage up front.
-            if !eager_coalescing && ast::coalesce_locals::declared_locals_exceed_limit(&body) {
+            // did not fold, push a huge function past the local limit, as may
+            // source locals of `do` blocks the output flattens: decompile again
+            // sharing more storage up front.
+            if let Some(next) = sharing.next()
+                && ast::coalesce_locals::declared_locals_exceed_limit(&body)
+            {
                 ast::telemetry::count("eager_coalescing_retries", 1);
-                return decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis, true);
+                return decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis, next);
             }
             // No expression/condition mutation is permitted after this point.
             let name_inference = {
@@ -1738,7 +1741,7 @@ fn decompile_function(
     // Per prototype and upvalue slot, whether closures assign it
     // (`capture_effects`); `None` when that analysis refused.
     written_slots: Option<&[Vec<bool>]>,
-    eager_coalescing: bool,
+    sharing: ast::coalesce_locals::Sharing,
 ) -> (
     ByAddress<Arc<Mutex<ast::Function>>>,
     Vec<ast::RcLocal>,
@@ -1983,7 +1986,7 @@ fn decompile_function(
     // Neither nil-seed history nor a ForOrigin alone would prove their
     // ordering in a later AST rewrite.
     ast::coalesce_locals::coalesce_generated_locals_in_function(
-        &mut lifted, &source_like_protected_locals, &params, &upvalues_in, eager_coalescing,
+        &mut lifted, &source_like_protected_locals, &params, &upvalues_in, sharing,
     );
     drop(coalesce_timer);
     let checks_timer = prof::Timer::new(&prof::F_CHECKS);

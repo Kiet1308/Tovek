@@ -21,24 +21,27 @@ pub fn materialize_vectors(
             RValue::Literal(Literal::Vector(..) | Literal::VectorD(..))
         ) || value.rvalues().into_iter().any(contains_vector)
     }
-    let Some(mut inventory) = crate::lower_conditionals::prepare_local_rewrite(body, |block| {
+    // A tree too large or deep to plan a binding for can still spell its
+    // constants in place.
+    let inventory = match crate::lower_conditionals::prepare_local_rewrite(body, |block| {
         block
             .iter()
             .flat_map(crate::deinline::stmt_rvalues)
             .any(contains_vector)
-    })?
-    else {
-        return Ok(None);
+    }) {
+        Ok(None) => return Ok(None),
+        Ok(Some(inventory)) => Some(inventory),
+        Err(_) => None,
     };
-    let has_headroom =
-        crate::lower_conditionals::local_rewrite_frame_with_bound(body, &[], 0, register_bound)
+    let has_headroom = inventory.is_some()
+        && crate::lower_conditionals::local_rewrite_frame_with_bound(body, &[], 0, register_bound)
             .headroom
             != 0
-            && captures_fit(body);
-    if !has_headroom && !crate::deinline_safety::CaptureSafety::new(body).constant_import(&vector_create()) {
+        && captures_fit(body);
+    if !has_headroom && !constructor_fixed(body) {
         return Err("no local/register or upvalue headroom for the vector constructor binding");
     }
-    let constructor = has_headroom.then(|| {
+    let constructor = inventory.filter(|_| has_headroom).map(|mut inventory| {
         let name = crate::rehoist_constants::unique_name("createVector", &mut inventory.reserved);
         RcLocal::new(Local::new(Some(name)))
     });
@@ -230,6 +233,77 @@ fn captures_fit(body: &Block) -> bool {
     let mut fits = true;
     block(body, &mut FxHashMap::default(), &mut fits);
     fits
+}
+
+/// Whether `vector.create` read anywhere in the chunk is the library's: the
+/// chunk assigns neither the global `vector` nor a member of it, and names
+/// neither getfenv nor setfenv. Luau then resolves the path once at load
+/// time. A work list, not recursion, so any depth is decided.
+fn constructor_fixed(body: &Block) -> bool {
+    fn rooted_at_vector(mut value: &RValue) -> bool {
+        while let RValue::Index(index) = value {
+            value = &index.left;
+        }
+        matches!(value, RValue::Global(global) if global.0 == b"vector")
+    }
+    let mut functions: Vec<triomphe::Arc<parking_lot::Mutex<crate::Function>>> = Vec::new();
+    let mut seen = rustc_hash::FxHashSet::default();
+    // Scans one function body; nested blocks are walked in place.
+    let mut scan = |body: &Block, functions: &mut Vec<_>| -> bool {
+        let mut blocks: Vec<triomphe::Arc<parking_lot::Mutex<Block>>> = Vec::new();
+        let mut check = |statements: &[Statement], blocks: &mut Vec<_>, functions: &mut Vec<_>| -> bool {
+            for statement in statements {
+                if let Statement::Assign(assign) = statement
+                    && assign.left.iter().any(|left| match left {
+                        crate::LValue::Global(global) => global.0 == b"vector",
+                        crate::LValue::Index(index) => rooted_at_vector(&index.left),
+                        crate::LValue::Local(_) => false,
+                    })
+                {
+                    return false;
+                }
+                let mut values: Vec<&RValue> = crate::deinline::stmt_rvalues(statement);
+                while let Some(value) = values.pop() {
+                    match value {
+                        RValue::Global(global) if global.0 == b"getfenv" || global.0 == b"setfenv" => return false,
+                        RValue::Closure(closure) => {
+                            if seen.insert(triomphe::Arc::as_ptr(&closure.function.0) as usize) {
+                                functions.push(closure.function.0.clone());
+                            }
+                        }
+                        _ => values.extend(value.rvalues()),
+                    }
+                }
+                match statement {
+                    Statement::If(node) => blocks.extend([node.then_block.clone(), node.else_block.clone()]),
+                    Statement::While(node) => blocks.push(node.block.clone()),
+                    Statement::Repeat(node) => blocks.push(node.block.clone()),
+                    Statement::NumericFor(node) => blocks.push(node.block.clone()),
+                    Statement::GenericFor(node) => blocks.push(node.block.clone()),
+                    _ => {}
+                }
+            }
+            true
+        };
+        if !check(&body.0, &mut blocks, functions) {
+            return false;
+        }
+        while let Some(block) = blocks.pop() {
+            if !check(&block.lock().0, &mut blocks, functions) {
+                return false;
+            }
+        }
+        true
+    };
+    if !scan(body, &mut functions) {
+        return false;
+    }
+    while let Some(function) = functions.pop() {
+        if !scan(&function.lock().body, &mut functions) {
+            return false;
+        }
+    }
+    true
 }
 
 fn vector_create() -> RValue {

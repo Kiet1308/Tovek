@@ -544,6 +544,18 @@
       "bytes": 611,
       "lines": 27
     },
+    "semantic/deep_expression_vector_constant__O0.luau": {
+      "bytes": 2783,
+      "lines": 28
+    },
+    "semantic/deep_expression_vector_constant__O1.luau": {
+      "bytes": 2783,
+      "lines": 28
+    },
+    "semantic/deep_expression_vector_constant__O2.luau": {
+      "bytes": 2762,
+      "lines": 27
+    },
     "semantic/deinline_free_cell_read_late__O0.luau": {
       "bytes": 161,
       "lines": 13
