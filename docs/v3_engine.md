@@ -161,7 +161,9 @@ Mục tiêu 10x **không đạt được** dưới ràng buộc output giống h
 không pha nào quá ~12%, và mỗi pha đã là thuật toán hợp lý chạy trên một cây AST mà hàng chục pass
 lần lượt duyệt. Mọi thay đổi cấu trúc dữ liệu (băm → mảng, arena, allocator, khoá/atomic) chỉ cho
 vài phần trăm. Trần thực tế của hướng "viết lại chính xác từng pha" ước khoảng 2x so với v2.2;
-V3 hiện ở 1,49x (1 luồng) / 1,28x (24 luồng).
+V3 hiện ở 1,49x (1 luồng) / 1,28x (24 luồng), so với một bản v2.2 local vốn chậm hơn
+release; so với release v2.1.1 là 1,31x / 1,14x. Mọi hướng đã đo và loại được gộp ở
+[performance/dead_ends.md](performance/dead_ends.md).
 
 Muốn vượt xa hơn cần một trong các hướng không còn giữ nguyên từng byte:
 

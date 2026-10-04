@@ -5,6 +5,11 @@ Mục tiêu: xác định có tồn tại một bước nhảy hiệu năng lớ
 giữ nguyên chất lượng output hay không. Đây là tài liệu nghiên cứu: mọi con số
 ghi rõ là **đo** hay **ước lượng**.
 
+> **Cập nhật 2026-10-04:** ước lượng 2,5x–4x dưới đây đã không thành hiện thực. Đo
+> thực tế: locality/arena 0%, engine V3 cuối cùng 1,31x (1 luồng) so với release
+> v2.1.1. Xem [v3_engine.md](../v3_engine.md) §8 và danh sách các hướng đã loại ở
+> [dead_ends.md](dead_ends.md).
+
 ## 1. Kết luận
 
 - **Không còn đòn bẩy nhỏ.** 14 vòng tối ưu trước (W1–W14, xem
