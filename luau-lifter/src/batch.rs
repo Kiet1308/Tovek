@@ -91,6 +91,26 @@ pub fn run_with_cache(
         }
     };
     let locked_out_root = generation_lock.output_root();
+    // Every check that can refuse the run comes before the previous
+    // generation's manifest is invalidated: a refused run leaves it intact.
+    let cache = match cache_dir {
+        Some(_) if crate::decompile_cache::diagnostic_environment() => {
+            eprintln!("cache bypassed: diagnostic environment requires fresh execution");
+            None
+        }
+        Some(path) => {
+            let Some(max_bytes) = cache_max_mib.checked_mul(1024 * 1024).filter(|&n| n > 0) else {
+                eprintln!("error: invalid cache byte limit");
+                return 2;
+            };
+            match crate::decompile_cache::Cache::open(path, max_bytes, &_src_root, &out_root) {
+                Ok(cache) => Some(cache),
+                Err(error) => { eprintln!("error: cache: {error}"); return 2; }
+            }
+        }
+        None => None,
+    };
+
     if emit_upvalue_analysis || !work.is_empty() {
         if let Err(error) = invalidate_analysis_manifest(locked_out_root) {
             eprintln!("error: invalidate previous analysis manifest: {error}");
@@ -111,24 +131,6 @@ pub fn run_with_cache(
     if let Err(code) = precreate_dirs(&work) {
         return code;
     }
-
-    let cache = match cache_dir {
-        Some(_) if crate::decompile_cache::diagnostic_environment() => {
-            eprintln!("cache bypassed: diagnostic environment requires fresh execution");
-            None
-        }
-        Some(path) => {
-            let Some(max_bytes) = cache_max_mib.checked_mul(1024 * 1024).filter(|&n| n > 0) else {
-                eprintln!("error: invalid cache byte limit");
-                return 2;
-            };
-            match crate::decompile_cache::Cache::open(path, max_bytes, &_src_root, &out_root) {
-                Ok(cache) => Some(cache),
-                Err(error) => { eprintln!("error: cache: {error}"); return 2; }
-            }
-        }
-        None => None,
-    };
 
     size_pool(threads);
 

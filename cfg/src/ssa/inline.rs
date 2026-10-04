@@ -1093,11 +1093,11 @@ fn fold_table_constructor_field_assignments(
             // key the constructor already lists stays a statement: the later
             // store is a mutation, and `{ k = a, k = b }` is never how a table
             // is written.
-            let slot = match table
-                .0
+            // The last listed entry for the key's slot is the one the store
+            // overwrites (`{[0] = 0, [-0] = 10}` keeps 10 in slot 0).
+            let slot = match table.0[..initial_len.min(table.0.len())]
                 .iter()
-                .take(initial_len)
-                .position(|(k, _)| k.as_ref() == Some(key))
+                .rposition(|(k, _)| k.as_ref().is_some_and(|k| ast::same_table_key(k, key)))
             {
                 Some(p)
                     if ast::is_inert_entry_value(&table.0[p].1)

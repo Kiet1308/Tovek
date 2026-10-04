@@ -1969,7 +1969,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             // a name, `)` or `]` this statement ends with. Any statement may
             // end in `;` (a block may not start with one).
             if block.get(next_non_comment).is_some_and(Self::statement_starts_with_parenthesis)
-                && self.statement_may_continue(statement)
+                && Self::statement_may_continue(statement)
             {
                 write!(self.output, ";")?;
             }
@@ -2904,52 +2904,53 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     /// Render an rvalue using the normal formatter path into a fresh `String`,
     /// sharing the current indentation level and colon-method context.
-    /// A formatter with this one's settings writing into `buffer`, recording
-    /// nothing.
-    fn scratch<'b>(&self, buffer: &'b mut String) -> Formatter<'b, String> {
-        Formatter {
+    fn render_rvalue_to_string(&self, rvalue: &RValue) -> Option<String> {
+        let mut buffer = String::new();
+        let mut sub = Formatter {
             indentation_level: self.indentation_level,
             indentation_mode: match &self.indentation_mode {
                 IndentationMode::Spaces(n) => IndentationMode::Spaces(*n),
                 IndentationMode::Tab => IndentationMode::Tab,
             },
-            output: buffer,
+            output: &mut buffer,
             colon_method_calls: self.colon_method_calls.clone(),
             position_query: None,
             closure_observer: None,
             emission_map: None,
             layout_budget: self.layout_budget,
             compact_annotations: self.compact_annotations,
-        }
-    }
-
-    fn render_rvalue_to_string(&self, rvalue: &RValue) -> Option<String> {
-        let mut buffer = String::new();
-        self.scratch(&mut buffer).format_rvalue(rvalue).ok()?;
+        };
+        sub.format_rvalue(rvalue).ok()?;
         Some(buffer)
     }
 
     /// Whether `statement`, as printed, ends in a token a following `(`
-    /// would continue as a call: a name (`continue` too, which Luau may
-    /// read as one), `)` or `]`. Not a keyword, a number, a string, `}`.
-    fn statement_may_continue(&self, statement: &Statement) -> bool {
-        let mut buffer = String::new();
-        if self.scratch(&mut buffer).format_statement_inner(statement).is_err() {
-            return true;
+    /// would continue as a call: a name (`continue` too, which Luau may read
+    /// as one), `)` or `]`; not a keyword, a number, a string, `}`. Read off
+    /// the tree, never by printing it: a block ends in `end` however deep.
+    fn statement_may_continue(statement: &Statement) -> bool {
+        match statement {
+            Statement::If(_) | Statement::While(_) | Statement::NumericFor(_) | Statement::GenericFor(_) => false,
+            Statement::Repeat(repeat) => Self::rvalue_may_continue(&repeat.condition),
+            // `local a, b` ends a name list, which no call continues.
+            Statement::Assign(assign) => assign.right.last().is_some_and(Self::rvalue_may_continue),
+            Statement::Return(r#return) => r#return.values.last().is_some_and(Self::rvalue_may_continue),
+            Statement::Break(_) | Statement::Label(_) | Statement::Comment(_) | Statement::Empty(_) => false,
+            _ => true,
         }
-        let text = buffer.trim_end();
-        match text.chars().next_back() {
-            Some(')' | ']') => true,
-            Some(last) if last == '_' || last.is_ascii_alphanumeric() => {
-                let start = text
-                    .rfind(|c: char| c != '_' && !c.is_ascii_alphanumeric())
-                    .map_or(0, |at| at + 1);
-                let word = &text[start..];
-                // A word starting with a digit is a number.
-                !word.starts_with(|c: char| c.is_ascii_digit())
-                    && !matches!(word, "end" | "true" | "false" | "nil" | "break" | "return")
-            }
-            _ => false,
+    }
+
+    /// [`Self::statement_may_continue`] for the expression a statement ends
+    /// with; an operand the formatter parenthesizes ends in `)`.
+    fn rvalue_may_continue(value: &RValue) -> bool {
+        match value {
+            // `(0 / 0)`, `-(0 / 0)`; other numbers end in a digit.
+            RValue::Literal(Literal::Number(number)) => number.is_nan(),
+            RValue::Literal(Literal::Vector(..) | Literal::VectorD(..)) => true,
+            RValue::Literal(_) | RValue::Table(_) | RValue::Closure(_) | RValue::VarArg(_) => false,
+            RValue::Unary(unary) => unary.group() || Self::rvalue_may_continue(&unary.value),
+            RValue::Binary(binary) => binary.right_group() || Self::rvalue_may_continue(&binary.right),
+            _ => true,
         }
     }
 

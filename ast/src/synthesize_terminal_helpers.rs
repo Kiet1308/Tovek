@@ -46,9 +46,10 @@ struct Group {
 pub fn synthesize_terminal_helpers(body: &mut Block) -> usize {
     crate::factor_common_tails::unshare_blocks(body);
     // A helper is a new closure with the globals its creating function has
-    // then: after a `setfenv`, its copy of the code reads other globals.
+    // then: after a `setfenv`, its copy of the code reads other globals; and
+    // a new call frame, which `debug.info` under another name may read.
     let safety = CaptureSafety::new(body);
-    if safety.dynamic_environment() {
+    if safety.dynamic_environment() || safety.call_frames_untracked() {
         return 0;
     }
     synthesize_in_existing_closures(&mut body.0, &safety) + synthesize_scope(&mut body.0, &safety)
@@ -172,6 +173,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>, safety: &CaptureSafety) -> usize
                 parameter_name_hints: Vec::new(),
                 is_variadic: false,
                 body: Block(helper_body),
+                upvalue_inputs: Vec::new(),
             }))),
             // Ref is the conservative capture mode: reads observe the value at
             // call time and any local writes retain their original cell identity.
@@ -840,7 +842,7 @@ fn statement_movable(statement: &Statement) -> bool {
     }
     if crate::deinline::stmt_rvalues(statement)
         .into_iter()
-        .any(|value| !rvalue_movable(value))
+        .any(|value| !rvalue_movable(value) || crate::deinline_safety::calls_debug_info(value))
     {
         return false;
     }
@@ -1186,16 +1188,20 @@ mod tests {
         body
     }
 
-    /// After `setfenv`, a helper created earlier keeps the old globals.
+    /// After `setfenv` (or `_G.setfenv`), a helper created earlier keeps the
+    /// old globals.
     #[test]
     fn a_dynamic_environment_disables_synthesis() {
         let frames = local("frames");
-        let setfenv = Statement::Call(Call::new(global("setfenv"), vec![
-            RValue::Literal(Literal::Number(1.0)),
-            RValue::Table(crate::Table::default()),
-        ]));
-        let mut body = duplicated_search_scope(&frames, vec![setfenv], Vec::new);
-        assert_eq!(synthesize_terminal_helpers(&mut body), 0);
+        let through_g = Index::new(global("_G"), RValue::Literal(Literal::from("setfenv"))).into();
+        for setfenv in [global("setfenv"), through_g] {
+            let setfenv = Statement::Call(Call::new(setfenv, vec![
+                RValue::Literal(Literal::Number(1.0)),
+                RValue::Table(crate::Table::default()),
+            ]));
+            let mut body = duplicated_search_scope(&frames, vec![setfenv], Vec::new);
+            assert_eq!(synthesize_terminal_helpers(&mut body), 0);
+        }
         let mut plain = duplicated_search_scope(&frames, Vec::new(), Vec::new);
         assert_eq!(synthesize_terminal_helpers(&mut plain), 1);
     }

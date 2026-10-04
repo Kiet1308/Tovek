@@ -14,8 +14,10 @@ pub(crate) struct CaptureSafety {
     captured: FxHashSet<u64>,
     /// Globals the module assigns somewhere.
     written_globals: FxHashSet<Vec<u8>>,
-    /// The module reads `getfenv` or `setfenv`.
+    /// The module names `getfenv` or `setfenv` (`_G.setfenv` too).
     dynamic_environment: bool,
+    /// How the module reaches `debug.info`, which reads call frames.
+    frames: FrameReads,
     /// The locals each function reads as upvalues, by its identity.
     upvalues: FxHashMap<usize, FxHashSet<u64>>,
     /// Who may run a function that assigns a cell (see [`Self::private_writers`]).
@@ -24,6 +26,18 @@ pub(crate) struct CaptureSafety {
     nodes: usize,
     literal_bytes: usize,
     exhausted: bool,
+}
+
+/// Reads of the `debug` library, against those that only call `debug.info`
+/// or fetch another member by name: any other use lets `debug.info` run
+/// under another name.
+#[derive(Default)]
+struct FrameReads {
+    library: u32,
+    members: u32,
+    info: u32,
+    info_calls: u32,
+    computed: bool,
 }
 
 /// How the module's functions reach each other, by function identity: what
@@ -61,7 +75,8 @@ impl CaptureSafety {
     /// (passed as a value, stored, returned, rebound), so any call or
     /// metamethod might.
     fn private_writers(&self, cell: u64) -> Option<std::rc::Rc<FxHashSet<u64>>> {
-        if self.exhausted {
+        // `debug.info(1, "f")` hands out the running function itself.
+        if self.exhausted || self.reads_call_frames() {
             return None;
         }
         let calls = &self.calls;
@@ -119,6 +134,19 @@ impl CaptureSafety {
     }
 
     pub(crate) fn complete(&self) -> bool { !self.exhausted }
+
+    /// The module calls `debug.info`, whose answer depends on the call
+    /// frames running: the same code in a helper sees another frame.
+    pub(crate) fn reads_call_frames(&self) -> bool {
+        self.exhausted || self.frames.info_calls > 0 || self.call_frames_untracked()
+    }
+
+    /// `debug.info` (or the whole library) may run under another name, so
+    /// no body can be shown free of it.
+    pub(crate) fn call_frames_untracked(&self) -> bool {
+        let frames = &self.frames;
+        self.exhausted || frames.computed || frames.library > frames.members || frames.info > frames.info_calls
+    }
 
     /// Whether some function assigns `local` as its upvalue: then a call
     /// made while its declaring function runs may change it.
@@ -302,14 +330,28 @@ impl CaptureSafety {
             _ => 0,
         };
         if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
-        if let RValue::Global(global) = value
-            && matches!(global.0.as_slice(), b"getfenv" | b"setfenv")
+        // The name read as a global or as a key (`_G.setfenv`), as Luau's
+        // compiler and the chunk's string table see it.
+        if let RValue::Global(crate::Global(name)) | RValue::Literal(crate::Literal::String(name)) = value
+            && matches!(name.as_slice(), b"getfenv" | b"setfenv")
         {
             self.dynamic_environment = true;
         }
         match value {
             RValue::Local(local) => *self.calls.reads.entry(local.stable_id()).or_default() += 1,
-            RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => self.call(call, owner),
+            RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => {
+                self.call(call, owner);
+                self.frames.info_calls += u32::from(debug_member(&call.value) == Some(Some(b"info".as_slice())));
+            }
+            _ if is_debug_library(value) => self.frames.library += 1,
+            RValue::Index(_) => match debug_member(value) {
+                Some(Some(name)) => {
+                    self.frames.members += 1;
+                    self.frames.info += u32::from(name == b"info");
+                }
+                Some(None) => self.frames.computed = true,
+                None => {}
+            },
             _ => {}
         }
         if let RValue::Literal(crate::Literal::String(bytes)) = value {
@@ -340,6 +382,42 @@ impl CaptureSafety {
                 !self.exhausted
             });
         }
+    }
+}
+
+/// `debug`, or `_G.debug`.
+fn is_debug_library(value: &RValue) -> bool {
+    match value {
+        RValue::Global(global) => global.0 == b"debug",
+        RValue::Index(index) => matches!(index.left.as_ref(), RValue::Global(global) if global.0 == b"_G")
+            && matches!(index.right.as_ref(), RValue::Literal(Literal::String(name)) if name == b"debug"),
+        _ => false,
+    }
+}
+
+/// For `debug.<name>`, `Some(Some(name))`; for a computed member of
+/// `debug`, `Some(None)`; anything else `None`.
+fn debug_member(value: &RValue) -> Option<Option<&[u8]>> {
+    let RValue::Index(index) = value else { return None };
+    if !is_debug_library(&index.left) {
+        return None;
+    }
+    Some(match index.right.as_ref() {
+        RValue::Literal(Literal::String(name)) => Some(name.as_slice()),
+        _ => None,
+    })
+}
+
+/// Whether `value` calls `debug.info`, closure bodies included: a helper
+/// built from it would read its own frame instead of its caller's.
+pub(crate) fn calls_debug_info(value: &RValue) -> bool {
+    match value {
+        RValue::Call(call) | RValue::Select(crate::Select::Call(call))
+            if debug_member(&call.value) == Some(Some(b"info".as_slice())) => true,
+        RValue::Closure(closure) => closure.function.lock().body.any_statement_deep(&mut |statement| {
+            crate::deinline::stmt_rvalues(statement).into_iter().any(calls_debug_info)
+        }),
+        _ => !value.visit_rvalues(&mut |child| !calls_debug_info(child)),
     }
 }
 
@@ -547,5 +625,44 @@ mod tests {
         let safety = CaptureSafety::new(&block);
         assert!(safety.stable(&RValue::Local(once)));
         assert!(!safety.stable(&RValue::Local(rebound)));
+    }
+
+    fn global(name: &str) -> RValue { RValue::Global(crate::Global::from(name)) }
+    fn member(left: RValue, name: &str) -> RValue {
+        crate::Index::new(left, crate::Literal::String(name.as_bytes().to_vec()).into()).into()
+    }
+    fn census(values: Vec<RValue>) -> CaptureSafety {
+        CaptureSafety::new(&Block(values.into_iter().map(|value| crate::Return::new(vec![value]).into()).collect()))
+    }
+
+    /// `setfenv` reached through `_G` changes the environment as much as the
+    /// bare global does.
+    #[test]
+    fn environment_functions_count_however_they_are_named() {
+        assert!(!census(vec![global("print")]).dynamic_environment());
+        assert!(census(vec![global("setfenv")]).dynamic_environment());
+        assert!(census(vec![member(global("_G"), "setfenv")]).dynamic_environment());
+        assert!(census(vec![member(global("_G"), "getfenv")]).dynamic_environment());
+    }
+
+    /// A direct `debug.info(...)` call reads frames; any other use of the
+    /// library may call it under another name.
+    #[test]
+    fn debug_info_is_tracked_by_its_calls() {
+        let call = |callee: RValue| -> RValue { crate::Call::new(callee, vec![]).into() };
+        let traceback = census(vec![call(member(global("debug"), "traceback"))]);
+        assert!(!traceback.reads_call_frames());
+        for direct in [member(global("debug"), "info"), member(member(global("_G"), "debug"), "info")] {
+            let safety = census(vec![call(direct)]);
+            assert!(safety.reads_call_frames() && !safety.call_frames_untracked());
+        }
+        for escaped in [
+            global("debug"),
+            member(global("_G"), "debug"),
+            member(global("debug"), "info"),
+            crate::Index::new(global("debug"), global("key")).into(),
+        ] {
+            assert!(census(vec![escaped]).call_frames_untracked());
+        }
     }
 }

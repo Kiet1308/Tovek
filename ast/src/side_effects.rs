@@ -108,6 +108,20 @@ pub fn is_total_table_key(key: &crate::RValue) -> bool {
     }
 }
 
+/// Whether two keys provably name one table slot: literals compared as the
+/// table compares them, numbers by value (`[0]` and `[-0]` are one slot),
+/// vectors by component. A key that is not a literal proves nothing.
+pub fn same_table_key(left: &crate::RValue, right: &crate::RValue) -> bool {
+    use crate::{Literal, RValue};
+    match (left, right) {
+        (RValue::Literal(Literal::Number(a)), RValue::Literal(Literal::Number(b))) => a == b,
+        (RValue::Literal(Literal::Vector(a, b, c)), RValue::Literal(Literal::Vector(x, y, z))) => a == x && b == y && c == z,
+        (RValue::Literal(Literal::VectorD(a, b, c)), RValue::Literal(Literal::VectorD(x, y, z))) => a == x && b == y && c == z,
+        (RValue::Literal(left), RValue::Literal(right)) => left == right,
+        _ => false,
+    }
+}
+
 /// Total-purity check for a table constructor, including key validity.
 pub(crate) fn is_total_table(table: &crate::Table) -> bool {
     table.0.iter().all(|(key, value)| {

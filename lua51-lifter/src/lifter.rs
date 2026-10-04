@@ -524,15 +524,17 @@ impl<'a, 'b> Lifter<'a, 'b> {
                         .into(),
                     );
 
+                    // The copy runs only on the edge into the jump after
+                    // TESTSET, a block other jumps may share.
                     let assign = ast::Assign::new(
                         vec![self.locals[destination].clone().into()],
                         vec![value.clone()],
                     );
-
-                    self.function
-                        .block_mut(self.nodes[&(end + 1)])
-                        .unwrap()
-                        .push(assign.into());
+                    let jump_node = self.get_node(&(end + 1));
+                    assert!(self
+                        .insert_between
+                        .insert(self.nodes[&start], (jump_node, assign.into()))
+                        .is_none());
                 }
                 &Instruction::PrepMethodCall {
                     destination,

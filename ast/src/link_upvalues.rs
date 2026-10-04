@@ -30,8 +30,9 @@ fn link_block(body: &mut Block, upvalues: &Inputs, locals: &FxHashMap<RcLocal, R
         statement.traverse_rvalues(&mut |value| {
             if let RValue::Closure(closure) = value {
                 // A function the lifter wrote itself, already in source form,
-                // has no bytecode inputs.
-                let inputs = upvalues.get(&closure.function).map_or(&[][..], Vec::as_slice);
+                // carries its own inputs.
+                let written = std::mem::take(&mut closure.function.lock().upvalue_inputs);
+                let inputs = upvalues.get(&closure.function).map_or(&written[..], Vec::as_slice);
                 let locals = inputs.iter().zip(&closure.upvalues).map(|(old, capture)| {
                     let (Upvalue::Copy(new) | Upvalue::Ref(new)) = capture;
                     (old.clone(), new.clone())

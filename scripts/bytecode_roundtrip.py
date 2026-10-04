@@ -1043,15 +1043,18 @@ def run(cmd, **kw):
     return subprocess.run(cmd, capture_output=True, **kw)
 
 
-def read_saved_bytecode(path: pathlib.Path) -> bytes | None:
+class NoBytecode(Exception):
+    """A saved script without bytecode: only its comment header."""
+
+
+def read_saved_bytecode(path: pathlib.Path) -> bytes:
+    """The bytecode a saved script holds; raises NoBytecode for a header-only
+    file and ValueError for a body that is not base64."""
     text = path.read_text(encoding="utf-8", errors="replace")
     body = "".join(line.strip() for line in text.splitlines() if not line.lstrip().startswith("--"))
     if not body:
-        return None
-    try:
-        return base64.b64decode(body, validate=False)
-    except Exception:
-        return None
+        raise NoBytecode(path)
+    return base64.b64decode(body, validate=False)
 
 
 _short_counter = [0]
@@ -1159,7 +1162,9 @@ def process_file(args, rel: str, orig_raw: bytes, key: int, decompiled: pathlib.
 
 
 def collect_inputs(args, work: pathlib.Path):
-    """Return (input_dir, key, [(rel, orig_bytes, source_text|None)])."""
+    """Return (input_dir, key, [(rel, orig_bytes, source_text|None)],
+    [result for each input that could not be read or compiled])."""
+    unreadable = []
     if args.sources:
         src_root = pathlib.Path(args.sources)
         inp = work / "in"
@@ -1170,21 +1175,27 @@ def collect_inputs(args, work: pathlib.Path):
             raw, err = compile_source(args.compiler, src, args.source_opt)
             if raw is None:
                 print(f"[COMPILE FAIL] {rel}: {err}")
+                unreadable.append({"file": rel, "status": "source-compile-fail", "error": err})
                 continue
             target = inp / (rel + ".lua")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(base64.b64encode(raw).decode())
             items.append((rel, raw, src.read_text(encoding="utf-8", errors="replace")))
-        return inp, 1, items
+        return inp, 1, items, unreadable
     root = pathlib.Path(args.corpus)
     items = []
     for src in sorted(root.rglob("*.lua")):
         rel = src.relative_to(root).with_suffix("").as_posix()
-        raw = read_saved_bytecode(src)
-        if raw is None:
+        try:
+            raw = read_saved_bytecode(src)
+        except NoBytecode:
+            continue
+        except ValueError as error:
+            print(f"[DECODE FAIL] {rel}: {error}")
+            unreadable.append({"file": rel, "status": "decode-fail", "error": str(error)})
             continue
         items.append((rel, raw, None))
-    return root, args.key, items
+    return root, args.key, items, unreadable
 
 
 def main() -> int:
@@ -1219,12 +1230,14 @@ def main() -> int:
     work.mkdir(parents=True, exist_ok=True)
 
     t0 = time.time()
-    inp, key, items = collect_inputs(args, work)
+    inp, key, items, unreadable = collect_inputs(args, work)
     if args.filter:
         items = [it for it in items if args.filter in it[0]]
+        unreadable = [r for r in unreadable if args.filter in r["file"]]
     if args.limit:
         items = items[: args.limit]
-    if not items:
+        unreadable = unreadable[: max(0, args.limit - len(items))]
+    if not items and not unreadable:
         print("no inputs")
         return 1
 
@@ -1251,6 +1264,8 @@ def main() -> int:
             if src_text is not None and decompiled.exists():
                 r["source_likeness"] = round(source_likeness(src_text, decompiled.read_text(encoding="utf-8", errors="replace")), 4)
             results.append(r)
+    for r in unreadable:
+        results.append(dict(r, protos=0, exact=0, equiv=0, differ=0, missing=[], extra=[], differs=[], tags=[]))
     results.sort(key=lambda r: r["file"])
     t2 = time.time()
 
@@ -1328,6 +1343,9 @@ def main() -> int:
     if bad_status:
         print(f"FAIL: {bad_status} inputs did not round-trip (see status)")
         rc = 1
+    if dec.returncode != 0:
+        print(f"FAIL: the decompiler exited {dec.returncode}")
+        rc = 1
     if args.min_equiv is not None and equiv_ratio < args.min_equiv:
         print(f"FAIL: equiv ratio {equiv_ratio:.4%} < {args.min_equiv:.4%}")
         rc = 1
@@ -1336,6 +1354,11 @@ def main() -> int:
         bfiles = {f["file"]: f for f in base["files"]}
         b_nonequiv = sum(f.get("nonequiv", 0) for f in base["files"] if f["status"] == "ok")
         regressions = []
+        # Every baselined input must still be there, unless a debug filter
+        # chose a subset on purpose.
+        if not args.filter and not args.limit:
+            current = {r["file"] for r in results}
+            regressions += [f"{name}: missing from the inputs" for name in sorted(bfiles) if name not in current]
         for r in results:
             b = bfiles.get(r["file"])
             if b is None:

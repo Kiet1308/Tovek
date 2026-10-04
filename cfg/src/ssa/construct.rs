@@ -718,9 +718,8 @@ pub fn remove_unnecessary_params(
                 }
             }
             if !removable_params.is_empty() && dependency_graph.is_none() {
-                // Build from the untouched raw arguments. Replaying by local
-                // identity in the original order also retains DiGraph's
-                // existing swap-removal/local_to_node behavior exactly.
+                // Build from the untouched raw arguments, then replay the
+                // trivial removals in their original order.
                 let mut graph =
                     ParamDependencyGraph::with_param_names(function, node, |p| cell_param_name(&cell_renamed, local_map, p));
                 for local in deferred_trivial {

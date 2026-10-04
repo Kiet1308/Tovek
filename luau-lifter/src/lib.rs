@@ -2505,6 +2505,29 @@ mod v11_fixtures {
         assert!(out.contains("return"), "got: {out:?}");
     }
 
+    /// FORNPREP keeps limit and step in registers a source `for` has no name
+    /// for: crafted bytecode reading the limit register after the loop must
+    /// not become `for _ = 1, 3 do end; local v; return v`.
+    #[test]
+    fn numeric_for_hidden_limit_read_after_the_loop_is_refused() {
+        const FORNPREP: u8 = 56;
+        const FORNLOOP: u8 = 57;
+        let proto = Proto {
+            max_stack: 3,
+            words: vec![
+                ad(LOADN, 0, 3),
+                ad(LOADN, 1, 1),
+                ad(LOADN, 2, 1),
+                ad(FORNPREP, 0, 1),
+                ad(FORNLOOP, 0, -1),
+                abc(RETURN, 0, 2, 0),
+            ],
+            ..Default::default()
+        };
+        let blob = build_chunk(6, 1, &[], &[proto], 0);
+        assert!(decompile(&blob, 1, None).is_err());
+    }
+
     #[test]
     fn v12_proto_size_boundary_skips_extensions_and_cost() {
         // Append an unknown byte to the first declared proto and increase only

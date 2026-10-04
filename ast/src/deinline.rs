@@ -374,7 +374,7 @@ pub fn deinline(body: &mut Block) {
         return;
     }
     let captures = crate::deinline_safety::CaptureSafety::new(body);
-    if !captures.complete() || captures.dynamic_environment() {
+    if !captures.complete() || captures.dynamic_environment() || captures.call_frames_untracked() {
         crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
@@ -5918,23 +5918,28 @@ fn collect_targets(
             .collect();
         let specializable = branch_conditions_read_any(&pat, &params);
         let (truth_params, optional_params) = truth_tested_params(&pat, &params, &g.parameters);
-        // A parameter whose argument may run code before the body: read once,
-        // first, with the argument evaluated where it stands (`first_reads`)
-        // or, a register local, read when its operation runs
-        // (`first_register_reads`).
-        let first_read = |p: &RcLocal, register: bool| {
-            params.contains(p)
-                && crate::evaluation_order::block_reads_first(&pat, p, register, &|value| captures.unchanged_by_calls(value))
-                && count_local_reads(&pat, p) == 1
-        };
-        let first_reads = g.parameters.iter().filter(|p| first_read(p, false)).cloned().collect();
-        let first_register_reads = g.parameters.iter().filter(|p| first_read(p, true)).cloned().collect();
         let mut locals: FxHashSet<RcLocal> = FxHashSet::default();
         collect_declared_locals(&pat, &mut locals);
         for p in &params {
             locals.remove(p);
         }
         locals.extend(written_params.iter().cloned());
+        // A parameter whose argument may run code before the body: read once,
+        // first, with the argument evaluated where it stands (`first_reads`)
+        // or, a register local, read when its operation runs
+        // (`first_register_reads`). The body's own locals are its registers;
+        // an outer local is its upvalue, fetched where it stands.
+        let facts = crate::evaluation_order::Body {
+            registers: &|local| params.contains(local) || locals.contains(local),
+            unchanged: &|value| captures.unchanged_by_calls(value),
+        };
+        let first_read = |p: &RcLocal, register: bool| {
+            params.contains(p)
+                && crate::evaluation_order::block_reads_first(&pat, p, register, &facts)
+                && count_local_reads(&pat, p) == 1
+        };
+        let first_reads = g.parameters.iter().filter(|p| first_read(p, false)).cloned().collect();
+        let first_register_reads = g.parameters.iter().filter(|p| first_read(p, true)).cloned().collect();
         let mut pat_reads: FxHashSet<RcLocal> = FxHashSet::default();
         collect_reads(&pat, &mut pat_reads);
         let mut free_cells: Vec<RcLocal> = pat_reads
@@ -6456,7 +6461,7 @@ pub(crate) fn body_unsafe(stmts: &[Statement]) -> bool {
         // refused; structural identity guessing would be unsound.
         if stmt_rvalues(s)
             .iter()
-            .any(|rv| rvalue_has_unproven_closure(rv))
+            .any(|rv| rvalue_has_unproven_closure(rv) || crate::deinline_safety::calls_debug_info(rv))
         {
             return true;
         }

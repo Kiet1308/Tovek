@@ -4095,23 +4095,20 @@ impl<'a> Builder<'a> {
         }) {
             return None;
         }
-        if info
-            .nodes
-            .iter()
-            .filter(|node| **node != info.header)
-            .any(|node| {
-                self.function.block(*node).is_some_and(|block| {
-                    block.iter().any(|statement| {
-                        statement
-                            .values_read()
-                            .into_iter()
-                            .chain(statement.values_written())
-                            .any(|local| hidden_operands.iter().any(|hidden| *hidden == *local))
-                            || statement_captures_any(statement, &hidden_operands)
-                    })
-                })
-            })
-        {
+        // The body may neither read nor write the hidden copies, nor may code
+        // around the loop read them (only crafted bytecode reads a register
+        // the loop has freed): the source has no name for them. Outside the
+        // loop a write is the initialization that stores them.
+        let touches_hidden = |statement: &Statement, in_body: bool| {
+            let hidden = |locals: Vec<&RcLocal>| locals.into_iter().any(|local| hidden_operands.contains(local));
+            hidden(statement.values_read())
+                || (in_body && hidden(statement.values_written()))
+                || statement_captures_any(statement, &hidden_operands)
+        };
+        if self.function.blocks().filter(|(node, _)| *node != info.header).any(|(node, block)| {
+            let in_body = info.nodes.contains(&node);
+            block.iter().any(|statement| touches_hidden(statement, in_body))
+        }) {
             return None;
         }
         output.extend(

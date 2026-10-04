@@ -42,7 +42,7 @@ pub fn spell_library_constants(body: &mut Block, mut libraries: Libraries) {
     if !libraries.any() {
         return;
     }
-    let mut shadowed = |name: &str| {
+    let shadowed = |name: &str| {
         let mut found = false;
         visit_locals(body, &mut |local| {
             found |= local.0.lock().0.as_deref() == Some(name);

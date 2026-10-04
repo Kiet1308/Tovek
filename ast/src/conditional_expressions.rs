@@ -874,7 +874,7 @@ fn replace_first_rvalue_use(
                 ) {
                     return true;
                 }
-                if rvalue_prior_unsafe(table_value, captured) {
+                if entry_prior_unsafe(key.as_ref(), table_value, captured) {
                     *before_unsafe = true;
                 }
             }
@@ -1084,7 +1084,7 @@ fn replace_first_rvalue_use_reference(
                 ) {
                     return true;
                 }
-                if rvalue_prior_unsafe(table_value, captured) {
+                if entry_prior_unsafe(key.as_ref(), table_value, captured) {
                     *before_unsafe = true;
                 }
             }
@@ -1108,6 +1108,13 @@ fn can_replace_after_prior_eval(
         || !(crate::is_observable(replacement)
             || contains_global(replacement)
             || reads_captured_local(replacement, captured))
+}
+
+/// A constructor entry, once evaluated and stored: storing under a key that
+/// may be nil or NaN raises (`{[key] = 1, value}` with `key` nil never
+/// evaluates `value`).
+fn entry_prior_unsafe(key: Option<&RValue>, value: &RValue, captured: &dyn Fn(&RcLocal) -> bool) -> bool {
+    rvalue_prior_unsafe(value, captured) || key.is_some_and(|key| !crate::is_total_table_key(key))
 }
 
 fn rvalue_prior_unsafe(value: &RValue, captured: &dyn Fn(&RcLocal) -> bool) -> bool {

@@ -240,3 +240,55 @@ class CountedSetListTriageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GateTests(unittest.TestCase):
+    """The gate must fail when an input disappears or does not decode, or
+    the decompiler fails, however the remaining inputs compare."""
+
+    RETURN = bytes([6, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1]) + struct.pack('<I', 22 | (1 << 16)) + bytes([0, 0, 0, 0, 0, 0, 0])
+
+    def run_gate(self, files, baseline, decompiler_exit=0):
+        import base64
+        import json
+        import pathlib
+        import subprocess
+        import sys
+        import tempfile
+        from unittest import mock
+        import bytecode_roundtrip
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            corpus = root / 'corpus'
+            corpus.mkdir()
+            for name, text in files.items():
+                (corpus / name).write_text(text)
+            (root / 'base.json').write_text(json.dumps(baseline))
+
+            def fake_run(command, **_):
+                if command[1] == 'decompile-folder':
+                    out = pathlib.Path(command[3])
+                    out.mkdir(parents=True, exist_ok=True)
+                    (out / 'good.luau').write_text('return')
+                    return subprocess.CompletedProcess(command, decompiler_exit, b'', b'')
+                return subprocess.CompletedProcess(command, 0, self.RETURN, b'')
+
+            argv = ['bytecode_roundtrip.py', '--lifter', 'lifter', '--compiler', 'compiler', '--corpus', str(corpus),
+                    '--key', '1', '--threads', '1', '--work', str(root / 'work'), '--baseline', str(root / 'base.json')]
+            with mock.patch.object(bytecode_roundtrip, 'run', fake_run), mock.patch.object(sys, 'argv', argv), \
+                    mock.patch('builtins.print'):
+                return bytecode_roundtrip.main()
+
+    def test_undecodable_missing_and_failed_inputs_fail_the_gate(self):
+        import base64
+        good = base64.b64encode(self.RETURN).decode()
+        ok = lambda name: {'file': name, 'status': 'ok', 'nonequiv': 0, 'protos': 1}
+        self.assertEqual(self.run_gate({'good.lua': good}, {'files': [ok('good')]}), 0)
+        # A body that is not base64 fails instead of vanishing.
+        self.assertEqual(self.run_gate({'good.lua': good, 'broken.lua': 'a'}, {'files': [ok('good'), ok('broken')]}), 1)
+        # A baselined input that is gone fails; a header-only script is skipped.
+        self.assertEqual(self.run_gate({'good.lua': good, 'empty.lua': '-- no bytecode'},
+                                       {'files': [ok('good'), ok('gone')]}), 1)
+        self.assertEqual(self.run_gate({'good.lua': good, 'empty.lua': '-- no bytecode'}, {'files': [ok('good')]}), 0)
+        # So does a decompiler that exits with an error.
+        self.assertEqual(self.run_gate({'good.lua': good}, {'files': [ok('good')]}, decompiler_exit=1), 1)

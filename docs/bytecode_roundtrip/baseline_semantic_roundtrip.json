@@ -124,7 +124,15 @@
    "swap_of_two_captured_cells": "review 10-03 (R01-R20) + user reports + fuzz swap",
    "table_constructor_snapshot_before_call": "review 10-03 (R01-R20) + user reports + fuzz swap",
    "vector_constant_full_upvalues": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "deep_expression_vector_constant": "deep expression with a vector constant"
+   "deep_expression_vector_constant": "deep expression with a vector constant",
+   "constructor_key_error_after_branch_call": "review 10-04 (N01-N08, #1, #3)",
+   "debug_info_frame_at_call_site": "review 10-04 (N01-N08, #1, #3)",
+   "function_from_debug_info_writes_cell": "review 10-04 (N01-N08, #1, #3)",
+   "nested_calls_after_blocks": "review 10-04 (N01-N08, #1, #3)",
+   "register_store_target_after_value_call": "review 10-04 (N01-N08, #1, #3)",
+   "signed_zero_table_keys": "review 10-04 (N01-N08, #1, #3)",
+   "upvalue_operand_read_before_call": "review 10-04 (N01-N08, #1, #3)",
+   "vector_nan_sign": "review 10-04 (N01-N08, #1, #3)"
   }
  },
  "summary": {
@@ -373,6 +381,18 @@
    "protos": 7
   },
   {
+   "file": "constructor_key_error_after_branch_call",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
+   "file": "debug_info_frame_at_call_site",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
    "file": "declared_select_prefix",
    "status": "ok",
    "nonequiv": 1,
@@ -535,6 +555,12 @@
    "protos": 2
   },
   {
+   "file": "function_from_debug_info_writes_cell",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
    "file": "generic_break_found",
    "status": "ok",
    "nonequiv": 1,
@@ -673,6 +699,12 @@
    "protos": 1
   },
   {
+   "file": "nested_calls_after_blocks",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 4
+  },
+  {
    "file": "nested_capture_argument",
    "status": "ok",
    "nonequiv": 0,
@@ -751,6 +783,12 @@
    "protos": 4
   },
   {
+   "file": "register_store_target_after_value_call",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
+  },
+  {
    "file": "repeated_select_operand",
    "status": "ok",
    "nonequiv": 2,
@@ -803,6 +841,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 2
+  },
+  {
+   "file": "signed_zero_table_keys",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 3
   },
   {
    "file": "snapshot_compared_after_callback",
@@ -907,6 +951,12 @@
    "protos": 2
   },
   {
+   "file": "upvalue_operand_read_before_call",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 7
+  },
+  {
    "file": "value_capture_of_cell_copy",
    "status": "ok",
    "nonequiv": 0,
@@ -917,6 +967,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 5
+  },
+  {
+   "file": "vector_nan_sign",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
   },
   {
    "file": "while_header_opens_for",

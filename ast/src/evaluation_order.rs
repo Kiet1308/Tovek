@@ -167,52 +167,66 @@ pub fn statement_with_registers(statement: &Statement, capture: &impl Fn(&RcLoca
     out
 }
 
+/// What [`reads_first`] knows of the body it reads.
+pub(crate) struct Body<'a> {
+    /// The locals the body's function holds in registers, which an operation
+    /// reads when it runs; any other is an upvalue, fetched where it stands.
+    pub registers: &'a dyn Fn(&RcLocal) -> bool,
+    /// Reads no code can change: a stable local, a constant import.
+    pub unchanged: &'a dyn Fn(&RValue) -> bool,
+}
+
+impl Body<'_> {
+    fn in_register(&self, local: &RcLocal) -> bool { (self.registers)(local) }
+    fn unchanged(&self, value: &RValue) -> bool { (self.unchanged)(value) }
+}
+
 /// In Lua's evaluation order: `Some(true)` when the first observable event of
 /// `value` is reading `local`, `Some(false)` when something observable (a
 /// call, an index, an operator that may dispatch, a skippable operand) comes
 /// first, `None` when `value` does nothing observable and never reads it.
-/// Literals are not observable, nor reads `unchanged` says no code can
+/// Literals are not observable, nor reads `body.unchanged` says no code can
 /// change (a stable local, a constant import): a value computed just before
 /// may run code, so any other read it would now precede decides. Unlike the
 /// event order above, this answers one question cheaply: may a value computed
 /// just before `value` move into that read? `register`: the value standing for
 /// `local` is itself a register local, which an operation reads only when it
 /// runs ([`late_operands`]); any other value is evaluated where it stands.
-pub(crate) fn reads_first(value: &RValue, local: &RcLocal, register: bool, unchanged: &impl Fn(&RValue) -> bool) -> Option<bool> {
+pub(crate) fn reads_first(value: &RValue, local: &RcLocal, register: bool, body: &Body) -> Option<bool> {
     match value {
         RValue::Literal(_) => None,
         RValue::Local(read) if read == local => Some(true),
         // A read the code moved ahead cannot change may be passed over.
-        RValue::Local(_) => (!unchanged(value)).then_some(false),
-        _ if is_import_path(value) => (!unchanged(value)).then_some(false),
+        RValue::Local(_) => (!body.unchanged(value)).then_some(false),
+        _ if is_import_path(value) => (!body.unchanged(value)).then_some(false),
         RValue::Binary(binary) if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) => {
-            reads_first(&binary.left, local, register, unchanged).or(Some(false))
+            reads_first(&binary.left, local, register, body).or(Some(false))
         }
-        RValue::IfExpression(select) => reads_first(&select.condition, local, register, unchanged).or(Some(false)),
-        RValue::Call(call) | RValue::Select(Select::Call(call)) => call_reads_first(call, local, register, unchanged),
+        RValue::IfExpression(select) => reads_first(&select.condition, local, register, body).or(Some(false)),
+        RValue::Call(call) | RValue::Select(Select::Call(call)) => call_reads_first(call, local, register, body),
         RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
-            method_call_reads_first(call, local, register, unchanged)
+            method_call_reads_first(call, local, register, body)
         }
         // Luau hands a register local straight to an arithmetic or comparison
         // instruction and to GETTABLE: it is read when the operation runs,
         // after the other operands (`a * (b * 2)` runs `b * 2` before reading
         // `a`).
         _ if late_operands(value).is_some() => {
-            late_operands_read_first(&late_operands(value).unwrap(), true, local, register, unchanged)
+            late_operands_read_first(&late_operands(value).unwrap(), true, local, register, body)
         }
         // A constructor's SETTABLE reads a register key after the field's value.
         RValue::Table(table) if register => {
             let first = table.0.iter().find_map(|(key, item)| match key {
-                Some(RValue::Local(read)) if read == local => reads_first(item, local, register, unchanged).or(Some(true)),
-                Some(key) => reads_first(key, local, register, unchanged).or_else(|| reads_first(item, local, register, unchanged)),
-                None => reads_first(item, local, register, unchanged),
+                Some(RValue::Local(read)) if read == local => reads_first(item, local, register, body).or(Some(true)),
+                Some(key) => reads_first(key, local, register, body).or_else(|| reads_first(item, local, register, body)),
+                None => reads_first(item, local, register, body),
             });
             first.or(Some(false))
         }
         _ => {
             let mut first = None;
             value.visit_rvalues(&mut |child| {
-                first = reads_first(child, local, register, unchanged);
+                first = reads_first(child, local, register, body);
                 first.is_none()
             });
             first.or(Some(false))
@@ -223,46 +237,46 @@ pub(crate) fn reads_first(value: &RValue, local: &RcLocal, register: bool, uncha
 /// [`reads_first`] of a call: a builtin's FASTCALL takes a register-local
 /// argument as it is, when it runs ([`fastcall_arguments`]); any other call
 /// fetches its callee and copies its arguments in order.
-fn call_reads_first(call: &crate::Call, local: &RcLocal, register: bool, unchanged: &impl Fn(&RValue) -> bool) -> Option<bool> {
+fn call_reads_first(call: &crate::Call, local: &RcLocal, register: bool, body: &Body) -> Option<bool> {
     match fastcall_arguments(call) {
         // Luau may or may not compile it to FASTCALL: assume the order that
         // refuses more, early for other locals, late for a register argument
         // in place of `local`.
-        Some(arguments) => late_operands_read_first(&arguments.iter().collect::<Vec<_>>(), false, local, register, unchanged),
+        Some(arguments) => late_operands_read_first(&arguments.iter().collect::<Vec<_>>(), false, local, register, body),
         None => std::iter::once(&*call.value).chain(&call.arguments)
-            .find_map(|value| reads_first(value, local, register, unchanged)).or(Some(false)),
+            .find_map(|value| reads_first(value, local, register, body)).or(Some(false)),
     }
 }
 
 /// [`reads_first`] of a method call: NAMECALL reads a register receiver after
 /// the arguments, statement or expression alike.
-fn method_call_reads_first(call: &crate::MethodCall, local: &RcLocal, register: bool, unchanged: &impl Fn(&RValue) -> bool) -> Option<bool> {
+fn method_call_reads_first(call: &crate::MethodCall, local: &RcLocal, register: bool, body: &Body) -> Option<bool> {
     if register && matches!(call.value.as_ref(), RValue::Local(read) if read == local) {
-        return call.arguments.iter().find_map(|argument| reads_first(argument, local, register, unchanged)).or(Some(true));
+        return call.arguments.iter().find_map(|argument| reads_first(argument, local, register, body)).or(Some(true));
     }
     std::iter::once(&*call.value).chain(&call.arguments)
-        .find_map(|value| reads_first(value, local, register, unchanged)).or(Some(false))
+        .find_map(|value| reads_first(value, local, register, body)).or(Some(false))
 }
 
 /// [`reads_first`] of an operation reading its register-local operands when
 /// it runs. `definite`: it surely does; otherwise only a register argument in
 /// place of `local` counts as read late.
 fn late_operands_read_first(operands: &[&RValue], definite: bool, local: &RcLocal, register: bool,
-    unchanged: &impl Fn(&RValue) -> bool) -> Option<bool> {
+    body: &Body) -> Option<bool> {
     let late = |operand: &RValue| match operand {
         RValue::Local(read) if read == local => register,
-        RValue::Local(_) => definite,
+        RValue::Local(read) => definite && body.in_register(read),
         _ => false,
     };
     if let Some(first) = operands.iter().filter(|operand| !late(operand))
-        .find_map(|operand| reads_first(operand, local, register, unchanged))
+        .find_map(|operand| reads_first(operand, local, register, body))
     {
         return Some(first);
     }
     for operand in operands {
         match operand {
             RValue::Local(read) if read == local => return Some(true),
-            RValue::Local(_) if !unchanged(operand) => return Some(false),
+            RValue::Local(_) if !body.unchanged(operand) => return Some(false),
             _ => {}
         }
     }
@@ -316,38 +330,44 @@ fn fastcall_arguments(call: &crate::Call) -> Option<&[RValue]> {
 
 /// [`reads_first`] over a block: a statement that only binds locals to
 /// unobservable values is passed over, any other statement decides.
-pub(crate) fn block_reads_first(stmts: &[Statement], local: &RcLocal, register: bool, unchanged: &impl Fn(&RValue) -> bool) -> bool {
+pub(crate) fn block_reads_first(stmts: &[Statement], local: &RcLocal, register: bool, body: &Body) -> bool {
     fn first_of<'a>(
         values: impl IntoIterator<Item = &'a RValue>,
         local: &RcLocal,
         register: bool,
-        unchanged: &impl Fn(&RValue) -> bool,
+        body: &Body,
     ) -> Option<bool> {
-        values.into_iter().find_map(|value| reads_first(value, local, register, unchanged))
+        values.into_iter().find_map(|value| reads_first(value, local, register, body))
     }
     for statement in stmts {
         let first = match statement {
-            // Store addresses, then values, then the stores (see `statement`).
+            // Addresses evaluated where they stand, then the values, then the
+            // register bases and keys SETTABLE reads (see `statement`).
             Statement::Assign(assign) => {
-                let addresses = assign.left.iter().flat_map(|lhs| match lhs {
-                    LValue::Index(index) => [Some(&*index.left), Some(&*index.right)],
-                    _ => [None, None],
-                });
-                let first = first_of(addresses.flatten().chain(&assign.right), local, register, unchanged);
+                let late = |address: &RValue| match address {
+                    RValue::Local(read) if read == local => register,
+                    RValue::Local(read) => body.in_register(read),
+                    _ => false,
+                };
+                let addresses = || assign.left.iter().filter_map(LValue::as_index).flat_map(|index| [&*index.left, &*index.right]);
+                let ordered = addresses().filter(|address| !late(address))
+                    .chain(&assign.right)
+                    .chain(addresses().filter(|address| late(address)));
+                let first = first_of(ordered, local, register, body);
                 // A store into a table or a global can run `__newindex`; one
                 // into a cell the moved value may read changes what it reads.
                 let stores_observably = assign.left.iter().any(|lhs| match lhs {
-                    LValue::Local(stored) => !unchanged(&RValue::Local(stored.clone())),
+                    LValue::Local(stored) => !body.unchanged(&RValue::Local(stored.clone())),
                     _ => true,
                 });
                 if stores_observably { first.or(Some(false)) } else { first }
             }
             // The same order as the call as an expression (a register
             // receiver after the arguments, a FASTCALL argument when it runs).
-            Statement::Call(call) => call_reads_first(call, local, register, unchanged),
-            Statement::MethodCall(call) => method_call_reads_first(call, local, register, unchanged),
-            Statement::If(branch) => reads_first(&branch.condition, local, register, unchanged).or(Some(false)),
-            Statement::Return(ret) => first_of(&ret.values, local, register, unchanged).or(Some(false)),
+            Statement::Call(call) => call_reads_first(call, local, register, body),
+            Statement::MethodCall(call) => method_call_reads_first(call, local, register, body),
+            Statement::If(branch) => reads_first(&branch.condition, local, register, body).or(Some(false)),
+            Statement::Return(ret) => first_of(&ret.values, local, register, body).or(Some(false)),
             Statement::Empty(_) | Statement::Comment(_) => None,
             _ => Some(false),
         };
@@ -584,7 +604,7 @@ mod tests {
             vec![Literal::Number(1.0).into(), Literal::Number(2.0).into()]);
         assert!(late_store_conflict(&two, &cell, writes));
         // `reads_first`: a register receiver is read after the arguments.
-        let unchanged = |_: &RValue| true;
+        let unchanged = Body { registers: &|_| true, unchanged: &|_| true };
         let receiver = method(&cell, vec![change()]);
         assert_eq!(reads_first(&receiver, &cell, true, &unchanged), Some(false));
         assert_eq!(reads_first(&receiver, &cell, false, &unchanged), Some(true));
@@ -627,7 +647,7 @@ mod tests {
         };
         let bind = |value: RValue| -> Statement { Assign::new(vec![other.clone().into()], vec![value]).into() };
         // `local other = 1; object.key = param`: the address is only a local.
-        let unchanged = |_: &RValue| true;
+        let unchanged = Body { registers: &|_| true, unchanged: &|_| true };
         assert!(block_reads_first(&[bind(Literal::Number(1.0).into()), store(object.clone().into(), param.clone().into())], &param, false, &unchanged));
         // `object.field.key = param`: looking up the address can run code.
         assert!(!block_reads_first(&[store(field(&object), param.clone().into())], &param, false, &unchanged));
@@ -640,11 +660,20 @@ mod tests {
         // register `x` when `+` runs. An argument expression in place of `p`
         // is evaluated before that read; a register argument is read with it,
         // after `x`.
-        let changed = |_: &RValue| false;
+        let changed = Body { registers: &|_| true, unchanged: &|_| false };
         let sum = RValue::Binary(crate::Binary::new(other.clone().into(), param.clone().into(), crate::BinaryOperation::Add));
         assert!(block_reads_first(&[Return::new(vec![sum.clone()]).into()], &param, false, &changed));
         assert!(!block_reads_first(&[Return::new(vec![sum.clone()]).into()], &param, true, &changed));
-        assert!(block_reads_first(&[Return::new(vec![sum]).into()], &param, true, &unchanged));
+        assert!(block_reads_first(&[Return::new(vec![sum.clone()]).into()], &param, true, &unchanged));
+        // The same `x + p` with `x` the body's upvalue: GETUPVAL fetches it
+        // first, so an argument moved ahead of it could change what it reads.
+        let upvalue = Body { registers: &|local| *local == param, unchanged: &|_| false };
+        assert!(!block_reads_first(&[Return::new(vec![sum]).into()], &param, false, &upvalue));
+        // `p.key = f()`: SETTABLE reads the register `p` after the value; an
+        // argument expression in place of `p` is evaluated first.
+        let store_call = store(param.clone().into(), call(vec![]));
+        assert!(!block_reads_first(std::slice::from_ref(&store_call), &param, true, &unchanged));
+        assert!(block_reads_first(std::slice::from_ref(&store_call), &param, false, &unchanged));
         // `p:report(change())` as a statement: NAMECALL reads a register
         // receiver after the argument, an argument expression before it.
         let report = Statement::MethodCall(MethodCall { node_origin: Default::default(), value: Box::new(param.clone().into()),

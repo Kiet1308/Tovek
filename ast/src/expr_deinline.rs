@@ -158,8 +158,11 @@ fn run(body: &mut Block, arithmetic_only: bool) {
         for target in &mut targets { target.protect_definition = true; }
     }
     // Luau neither inlines nor imports where a function may get its own
-    // globals (`CaptureSafety::dynamic_environment`).
-    if targets.is_empty() || crate::deinline_safety::CaptureSafety::new(body).dynamic_environment() {
+    // globals, and `debug.info` under another name may see a helper's own
+    // call frame. Every target shares the module's census.
+    if targets.first().is_none_or(|target| {
+        target.captures.dynamic_environment() || target.captures.call_frames_untracked()
+    }) {
         return;
     }
     // f_local -> target index, so we recognise each helper's declaration during
@@ -906,11 +909,18 @@ pub(super) fn first_reads(
     parameters: &[RcLocal],
     captures: &crate::deinline_safety::CaptureSafety,
 ) -> (Vec<RcLocal>, Vec<RcLocal>) {
-    let unchanged = |value: &RValue| captures.unchanged_by_calls(value);
+    // The helper's parameters and locals are its registers; an outer local
+    // is its upvalue, fetched where it stands.
+    let mut declared = FxHashSet::default();
+    crate::deinline::collect_declared_locals(body, &mut declared);
+    let facts = crate::evaluation_order::Body {
+        registers: &|local| parameters.contains(local) || declared.contains(local),
+        unchanged: &|value| captures.unchanged_by_calls(value),
+    };
     let reading = |register| {
         parameters
             .iter()
-            .filter(|parameter| crate::evaluation_order::block_reads_first(body, parameter, register, &unchanged))
+            .filter(|parameter| crate::evaluation_order::block_reads_first(body, parameter, register, &facts))
             .cloned()
             .collect()
     };
@@ -1032,15 +1042,10 @@ mod tests {
         body: Vec<Statement>,
     ) -> Statement {
         let func = Arc::new(Mutex::new(Function {
-            bytecode_proto_id: None,
-            bytecode_function_id: None,
-            retain_for_reconstruction: false,
             name: Some(name.to_string()),
             parameters: params,
-            parameter_annotations: Vec::new(),
-            parameter_name_hints: Vec::new(),
-            is_variadic: false,
             body: Block(body),
+            ..Default::default()
         }));
         Statement::Assign(Assign {
             node_origin: Default::default(),
@@ -1087,7 +1092,8 @@ mod tests {
         let field = RValue::Index(Index::new(lv(&x), string("y")));
         let unchanged = |_: &RValue| true;
         let in_order = |body: RValue| move |p: &RcLocal, arg: &RValue| {
-            crate::evaluation_order::reads_first(&body, p, matches!(arg, RValue::Local(_)), &unchanged) == Some(true)
+            let facts = crate::evaluation_order::Body { registers: &|_| true, unchanged: &unchanged };
+            crate::evaluation_order::reads_first(&body, p, matches!(arg, RValue::Local(_)), &facts) == Some(true)
         };
         let hoist_into = |body: RValue| hoist(&body, &[t.clone()], &[runs_code()], plain, in_order(body.clone()));
 
@@ -1111,7 +1117,8 @@ mod tests {
         let changed = |value: &RValue| !matches!(value, RValue::Local(local) if *local == x);
         let product = bin(lv(&x), BinaryOperation::Mul, lv(&t));
         let first = |p: &RcLocal, arg: &RValue| {
-            crate::evaluation_order::reads_first(&product, p, matches!(arg, RValue::Local(_)), &changed) == Some(true)
+            let facts = crate::evaluation_order::Body { registers: &|_| true, unchanged: &changed };
+            crate::evaluation_order::reads_first(&product, p, matches!(arg, RValue::Local(_)), &facts) == Some(true)
         };
         assert!(hoist(&product, &[t.clone()], &[runs_code()], plain, first) == Some(Hoist::FirstRead));
         let register = local("register");

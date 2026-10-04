@@ -1,11 +1,11 @@
 #[cfg(test)]
-use crate::inline_temps::collect_usage;
+use crate::inline_temps::{collect_closures_in_statement, collect_usage};
 use itertools::Either;
 use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::{
-    inline_temps::{collect_closures_in_statement, is_movable_single_value, Usage},
+    inline_temps::{is_movable_single_value, Usage},
     Binary, BinaryOperation, Block, Call, Global, Index, LValue, Literal, Local, LocalRw, MethodCall,
     RValue, RcLocal, Select, Statement, Table, Traverse, UnaryOperation,
 };

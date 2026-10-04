@@ -44,9 +44,11 @@ impl fmt::Display for Global {
         if Formatter::<fmt::Formatter>::is_valid_name(&self.0) {
             write!(f, "{}", std::str::from_utf8(&self.0).unwrap())
         } else {
+            // A global no identifier spells: the field of the running
+            // function's environment, which GETGLOBAL reads.
             write!(
                 f,
-                "__FENV[\"{}\"]",
+                "getfenv(1)[\"{}\"]",
                 Formatter::<fmt::Formatter>::escape_string(&self.0)
             )
         }

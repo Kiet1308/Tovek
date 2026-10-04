@@ -746,14 +746,10 @@ fn stable_drained_key(key: &RValue) -> bool {
 /// numbers name slots by value (`[0]` and `[-0]` are one slot).
 fn may_name_slot(existing: Option<&RValue>, key: &RValue) -> bool {
     use crate::Literal;
-    let RValue::Literal(key) = key else { return true };
+    let RValue::Literal(literal) = key else { return true };
     match existing {
-        None => matches!(key, Literal::Number(_)),
-        Some(RValue::Literal(existing)) => match (existing, key) {
-            (Literal::Number(a), Literal::Number(b)) => a == b,
-            (Literal::Vector(..) | Literal::VectorD(..), Literal::Vector(..) | Literal::VectorD(..)) => true,
-            _ => existing == key,
-        },
+        None => matches!(literal, Literal::Number(_)),
+        Some(existing @ RValue::Literal(_)) => crate::same_table_key(existing, key),
         Some(_) => true,
     }
 }
@@ -836,12 +832,7 @@ enum Placement {
 /// `{ value = a, value = b }` is never how a table is written, and the
 /// statement form evaluates in exactly the same order.
 fn placement(table: &Table, initial_len: usize, key: &RValue, listed: &crate::ListedKeys) -> Option<Placement> {
-    match table
-        .0
-        .iter()
-        .take(initial_len)
-        .position(|(existing_key, _)| existing_key.as_ref() == Some(key))
-    {
+    match last_entry_for(&table.0[..initial_len.min(table.0.len())], key) {
         // The value takes the listed key's place, ahead of every entry after
         // it, appended stores included (`{a = 1, b = 2}; t.c = g(); t.a = h()`
         // must not become `{a = h(), b = 2, c = g()}`).
@@ -862,7 +853,7 @@ fn placement(table: &Table, initial_len: usize, key: &RValue, listed: &crate::Li
 /// Whether the constructor could take a store to `key` right now. Sinking a
 /// declaration toward a store it cannot absorb only moves the table.
 fn absorbs_store(table: &Table, key: &RValue) -> bool {
-    match table.0.iter().position(|(existing_key, _)| existing_key.as_ref() == Some(key)) {
+    match last_entry_for(&table.0, key) {
         None => true,
         Some(position) => inert_suffix(table, position, table.0.len())
             || (matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil))
@@ -892,13 +883,14 @@ fn insert_table_entry(
 
 /// DUPTABLE templates are keyed placeholders. Keep their logical order
 /// while replacing/removing entries, without repeatedly scanning or shifting
-/// the prefix. The old algorithm searches exactly the first `initial_len`
-/// *live* entries, including appended entries that enter that window after a
+/// the prefix. [`placement`] searches exactly the first `initial_len` *live*
+/// entries, including appended entries that enter that window after a
 /// removal; `boundary` tracks that same moving window in stable slot indices.
 /// Uncommon dynamic keys and SETLIST flush back to the general implementation.
 #[cfg_attr(test, derive(Clone))]
 struct PlaceholderEntries {
-    positions: rustc_hash::FxHashMap<Vec<u8>, std::collections::VecDeque<usize>>,
+    /// Every live slot of each key, in slot order.
+    positions: rustc_hash::FxHashMap<Vec<u8>, Vec<usize>>,
     non_inert: std::collections::BTreeSet<usize>,
     removed: Vec<bool>,
     boundary: usize,
@@ -910,10 +902,10 @@ impl PlaceholderEntries {
             matches!(key, Some(RValue::Literal(crate::Literal::String(_))))
                 && crate::is_inert_entry_value(value)
         }) { return None; }
-        let mut positions: rustc_hash::FxHashMap<_, std::collections::VecDeque<_>> = Default::default();
+        let mut positions: rustc_hash::FxHashMap<_, Vec<_>> = Default::default();
         for (index, (key, _)) in table.0.iter().enumerate() {
             let Some(RValue::Literal(crate::Literal::String(key))) = key else { unreachable!() };
-            positions.entry(key.clone()).or_default().push_back(index);
+            positions.entry(key.clone()).or_default().push(index);
         }
         Some(Self { positions, non_inert: Default::default(),
             removed: vec![false; table.0.len()], boundary: table.0.len() - 1 })
@@ -922,13 +914,14 @@ impl PlaceholderEntries {
     /// [`placement`] over stable slot indices.
     fn placement(&self, table: &Table, key: &RValue) -> Option<Placement> {
         let RValue::Literal(crate::Literal::String(bytes)) = key else { unreachable!() };
-        let Some(position) = self.positions.get(bytes).and_then(|positions| positions.front().copied()) else {
+        let Some(positions) = self.positions.get(bytes).filter(|positions| !positions.is_empty()) else {
             return Some(Placement::Append);
         };
-        if position > self.boundary {
+        let Some(position) = positions.iter().rev().copied().find(|position| *position <= self.boundary) else {
             // Only an appended copy lists the key.
-            None
-        } else if self.non_inert.range(position..).next().is_none() {
+            return None;
+        };
+        if self.non_inert.range(position..).next().is_none() {
             // Ahead of every later entry, appended stores included.
             Some(Placement::Replace(position))
         } else if matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil)) {
@@ -949,7 +942,9 @@ impl PlaceholderEntries {
             }
             Placement::MoveToEnd(position) => {
                 self.removed[position] = true;
-                self.positions.get_mut(bytes).unwrap().pop_front();
+                let positions = self.positions.get_mut(bytes).unwrap();
+                let slot = positions.iter().rposition(|slot| *slot == position).unwrap();
+                positions.remove(slot);
                 // Removed slots are always inside the window. The immediately
                 // following slot therefore remains live, or is appended below.
                 self.boundary += 1;
@@ -957,7 +952,7 @@ impl PlaceholderEntries {
             Placement::Append => {}
         }
         let index = table.0.len();
-        self.positions.entry(bytes.clone()).or_default().push_back(index);
+        self.positions.entry(bytes.clone()).or_default().push(index);
         self.removed.push(false);
         if !inert_value { self.non_inert.insert(index); }
         table.0.push((Some(key), value));
@@ -967,6 +962,12 @@ impl PlaceholderEntries {
         let mut removed = self.removed.into_iter();
         table.0.retain(|_| !removed.next().expect("one marker per stable entry"));
     }
+}
+
+/// The last of `entries` storing into `key`'s slot: the one a store to it
+/// overwrites (`{[0] = 0, [-0] = 10}` keeps 10 in slot 0).
+fn last_entry_for(entries: &[(Option<RValue>, RValue)], key: &RValue) -> Option<usize> {
+    entries.iter().rposition(|(existing, _)| existing.as_ref().is_some_and(|existing| crate::same_table_key(existing, key)))
 }
 
 fn inert_suffix(table: &Table, position: usize, initial_len: usize) -> bool {
@@ -1099,8 +1100,9 @@ mod tests {
         for seed in 0..256usize {
             let initial_len = 16 + seed % 33;
             let initial = Table((0..initial_len).map(|index| {
-                // Include duplicate template keys: the first matching live
-                // entry must remain the selected one even after removals.
+                // Include duplicate template keys: the last matching live
+                // entry in the window must stay the selected one (it is the
+                // one a later store overwrites) even after removals.
                 (Some(string(&format!("field{}", index % (initial_len - seed % 7)))), nil())
             }).collect(), Default::default());
             let mut expected = initial.clone();

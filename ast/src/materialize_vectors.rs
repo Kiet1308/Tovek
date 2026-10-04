@@ -324,8 +324,13 @@ impl Context {
     fn value(&mut self, value: &mut RValue) -> bool {
         let components = match value {
             RValue::Literal(Literal::Vector(x, y, z)) => {
-                // Keep the shortest round-tripping f32 spelling in source.
-                Some([*x, *y, *z].map(|n| ryu::Buffer::new().format(n).parse::<f64>().unwrap()))
+                // Keep the shortest round-tripping f32 spelling in source; a
+                // NaN or infinity keeps its sign, which no spelling carries.
+                Some([*x, *y, *z].map(|n| if n.is_finite() {
+                    ryu::Buffer::new().format_finite(n).parse::<f64>().unwrap()
+                } else {
+                    f64::from(n)
+                }))
             }
             RValue::Literal(Literal::VectorD(x, y, z)) => Some([*x, *y, *z]),
             _ => None,

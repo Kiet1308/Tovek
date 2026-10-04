@@ -42,7 +42,8 @@ impl ListedKeys {
 
     pub fn lists(&self, table: &Table, key: &RValue) -> bool {
         literal_key_hash(key).is_some_and(|hash| {
-            self.0.contains(&hash) && table.0.iter().any(|(listed, _)| listed.as_ref() == Some(key))
+            self.0.contains(&hash)
+                && table.0.iter().any(|(listed, _)| listed.as_ref().is_some_and(|listed| crate::same_table_key(listed, key)))
         })
     }
 

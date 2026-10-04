@@ -513,22 +513,96 @@ fn is_word_byte(c: u8) -> bool {
     c == b'_' || c.is_ascii_alphanumeric()
 }
 
-/// `grep '\bgoto\b\|::[A-Za-z_][A-Za-z0-9_]*::'` — word-bounded `goto` OR a
-/// `::label::`. Scans raw text (matches inside strings/comments too, like grep).
+/// A word-bounded `goto` or a `::label::` in code: string and comment
+/// contents (`print("goto")`) are not code ([`code_only`]).
 fn has_goto(src: &str) -> bool {
-    let b = src.as_bytes();
-    let mut i = 0;
-    while let Some(rel) = src[i..].find("goto") {
-        let pos = i + rel;
-        let before_ok = pos == 0 || !is_word_byte(b[pos - 1]);
-        let after = pos + 4;
-        let after_ok = after >= b.len() || !is_word_byte(b[after]);
-        if before_ok && after_ok {
-            return true;
-        }
-        i = pos + 4;
+    let code = code_only(src.as_bytes());
+    let b = code.as_slice();
+    let word = |at: usize| at < b.len() && is_word_byte(b[at]);
+    let goto = b.windows(4).enumerate()
+        .any(|(at, window)| window == b"goto" && (at == 0 || !word(at - 1)) && !word(at + 4));
+    goto || has_label(b)
+}
+
+/// `src` with every string and comment blanked to spaces (newlines kept), so
+/// a token scan sees only code. Covers quoted, long-bracket and interpolated
+/// strings (blanked whole, `{...}` holes included) and line and long comments.
+fn code_only(src: &[u8]) -> Vec<u8> {
+    /// The level of a long bracket `[==[` opening at `at`.
+    fn long_open(b: &[u8], at: usize) -> Option<usize> {
+        let level = b.get(at + 1..)?.iter().take_while(|&&c| c == b'=').count();
+        (b.get(at) == Some(&b'[') && b.get(at + 1 + level) == Some(&b'[')).then_some(level)
     }
-    has_label(b)
+    /// Just past the `]==]` closing a long bracket of `level` from `at`.
+    fn long_close(b: &[u8], mut at: usize, level: usize) -> usize {
+        while at < b.len() {
+            if b[at] == b']' && b.get(at + 1 + level) == Some(&b']') && b[at + 1..at + 1 + level].iter().all(|&c| c == b'=') {
+                return at + 2 + level;
+            }
+            at += 1;
+        }
+        b.len()
+    }
+    /// Just past the string starting at `at` (its opening quote).
+    fn string_end(b: &[u8], mut at: usize) -> usize {
+        let quote = b[at];
+        at += 1;
+        while at < b.len() {
+            match b[at] {
+                b'\\' => at += 2,
+                c if c == quote => return at + 1,
+                b'{' if quote == b'`' => at = code_end(b, at + 1, true, &mut |_, _| {}) + 1,
+                b'\n' if quote != b'`' => return at,
+                _ => at += 1,
+            }
+        }
+        b.len()
+    }
+    /// Where code from `at` ends: the end of `b`, or with `in_hole` the `}`
+    /// closing an interpolation hole. Each string or comment passed over is
+    /// handed to `skipped` as a span.
+    fn code_end(b: &[u8], mut at: usize, in_hole: bool, skipped: &mut dyn FnMut(usize, usize)) -> usize {
+        let mut depth = 0usize;
+        while at < b.len() {
+            let start = at;
+            match b[at] {
+                b'-' if b.get(at + 1) == Some(&b'-') => {
+                    at = match long_open(b, at + 2) {
+                        Some(level) => long_close(b, at + 2, level),
+                        None => b[at..].iter().position(|&c| c == b'\n').map_or(b.len(), |n| at + n),
+                    };
+                }
+                b'[' if long_open(b, at).is_some() => at = long_close(b, at, long_open(b, at).unwrap()),
+                b'"' | b'\'' | b'`' => at = string_end(b, at),
+                b'{' => {
+                    depth += 1;
+                    at += 1;
+                    continue;
+                }
+                b'}' if in_hole && depth == 0 => return at,
+                b'}' => {
+                    depth = depth.saturating_sub(1);
+                    at += 1;
+                    continue;
+                }
+                _ => {
+                    at += 1;
+                    continue;
+                }
+            }
+            skipped(start, at);
+        }
+        b.len()
+    }
+    let mut out = src.to_vec();
+    code_end(src, 0, false, &mut |from, to| {
+        for byte in &mut out[from..to.min(src.len())] {
+            if *byte != b'\n' {
+                *byte = b' ';
+            }
+        }
+    });
+    out
 }
 
 /// `::[A-Za-z_][A-Za-z0-9_]*::` — two colons, an identifier, two colons.
@@ -670,6 +744,26 @@ mod tests {
         #[cfg(unix)]
         let status = std::os::unix::process::ExitStatusExt::from_raw(code << 8);
         std::process::Output { status, stdout: b"a.luau:1:1: SyntaxError: x".to_vec(), stderr: stderr.as_bytes().to_vec() }
+    }
+
+    /// `goto` and `::label::` count only as code, not inside strings or comments.
+    #[test]
+    fn goto_in_strings_and_comments_is_not_code() {
+        for source in [
+            "print(\"goto\")",
+            "return \"::x::\"",
+            "return 'goto'",
+            "-- goto label\nprint(1)",
+            "--[[ goto ::x:: ]] print(1)",
+            "local s = [==[goto x ::y::]==]",
+            "print(`a{\"goto\"}b{({1})[1]}`)",
+            "print(\"a\\\"goto\")",
+        ] {
+            assert!(!has_goto(source), "{source}");
+        }
+        for source in ["goto continue_1", "do end ::label_1::", "print('x') goto y", "local s = \"a\" goto z"] {
+            assert!(has_goto(source), "{source}");
+        }
     }
 
     /// A checker that crashed or refused its arguments validated nothing.

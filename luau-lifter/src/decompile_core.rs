@@ -1114,6 +1114,48 @@ pub(crate) fn validate_analysis_root_for_write(analysis_root: &Path) -> Result<(
     Ok(())
 }
 
+/// Writes `bytes` to `path` without writing through a link: a symbolic or
+/// hard link left in the output tree would carry the write into another file
+/// (an input, or another output), so it is replaced by a new file. A plain
+/// file only this path names is rewritten in place, and a new path costs one
+/// call, as a plain write does.
+fn write_fresh(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let create = || std::fs::OpenOptions::new().write(true).create_new(true).open(path);
+    let mut file = match create() {
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => match open_unaliased(path) {
+            Some(file) => {
+                file.set_len(0)?;
+                file
+            }
+            None => {
+                std::fs::remove_file(path)?;
+                create()?
+            }
+        },
+        result => result?,
+    };
+    file.write_all(bytes)
+}
+
+/// The plain file at `path`, opened for writing without following a link,
+/// when no other name shares its contents.
+fn open_unaliased(path: &Path) -> Option<std::fs::File> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        let file = std::fs::OpenOptions::new().write(true).custom_flags(FILE_FLAG_OPEN_REPARSE_POINT).open(path).ok()?;
+        windows_contained_fs::is_unaliased_file(&file).then_some(file)
+    }
+    #[cfg(not(windows))]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let metadata = std::fs::symlink_metadata(path).ok()?;
+        (metadata.is_file() && metadata.nlink() == 1).then(|| std::fs::OpenOptions::new().write(true).open(path).ok())?
+    }
+}
+
 /// Pre-create every unique parent directory single-threaded, so the parallel
 /// phase only ever writes files (no concurrent `create_dir_all` race).
 pub(crate) fn precreate_dirs(work: &[Work]) -> Result<(), i32> {
@@ -1126,8 +1168,14 @@ pub(crate) fn precreate_dirs(work: &[Work]) -> Result<(), i32> {
     for (root, dir) in dirs {
         #[cfg(windows)]
         let result = windows_contained_fs::ensure_directory(root, dir);
+        // A directory link must not lead the outputs out of their root.
         #[cfg(not(windows))]
-        let result = std::fs::create_dir_all(dir);
+        let result = std::fs::create_dir_all(dir).and_then(|()| {
+            match std::fs::canonicalize(dir)?.starts_with(std::fs::canonicalize(root)?) {
+                true => Ok(()),
+                false => Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "output directory escapes the output root")),
+            }
+        });
         if let Err(e) = result {
             eprintln!("error: create dir {}: {e}", dir.display());
             return Err(2);
@@ -1397,7 +1445,7 @@ fn decode_preloaded(
             let write_result = if analysis_root.is_some() || w.volt_export.is_some() {
                 atomic_write_contained(&w.output_root, &w.output, b"", w.volt_export.is_none())
             } else {
-                std::fs::write(&w.output, b"")
+                write_fresh(&w.output, b"")
             };
             if let Err(e) = write_result {
                 return (Outcome::Fail(format!("write: {e}")), None, None, None);
@@ -1420,7 +1468,7 @@ fn decode_preloaded(
                 w.volt_export.is_none(),
             )
         } else {
-            std::fs::write(&w.output, &bytecode)
+            write_fresh(&w.output, &bytecode)
         };
         if let Err(error) = write_result {
             return (
@@ -1483,7 +1531,7 @@ fn decode_preloaded(
             w.volt_export.is_none(),
         )
     } else {
-        std::fs::write(&w.output, &source_bytes)
+        write_fresh(&w.output, &source_bytes)
     };
     if let Err(e) = write_result {
         return (Outcome::Fail(format!("write: {e}")), None, None, None);
@@ -1983,6 +2031,7 @@ mod windows_contained_fs {
     const FILE_SYNCHRONOUS_IO_NONALERT: u32 = 0x20;
     const FILE_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
     const OBJ_CASE_INSENSITIVE: u32 = 0x40;
+    const FILE_STANDARD_INFO_CLASS: i32 = 1;
     const FILE_ATTRIBUTE_TAG_INFO_CLASS: i32 = 9;
     const FILE_DISPOSITION_INFO_CLASS: i32 = 4;
     const ERROR_ALREADY_EXISTS: i32 = 183;
@@ -2015,6 +2064,16 @@ mod windows_contained_fs {
     struct FileAttributeTagInfo {
         file_attributes: u32,
         reparse_tag: u32,
+    }
+
+    #[repr(C)]
+    #[derive(Default)]
+    struct FileStandardInfo {
+        allocation_size: i64,
+        end_of_file: i64,
+        number_of_links: u32,
+        delete_pending: u8,
+        directory: u8,
     }
 
     #[repr(C)]
@@ -2480,6 +2539,23 @@ mod windows_contained_fs {
         } else {
             Ok(())
         }
+    }
+
+    /// Whether `file`, opened on a reparse point itself, is a plain file that
+    /// no other name shares: no reparse point, one link.
+    pub(super) fn is_unaliased_file(file: &File) -> bool {
+        let mut tag = FileAttributeTagInfo { file_attributes: 0, reparse_tag: 0 };
+        let mut standard = FileStandardInfo::default();
+        let queried = unsafe {
+            GetFileInformationByHandleEx(file.as_raw_handle() as Handle, FILE_ATTRIBUTE_TAG_INFO_CLASS,
+                &mut tag as *mut _ as *mut c_void, size_of::<FileAttributeTagInfo>() as u32) != 0
+                && GetFileInformationByHandleEx(file.as_raw_handle() as Handle, FILE_STANDARD_INFO_CLASS,
+                    &mut standard as *mut _ as *mut c_void, size_of::<FileStandardInfo>() as u32) != 0
+        };
+        queried
+            && tag.file_attributes & FILE_ATTRIBUTE_REPARSE_POINT == 0
+            && standard.number_of_links == 1
+            && standard.directory == 0
     }
 
     fn reject_reparse(file: &File) -> io::Result<()> {
@@ -3494,7 +3570,9 @@ mod tests {
     }
 
     #[test]
-    fn source_fallback_without_analysis_uses_direct_write() {
+    /// Plain mode writes the output directly, as a new file: a hard link left
+    /// at the output path keeps its old contents instead of taking the write.
+    fn source_fallback_without_analysis_writes_a_fresh_file() {
         let temp = TestDir::new("fallback-direct-write");
         let input = temp.0.join("input.lua");
         let output = temp.0.join("output.lua");
@@ -3524,7 +3602,7 @@ mod tests {
             Outcome::Ok
         ));
         assert_eq!(std::fs::read(&work.output).unwrap(), source);
-        assert_eq!(std::fs::read(hard_link).unwrap(), source);
+        assert_eq!(std::fs::read(hard_link).unwrap(), b"old");
     }
 
     #[test]

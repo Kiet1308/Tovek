@@ -12,7 +12,6 @@ use crate::function::Function;
 // https://github.com/fkie-cad/dewolf/blob/7afe5b46e79a7b56e9904e63f29d54bd8f7302d9/decompiler/pipeline/ssa/phi_dependency_graph.py
 #[derive(Debug)]
 pub struct ParamDependencyGraph {
-    // TODO: does this need to be a stable graph?
     pub graph: DiGraph<RcLocal, ()>,
     pub local_to_node: FxHashMap<RcLocal, NodeIndex>,
 }
@@ -65,13 +64,21 @@ impl ParamDependencyGraph {
         this
     }
 
+    /// `DiGraph` fills the hole with its last node, so the local that pointed
+    /// at the last index now points at `node`.
     pub fn remove_node(&mut self, node: NodeIndex) -> Option<RcLocal> {
-        if let Some(local) = self.graph.remove_node(node) {
+        let local = self.graph.remove_node(node)?;
+        if self.local_to_node.get(&local) == Some(&node) {
             self.local_to_node.remove(&local);
-            Some(local)
-        } else {
-            None
         }
+        let last = NodeIndex::new(self.graph.node_count());
+        if let Some(moved) = self.graph.node_weight(node)
+            && let Some(index) = self.local_to_node.get_mut(moved)
+            && *index == last
+        {
+            *index = node;
+        }
+        Some(local)
     }
 
     pub fn add_node(&mut self, local: RcLocal) -> NodeIndex {

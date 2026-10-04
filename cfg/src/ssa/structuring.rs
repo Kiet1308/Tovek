@@ -753,25 +753,18 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
     //todo!();
 }
 
+/// `t.m(t, ...)` written as `t:m(...)`. Lua 5.1's SELF looks the method up
+/// before the arguments run, Luau's NAMECALL after them, so the arguments
+/// must not run code; and the method needs an identifier's spelling.
 fn match_method_call(call: &ast::Call) -> Option<(&ast::RValue, &str)> {
-    // TODO: make sure `a:method with space()` doesnt happen
-    if !call.arguments.is_empty()
-        && !call.arguments[0].has_side_effects()
-        && let Some(ast::Index {
-            box left,
-            right: box ast::RValue::Literal(ast::Literal::String(index)),
-            ..
-        }) = call.value.as_index()
-        && left == &call.arguments[0]
-    {
-        if let Ok(index) = std::str::from_utf8(index) {
-            Some((left, index))
-        } else {
-            None
-        }
-    } else {
-        None
-    }
+    let [receiver, arguments @ ..] = call.arguments.as_slice() else { return None };
+    let ast::Index { left, right, .. } = call.value.as_index()?;
+    let ast::RValue::Literal(ast::Literal::String(method)) = right.as_ref() else { return None };
+    let method = std::str::from_utf8(method).ok().filter(|method| ast::valid_source_name(method))?;
+    (!receiver.has_side_effects()
+        && left.as_ref() == receiver
+        && !arguments.iter().any(ast::is_observable))
+        .then_some((receiver, method))
 }
 
 // This code does not apply to Luau
