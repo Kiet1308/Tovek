@@ -71,15 +71,9 @@ pub struct EmissionMap {
 }
 
 impl EmissionMap {
-    pub fn region(&mut self, kind: &'static str, bindings: Vec<u64>, span: SourceSpan,
-                  origin: Option<&crate::node_origins::Origin>) {
-        self.region_with_bindings(kind, || bindings, span, origin);
-    }
-
-    /// Check admission before collecting bindings: walking an expression's
-    /// subtree can cost much more than storing its final region.
-    pub(crate) fn region_with_bindings(&mut self, kind: &'static str,
-                  bindings: impl FnOnce() -> Vec<u64>, span: SourceSpan,
+    /// `bindings` are collected only when the region is admitted: walking an
+    /// expression's subtree can cost much more than storing its region.
+    pub fn region(&mut self, kind: &'static str, bindings: impl FnOnce() -> Vec<u64>, span: SourceSpan,
                   origin: Option<&crate::node_origins::Origin>) {
         if self.regions.len() < REGION_LIMIT {
             self.regions.push(SyntaxRegion { kind, bindings: bindings(), span, origin: origin.map(|o| o.snapshot()).unwrap_or_default() });
@@ -160,7 +154,7 @@ mod tests {
         }; REGION_LIMIT - 1];
         let mut collections = 0;
         for _ in 0..3 {
-            map.region_with_bindings("local", || {
+            map.region("local", || {
                 collections += 1;
                 vec![42]
             }, span, None);

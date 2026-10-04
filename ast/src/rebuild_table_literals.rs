@@ -29,9 +29,10 @@ pub(crate) fn rebuild_with_captured(
     rebuild_current_block(block, captured, single_write) | sunk_changed | regions_changed | drained_changed | nested_changed
 }
 
-/// Every constructor under `block` lists a literal key once. A later entry
-/// for a key already listed takes the first entry's place when that entry is
-/// a literal and nothing between them could observe the move: a DUPTABLE
+/// Every constructor under `block` lists a string or boolean key once
+/// ([`mergeable_key`]). A later entry for a key already listed takes the
+/// first entry's place when that entry is a literal and nothing between them
+/// could observe the move: a DUPTABLE
 /// placeholder filled by a store whose key was still a temp when it was
 /// folded (`{ Velocity = 0, SmoothTime = smoothTime, Velocity = velocity }`).
 pub(crate) fn merge_repeated_keys(block: &mut Block) -> bool {
@@ -82,22 +83,15 @@ fn merge_repeated_keys_in(table: &mut Table) -> bool {
     merge_repeated_keys_indexed(table, literal_fingerprint)
 }
 
-/// This pass compares literal expressions, not runtime table slots. In
-/// particular, signed zero and NaN payloads retain Literal's bitwise equality.
-/// Hash hits are always confirmed against the original key below.
+/// The index slot of a [`mergeable_key`] literal; a hit is confirmed against
+/// the key itself.
 fn literal_fingerprint(literal: &crate::Literal) -> u64 {
     use std::hash::{Hash, Hasher};
-    use crate::Literal;
     let mut hash = rustc_hash::FxHasher::default();
-    std::mem::discriminant(literal).hash(&mut hash);
     match literal {
-        Literal::Nil => {},
-        Literal::Boolean(value) => value.hash(&mut hash),
-        Literal::Number(value) => value.to_bits().hash(&mut hash),
-        Literal::Integer(value) => value.hash(&mut hash),
-        Literal::String(value) => value.hash(&mut hash),
-        Literal::Vector(x, y, z) => [x.to_bits(), y.to_bits(), z.to_bits()].hash(&mut hash),
-        Literal::VectorD(x, y, z) => [x.to_bits(), y.to_bits(), z.to_bits()].hash(&mut hash),
+        crate::Literal::String(value) => value.hash(&mut hash),
+        crate::Literal::Boolean(value) => value.hash(&mut hash),
+        other => unreachable!("only string and boolean keys merge, not {other:?}"),
     }
     hash.finish()
 }

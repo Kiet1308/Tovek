@@ -1038,116 +1038,6 @@ enum FieldSlot {
     Append,
 }
 
-/// Stable slots for string-key constructors (including DUPTABLE templates).
-/// The scanning fallback uses the first `initial_len` live entries, whose
-/// boundary advances whenever a placeholder moves to the end. Keep that same
-/// window while deferring physical removal until the run ends.
-struct TemplateFields {
-    positions: FxHashMap<Vec<u8>, std::collections::BTreeSet<usize>>,
-    barriers: std::collections::BTreeSet<usize>,
-    removed: Vec<bool>,
-    boundary: usize,
-}
-
-impl TemplateFields {
-    fn new(table: &ast::Table, captures: &IndexMap<ast::RcLocal, ast::RcLocal>) -> Option<Self> {
-        #[cfg(test)]
-        if tests::REFERENCE_TABLE_FIELDS.with(std::cell::Cell::get) { return None; }
-        if table.0.len() < 16 || !table.0.iter().all(|(key, _)| {
-            matches!(key, Some(ast::RValue::Literal(ast::Literal::String(_))))
-        }) { return None; }
-        let mut positions: FxHashMap<_, std::collections::BTreeSet<_>> = Default::default();
-        let mut barriers = std::collections::BTreeSet::new();
-        for (position, (key, value)) in table.0.iter().enumerate() {
-            let Some(ast::RValue::Literal(ast::Literal::String(key))) = key else { unreachable!() };
-            positions.entry(key.clone()).or_default().insert(position);
-            if Self::is_barrier(value, captures) { barriers.insert(position); }
-        }
-        Some(Self { positions, barriers, removed: vec![false; table.0.len()], boundary: table.0.len() - 1 })
-    }
-
-    fn is_barrier(value: &ast::RValue, captures: &IndexMap<ast::RcLocal, ast::RcLocal>) -> bool {
-        #[cfg(test)]
-        tests::TEMPLATE_ENTRY_CHECKS.with(|count| count.set(count.get() + 1));
-        !ast::is_total_pure(value) || value.any_local_read(&mut |read| captures.contains_key(read))
-    }
-
-    fn placement(&self, table: &ast::Table, key: &ast::RValue) -> Option<FieldSlot> {
-        let ast::RValue::Literal(ast::Literal::String(key)) = key else { unreachable!() };
-        let Some(positions) = self.positions.get(key).filter(|positions| !positions.is_empty()) else {
-            return Some(FieldSlot::Append);
-        };
-        let position = *positions.range(..=self.boundary).next_back()?;
-        if ast::is_inert_entry_value(&table.0[position].1) && self.barriers.range(position..).next().is_none() {
-            Some(FieldSlot::Replace(position))
-        } else if ast::is_template_placeholder(&table.0[position].1) {
-            Some(FieldSlot::MoveToEnd(position))
-        } else {
-            None
-        }
-    }
-
-    fn insert(
-        &mut self,
-        table: &mut ast::Table,
-        slot: &FieldSlot,
-        key: &ast::RValue,
-        value: &ast::RValue,
-        captures: &IndexMap<ast::RcLocal, ast::RcLocal>,
-    ) {
-        let ast::RValue::Literal(ast::Literal::String(key)) = key else { unreachable!() };
-        let barrier = Self::is_barrier(value, captures);
-        match *slot {
-            FieldSlot::Replace(position) => {
-                // A replaceable value is a literal, hence not a barrier.
-                if barrier { self.barriers.insert(position); }
-                return;
-            }
-            FieldSlot::MoveToEnd(position) => {
-                self.removed[position] = true;
-                self.positions.get_mut(key).unwrap().remove(&position);
-                self.boundary += 1;
-            }
-            FieldSlot::Append => {},
-        }
-        let position = table.0.len();
-        self.positions.entry(key.clone()).or_default().insert(position);
-        self.removed.push(false);
-        if barrier { self.barriers.insert(position); }
-    }
-
-    fn finish(self, table: &mut ast::Table) {
-        let mut removed = self.removed.into_iter();
-        table.0.retain(|_| !removed.next().expect("one marker per stable entry"));
-    }
-}
-
-/// General path and differential oracle. Dynamic and non-string keys retain
-/// `same_table_key` semantics, including numeric signed-zero aliases.
-fn field_slot_scanning(
-    table: &ast::Table,
-    initial_len: usize,
-    key: &ast::RValue,
-    captures: &IndexMap<ast::RcLocal, ast::RcLocal>,
-    listed: &mut Option<ast::ListedKeys>,
-) -> Option<FieldSlot> {
-    match table.0[..initial_len.min(table.0.len())].iter()
-        .rposition(|(k, _)| k.as_ref().is_some_and(|k| ast::same_table_key(k, key)))
-    {
-        Some(p) if ast::is_inert_entry_value(&table.0[p].1)
-            && table.0[p..].iter().all(|(key, value)| {
-                key.as_ref().is_some_and(ast::is_total_table_key)
-                    && ast::is_total_pure(value)
-                    && !value.any_local_read(&mut |read| captures.contains_key(read))
-            }) => Some(FieldSlot::Replace(p)),
-        Some(p) if ast::is_template_placeholder(&table.0[p].1) && ast::is_total_table_key(key) => {
-            Some(FieldSlot::MoveToEnd(p))
-        }
-        _ if listed.get_or_insert_with(|| ast::ListedKeys::new(table)).lists(table, key) => None,
-        _ => Some(FieldSlot::Append),
-    }
-}
-
 fn fold_table_constructor_field_assignments(
     block: &mut ast::Block,
     local_usages: &mut Usages,
@@ -1167,67 +1057,101 @@ fn fold_table_constructor_field_assignments(
             i += 1;
             continue;
         }
+
         let table_index = i;
-        let initial_len = block[table_index].as_assign().unwrap().right[0].as_table().unwrap().0.len();
+        let initial_len = block[table_index].as_assign().unwrap().right[0]
+            .as_table()
+            .unwrap()
+            .0
+            .len();
         let mut listed = None;
-        let mut indexed: Option<TemplateFields> = None;
-        let mut tried_index = false;
         i += 1;
         while i < block.len() {
-            let (prefix, remaining) = block.0.split_at_mut(i);
-            let statement = &mut remaining[0];
-            let Some((key, value)) = statement.as_assign()
+            let Some((key, value)) = block[i]
+                .as_assign()
                 .and_then(|assign| field_assignment_parts(assign, &object_local))
-            else { break; };
-            let table = prefix[table_index].as_assign_mut().unwrap().right[0].as_table_mut().unwrap();
+            else {
+                break;
+            };
+
+            let table = block[table_index].as_assign().unwrap().right[0]
+                .as_table()
+                .unwrap();
             if table.0.last().is_some_and(|(key, value)| {
-                key.is_none() && matches!(value, ast::RValue::Call(_) | ast::RValue::MethodCall(_) | ast::RValue::VarArg(_))
-            }) || !can_fold_table_field_assignment(key, value, &object_local) {
+                key.is_none()
+                    && matches!(
+                        value,
+                        ast::RValue::Call(_) | ast::RValue::MethodCall(_) | ast::RValue::VarArg(_)
+                    )
+            }) || !can_fold_table_field_assignment(key, value, &object_local)
+            {
                 break;
             }
-            if !tried_index {
-                indexed = TemplateFields::new(table, upvalue_to_group);
-                tried_index = true;
-            }
-            if !matches!(key, ast::RValue::Literal(ast::Literal::String(_))) {
-                if let Some(index) = indexed.take() { index.finish(table); }
-            }
-            // Replace only across total fields without mutable-cell reads;
-            // otherwise move a placeholder to the end, preserving evaluation
-            // order. Repeated filled keys remain separate store statements.
-            let slot = match &indexed {
-                Some(index) => index.placement(table, key),
-                None => field_slot_scanning(table, initial_len, key, upvalue_to_group, &mut listed),
+            // Replacing a nil/zero template field moves this evaluation across the
+            // rest of the constructor. Cross only total fields without
+            // mutable-cell snapshots; otherwise append in the original order. A
+            // key the constructor already lists stays a statement: the later
+            // store is a mutation, and `{ k = a, k = b }` is never how a table
+            // is written.
+            // The last listed entry for the key's slot is the one the store
+            // overwrites (`{[0] = 0, [-0] = 10}` keeps 10 in slot 0).
+            let slot = match table.0[..initial_len.min(table.0.len())]
+                .iter()
+                .rposition(|(k, _)| k.as_ref().is_some_and(|k| ast::same_table_key(k, key)))
+            {
+                Some(p)
+                    if ast::is_inert_entry_value(&table.0[p].1)
+                        && table.0[p..].iter().all(|(key, value)| {
+                            key.as_ref().is_some_and(ast::is_total_table_key)
+                                && ast::is_total_pure(value)
+                                && !value.any_local_read(&mut |read| upvalue_to_group.contains_key(read))
+                        }) => FieldSlot::Replace(p),
+                Some(p) if ast::is_template_placeholder(&table.0[p].1) && ast::is_total_table_key(key) => {
+                    FieldSlot::MoveToEnd(p)
+                }
+                _ if listed.get_or_insert_with(|| ast::ListedKeys::new(table)).lists(table, key) => break,
+                _ => FieldSlot::Append,
             };
-            let Some(slot) = slot else { break; };
+
             decrement_local_usage(local_usages, &object_local, usage_changed);
-            let field_assign = std::mem::replace(statement, ast::Empty {}.into()).into_assign().unwrap();
-            let new_key = Box::into_inner(field_assign.left.into_iter().next().unwrap().into_index().unwrap().right);
+            let field_assign = std::mem::replace(&mut block[i], ast::Empty {}.into())
+                .into_assign()
+                .unwrap();
+            let new_key = Box::into_inner(
+                field_assign
+                    .left
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .into_index()
+                    .unwrap()
+                    .right,
+            );
             let new_value = field_assign.right.into_iter().next().unwrap();
-            if let Some(index) = &mut indexed {
-                index.insert(table, &slot, &new_key, &new_value, upvalue_to_group);
-            }
+            let table = block[table_index].as_assign_mut().unwrap().right[0]
+                .as_table_mut()
+                .unwrap();
             match slot {
                 FieldSlot::Replace(p) => {
                     decrement_rvalue_usages(local_usages, &table.0[p].1, usage_changed);
                     table.0[p].1 = new_value;
                 }
                 FieldSlot::MoveToEnd(p) => {
-                    if indexed.is_none() { table.0.remove(p); }
+                    table.0.remove(p);
                     table.0.push((Some(new_key), new_value));
                 }
                 FieldSlot::Append => {
-                    if let Some(listed) = &mut listed { listed.add(&new_key); }
+                    if let Some(listed) = &mut listed {
+                        listed.add(&new_key);
+                    }
                     table.0.push((Some(new_key), new_value));
                 }
             }
             changed = true;
             i += 1;
         }
-        if let Some(index) = indexed {
-            index.finish(block[table_index].as_assign_mut().unwrap().right[0].as_table_mut().unwrap());
-        }
     }
+
     changed
 }
 
@@ -1454,8 +1378,6 @@ pub fn inline_with_readonly_captures(
 #[cfg(test)]
 mod tests {
     thread_local! {
-        pub(super) static REFERENCE_TABLE_FIELDS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-        pub(super) static TEMPLATE_ENTRY_CHECKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         // Run the unchanged full-prefix search as a differential oracle. The
         // flag is thread-local so other unit tests cannot see the override.
         pub(super) static REFERENCE_SCAN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -1621,174 +1543,6 @@ mod tests {
         inline(&mut function, &FxHashMap::default(), &IndexMap::default());
 
         function.block(entry).unwrap().clone()
-    }
-
-    fn run_field_fold(
-        block: &mut Block,
-        captures: &IndexMap<RcLocal, RcLocal>,
-        reference: bool,
-    ) -> (bool, Vec<usize>, Vec<u64>) {
-        struct Reset;
-        impl Drop for Reset {
-            fn drop(&mut self) { REFERENCE_TABLE_FIELDS.with(|flag| flag.set(false)); }
-        }
-        let _reset = Reset;
-        REFERENCE_TABLE_FIELDS.with(|flag| flag.set(reference));
-        let mut usages = super::Usages::default();
-        for statement in block.iter() {
-            statement.visit_local_reads(&mut |local| {
-                *usages.counts.get_mut(usages.index.slot(local)) += 1;
-                true
-            });
-        }
-        let mut events = Vec::new();
-        let changed = fold_table_constructor_field_assignments(block, &mut usages, captures,
-            &mut |local| events.push(local.stable_id()));
-        (changed, usages.counts(), events)
-    }
-
-    #[test]
-    fn indexed_template_fields_match_scanning_with_captures_and_dynamic_fallback() {
-        let object = local("object");
-        let cell = local("cell");
-        let register = local("register");
-        let captures = IndexMap::from_iter([(cell.clone(), cell.clone())]);
-        for seed in 0..1_024u64 {
-            let initial_len = 16 + seed as usize % 33;
-            let mut random = seed + 1;
-            let mut next = || {
-                random = random.wrapping_mul(6364136223846793005).wrapping_add(1);
-                (random >> 32) as usize
-            };
-            let value = |kind: usize, ordinal: usize| match kind % 10 {
-                0..=4 => Literal::Nil.into(),
-                5 => number(0.0),
-                6 => number(ordinal as f64),
-                7 => local_value(&cell),
-                8 => local_value(&register),
-                _ => ast::Call::new(global("effect"), vec![number(ordinal as f64)]).into(),
-            };
-            let fields = (0..initial_len).map(|index| {
-                (Some(string(&format!("field{}", index % (initial_len - seed as usize % 5)))), value(next(), index))
-            }).collect();
-            let mut original = Block(vec![table_decl(&object)]);
-            original[0].as_assign_mut().unwrap().right[0] = Table::new(fields).into();
-            for index in 0..96 {
-                let key = if index == 8 && seed % 4 == 0 {
-                    local_value(&register)
-                } else if index == 9 && seed % 4 == 1 {
-                    number(-0.0)
-                } else {
-                    string(&format!("field{}", next() % (initial_len + 8)))
-                };
-                original.push(field_assign(&object, key, value(next(), index + initial_len)));
-            }
-            let mut actual = original.clone();
-            let mut expected = original.clone();
-            let result = run_field_fold(&mut actual, &captures, false);
-            let reference = run_field_fold(&mut expected, &captures, true);
-            assert_eq!(result, reference, "usage counts/events, seed={seed}");
-            assert_eq!(actual, expected, "seed={seed}");
-        }
-    }
-
-    fn template_run(size: usize, order: usize) -> Block {
-        let object = local("object");
-        let mut block = Block(vec![table_decl(&object)]);
-        block[0].as_assign_mut().unwrap().right[0] = Table::new((0..size).map(|index| {
-            (Some(string(&format!("field{index}"))), number(0.0))
-        }).collect()).into();
-        for index in 0..size {
-            let position = match order {
-                0 => index,
-                1 => size - 1 - index,
-                _ => (index * 3137) % size,
-            };
-            let mut call = ast::Call::new(global("effect"), vec![number(index as f64)]);
-            call.node_origin = ast::node_origins::Origin::input(ast::node_origins::Input {
-                function: "template_fields".into(), block: 3, statement: index, value: Some(1),
-            });
-            block.push(field_assign(&object, string(&format!("field{position}")), call.into()));
-        }
-        block
-    }
-
-    #[test]
-    fn template_suffix_checks_are_linear_and_preserve_call_order_and_origins() {
-        for size in [4_000, 8_000] {
-            for order in 0..3 {
-                let mut block = template_run(size, order);
-                TEMPLATE_ENTRY_CHECKS.with(|count| count.set(0));
-                let (changed, _, _) = run_field_fold(&mut block, &IndexMap::default(), false);
-                assert!(changed);
-                assert_eq!(TEMPLATE_ENTRY_CHECKS.with(std::cell::Cell::get), 2 * size);
-                assert!(block[1..].iter().all(|statement| matches!(statement, Statement::Empty(_))));
-                let table = first_table(&block);
-                assert_eq!(table.0.len(), size);
-                for (ordinal, (_, value)) in table.0.iter().enumerate() {
-                    let call = value.as_call().unwrap();
-                    assert_eq!(call.arguments, vec![number(ordinal as f64)]);
-                    let origin = call.node_origin.0.as_ref().unwrap();
-                    assert_eq!(origin.inputs[0].statement, ordinal);
-                    assert!(!origin.cloned && !origin.inlined);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn template_index_preserves_last_duplicate_and_signed_zero_fallback() {
-        let object = local("object");
-        let cell = local("cell");
-        let captures = IndexMap::from_iter([(cell.clone(), cell.clone())]);
-        for initial_numeric in [false, true] {
-            let mut fields = (0..16).map(|index| (Some(string(&format!("field{index}"))), number(0.0))).collect::<Vec<_>>();
-            fields.push((Some(string("field0")), number(7.0)));
-            // Force a move before leaving the indexed path, then ensure +0
-            // and -0 still identify the same last runtime slot in the fallback.
-            fields.push((Some(string("capture")), local_value(&cell)));
-            if initial_numeric {
-                fields.extend([(Some(number(0.0)), number(0.0)), (Some(number(-0.0)), number(10.0))]);
-            }
-            let mut original = Block(vec![table_decl(&object)]);
-            original[0].as_assign_mut().unwrap().right[0] = Table::new(fields).into();
-            original.push(field_assign(&object, string("field1"), ast::Call::new(global("first"), vec![]).into()));
-            original.push(field_assign(&object, number(0.0), number(20.0)));
-            original.push(field_assign(&object, number(-0.0), number(30.0)));
-            original.push(field_assign(&object, string("field0"), number(40.0)));
-            let mut actual = original.clone();
-            let mut expected = original.clone();
-            assert_eq!(run_field_fold(&mut actual, &captures, false), run_field_fold(&mut expected, &captures, true));
-            assert_eq!(actual, expected);
-        }
-        let mut original = template_run(32, 1);
-        original[0].as_assign_mut().unwrap().right[0].as_table_mut().unwrap().0
-            .push((None, ast::Call::new(global("multret"), vec![]).into()));
-        let mut expected = original.clone();
-        assert!(!run_field_fold(&mut original, &IndexMap::default(), false).0);
-        assert!(!run_field_fold(&mut expected, &IndexMap::default(), true).0);
-        assert_eq!(original, expected);
-    }
-
-    #[test]
-    #[ignore = "manual release scaling benchmark"]
-    fn benchmark_template_field_scaling() {
-        for size in [1_000, 2_000, 4_000, 8_000] {
-            for order in 0..3 {
-                let original = template_run(size, order);
-                let mut actual = original.clone();
-                let start = std::time::Instant::now();
-                run_field_fold(&mut actual, &IndexMap::default(), false);
-                let indexed = start.elapsed();
-                let mut reference = original.clone();
-                let start = std::time::Instant::now();
-                run_field_fold(&mut reference, &IndexMap::default(), true);
-                let scanning = start.elapsed();
-                assert_eq!(actual, reference);
-                eprintln!("template_fields size={size} order={order} indexed_us={} scanning_us={}",
-                    indexed.as_micros(), scanning.as_micros());
-            }
-        }
     }
 
     #[test]

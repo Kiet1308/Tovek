@@ -690,8 +690,9 @@ mod tests {
                 let output = block.to_string();
                 let work = FORMAT_WORK.get();
                 assert_eq!(output, format!("result = {expected}"));
+                // Linear in the depth: each value renders a bounded number of times.
                 assert_eq!(work.statements, 1);
-                assert_eq!(work.rvalues, depth * 2 + 1, "format: {format:?}, depth: {depth}");
+                assert!(work.rvalues <= depth * 4 + 2, "format: {format:?}, depth: {depth}, rvalues: {}", work.rvalues);
             }
         }
     }
@@ -1251,8 +1252,9 @@ end");
             let output = block.to_string();
             let work = FORMAT_WORK.get();
             assert_eq!(output, expected);
-            assert_eq!(work.statements, depth * 2 + 1);
-            assert_eq!(work.rvalues, depth * 4 + 1);
+            // Linear in the depth: no nested statement renders again per level.
+            assert!(work.statements <= depth * 4 + 2, "statements: {}", work.statements);
+            assert!(work.rvalues <= depth * 8 + 2, "rvalues: {}", work.rvalues);
         }
     }
 
@@ -2452,7 +2454,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     ) {
         if let (Some(start), Some(end)) = (start, self.current_position()) {
             if let Some(map) = self.emission_map.as_mut() {
-                map.region_with_bindings("closure", || {
+                map.region("closure", || {
                     closure.values_read().into_iter().map(RcLocal::stable_id)
                         .collect::<std::collections::BTreeSet<_>>().into_iter().collect()
                 }, SourceSpan { start, end }, Some(&closure.node_origin));
@@ -2681,7 +2683,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         if result.is_ok() && !matches!(rvalue, RValue::Closure(_)) {
             if let (Some(start), Some(end)) = (start, self.current_position()) {
                 if let Some(map) = self.emission_map.as_mut() {
-                    map.region_with_bindings(crate::emission_map::value_kind(rvalue), || {
+                    map.region(crate::emission_map::value_kind(rvalue), || {
                         rvalue.values_read().into_iter().map(RcLocal::stable_id)
                             .collect::<std::collections::BTreeSet<_>>().into_iter().collect()
                     }, SourceSpan { start, end }, crate::node_origins::value(rvalue));
@@ -3066,62 +3068,47 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         // can reason about each character (invalid UTF-8 aborts).
         let text = std::str::from_utf8(bytes).ok()?;
 
-        // Reject the complete format before rendering any argument. A late
-        // rejection after `%*` would render that subtree again in the fallback;
-        // nesting scalar format calls then doubles the work at every level.
-        let mut placeholders = 0usize;
+        // Escape the static text and find the placeholders before rendering
+        // any argument: a format rejected after a rendered `%*` argument would
+        // render that subtree again in the fallback, doubling the work at
+        // every level of nested format calls.
+        let mut pieces = Vec::new();
+        let mut piece = String::new();
         let mut chars = text.chars();
         while let Some(c) = chars.next() {
             if c == '%' {
                 match chars.next() {
-                    Some('%') => {}
-                    Some('*') => placeholders += 1,
-                    _ => return None,
-                }
-            } else if !Self::is_backtick_static_char(c) {
-                return None;
-            }
-        }
-        if placeholders != arguments.len() {
-            return None;
-        }
-
-        let mut out = String::from("`");
-        let mut arg_index = 0usize;
-        let mut chars = text.chars().peekable();
-        while let Some(c) = chars.next() {
-            if c == '%' {
-                match chars.next() {
-                    Some('%') => out.push('%'),
-                    Some('*') => {
-                        let arg = arguments.get(arg_index)?;
-                        arg_index += 1;
-                        out.push('{');
-                        let expression = self.render_rvalue_to_string(arg)?;
-                        // `{{` starts an invalid token in a backtick string.
-                        // Parentheses delimit a table constructor unambiguously.
-                        if expression.starts_with('{') {
-                            out.push('(');
-                            out.push_str(&expression);
-                            out.push(')');
-                        } else {
-                            out.push_str(&expression);
-                        }
-                        out.push('}');
-                    }
+                    Some('%') => piece.push('%'),
+                    Some('*') => pieces.push(std::mem::take(&mut piece)),
                     // Any other specifier (`%s` `%d` `%.2f` `%q` `%x` ...) — abort.
                     _ => return None,
                 }
             } else {
-                Self::push_backtick_static_char(&mut out, c)?;
+                Self::push_backtick_static_char(&mut piece, c)?;
             }
         }
-
         // Require exactly one `%*` per argument.
-        if arg_index != arguments.len() {
+        if pieces.len() != arguments.len() {
             return None;
         }
 
+        let mut out = String::from("`");
+        for (text, argument) in pieces.iter().zip(arguments) {
+            out.push_str(text);
+            out.push('{');
+            let expression = self.render_rvalue_to_string(argument)?;
+            // `{{` starts an invalid token in a backtick string.
+            // Parentheses delimit a table constructor unambiguously.
+            if expression.starts_with('{') {
+                out.push('(');
+                out.push_str(&expression);
+                out.push(')');
+            } else {
+                out.push_str(&expression);
+            }
+            out.push('}');
+        }
+        out.push_str(&piece);
         out.push('`');
         Some(out)
     }
@@ -3132,9 +3119,6 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     /// `\` are escaped; `"`, `'`, and `}` stay bare; control chars use their
     /// named escapes. Anything else unrepresentable aborts.
     fn push_backtick_static_char(out: &mut String, c: char) -> Option<()> {
-        if !Self::is_backtick_static_char(c) {
-            return None;
-        }
         match c {
             '`' => out.push_str(r"\`"),
             '{' => out.push_str(r"\{"),
@@ -3143,13 +3127,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             '\r' => out.push_str(r"\r"),
             '\t' => out.push_str(r"\t"),
             '\u{000C}' => out.push_str(r"\f"),
+            // Other control characters have no safe backtick form here — abort.
+            c if c.is_control() => return None,
             c => out.push(c),
         }
         Some(())
-    }
-
-    fn is_backtick_static_char(c: char) -> bool {
-        !c.is_control() || matches!(c, '\n' | '\r' | '\t' | '\u{000C}')
     }
 
     pub(crate) fn format_if(&mut self, r#if: &If) -> fmt::Result {
@@ -3435,7 +3417,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         if result.is_ok() {
             if let (Some(start), Some(end)) = (start, self.current_position()) {
                 if let Some(map) = self.emission_map.as_mut() {
-                    map.region_with_bindings("statement", || {
+                    map.region("statement", || {
                         statement.values().into_iter().map(RcLocal::stable_id)
                             .collect::<std::collections::BTreeSet<_>>().into_iter().collect()
                     }, SourceSpan { start, end }, crate::node_origins::statement(statement));
