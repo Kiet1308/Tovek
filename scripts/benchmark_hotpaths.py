@@ -157,6 +157,31 @@ def prepare_tables(args):
                                            flags=["--binary", "-O1", "-g1"], records=records))
 
 
+def prepare_interpolation(args):
+    if args.output.exists():
+        raise ValueError("use a new --output directory to preserve the frozen workload")
+    records = []
+    flags = ["--binary", "-O1", "-g1", "--fflags=false"]
+    for depth in args.depths:
+        name = f"interpolation-specifier-{depth:02d}"
+        expression = '"leaf"'
+        for _ in range(depth):
+            expression = f'("%*%d"):format({expression}, 7)'
+        source = args.output / "sources" / f"{name}.luau"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("return " + expression + "\n")
+        process, _ = command([args.compiler.resolve(), *flags, source.resolve()])
+        if not process.stdout or process.stdout[0] == 0:
+            raise ValueError(f"compiler did not produce bytecode: {source}")
+        target = args.output / "inputs" / f"{name}.lua"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(base64.b64encode(process.stdout) + b"\n")
+        records.append(dict(mode="specifier", depth=depth, path=target.name,
+                            source_sha256=digest(source), bytecode_sha256=hashlib.sha256(process.stdout).hexdigest()))
+    save(args.output / "workload.json", dict(schema_version=1, compiler_sha256=digest(args.compiler),
+                                           flags=flags, records=records))
+
+
 def pin(args):
     # Baseline output is produced immediately before pinning, never inferred
     # from historical checked-in source or from the candidate binary.
@@ -269,6 +294,10 @@ def main():
     tables.add_argument("--compiler", type=Path, required=True)
     tables.add_argument("--sizes", type=int, nargs="+", default=[128, 512, 2048])
     tables.add_argument("--output", type=Path, required=True)
+    interpolation = sub.add_parser("prepare-interpolation")
+    interpolation.add_argument("--compiler", type=Path, required=True)
+    interpolation.add_argument("--depths", type=int, nargs="+", default=[8, 12, 16])
+    interpolation.add_argument("--output", type=Path, required=True)
     pin_parser = sub.add_parser("pin")
     timing = []
     for mode in ("hotpaths", "api", "folder"):
@@ -294,7 +323,11 @@ def main():
             item.add_argument("--key", type=int, default=1)
             item.add_argument("--threads", type=int, default=1)
     args = parser.parse_args()
-    if args.mode == "prepare-tables":
+    if args.mode == "prepare-interpolation":
+        if any(depth < 1 for depth in args.depths):
+            parser.error("positive interpolation depths required")
+        prepare_interpolation(args)
+    elif args.mode == "prepare-tables":
         if any(size < 1 for size in args.sizes):
             parser.error("positive table sizes required")
         prepare_tables(args)
