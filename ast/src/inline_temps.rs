@@ -593,6 +593,9 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
     let Some((local, replacement)) = candidate_decl(&block[index]) else { return false; };
     #[cfg(test)]
     chain_probe::record_attempt(replacement);
+    if replacement.nests_deeper_than(crate::MAX_INLINED_DEPTH) {
+        return false;
+    }
     let local = local.clone();
     let generated = is_generated_temp(&local);
     let named_table = !generated && matches!(&replacement, RValue::Table(_));

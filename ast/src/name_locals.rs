@@ -4747,14 +4747,15 @@ impl Namer {
                         // the input bytecode contains no GETGLOBAL for it.
                         globals.push("vector".to_string());
                     }
-                    Either::Right(RValue::Global(global)) => {
-                        if let Ok(name) = std::str::from_utf8(&global.0) {
-                            globals.push(name.to_string());
-                        }
-                    }
-                    Either::Left(crate::LValue::Global(global)) => {
-                        if let Ok(name) = std::str::from_utf8(&global.0) {
-                            globals.push(name.to_string());
+                    Either::Right(RValue::Global(global)) | Either::Left(crate::LValue::Global(global)) => {
+                        match std::str::from_utf8(&global.0) {
+                            Ok(name) if crate::formatter::Formatter::<std::fmt::Formatter>::is_valid_name(&global.0) => {
+                                globals.push(name.to_string())
+                            }
+                            // A name no identifier spells prints as
+                            // `getfenv(1)["name"]`: that `getfenv` must
+                            // stay the global.
+                            _ => globals.push("getfenv".to_string()),
                         }
                     }
                     Either::Right(RValue::Closure(closure)) => {

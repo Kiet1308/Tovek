@@ -5810,7 +5810,9 @@ fn collect_targets(
             );
             continue;
         }
-        if body_unsafe(&g.body.0) {
+        // Its code runs a call frame deeper inside the helper, where reading
+        // frames gives another answer.
+        if body_unsafe(&g.body.0) || captures.reads_frames(&g.body.0) {
             deinline_reject!(
                 RejectReason::UnsafeBody,
                 g.name.as_deref().unwrap_or("<anon>")
@@ -6461,7 +6463,7 @@ pub(crate) fn body_unsafe(stmts: &[Statement]) -> bool {
         // refused; structural identity guessing would be unsound.
         if stmt_rvalues(s)
             .iter()
-            .any(|rv| rvalue_has_unproven_closure(rv) || crate::deinline_safety::calls_debug_info(rv))
+            .any(|rv| rvalue_has_unproven_closure(rv))
         {
             return true;
         }

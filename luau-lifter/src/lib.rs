@@ -163,20 +163,38 @@ impl DecompileOptions {
 /// The globals the chunk assigns (SETGLOBAL) and whether it names getfenv or
 /// setfenv: what decides if a library fetch can run script code.
 fn chunk_globals(chunk: &deserializer::chunk::Chunk) -> ast::ChunkGlobals {
+    use op_code::OpCode::{LOP_GETGLOBAL, LOP_GETIMPORT, LOP_SETGLOBAL};
     let mut written = FxHashSet::default();
+    let mut unspellable = false;
     for function in &chunk.functions {
+        let name = |constant: u32| match function.constants.get(constant as usize) {
+            Some(deserializer::constant::Constant::String(index)) => {
+                index.checked_sub(1).and_then(|index| chunk.string_table.get(index)).copied()
+            }
+            _ => None,
+        };
         for instruction in &function.instructions {
-            if let instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETGLOBAL, aux, .. } = instruction
-                && let Some(deserializer::constant::Constant::String(index)) = function.constants.get(*aux as usize)
-                && let Some(name) = index.checked_sub(1).and_then(|index| chunk.string_table.get(index))
-            {
-                written.insert(name.to_vec());
+            let global = match *instruction {
+                instruction::Instruction::BC { op_code: op_code @ (LOP_GETGLOBAL | LOP_SETGLOBAL), aux, .. } => {
+                    name(aux).map(|global| (op_code == LOP_SETGLOBAL, global))
+                }
+                // The import path's first name is the global.
+                instruction::Instruction::AD { op_code: LOP_GETIMPORT, aux, .. } => {
+                    name((aux >> 20) & 1023).map(|global| (false, global))
+                }
+                _ => None,
+            };
+            let Some((assigned, global)) = global else { continue };
+            unspellable |= !std::str::from_utf8(global).is_ok_and(ast::valid_source_name);
+            if assigned {
+                written.insert(global.to_vec());
             }
         }
     }
     ast::ChunkGlobals {
         dynamic_environment: chunk.string_table.iter().any(|string| *string == b"getfenv" || *string == b"setfenv"),
         written,
+        unspellable,
     }
 }
 
@@ -436,6 +454,13 @@ fn decompile_bytecode_internal(
             } else { ast::reconstruction_search::enter_truncated() };
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
             let globals = std::sync::Arc::new(chunk_globals(&chunk));
+            // A global no identifier spells is written `getfenv(1)["name"]`,
+            // which needs the standard `getfenv` wherever it runs.
+            if globals.unspellable && globals.written.contains(b"getfenv".as_slice()) {
+                return Err(DecompileFailure::message(
+                    "a global name no identifier spells, in a chunk that assigns getfenv",
+                ));
+            }
             drop(setup_timer);
             ast::telemetry::count("capture_readonly_slots", capture_effects.readonly.iter()
                 .flatten().filter(|&&readonly| readonly).count() as u64);
@@ -1625,8 +1650,6 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
         //     let post_dominators = post_dominators(function.graph_mut());
         //     structure_for_loops(&mut function, &dominators, &post_dominators)
         // }
-        // we can't structure method calls like this because of __namecall
-        // || structure_method_calls(&mut function)
         {
             changed = true;
         }
@@ -2503,6 +2526,87 @@ mod v11_fixtures {
         let blob = build_chunk(11, 1, &[], &[simple_return_proto(vec![])], 0);
         let out = decompile(&blob, 1, None).expect("v11 empty-feedback chunk must deserialize");
         assert!(out.contains("return"), "got: {out:?}");
+    }
+
+    /// A loop too long for 16-bit jump offsets reaches its exit and its body
+    /// through `JUMP +1; JUMPX target` trampolines right before FORNPREP and
+    /// FORNLOOP (Luau's long-jump expansion); the loop still pairs up.
+    #[test]
+    fn numeric_loop_through_jump_trampolines() {
+        let op = |op: crate::op_code::OpCode| op as u8;
+        let jumpx = |offset: i32| op(crate::op_code::OpCode::LOP_JUMPX) as u32 | ((offset as u32) << 8);
+        let (jump, fornprep, fornloop) = (
+            op(crate::op_code::OpCode::LOP_JUMP),
+            op(crate::op_code::OpCode::LOP_FORNPREP),
+            op(crate::op_code::OpCode::LOP_FORNLOOP),
+        );
+        let proto = Proto {
+            max_stack: 4,
+            words: vec![
+                ad(LOADN, 0, 2),     // 0: limit
+                ad(LOADN, 1, 1),     // 1: step
+                ad(LOADN, 2, 1),     // 2: counter
+                ad(jump, 0, 1),      // 3: over the trampoline
+                jumpx(5),            // 4: to the exit, 10
+                ad(fornprep, 0, -2), // 5: to the trampoline at 4
+                ad(LOADN, 3, 7),     // 6: body
+                ad(jump, 0, 1),      // 7: over the trampoline
+                jumpx(-3),           // 8: to the body, 6
+                ad(fornloop, 0, -2), // 9: to the trampoline at 8
+                abc(RETURN, 0, 1, 0), // 10
+            ],
+            ..Default::default()
+        };
+        let blob = build_chunk(6, 1, &[], &[proto], 0);
+        let output = decompile(&blob, 1, None).expect("a trampolined loop decompiles");
+        assert!(output.contains("for "), "got: {output}");
+    }
+
+    /// The same trampolines around a generic loop: FORGPREP reaches FORGLOOP
+    /// and FORGLOOP the body through them.
+    #[test]
+    fn generic_loop_through_jump_trampolines() {
+        use crate::op_code::OpCode;
+        let jumpx = |offset: i32| OpCode::LOP_JUMPX as u32 | ((offset as u32) << 8);
+        let (loadnil, jump) = (OpCode::LOP_LOADNIL as u8, OpCode::LOP_JUMP as u8);
+        let proto = Proto {
+            max_stack: 6,
+            words: vec![
+                abc(loadnil, 0, 0, 0),                       // 0: generator
+                abc(loadnil, 1, 0, 0),                       // 1: state
+                abc(loadnil, 2, 0, 0),                       // 2: control
+                ad(jump, 0, 1),                              // 3: over the trampoline
+                jumpx(4),                                    // 4: to FORGLOOP, 9
+                ad(OpCode::LOP_FORGPREP as u8, 0, -2),       // 5: to the trampoline at 4
+                ad(LOADN, 5, 7),                             // 6: body
+                ad(jump, 0, 1),                              // 7: over the trampoline
+                jumpx(-3),                                   // 8: to the body, 6
+                ad(OpCode::LOP_FORGLOOP as u8, 0, -2), 2,    // 9: to the trampoline at 8; two variables
+                abc(RETURN, 0, 1, 0),                        // 11
+            ],
+            ..Default::default()
+        };
+        let blob = build_chunk(6, 1, &[], &[proto], 0);
+        let output = decompile(&blob, 1, None).expect("a trampolined loop decompiles");
+        assert!(output.contains("for "), "got: {output}");
+    }
+
+    /// A global no identifier spells is read through `getfenv(1)`, which a
+    /// chunk assigning the global `getfenv` would turn into its own value.
+    #[test]
+    fn unspellable_global_in_a_chunk_assigning_getfenv_is_refused() {
+        let setglobal = crate::op_code::OpCode::LOP_SETGLOBAL as u8;
+        let proto = |words: Vec<u32>| Proto {
+            max_stack: 1,
+            words,
+            constants: vec![const_string(1), const_string(2)],
+            ..Default::default()
+        };
+        let read = vec![abc(GETGLOBAL, 0, 0, 0), 0, abc(RETURN, 0, 2, 0)];
+        let assign = vec![abc(GETGLOBAL, 0, 0, 0), 0, abc(setglobal, 0, 0, 0), 1, abc(RETURN, 0, 2, 0)];
+        let chunk = |words| build_chunk(6, 1, &["bad name", "getfenv"], &[proto(words)], 0);
+        assert!(decompile(&chunk(read), 1, None).unwrap().contains(r#"getfenv(1)["bad name"]"#));
+        assert!(decompile(&chunk(assign), 1, None).is_err());
     }
 
     /// FORNPREP keeps limit and step in registers a source `for` has no name

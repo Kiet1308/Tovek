@@ -156,21 +156,37 @@ def main():
                          'return function() local current = setmetatable({name = "old"}, meta) '
                          'local function args() current = setmetatable({name = "new"}, meta) return 1, 2 end '
                          'current:bad_nam(args()); print(current.name) end')
-    # A global no identifier spells is read from the environment by key.
+    # NAMECALL keeps the receiver before the lookup, which an `__index` may
+    # follow by changing the captured object.
+    namecall_lookup_changes_receiver = (
+        'local meta = {} '
+        'return function() local o = setmetatable({name = "old"}, meta) '
+        'local swap = setmetatable({name = "new"}, meta) '
+        'meta.__index = function() o = swap return function(self, ...) print("call", self.name, ...) end end '
+        'local function args() return 1, 2 end o:bad_nam(args()) end')
+    # A global no identifier spells is read from the environment by key,
+    # through the global `getfenv`, which a parameter must not shadow (its
+    # name survives at -g2), and never as a `function` statement's name.
     global_name = 'return function() return weird_name, 1 end'
-    for name, source, driver, spelled, patched in [
-        ('namecall_name', namecall, 'f()', b'bad_nam', b'bad nam'),
-        ('namecall_captured_receiver', namecall_receiver, 'f()', b'bad_nam', b'bad nam'),
-        ('global_name', global_name, 'getfenv(f)["bad name!!"] = 73; print(f())', b'weird_name', b'bad name!!'),
+    global_name_shadowed = 'return function(getfenv) return weird_name, getfenv end'
+    global_function_name = 'function weird_name() return 42 end return function() return weird_name() end'
+    for name, source, driver, spelled, patched, debug in [
+        ('namecall_name', namecall, 'f()', b'bad_nam', b'bad nam', 1),
+        ('namecall_captured_receiver', namecall_receiver, 'f()', b'bad_nam', b'bad nam', 1),
+        ('namecall_lookup_changes_receiver', namecall_lookup_changes_receiver, 'f()', b'bad_nam', b'bad nam', 1),
+        ('global_name', global_name, 'getfenv(f)["bad name!!"] = 73; print(f())', b'weird_name', b'bad name!!', 1),
+        ('global_name_shadowed', global_name_shadowed, 'getfenv(f)["bad name!!"] = 73; print(f(9))',
+         b'weird_name', b'bad name!!', 2),
+        ('global_function_name', global_function_name, 'print(f())', b'weird_name', b'bad name!!', 1),
     ]:
         for optimization in (0, 1, 2):
             directory = args.work / f'{name}.raw.O{optimization}'
             directory.mkdir(parents=True, exist_ok=True)
             (directory / 'input.luau').write_text(source, encoding='utf-8')
-            compile_source(args, directory / 'input.luau', directory / 'input.bc', optimization, 1)
+            compile_source(args, directory / 'input.luau', directory / 'input.bc', optimization, debug)
             data = (directory / 'input.bc').read_bytes().replace(spelled, patched)
             results.append(check(args, name, f'-- {patched.decode()!r}: bytecode patched from the source',
-                                 driver, optimization, 1, data))
+                                 driver, optimization, debug, data))
     (args.work / 'results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
     failed = sum(result['ket_qua'] != 'PASS' for result in results)
     print(f'Tổng: {len(results)}; pass: {len(results)-failed}; fail: {failed}')

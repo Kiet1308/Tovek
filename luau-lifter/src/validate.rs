@@ -112,14 +112,16 @@ pub fn run(
             return 2;
         }
     };
+    // The output directories come first: a run they refuse leaves the
+    // previous generation's manifest intact.
+    if let Err(code) = precreate_dirs(&work) {
+        return code;
+    }
     if !work.is_empty() {
         if let Err(error) = invalidate_analysis_manifest(generation_lock.output_root()) {
             eprintln!("error: invalidate previous analysis manifest: {error}");
             return 2;
         }
-    }
-    if let Err(code) = precreate_dirs(&work) {
-        return code;
     }
     size_pool(threads);
 

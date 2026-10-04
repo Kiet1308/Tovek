@@ -331,8 +331,12 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
     let mut arithmetic_targets = 0usize;
     let mut targets = Vec::new();
     for candidate in candidates {
-        // Refuse a reassigned helper binder (written anywhere beyond its decl).
-        if write_counts.get(&candidate.f_local).copied().unwrap_or(0) != 1 {
+        // Refuse a reassigned helper binder (written anywhere beyond its
+        // decl), and one whose expression reads call frames, which runs a
+        // frame deeper inside the helper.
+        if write_counts.get(&candidate.f_local).copied().unwrap_or(0) != 1
+            || captures.value_reads_frames(&candidate.expr)
+        {
             continue;
         }
         if candidate.arithmetic {

@@ -4,7 +4,8 @@
 //! no local/register headroom left, or with a closure that has no room for one
 //! more upvalue, calls `vector.create` inline instead, where Luau resolves that
 //! path once at load time (the script never assigns `vector` and keeps its
-//! environment): it then folds the call back into the constant.
+//! environment, as the output assumes of other scripts too): it then folds the
+//! call back into the constant.
 use rustc_hash::FxHashMap;
 
 use crate::{

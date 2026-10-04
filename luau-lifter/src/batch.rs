@@ -91,8 +91,9 @@ pub fn run_with_cache(
         }
     };
     let locked_out_root = generation_lock.output_root();
-    // Every check that can refuse the run comes before the previous
-    // generation's manifest is invalidated: a refused run leaves it intact.
+    // Every check that can refuse the run (the cache, the output directories)
+    // comes before the previous generation's manifest is invalidated: a
+    // refused run leaves it intact.
     let cache = match cache_dir {
         Some(_) if crate::decompile_cache::diagnostic_environment() => {
             eprintln!("cache bypassed: diagnostic environment requires fresh execution");
@@ -111,6 +112,9 @@ pub fn run_with_cache(
         None => None,
     };
 
+    if let Err(code) = precreate_dirs(&work) {
+        return code;
+    }
     if emit_upvalue_analysis || !work.is_empty() {
         if let Err(error) = invalidate_analysis_manifest(locked_out_root) {
             eprintln!("error: invalidate previous analysis manifest: {error}");
@@ -128,9 +132,6 @@ pub fn run_with_cache(
     } else {
         locked_out_root.join(".tovek-analysis")
     };
-    if let Err(code) = precreate_dirs(&work) {
-        return code;
-    }
 
     size_pool(threads);
 
@@ -1433,6 +1434,23 @@ mod tests {
         );
         assert_eq!(parsed["parser_status"], "not_run");
         assert!(parsed["parser_failures"].as_array().unwrap().is_empty());
+    }
+
+    /// A run its output directories refuse (`out/sub` is a file) leaves the
+    /// previous generation's manifest in place.
+    #[test]
+    fn refused_output_directories_keep_the_previous_manifest() {
+        let temp = TestDir::new("refused-directories");
+        let src = temp.0.join("src");
+        let out = temp.0.join("out");
+        std::fs::create_dir_all(src.join("sub")).unwrap();
+        std::fs::write(src.join("sub/x.lua"), b"").unwrap();
+        std::fs::create_dir_all(out.join(".tovek-analysis")).unwrap();
+        std::fs::write(out.join(".tovek-analysis/manifest.json"), b"previous").unwrap();
+        std::fs::write(out.join("sub"), b"not a directory").unwrap();
+
+        assert_eq!(run(&src, &out, 1, 1, false, DecompileOptions::default(), true, "lua", None), 2);
+        assert_eq!(std::fs::read(out.join(".tovek-analysis/manifest.json")).unwrap(), b"previous");
     }
 
     #[test]

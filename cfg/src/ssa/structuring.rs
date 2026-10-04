@@ -1,4 +1,4 @@
-use ast::{LocalRw, Reduce, SideEffects, Traverse, UnaryOperation};
+use ast::{LocalRw, Reduce, UnaryOperation};
 
 use itertools::Itertools;
 use petgraph::{
@@ -751,66 +751,6 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
         false
     }
     //todo!();
-}
-
-/// `t.m(t, ...)` written as `t:m(...)`. Lua 5.1's SELF looks the method up
-/// before the arguments run, Luau's NAMECALL after them, so the arguments
-/// must not run code; and the method needs an identifier's spelling.
-fn match_method_call(call: &ast::Call) -> Option<(&ast::RValue, &str)> {
-    let [receiver, arguments @ ..] = call.arguments.as_slice() else { return None };
-    let ast::Index { left, right, .. } = call.value.as_index()?;
-    let ast::RValue::Literal(ast::Literal::String(method)) = right.as_ref() else { return None };
-    let method = std::str::from_utf8(method).ok().filter(|method| ast::valid_source_name(method))?;
-    (!receiver.has_side_effects()
-        && left.as_ref() == receiver
-        && !arguments.iter().any(ast::is_observable))
-        .then_some((receiver, method))
-}
-
-// This code does not apply to Luau
-pub fn structure_method_calls(function: &mut Function) -> bool {
-    let mut did_structure = false;
-    for block in function.blocks_mut() {
-        for stat in &mut block.0 {
-            if let ast::Statement::Call(call) = stat {
-                if let Some((value, method)) = match_method_call(call) {
-                    *stat = ast::MethodCall::new(
-                        value.clone(),
-                        method.to_string(),
-                        call.arguments.drain(1..).collect(),
-                    )
-                    .into();
-                    did_structure = true;
-                }
-            }
-            stat.traverse_rvalues(&mut |rvalue| {
-                if let ast::RValue::Call(call) = rvalue {
-                    if let Some((value, method)) = match_method_call(call) {
-                        *rvalue = ast::MethodCall::new(
-                            value.clone(),
-                            method.to_string(),
-                            call.arguments.drain(1..).collect(),
-                        )
-                        .into();
-                        did_structure = true;
-                    }
-                } else if let ast::RValue::Select(select) = rvalue {
-                    if let ast::Select::Call(call) = select {
-                        if let Some((value, method)) = match_method_call(call) {
-                            *select = ast::MethodCall::new(
-                                value.clone(),
-                                method.to_string(),
-                                call.arguments.drain(1..).collect(),
-                            )
-                            .into();
-                            did_structure = true;
-                        }
-                    }
-                }
-            });
-        }
-    }
-    did_structure
 }
 
 // TODO: STYLE: better argument names

@@ -321,7 +321,7 @@ impl<'a> Lifter<'a> {
             else {
                 continue;
             };
-            let step_pc = ((prep_pc + 1) as isize + *d as isize) as usize;
+            let step_pc = loop_jump_target(instructions, prep_pc, *d);
             let (step_a, step_d, step_aux) = match instructions.get(step_pc) {
                 Some(Instruction::AD {
                     op_code: OpCode::LOP_FORGLOOP,
@@ -339,7 +339,7 @@ impl<'a> Lifter<'a> {
             let origin = ast::ForOrigin {
                 prep_pc,
                 step_pc,
-                body_pc: ((step_pc + 1) as isize + step_d as isize) as usize,
+                body_pc: loop_jump_target(instructions, step_pc, step_d),
                 follow_pc: step_pc + 1,
                 prep_kind: match prep_op_code {
                     OpCode::LOP_FORGPREP => ast::ForPrepKind::Generic,
@@ -850,7 +850,7 @@ impl<'a> Lifter<'a> {
                     }
                     OpCode::LOP_RETURN => {
                         let values = if b != 0 {
-                            (a..a + (b - 1))
+                            operand_registers(a, b)
                                 .map(|r| self.register(r as _).into())
                                 .collect()
                         } else {
@@ -970,7 +970,7 @@ impl<'a> Lifter<'a> {
                                     } else {
                                         statements.push(
                                             ast::Assign::new(
-                                                (a..a + c - 1)
+                                                operand_registers(a, c)
                                                     .map(|r| self.register(r as _).into())
                                                     .collect(),
                                                 vec![ast::RValue::Select(call)],
@@ -1019,7 +1019,7 @@ impl<'a> Lifter<'a> {
                             } else {
                                 statements.push(
                                     ast::Assign::new(
-                                        (a..a + c - 1)
+                                        operand_registers(a, c)
                                             .map(|r| self.register(r as _).into())
                                             .collect(),
                                         vec![ast::RValue::Select(call.into())],
@@ -1043,7 +1043,7 @@ impl<'a> Lifter<'a> {
                             ast::SetList::new(
                                 self.register(a as _),
                                 aux as usize,
-                                (b..b + c - 1)
+                                operand_registers(b, c)
                                     .map(|r| self.register(r as _).into())
                                     .collect(),
                                 None,
@@ -1141,7 +1141,7 @@ impl<'a> Lifter<'a> {
                         if b != 0 {
                             statements.push(
                                 ast::Assign::new(
-                                    (a..a + b - 1)
+                                    operand_registers(a, b)
                                         .map(|r| self.register(r as _).into())
                                         .collect(),
                                     vec![ast::RValue::Select(vararg.into())],
@@ -1615,7 +1615,7 @@ impl<'a> Lifter<'a> {
                         // only known to follow the FORNLOOP.
                         let body_node = self.block_to_node(pc + 1);
                         let instructions = &self.function_list[self.function.id].instructions;
-                        let exit = (pc + 1).checked_add_signed(d.into()).unwrap_or(0);
+                        let exit = loop_jump_target(instructions, pc, d);
                         let loop_node = (pc + 1..exit.min(instructions.len()))
                             .find(|&at| matches!(instructions[at],
                                 Instruction::AD { op_code: OpCode::LOP_FORNLOOP, a: loop_a, .. } if loop_a == a))
@@ -1647,12 +1647,9 @@ impl<'a> Lifter<'a> {
                         let counter = self.register((a + 2) as _);
                         statements
                             .push(ast::NumForNext::new(counter, limit.into(), step.into()).into());
-                        edges.push((
-                            self.block_to_node(
-                                ((block_start + index + 1) as isize + d as isize) as usize,
-                            ),
-                            BlockEdge::new(BranchType::Then),
-                        ));
+                        let instructions = &self.function_list[self.function.id].instructions;
+                        let body = loop_jump_target(instructions, block_start + index, d);
+                        edges.push((self.block_to_node(body), BlockEdge::new(BranchType::Then)));
                         edges.push((
                             self.block_to_node(block_start + index + 1),
                             BlockEdge::new(BranchType::Else),
@@ -1665,7 +1662,8 @@ impl<'a> Lifter<'a> {
                         let generator = self.register(a as _);
                         let state = self.register((a + 1) as _);
                         let counter = self.register((a + 2) as _);
-                        let loop_index = ((prep_pc + 1) as isize + d as isize) as usize;
+                        let instructions = &self.function_list[self.function.id].instructions;
+                        let loop_index = loop_jump_target(instructions, prep_pc, d);
                         let origin = *self
                             .for_origins_by_step
                             .get(&loop_index)
@@ -1707,12 +1705,9 @@ impl<'a> Lifter<'a> {
                         );
                         next.origin = origin;
                         statements.push(next.into());
-                        edges.push((
-                            self.block_to_node(
-                                ((block_start + index + 1) as isize + d as isize) as usize,
-                            ),
-                            BlockEdge::new(BranchType::Then),
-                        ));
+                        let instructions = &self.function_list[self.function.id].instructions;
+                        let body = loop_jump_target(instructions, block_start + index, d);
+                        edges.push((self.block_to_node(body), BlockEdge::new(BranchType::Then)));
                         edges.push((
                             self.block_to_node(block_start + index + 1),
                             BlockEdge::new(BranchType::Else),
@@ -2022,23 +2017,49 @@ impl<'a> Lifter<'a> {
     }
 }
 
+/// Where the loop instruction at `pc` jumping by `offset` lands. A target
+/// too far for the 16-bit offset is reached through a trampoline Luau emits
+/// right before the instruction: `JUMP +1; JUMPX target; <instruction>`.
+fn loop_jump_target(instructions: &[Instruction], pc: usize, offset: i16) -> usize {
+    let target = ((pc + 1) as isize + offset as isize) as usize;
+    let trampoline = target + 1 == pc
+        && target.checked_sub(1).and_then(|skip| instructions.get(skip))
+            .is_some_and(|skip| matches!(skip, Instruction::AD { op_code: OpCode::LOP_JUMP, d: 1, .. }));
+    match instructions.get(target) {
+        Some(&Instruction::E { op_code: OpCode::LOP_JUMPX, e }) if trampoline => ((target + 1) as isize + e as isize) as usize,
+        _ => target,
+    }
+}
+
+/// The `encoded - 1` registers from `first`, for an operand that counts one
+/// more than its values (Luau's `B` and `C`). Widened first: `R254` alone is
+/// `254 + 2 - 1`, past `u8` before the subtraction.
+fn operand_registers(first: u8, encoded: u8) -> std::ops::Range<usize> {
+    usize::from(first)..usize::from(first) + usize::from(encoded) - 1
+}
+
 /// `object[method](object, arguments)` for a NAMECALL whose method is no
 /// identifier and whose arguments end in a call or `...` of all its values:
 /// NAMECALL reads the object and looks the method up after them, an indexed
 /// call before. Those values cannot be held in locals, so a function takes
 /// them first: `(function(self, ...) return self[method](self, ...) end)(object, arguments)`.
 /// When a closure `shares` the object's register, the arguments may change
-/// it; the function then reads the object itself, after them:
-/// `(function(...) return object[method](object, ...) end)(arguments)`.
+/// it; the function then takes the object itself, after them, and keeps it
+/// as NAMECALL does before the lookup (an `__index` may change it again):
+/// `(function(...) local self = object return self[method](self, ...) end)(arguments)`.
 fn namecall_after_arguments(object: ast::RcLocal, method: Vec<u8>, arguments: Vec<ast::RValue>, shared: bool) -> ast::Call {
     let receiver = ast::RcLocal::new(ast::Local::new(Some("self".to_string())));
     let lookup = ast::Call::new(
         ast::Index::new(receiver.clone().into(), ast::Literal::String(method).into()).into(),
         vec![receiver.clone().into(), ast::RValue::VarArg(ast::VarArg)],
     );
-    let body = ast::Block(vec![ast::Return::new(vec![lookup.into()]).into()]);
+    let mut body = ast::Block(vec![ast::Return::new(vec![lookup.into()]).into()]);
     let (function, upvalues, arguments) = if shared {
-        let function = ast::Function { upvalue_inputs: vec![receiver], is_variadic: true, body, ..Default::default() };
+        let shared_object = ast::RcLocal::default();
+        let mut snapshot = ast::Assign::new(vec![receiver.into()], vec![shared_object.clone().into()]);
+        snapshot.prefix = true;
+        body.0.insert(0, snapshot.into());
+        let function = ast::Function { upvalue_inputs: vec![shared_object], is_variadic: true, body, ..Default::default() };
         (function, vec![ast::Upvalue::Ref(object)], arguments)
     } else {
         let function = ast::Function { parameters: vec![receiver], is_variadic: true, body, ..Default::default() };
@@ -2061,6 +2082,13 @@ mod tests {
 
     fn instruction(op_code: OpCode, a: u8, b: u8, c: u8) -> Instruction {
         Instruction::BC { op_code, a, b, c, aux: 0 }
+    }
+
+    /// `R254` alone (`A = 254`, `C = 2`) must not overflow while counting.
+    #[test]
+    fn operand_registers_reach_the_last_register() {
+        assert_eq!(super::operand_registers(254, 2), 254..255);
+        assert_eq!(super::operand_registers(0, 1), 0..0);
     }
 
     #[test]

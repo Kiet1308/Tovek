@@ -248,7 +248,7 @@ class GateTests(unittest.TestCase):
 
     RETURN = bytes([6, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1]) + struct.pack('<I', 22 | (1 << 16)) + bytes([0, 0, 0, 0, 0, 0, 0])
 
-    def run_gate(self, files, baseline, decompiler_exit=0):
+    def run_gate(self, files, baseline, decompiler_exit=0, extra=(), fails_on=None):
         import base64
         import json
         import pathlib
@@ -270,11 +270,14 @@ class GateTests(unittest.TestCase):
                     out = pathlib.Path(command[3])
                     out.mkdir(parents=True, exist_ok=True)
                     (out / 'good.luau').write_text('return')
-                    return subprocess.CompletedProcess(command, decompiler_exit, b'', b'')
+                    # `fails_on`: an input the decompiler fails whenever it is given.
+                    given = fails_on is not None and (pathlib.Path(command[2]) / fails_on).exists()
+                    return subprocess.CompletedProcess(command, 1 if given else decompiler_exit, b'', b'')
                 return subprocess.CompletedProcess(command, 0, self.RETURN, b'')
 
             argv = ['bytecode_roundtrip.py', '--lifter', 'lifter', '--compiler', 'compiler', '--corpus', str(corpus),
-                    '--key', '1', '--threads', '1', '--work', str(root / 'work'), '--baseline', str(root / 'base.json')]
+                    '--key', '1', '--threads', '1', '--work', str(root / 'work'), '--baseline', str(root / 'base.json'),
+                    *extra]
             with mock.patch.object(bytecode_roundtrip, 'run', fake_run), mock.patch.object(sys, 'argv', argv), \
                     mock.patch('builtins.print'):
                 return bytecode_roundtrip.main()
@@ -292,3 +295,13 @@ class GateTests(unittest.TestCase):
         self.assertEqual(self.run_gate({'good.lua': good, 'empty.lua': '-- no bytecode'}, {'files': [ok('good')]}), 0)
         # So does a decompiler that exits with an error.
         self.assertEqual(self.run_gate({'good.lua': good}, {'files': [ok('good')]}, decompiler_exit=1), 1)
+
+    def test_a_selection_answers_only_for_the_selected_inputs(self):
+        import base64
+        good = base64.b64encode(self.RETURN).decode()
+        ok = lambda name: {'file': name, 'status': 'ok', 'nonequiv': 0, 'protos': 1}
+        files = {'good.lua': good, 'zbad.lua': good}
+        self.assertEqual(self.run_gate(files, {'files': [ok('good'), ok('zbad')]}, fails_on='zbad.lua'), 1)
+        for selection in (['--filter', 'good'], ['--limit', '1']):
+            self.assertEqual(self.run_gate(files, {'files': [ok('good'), ok('zbad')]}, extra=selection,
+                                           fails_on='zbad.lua'), 0, selection)

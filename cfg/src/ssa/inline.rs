@@ -587,6 +587,7 @@ impl<'a> Inliner<'a> {
                             && !(crossed_capture_read && new_rvalue_has_side_effects
                                 && may_write_capture_when_moved(new_rvalue, &globals))
                             && !is_service_or_require_handle(new_rvalue)
+                            && !new_rvalue.nests_deeper_than(ast::MAX_INLINED_DEPTH)
                             && !matches!(new_rvalue, ast::RValue::Closure(c)
                                 if c.function.lock().retain_for_reconstruction)
                         {

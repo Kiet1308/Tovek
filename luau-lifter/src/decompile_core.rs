@@ -1156,6 +1156,27 @@ fn open_unaliased(path: &Path) -> Option<std::fs::File> {
     }
 }
 
+/// No directory under the output root may be a symbolic link, as on Windows,
+/// where each is opened without following a reparse point: a link could make
+/// two outputs one file (`out/B -> out/A`) or lead out of the root.
+#[cfg(not(windows))]
+fn reject_directory_links(root: &Path, dir: &Path) -> std::io::Result<()> {
+    let relative = dir.strip_prefix(root).map_err(|_| {
+        std::io::Error::new(std::io::ErrorKind::PermissionDenied, "output directory outside the output root")
+    })?;
+    let mut path = root.to_path_buf();
+    for component in relative.components() {
+        path.push(component);
+        if std::fs::symlink_metadata(&path)?.file_type().is_symlink() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                format!("output directory {} is a symbolic link", path.display()),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Pre-create every unique parent directory single-threaded, so the parallel
 /// phase only ever writes files (no concurrent `create_dir_all` race).
 pub(crate) fn precreate_dirs(work: &[Work]) -> Result<(), i32> {
@@ -1168,14 +1189,8 @@ pub(crate) fn precreate_dirs(work: &[Work]) -> Result<(), i32> {
     for (root, dir) in dirs {
         #[cfg(windows)]
         let result = windows_contained_fs::ensure_directory(root, dir);
-        // A directory link must not lead the outputs out of their root.
         #[cfg(not(windows))]
-        let result = std::fs::create_dir_all(dir).and_then(|()| {
-            match std::fs::canonicalize(dir)?.starts_with(std::fs::canonicalize(root)?) {
-                true => Ok(()),
-                false => Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "output directory escapes the output root")),
-            }
-        });
+        let result = std::fs::create_dir_all(dir).and_then(|()| reject_directory_links(root, dir));
         if let Err(e) = result {
             eprintln!("error: create dir {}: {e}", dir.display());
             return Err(2);
@@ -3570,6 +3585,28 @@ mod tests {
     }
 
     #[test]
+    /// `out/Alias -> out/Real` would make `Real/Item` and `Alias/Item` one
+    /// file: a directory link under the output root refuses the run.
+    #[cfg(unix)]
+    #[test]
+    fn directory_links_under_the_output_root_are_refused() {
+        let temp = TestDir::new("directory-link");
+        let real = temp.0.join("Real");
+        std::fs::create_dir_all(&real).unwrap();
+        std::os::unix::fs::symlink(&real, temp.0.join("Alias")).unwrap();
+        let work = |directory: &str| Work {
+            input: temp.0.join("input.lua"),
+            output: temp.0.join(directory).join("Item.luau"),
+            output_root: temp.0.clone(),
+            rel: format!("{directory}/Item.lua"),
+            source_rel: format!("{directory}/Item.luau"),
+            kind: WorkKind::SourceFallback,
+            volt_export: None,
+        };
+        assert!(precreate_dirs(&[work("Real")]).is_ok());
+        assert!(precreate_dirs(&[work("Real"), work("Alias")]).is_err());
+    }
+
     /// Plain mode writes the output directly, as a new file: a hard link left
     /// at the output path keeps its old contents instead of taking the write.
     fn source_fallback_without_analysis_writes_a_fresh_file() {

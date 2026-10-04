@@ -3377,6 +3377,45 @@ impl<'a> Builder<'a> {
         definitions.get(source) == Some(&Some(info.init))
     }
 
+    /// Whether `local` still holds nil when the loop is exhausted, the value
+    /// it had on entering it: it is no parameter, and no store into it (but
+    /// an exhaustion adapter's) and no closure capturing it can reach the
+    /// loop's start or loop around inside the body. A store a `break` made
+    /// reaches the start again only when an enclosing loop comes around.
+    fn nil_on_loop_entry(&self, info: &LoopInfo, local: &RcLocal, adapters: &[NodeIndex]) -> bool {
+        if self.function.parameters.contains(local) {
+            return false;
+        }
+        // The nodes from which `target` can be reached, staying `within`.
+        let reaching = |target: NodeIndex, within: Option<&FxHashSet<NodeIndex>>| {
+            let mut found = FxHashSet::default();
+            let mut pending = vec![target];
+            while let Some(node) = pending.pop() {
+                if within.is_none_or(|within| within.contains(&node)) && found.insert(node) {
+                    pending.extend(self.function.predecessor_blocks(node));
+                }
+            }
+            found
+        };
+        let reaches_start = reaching(info.init, None);
+        let loops_around = reaching(info.header, Some(&info.nodes));
+        let id = [local.stable_id()];
+        let local = std::slice::from_ref(local);
+        let captures_at = |node: NodeIndex| {
+            self.function.block(node).is_some_and(|block| block.iter().any(|statement| statement_captures_any(statement, local)))
+                || self.function.edges(node).any(|edge| {
+                    edge.weight().arguments.iter().any(|(_, value)| rvalue_captures_any(value, local))
+                })
+        };
+        let captured = self.analysis.proof_nodes(self.function, id, PROOF_CAPTURE).into_iter()
+            .any(|node| (reaches_start.contains(&node) || info.nodes.contains(&node)) && captures_at(node));
+        let stored = self.analysis.proof_nodes(self.function, id, PROOF_WRITE).into_iter().any(|node| {
+            !adapters.contains(&node)
+                && (reaches_start.contains(&node) || (node != info.header && loops_around.contains(&node)))
+        });
+        !captured && !stored
+    }
+
     fn normal_adapter_nodes(
         &self,
         info: &LoopInfo,
@@ -5990,22 +6029,28 @@ impl<'a> Builder<'a> {
         for (local, export) in &exports {
             adapter_rewrite.insert(local.clone(), export.clone());
         }
+        // A result is nil after exhaustion without a store when it is the
+        // loop's own binding (dead after it) or a fresh export, nil until a
+        // `break` writes it. An outer cell the loop only publishes to
+        // (`iteration_bindings`) holds its value from before the loop, which
+        // is nil only when nothing else ever stores into it.
+        let implicit_nil = info
+            .res_locals
+            .iter()
+            .filter(|local| !iteration_bindings.contains_key(*local) || self.nil_on_loop_entry(info, local, &adapters))
+            .collect_vec();
         let mut adapter_output = Block::default();
         for node in adapters {
             // Preserve source-visible linear statements on an exhaustion
             // adapter (for example, clearing a sentinel used by an enclosing
-            // while condition).  Nil stores to hidden result cells are
-            // represented by the source-level iterator semantics and remain
-            // implicit.
+            // while condition), except nil stores to results that are nil
+            // there anyway (`implicit_nil`).
             if let Some(block) = self.function.block(node) {
                 adapter_output.extend(
                     block
                         .iter()
                         .filter(|statement| {
-                            !info
-                                .res_locals
-                                .iter()
-                                .any(|local| Self::is_nil_assignment(statement, local))
+                            !implicit_nil.iter().any(|local| Self::is_nil_assignment(statement, local))
                         })
                         .cloned()
                         .map(|statement| {

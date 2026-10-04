@@ -246,7 +246,20 @@ impl<'a: 'b, 'b> Reduce for RValue {
     }
 }
 
+/// How deep inlining may nest an expression. An accumulation of thousands
+/// of single-use temps (`sum += n` per line) would otherwise fold into one
+/// tree too deep for the recursive passes after it (a stack overflow aborts
+/// the whole process), and far too long to read on one line.
+pub const MAX_INLINED_DEPTH: usize = 128;
+
 impl RValue {
+    /// Whether this expression nests deeper than `levels`. Walks no further
+    /// than that, so a deep tree costs no more to check than a shallow one;
+    /// a closure's body is a function of its own and does not count.
+    pub fn nests_deeper_than(&self, levels: usize) -> bool {
+        levels == 0 || !self.visit_rvalues(&mut |child| !child.nests_deeper_than(levels - 1))
+    }
+
     pub fn precedence(&self) -> usize {
         match self {
             Self::Binary(binary) => binary.precedence(),

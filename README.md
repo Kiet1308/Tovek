@@ -116,7 +116,10 @@ for scope, methodology and remaining regressions.
 - **Literal and runtime fidelity.** Integer constants retain their signed 64-bit value
   and `i` suffix; recompilation requires Luau's `LuauIntegerType2` feature. Vector
   constants capture the standard `vector.create` function at chunk entry, preserving
-  their behavior across later environment changes and O0/O1/O2 recompilation. The
+  their behavior across later environment changes and O0/O1/O2 recompilation. A
+  chunk with no room for that binding (no free register, or a closure already holding
+  200 upvalues) spells the constant `vector.create(...)` in place instead, under the
+  environment assumption below. The
   Lua 5.1 lifter emits Luau and preserves both `...` and the legacy `arg` table,
   including nil holes and `arg.n`; this compatibility path captures standard `select`
   at chunk entry. These generated helpers require those standard bindings at entry.
@@ -153,6 +156,14 @@ The [V2 release article](https://kiet1308.github.io/Tovek/changelog/v2/#evaluati
 compares the validated V2 output with v0.9 beta, including readability gains,
 runtime checks and remaining regressions. The [UI reconstruction example](https://kiet1308.github.io/Tovek/changelog/v2/#ui-trees)
 illustrates how module exports can be reconstructed into a table.
+
+The output keeps the bytecode's behavior under one assumption about the
+environment, the one Luau's own import resolution makes: a global path the script
+never assigns (`print`, `Vector2.new`) keeps the value it had when the script
+loaded. Luau resolves such a path once and reads it again only after code calls
+getfenv/setfenv on the script's environment. A script that names getfenv or
+setfenv itself is decompiled without the assumption; other scripts are assumed not
+to call them on it.
 
 Public regression fixtures, pinned corpus manifests and the CI workflow remain in
 this repository. Private bytecode, generated output and internal research reports

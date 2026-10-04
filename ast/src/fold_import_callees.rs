@@ -1,10 +1,11 @@
 //! A callee read into a local before the arguments run, because they may
 //! run code: `local new = Vector2.new; ...; return new(f(x), g(y))`. Luau
 //! resolves a global path the script never assigns once, when it loads
-//! (`deinline_safety::CaptureSafety::constant_import`), so no code can
-//! change what it reads, and the call may name it in place:
-//! `Vector2.new(f(x), g(y))`, which compiles to the same read before the
-//! arguments.
+//! (`deinline_safety::CaptureSafety::constant_import`), and reads it again
+//! only after code calls getfenv/setfenv on the script's environment, which
+//! the output assumes no other script does (README, "Output and validation").
+//! The call may then name it in place: `Vector2.new(f(x), g(y))`, which
+//! compiles to the same read before the arguments.
 use crate::{Block, LValue, RValue, RcLocal, Select, Statement, Traverse};
 
 pub fn fold_import_callees(body: &mut Block) {

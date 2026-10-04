@@ -2119,9 +2119,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                                 write!(self.output, "{} = ", std::str::from_utf8(field).unwrap())?;
                             }
                             _ => {
-                                write!(self.output, "[")?;
-                                self.format_rvalue(key)?;
-                                write!(self.output, "] = ")?;
+                                self.format_bracketed_key(key)?;
+                                write!(self.output, " = ")?;
                             }
                         }
                     }
@@ -2406,7 +2405,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     fn is_valid_named_function_prefix(value: &RValue) -> bool {
         match value {
-            RValue::Global(_) | RValue::Local(_) => true,
+            RValue::Global(global) => Self::is_valid_name(&global.0),
+            RValue::Local(_) => true,
             RValue::Index(index) => {
                 matches!(
                     index.right.as_ref(),
@@ -2824,11 +2824,28 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             RValue::Literal(super::Literal::String(field)) if Self::is_valid_name(field) => {
                 write!(self.output, ".{}", std::str::from_utf8(field).unwrap())
             }
-            _ => {
-                write!(self.output, "[")?;
-                self.format_rvalue(&index.right)?;
-                write!(self.output, "]")
-            }
+            _ => self.format_bracketed_key(&index.right),
+        }
+    }
+
+    /// `[key]`, for an index or a constructor field. A key that starts with
+    /// a long string is spaced off the bracket: `t[[[...]]]` would lex as a
+    /// long string from the first `[[`.
+    fn format_bracketed_key(&mut self, key: &RValue) -> fmt::Result {
+        let spaced = Self::starts_with_long_string(key);
+        write!(self.output, "{}", if spaced { "[ " } else { "[" })?;
+        self.format_rvalue(key)?;
+        write!(self.output, "{}", if spaced { " ]" } else { "]" })
+    }
+
+    /// Whether `value` prints starting with a long string: one itself, or
+    /// the left operand of a binary operation (when that operand is wrapped
+    /// it starts with `(` instead, and the spacing is merely redundant).
+    fn starts_with_long_string(value: &RValue) -> bool {
+        match value {
+            RValue::Literal(literal) => literal.prints_as_long_string(),
+            RValue::Binary(binary) => Self::starts_with_long_string(&binary.left),
+            _ => false,
         }
     }
 
@@ -3072,7 +3089,10 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             && !Self::is_callback_property(&assign.left[0])
         {
             let left = &assign.left[0];
-            if assign.prefix || left.as_global().is_some() || {
+            // `function name()` needs a name path; a global no identifier
+            // spells prints as `getfenv(1)["name"]`, which is none.
+            let spellable = |global: &crate::Global| Self::is_valid_name(&global.0);
+            if assign.prefix || left.as_global().is_some_and(spellable) || {
                 if let LValue::Index(index) = left {
                     let mut index = index;
                     let mut valid = true;
@@ -3085,7 +3105,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                                     index = i;
                                     continue;
                                 }
-                                box RValue::Global(_) | box RValue::Local(_) => {}
+                                box RValue::Global(ref global) if spellable(global) => {}
+                                box RValue::Local(_) => {}
                                 _ => valid = false,
                             }
                         } else {

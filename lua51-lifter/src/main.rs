@@ -11,7 +11,7 @@ use ast::{
 use by_address::ByAddress;
 use cfg::ssa::{
     self,
-    structuring::{structure_conditionals, structure_jumps, structure_method_calls},
+    structuring::{structure_conditionals, structure_jumps},
 };
 use ast::FxIndexMap as IndexMap;
 use lifter::Lifter;
@@ -132,13 +132,10 @@ fn decompile(prototype: &lua51_deserializer::Function<'_>, parallel: bool) -> an
 
                 let conditionals_changed = structure_conditionals(&mut function, &|local| upvalue_to_group.contains_key(local));
                 if topology_changed || conditionals_changed { dominator_cache = None; }
-                if conditionals_changed
-                // || {
-                //     let post_dominators = post_dominators(function.graph_mut());
-                //     structure_for_loops(&mut function, &dominators, &post_dominators)
-                // }
-                    || structure_method_calls(&mut function)
-                {
+                // SELF stays `t.m(t, ...)`: Luau's `t:m(...)` looks the method
+                // up after the arguments run, and through a userdata's
+                // `__namecall`, neither of which Lua 5.1 does.
+                if conditionals_changed {
                     changed = true;
                 }
                 let mut local_map = FxHashMap::default();

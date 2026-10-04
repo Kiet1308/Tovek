@@ -1240,6 +1240,15 @@ def main() -> int:
     if not items and not unreadable:
         print("no inputs")
         return 1
+    # A debug selection decompiles only what it selected, so the decompiler's
+    # exit status speaks for exactly those inputs.
+    if args.filter or args.limit:
+        inp = work / "selected"
+        inp.mkdir(parents=True, exist_ok=True)
+        for rel, raw, _ in items:
+            target = inp / (rel + ".lua")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(base64.b64encode(raw).decode())
 
     args._short_dir = work / "cc"
     args._short_dir.mkdir(parents=True, exist_ok=True)

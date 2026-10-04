@@ -157,6 +157,11 @@ impl Literal {
         }
     }
 
+    /// Whether this literal prints as a long bracket string (`[[...]]`).
+    pub(crate) fn prints_as_long_string(&self) -> bool {
+        matches!(self, Literal::String(value) if Self::long_string(value).is_some())
+    }
+
 }
 
 /// Display adapters keep temporary numeric text on the stack. The owned

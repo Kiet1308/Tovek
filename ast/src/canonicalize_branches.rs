@@ -16,7 +16,7 @@ use crate::{
 pub fn canonicalize_branches(block: &mut Block) {
     crate::factor_common_tails::unshare_blocks(block);
     let facts = FunctionFacts::collect(block, &[]);
-    canonicalize_block(block, &facts);
+    canonicalize_block(block, &facts, 0);
 }
 
 struct FunctionFacts {
@@ -74,7 +74,10 @@ fn collect_declared_locals(block: &Block, declared: &mut FxHashSet<RcLocal>) {
     }
 }
 
-fn canonicalize_block(block: &mut Block, facts: &FunctionFacts) {
+/// `live`: the registers the function holds around `block` (its parameters,
+/// the locals enclosing blocks declare, enclosing loops' own registers).
+fn canonicalize_block(block: &mut Block, facts: &FunctionFacts, live: usize) {
+    let mut live = live;
     for statement in &mut block.0 {
         let mut functions = Vec::new();
         crate::deinline::visit_stmt_rvalues_mut(statement, &mut |value| {
@@ -84,25 +87,31 @@ fn canonicalize_block(block: &mut Block, facts: &FunctionFacts) {
         for function in functions {
             let mut function = function.lock();
             let nested_facts = FunctionFacts::collect(&function.body, &function.parameters);
-            canonicalize_block(&mut function.body, &nested_facts);
+            let parameters = function.parameters.len();
+            canonicalize_block(&mut function.body, &nested_facts, parameters);
         }
 
+        // A numeric loop holds three hidden registers and its counter; a
+        // generic one three and its variables.
         match statement {
             Statement::If(node) => {
-                canonicalize_block(&mut node.then_block.lock(), facts);
-                canonicalize_block(&mut node.else_block.lock(), facts);
+                canonicalize_block(&mut node.then_block.lock(), facts, live);
+                canonicalize_block(&mut node.else_block.lock(), facts, live);
             }
-            Statement::While(node) => canonicalize_block(&mut node.block.lock(), facts),
-            Statement::Repeat(node) => canonicalize_block(&mut node.block.lock(), facts),
-            Statement::NumericFor(node) => canonicalize_block(&mut node.block.lock(), facts),
-            Statement::GenericFor(node) => canonicalize_block(&mut node.block.lock(), facts),
+            Statement::While(node) => canonicalize_block(&mut node.block.lock(), facts, live),
+            Statement::Repeat(node) => canonicalize_block(&mut node.block.lock(), facts, live),
+            Statement::NumericFor(node) => canonicalize_block(&mut node.block.lock(), facts, live + 4),
+            Statement::GenericFor(node) => {
+                canonicalize_block(&mut node.block.lock(), facts, live + 3 + node.res_locals.len())
+            }
+            Statement::Assign(assign) if assign.prefix => live += assign.left.len(),
             _ => {}
         }
         flatten_leading_repeat_in_infinite_while(statement);
         reroll_terminal_while(statement);
     }
     recover_parent_walks(block, facts);
-    reroll_two_index_blocks(block);
+    reroll_two_index_blocks(block, live);
     chain_adjacent_return_ifs(&mut block.0);
     merge_nested_conjunct_ifs(&mut block.0);
 }
@@ -254,11 +263,16 @@ fn is_parent_advance(statement: &Statement, cursor: &RcLocal) -> bool {
 /// xs[2]; BODY(b)` into a two-iteration numeric loop. The alpha matcher permits
 /// only the element-local rename; the sole expression hole is therefore the
 /// proven consecutive index literal.
-fn reroll_two_index_blocks(block: &mut Block) {
-    reroll_two_index_blocks_impl::<true>(block);
+/// `live`: the registers held around the loop, every local `block` declares
+/// included.
+fn reroll_two_index_blocks(block: &mut Block, live: usize) {
+    reroll_two_index_blocks_impl::<true>(block, live);
 }
 
-fn reroll_two_index_blocks_impl<const PREFILTER: bool>(block: &mut Block) {
+/// Luau's registers per function.
+const MAX_REGISTERS: usize = 255;
+
+fn reroll_two_index_blocks_impl<const PREFILTER: bool>(block: &mut Block, live: usize) {
     if block.0.len() < 4 {
         return;
     }
@@ -285,6 +299,13 @@ fn reroll_two_index_blocks_impl<const PREFILTER: bool>(block: &mut Block) {
             index += 1;
             continue;
         };
+        // The loop's four registers come on top of what is live; its body's
+        // temporaries take at most one register per node. A source that
+        // would not compile keeps the two copies.
+        if live + 4 + crate::deinline::dbg_stmt_node_count(&block.0[index + 1]) > MAX_REGISTERS {
+            index += 1;
+            continue;
+        }
 
         let counter_name = crate::rehoist_constants::unique_name("i", &mut reserved);
         let counter = RcLocal::new(Local::new(Some(counter_name)));
@@ -891,13 +912,13 @@ mod tests {
                 let mut actual = crate::simplify_gotos::deep_clone_block(&source);
                 let metadata: Vec<_> = locals.iter().map(|local| local.0.lock().clone()).collect();
                 let start = crate::current_local_id();
-                super::reroll_two_index_blocks_impl::<false>(&mut expected);
+                super::reroll_two_index_blocks_impl::<false>(&mut expected, 0);
                 let minted = crate::current_local_id() - start;
                 let expected_text = expected.to_string();
                 let expected_metadata: Vec<_> = locals.iter().map(|local| local.0.lock().clone()).collect();
                 for (local, saved) in locals.iter().zip(&metadata) { *local.0.lock() = saved.clone(); }
                 let start = crate::current_local_id();
-                super::reroll_two_index_blocks(&mut actual);
+                super::reroll_two_index_blocks(&mut actual, 0);
                 assert_eq!(crate::current_local_id() - start, minted);
                 assert_eq!(actual.to_string(), expected_text, "mode={mode}, offset={offset}");
                 assert_eq!(locals.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>(), expected_metadata);

@@ -23,6 +23,14 @@ CASES = {
     'method_lookup_order': 'local o = setmetatable({}, {__index = function(_, k) print("lookup", k) '
                            'return function(self, ...) print("call", ...) end end}); '
                            'local function args() print("arg") return 1 end; o:m(args())',
+    # ... and before reading an argument the lookup may change.
+    'method_lookup_before_argument_read': 'local x = 1; local function invoke(t) t:m(x) end; '
+                                          'local t = setmetatable({}, {__index = function() x = 2; '
+                                          'return function(_, value) print(value) end end}); invoke(t)',
+    # SELF indexes a userdata; Luau's `u:foo()` would go through `__namecall`.
+    'method_namecall_userdata': 'local u = newproxy(true); local mt = getmetatable(u); '
+                                'mt.__index = {foo = function(self) print("foo") end}; '
+                                'mt.__namecall = function() print("namecall") end; u:foo()',
 }
 
 # A compiled chunk with one string constant respelled (same length): SELF

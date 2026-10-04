@@ -38,6 +38,13 @@ struct FrameReads {
     info: u32,
     info_calls: u32,
     computed: bool,
+    /// Some `debug.info` call reads which frames run ([`reads_frame_identity`]).
+    read: bool,
+    /// The functions making such a call themselves, by identity.
+    callers: FxHashSet<usize>,
+    /// The locals naming every function that reads call frames, itself or
+    /// through another such call; `None` when one also runs otherwise.
+    observers: Option<FxHashSet<u64>>,
 }
 
 /// How the module's functions reach each other, by function identity: what
@@ -65,7 +72,36 @@ impl CaptureSafety {
         let mut result = Self::default();
         result.block(&body.0, 0, &FxHashSet::default(), None);
         result.visited.clear();
+        result.frames.observers = result.frame_observers();
         result
+    }
+
+    /// [`FrameReads::observers`]: from each function calling `debug.info`,
+    /// to the functions calling it by name, as long as each is only ever
+    /// called by its one name (see [`Self::private_writers`]).
+    fn frame_observers(&self) -> Option<FxHashSet<u64>> {
+        let calls = &self.calls;
+        let mut pending: Vec<usize> = self.frames.callers.iter().copied().collect();
+        let mut seen = FxHashSet::default();
+        let mut names = FxHashSet::default();
+        while let Some(function) = pending.pop() {
+            if !seen.insert(function) {
+                continue;
+            }
+            let &(declarations, name) = calls.bound.get(&function)?;
+            let name = name?;
+            let called_only = calls.reads.get(&name).copied().unwrap_or(0)
+                == calls.callee_reads.get(&name).copied().unwrap_or(0);
+            if declarations != calls.closures.get(&function).copied().unwrap_or(0)
+                || self.rebound.contains(&name)
+                || !called_only
+            {
+                return None;
+            }
+            names.insert(name);
+            pending.extend(calls.callers.get(&name).into_iter().flatten().copied());
+        }
+        Some(names)
     }
 
     /// The locals naming every function that may assign `cell`, directly or
@@ -138,14 +174,44 @@ impl CaptureSafety {
     /// The module calls `debug.info`, whose answer depends on the call
     /// frames running: the same code in a helper sees another frame.
     pub(crate) fn reads_call_frames(&self) -> bool {
-        self.exhausted || self.frames.info_calls > 0 || self.call_frames_untracked()
+        self.exhausted || self.frames.read || self.call_frames_untracked()
     }
 
-    /// `debug.info` (or the whole library) may run under another name, so
-    /// no body can be shown free of it.
+    /// `debug.info` (or the whole library, or a function calling it) may run
+    /// under another name, so no code can be shown free of it.
     pub(crate) fn call_frames_untracked(&self) -> bool {
         let frames = &self.frames;
-        self.exhausted || frames.computed || frames.library > frames.members || frames.info > frames.info_calls
+        self.exhausted
+            || frames.computed
+            || frames.library > frames.members
+            || frames.info > frames.info_calls
+            || frames.observers.is_none()
+    }
+
+    /// Whether running `statements` reads call frames: a `debug.info` call
+    /// in them, or a call of a local function that makes one, itself or
+    /// through others. Moved into a helper, that code runs a frame deeper.
+    /// A closure's body runs in a frame of its own wherever it is created.
+    pub(crate) fn reads_frames(&self, statements: &[Statement]) -> bool {
+        statements.iter().any(|statement| {
+            crate::deinline::stmt_rvalues(statement).into_iter().any(|value| self.value_reads_frames(value))
+                || match statement {
+                    Statement::If(node) => {
+                        self.reads_frames(&node.then_block.lock().0) || self.reads_frames(&node.else_block.lock().0)
+                    }
+                    Statement::While(node) => self.reads_frames(&node.block.lock().0),
+                    Statement::Repeat(node) => self.reads_frames(&node.block.lock().0),
+                    Statement::NumericFor(node) => self.reads_frames(&node.block.lock().0),
+                    Statement::GenericFor(node) => self.reads_frames(&node.block.lock().0),
+                    _ => false,
+                }
+        })
+    }
+
+    /// [`Self::reads_frames`] of one value.
+    pub(crate) fn value_reads_frames(&self, value: &RValue) -> bool {
+        calls_debug_info(value)
+            || self.frames.observers.as_ref().is_some_and(|names| !names.is_empty() && calls_any(value, names))
     }
 
     /// Whether some function assigns `local` as its upvalue: then a call
@@ -341,7 +407,13 @@ impl CaptureSafety {
             RValue::Local(local) => *self.calls.reads.entry(local.stable_id()).or_default() += 1,
             RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => {
                 self.call(call, owner);
-                self.frames.info_calls += u32::from(debug_member(&call.value) == Some(Some(b"info".as_slice())));
+                if debug_member(&call.value) == Some(Some(b"info".as_slice())) {
+                    self.frames.info_calls += 1;
+                    if reads_frame_identity(call) {
+                        self.frames.read = true;
+                        self.frames.callers.extend(owner);
+                    }
+                }
             }
             _ if is_debug_library(value) => self.frames.library += 1,
             RValue::Index(_) => match debug_member(value) {
@@ -408,15 +480,25 @@ fn debug_member(value: &RValue) -> Option<Option<&[u8]>> {
     })
 }
 
-/// Whether `value` calls `debug.info`, closure bodies included: a helper
-/// built from it would read its own frame instead of its caller's.
-pub(crate) fn calls_debug_info(value: &RValue) -> bool {
+/// Whether a `debug.info` call reads which frames run. One frame more, a
+/// helper's, changes no answer of `debug.info(1 or 2, "s"/"l")`: the frame
+/// at those levels stays in this script (`s`), and no decompiled line keeps
+/// its number anyway (`l`). A function (`f`), name (`n`) or arity (`a`), or
+/// a deeper level, may name another frame.
+fn reads_frame_identity(call: &crate::Call) -> bool {
+    !matches!(call.arguments.as_slice(), [
+        RValue::Literal(Literal::Number(level)),
+        RValue::Literal(Literal::String(options)),
+    ] if (*level == 1.0 || *level == 2.0) && options.iter().all(|option| matches!(option, b's' | b'l')))
+}
+
+/// Whether `value` calls `debug.info` reading which frames run, closure
+/// bodies aside.
+fn calls_debug_info(value: &RValue) -> bool {
     match value {
+        RValue::Closure(_) => false,
         RValue::Call(call) | RValue::Select(crate::Select::Call(call))
-            if debug_member(&call.value) == Some(Some(b"info".as_slice())) => true,
-        RValue::Closure(closure) => closure.function.lock().body.any_statement_deep(&mut |statement| {
-            crate::deinline::stmt_rvalues(statement).into_iter().any(calls_debug_info)
-        }),
+            if debug_member(&call.value) == Some(Some(b"info".as_slice())) && reads_frame_identity(call) => true,
         _ => !value.visit_rvalues(&mut |child| !calls_debug_info(child)),
     }
 }
@@ -466,6 +548,10 @@ pub struct ChunkGlobals {
     pub dynamic_environment: bool,
     /// Globals the chunk assigns (SETGLOBAL): `math = setmetatable(...)`.
     pub written: FxHashSet<Vec<u8>>,
+    /// Some global the chunk reads or assigns has a name no identifier
+    /// spells (patched bytecode only): source reaches it as
+    /// `getfenv(1)["name"]`.
+    pub unspellable: bool,
 }
 
 impl ChunkGlobals {

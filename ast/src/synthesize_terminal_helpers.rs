@@ -348,9 +348,10 @@ fn choose_candidate(
     collect_declared_locals(scope, &mut declared_anywhere);
     let root_declarations = root_declaration_positions(scope);
 
+    // Moved into a helper, a region reading call frames runs a frame deeper.
     let mut ranked: Vec<Group> = groups
         .into_iter()
-        .filter(|group| group.occurrences >= minimum_occurrences(group.nodes))
+        .filter(|group| group.occurrences >= minimum_occurrences(group.nodes) && !safety.reads_frames(&group.template))
         .collect();
     ranked.sort_by(|left, right| {
         candidate_score(right)
@@ -842,7 +843,7 @@ fn statement_movable(statement: &Statement) -> bool {
     }
     if crate::deinline::stmt_rvalues(statement)
         .into_iter()
-        .any(|value| !rvalue_movable(value) || crate::deinline_safety::calls_debug_info(value))
+        .any(|value| !rvalue_movable(value))
     {
         return false;
     }
