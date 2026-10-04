@@ -66,12 +66,106 @@ fn merge_repeated_keys_in_value(value: &mut RValue) -> bool {
     changed
 }
 
+/// Only string/boolean keys have no aliases among differently spelled literal
+/// or implicit array keys. Numeric/vector keys can alias signed zeros or array
+/// entries; nil/NaN keys can raise before the later value is evaluated. Keep
+/// those entries in place unless a separate runtime-slot proof is available.
+fn mergeable_key(key: &RValue) -> bool {
+    matches!(key, RValue::Literal(crate::Literal::String(_) | crate::Literal::Boolean(_)))
+}
+
 fn merge_repeated_keys_in(table: &mut Table) -> bool {
+    // Avoid building an index for the common tiny constructor.
+    if table.0.len() < 16 {
+        return merge_repeated_keys_scanning(table);
+    }
+    merge_repeated_keys_indexed(table, literal_fingerprint)
+}
+
+/// This pass compares literal expressions, not runtime table slots. In
+/// particular, signed zero and NaN payloads retain Literal's bitwise equality.
+/// Hash hits are always confirmed against the original key below.
+fn literal_fingerprint(literal: &crate::Literal) -> u64 {
+    use std::hash::{Hash, Hasher};
+    use crate::Literal;
+    let mut hash = rustc_hash::FxHasher::default();
+    std::mem::discriminant(literal).hash(&mut hash);
+    match literal {
+        Literal::Nil => {},
+        Literal::Boolean(value) => value.hash(&mut hash),
+        Literal::Number(value) => value.to_bits().hash(&mut hash),
+        Literal::Integer(value) => value.hash(&mut hash),
+        Literal::String(value) => value.hash(&mut hash),
+        Literal::Vector(x, y, z) => [x.to_bits(), y.to_bits(), z.to_bits()].hash(&mut hash),
+        Literal::VectorD(x, y, z) => [x.to_bits(), y.to_bits(), z.to_bits()].hash(&mut hash),
+    }
+    hash.finish()
+}
+
+fn merge_repeated_keys_indexed(
+    table: &mut Table,
+    fingerprint: impl Fn(&crate::Literal) -> u64,
+) -> bool {
+    let mut first_by_hash: rustc_hash::FxHashMap<u64, Vec<usize>> = Default::default();
+    let mut removed = vec![false; table.0.len()];
+    let mut changed = false;
+    // A surviving entry can only change from literal to nonliteral. Thus the
+    // latest barrier of each kind never retreats, even when an earlier value
+    // is replaced; a suffix/range scan is unnecessary.
+    let mut last_nonliteral: Option<usize> = None;
+    let mut last_nonread: Option<usize> = None;
+    for later in 0..table.0.len() {
+        let first = match &table.0[later].0 {
+            Some(key @ RValue::Literal(literal)) if mergeable_key(key) => {
+                let candidates = first_by_hash.entry(fingerprint(literal)).or_default();
+                let first = candidates.iter().copied().find(|&first| {
+                    #[cfg(test)]
+                    tests::MERGE_KEY_COMPARISONS.with(|count| count.set(count.get() + 1));
+                    table.0[first].0.as_ref() == Some(key)
+                });
+                if first.is_none() { candidates.push(later); }
+                first
+            }
+            _ => None,
+        };
+        let reads_only = matches!(table.0[later].1, RValue::Local(_) | RValue::Literal(_));
+        let barrier = if reads_only { last_nonread } else { last_nonliteral };
+        let movable = first.is_some_and(|first| {
+            matches!(table.0[first].1, RValue::Literal(_))
+                && barrier.is_none_or(|barrier| barrier <= first)
+        });
+        let position = if let (Some(first), true) = (first, movable) {
+            table.0[first].1 = std::mem::replace(&mut table.0[later].1, crate::Literal::Nil.into());
+            removed[later] = true;
+            changed = true;
+            first
+        } else {
+            later
+        };
+        let (key, value) = &table.0[position];
+        let total_key = key.as_ref().is_none_or(|key| {
+            matches!(key, RValue::Literal(_)) && crate::is_total_table_key(key)
+        });
+        if !total_key || !matches!(value, RValue::Literal(_)) {
+            last_nonliteral = Some(last_nonliteral.map_or(position, |old| old.max(position)));
+        }
+        if !total_key || !matches!(value, RValue::Literal(_) | RValue::Local(_)) {
+            last_nonread = Some(last_nonread.map_or(position, |old| old.max(position)));
+        }
+    }
+    if changed {
+        let mut removed = removed.into_iter();
+        table.0.retain(|_| !removed.next().expect("one marker per stable entry"));
+    }
+    changed
+}
+
+fn merge_repeated_keys_scanning(table: &mut Table) -> bool {
     let mut changed = false;
     let mut later = 1;
     while later < table.0.len() {
         let first = match &table.0[later].0 {
-            Some(key @ RValue::Literal(_)) => table.0[..later].iter().position(|(existing, _)| existing.as_ref() == Some(key)),
+            Some(key @ RValue::Literal(_)) if mergeable_key(key) => table.0[..later].iter().position(|(existing, _)| existing.as_ref() == Some(key)),
             _ => None,
         };
         // Moving the value ahead crosses the entries between: literals, or
@@ -980,6 +1074,9 @@ fn inert_suffix(table: &Table, position: usize, initial_len: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    thread_local! {
+        pub(super) static MERGE_KEY_COMPARISONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
     use super::rebuild_table_literals;
     use crate::{
         Assign, Block, Call, Closure, Comment, Function, Global, If, Index, LValue, Literal, Local,
@@ -1029,6 +1126,131 @@ mod tests {
 
     fn print(value: RValue) -> crate::Statement {
         Call::new(global("print"), vec![value]).into()
+    }
+
+    #[test]
+    fn indexed_repeated_keys_match_original_with_collisions_and_barriers() {
+        let read = local("captured");
+        let keys = [
+            Some(string("a")), Some(string("b")), Some(string("c")),
+            Some(number(0.0)), Some(number(-0.0)),
+            Some(number(f64::from_bits(0x7ff8_0000_0000_0001))),
+            Some(number(f64::from_bits(0x7ff8_0000_0000_0002))),
+            Some(Literal::Boolean(true).into()), Some(Literal::Integer(0).into()),
+            Some(Literal::Vector(0.0, -0.0, 1.0).into()),
+            Some(Literal::VectorD(-0.0, 0.0, f64::NAN).into()),
+            Some(nil()), Some(local_value(&read)), None,
+        ];
+        for seed in 0..2_048u64 {
+            let mut random = seed + 1;
+            let mut entries = Vec::new();
+            for index in 0..(16 + seed as usize % 113) {
+                random = random.wrapping_mul(6364136223846793005).wrapping_add(1);
+                let key = keys[(random >> 32) as usize % keys.len()].clone();
+                let value = match (random >> 16) % 6 {
+                    0..=2 => number(index as f64),
+                    3 => local_value(&read),
+                    4 => Call::new(global("effect"), vec![number(index as f64)]).into(),
+                    _ => Table::new(vec![(Some(local_value(&read)), nil())]).into(),
+                };
+                entries.push((key, value));
+            }
+            let original = Table::new(entries);
+            let mut actual = original.clone();
+            let mut expected = original.clone();
+            let changed = super::merge_repeated_keys_indexed(&mut actual, |literal| {
+                // Force all kinds into one bucket to exercise equality checks.
+                if seed % 4 == 0 { 0 } else { super::literal_fingerprint(literal) }
+            });
+            let reference_changed = super::merge_repeated_keys_scanning(&mut expected);
+            assert_eq!(changed, reference_changed, "seed={seed}");
+            assert_eq!(actual, expected, "seed={seed}");
+        }
+    }
+
+    #[test]
+    fn indexed_repeated_keys_preserve_first_occurrence_float_bits_and_origins() {
+        let mut effect = Call::new(global("effect"), vec![]);
+        effect.node_origin = crate::node_origins::Origin::input(crate::node_origins::Input {
+            function: "repeated_keys".into(), block: 2, statement: 7, value: Some(1),
+        });
+        let mut table = Table::new(vec![
+            (Some(number(0.0)), number(1.0)),
+            (Some(number(-0.0)), number(2.0)),
+            (Some(number(0.0)), number(3.0)),
+            (Some(string("effect")), nil()),
+            (Some(string("effect")), effect.into()),
+            // The first occurrence now holds an effect, so the later literal
+            // remains even though a newer duplicate could absorb it.
+            (Some(string("effect")), number(4.0)),
+            (Some(string("effect")), number(5.0)),
+        ]);
+        assert!(super::merge_repeated_keys_indexed(&mut table, super::literal_fingerprint));
+        assert_eq!(table.0.len(), 6);
+        assert_eq!(table.0[0], (Some(number(0.0)), number(1.0)));
+        assert_eq!(table.0[1], (Some(number(-0.0)), number(2.0)));
+        assert_eq!(table.0[2], (Some(number(0.0)), number(3.0)));
+        let origin = crate::node_origins::value(&table.0[3].1).unwrap().0.as_ref().unwrap();
+        assert_eq!(origin.inputs[0].statement, 7);
+        assert!(!origin.cloned && !origin.inlined);
+        assert_eq!(table.0[4].1, number(4.0));
+        assert_eq!(table.0[5].1, number(5.0));
+    }
+
+    #[test]
+    fn repeated_keys_keep_numeric_aliases_and_invalid_key_errors_in_place() {
+        for key in [number(1.0), number(f64::NAN), nil(), Literal::Vector(-0.0, 0.0, 1.0).into()] {
+            let original = Table::new(vec![
+                (Some(key.clone()), number(0.0)),
+                (None, number(9.0)),
+                (Some(key), Call::new(global("effect"), vec![]).into()),
+            ]);
+            let mut actual = original.clone();
+            assert!(!super::merge_repeated_keys_indexed(&mut actual, super::literal_fingerprint));
+            assert_eq!(actual, original);
+            assert!(!super::merge_repeated_keys_scanning(&mut actual));
+            assert_eq!(actual, original);
+        }
+    }
+
+    #[test]
+    fn repeated_key_lookup_is_linear_for_large_unique_and_duplicate_tables() {
+        for size in [4_000, 8_000] {
+            for duplicate in [false, true] {
+                let mut table = Table::new((0..size).map(|index| {
+                    (Some(string(&format!("field{}", if duplicate { index / 2 } else { index }))), nil())
+                }).collect());
+                MERGE_KEY_COMPARISONS.with(|count| count.set(0));
+                let changed = super::merge_repeated_keys_in(&mut table);
+                let comparisons = MERGE_KEY_COMPARISONS.with(std::cell::Cell::get);
+                assert_eq!(changed, duplicate);
+                assert_eq!(table.0.len(), if duplicate { size / 2 } else { size });
+                assert!(comparisons <= size, "{size} entries used {comparisons} key comparisons");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "manual release scaling benchmark"]
+    fn benchmark_repeated_key_scaling() {
+        for size in [1_000, 2_000, 4_000, 8_000] {
+            for duplicate in [false, true] {
+                let original = Table::new((0..size).map(|index| {
+                    (Some(string(&format!("field{}", if duplicate { index / 2 } else { index }))), nil())
+                }).collect());
+                let mut actual = original.clone();
+                let start = std::time::Instant::now();
+                super::merge_repeated_keys_in(&mut actual);
+                let indexed = start.elapsed();
+                let mut reference = original.clone();
+                let start = std::time::Instant::now();
+                super::merge_repeated_keys_scanning(&mut reference);
+                let scanning = start.elapsed();
+                assert_eq!(actual, reference);
+                eprintln!("repeated_keys size={size} duplicate={duplicate} indexed_us={} scanning_us={}",
+                    indexed.as_micros(), scanning.as_micros());
+            }
+        }
     }
 
     #[test]
