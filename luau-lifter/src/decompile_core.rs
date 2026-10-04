@@ -1334,11 +1334,13 @@ impl DuplicateMemo {
     fn get_or_compute(
         &self,
         bytecode: &[u8],
+        on_hit: impl FnOnce(),
         compute: impl FnOnce() -> Result<luau_lifter::DecompileArtifact, String>,
     ) -> Result<luau_lifter::DecompileArtifact, String> {
         if let Some((previous, artifact)) = &*self.0.borrow()
             && previous.as_slice() == bytecode
         {
+            on_hit();
             return Ok(artifact.clone());
         }
         let artifact = compute()?;
@@ -1391,6 +1393,22 @@ fn decode_and_decompile(
     decode_preloaded(w, &text, key, b64, write_skipped, capture, verbose, options, analysis_root, cache, None)
 }
 
+/// Replicate `grep -v '^--' | tr -d ' \t\r\n'` for both the folder scheduler
+/// and the decoder. The start-of-line comment check intentionally does not trim.
+pub(crate) fn compact_wrapper_payload(text: &[u8], b64: &mut Vec<u8>) {
+    b64.clear();
+    for line in text.split(|&b| b == b'\n') {
+        if !line.starts_with(b"--") {
+            let line = line.strip_suffix(b"\r").unwrap_or(line);
+            if line.iter().any(|&b| matches!(b, b' ' | b'\t' | b'\r')) {
+                b64.extend(line.iter().copied().filter(|&b| b != b' ' && b != b'\t' && b != b'\r'));
+            } else {
+                b64.extend_from_slice(line);
+            }
+        }
+    }
+}
+
 fn decode_preloaded(
     w: &Work,
     text: &[u8],
@@ -1404,19 +1422,7 @@ fn decode_preloaded(
     cache: Option<&crate::decompile_cache::Cache>,
     memo: Option<&DuplicateMemo>,
 ) -> (Outcome, Option<String>, Option<AnalysisManifestEntry>, Option<GeneratedSourceRecord>) {
-    // Replicate `grep -v '^--' | tr -d ' \t\r\n'`: drop lines starting with
-    // "--" (start-of-line anchor — no trim), keep all non-whitespace bytes.
-    b64.clear();
-    for line in text.split(|&b| b == b'\n') {
-        if line.starts_with(b"--") {
-            continue;
-        }
-        b64.extend(
-            line.iter()
-                .copied()
-                .filter(|&b| b != b' ' && b != b'\t' && b != b'\r'),
-        );
-    }
+    compact_wrapper_payload(text, b64);
 
     if let Some(metadata) = w.volt_export.as_ref() {
         let declared = metadata
@@ -1517,10 +1523,15 @@ fn decode_preloaded(
                 .map(|source| luau_lifter::DecompileArtifact { source, upvalue_analysis: None })
         }
     };
-    let result = catch_unwind(AssertUnwindSafe(|| match (cache, memo) {
-        (Some(cache), _) => cache.get_or_compute(&bytecode, key, &w.rel, options, analysis_root.is_some(), compute),
-        (None, Some(memo)) => memo.get_or_compute(&bytecode, compute),
-        (None, None) => compute(),
+    let cached_compute = || match cache {
+        Some(cache) => cache.get_or_compute(&bytecode, key, &w.rel, options, analysis_root.is_some(), compute),
+        None => compute(),
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| match memo {
+        Some(memo) => memo.get_or_compute(&bytecode, || {
+            if let Some(cache) = cache { cache.record_memory_hit(); }
+        }, cached_compute),
+        None => cached_compute(),
     }));
     let artifact = match result {
         Ok(Ok(artifact)) => artifact,
@@ -2724,6 +2735,58 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_ID: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn duplicate_memo_checks_exact_bytes_and_does_not_reuse_failures() {
+        use std::cell::Cell;
+        let memo = DuplicateMemo::default();
+        let computes = Cell::new(0);
+        let hits = Cell::new(0);
+        let compute = |bytes: &[u8]| {
+            memo.get_or_compute(bytes, || hits.set(hits.get() + 1), || {
+                computes.set(computes.get() + 1);
+                if bytes == b"bad" { return Err("invalid bytecode".into()); }
+                Ok(luau_lifter::DecompileArtifact {
+                    source: String::from_utf8(bytes.to_vec()).unwrap(), upvalue_analysis: None,
+                })
+            })
+        };
+        assert_eq!(compute(b"one").unwrap().source, "one");
+        assert_eq!(compute(b"one").unwrap().source, "one");
+        // Simulate a fingerprint collision or a changed, reread input.
+        assert_eq!(compute(b"two").unwrap().source, "two");
+        assert!(compute(b"bad").is_err());
+        assert!(compute(b"bad").is_err());
+        assert_eq!(compute(b"two").unwrap().source, "two");
+        assert_eq!(computes.get(), 4);
+        assert_eq!(hits.get(), 2);
+    }
+
+    #[test]
+    fn invalid_duplicate_wrappers_fail_before_reusing_a_valid_memo() {
+        let temp = TestDir::new("invalid-duplicate-memo");
+        let work = Work {
+            input: temp.0.join("Module.lua"), output: temp.0.join("Module.luau"),
+            output_root: temp.0.clone(), rel: "Module.lua".into(), source_rel: "Module.luau".into(),
+            kind: WorkKind::RawBytecode, volt_export: None,
+        };
+        let memo = DuplicateMemo::default();
+        memo.get_or_compute(b"a", || panic!("empty memo cannot hit"), || {
+            Ok(luau_lifter::DecompileArtifact { source: "return 1".into(), upvalue_analysis: None })
+        }).unwrap();
+        let mut scratch = Vec::new();
+        // YQ== is canonical for b"a". YR== has nonzero trailing bits; YQ lacks
+        // required padding. All wrappers must fail even with a matching decoded
+        // artifact already in the memo, and repeated failures remain isolated.
+        for text in [b"YR==".as_slice(), b"-- duplicate\nY R==\n", b"YQ", b"bad!"] {
+            let (outcome, entry, unavailable, source) = process_one_preloaded(
+                &work, text, 1, &mut scratch, false, DecompileOptions::default(), None, None, Some(&memo),
+            );
+            assert!(matches!(outcome, Outcome::Fail(reason) if reason.starts_with("base64:")));
+            assert!(entry.is_none() && unavailable.is_none() && source.is_none());
+            assert!(!work.output.exists());
+        }
+    }
 
     #[test]
     fn concurrent_atomic_writes_prepare_before_serialized_publication() {

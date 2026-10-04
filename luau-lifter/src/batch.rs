@@ -160,17 +160,22 @@ pub fn run_with_cache(
     let process = |w: &crate::decompile_core::Work, b64: &mut Vec<u8>| {
         process_text(w, std::fs::read(&w.input), b64, None)
     };
-    let outcomes: Vec<Row> = if cache.is_none() && !luau_lifter::requires_fresh_decompilation() {
-        // Game dumps repeat modules verbatim. Group identical payloads that
-        // share a module hint and decompile each group once on one worker; the
-        // memo still verifies exact bytecode before reusing an artifact.
+    let outcomes: Vec<Row> = if !luau_lifter::requires_fresh_decompilation() {
+        // Schedule each distinct payload/naming context independently, in both
+        // cold and mixed caches. Grouping by module hint alone serializes an
+        // entire dump of unrelated ModuleScript.lua files. The per-group memo
+        // verifies exact decoded bytes before reusing an artifact, including
+        // when an input changes between the grouping and processing reads.
+        // Options, decode key, analysis mode and executable are fixed for this
+        // invocation; kind and module hint supply the remaining context.
+        // No lock is held during computation, which can itself enter Rayon.
         // Grouping reads every input once, but keeps its bytes only within
         // `PRELOAD_BUDGET`: the rest is read again where its group runs, so
         // memory does not grow with the folder.
         let preloaded = std::sync::atomic::AtomicUsize::new(0);
-        let (texts, payloads): (Vec<_>, Vec<_>) = work.par_iter().map(|item| {
+        let (texts, payloads): (Vec<_>, Vec<_>) = work.par_iter().map_init(Vec::new, |scratch, item| {
             let text = std::fs::read(&item.input);
-            let payload = text.as_ref().ok().map(|text| payload_key(text));
+            let payload = text.as_ref().ok().map(|text| payload_key(text, scratch));
             let keep = text.as_ref().map_or(true, |bytes| {
                 let before = preloaded.fetch_add(bytes.len(), std::sync::atomic::Ordering::Relaxed);
                 before + bytes.len() <= PRELOAD_BUDGET
@@ -186,21 +191,6 @@ pub fn run_with_cache(
                     .unwrap_or_else(|| std::fs::read(&work[index].input));
                 (index, process_text(&work[index], text, b64, memo))
             }).collect::<Vec<_>>()
-        }).collect::<Vec<_>>();
-        let mut ordered = (0..work.len()).map(|_| None).collect::<Vec<_>>();
-        for (index, outcome) in grouped.into_iter().flatten() { ordered[index] = Some(outcome); }
-        ordered.into_iter().map(Option::unwrap).collect()
-    } else if cache.as_ref().is_some_and(|cache| cache.is_empty()) {
-        // Equal complete cache keys must have equal module hints. Scheduling
-        // each hint's files on one worker prevents duplicate cold computation
-        // without an extra input read/hash or waiting inside nested Rayon work.
-        // Cache lookup still verifies exact decoded bytes and the complete key.
-        // Only a freshly empty cache uses this coarse schedule. Existing caches
-        // keep per-file hit I/O parallel, without group vectors/scatter or
-        // serialization of unrelated files sharing a module hint.
-        let groups = cache_work_groups(work.iter().map(|item| item.rel.as_str()));
-        let grouped = groups.par_iter().map_init(Vec::<u8>::new, |b64, group| {
-            group.iter().map(|&index| (index, process(&work[index], b64))).collect::<Vec<_>>()
         }).collect::<Vec<_>>();
         let mut ordered = (0..work.len()).map(|_| None).collect::<Vec<_>>();
         for (index, outcome) in grouped.into_iter().flatten() { ordered[index] = Some(outcome); }
@@ -366,22 +356,31 @@ struct FolderDiagnostic {
     evidence: Option<Vec<DecompileDiagnostic>>,
 }
 
-/// Hash and length of the payload the decoder sees: lines starting with `--`
-/// dropped, spaces, tabs and carriage returns removed.
 /// Input bytes kept from the grouping read for the decompile pass.
 const PRELOAD_BUDGET: usize = 64 << 20;
 
-fn payload_key(text: &[u8]) -> (u64, usize) {
+/// A scheduling fingerprint, never an equality proof. Hash the compact wrapper
+/// in one write so comments, whitespace and line boundaries do not split equal
+/// computations. STANDARD accepts only canonical base64, so equal decoded bytes
+/// have equal compact encodings. Every member still validates/decodes separately
+/// before exact-byte memo lookup; invalid wrappers never reuse an artifact.
+fn payload_key(text: &[u8], compact: &mut Vec<u8>) -> (u64, usize) {
     use std::hash::Hasher;
+    // Most exporters write one already compact line. Borrow it rather than
+    // allocating/copying the complete payload merely to hash its bytes.
+    let line = text.strip_suffix(b"\r\n")
+        .or_else(|| text.strip_suffix(b"\n")).unwrap_or(text);
+    let payload = if !line.starts_with(b"--")
+        && !line.iter().any(|&byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+    {
+        line
+    } else {
+        crate::decompile_core::compact_wrapper_payload(text, compact);
+        compact.as_slice()
+    };
     let mut hasher = rustc_hash::FxHasher::default();
-    let mut length = 0usize;
-    for line in text.split(|&byte| byte == b'\n').filter(|line| !line.starts_with(b"--")) {
-        for run in line.split(|&byte| byte == b' ' || byte == b'\t' || byte == b'\r') {
-            hasher.write(run);
-            length += run.len();
-        }
-    }
-    (hasher.finish(), length)
+    hasher.write(payload);
+    (hasher.finish(), payload.len())
 }
 
 /// Work indices grouped by identical payload key and module hint, in input
@@ -409,20 +408,6 @@ fn duplicate_groups(work: &[crate::decompile_core::Work], payloads: &[Option<(u6
 /// any structured per-function diagnostics appended by the lifter.  The
 /// parser deliberately falls back to a coarse code for older/errors outside
 /// the structuring pipeline, so mixed-version corpus manifests remain useful.
-fn cache_work_groups<'a>(names: impl Iterator<Item = &'a str>) -> Vec<Vec<usize>> {
-    let mut contexts = rustc_hash::FxHashMap::default();
-    let mut groups: Vec<Vec<usize>> = Vec::new();
-    for (index, name) in names.enumerate() {
-        let hint = ast::name_locals::script_module_hint(name);
-        let group = *contexts.entry(hint).or_insert_with(|| {
-            groups.push(Vec::new());
-            groups.len() - 1
-        });
-        groups[group].push(index);
-    }
-    groups
-}
-
 fn classify_failure(reason: &str) -> (&'static str, Option<Vec<DecompileDiagnostic>>) {
     const MARKER: &str = " | diagnostics=";
     if let Some((_, payload)) = reason.split_once(MARKER) {
@@ -768,9 +753,34 @@ fn write_analysis_manifest_with_audit(
 #[cfg(test)]
 mod tests {
     #[test]
-    fn cached_schedule_groups_complete_naming_context_without_reordering_members() {
-        let names = ["A/Widget/init.lua", "B/Gadget.lua", "C/Widget.lua", "D/Gadget/init.lua", "Other.lua"];
-        assert_eq!(super::cache_work_groups(names.into_iter()), vec![vec![0, 2], vec![1, 3], vec![4]]);
+    fn payload_fingerprint_preserves_wrapper_normalization() {
+        let mut scratch = Vec::new();
+        let canonical = payload_key(b"YWJj", &mut scratch);
+        for wrapper in [b"YWJj\n".as_slice(), b"YWJj\r\n", b"YW\nJj", b"-- header\nYWJj\n", b"-- header\r\nYWJj\r\n", b" Y\tW\rJj \n"] {
+            assert_eq!(payload_key(wrapper, &mut scratch), canonical);
+        }
+        assert_ne!(payload_key(b" -- header\nYWJj", &mut scratch), canonical);
+        assert_eq!(payload_key(b"-- only a comment\r\n", &mut scratch), payload_key(b"", &mut scratch));
+        // Vertical/form-feed whitespace is intentionally not stripped by the
+        // wrapper protocol, and must still reach the decoder as invalid input.
+        assert_ne!(payload_key(b"YW\x0bJj", &mut scratch), canonical);
+        assert_ne!(payload_key(b"YW\x0cJj", &mut scratch), canonical);
+    }
+
+    #[test]
+    fn duplicate_schedule_separates_distinct_payloads_and_naming_contexts() {
+        use crate::decompile_core::{Work, WorkKind};
+        let names = ["A/Widget/init.lua", "B/Widget.lua", "C/Widget.lua", "D/Gadget.lua", "E/Widget.lua", "F/Widget.lua"];
+        let mut work = names.iter().map(|name| Work {
+            input: PathBuf::from(name), output: PathBuf::new(), output_root: PathBuf::new(),
+            rel: name.to_string(), source_rel: String::new(),
+            kind: WorkKind::RawBytecode, volt_export: None,
+        }).collect::<Vec<_>>();
+        work[4].kind = WorkKind::SourceFallback;
+        let texts: [&[u8]; 6] = [b"YWJj", b"ZGVm", b"-- comment\nY W\tJ\rj\n", b"YWJj", b"YWJj", b"bad!"];
+        let mut scratch = Vec::new();
+        let payloads = texts.iter().map(|text| Some(payload_key(text, &mut scratch))).collect::<Vec<_>>();
+        assert_eq!(duplicate_groups(&work, &payloads), vec![vec![0, 2], vec![1], vec![3], vec![4], vec![5]]);
     }
     use super::*;
     use base64::prelude::*;
@@ -798,6 +808,44 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn cached_duplicate_schedule_preserves_sources_and_path_specific_analysis() {
+        let temp = TestDir::new("cache-representatives");
+        let src = temp.0.join("dump");
+        let cache = temp.0.join("cache");
+        let first = BASE64_STANDARD.encode(include_bytes!("../tests/fixtures/upvalue_analysis_nested_g0.luaubc"));
+        let second = BASE64_STANDARD.encode(include_bytes!("../tests/fixtures/upvalue_analysis_nested.luaubc"));
+        for (directory, text) in [("A", first.clone()), ("B", second), ("C", format!("-- another wrapper\n{first}\n"))] {
+            std::fs::create_dir_all(src.join(directory)).unwrap();
+            std::fs::write(src.join(directory).join("ModuleScript.lua"), text).unwrap();
+        }
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(4).build().unwrap();
+        let mut baseline = None;
+        for (label, cached) in [("uncached", false), ("cold", true), ("warm", true)] {
+            let out = temp.0.join(label);
+            assert_eq!(pool.install(|| run_with_cache(
+                &src, &out, 1, 0, false, DecompileOptions::default(), true, "luau", None,
+                cached.then_some(cache.as_path()), 512,
+            )), 0);
+            let manifest: Value = serde_json::from_slice(&std::fs::read(out.join(".tovek-analysis/manifest.json")).unwrap()).unwrap();
+            assert_eq!(manifest["scripts"].as_array().unwrap().len(), 3);
+            let mut artifacts = Vec::new();
+            for item in manifest["scripts"].as_array().unwrap() {
+                let source = item["source_path"].as_str().unwrap();
+                let sidecar = item["sidecar_path"].as_str().unwrap();
+                let sidecar_bytes = std::fs::read(out.join(sidecar)).unwrap();
+                let parsed: Value = serde_json::from_slice(&sidecar_bytes).unwrap();
+                assert_eq!(parsed["source_path"], source);
+                assert_eq!(parsed["script_path"], item["script_path"]);
+                artifacts.push((source.to_string(), std::fs::read(out.join(source)).unwrap(), sidecar_bytes));
+            }
+            if let Some(expected) = &baseline { assert_eq!(&artifacts, expected); }
+            else { baseline = Some(artifacts); }
+        }
+        assert_eq!(std::fs::read_dir(cache).unwrap().filter_map(Result::ok)
+            .filter(|entry| entry.path().extension().is_some_and(|extension| extension == "json")).count(), 2);
     }
 
     fn entry(

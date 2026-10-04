@@ -391,11 +391,25 @@ fn try_decompile_bytecode_internal(
     // All fallible APIs share the same recovery boundary, including parsing,
     // lifting and final formatting. Worker builds must use panic=unwind too.
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis, Default::default())
+        let mut sharing = Default::default();
+        loop {
+            // Returning from an attempt drops its AST, analyses and thread-local
+            // scopes before the next one starts. Recursive retries kept all of
+            // that state alive until the final attempt finished.
+            match decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis, sharing)? {
+                DecompileAttempt::Complete(artifact) => return Ok(artifact),
+                DecompileAttempt::Retry(next) => sharing = next,
+            }
+        }
     }))
     .unwrap_or_else(|payload| Err(DecompileFailure::message(format!(
         "panicked: {}", panic_payload_message(payload.as_ref())
     ))))
+}
+
+enum DecompileAttempt {
+    Complete(DecompileArtifact),
+    Retry(ast::coalesce_locals::Sharing),
 }
 
 /// `sharing`: which locals share storage before the passes that fold them
@@ -408,7 +422,7 @@ fn decompile_bytecode_internal(
     options: DecompileOptions,
     emit_upvalue_analysis: bool,
     sharing: ast::coalesce_locals::Sharing,
-) -> Result<DecompileArtifact, DecompileFailure> {
+) -> Result<DecompileAttempt, DecompileFailure> {
     // Reset the per-thread local-id sequence so this decompilation's `RcLocal`
     // ids (and thus the FxHash-iteration order that depends on them, and the
     // generated local names) are independent of any earlier work this thread
@@ -429,10 +443,10 @@ fn decompile_bytecode_internal(
     let chunk = deserializer::deserialize(bytecode, encode_key)
         .map_err(|e| DecompileFailure::message(format!("deserialize: {e}")))?;
     match chunk {
-        Bytecode::Error(msg) => Ok(DecompileArtifact {
+        Bytecode::Error(msg) => Ok(DecompileAttempt::Complete(DecompileArtifact {
             source: compile_error_source(&msg),
             upvalue_analysis: None,
-        }),
+        })),
         Bytecode::Chunk(chunk) => {
             validate_prototype_graph(&chunk.functions, chunk.main)
                 .map_err(DecompileFailure::message)?;
@@ -992,7 +1006,7 @@ fn decompile_bytecode_internal(
                 && ast::coalesce_locals::declared_locals_exceed_limit(&body)
             {
                 ast::telemetry::count("eager_coalescing_retries", 1);
-                return decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis, next);
+                return Ok(DecompileAttempt::Retry(next));
             }
             // No expression/condition mutation is permitted after this point.
             let name_inference = {
@@ -1028,10 +1042,10 @@ fn decompile_bytecode_internal(
                 }
                 analysis
             });
-            Ok(DecompileArtifact {
+            Ok(DecompileAttempt::Complete(DecompileArtifact {
                 source: out,
                 upvalue_analysis,
-            })
+            }))
         }
     }
 }

@@ -1215,12 +1215,11 @@ pub fn inline_with_readonly_captures(
                     && let ast::LValue::Local(local) = &assign.left[0]
                 {
                     let rvalue = &assign.right[0];
-                    let has_side_effects = rvalue.has_side_effects();
                     // TODO: REFACTOR: is_some_and
                     if !upvalue_to_group.contains_key(local)
                         && local_usages.get(local) == 0
                     {
-                        if has_side_effects {
+                        if rvalue.has_side_effects() {
                             // TODO: PERF: dont clone
                             let new_stat = match rvalue {
                                 ast::RValue::Call(call)

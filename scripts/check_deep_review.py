@@ -34,6 +34,26 @@ CASES = {
     "api_cframe": ('CFrame={new=function() print("new"); return 7 end,identity=99}; print(CFrame.new())', ''),
     "interpolation_open_call": ('local function nothing() end; return function() print(("%*"):format(nothing())) end', 'print(pcall(f))'),
     "interpolation_open_vararg": ('return function(...) print(("%*"):format(...)) end', 'print(pcall(f)); print(pcall(f,1,2))'),
+    "interpolation_rejected_late_specifier": (
+        'return function(value, count) return ("[%*]:%04d"):format(value, count) end',
+        'print(f("value",7)); print(f(false,-2)); local value=setmetatable({},'
+        '{__tostring=function() print("tostring"); return "object" end}); print(f(value,12))'),
+    "interpolation_rejected_late_static_byte": (
+        r'return function(value) return ("[%*]\007"):format(value) end',
+        'for _,value in {"x","界"} do local s=f(value); print(#s,string.byte(s,1,#s)) end'),
+    "interpolation_rejected_too_few_arguments": (
+        'return function(value) return ("%*:%*"):format(value) end',
+        'print(pcall(f,"value")); print(pcall(f,false)); print(pcall(f,nil))'),
+    "interpolation_rejected_too_many_arguments": (
+        'return function(value, extra) return ("[%*]"):format(value, extra) end',
+        'local extra=setmetatable({},{__tostring=function() print("unexpected-extra-tostring"); '
+        'return "extra" end}); print(f("value",extra)); print(f(false,extra)); print(f(nil,extra))'),
+    "interpolation_rejected_nested_scalar_calls": (
+        r'return function(value) return ("%*\007"):format((("%*\007"):format((("%*\007"):format(value))))) end',
+        'for _,value in {"leaf","界"} do local s=f(value); print(#s,string.byte(s,1,#s)) end'),
+    "interpolation_valid_escaped_unicode": (
+        r'return function(value) return ("界`{\\\n\t\r\f}%%:%*"):format(value) end',
+        'for _,value in {"leaf","đ",false} do local s=f(value); print(#s,string.byte(s,1,#s)) end'),
     "conditional_captured_cell": ('return function(n,flag) local a=n; local read=function() return a end; if flag then a=false; if a then return "bad" end end; return a,read() end', 'for _,n in {1,0,false} do for _,flag in {false,true} do print(n,flag,f(n,flag)) end end'),
     "dominator_parallel_loop": ('return function(n,flip) local a,b,c=n,n+1,n+2; for j=1,2 do a,c=b,b+c; if j==2 then a,c=c,a+b; continue end; if flip then a,b=c,a; break end; a=a+1 end; c=c+3; return a,b,c end', 'for _,n in {-2,0,1,2,3,5,9} do for _,flag in {false,true} do print(n,flag,f(n,flag)) end end'),
     "integer_literals": ('return {42i,9007199254740993i,-0x8000000000000000i,9223372036854775807i,-42i,0i,{n=9007199254740993i}}', 'for i=1,6 do local v=f[i]; print(type(v),tostring(v),v==42) end; print(type(f[7].n),tostring(f[7].n))'),
