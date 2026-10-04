@@ -958,9 +958,11 @@ fn insert_table_entry(
 ) {
     match placement {
         Placement::Replace(position) => table.0[position].1 = value,
+        // The slot keeps the key it was created with: `[0]` stays `[0]`
+        // under a store through `[-0]`, as `pairs` shows.
         Placement::MoveToEnd(position) => {
-            table.0.remove(position);
-            table.0.push((Some(key), value));
+            let (listed_key, _) = table.0.remove(position);
+            table.0.push((listed_key, value));
         }
         Placement::Append => {
             listed.add(&key);

@@ -132,7 +132,14 @@
    "register_store_target_after_value_call": "review 10-04 (N01-N08, #1, #3)",
    "signed_zero_table_keys": "review 10-04 (N01-N08, #1, #3)",
    "upvalue_operand_read_before_call": "review 10-04 (N01-N08, #1, #3)",
-   "vector_nan_sign": "review 10-04 (N01-N08, #1, #3)"
+   "vector_nan_sign": "review 10-04 (N01-N08, #1, #3)",
+   "debug_info_through_local_function": "review 10-04 round 3 + PR #6",
+   "generic_loop_result_keeps_outer_value": "review 10-04 round 3 + PR #6",
+   "long_accumulation_chain": "review 10-04 round 3 + PR #6",
+   "multiline_string_keys": "review 10-04 round 3 + PR #6",
+   "nested_rejected_format_calls": "review 10-04 round 3 + PR #6",
+   "reroll_within_register_limit": "review 10-04 round 3 + PR #6",
+   "signed_zero_key_kept_by_moved_entry": "review 10-04 round 3 + PR #6"
   }
  },
  "summary": {
@@ -393,6 +400,12 @@
    "protos": 2
   },
   {
+   "file": "debug_info_through_local_function",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
    "file": "declared_select_prefix",
    "status": "ok",
    "nonequiv": 1,
@@ -573,6 +586,12 @@
    "protos": 3
   },
   {
+   "file": "generic_loop_result_keeps_outer_value",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
    "file": "import_alias_error_timing",
    "status": "ok",
    "nonequiv": 0,
@@ -631,6 +650,12 @@
    "status": "ok",
    "nonequiv": 4,
    "protos": 10
+  },
+  {
+   "file": "long_accumulation_chain",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
   },
   {
    "file": "loop_after_breaking_for",
@@ -693,6 +718,12 @@
    "protos": 6
   },
   {
+   "file": "multiline_string_keys",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
    "file": "nan_sign_preserved",
    "status": "ok",
    "nonequiv": 0,
@@ -721,6 +752,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 1
+  },
+  {
+   "file": "nested_rejected_format_calls",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
   },
   {
    "file": "next_call_generic_for",
@@ -807,6 +844,12 @@
    "protos": 3
   },
   {
+   "file": "reroll_within_register_limit",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
    "file": "returned_local_helper",
    "status": "ok",
    "nonequiv": 1,
@@ -834,6 +877,12 @@
    "file": "services_table_under_pressure",
    "status": "ok",
    "nonequiv": 0,
+   "protos": 3
+  },
+  {
+   "file": "signed_zero_key_kept_by_moved_entry",
+   "status": "ok",
+   "nonequiv": 2,
    "protos": 3
   },
   {

@@ -49,6 +49,7 @@ Quy tắc:
 | Tính lại dominator trong vòng lặp của `decompile_function` | Chỉ ~2%. Tính một lần thì không an toàn vì đồ thị thay đổi | nghiên cứu độ trễ một script, 2026-06 |
 | Index `last_occ` của deinline dựng sẵn từ đầu | Chậm hơn: dựng 9.717 bảng mỗi script. Phải dựng lazy (10–23 lần, <1 ms) | nghiên cứu độ trễ một script, 2026-06 |
 | Bỏ pass, chấp nhận output thay đổi (ablation từng pass) | Chỉ `inline_single_use_temps` riêng là thừa (~3%); không merge | v3_engine.md §9 |
+| Index theo key cho việc gộp field vào constructor ở tầng SSA (`cfg/src/ssa/inline.rs`) | Không đo được lợi ích: template DUPTABLE tối đa 32 key, các workload table chạy cả pipeline không đổi; lại trùng logic với `PlaceholderEntries` | review PR #6, 2026-10-04 |
 
 ## 3. Build và toolchain
 
@@ -65,6 +66,7 @@ Quy tắc:
 |---|---|---|
 | Cache theo hàm (proto) | 12,5% proto nhưng chỉ 4,1% số lệnh trùng giữa các script; trung vị mỗi file 0%. Cache nguyên file (đã có) mới có ích | v3_engine.md §9 |
 | Song song theo closure trong pipeline AST | Không làm được: `name_locals` cần tập tên dành trước của cả chương trình | nghiên cứu độ trễ một script, 2026-06 |
+| Gom payload trùng (đọc + băm trước mọi input) cả khi cache đã có dữ liệu | Cache ấm chậm hơn ~3% (median 0,630 → 0,648 s, 24 luồng). Chỉ gom khi không có cache hoặc cache rỗng; cache lạnh nhờ vậy nhanh hơn ~8% | PR #6, 2026-10-04 |
 
 ## 5. Ghi file
 

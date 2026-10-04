@@ -1095,10 +1095,14 @@ def source_tokens(text: str):
     return out
 
 
-def source_likeness(a: str, b: str) -> float:
+def source_likeness(a: str, b: str) -> float | None:
+    """The token match ratio; None past ten million token pairs, where
+    SequenceMatcher on long repetitive runs takes minutes."""
     ta, tb = source_tokens(a), source_tokens(b)
     if not ta and not tb:
         return 1.0
+    if len(ta) * len(tb) > 10_000_000:
+        return None
     return difflib.SequenceMatcher(None, ta, tb, autojunk=False).ratio()
 
 
@@ -1271,7 +1275,9 @@ def main() -> int:
             rel, src_text, decompiled = futs[fut]
             r = fut.result()
             if src_text is not None and decompiled.exists():
-                r["source_likeness"] = round(source_likeness(src_text, decompiled.read_text(encoding="utf-8", errors="replace")), 4)
+                likeness = source_likeness(src_text, decompiled.read_text(encoding="utf-8", errors="replace"))
+                if likeness is not None:
+                    r["source_likeness"] = round(likeness, 4)
             results.append(r)
     for r in unreadable:
         results.append(dict(r, protos=0, exact=0, equiv=0, differ=0, missing=[], extra=[], differs=[], tags=[]))

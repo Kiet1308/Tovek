@@ -1137,9 +1137,11 @@ fn fold_table_constructor_field_assignments(
                     decrement_rvalue_usages(local_usages, &table.0[p].1, usage_changed);
                     table.0[p].1 = new_value;
                 }
+                // The slot keeps the key it was created with: `[0]` stays
+                // `[0]` under a store through `[-0]`, as `pairs` shows.
                 FieldSlot::MoveToEnd(p) => {
-                    table.0.remove(p);
-                    table.0.push((Some(new_key), new_value));
+                    let (listed_key, _) = table.0.remove(p);
+                    table.0.push((listed_key, new_value));
                 }
                 FieldSlot::Append => {
                     if let Some(listed) = &mut listed {

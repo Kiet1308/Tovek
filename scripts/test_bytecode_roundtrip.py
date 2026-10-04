@@ -305,3 +305,12 @@ class GateTests(unittest.TestCase):
         for selection in (['--filter', 'good'], ['--limit', '1']):
             self.assertEqual(self.run_gate(files, {'files': [ok('good'), ok('zbad')]}, extra=selection,
                                            fails_on='zbad.lua'), 0, selection)
+
+    def test_source_likeness_skips_inputs_too_long_to_match(self):
+        import time
+        import bytecode_roundtrip
+        long_source = 'local sum = 0\n' + 'sum += n\n' * 3000
+        start = time.time()
+        self.assertIsNone(bytecode_roundtrip.source_likeness(long_source, long_source))
+        self.assertLess(time.time() - start, 5)
+        self.assertEqual(bytecode_roundtrip.source_likeness('return 1', 'return 1'), 1.0)

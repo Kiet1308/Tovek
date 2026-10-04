@@ -160,9 +160,13 @@ pub fn run_with_cache(
     let process = |w: &crate::decompile_core::Work, b64: &mut Vec<u8>| {
         process_text(w, std::fs::read(&w.input), b64, None)
     };
-    let outcomes: Vec<Row> = if !luau_lifter::requires_fresh_decompilation() {
-        // Schedule each distinct payload/naming context independently, in both
-        // cold and mixed caches. Grouping by module hint alone serializes an
+    // A cache that already holds artifacts mostly answers by file: keep that
+    // I/O parallel per file, without a grouping pass reading and hashing
+    // every input first (measured ~3% slower on a warm corpus).
+    let grouped = !luau_lifter::requires_fresh_decompilation() && cache.as_ref().is_none_or(|cache| cache.is_empty());
+    let outcomes: Vec<Row> = if grouped {
+        // Schedule each distinct payload/naming context independently, with
+        // no cache or a cold one. Grouping by module hint alone serializes an
         // entire dump of unrelated ModuleScript.lua files. The per-group memo
         // verifies exact decoded bytes before reusing an artifact, including
         // when an input changes between the grouping and processing reads.

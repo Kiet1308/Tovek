@@ -82,7 +82,8 @@ pub(crate) fn diagnostic_environment() -> bool {
 }
 
 impl Cache {
-    #[cfg(test)]
+    /// Whether the cache holds no artifact yet: before any write, a cold run,
+    /// which schedules duplicate payloads together.
     pub fn is_empty(&self) -> bool {
         self.inventory.lock().records.is_empty()
     }

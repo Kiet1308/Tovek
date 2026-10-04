@@ -544,6 +544,18 @@
       "bytes": 177,
       "lines": 8
     },
+    "semantic/debug_info_through_local_function__O0.luau": {
+      "bytes": 254,
+      "lines": 12
+    },
+    "semantic/debug_info_through_local_function__O1.luau": {
+      "bytes": 254,
+      "lines": 12
+    },
+    "semantic/debug_info_through_local_function__O2.luau": {
+      "bytes": 254,
+      "lines": 12
+    },
     "semantic/declared_select_helper__O0.luau": {
       "bytes": 476,
       "lines": 46
@@ -880,6 +892,18 @@
       "bytes": 311,
       "lines": 28
     },
+    "semantic/generic_loop_result_keeps_outer_value__O0.luau": {
+      "bytes": 358,
+      "lines": 22
+    },
+    "semantic/generic_loop_result_keeps_outer_value__O1.luau": {
+      "bytes": 358,
+      "lines": 22
+    },
+    "semantic/generic_loop_result_keeps_outer_value__O2.luau": {
+      "bytes": 538,
+      "lines": 40
+    },
     "semantic/import_alias_error_timing__O0.luau": {
       "bytes": 130,
       "lines": 6
@@ -999,6 +1023,18 @@
     "semantic/local_tuple_helper__O2.luau": {
       "bytes": 2008,
       "lines": 140
+    },
+    "semantic/long_accumulation_chain__O0.luau": {
+      "bytes": 12422,
+      "lines": 28
+    },
+    "semantic/long_accumulation_chain__O1.luau": {
+      "bytes": 12422,
+      "lines": 28
+    },
+    "semantic/long_accumulation_chain__O2.luau": {
+      "bytes": 12424,
+      "lines": 28
     },
     "semantic/loop_after_breaking_for__O0.luau": {
       "bytes": 254,
@@ -1120,6 +1156,18 @@
       "bytes": 661,
       "lines": 53
     },
+    "semantic/multiline_string_keys__O0.luau": {
+      "bytes": 155,
+      "lines": 20
+    },
+    "semantic/multiline_string_keys__O1.luau": {
+      "bytes": 101,
+      "lines": 12
+    },
+    "semantic/multiline_string_keys__O2.luau": {
+      "bytes": 101,
+      "lines": 12
+    },
     "semantic/nan_sign_preserved__O0.luau": {
       "bytes": 339,
       "lines": 10
@@ -1179,6 +1227,18 @@
     "semantic/nested_loop_exits_parent__O2.luau": {
       "bytes": 387,
       "lines": 36
+    },
+    "semantic/nested_rejected_format_calls__O0.luau": {
+      "bytes": 1048,
+      "lines": 59
+    },
+    "semantic/nested_rejected_format_calls__O1.luau": {
+      "bytes": 1048,
+      "lines": 59
+    },
+    "semantic/nested_rejected_format_calls__O2.luau": {
+      "bytes": 1048,
+      "lines": 59
     },
     "semantic/next_call_generic_for__O0.luau": {
       "bytes": 848,
@@ -1348,6 +1408,18 @@
       "bytes": 447,
       "lines": 35
     },
+    "semantic/reroll_within_register_limit__O0.luau": {
+      "bytes": 1571,
+      "lines": 143
+    },
+    "semantic/reroll_within_register_limit__O1.luau": {
+      "bytes": 1571,
+      "lines": 143
+    },
+    "semantic/reroll_within_register_limit__O2.luau": {
+      "bytes": 1571,
+      "lines": 143
+    },
     "semantic/returned_local_helper__O0.luau": {
       "bytes": 837,
       "lines": 50
@@ -1407,6 +1479,18 @@
     "semantic/services_table_under_pressure__O2.luau": {
       "bytes": 3346,
       "lines": 216
+    },
+    "semantic/signed_zero_key_kept_by_moved_entry__O0.luau": {
+      "bytes": 218,
+      "lines": 16
+    },
+    "semantic/signed_zero_key_kept_by_moved_entry__O1.luau": {
+      "bytes": 218,
+      "lines": 16
+    },
+    "semantic/signed_zero_key_kept_by_moved_entry__O2.luau": {
+      "bytes": 232,
+      "lines": 19
     },
     "semantic/signed_zero_operands__O0.luau": {
       "bytes": 118,
