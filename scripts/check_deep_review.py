@@ -56,6 +56,15 @@ CASES = {
         'for _,value in {"leaf","đ",false} do local s=f(value); print(#s,string.byte(s,1,#s)) end'),
     "conditional_captured_cell": ('return function(n,flag) local a=n; local read=function() return a end; if flag then a=false; if a then return "bad" end end; return a,read() end', 'for _,n in {1,0,false} do for _,flag in {false,true} do print(n,flag,f(n,flag)) end end'),
     "dominator_parallel_loop": ('return function(n,flip) local a,b,c=n,n+1,n+2; for j=1,2 do a,c=b,b+c; if j==2 then a,c=c,a+b; continue end; if flip then a,b=c,a; break end; a=a+1 end; c=c+3; return a,b,c end', 'for _,n in {-2,0,1,2,3,5,9} do for _,flag in {false,true} do print(n,flag,f(n,flag)) end end'),
+    # `debug.info(2, ...)` names the caller, which may be in another
+    # script: code reading it never moves into a helper, whose frame the
+    # caller would become.
+    "debug_info_caller_source": (
+        'local function matches(expected) return debug.info(2, "s") == expected and type(expected) == "string" end '
+        'return {subject = function(expected, fallback) return not (debug.info(2, "s") == expected '
+        'and type(expected) == "string") and fallback or "same" end, '
+        'direct = function(expected) return matches(expected) end}',
+        'local here = debug.info(1, "s"); print(f.subject(here, "different"), f.direct(here))'),
     "integer_literals": ('return {42i,9007199254740993i,-0x8000000000000000i,9223372036854775807i,-42i,0i,{n=9007199254740993i}}', 'for i=1,6 do local v=f[i]; print(type(v),tostring(v),v==42) end; print(type(f[7].n),tostring(f[7].n))'),
 }
 
@@ -82,8 +91,13 @@ def compile_source(args, source, destination, optimization, debug, integer=False
         raise RuntimeError(result.stderr.decode(errors='replace'))
 
 
+class Refused(Exception):
+    """The decompiler refused the case with the reason it names."""
+
+
 def check(args, name, source, driver, optimization, debug, bytecode=None, integer=False,
-          output_optimization=None):
+          output_optimization=None, refusal=None):
+    """`refusal`: a decompile failure naming this reason passes too."""
     output_optimization = optimization if output_optimization is None else output_optimization
     suffix = '' if output_optimization == optimization else f'.outO{output_optimization}'
     directory = args.work / f'{name}.O{optimization}.g{debug}{suffix}'
@@ -103,6 +117,11 @@ def check(args, name, source, driver, optimization, debug, bytecode=None, intege
         evidence['goc'] = run([args.vm, data, driver_data])
         assert evidence['goc']['exit_code'] == 0, evidence['goc']
         evidence['decompile'] = run([args.lifter, data])
+        if refusal and evidence['decompile']['exit_code'] != 0:
+            assert refusal in evidence['decompile']['stderr'] + evidence['decompile']['stdout'], evidence['decompile']
+            evidence['ket_qua'] = 'PASS'
+            evidence['tu_choi'] = refusal
+            raise Refused
         assert evidence['decompile']['exit_code'] == 0, evidence['decompile']
         output_source = directory / 'output.luau'
         output_source.write_text(evidence['decompile']['stdout'], encoding='utf-8')
@@ -111,6 +130,8 @@ def check(args, name, source, driver, optimization, debug, bytecode=None, intege
         assert evidence['sau_sua']['exit_code'] == 0, evidence['sau_sua']
         assert normalize(evidence['goc']['stdout']) == normalize(evidence['sau_sua']['stdout']), evidence
         evidence['ket_qua'] = 'PASS'
+    except Refused:
+        pass
     except (AssertionError, RuntimeError, subprocess.TimeoutExpired) as error:
         evidence['ket_qua'] = 'FAIL'
         evidence['loi'] = str(error)
@@ -146,6 +167,20 @@ def main():
         for output_optimization in (0, 1, 2):
             results.append(check(args, name, source, driver, 2, 2,
                                  output_optimization=output_optimization))
+    # A closure with no upvalue left for the constructor, in a script that
+    # replaces `vector` through `_G.getfenv`: the folded constant has no
+    # spelling that ignores the environment.
+    captured = [f'l{i}' for i in range(200)]
+    vector_getfenv_member = (
+        f'return function(...) local {", ".join(captured)} = ... '
+        'return function() _G.getfenv().vector = {create = function() return "fake" end} '
+        f'return vector.create(1, 2, 3), {" + ".join(captured)} end end')
+    for output_optimization in (0, 1, 2):
+        results.append(check(args, 'vector_getfenv_member', vector_getfenv_member,
+                             'local t = {} for i = 1, 200 do t[i] = i end local g = f(table.unpack(t)) '
+                             'local v, n = g() print(type(v), v, n)', 2, 0,
+                             output_optimization=output_optimization,
+                             refusal='headroom for the vector constructor'))
     def abc(op, a=0, b=0, c=0):
         return op | (a << 8) | (b << 16) | (c << 24)
     def chunk(words):
@@ -190,23 +225,47 @@ def main():
     global_name = 'return function() return weird_name, 1 end'
     global_name_shadowed = 'return function(getfenv) return weird_name, getfenv end'
     global_function_name = 'function weird_name() return 42 end return function() return weird_name() end'
-    for name, source, driver, spelled, patched, debug in [
-        ('namecall_name', namecall, 'f()', b'bad_nam', b'bad nam', 1),
-        ('namecall_captured_receiver', namecall_receiver, 'f()', b'bad_nam', b'bad nam', 1),
-        ('namecall_lookup_changes_receiver', namecall_lookup_changes_receiver, 'f()', b'bad_nam', b'bad nam', 1),
-        ('global_name', global_name, 'getfenv(f)["bad name!!"] = 73; print(f())', b'weird_name', b'bad name!!', 1),
+    # `getfenv(1)["name"]` would call the `getfenv` of the environment the
+    # script installs itself.
+    global_name_environment = (
+        'return function() setfenv(1, {weird_name = 42, '
+        'getfenv = function() return {weird_name = 99} end}) return weird_name end')
+    # A userdata's `__namecall` answers NAMECALL, never an indexed call.
+    namecall_userdata = (
+        'local o = newproxy(true) getmetatable(o).__namecall = function(self, ...) print("namecall", ...) end '
+        'getmetatable(o).__index = function() return function(self, ...) print("index", ...) end end '
+        'return function() o:bad_nam(1, 2) end')
+    # Only `0 / 0` and `-(0 / 0)` spell a NaN; `buffer` shows the payload.
+    nan_payload = 'return function() return 1.25 end'
+    nan_driver = ('local b = buffer.create(8) buffer.writef64(b, 0, f()) '
+                  'print(string.format("%08x%08x", buffer.readu32(b, 4), buffer.readu32(b, 0)))')
+    no_method_spelling = 'a method name no identifier spells'
+    for name, source, driver, spelled, patched, debug, refusal in [
+        ('namecall_name', namecall, 'f()', b'bad_nam', b'bad nam', 1, no_method_spelling),
+        ('namecall_captured_receiver', namecall_receiver, 'f()', b'bad_nam', b'bad nam', 1, no_method_spelling),
+        ('namecall_lookup_changes_receiver', namecall_lookup_changes_receiver, 'f()', b'bad_nam', b'bad nam', 1,
+         no_method_spelling),
+        ('namecall_userdata', namecall_userdata, 'f()', b'bad_nam', b'bad nam', 1, no_method_spelling),
+        ('global_name', global_name, 'getfenv(f)["bad name!!"] = 73; print(f())', b'weird_name', b'bad name!!', 1,
+         None),
         ('global_name_shadowed', global_name_shadowed, 'getfenv(f)["bad name!!"] = 73; print(f(9))',
-         b'weird_name', b'bad name!!', 2),
-        ('global_function_name', global_function_name, 'print(f())', b'weird_name', b'bad name!!', 1),
+         b'weird_name', b'bad name!!', 2, None),
+        ('global_function_name', global_function_name, 'print(f())', b'weird_name', b'bad name!!', 1, None),
+        ('global_name_environment', global_name_environment, 'print(f())', b'weird_name', b'bad name!!', 1,
+         'a global name no identifier spells'),
+        ('nan_payload', nan_payload, nan_driver, struct.pack('<d', 1.25),
+         struct.pack('<Q', 0x7ff8000000001234), 1, 'a NaN constant whose payload'),
     ]:
         for optimization in (0, 1, 2):
             directory = args.work / f'{name}.raw.O{optimization}'
             directory.mkdir(parents=True, exist_ok=True)
             (directory / 'input.luau').write_text(source, encoding='utf-8')
             compile_source(args, directory / 'input.luau', directory / 'input.bc', optimization, debug)
-            data = (directory / 'input.bc').read_bytes().replace(spelled, patched)
-            results.append(check(args, name, f'-- {patched.decode()!r}: bytecode patched from the source',
-                                 driver, optimization, debug, data))
+            data = (directory / 'input.bc').read_bytes()
+            assert spelled in data, (name, optimization)
+            data = data.replace(spelled, patched)
+            results.append(check(args, name, f'-- {patched!r}: bytecode patched from the source',
+                                 driver, optimization, debug, data, refusal=refusal))
     (args.work / 'results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
     failed = sum(result['ket_qua'] != 'PASS' for result in results)
     print(f'Tổng: {len(results)}; pass: {len(results)-failed}; fail: {failed}')

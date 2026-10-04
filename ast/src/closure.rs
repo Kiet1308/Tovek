@@ -48,10 +48,6 @@ pub struct Function {
     pub parameter_name_hints: Vec<Option<String>>,
     pub is_variadic: bool,
     pub body: Block,
-    /// For a function the lifter writes in source form: the local its body
-    /// reads for each upvalue, until upvalues are linked. A lifted bytecode
-    /// function gets these from its own lift instead.
-    pub upvalue_inputs: Vec<RcLocal>,
 }
 
 #[derive(PartialEq, Clone)]

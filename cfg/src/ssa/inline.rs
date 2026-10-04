@@ -1100,6 +1100,8 @@ fn fold_table_constructor_field_assignments(
                 .iter()
                 .rposition(|(k, _)| k.as_ref().is_some_and(|k| ast::same_table_key(k, key)))
             {
+                // A `nil` slot does not keep a `[0]` key under `[-0]`.
+                Some(p) if !ast::keeps_listed_key(table.0[p].0.as_ref(), &table.0[p].1, key) => break,
                 Some(p)
                     if ast::is_inert_entry_value(&table.0[p].1)
                         && table.0[p..].iter().all(|(key, value)| {
@@ -1137,7 +1139,7 @@ fn fold_table_constructor_field_assignments(
                     decrement_rvalue_usages(local_usages, &table.0[p].1, usage_changed);
                     table.0[p].1 = new_value;
                 }
-                // The slot keeps the key it was created with: `[0]` stays
+                // The slot keeps the key it was created with: `[0] = 0` stays
                 // `[0]` under a store through `[-0]`, as `pairs` shows.
                 FieldSlot::MoveToEnd(p) => {
                     let (listed_key, _) = table.0.remove(p);

@@ -198,6 +198,18 @@ fn chunk_globals(chunk: &deserializer::chunk::Chunk) -> ast::ChunkGlobals {
     }
 }
 
+/// Whether some function's code names getfenv or setfenv, as a global or a
+/// key (`_G.setfenv`): a constant, unlike a local's debug name.
+fn code_names_environment_function(chunk: &deserializer::chunk::Chunk) -> bool {
+    chunk.functions.iter().flat_map(|function| &function.constants).any(|constant| match *constant {
+        deserializer::constant::Constant::String(index) => index
+            .checked_sub(1)
+            .and_then(|index| chunk.string_table.get(index))
+            .is_some_and(|name| *name == b"getfenv" || *name == b"setfenv"),
+        _ => false,
+    })
+}
+
 /// Libraries whose folded constants compile back unchanged from their library
 /// spelling: the chunk never writes the global and never names getfenv or
 /// setfenv, exactly the conditions under which the compiler folds them.
@@ -450,7 +462,7 @@ fn decompile_bytecode_internal(
         Bytecode::Chunk(chunk) => {
             validate_prototype_graph(&chunk.functions, chunk.main)
                 .map_err(DecompileFailure::message)?;
-            validate_source_opcodes(&chunk.functions).map_err(DecompileFailure::message)?;
+            validate_source_spellings(&chunk).map_err(DecompileFailure::message)?;
             bytecode_validate::validate(&chunk).map_err(DecompileFailure::message)?;
             if std::env::var_os("MEDAL_DUMP_TYPES").is_some() {
                 debug_dump_types(&chunk);
@@ -469,10 +481,12 @@ fn decompile_bytecode_internal(
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
             let globals = std::sync::Arc::new(chunk_globals(&chunk));
             // A global no identifier spells is written `getfenv(1)["name"]`,
-            // which needs the standard `getfenv` wherever it runs.
-            if globals.unspellable && globals.written.contains(b"getfenv".as_slice()) {
+            // which needs the standard `getfenv` reading the environment the
+            // global is read from: code naming getfenv or setfenv may
+            // replace either.
+            if globals.unspellable && code_names_environment_function(&chunk) {
                 return Err(DecompileFailure::message(
-                    "a global name no identifier spells, in a chunk that assigns getfenv",
+                    "a global name no identifier spells, in a chunk that names getfenv or setfenv",
                 ));
             }
             drop(setup_timer);
@@ -1001,11 +1015,21 @@ fn decompile_bytecode_internal(
             // Temporaries left apart for the folding passes may, where some
             // did not fold, push a huge function past the local or register
             // limit, as may source locals of `do` blocks the output flattens:
-            // decompile again sharing more storage up front.
-            if let Some(next) = sharing.next()
-                && (ast::coalesce_locals::declared_locals_exceed_limit(&body)
-                    || ast::coalesce_locals::registers_exceed_limit(&body))
-            {
+            // decompile again sharing more storage up front. A source Luau
+            // refuses is no output.
+            let over_limit = if ast::coalesce_locals::declared_locals_exceed_limit(&body) {
+                Some("more locals at once than Luau allows (200)")
+            } else if ast::register_pressure::registers_exceed_limit(&body) {
+                Some("more registers than Luau allows (255)")
+            } else {
+                None
+            };
+            if let Some(limit) = over_limit {
+                let Some(next) = sharing.next() else {
+                    return Err(DecompileFailure::message(format!(
+                        "the output needs {limit}, even with locals sharing storage"
+                    )));
+                };
                 ast::telemetry::count("eager_coalescing_retries", 1);
                 return Ok(DecompileAttempt::Retry(next));
             }
@@ -1068,19 +1092,51 @@ fn compile_error_source(message: &str) -> String {
     source
 }
 
-fn validate_source_opcodes(functions: &[deserializer::function::Function]) -> Result<(), String> {
-    for (prototype, function) in functions.iter().enumerate() {
+/// Rejects, before lifting, what no source spells, instead of printing
+/// another program: CMPPROTO, a NAMECALL method no identifier names, a NaN
+/// constant with a payload neither `0 / 0` nor `-(0 / 0)` makes. Only the
+/// first comes from a compiler; the others from patched bytecode.
+fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), String> {
+    use crate::{instruction::Instruction, op_code::OpCode};
+    use deserializer::constant::Constant;
+    let spelled_nan = |value: f64| !value.is_nan() || value.to_bits() << 1 == 0x7ff8_0000_0000_0000 << 1;
+    let spelled_component = |value: f32| !value.is_nan() || value.to_bits() << 1 == 0x7fc0_0000 << 1;
+    for (prototype, function) in chunk.functions.iter().enumerate() {
+        let string = |constant: u32| match function.constants.get(constant as usize) {
+            Some(Constant::String(index)) => index.checked_sub(1).and_then(|index| chunk.string_table.get(index)).copied(),
+            _ => None,
+        };
         for (pc, instruction) in function.instructions.iter().enumerate() {
-            if matches!(instruction, crate::instruction::Instruction::AD {
-                op_code: crate::op_code::OpCode::LOP_CMPPROTO, ..
-            }) {
+            match *instruction {
                 // Runtime prototype identity cannot be reconstructed as a
                 // truthiness test. Reject before lifting, even in permissive
                 // mode, instead of silently changing which branch executes.
-                return Err(format!(
+                Instruction::AD { op_code: OpCode::LOP_CMPPROTO, .. } => return Err(format!(
                     "unsupported runtime opcode CMPPROTO at prototype {prototype}, pc {pc}: runtime prototype identity has no faithful source predicate"
-                ));
+                )),
+                // `object:name(...)` is the only syntax for NAMECALL; no other
+                // call keeps its dispatch (a userdata's `__namecall`), its one
+                // read of the object, or its frame. NAMECALLUDATA keeps a
+                // userdata atom in the high half of its key.
+                Instruction::BC { op_code: op_code @ (OpCode::LOP_NAMECALL | OpCode::LOP_NAMECALLUDATA), aux, .. } => {
+                    let key = if op_code == OpCode::LOP_NAMECALLUDATA { aux & 0xFFFF } else { aux };
+                    if !string(key).is_some_and(|name| std::str::from_utf8(name).is_ok_and(ast::valid_source_name)) {
+                        return Err(format!(
+                            "a method name no identifier spells (NAMECALL) at prototype {prototype}, pc {pc}"
+                        ));
+                    }
+                }
+                _ => {}
             }
+        }
+        let spelled = function.constants.iter().all(|constant| match *constant {
+            Constant::Number(value) => spelled_nan(value),
+            Constant::VectorD(x, y, z, _) => [x, y, z].into_iter().all(spelled_nan),
+            Constant::Vector(x, y, z, _) => [x, y, z].into_iter().all(spelled_component),
+            _ => true,
+        });
+        if !spelled {
+            return Err(format!("a NaN constant whose payload no source spelling makes, in prototype {prototype}"));
         }
     }
     Ok(())
@@ -2606,22 +2662,49 @@ mod v11_fixtures {
         assert!(output.contains("for "), "got: {output}");
     }
 
-    /// A global no identifier spells is read through `getfenv(1)`, which a
-    /// chunk assigning the global `getfenv` would turn into its own value.
+    /// A global no identifier spells is written `getfenv(1)["name"]`, which
+    /// needs the standard `getfenv` over the environment the global is read
+    /// from: refused once code names getfenv or setfenv (a constant, as a
+    /// global or a key).
     #[test]
-    fn unspellable_global_in_a_chunk_assigning_getfenv_is_refused() {
+    fn unspellable_global_in_a_chunk_naming_getfenv_or_setfenv_is_refused() {
         let setglobal = crate::op_code::OpCode::LOP_SETGLOBAL as u8;
-        let proto = |words: Vec<u32>| Proto {
-            max_stack: 1,
-            words,
-            constants: vec![const_string(1), const_string(2)],
-            ..Default::default()
+        let chunk = |words: Vec<u32>, strings: &[&str]| {
+            let constants = (1..=strings.len() as u64).map(const_string).collect();
+            build_chunk(6, 1, strings, &[Proto { max_stack: 1, words, constants, ..Default::default() }], 0)
         };
         let read = vec![abc(GETGLOBAL, 0, 0, 0), 0, abc(RETURN, 0, 2, 0)];
+        let output = decompile(&chunk(read.clone(), &["bad name"]), 1, None).unwrap();
+        assert!(output.contains(r#"getfenv(1)["bad name"]"#), "{output}");
         let assign = vec![abc(GETGLOBAL, 0, 0, 0), 0, abc(setglobal, 0, 0, 0), 1, abc(RETURN, 0, 2, 0)];
-        let chunk = |words| build_chunk(6, 1, &["bad name", "getfenv"], &[proto(words)], 0);
-        assert!(decompile(&chunk(read), 1, None).unwrap().contains(r#"getfenv(1)["bad name"]"#));
-        assert!(decompile(&chunk(assign), 1, None).is_err());
+        assert!(decompile(&chunk(assign, &["bad name", "getfenv"]), 1, None).is_err());
+        assert!(decompile(&chunk(read, &["bad name", "setfenv"]), 1, None).is_err());
+    }
+
+    /// Only `object:name(...)` compiles to NAMECALL, and only `0 / 0` and
+    /// `-(0 / 0)` spell a NaN: bytecode patched past either is refused.
+    #[test]
+    fn unspelled_method_and_nan_payload_are_refused() {
+        const NAMECALL: u8 = 20;
+        let namecall = |method: &str| {
+            let words = vec![
+                abc(GETGLOBAL, 0, 0, 0), 0, abc(NAMECALL, 0, 0, 0), 1, abc(CALL, 0, 2, 1), abc(RETURN, 0, 1, 0),
+            ];
+            let constants = vec![const_string(1), const_string(2)];
+            build_chunk(6, 1, &["obj", method], &[Proto { max_stack: 3, words, constants, ..Default::default() }], 0)
+        };
+        assert!(decompile(&namecall("method"), 1, None).unwrap().contains("obj:method()"));
+        assert!(decompile(&namecall("bad name"), 1, None).unwrap_err().contains("method name"));
+        let number = |bits: u64| {
+            let mut constant = vec![2u8];
+            constant.extend(f64::from_bits(bits).to_le_bytes());
+            let words = vec![ad(LOADK, 0, 0), abc(RETURN, 0, 2, 0)];
+            build_chunk(6, 1, &[], &[Proto { max_stack: 1, words, constants: vec![constant], ..Default::default() }], 0)
+        };
+        for spelled in [0x7ff8_0000_0000_0000, 0xfff8_0000_0000_0000] {
+            assert!(decompile(&number(spelled), 1, None).unwrap().contains("(0 / 0)"));
+        }
+        assert!(decompile(&number(0x7ff8_0000_0000_1234), 1, None).unwrap_err().contains("NaN"));
     }
 
     /// FORNPREP keeps limit and step in registers a source `for` has no name

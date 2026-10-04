@@ -921,6 +921,7 @@ enum Placement {
 /// statement form evaluates in exactly the same order.
 fn placement(table: &Table, initial_len: usize, key: &RValue, listed: &crate::ListedKeys) -> Option<Placement> {
     match last_entry_for(&table.0[..initial_len.min(table.0.len())], key) {
+        Some(position) if !keeps_listed_key(table, position, key) => None,
         // The value takes the listed key's place, ahead of every entry after
         // it, appended stores included (`{a = 1, b = 2}; t.c = g(); t.a = h()`
         // must not become `{a = h(), b = 2, c = g()}`).
@@ -943,10 +944,19 @@ fn placement(table: &Table, initial_len: usize, key: &RValue, listed: &crate::Li
 fn absorbs_store(table: &Table, key: &RValue) -> bool {
     match last_entry_for(&table.0, key) {
         None => true,
-        Some(position) => inert_suffix(table, position, table.0.len())
-            || (matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil))
-                && crate::is_total_table_key(key)),
+        Some(position) => keeps_listed_key(table, position, key)
+            && (inert_suffix(table, position, table.0.len())
+                || (matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil))
+                    && crate::is_total_table_key(key))),
     }
+}
+
+/// Whether the entry at `position` keeps its key under a store to `key`
+/// ([`crate::keeps_listed_key`]: a `nil` slot does not keep `[0]` under
+/// `[-0]`).
+fn keeps_listed_key(table: &Table, position: usize, key: &RValue) -> bool {
+    let (listed, value) = &table.0[position];
+    crate::keeps_listed_key(listed.as_ref(), value, key)
 }
 
 fn insert_table_entry(
@@ -958,8 +968,7 @@ fn insert_table_entry(
 ) {
     match placement {
         Placement::Replace(position) => table.0[position].1 = value,
-        // The slot keeps the key it was created with: `[0]` stays `[0]`
-        // under a store through `[-0]`, as `pairs` shows.
+        // The slot keeps its key ([`keeps_listed_key`]).
         Placement::MoveToEnd(position) => {
             let (listed_key, _) = table.0.remove(position);
             table.0.push((listed_key, value));

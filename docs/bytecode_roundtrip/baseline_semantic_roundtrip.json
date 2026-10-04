@@ -140,7 +140,9 @@
    "nested_rejected_format_calls": "review 10-04 round 3 + PR #6",
    "reroll_within_register_limit": "review 10-04 round 3 + PR #6",
    "signed_zero_key_kept_by_moved_entry": "review 10-04 round 3 + PR #6",
-   "flattened_do_blocks_register_limit": "flattened do blocks under the register limit"
+   "flattened_do_blocks_register_limit": "flattened do blocks under the register limit",
+   "one_variable_generic_loops_register_limit": "review v2 (2026-10-04) N02: generic loops hold room for two variables",
+   "signed_zero_key_after_nil_slot": "review v2 (2026-10-04) N01: a nil slot keeps no signed-zero key"
   }
  },
  "summary": {
@@ -583,7 +585,7 @@
   {
    "file": "generic_break_found",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -685,7 +687,7 @@
   {
    "file": "loop_result_exports",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 9
   },
   {
@@ -751,7 +753,7 @@
   {
    "file": "nested_exports",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -789,6 +791,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 3
+  },
+  {
+   "file": "one_variable_generic_loops_register_limit",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
   },
   {
    "file": "outer_local_helpers",
@@ -885,6 +893,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "signed_zero_key_after_nil_slot",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 8
   },
   {
    "file": "signed_zero_key_kept_by_moved_entry",

@@ -137,16 +137,16 @@ fn method_call(method: &[u8]) -> Vec<u8> {
         vec![vec![3, 1]])
 }
 
+/// Only `object:name(...)` compiles to NAMECALL, and no other call keeps
+/// its dispatch (`__namecall`), its one read of the object or its frame: a
+/// method no identifier names is refused.
 #[test]
-fn namecall_keys_that_are_not_identifiers_become_index_calls() {
+fn namecall_keys_that_are_not_identifiers_are_refused() {
     assert!(decompile(&method_call(b"Timeout")).unwrap().contains(":Timeout()"));
-    let spaced = decompile(&method_call(b"foo bar")).unwrap();
-    assert!(spaced.contains("[\"foo bar\"]("), "{spaced}");
-    assert!(!spaced.contains(":foo bar"), "{spaced}");
-    // A byte string that is not UTF-8 is still a valid table key.
-    let latin1 = decompile(&method_call(b"T\xe9meout")).unwrap();
-    assert!(latin1.contains("]("), "{latin1}");
-    assert!(decompile(&method_call(b"end")).unwrap().contains("[\"end\"]("));
+    for method in [b"foo bar".as_slice(), b"T\xe9meout", b"end"] {
+        let error = decompile(&method_call(method)).unwrap_err();
+        assert!(error.contains("a method name no identifier spells"), "{error}");
+    }
 }
 
 #[test]

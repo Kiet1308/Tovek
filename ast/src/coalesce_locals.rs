@@ -173,7 +173,8 @@ pub const LOCAL_LIMIT: usize = 200;
 /// How freely locals share storage in a function over [`LOCAL_LIMIT`]. A
 /// decompile starts `Deferred` and retries with the next level while the
 /// finished output still declares too many ([`declared_locals_exceed_limit`])
-/// or needs too many registers ([`registers_exceed_limit`]).
+/// or needs too many registers
+/// ([`crate::register_pressure::registers_exceed_limit`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Sharing {
     /// Temporaries later passes fold into their use stay apart.
@@ -213,11 +214,14 @@ pub fn coalesce_generated_locals_in_function(
 ) {
     let _phase = crate::telemetry::Span::new("GENERATED_LOCAL_COALESCE");
     // A retry (`Eager` on) also comes when the finished output needed more
-    // registers than Luau has (`registers_exceed_limit`): the locals then
-    // leave room for the widest statement's temporaries as well.
+    // registers than Luau has ([`crate::register_pressure`]): the locals
+    // then leave room for the widest statement's temporaries as well.
     let limit = match sharing {
         Sharing::Deferred => LOCAL_LIMIT,
-        _ => LOCAL_LIMIT.min(REGISTER_LIMIT.saturating_sub(widest_statement(&block.0, 0))),
+        _ => LOCAL_LIMIT.min(
+            crate::register_pressure::REGISTER_LIMIT
+                .saturating_sub(crate::register_pressure::widest_statement(&block.0, upvalues)),
+        ),
     };
     #[cfg(not(test))]
     let precheck = true;
@@ -396,152 +400,6 @@ pub fn declared_locals_exceed_limit(block: &Block) -> bool {
         false
     }
     scope(&block.0, 0)
-}
-
-/// Luau's registers per function.
-const REGISTER_LIMIT: usize = 255;
-
-/// Whether some function in `block` needs more registers than Luau has:
-/// each local in scope holds one, a loop its own, and a statement takes its
-/// temporaries on top (a call's callee and arguments in consecutive
-/// registers). Close to Luau's allocator rather than exact. The output can
-/// need more than the bytecode did: flattened `do` blocks keep their locals
-/// live to the end of the enclosing block.
-pub fn registers_exceed_limit(block: &Block) -> bool {
-    fn scope(statements: &[Statement], mut active: usize) -> bool {
-        for statement in statements {
-            let mut exceeded = false;
-            statement.traverse_rvalues_ref(&mut |value| {
-                if !exceeded && let RValue::Closure(closure) = value {
-                    let function = closure.function.0.lock();
-                    exceeded = scope(&function.body.0, function.parameters.len());
-                }
-            });
-            exceeded = exceeded
-                || active + statement_registers(statement) > REGISTER_LIMIT
-                || match statement {
-                    Statement::Assign(assign) if assign.prefix => {
-                        active += assign.left.len();
-                        false
-                    }
-                    Statement::If(node) => {
-                        scope(&node.then_block.lock().0, active) || scope(&node.else_block.lock().0, active)
-                    }
-                    Statement::While(node) => scope(&node.block.lock().0, active),
-                    Statement::Repeat(node) => scope(&node.block.lock().0, active),
-                    // A numeric loop holds its limit, step and counter; a
-                    // generic one its generator, state, control and variables.
-                    Statement::NumericFor(node) => scope(&node.block.lock().0, active + 3),
-                    Statement::GenericFor(node) => scope(&node.block.lock().0, active + 3 + node.res_locals.len()),
-                    _ => false,
-                };
-            if exceeded {
-                return true;
-            }
-        }
-        false
-    }
-    scope(&block.0, 0)
-}
-
-/// The most registers a statement of a function takes above its locals,
-/// with what the loops around it hold themselves (`held`).
-fn widest_statement(statements: &[Statement], held: usize) -> usize {
-    statements
-        .iter()
-        .map(|statement| {
-            let nested = match statement {
-                Statement::If(node) => widest_statement(&node.then_block.lock().0, held)
-                    .max(widest_statement(&node.else_block.lock().0, held)),
-                Statement::While(node) => widest_statement(&node.block.lock().0, held),
-                Statement::Repeat(node) => widest_statement(&node.block.lock().0, held),
-                Statement::NumericFor(node) => widest_statement(&node.block.lock().0, held + 3),
-                Statement::GenericFor(node) => widest_statement(&node.block.lock().0, held + 3),
-                _ => 0,
-            };
-            (held + statement_registers(statement)).max(nested)
-        })
-        .max()
-        .unwrap_or(0)
-}
-
-/// The registers a statement takes above the locals in scope.
-fn statement_registers(statement: &Statement) -> usize {
-    match statement {
-        Statement::Assign(assign) => {
-            let addresses = assign.left.iter().map(|left| match left {
-                crate::LValue::Index(index) => operand_registers(&index.left) + operand_registers(&index.right),
-                _ => 0,
-            });
-            let declared = if assign.prefix { assign.left.len() } else { 0 };
-            addresses.sum::<usize>() + consecutive_registers(&assign.right).max(declared)
-        }
-        Statement::Call(call) => call_registers(1, &call.value, &call.arguments),
-        Statement::MethodCall(call) => call_registers(2, &call.value, &call.arguments),
-        Statement::Return(r#return) => consecutive_registers(&r#return.values),
-        Statement::If(node) => value_registers(&node.condition),
-        Statement::While(node) => value_registers(&node.condition),
-        Statement::Repeat(node) => value_registers(&node.condition),
-        Statement::NumericFor(node) => {
-            consecutive_registers(&[node.initial.clone(), node.limit.clone(), node.step.clone()]).max(3)
-        }
-        Statement::GenericFor(node) => consecutive_registers(&node.right).max(3),
-        _ => 0,
-    }
-}
-
-/// Values evaluated into consecutive registers (arguments, returned values,
-/// an assignment's right side), each starting where the one before ends.
-fn consecutive_registers(values: &[RValue]) -> usize {
-    values.iter().enumerate().map(|(index, value)| index + value_registers(value)).max().unwrap_or(0)
-}
-
-/// The registers it takes to compute `value` into a fresh one.
-fn value_registers(value: &RValue) -> usize {
-    match value {
-        RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => {
-            call_registers(1, &call.value, &call.arguments)
-        }
-        RValue::MethodCall(call) | RValue::Select(crate::Select::MethodCall(call)) => {
-            call_registers(2, &call.value, &call.arguments)
-        }
-        RValue::Binary(binary) => operand_registers(&binary.left).max(1 + operand_registers(&binary.right)).max(1),
-        RValue::Unary(unary) => operand_registers(&unary.value).max(1),
-        RValue::Index(index) => operand_registers(&index.left).max(1 + operand_registers(&index.right)).max(1),
-        RValue::IfExpression(select) => value_registers(&select.condition)
-            .max(value_registers(&select.then_value))
-            .max(value_registers(&select.else_value)),
-        // List items wait in consecutive registers, flushed every 16.
-        RValue::Table(table) => {
-            let (mut items, mut item_extra, mut keyed) = (0usize, 0usize, 0usize);
-            for (key, value) in &table.0 {
-                match key {
-                    None => {
-                        items += 1;
-                        item_extra = item_extra.max(value_registers(value) - 1);
-                    }
-                    Some(key) => keyed = keyed.max(operand_registers(key) + value_registers(value)),
-                }
-            }
-            1 + (items.min(16) + item_extra).max(keyed)
-        }
-        _ => 1,
-    }
-}
-
-/// An operand an instruction reads in place: a local's register or a
-/// constant takes none.
-fn operand_registers(value: &RValue) -> usize {
-    match value {
-        RValue::Local(_) | RValue::Literal(_) => 0,
-        _ => value_registers(value),
-    }
-}
-
-/// A call: the callee (and a method's object) first, then the arguments in
-/// consecutive registers.
-fn call_registers(slots: usize, callee: &RValue, arguments: &[RValue]) -> usize {
-    value_registers(callee).max(slots + consecutive_registers(arguments)).max(slots + arguments.len())
 }
 
 /// A temporary later passes fold into its one use, which a storage slot

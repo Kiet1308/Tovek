@@ -238,8 +238,9 @@ fn captures_fit(body: &Block) -> bool {
 
 /// Whether `vector.create` read anywhere in the chunk is the library's: the
 /// chunk assigns neither the global `vector` nor a member of it, and names
-/// neither getfenv nor setfenv. Luau then resolves the path once at load
-/// time. A work list, not recursion, so any depth is decided.
+/// neither getfenv nor setfenv (`_G.getfenv` included). Luau then resolves
+/// the path once at load time. A work list, not recursion, so any depth is
+/// decided.
 fn constructor_fixed(body: &Block) -> bool {
     fn rooted_at_vector(mut value: &RValue) -> bool {
         while let RValue::Index(index) = value {
@@ -266,7 +267,7 @@ fn constructor_fixed(body: &Block) -> bool {
                 let mut values: Vec<&RValue> = crate::deinline::stmt_rvalues(statement);
                 while let Some(value) = values.pop() {
                     match value {
-                        RValue::Global(global) if global.0 == b"getfenv" || global.0 == b"setfenv" => return false,
+                        value if crate::deinline_safety::names_environment_function(value) => return false,
                         RValue::Closure(closure) => {
                             if seen.insert(triomphe::Arc::as_ptr(&closure.function.0) as usize) {
                                 functions.push(closure.function.0.clone());

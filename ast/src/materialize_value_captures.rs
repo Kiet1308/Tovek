@@ -233,8 +233,6 @@ fn clone_function_tree(
         parameter_name_hints,
         is_variadic,
         body,
-        // Upvalues were linked before any value capture is materialized.
-        upvalue_inputs: Vec::new(),
     };
     clone
 }

@@ -173,7 +173,6 @@ fn synthesize_scope(stmts: &mut Vec<Statement>, safety: &CaptureSafety) -> usize
                 parameter_name_hints: Vec::new(),
                 is_variadic: false,
                 body: Block(helper_body),
-                upvalue_inputs: Vec::new(),
             }))),
             // Ref is the conservative capture mode: reads observe the value at
             // call time and any local writes retain their original cell identity.

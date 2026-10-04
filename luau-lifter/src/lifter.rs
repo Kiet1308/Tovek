@@ -882,7 +882,6 @@ impl<'a> Lifter<'a> {
                     }
                     OpCode::LOP_NAMECALL | OpCode::LOP_NAMECALLUDATA => {
                         let namecall_base = a;
-                        let object_register = b;
                         let namecall_object = self.register(b as _);
                         // NAMECALL uses the full aux as the method-name constant index;
                         // NAMECALLUDATA stashes a userdata atom in the high 16 bits, so the
@@ -916,7 +915,6 @@ impl<'a> Lifter<'a> {
                             } => {
                                 assert!(a == namecall_base);
                                 // TODO: repeated code :(
-                                let open_tail = b == 0;
                                 let arguments = if b != 0 {
                                     (a + 2..a + b)
                                         .map(|r| self.register(r as _).into())
@@ -929,36 +927,11 @@ impl<'a> Lifter<'a> {
                                         .collect()
                                 };
 
-                                // `object:name(...)` needs an identifier. Compilers only
-                                // emit NAMECALL for that syntax, but the VM accepts any
-                                // string key; call such a key through an index, passing
-                                // the object first exactly as NAMECALL does.
-                                let call: ast::Select = match std::str::from_utf8(&namecall_method) {
-                                    Ok(name) if ast::valid_source_name(name) => ast::MethodCall::new(
-                                        namecall_object.into(),
-                                        name.to_owned(),
-                                        arguments,
-                                    )
-                                    .into(),
-                                    _ if open_tail => namecall_after_arguments(
-                                        namecall_object,
-                                        namecall_method,
-                                        arguments,
-                                        self.captured_by_reference(object_register),
-                                    )
-                                    .into(),
-                                    _ => ast::Call::new(
-                                        ast::Index::new(
-                                            namecall_object.clone().into(),
-                                            ast::Literal::String(namecall_method).into(),
-                                        )
-                                        .into(),
-                                        std::iter::once(namecall_object.into())
-                                            .chain(arguments)
-                                            .collect(),
-                                    )
-                                    .into(),
-                                };
+                                // A method no identifier names is refused before lifting.
+                                let method = String::from_utf8(namecall_method)
+                                    .expect("NAMECALL methods are identifiers");
+                                let call: ast::Select =
+                                    ast::MethodCall::new(namecall_object.into(), method, arguments).into();
 
                                 if c != 0 {
                                     if c == 1 {
@@ -1971,13 +1944,6 @@ impl<'a> Lifter<'a> {
         ast::Table::new(entries).into()
     }
 
-    /// Whether some closure of this function captures `register` by
-    /// reference, so a call it makes may change the register.
-    fn captured_by_reference(&self, register: u8) -> bool {
-        self.function_list[self.function.id].instructions.iter().any(|instruction| matches!(instruction,
-            Instruction::BC { op_code: OpCode::LOP_CAPTURE, a: 1, b, .. } if *b == register))
-    }
-
     fn block_to_node(&self, insn_index: usize) -> NodeIndex {
         *self.blocks.get(&insn_index).unwrap()
     }
@@ -2036,37 +2002,6 @@ fn loop_jump_target(instructions: &[Instruction], pc: usize, offset: i16) -> usi
 /// `254 + 2 - 1`, past `u8` before the subtraction.
 fn operand_registers(first: u8, encoded: u8) -> std::ops::Range<usize> {
     usize::from(first)..usize::from(first) + usize::from(encoded) - 1
-}
-
-/// `object[method](object, arguments)` for a NAMECALL whose method is no
-/// identifier and whose arguments end in a call or `...` of all its values:
-/// NAMECALL reads the object and looks the method up after them, an indexed
-/// call before. Those values cannot be held in locals, so a function takes
-/// them first: `(function(self, ...) return self[method](self, ...) end)(object, arguments)`.
-/// When a closure `shares` the object's register, the arguments may change
-/// it; the function then takes the object itself, after them, and keeps it
-/// as NAMECALL does before the lookup (an `__index` may change it again):
-/// `(function(...) local self = object return self[method](self, ...) end)(arguments)`.
-fn namecall_after_arguments(object: ast::RcLocal, method: Vec<u8>, arguments: Vec<ast::RValue>, shared: bool) -> ast::Call {
-    let receiver = ast::RcLocal::new(ast::Local::new(Some("self".to_string())));
-    let lookup = ast::Call::new(
-        ast::Index::new(receiver.clone().into(), ast::Literal::String(method).into()).into(),
-        vec![receiver.clone().into(), ast::RValue::VarArg(ast::VarArg)],
-    );
-    let mut body = ast::Block(vec![ast::Return::new(vec![lookup.into()]).into()]);
-    let (function, upvalues, arguments) = if shared {
-        let shared_object = ast::RcLocal::default();
-        let mut snapshot = ast::Assign::new(vec![receiver.into()], vec![shared_object.clone().into()]);
-        snapshot.prefix = true;
-        body.0.insert(0, snapshot.into());
-        let function = ast::Function { upvalue_inputs: vec![shared_object], is_variadic: true, body, ..Default::default() };
-        (function, vec![ast::Upvalue::Ref(object)], arguments)
-    } else {
-        let function = ast::Function { parameters: vec![receiver], is_variadic: true, body, ..Default::default() };
-        (function, Vec::new(), std::iter::once(object.into()).chain(arguments).collect())
-    };
-    let closure = ast::Closure { node_origin: Default::default(), function: ByAddress(Arc::new(Mutex::new(function))), upvalues };
-    ast::Call::new(closure.into(), arguments)
 }
 
 #[cfg(test)]

@@ -40,6 +40,9 @@ struct FrameReads {
     computed: bool,
     /// Some `debug.info` call reads which frames run ([`reads_frame_identity`]).
     read: bool,
+    /// Some `debug.info` call may hand out a function (`f`), which can then
+    /// run without its name.
+    functions: bool,
     /// The functions making such a call themselves, by identity.
     callers: FxHashSet<usize>,
     /// The locals naming every function that reads call frames, itself or
@@ -112,7 +115,7 @@ impl CaptureSafety {
     /// metamethod might.
     fn private_writers(&self, cell: u64) -> Option<std::rc::Rc<FxHashSet<u64>>> {
         // `debug.info(1, "f")` hands out the running function itself.
-        if self.exhausted || self.reads_call_frames() {
+        if self.exhausted || self.frames.functions || self.call_frames_untracked() {
             return None;
         }
         let calls = &self.calls;
@@ -396,11 +399,7 @@ impl CaptureSafety {
             _ => 0,
         };
         if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
-        // The name read as a global or as a key (`_G.setfenv`), as Luau's
-        // compiler and the chunk's string table see it.
-        if let RValue::Global(crate::Global(name)) | RValue::Literal(crate::Literal::String(name)) = value
-            && matches!(name.as_slice(), b"getfenv" | b"setfenv")
-        {
+        if names_environment_function(value) {
             self.dynamic_environment = true;
         }
         match value {
@@ -413,6 +412,10 @@ impl CaptureSafety {
                         self.frames.read = true;
                         self.frames.callers.extend(owner);
                     }
+                    // The options come last: `debug.info(level, options)`,
+                    // `debug.info(thread, level, options)`, `debug.info(f, options)`.
+                    self.frames.functions |= !matches!(call.arguments.last(),
+                        Some(RValue::Literal(Literal::String(options))) if !options.contains(&b'f'));
                 }
             }
             _ if is_debug_library(value) => self.frames.library += 1,
@@ -480,16 +483,24 @@ fn debug_member(value: &RValue) -> Option<Option<&[u8]>> {
     })
 }
 
+/// Whether `value` names getfenv or setfenv, as a global or as a key
+/// (`_G.setfenv`), as Luau's compiler and the chunk's string table see it.
+pub(crate) fn names_environment_function(value: &RValue) -> bool {
+    matches!(value, RValue::Global(crate::Global(name)) | RValue::Literal(Literal::String(name))
+        if matches!(name.as_slice(), b"getfenv" | b"setfenv"))
+}
+
 /// Whether a `debug.info` call reads which frames run. One frame more, a
-/// helper's, changes no answer of `debug.info(1 or 2, "s"/"l")`: the frame
-/// at those levels stays in this script (`s`), and no decompiled line keeps
-/// its number anyway (`l`). A function (`f`), name (`n`) or arity (`a`), or
-/// a deeper level, may name another frame.
+/// helper's, changes no answer of `debug.info(1, "s"/"l")`: the running
+/// function stays in this script (`s`), and no decompiled line keeps its
+/// number anyway (`l`). A function (`f`), name (`n`) or arity (`a`), or a
+/// caller (level 2 or deeper, which may be in another script), may name
+/// another frame.
 fn reads_frame_identity(call: &crate::Call) -> bool {
     !matches!(call.arguments.as_slice(), [
         RValue::Literal(Literal::Number(level)),
         RValue::Literal(Literal::String(options)),
-    ] if (*level == 1.0 || *level == 2.0) && options.iter().all(|option| matches!(option, b's' | b'l')))
+    ] if *level == 1.0 && options.iter().all(|option| matches!(option, b's' | b'l')))
 }
 
 /// Whether `value` calls `debug.info` reading which frames run, closure
@@ -750,5 +761,23 @@ mod tests {
         ] {
             assert!(census(vec![escaped]).call_frames_untracked());
         }
+    }
+
+    /// One frame more keeps the running function's source and moves no
+    /// line that survives anyway; a caller's (level 2) may be in another
+    /// script, and only `f` hands out a function.
+    #[test]
+    fn debug_info_levels_and_options() {
+        let info = |arguments: Vec<RValue>| -> RValue {
+            crate::Call::new(member(global("debug"), "info"), arguments).into()
+        };
+        let number = |n: f64| RValue::Literal(Literal::Number(n));
+        let string = |s: &str| RValue::Literal(Literal::String(s.as_bytes().to_vec()));
+        let running = census(vec![info(vec![number(1.0), string("sl")])]);
+        assert!(!running.reads_call_frames() && !running.frames.functions);
+        let caller = census(vec![info(vec![number(2.0), string("sl")])]);
+        assert!(caller.reads_call_frames() && !caller.frames.functions);
+        assert!(census(vec![info(vec![number(1.0), string("f")])]).frames.functions);
+        assert!(census(vec![info(vec![number(1.0), global("options")])]).frames.functions);
     }
 }

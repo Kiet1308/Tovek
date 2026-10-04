@@ -21,6 +21,17 @@ pub fn is_template_placeholder(value: &RValue) -> bool {
     matches!(value, RValue::Literal(Literal::Nil | Literal::Number(0.0)))
 }
 
+/// Whether a store to `key` may fold into the constructor entry `listed =
+/// value` for its slot, keeping the listed key. Keys naming one slot by
+/// value can still differ under `pairs` (`[0]`, `[-0]`): a slot holding a
+/// value keeps the key it was created with, but a `nil` slot may be taken
+/// over by a later insertion or dropped by a rehash, and the store then
+/// creates the key it spells. Which one happens depends on the hash layout.
+pub fn keeps_listed_key(listed: Option<&RValue>, value: &RValue, key: &RValue) -> bool {
+    matches!((listed, key), (Some(RValue::Literal(listed)), RValue::Literal(key)) if listed == key)
+        || !matches!(value, RValue::Literal(Literal::Nil))
+}
+
 /// A constructor entry whose value evaluates nothing: a template placeholder or
 /// a constant the template carries. A later store may take its slot, and a
 /// value may be moved ahead of it, without reordering any evaluation.

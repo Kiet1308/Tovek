@@ -15,23 +15,25 @@ use crate::{
 
 pub fn canonicalize_branches(block: &mut Block) {
     crate::factor_common_tails::unshare_blocks(block);
-    let facts = FunctionFacts::collect(block, &[]);
+    let facts = FunctionFacts::collect(block, &[], Vec::new());
     canonicalize_block(block, &facts, 0);
 }
 
 struct FunctionFacts {
     declared: FxHashSet<RcLocal>,
     captured: FxHashSet<RcLocal>,
+    /// The function's upvalues, which take a register to read.
+    upvalues: Vec<RcLocal>,
 }
 
 impl FunctionFacts {
-    fn collect(block: &Block, parameters: &[RcLocal]) -> Self {
+    fn collect(block: &Block, parameters: &[RcLocal], upvalues: Vec<RcLocal>) -> Self {
         // The facts only gate parent-walk recovery, which needs a `while true`
         // loop of this function. No rewrite in this pass creates one.
         if !block.any_statement(&mut |statement| {
             matches!(statement, Statement::While(node) if is_true(&node.condition))
         }) {
-            return Self { declared: FxHashSet::default(), captured: FxHashSet::default() };
+            return Self { declared: FxHashSet::default(), captured: FxHashSet::default(), upvalues };
         }
         let usage = crate::inline_temps::collect_usage(block);
         let captured = usage
@@ -40,7 +42,7 @@ impl FunctionFacts {
             .collect();
         let mut declared = parameters.iter().cloned().collect();
         collect_declared_locals(block, &mut declared);
-        Self { declared, captured }
+        Self { declared, captured, upvalues }
     }
 }
 
@@ -84,15 +86,16 @@ fn canonicalize_block(block: &mut Block, facts: &FunctionFacts, live: usize) {
             collect_functions(value, &mut functions);
             true
         });
-        for function in functions {
+        for (function, upvalues) in functions {
             let mut function = function.lock();
-            let nested_facts = FunctionFacts::collect(&function.body, &function.parameters);
+            let nested_facts = FunctionFacts::collect(&function.body, &function.parameters, upvalues);
             let parameters = function.parameters.len();
             canonicalize_block(&mut function.body, &nested_facts, parameters);
         }
 
-        // A numeric loop holds three hidden registers and its counter; a
-        // generic one three and its variables.
+        // A numeric loop holds three hidden registers (and its counter, when
+        // the body assigns it); a generic one three and room for at least
+        // two variables.
         match statement {
             Statement::If(node) => {
                 canonicalize_block(&mut node.then_block.lock(), facts, live);
@@ -102,7 +105,7 @@ fn canonicalize_block(block: &mut Block, facts: &FunctionFacts, live: usize) {
             Statement::Repeat(node) => canonicalize_block(&mut node.block.lock(), facts, live),
             Statement::NumericFor(node) => canonicalize_block(&mut node.block.lock(), facts, live + 4),
             Statement::GenericFor(node) => {
-                canonicalize_block(&mut node.block.lock(), facts, live + 3 + node.res_locals.len())
+                canonicalize_block(&mut node.block.lock(), facts, live + 3 + node.res_locals.len().max(2))
             }
             Statement::Assign(assign) if assign.prefix => live += assign.left.len(),
             _ => {}
@@ -111,7 +114,7 @@ fn canonicalize_block(block: &mut Block, facts: &FunctionFacts, live: usize) {
         reroll_terminal_while(statement);
     }
     recover_parent_walks(block, facts);
-    reroll_two_index_blocks(block, live);
+    reroll_two_index_blocks(block, live, &facts.upvalues);
     chain_adjacent_return_ifs(&mut block.0);
     merge_nested_conjunct_ifs(&mut block.0);
 }
@@ -264,15 +267,12 @@ fn is_parent_advance(statement: &Statement, cursor: &RcLocal) -> bool {
 /// only the element-local rename; the sole expression hole is therefore the
 /// proven consecutive index literal.
 /// `live`: the registers held around the loop, every local `block` declares
-/// included.
-fn reroll_two_index_blocks(block: &mut Block, live: usize) {
-    reroll_two_index_blocks_impl::<true>(block, live);
+/// included; `upvalues`: the function's.
+fn reroll_two_index_blocks(block: &mut Block, live: usize, upvalues: &[RcLocal]) {
+    reroll_two_index_blocks_impl::<true>(block, live, upvalues);
 }
 
-/// Luau's registers per function.
-const MAX_REGISTERS: usize = 255;
-
-fn reroll_two_index_blocks_impl<const PREFILTER: bool>(block: &mut Block, live: usize) {
+fn reroll_two_index_blocks_impl<const PREFILTER: bool>(block: &mut Block, live: usize, upvalues: &[RcLocal]) {
     if block.0.len() < 4 {
         return;
     }
@@ -299,10 +299,11 @@ fn reroll_two_index_blocks_impl<const PREFILTER: bool>(block: &mut Block, live: 
             index += 1;
             continue;
         };
-        // The loop's four registers come on top of what is live; its body's
-        // temporaries take at most one register per node. A source that
-        // would not compile keeps the two copies.
-        if live + 4 + crate::deinline::dbg_stmt_node_count(&block.0[index + 1]) > MAX_REGISTERS {
+        // The loop's three registers come on top of what is live, its body
+        // above them. A source that would not compile keeps the two copies.
+        if crate::register_pressure::block_registers(&block.0[index..index + 2], live + 3, upvalues)
+            > crate::register_pressure::REGISTER_LIMIT
+        {
             index += 1;
             continue;
         }
@@ -429,10 +430,17 @@ fn indexed_item_name(base: &RValue) -> String {
 
 fn collect_functions(
     value: &mut RValue,
-    functions: &mut Vec<by_address::ByAddress<triomphe::Arc<parking_lot::Mutex<crate::Function>>>>,
+    functions: &mut Vec<(by_address::ByAddress<triomphe::Arc<parking_lot::Mutex<crate::Function>>>, Vec<RcLocal>)>,
 ) {
     if let RValue::Closure(closure) = value {
-        functions.push(closure.function.clone());
+        let upvalues = closure
+            .upvalues
+            .iter()
+            .map(|upvalue| match upvalue {
+                crate::Upvalue::Copy(local) | crate::Upvalue::Ref(local) => local.clone(),
+            })
+            .collect();
+        functions.push((closure.function.clone(), upvalues));
         return;
     }
     value.visit_rvalues_mut(&mut |child| {
@@ -912,13 +920,13 @@ mod tests {
                 let mut actual = crate::simplify_gotos::deep_clone_block(&source);
                 let metadata: Vec<_> = locals.iter().map(|local| local.0.lock().clone()).collect();
                 let start = crate::current_local_id();
-                super::reroll_two_index_blocks_impl::<false>(&mut expected, 0);
+                super::reroll_two_index_blocks_impl::<false>(&mut expected, 0, &[]);
                 let minted = crate::current_local_id() - start;
                 let expected_text = expected.to_string();
                 let expected_metadata: Vec<_> = locals.iter().map(|local| local.0.lock().clone()).collect();
                 for (local, saved) in locals.iter().zip(&metadata) { *local.0.lock() = saved.clone(); }
                 let start = crate::current_local_id();
-                super::reroll_two_index_blocks(&mut actual, 0);
+                super::reroll_two_index_blocks(&mut actual, 0, &[]);
                 assert_eq!(crate::current_local_id() - start, minted);
                 assert_eq!(actual.to_string(), expected_text, "mode={mode}, offset={offset}");
                 assert_eq!(locals.iter().map(|local| local.0.lock().clone()).collect::<Vec<_>>(), expected_metadata);

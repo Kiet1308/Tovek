@@ -80,6 +80,7 @@ pub mod rebalance_expressions;
 pub mod rebuild_table_literals;
 pub mod recover_guard_continue;
 pub mod recover_methods;
+pub mod register_pressure;
 pub mod rehoist_constants;
 pub mod reroll_arithmetic;
 mod repeat;

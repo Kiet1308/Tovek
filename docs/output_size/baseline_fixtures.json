@@ -1300,6 +1300,18 @@
       "bytes": 308,
       "lines": 30
     },
+    "semantic/one_variable_generic_loops_register_limit__O0.luau": {
+      "bytes": 2900,
+      "lines": 306
+    },
+    "semantic/one_variable_generic_loops_register_limit__O1.luau": {
+      "bytes": 2900,
+      "lines": 306
+    },
+    "semantic/one_variable_generic_loops_register_limit__O2.luau": {
+      "bytes": 2900,
+      "lines": 306
+    },
     "semantic/outer_local_helpers__O0.luau": {
       "bytes": 774,
       "lines": 54
@@ -1491,6 +1503,18 @@
     "semantic/services_table_under_pressure__O2.luau": {
       "bytes": 3346,
       "lines": 216
+    },
+    "semantic/signed_zero_key_after_nil_slot__O0.luau": {
+      "bytes": 806,
+      "lines": 71
+    },
+    "semantic/signed_zero_key_after_nil_slot__O1.luau": {
+      "bytes": 806,
+      "lines": 71
+    },
+    "semantic/signed_zero_key_after_nil_slot__O2.luau": {
+      "bytes": 806,
+      "lines": 71
     },
     "semantic/signed_zero_key_kept_by_moved_entry__O0.luau": {
       "bytes": 218,
